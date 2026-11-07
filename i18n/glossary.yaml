@@ -58,8 +58,8 @@ terms:
   levered beta: beta levered (beta del capitale proprio)
   unlevered beta: beta unlevered (beta dell'attivo, asset beta)
   debt beta: beta del debito
-  relever: relevering (sostantivo: il relevering del beta, applicare il relevering)
-  unlever: unlevering (sostantivo: l'unlevering dei beta delle comparabili)
+  relever: "relevering (sostantivo: il relevering del beta, applicare il relevering)"
+  unlever: "unlevering (sostantivo: l'unlevering dei beta delle comparabili)"
   equity risk premium: premio per il rischio di mercato
   country risk premium: premio per il rischio paese
   size premium: premio dimensionale
@@ -71,6 +71,16 @@ terms:
   debt weight: peso del debito
   target capital structure: struttura finanziaria obiettivo
   comparable companies (peers): società comparabili (peers)
+  goal seek: ricerca obiettivo (goal seek alla prima occorrenza; nome della funzione in Excel)
+  analysis method: metodo di analisi
+  inner method: metodo interno
+  target (goal seek): valore obiettivo
+  bracket (root finding): intervallo di ricerca
+  tolerance: tolleranza
+  residual: residuo
+  Brent's method: metodo di Brent
+  secant method: metodo delle secanti
+  inverse quadratic interpolation: interpolazione quadratica inversa
 keep_in_english:
   - Fairmark
   - explain
@@ -79,3 +89,4 @@ keep_in_english:
   - function calling
   - CLI
   - pull request
+  - JSON Pointer
