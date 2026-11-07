@@ -12,7 +12,8 @@ Follow the `release` skill (`.agents/skills/release/SKILL.md`) and additionally:
    left unexplained; every `Done` spec has its acceptance criteria ticked.
 2. Version: semantic versioning. Breaking schema changes or numerical changes require at
    least a minor bump before 1.0 and a major bump after.
-3. CHANGELOG: generated with git-cliff; check that numerical changes appear first with old and
+3. Release notes: `RELEASE_NOTES.md` from towncrier must read well for non-technical
+   analysts: what changed for them and why it matters. CHANGELOG: generated with git-cliff; check that numerical changes appear first with old and
    new `method_version`, and that commit subjects read well for users.
 4. After the tag: confirm the Release workflow succeeded, the wheels exist for every platform
    on PyPI, the crates are on crates.io, and `pip install fairmark==<version>` works in a

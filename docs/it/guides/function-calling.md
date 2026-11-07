@@ -1,17 +1,22 @@
 ---
 source: guides/function-calling.md
-source_hash: 59a4aca7deec
+source_hash: 200931c26546
 ---
 # Function calling
 
 Fairmark genera le definizioni dei tool per qualsiasi LLM che supporti il function calling. Sono
 costruite dagli JSON Schema del motore, quindi corrispondono sempre all'implementazione.
 
-| Fornitore | Definizioni | Formato |
+| Provider | Definizioni | Formato |
 | --- | --- | --- |
 | Anthropic Messages API | `fm.tools.anthropic()` | `name`, `description`, `input_schema` |
-| Chat Completions compatibili con OpenAI | `fm.tools.openai()` | `{"type": "function", "function": {...}}` |
-| Qualsiasi altro | `fm.tools.definitions()` | `name`, `description`, `parameters` (JSON Schema) |
+| Chat Completions di OpenAI e compatibili | `fm.tools.openai(portable=False)` | `{"type": "function", "function": {...}}` |
+| OpenAI Responses API | `fm.tools.openai_responses()` | `{"type": "function", "name": ..., "parameters": ...}` |
+| Google Gemini | `fm.tools.gemini()` | `name`, `description`, `parametersJsonSchema` |
+| Per nome del provider | `fm.tools.for_provider("ollama")` | il formato giusto per quel provider |
+| Qualsiasi altro | `fm.tools.definitions(portable=False)` | `name`, `description`, `parameters` (JSON Schema) |
+
+Provider supportati ed esempi completi: [Provider LLM](providers.md).
 
 ## Eseguire le chiamate
 
@@ -32,4 +37,6 @@ la conversione inversa.
 
 Gli schemi sono espansi (senza `$ref`) per la compatibilità tra fornitori. I campi decimali
 accettano numeri o stringhe; le descrizioni dichiarano le unità in modo esplicito ("decimal
-fraction, 0.09 = 9%"), ed è questo che porta i modelli a estrarre i tassi correttamente.
+fraction, 0.09 = 9%"), ed è questo che porta i modelli a estrarre i tassi correttamente. La
+variante portabile (`portable=True`, usata per Gemini e per i runtime locali di modelli
+open-weight) dichiara i decimali come stringhe e rimuove `pattern` e `additionalProperties`.

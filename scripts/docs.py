@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import copy
 import fnmatch
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -125,6 +126,48 @@ def _normalise(nav: list[Any]) -> list[Any]:
     return out
 
 
+def page_list(nav: list[Any]) -> list[str]:
+    pages: list[str] = []
+    for entry in nav:
+        if isinstance(entry, str):
+            pages.append(entry)
+        else:
+            for value in entry.values():
+                pages += page_list(value) if isinstance(value, list) else [value]
+    return pages
+
+
+def llms_txt() -> None:
+    """Agent-readable context (llmstxt.org): an index and the full English documentation."""
+    base = tomllib.loads((ROOT / "zensical.toml").read_text())["project"]
+    site = base["site_url"]
+    pages = [p for p in page_list(base["nav"]) if not p.startswith("http")]
+    index = [
+        f"# {base['site_name']}",
+        "",
+        f"> {base['site_description']}",
+        "",
+        f"Engine output, code and identifiers are English. Italian edition: {site}it/",
+        "",
+        "## Documentation",
+        "",
+    ]
+    full = [f"# {base['site_name']} — full documentation", ""]
+    for page in pages:
+        path = DOCS / "en" / page
+        text = path.read_text(encoding="utf-8")
+        if text.startswith("--8<--"):
+            text = (ROOT / text.split('"')[1]).read_text(encoding="utf-8")
+        text = re.sub(r"\A---\n.*?\n---\n", "", text, flags=re.S)
+        url = site + ("" if page == "index.md" else page.removesuffix(".md") + "/")
+        index.append(f"- [{h1(path)}]({url})")
+        full += [f"<!-- source: {url} -->", text.strip(), ""]
+    for extra in ("CHANGELOG.md", "RELEASE_NOTES.md"):
+        full += [f"<!-- source: {extra} -->", (ROOT / extra).read_text(encoding="utf-8"), ""]
+    (ROOT / "site" / "llms.txt").write_text("\n".join(index) + "\n", encoding="utf-8")
+    (ROOT / "site" / "llms-full.txt").write_text("\n".join(full), encoding="utf-8")
+
+
 def prepare() -> None:
     copy_shared()
     italian_config()
@@ -143,6 +186,7 @@ def main() -> None:
             subprocess.run(
                 ["zensical", "build", "--strict", "-f", configs[lang]], cwd=ROOT, check=True
             )
+        llms_txt()
     elif args.command == "serve":
         subprocess.run(["zensical", "serve", "-f", configs[args.lang]], cwd=ROOT, check=True)
 

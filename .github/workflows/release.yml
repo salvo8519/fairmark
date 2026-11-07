@@ -9,8 +9,16 @@ permissions:
   contents: read
 
 jobs:
+  version:
+    name: Version consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: python3 scripts/version.py check
+
   wheels:
     name: Wheels ${{ matrix.target }} (${{ matrix.os }})
+    needs: version
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -33,6 +41,7 @@ jobs:
           path: dist
 
   sdist:
+    needs: version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -44,6 +53,26 @@ jobs:
         with:
           name: sdist
           path: dist
+
+  github-release:
+    name: GitHub Release with release notes
+    needs: [wheels, sdist]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - run: python3 scripts/release_notes.py "${GITHUB_REF_NAME}" > body.md
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          body_path: body.md
+          files: dist/*
+          prerelease: ${{ contains(github.ref_name, '-') }}
 
   publish-pypi:
     name: Publish to PyPI (trusted publishing)

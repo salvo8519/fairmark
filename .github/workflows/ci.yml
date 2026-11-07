@@ -100,6 +100,7 @@ jobs:
       - run: uv run python scripts/check_style.py
       - run: uv run just check-generated
       - run: uv run python scripts/docs_sync.py coverage
+      - run: uv run python scripts/version.py check
       - run: for f in sprints/S*.yaml; do [ -e "$f" ] && uv run python scripts/sprint.py validate "$f"; done; true
 
   contracts:
@@ -124,6 +125,14 @@ jobs:
       - name: Documentation updated with the code (or labelled no-docs-needed)
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-docs-needed') }}
         run: python3 scripts/docs_sync.py impact --base origin/${{ github.base_ref }}
+      - name: Release note fragment for user-facing changes (or labelled no-release-note)
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-release-note') }}
+        run: |
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -qE '^(crates/[^/]+/src/|python/fairmark/)'; then
+            uv run towncrier check --compare-with origin/${{ github.base_ref }}
+          else
+            echo "No user-facing source changes."
+          fi
       - name: Schema changes are additive (or labelled breaking-change)
         run: |
           git worktree add /tmp/base origin/${{ github.base_ref }}

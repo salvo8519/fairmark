@@ -6,8 +6,13 @@ built from the engine's JSON Schemas, so they always match the implementation.
 | Provider | Definitions | Format |
 | --- | --- | --- |
 | Anthropic Messages API | `fm.tools.anthropic()` | `name`, `description`, `input_schema` |
-| OpenAI-compatible Chat Completions | `fm.tools.openai()` | `{"type": "function", "function": {...}}` |
-| Anything else | `fm.tools.definitions()` | `name`, `description`, `parameters` (JSON Schema) |
+| OpenAI and OpenAI-compatible Chat Completions | `fm.tools.openai(portable=False)` | `{"type": "function", "function": {...}}` |
+| OpenAI Responses API | `fm.tools.openai_responses()` | `{"type": "function", "name": ..., "parameters": ...}` |
+| Google Gemini | `fm.tools.gemini()` | `name`, `description`, `parametersJsonSchema` |
+| By provider name | `fm.tools.for_provider("ollama")` | the right format for that provider |
+| Anything else | `fm.tools.definitions(portable=False)` | `name`, `description`, `parameters` (JSON Schema) |
+
+Supported providers and complete examples: [LLM providers](providers.md).
 
 ## Executing calls
 
@@ -26,4 +31,6 @@ Method `dcf.fcff` becomes tool `fairmark_dcf_fcff`. Use `fm.tools.method_id(name
 
 Schemas are inlined (no `$ref`) for compatibility across providers. Decimal fields accept
 numbers or strings; descriptions state units explicitly ("decimal fraction, 0.09 = 9%"),
-which is what makes models extract rates correctly.
+which is what makes models extract rates correctly. The portable variant (`portable=True`,
+used for Gemini and local open-weight runtimes) declares decimals as strings and removes
+`pattern` and `additionalProperties`.

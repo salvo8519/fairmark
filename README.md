@@ -137,6 +137,11 @@ for block in resp.content:
 </td></tr>
 </table>
 
+**Any provider** — Anthropic, OpenAI, Google Gemini, OpenRouter, LiteLLM, and open-weight
+models on Ollama, vLLM or LM Studio: `fm.tools.for_provider("ollama")` returns the right tool
+format, `fm.tools.dispatch` executes the call. LangChain tools and MCP over HTTP (for n8n) are
+included. See [LLM providers](https://salvo8519.github.io/fairmark/guides/providers/).
+
 **Claude Code, Codex and other coding agents** — copy [`skills/fairmark`](skills/fairmark)
 into your agent's skills folder, or let it drive the CLI:
 

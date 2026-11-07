@@ -29,6 +29,7 @@ nav = [
     "getting-started/first-valuation-with-an-agent.md",
   ] },
   { "Guides" = [
+    "guides/providers.md",
     "guides/function-calling.md",
     "guides/mcp.md",
     "guides/coding-agents.md",
@@ -54,6 +55,7 @@ nav = [
     "project/vision.md",
     "project/brand.md",
     "project/roadmap.md",
+    "project/release-notes.md",
     "project/contributing.md",
     "project/changelog.md",
     "project/telemetry.md",
@@ -63,6 +65,8 @@ nav = [
       "project/adr/0003-json-schema-contract.md",
       "project/adr/0004-privacy-first-telemetry.md",
       "project/adr/0005-license-and-contributions.md",
+      "project/adr/0006-provider-agnostic-tools.md",
+      "project/adr/0007-structured-logging.md",
     ] },
   ] },
 ]

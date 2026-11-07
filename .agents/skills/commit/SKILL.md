@@ -19,5 +19,7 @@ preferred review language (default: English, no translation).
    - the English message exactly as it will be committed;
    - a faithful translation of subject and body;
    - a short summary of the files changed.
-4. Commit only after the maintainer approves: `git commit -s -F <message file>`.
+4. If the change is visible to users and has no fragment yet, propose one in `changes/`
+   (`changes/README.md`), in plain language for analysts, and show its translation too.
+5. Commit only after the maintainer approves: `git commit -s -F <message file>`.
    Never use icons or emoji.

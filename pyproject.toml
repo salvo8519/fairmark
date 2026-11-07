@@ -26,6 +26,7 @@ dependencies = []
 [project.optional-dependencies]
 # User-facing extra: pip install "fairmark[mcp]"
 mcp = ["mcp>=2.3,<3"]
+langchain = ["langchain-core>=0.3"]
 
 # Development-only dependencies (PEP 735). Installed by `uv sync`, never shipped to users.
 [dependency-groups]
@@ -41,6 +42,7 @@ dev = [
   "pre-commit>=4",
   "git-cliff>=2.6",
   "tomli-w>=1.0",
+  "towncrier>=24.8",
 ]
 docs = [
   "zensical>=0.1; python_version >= '3.11'",
@@ -83,3 +85,40 @@ mypy_path = "python"
 
 [tool.ruff.lint.isort]
 known-first-party = ["fairmark"]
+
+# Functional release notes for users (non-technical), built from news fragments in changes/.
+# The technical CHANGELOG.md is generated separately by git-cliff from Conventional Commits.
+[tool.towncrier]
+name = "Fairmark"
+directory = "changes"
+filename = "RELEASE_NOTES.md"
+start_string = "<!-- release notes start -->\n"
+title_format = "## Fairmark {version} — {project_date}"
+issue_format = "[#{issue}](https://github.com/salvo8519/fairmark/issues/{issue})"
+underlines = ["", "", ""]
+wrap = false
+
+[[tool.towncrier.type]]
+directory = "breaking"
+name = "Action required"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "numerical"
+name = "Changes to results"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "New"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "improvement"
+name = "Improved"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fix"
+name = "Fixed"
+showcontent = true

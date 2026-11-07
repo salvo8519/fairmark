@@ -1,4 +1,4 @@
-<!-- i18n source: README.md source_hash: 01841031c99e -->
+<!-- i18n source: README.md source_hash: 5295eac63cc5 -->
 <div align="center">
 
 <a href="https://salvo8519.github.io/fairmark/it/">
@@ -138,6 +138,11 @@ for block in resp.content:
 
 </td></tr>
 </table>
+
+**Qualsiasi provider**: Anthropic, OpenAI, Google Gemini, OpenRouter, LiteLLM e modelli
+open-weight su Ollama, vLLM o LM Studio. `fm.tools.for_provider("ollama")` restituisce il formato
+giusto dei tool, `fm.tools.dispatch` esegue la chiamata. Sono inclusi i tool per LangChain e MCP
+via HTTP (per n8n). Vedi [Provider LLM](https://salvo8519.github.io/fairmark/it/guides/providers/).
 
 **Claude Code, Codex e altri agenti di sviluppo**: copia [`skills/fairmark`](skills/fairmark)
 nella cartella delle skill del tuo agente, oppure lascia che usi la CLI:

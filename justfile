@@ -50,9 +50,17 @@ docs-coverage:
 docs-impact base="origin/main":
     python scripts/docs_sync.py impact --base {{base}}
 
-# Regenerate CHANGELOG.md from Conventional Commits
+# Regenerate CHANGELOG.md (technical, from Conventional Commits)
 changelog:
     git-cliff --output CHANGELOG.md
+
+# Preview the functional release notes of the next version (from changes/)
+release-notes:
+    towncrier build --draft --version "$(python scripts/version.py show)"
+
+# Show or check the single-source version
+version:
+    python scripts/version.py check
 
 # Translation status (English is the source)
 i18n:

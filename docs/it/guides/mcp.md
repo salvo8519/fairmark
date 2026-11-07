@@ -1,11 +1,12 @@
 ---
 source: guides/mcp.md
-source_hash: cf01b4c5999a
+source_hash: 3a95dc1aadf2
 ---
 # Server MCP
 
-`fairmark-mcp` espone ogni metodo come tool MCP. Gira in locale via stdio: non c'è un server
-da ospitare e nessun dato lascia il tuo computer.
+`fairmark-mcp` espone ogni metodo come tool MCP. Per impostazione predefinita gira in locale
+via stdio: non c'è un server da ospitare e nessun dato lascia il tuo computer. Con `--http`
+espone il trasporto Streamable HTTP, per n8n e per gli altri client che si collegano via HTTP.
 
 ## Configura il client
 
@@ -18,6 +19,26 @@ da ospitare e nessun dato lascia il tuo computer.
 ```
 
 In alternativa, installalo in un ambiente e usa `"command": "fairmark-mcp"`.
+
+## Modalità HTTP (n8n e client remoti)
+
+```bash
+fairmark-mcp --http                                # http://127.0.0.1:8765/mcp
+fairmark-mcp --http --host 0.0.0.0 --port 8765 --log-format json
+```
+
+In n8n: aggiungi un **MCP Client Tool** al nodo AI Agent, scegli il trasporto HTTP Streamable e
+imposta l'URL `http://<host>:8765/mcp`. L'agente vede ogni metodo di Fairmark come tool.
+
+Il server ascolta su `127.0.0.1` per impostazione predefinita. Esponilo in rete solo dietro un
+tuo sistema di autenticazione (reverse proxy, VPN): la modalità HTTP non ha un controllo
+d'accesso integrato.
+
+## Log
+
+I log vanno su stderr; `--log-format json` scrive un oggetto JSON per riga con il tool, l'esito
+(`ok` o un codice di errore), la durata e l'hash dell'input. I log non contengono mai valori
+finanziari.
 
 ## Che cosa riceve il client
 

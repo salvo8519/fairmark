@@ -42,6 +42,12 @@ an English page, update its translation or label the PR `translation-pending`, a
 maintainer or the `translator` agent will do it. Use the terms in `i18n/glossary.yaml`.
 Proposals for new documentation languages are welcome as a Discussion first.
 
+## Release notes
+
+If your change is visible to users, add a short fragment in `changes/` (see
+`changes/README.md`): one to three sentences for a financial analyst, not for a developer.
+The technical detail goes in your commit messages, which generate `CHANGELOG.md`.
+
 ## Rules
 
 1. Every PR touching a method includes golden cases and updates its page in `docs/en/methods/`.

@@ -1,15 +1,25 @@
-"""MCP server exposing every Fairmark method as a tool (local, stdio).
+"""MCP server exposing every Fairmark method as a tool.
 
-Run with ``uvx --from "fairmark[mcp]" fairmark-mcp`` or ``fairmark-mcp`` after
-``pip install "fairmark[mcp]"``. No server to host: the agent starts it locally.
+Two transports:
+
+    fairmark-mcp                      # stdio: started by a local client (Claude, Cursor, ...)
+    fairmark-mcp --http               # Streamable HTTP on 127.0.0.1:8765/mcp, for n8n's
+                                      # MCP Client Tool and other remote-capable clients
+
+Install with ``pip install "fairmark[mcp]"``. Logs go to stderr; ``--log-format json`` emits
+one JSON object per line. Logs never contain financial values (see docs: logging policy).
 """
 
 from __future__ import annotations
 
+import argparse
 import json
+import logging
+import time
 from typing import Any
 
 from . import ENGINE_VERSION, tools
+from ._logging import configure, log_event
 
 INSTRUCTIONS = (
     "Fairmark is a deterministic valuation engine. Use its tools for every number in a "
@@ -17,6 +27,8 @@ INSTRUCTIONS = (
     "fractions (0.09 = 9%). Pass amounts as strings or numbers. When you report results, "
     "cite explain.steps and keep the returned values unchanged."
 )
+
+logger = logging.getLogger("fairmark.mcp")
 
 
 def _build_server() -> Any:
@@ -42,7 +54,16 @@ def _build_server() -> Any:
         )
 
     async def on_call_tool(ctx: Any, params: Any) -> Any:
+        started = time.perf_counter()
         out = tools.dispatch(params.name, params.arguments or {})
+        log_event(
+            logger,
+            "tool_call",
+            tool=params.name,
+            outcome=out["error"]["code"] if "error" in out else "ok",
+            duration_ms=round((time.perf_counter() - started) * 1000, 3),
+            input_hash=out.get("meta", {}).get("input_hash"),
+        )
         return types.CallToolResult(
             content=[types.TextContent(text=json.dumps(out, ensure_ascii=False))],
             structured_content=out,
@@ -58,7 +79,7 @@ def _build_server() -> Any:
     )
 
 
-async def serve() -> None:
+async def serve_stdio() -> None:
     from mcp.server.stdio import stdio_server
 
     server = _build_server()
@@ -66,10 +87,30 @@ async def serve() -> None:
         await server.run(read_stream, write_stream, server.create_initialization_options())
 
 
-def main() -> None:
-    import anyio
+def serve_http(host: str, port: int) -> None:
+    import uvicorn
 
-    anyio.run(serve)
+    app = _build_server().streamable_http_app(streamable_http_path="/mcp", host=host)
+    log_event(logger, "server_start", transport="http", url=f"http://{host}:{port}/mcp")
+    uvicorn.run(app, host=host, port=port, log_level="warning")
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(prog="fairmark-mcp", description=__doc__.split("\n")[0])
+    parser.add_argument("--http", action="store_true", help="serve Streamable HTTP")
+    parser.add_argument("--host", default="127.0.0.1", help="HTTP bind address")
+    parser.add_argument("--port", type=int, default=8765, help="HTTP port")
+    parser.add_argument("--log-format", choices=["text", "json"], default="text")
+    parser.add_argument("--log-level", default="INFO")
+    args = parser.parse_args(argv)
+    configure(args.log_format, args.log_level)
+
+    if args.http:
+        serve_http(args.host, args.port)
+    else:
+        import anyio
+
+        anyio.run(serve_stdio)
 
 
 if __name__ == "__main__":
