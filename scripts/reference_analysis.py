@@ -1,4 +1,4 @@
-"""Independent reference for SPEC-0008 (analysis: goal seek).
+"""Independent reference for SPEC-0008 (analysis: goal seek, tables, scenarios, tornado).
 
 Two references in Python's `decimal` module at 50 digits, sharing no code with the Rust engine:
 
@@ -112,6 +112,43 @@ def enterprise_value(rate: D, flows: list[D], growth: D) -> D:
     explicit = sum((cf / (1 + rate) ** (t + 1) for t, cf in enumerate(flows)), D(0))
     terminal = flows[-1] * (1 + growth) / (rate - growth)
     return explicit + terminal / (1 + rate) ** n
+
+
+@at_50_digits
+def equity_value(rate: D, flows: list[D], growth: D, net_debt: D) -> D:
+    return enterprise_value(rate, flows, growth) - net_debt
+
+
+@at_50_digits
+def sensitivity_table(rates: list[D], growths: list[D], flows: list[D]) -> list[list[D | None]]:
+    """Enterprise value per (rate, growth); None where growth >= rate (no Gordon value)."""
+    return [[enterprise_value(r, flows, g) if g < r else None for g in growths] for r in rates]
+
+
+@at_50_digits
+def tornado_ranking(
+    base: dict[str, D], flows: list[D], shocks: list[tuple[str, D, D]]
+) -> list[tuple[str, D, D, D]]:
+    """(name, equity at low, equity at high, swing) by decreasing |swing|, stable on ties.
+
+    Names: discount_rate, terminal_growth, net_debt, or flow:<index>.
+    """
+
+    def equity(changes: dict[str, D]) -> D:
+        values = {**base, **changes}
+        f = list(flows)
+        for k, v in changes.items():
+            if k.startswith("flow:"):
+                f[int(k[5:])] = v
+        return equity_value(
+            values["discount_rate"], f, values["terminal_growth"], values["net_debt"]
+        )
+
+    bars = []
+    for name, low, high in shocks:
+        lo, hi = equity({name: low}), equity({name: high})
+        bars.append((name, lo, hi, hi - lo))
+    return sorted(bars, key=lambda b: -abs(b[3]))
 
 
 def irr_via_npv() -> D:

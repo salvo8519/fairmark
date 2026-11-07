@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: baca71deedda
+source_hash: 0a48b97f88cc
 ---
 # Codici di errore
 
@@ -25,5 +25,5 @@ adattatore (Python, CLI, MCP, function calling) riporta gli errori come
 | `FM-E013` | Ricerca obiettivo: l'output meno il valore obiettivo ha lo stesso segno a entrambi gli estremi dell'intervallo di ricerca | Amplia l'intervallo di ricerca in modo che il valore obiettivo sia compreso tra gli output ai due estremi |
 | `FM-E014` | La ricerca obiettivo non ha raggiunto la tolleranza entro `max_iterations`; restituito anche quando l'output salta oltre il valore obiettivo (discontinuità) | Aumenta `max_iterations` o la tolleranza; verifica che l'output sia continuo nella variabile |
 | `FM-E015` | Un puntatore di un'analisi (`variable`, `output` o il `pointer` di una modifica di scenario) non si risolve in un decimale | Usa un JSON Pointer RFC 6901 a un campo decimale esistente, ad esempio `/discount_rate` |
-| `FM-E016` | L'analisi richiede più di 10.000 valutazioni del metodo interno | Suddividi la richiesta in tabelle più piccole |
+| `FM-E016` | L'analisi richiede più di 10.000 valutazioni del metodo interno, oppure più di 1.000.000 di valutazioni × valori in `base_input` | Suddividi la richiesta in tabelle più piccole o riduci l'input interno |
 | `FM-E017` | A un metodo di analisi è stato chiesto di valutare un altro metodo di analisi | Esegui direttamente l'analisi interna; le analisi non si annidano |

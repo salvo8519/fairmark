@@ -1,0 +1,47 @@
+method: analysis.scenarios
+description: Base, downside and upside cases of a five-year DCF, and a case the DCF refuses
+source: >
+  scripts/reference_analysis.py, enterprise_value and equity_value (Python decimal, 50 digits);
+  deltas and relative deltas computed from them. The last case has growth above the rate and
+  carries FM-E004 (no Gordon value).
+input:
+  method: dcf.fcff
+  base_input:
+    free_cash_flows: [100, 110, 120, 130, 140]
+    discount_rate: "0.09"
+    terminal_growth: "0.02"
+    net_debt: 300
+  outputs: [/enterprise_value, /equity_value]
+  scenarios:
+  - name: downside
+    overrides:
+    - {pointer: /discount_rate, value: "0.10"}
+    - {pointer: /terminal_growth, value: "0.01"}
+    - {pointer: /free_cash_flows/0, value: "90"}
+  - name: upside
+    overrides:
+    - {pointer: /discount_rate, value: "0.08"}
+    - {pointer: /terminal_growth, value: "0.025"}
+  - name: impossible
+    overrides:
+    - {pointer: /terminal_growth, value: "0.12"}
+expect:
+  /base/0/value: "1785.9356357015730744749501235001212576012519743722"
+  /base/1/value: "1485.9356357015730744749501235001212576012519743722"
+  /scenarios/0/value/0/value: "1414.1421730452534359371324059528417154262383413398"
+  /scenarios/0/value/0/delta: "-371.7934626563196385378177175472795421750136330324"
+  /scenarios/0/value/0/relative_delta: "-0.20817853411064681752773411297104451830028967776869"
+  /scenarios/0/value/1/value: "1114.1421730452534359371324059528417154262383413398"
+  /scenarios/0/value/1/delta: "-371.7934626563196385378177175472795421750136330324"
+  /scenarios/0/value/1/relative_delta: "-0.25020832243570241621359483206248388558467806826878"
+  /scenarios/1/value/0/value: "2248.6986924572658454688633015107637878556945772310"
+  /scenarios/1/value/0/delta: "462.7630567556927709939131780106425302544426028588"
+  /scenarios/1/value/0/relative_delta: "0.25911519290218123032544793702851854579697309025461"
+  /scenarios/1/value/1/value: "1948.6986924572658454688633015107637878556945772310"
+  /scenarios/1/value/1/delta: "462.7630567556927709939131780106425302544426028588"
+  /scenarios/1/value/1/relative_delta: "0.31142873596755942609943870856499412324202565367528"
+  /scenarios/0/name: "downside"
+  /scenarios/2/name: "impossible"
+  /scenarios/2/error/code: "FM-E004"
+  /failed_scenarios: "1"
+tolerance: "0.000000001"

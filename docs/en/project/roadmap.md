@@ -16,7 +16,7 @@ generated from `roadmap/roadmap.yaml`, and a scheduled job reports any differenc
 | --- | --- | --- | --- | --- |
 | M0 · Foundations | A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows. | 0.1.0 | 13 | 2 |
 | M1 · Numerical core | Golden harness green; NPV and IRR validated; property tests running. | 0.1.0 | 10 | 3 |
-| M2 · Complete DCF | DCF passes every golden case provided by practitioners. | 0.1.0 | 7 | 10 |
+| M2 · Complete DCF | DCF passes every golden case provided by practitioners. | 0.1.0 | 9 | 8 |
 | M3 · Agent layer and v0.1 release | An external user completes a DCF with Claude Code or Codex using only the README. | 0.1.0 | 10 | 7 |
 | M4 · Traditional European methods | Golden cases green for every method. | 0.2.0 | 0 | 6 |
 | M5 · Opt-in usage statistics | CI proves the payload carries no financial data; privacy notice reviewed by counsel. | 0.3.0 | 0 | 4 |
@@ -80,12 +80,12 @@ Gate: DCF passes every golden case provided by practitioners.
 | Cost of capital | Cost of capital: CAPM, beta relevering, peer betas, cost of debt and WACC | [#99](https://github.com/salvo8519/fairmark/issues/99) | [0003](https://github.com/salvo8519/fairmark/tree/main/specs) | Done |
 | Terminal value and equity bridge | Exit-multiple terminal value; configurable terminal value timing | [#43](https://github.com/salvo8519/fairmark/issues/43) | [0006](https://github.com/salvo8519/fairmark/tree/main/specs) | Open |
 | Terminal value and equity bridge | EV to equity: minorities, surplus assets, debt-like items | [#44](https://github.com/salvo8519/fairmark/issues/44) |  | Open |
-| Terminal value and equity bridge | Deterministic WACC × g sensitivity grid | [#45](https://github.com/salvo8519/fairmark/issues/45) | [0008](https://github.com/salvo8519/fairmark/tree/main/specs) | Open |
+| Terminal value and equity bridge | Deterministic WACC × g sensitivity grid | [#45](https://github.com/salvo8519/fairmark/issues/45) | [0008](https://github.com/salvo8519/fairmark/tree/main/specs) | Done |
 | Terminal value and equity bridge | Draft specs for terminal value methods and financial ratios with covenants | [#101](https://github.com/salvo8519/fairmark/issues/101) | [0006](https://github.com/salvo8519/fairmark/tree/main/specs) | Done |
 | Terminal value and equity bridge | Terminal value building blocks tv.* (SPEC-0006) | [#115](https://github.com/salvo8519/fairmark/issues/115) | [0006](https://github.com/salvo8519/fairmark/tree/main/specs) | Open |
 | Analysis: goal seek, sensitivity, scenarios, tornado | Draft spec for analysis: goal seek, sensitivity, scenarios, tornado | [#106](https://github.com/salvo8519/fairmark/issues/106) | [0008](https://github.com/salvo8519/fairmark/tree/main/specs) | Done |
 | Analysis: goal seek, sensitivity, scenarios, tornado | Implement analysis.goal_seek with Brent's method on decimals | [#108](https://github.com/salvo8519/fairmark/issues/108) | [0008](https://github.com/salvo8519/fairmark/tree/main/specs) | Done |
-| Analysis: goal seek, sensitivity, scenarios, tornado | Sensitivity tables, scenarios and tornado (SPEC-0008 R15 to R22) | [#116](https://github.com/salvo8519/fairmark/issues/116) | [0008](https://github.com/salvo8519/fairmark/tree/main/specs) | Open |
+| Analysis: goal seek, sensitivity, scenarios, tornado | Sensitivity tables, scenarios and tornado (SPEC-0008 R15 to R22) | [#116](https://github.com/salvo8519/fairmark/issues/116) | [0008](https://github.com/salvo8519/fairmark/tree/main/specs) | Done |
 | Financial ratios and covenants | Ratios and covenants: profitability, capital structure, liquidity, working capital, debt service (SPEC-0007) | [#114](https://github.com/salvo8519/fairmark/issues/114) | [0007](https://github.com/salvo8519/fairmark/tree/main/specs) | Open |
 
 ### M3 · Agent layer and v0.1 release

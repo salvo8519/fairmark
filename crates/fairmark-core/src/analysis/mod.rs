@@ -5,6 +5,9 @@
 
 pub mod goal_seek;
 pub mod pointer;
+pub mod scenarios;
+pub mod sensitivity;
+pub mod tornado;
 
 use std::borrow::Cow;
 
@@ -13,11 +16,26 @@ use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value};
 
-use crate::error::{FairmarkError, Result};
+use crate::error::{ErrorReport, FairmarkError, Result};
 use crate::registry;
 
 /// Most inner evaluations one analysis request may perform (ADR 0010).
 pub const EVALUATION_LIMIT: u64 = 10_000;
+
+/// Most work one analysis request may perform: evaluations × values in the base input. Each
+/// evaluation parses, validates and computes the whole inner input, so the cost grows with
+/// both; this bound keeps the cost of a request predictable whatever the input size.
+pub const WORK_LIMIT: u64 = 1_000_000;
+
+/// Size of a JSON document: every value counts one, containers included, so that empty
+/// arrays and objects are not free.
+pub(crate) fn size_of(value: &Value) -> u64 {
+    match value {
+        Value::Array(items) => 1 + items.iter().map(size_of).sum::<u64>(),
+        Value::Object(map) => 1 + map.values().map(size_of).sum::<u64>(),
+        _ => 1,
+    }
+}
 
 /// Theme prefix of analysis method ids.
 const THEME: &str = "analysis.";
@@ -81,6 +99,8 @@ pub(crate) struct Inner {
     id: &'static str,
     version: &'static str,
     evaluations: u64,
+    /// Evaluations reserved by `reserve` before the first one; exceeding it is a defect.
+    reserved: u64,
 }
 
 impl Inner {
@@ -94,6 +114,7 @@ impl Inner {
             id: info.id,
             version: info.version,
             evaluations: 0,
+            reserved: 0,
         })
     }
 
@@ -108,21 +129,34 @@ impl Inner {
         self.id
     }
 
-    /// Fails with `FM-E016` before any evaluation when `needed` exceeds the limit.
-    pub(crate) fn reserve(needed: u64) -> Result<()> {
+    /// Fails with `FM-E016` before any evaluation when the request needs more than
+    /// `EVALUATION_LIMIT` evaluations, or more than `WORK_LIMIT` evaluations × input values.
+    pub(crate) fn reserve(&mut self, needed: u64, base: &Value) -> Result<()> {
         if needed > EVALUATION_LIMIT {
-            return Err(FairmarkError::EvaluationLimit {
-                needed,
-                limit: EVALUATION_LIMIT,
-            });
+            return Err(FairmarkError::EvaluationLimit(format!(
+                "the request needs {needed} evaluations, more than {EVALUATION_LIMIT}"
+            )));
         }
+        let size = size_of(base).max(1);
+        let work = needed.saturating_mul(size);
+        if work > WORK_LIMIT {
+            return Err(FairmarkError::EvaluationLimit(format!(
+                "{needed} evaluations of an input of {size} values need {work} units of work, \
+                more than {WORK_LIMIT}; use fewer evaluations or a shorter input"
+            )));
+        }
+        self.reserved = needed;
         Ok(())
     }
 
     /// Runs the inner method; returns the `value` of its result.
     pub(crate) fn evaluate(&mut self, input: &Value) -> Result<Value> {
         self.evaluations += 1;
-        Self::reserve(self.evaluations)?;
+        if self.evaluations > self.reserved {
+            return Err(FairmarkError::Internal(
+                "an analysis exceeded its reserved evaluations",
+            ));
+        }
         let mut envelope = registry::evaluate(self.id, input)?;
         Ok(envelope["value"].take())
     }
@@ -140,4 +174,74 @@ pub(crate) fn base_value(base: &BaseInput) -> Value {
 /// The decimal at `pointer` in an inner result `value`.
 pub(crate) fn output(value: &Value, pointer: &str) -> Result<Decimal> {
     pointer::read_decimal(value, pointer)
+}
+
+/// `base` with each `(pointer, value)` written as a decimal string (R4).
+pub(crate) fn with_values(base: &Value, values: &[(&str, Decimal)]) -> Result<Value> {
+    let mut input = base.clone();
+    for (pointer, value) in values {
+        pointer::write_decimal(&mut input, pointer, *value)?;
+    }
+    Ok(input)
+}
+
+/// R9: the base case, `base_input` unchanged, and the selected outputs of its result. Any error
+/// is returned unchanged; an output pointer that does not resolve is `FM-E015`.
+pub(crate) fn base_case(inner: &mut Inner, base: &Value, outputs: &[&str]) -> Result<Vec<Decimal>> {
+    let value = inner.evaluate(base)?;
+    outputs.iter().map(|o| output(&value, o)).collect()
+}
+
+/// Outcome of one evaluation in a table or a scenario: a value, or the inner error (R16).
+#[derive(Debug, Clone, Serialize)]
+#[serde(untagged)]
+pub enum Outcome<T: Serialize> {
+    /// The evaluation succeeded.
+    Value { value: T },
+    /// The inner method returned this error; the rest of the request went on.
+    Error { error: ErrorReport },
+}
+
+/// R16: an error of the inner method is recorded and the request goes on, except `FM-E012`
+/// (a defect in Fairmark), which aborts the request.
+pub(crate) fn recorded<T: Serialize>(result: Result<T>) -> Result<Outcome<T>> {
+    match result {
+        Ok(value) => Ok(Outcome::Value { value }),
+        Err(e @ FairmarkError::Internal(_)) => Err(e),
+        Err(e) => Ok(Outcome::Error {
+            error: e.to_report(),
+        }),
+    }
+}
+
+/// `FM-E001` when `items` repeat, naming the first repeated one.
+pub(crate) fn unique<'a>(what: &str, items: impl IntoIterator<Item = &'a str>) -> Result<()> {
+    let mut seen = std::collections::BTreeSet::new();
+    for item in items {
+        if !seen.insert(item) {
+            return Err(FairmarkError::InvalidInput(format!(
+                "{what} '{item}' appears twice"
+            )));
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_defect_aborts_and_other_errors_are_recorded() {
+        let defect: Result<Decimal> = Err(FairmarkError::Internal("injected"));
+        assert_eq!(recorded(defect).unwrap_err().code(), "FM-E012");
+        let domain: Result<Decimal> = Err(FairmarkError::GrowthNotBelowRate {
+            growth: Decimal::ONE,
+            rate: Decimal::ZERO,
+        });
+        let cell = serde_json::to_value(recorded(domain).unwrap()).unwrap();
+        assert_eq!(cell["error"]["code"], "FM-E004");
+        let ok = serde_json::to_value(recorded(Ok(Decimal::TWO)).unwrap()).unwrap();
+        assert_eq!(ok, serde_json::json!({"value": "2"}));
+    }
 }

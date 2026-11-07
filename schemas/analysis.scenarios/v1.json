@@ -1,0 +1,90 @@
+{
+  "$defs": {
+    "BaseInput": {
+      "description": "Input of the inner method, exactly as that method accepts it. It is validated by the inner method at run time against its own schema; this schema does not describe it.",
+      "type": "object"
+    },
+    "Override": {
+      "additionalProperties": false,
+      "description": "One input change of a scenario.",
+      "properties": {
+        "pointer": {
+          "description": "RFC 6901 JSON Pointer to a decimal input of the inner method, for example\n`/terminal_growth`.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Value of that input in this scenario, in its units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "pointer",
+        "value"
+      ],
+      "type": "object"
+    },
+    "Scenario": {
+      "additionalProperties": false,
+      "description": "A named case: the base input with some inputs changed.",
+      "properties": {
+        "name": {
+          "description": "Name of the case, unique and not empty, for example `downside`.",
+          "type": "string"
+        },
+        "overrides": {
+          "description": "Inputs changed in this case; every other input keeps its base value. Pointers do not\nrepeat within a scenario.",
+          "items": {
+            "$ref": "#/$defs/Override"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "overrides"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:analysis.scenarios:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "base_input": {
+      "$ref": "#/$defs/BaseInput",
+      "description": "Input of that method, complete: the base case."
+    },
+    "method": {
+      "description": "Id of the method to evaluate, for example `dcf.fcff`. Analysis methods are not accepted.",
+      "type": "string"
+    },
+    "outputs": {
+      "description": "RFC 6901 JSON Pointers to the decimal outputs to report, in the `value` of the inner\nresult, for example `[\"/enterprise_value\", \"/equity_value\"]`; at least one, no repeats.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "scenarios": {
+      "description": "The cases, evaluated in this order; at least one.",
+      "items": {
+        "$ref": "#/$defs/Scenario"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "method",
+    "base_input",
+    "outputs",
+    "scenarios"
+  ],
+  "title": "ScenariosInput",
+  "type": "object",
+  "x-fairmark-method": "analysis.scenarios",
+  "x-fairmark-method-version": "1"
+}

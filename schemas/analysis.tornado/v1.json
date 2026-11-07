@@ -1,0 +1,74 @@
+{
+  "$defs": {
+    "BaseInput": {
+      "description": "Input of the inner method, exactly as that method accepts it. It is validated by the inner method at run time against its own schema; this schema does not describe it.",
+      "type": "object"
+    },
+    "TornadoVariable": {
+      "additionalProperties": false,
+      "description": "One input to vary, with its low and high values.",
+      "properties": {
+        "high": {
+          "description": "High value of the input, in its units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "low": {
+          "description": "Low value of the input, in its units; lower than `high`.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "variable": {
+          "description": "RFC 6901 JSON Pointer to a decimal input of the inner method, for example\n`/discount_rate`. Variables do not repeat.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "variable",
+        "low",
+        "high"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:analysis.tornado:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "base_input": {
+      "$ref": "#/$defs/BaseInput",
+      "description": "Input of that method, complete: the base case. Each variable is changed alone, the\nothers keep their base values."
+    },
+    "method": {
+      "description": "Id of the method to evaluate, for example `dcf.fcff`. Analysis methods are not accepted.",
+      "type": "string"
+    },
+    "output": {
+      "description": "RFC 6901 JSON Pointer to the decimal output to rank, in the `value` of the inner\nresult, for example `/equity_value`.",
+      "type": "string"
+    },
+    "variables": {
+      "description": "The inputs to vary; at least one.",
+      "items": {
+        "$ref": "#/$defs/TornadoVariable"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "method",
+    "base_input",
+    "output",
+    "variables"
+  ],
+  "title": "TornadoInput",
+  "type": "object",
+  "x-fairmark-method": "analysis.tornado",
+  "x-fairmark-method-version": "1"
+}

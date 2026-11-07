@@ -59,8 +59,8 @@ pub enum FairmarkError {
     #[error("invalid analysis pointer '{pointer}': {reason}")]
     InvalidPointer { pointer: String, reason: String },
 
-    #[error("the request needs {needed} evaluations, more than the limit of {limit}")]
-    EvaluationLimit { needed: u64, limit: u64 },
+    #[error("evaluation limit exceeded: {0}")]
+    EvaluationLimit(String),
 
     #[error("'{0}' is an analysis method; an analysis cannot evaluate another analysis")]
     NestedAnalysis(String),
@@ -85,7 +85,7 @@ impl FairmarkError {
             Self::TargetNotBracketed(_) => "FM-E013",
             Self::GoalSeekNoConvergence { .. } => "FM-E014",
             Self::InvalidPointer { .. } => "FM-E015",
-            Self::EvaluationLimit { .. } => "FM-E016",
+            Self::EvaluationLimit(_) => "FM-E016",
             Self::NestedAnalysis(_) => "FM-E017",
         }
     }

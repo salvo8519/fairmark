@@ -1,0 +1,22 @@
+method: analysis.scenarios
+description: Relative delta is null when the base output is zero
+source: >
+  Constructed: at 10% the NPV of -100 and 110 is exactly zero; at 5% it is 110 / 1.05 - 100
+  = 4.76190476190476190476190476190476190476190476190 (scripts/reference_analysis.py, npv).
+input:
+  method: tvm.npv
+  base_input:
+    rate: "0.10"
+    cash_flows: [-100, 110]
+  outputs: [/npv]
+  scenarios:
+  - name: lower rate
+    overrides:
+    - {pointer: /rate, value: "0.05"}
+expect:
+  /base/0/value: "0"
+  /scenarios/0/value/0/value: "4.76190476190476190476190476190476190476190476190"
+  /scenarios/0/value/0/delta: "4.76190476190476190476190476190476190476190476190"
+  /scenarios/0/value/0/relative_delta: "null"
+  /failed_scenarios: "0"
+tolerance: "0.000000001"

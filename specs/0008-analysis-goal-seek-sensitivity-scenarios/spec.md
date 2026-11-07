@@ -57,7 +57,10 @@ adapters and reports).
 - **R4** — WHEN the engine sets a variable, THE ENGINE SHALL write the decimal as a JSON string
   at the pointer and leave every other member of `base_input` unchanged; the inner method
   validates each resulting input and its errors keep their own codes.
-- **R5** — THE ENGINE SHALL bound the number of inner evaluations of one request by 10,000.
+- **R5** — THE ENGINE SHALL bound the number of inner evaluations of one request by 10,000,
+  and the evaluations × values of `base_input` by 1,000,000 (amended at implementation after the
+  numerical audit: the cost of an evaluation grows with the input, so the first bound alone did
+  not make the cost predictable).
   IF the evaluations a request needs (for goal seek: 2 + `max_iterations`) exceed this cap,
   THEN THE ENGINE SHALL return `FM-E016` before the first evaluation. `max_iterations` above
   1,000 or below 1 is `FM-E001`.
@@ -111,9 +114,9 @@ adapters and reports).
   list of `outputs`, THE ENGINE SHALL evaluate each scenario on `base_input` with its overrides
   applied and return, per scenario and per output, the value, the delta (scenario − base) and
   the relative delta (delta / base, `null` when the base output is zero). Scenario names SHALL
-  be unique and non-empty; pointers within one scenario SHALL be unique (`FM-E001` otherwise).
-- **R19** — IF a scenario fails, THEN THE ENGINE SHALL record the error in that scenario under
-  the rule of R16 and continue.
+  be unique, non-empty and without leading or trailing spaces; pointers within one scenario SHALL be unique (`FM-E001` otherwise).
+- **R19** — IF a scenario fails, or its deltas overflow the decimal range, THEN THE ENGINE SHALL
+  record the error in that scenario under the rule of R16 and continue.
 
 ### Tornado
 - **R20** — WHEN given a list of variables, each with `low` < `high`, and one `output`, THE
@@ -138,7 +141,7 @@ adapters and reports).
 | Tolerance | absolute, on the output, in output units | 0.000000001 | stated on the output so it reads in the analyst's units (currency, rate); documented in the schema |
 | Iteration cap | 1 to 1,000 | 100 | fixed bound, reported |
 | Minimum step on the variable | 10^-24 × max(1, \|x\|) | fixed in v1 | keeps Brent's step above decimal resolution; reported |
-| Evaluation cap per request | 10,000 | fixed | predictable cost |
+| Evaluation cap per request | 10,000 evaluations, and 1,000,000 evaluations × values of `base_input` | fixed | predictable cost |
 | Failed table cells and scenarios | recorded per cell (R16) | recorded | spreadsheet data tables show an error per cell; open question b |
 | Tornado shocks | explicit low and high | required | open question c |
 | Relative delta when the base output is zero | `null` | fixed | no silent defaults |
@@ -164,9 +167,10 @@ adapters and reports).
   solution step; each iteration is labelled with one of the three step types; the conventions name the algorithm,
   tolerance, cap, bracket and minimum step.
 - **AC6** (R15, R17) — A 5 × 5 WACC × g table on `dcf.fcff` matches the reference script within
-  1e-9 currency units, numpy-financial recomputation within a relative 1e-9, and a hand-built
-  spreadsheet data table (committed as reference values with its construction described in the
-  golden file) at the precision recorded there.
+  1e-9 currency units and numpy-financial recomputation within a relative 1e-9. (Amended at
+  implementation: the hand-built spreadsheet table is replaced by the property test of AC8,
+  which compares every cell with a direct run; a spreadsheet adds no independent evidence
+  beyond the 50-digit reference.)
 - **AC7** (R16) — In the table of AC6, cells with g ≥ WACC carry `FM-E004` and every other cell
   equals its value in a table without those cells; the failed-cell count is correct; an
   injected `FM-E012` aborts the request (unit test).
@@ -213,9 +217,11 @@ adapters and reports).
   `residual`, `iterations`, `tolerance`, `solved_input`, `inner_value` (the `value` of the inner
   result; running the inner method on `solved_input` reproduces it with its full explain). Sensitivity: `base`,
   `rows`, `columns`, `cells` (each `{value}` or `{error {code, message}}`), `failed_cells`.
-  Scenarios: `base`, `scenarios [{name, outputs [{output, value, delta, relative_delta}] |
-  error}]`. Tornado: `base`, `ranking [{variable, low, high, output_low, output_high, swing,
-  abs_swing}]`.
+  Scenarios: `base [{output, value}]`, `scenarios [{name, value [{output, value, delta,
+  relative_delta}] | error}]`, `failed_scenarios`. Tornado: `output`, `base`, `ranking
+  [{variable, low, high, output_low, output_high, swing, abs_swing}]`. (Aligned with the
+  implementation: `failed_scenarios` and the tornado `output` were added; empty axes, outputs,
+  scenarios or variables and repeated outputs are `FM-E001`.)
 - New error codes (provisional, next free at implementation): `FM-E013` target not bracketed,
   `FM-E014` goal seek did not converge, `FM-E015` invalid analysis pointer, `FM-E016`
   evaluation cap exceeded, `FM-E017` nested analysis not supported. `FM-E005` is not reused:
@@ -231,6 +237,10 @@ The maintainer accepted every recommendation on 2026-11-07: explicit bracket, pe
 errors, explicit tornado shocks, Monte Carlo in a follow-up spec, and composition through the
 registry for the analysis theme (ADR 0010). Results must never be ambiguous: agents combine and
 interpret them, the engine guarantees that each one is exact, validated and verified.
+
+Amendments made at implementation (AC1, AC2, AC5, AC6, R5, R18, R19, interfaces), approved
+by the maintainer on 2026-11-08: the work bound of R5, overflowing deltas recorded in their
+scenario (R19), and the spreadsheet table of AC6 replaced by the property test of AC8.
 
 ### Questions as asked
 - [x] **a. Automatic bracket expansion in goal seek v1?** Recommended: no. An explicit bracket is

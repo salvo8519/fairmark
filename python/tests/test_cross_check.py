@@ -132,3 +132,32 @@ def test_goal_seek_on_npv_agrees_with_irr_and_pyxirr() -> None:
     irr = Decimal(str(fm.tvm.irr(flows).value["irr"]))
     assert abs(solution - irr) <= Decimal("1e-15")
     assert close(solution, pyxirr.irr(flows))
+
+
+def test_sensitivity_table_agrees_with_numpy_financial() -> None:
+    """SPEC-0008 AC6: each cell of a WACC by growth table recomputed independently."""
+    flows = [100, 110, 120, 130, 140]
+    rates = ["0.07", "0.08", "0.09", "0.10", "0.11"]
+    growths = ["0", "0.01", "0.02", "0.03", "0.08"]
+    table = fm.analysis.sensitivity(
+        "dcf.fcff",
+        {
+            "free_cash_flows": flows,
+            "discount_rate": "0.09",
+            "terminal_growth": "0.02",
+            "net_debt": 300,
+        },
+        output="/enterprise_value",
+        rows=("/discount_rate", rates),
+        columns=("/terminal_growth", growths),
+    )
+    for i, r in enumerate(rates):
+        for j, g in enumerate(growths):
+            cell = table.value["cells"][i][j]
+            if float(g) >= float(r):
+                assert cell["error"]["code"] == "FM-E004"
+                continue
+            rate, growth = float(r), float(g)
+            explicit = npf.npv(rate, [0.0, *flows])  # npv discounts from t = 0
+            terminal = flows[-1] * (1 + growth) / (rate - growth) / (1 + rate) ** len(flows)
+            assert close(Decimal(str(cell["value"])), explicit + terminal)

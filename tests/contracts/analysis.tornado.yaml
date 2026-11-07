@@ -1,0 +1,28 @@
+# Contract cases for analysis.tornado: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: analysis.tornado
+extreme_inputs:
+- method: tvm.npv
+  base_input: {rate: '0.1', cash_flows: ['-100', '60', '60']}
+  output: /npv
+  variables:
+  - {variable: /cash_flows/0, low: MIN, high: MAX}
+  - {variable: /rate, low: '-0.5', high: MAX}
+- method: tvm.npv
+  base_input: {rate: '0', cash_flows: [MAX, MAX]}
+  output: /npv
+  variables:
+  - {variable: /cash_flows/1, low: MIN, high: MAX}
+conventions:
+- input:
+    method: tvm.npv
+    base_input: {rate: '0.1', cash_flows: ['-100', '60', '60']}
+    output: /npv
+    variables:
+    - {variable: /rate, low: '0.05', high: '0.15'}
+  expect:
+  - inner method tvm.npv version 2
+  - each variable is varied alone; the other inputs keep their base values
+  - low and high values are given explicitly; no percentage shocks
+  - equal swings keep the order given

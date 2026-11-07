@@ -1,4 +1,4 @@
-"""Analysis over any method: goal seek.
+"""Analysis over any method: goal seek, sensitivity tables, scenarios and tornado.
 
 The inner method is named by its id and receives ``base_input`` exactly as it would be passed
 to :func:`fairmark.run`. Variables and outputs are RFC 6901 JSON Pointers, for example
@@ -7,7 +7,7 @@ to :func:`fairmark.run`. Variables and outputs are RFC 6901 JSON Pointers, for e
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from typing import Any
 
@@ -56,3 +56,100 @@ def goal_seek(
     if max_iterations is not None:
         payload["max_iterations"] = max_iterations
     return run("analysis.goal_seek", payload)
+
+
+def sensitivity(
+    method: str,
+    base_input: Mapping[str, Any],
+    *,
+    output: str,
+    rows: tuple[str, Sequence[Number]],
+    columns: tuple[str, Sequence[Number]] | None = None,
+) -> Result:
+    """One output of ``method`` across a one-way or two-way table of inputs.
+
+    ``rows`` and ``columns`` are ``(pointer, values)`` pairs. A combination the method refuses
+    (for example growth not below the discount rate) holds its error in its cell; the table
+    goes on. Example, the table of a DCF by WACC and growth::
+
+        fm.analysis.sensitivity(
+            "dcf.fcff", dcf_input, output="/enterprise_value",
+            rows=("/discount_rate", ["0.08", "0.09", "0.10"]),
+            columns=("/terminal_growth", ["0.01", "0.02", "0.03"]),
+        )
+    """
+    payload: dict[str, Any] = {
+        "method": method,
+        "base_input": dict(base_input),
+        "output": output,
+        "rows": {"variable": rows[0], "values": list(rows[1])},
+    }
+    if columns is not None:
+        payload["columns"] = {"variable": columns[0], "values": list(columns[1])}
+    return run("analysis.sensitivity", payload)
+
+
+def scenarios(
+    method: str,
+    base_input: Mapping[str, Any],
+    *,
+    outputs: Sequence[str],
+    cases: Mapping[str, Mapping[str, Number]] | Sequence[tuple[str, Mapping[str, Number]]],
+) -> Result:
+    """The ``outputs`` of ``method`` under named cases, with deltas against the base case.
+
+    ``cases`` maps each scenario name to the inputs it changes, as ``{pointer: value}``; it may
+    also be a list of ``(name, changes)`` pairs. A repeated key in a Python dict literal
+    silently replaces the earlier one before Fairmark sees it: use the list form when names
+    or pointers are generated, so that repeats are refused (``FM-E001``). A case the method
+    refuses holds its error; the others are returned. Example::
+
+        fm.analysis.scenarios(
+            "dcf.fcff", dcf_input, outputs=["/enterprise_value", "/equity_value"],
+            cases={"downside": {"/discount_rate": "0.10", "/terminal_growth": "0.01"},
+                   "upside": {"/discount_rate": "0.08"}},
+        )
+    """
+    payload = {
+        "method": method,
+        "base_input": dict(base_input),
+        "outputs": list(outputs),
+        "scenarios": [
+            {"name": name, "overrides": [{"pointer": p, "value": v} for p, v in changes.items()]}
+            for name, changes in (cases.items() if isinstance(cases, Mapping) else cases)
+        ],
+    }
+    return run("analysis.scenarios", payload)
+
+
+def tornado(
+    method: str,
+    base_input: Mapping[str, Any],
+    *,
+    output: str,
+    variables: Mapping[str, tuple[Number, Number]] | Sequence[tuple[str, tuple[Number, Number]]],
+) -> Result:
+    """Which inputs move ``output`` the most: each varied alone between low and high.
+
+    ``variables`` maps each pointer to its ``(low, high)`` values; it may also be a list of
+    ``(pointer, (low, high))`` pairs, which keeps repeats visible to the engine (``FM-E001``).
+    The result ranks the inputs by the absolute swing of the output; equal swings keep the
+    order given. Example::
+
+        fm.analysis.tornado(
+            "dcf.fcff", dcf_input, output="/equity_value",
+            variables={"/discount_rate": ("0.08", "0.10"), "/terminal_growth": ("0.01", "0.03")},
+        )
+    """
+    payload = {
+        "method": method,
+        "base_input": dict(base_input),
+        "output": output,
+        "variables": [
+            {"variable": p, "low": low, "high": high}
+            for p, (low, high) in (
+                variables.items() if isinstance(variables, Mapping) else variables
+            )
+        ],
+    }
+    return run("analysis.tornado", payload)

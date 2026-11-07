@@ -1,6 +1,6 @@
 ---
 source: methods/index.md
-source_hash: f046d34b90e0
+source_hash: 5707840e4e83
 ---
 # Metodi
 
@@ -28,6 +28,9 @@ elenca tutti gli input.
 | [`coc.wacc`](coc-wacc.md) | Disponibile | Costo medio ponderato del capitale alla struttura finanziaria obiettivo |
 | [`dcf.fcff`](dcf-fcff.md) | Anteprima | Enterprise value ed equity value dai flussi di cassa operativi |
 | [`analysis.goal_seek`](analysis-goal-seek.md) | Disponibile | Valore di un input di qualsiasi metodo al quale uno dei suoi output è pari a un valore obiettivo |
+| [`analysis.sensitivity`](analysis-sensitivity.md) | Disponibile | Un output di qualsiasi metodo in una tabella di valori degli input a una o a due variabili |
+| [`analysis.scenarios`](analysis-scenarios.md) | Disponibile | Output di qualsiasi metodo in scenari nominati, con gli scostamenti rispetto al caso base |
+| [`analysis.tornado`](analysis-tornado.md) | Disponibile | Input di qualsiasi metodo ordinati per l'escursione che producono su un output |
 
 ## Sviluppi
 
