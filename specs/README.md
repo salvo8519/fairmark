@@ -40,3 +40,13 @@ specs/
 
 `/spec-new` → write `spec.md` → maintainer approves → `plan.md` + `tasks.md` →
 `/implement-spec` (test-first, one task per commit) → `/pre-pr` (checks + review subagents) → PR.
+
+## Methodology: how formulas are chosen and defended
+
+Fairmark implements the formulas that practitioners commonly adopt, written cleanly in our own
+words. A formula is defended by evidence, not by citations: each method is verified against a
+published worked example (golden case) and against widely used implementations (spreadsheet
+functions, established open-source libraries) that compute it the same way. Specs state the
+formula basis in one line; methodology pages end with a short "Verified against" section.
+Standards are referenced only where they define a convention the market uses (for example
+ISDA day counts). Code from other projects is never copied; results are compared.
