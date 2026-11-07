@@ -77,4 +77,4 @@ sector benchmarks; scoring models (for example Altman Z), possible later.
       the current official text (Normattiva) and the current CNDCEC document, and decide whether
       to expose them as a separate method `ratios.crisis_indicators`.
 - [ ] ROE decomposition: which Italian form to adopt as the reference (the classic leverage
-      formula with ROI, cost of debt and D/E, or a DuPont form).
+      formula with ROI, cost of debt and D/E, or the three-factor decomposition: margin, turnover, equity multiplier).
