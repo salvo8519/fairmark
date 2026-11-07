@@ -1,0 +1,42 @@
+# Specs — spec-driven development
+
+Every feature that changes what Fairmark computes or exposes starts as a spec. Code follows
+the spec, tests follow the acceptance criteria, and reviewers check the code against both.
+
+```
+specs/
+  constitution.md          non-negotiable principles (read first)
+  _templates/              spec.md · plan.md · tasks.md
+  NNNN-short-name/
+    spec.md                WHAT and WHY — requirements and acceptance criteria
+    plan.md                HOW — design, types, schema changes, conventions, risks
+    tasks.md               ordered, test-first checklist; [P] = parallelisable
+```
+
+## Lifecycle
+
+| Status | Meaning | Who moves it |
+| --- | --- | --- |
+| `Draft` | Being written; open questions allowed | anyone |
+| `Approved` | Requirements frozen; implementation may start | maintainer |
+| `Implementing` | Tasks in progress; PRs reference the spec id | implementer |
+| `Done` | All acceptance criteria verified by tests; docs published | maintainer |
+| `Superseded` | Replaced by a newer spec (link it) | maintainer |
+
+## Rules
+
+1. **No method code without an `Approved` spec.** Refactors, docs and tooling don't need one.
+2. **Requirements use EARS phrasing** ("WHEN …, THE ENGINE SHALL …") and are numbered
+   (`R1`, `R2`, …) so tests and PRs can cite them.
+3. **Every requirement has at least one acceptance criterion**, and every acceptance criterion
+   becomes a test: golden case, property test or unit test. Tests are written before the code.
+4. **Methodology comes from a named source** (standard, textbook, practitioner model).
+   Conventions that practitioners disagree on become explicit parameters with documented
+   defaults.
+5. **PR titles and descriptions cite the spec** (`feat(dcf): FCFF build-up [SPEC-0001 R3]`).
+6. Changing an `Approved` spec requires a PR that edits the spec first.
+
+## Agent workflow
+
+`/spec-new` → write `spec.md` → maintainer approves → `plan.md` + `tasks.md` →
+`/implement-spec` (test-first, one task per commit) → `/pre-pr` (checks + review subagents) → PR.

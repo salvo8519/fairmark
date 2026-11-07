@@ -5,9 +5,9 @@
 [project]
 site_name = "Fairmark"
 site_description = "Deterministic valuation engine for analysts and AI agents — fair value, hallmarked."
-site_url = "https://fairmark-dev.github.io/fairmark/"
-repo_url = "https://github.com/fairmark-dev/fairmark"
-repo_name = "fairmark-dev/fairmark"
+site_url = "https://salvo8519.github.io/fairmark/"
+repo_url = "https://github.com/salvo8519/fairmark"
+repo_name = "salvo8519/fairmark"
 edit_uri = "edit/main/docs/"
 copyright = "Copyright &copy; 2026 The Fairmark Authors"
 # KaTeX is vendored (docs/vendor/katex, MIT): the site loads no third-party CDN.
@@ -48,6 +48,7 @@ nav = [
     "reference/errors.md",
   ] },
   { "Project" = [
+    "project/vision.md",
     "project/roadmap.md",
     "project/contributing.md",
     "project/changelog.md",
@@ -110,7 +111,7 @@ toggle.name = "Switch to system preference"
 
 [project.extra]
 social = [
-  { icon = "fontawesome/brands/github", link = "https://github.com/fairmark-dev/fairmark" },
+  { icon = "fontawesome/brands/github", link = "https://github.com/salvo8519/fairmark" },
   { icon = "fontawesome/brands/python", link = "https://pypi.org/project/fairmark/" },
 ]
 

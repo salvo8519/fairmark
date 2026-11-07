@@ -1,5 +1,5 @@
 # Source of truth for GitHub milestones, epics (parent issues) and tasks (sub-issues).
-# Apply with: python scripts/bootstrap_github.py --repo OWNER/fairmark [--dry-run]
+# Apply with: python scripts/bootstrap_github.py --repo salvo8519/fairmark [--dry-run]
 # Task tags: parallel = can be done independently; gfi = good first issue; maintainer = maintainer decision.
 
 labels:
@@ -24,6 +24,7 @@ labels:
   - { name: "maintainer", color: "d93f0b" }
   - { name: "needs-methodology", color: "fbca04" }
   - { name: "numerical-change", color: "b60205" }
+  - { name: "breaking-change", color: "b60205" }
 
 milestones:
   - title: "M0 · Foundations"

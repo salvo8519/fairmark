@@ -1,19 +1,75 @@
-# AGENTS.md — instructions for AI coding agents working on this repository
+# AGENTS.md
 
-## Golden rules
-- Financial logic lives only in `crates/fairmark-core`. Adapters (Python, CLI, MCP) never compute.
-- Use `rust_decimal::Decimal` for every value. Never introduce `f32`/`f64` in a calculation path.
-- Every new method: input type with `JsonSchema` + `deny_unknown_fields` + doc comment on every
-  field, registry entry, golden cases from an independent source, methodology page.
-- Never change an expected value in `tests/golden` to make a test pass. A changed result is a
-  `numerical-change` and needs human review.
-- No network or file I/O in `fairmark-core`.
+Instructions for AI coding agents (Claude Code, Codex, Copilot, Cursor, …) working on this
+repository. Humans: see `CONTRIBUTING.md`. Users of Fairmark (not developers): see
+`skills/fairmark/SKILL.md`.
+
+## What this project is
+Fairmark is a deterministic valuation engine (Rust core) with thin adapters: Python SDK,
+CLI, MCP server, function-calling tools. It values private companies (and later real assets)
+with exact decimal arithmetic and a full audit trail. Read `specs/constitution.md` before
+changing anything: its principles override convenience.
+
+## Repository map
+| Path | What lives there |
+| --- | --- |
+| `crates/fairmark-core/` | ALL financial logic. Methods, decimal math, explain, registry, errors. No I/O. |
+| `crates/fairmark-cli/` | `fairmark` binary (methods / schema / run / verify). Adapter only. |
+| `crates/fairmark-py/` | PyO3 bridge: 3 functions, JSON strings across the boundary. |
+| `python/fairmark/` | Pythonic API, `tools.py` (function calling), `mcp_server.py`. Adapters only. |
+| `tests/golden/` | Golden cases shared by Rust and Python. Human-reviewed. |
+| `schemas/` | Committed JSON Schema snapshots of every method input (the "migrations"). |
+| `specs/` | Spec-driven development: constitution, templates, one folder per feature. |
+| `docs/` | Documentation site (Zensical). `docs/reference/methods.md` is generated. |
+| `roadmap/roadmap.yaml` | Milestones → epics → tasks, mirrored to GitHub issues. |
+
+## How work is done here: spec-driven
+1. Find or write the spec: `specs/NNNN-*/spec.md`. **No method code without an `Approved`
+   spec.** Tooling, docs and refactors don't need one.
+2. Read `plan.md` and `tasks.md`. Work one task at a time, **test first**.
+3. Cite requirement ids in commits and PRs: `feat(dcf): FCFF build-up [SPEC-0001 R2]`.
+4. Tick tasks in `tasks.md` only when `just check` passes.
+
+## Hard rules
+- `rust_decimal::Decimal` for every value. **Never** `f32`/`f64` in a calculation path; in
+  Python never `float` for money or rates (use `Decimal` or strings).
+- Financial logic only in `fairmark-core`. Adapters translate, they never compute.
+- New input types: `Serialize + Deserialize + JsonSchema`, `#[serde(deny_unknown_fields)]`,
+  a doc comment on every field stating units (rates are decimal fractions).
+- Every calculation step that produces a number the user sees goes into `Explain`; every
+  convention that changes a number goes into `explain.conventions`.
+- Errors: add a variant to `FairmarkError` with the next free stable code, document it in
+  `docs/reference/errors.md`. Never reuse or renumber codes.
+- **Never modify expected values of an existing golden case.** If a result must change it is
+  a `numerical-change`: stop and ask the maintainer. New golden cases need an independent
+  source noted in the file.
+- Never commit real client data. Anonymise or reconstruct.
+- Conventional Commits for messages and PR titles: `feat|fix|docs|refactor|test|chore|ci|perf(scope): …`.
+- Sign off commits (`git commit -s`, DCO).
 
 ## Commands
-```bash
-cargo fmt --all && cargo clippy --workspace -- -D warnings && cargo test --workspace
-uv sync --all-extras --all-groups && uv run pytest && uv run ruff check python && uv run mypy
-```
+Install [`uv`](https://docs.astral.sh/uv/) and Rust stable. `just` is installed by uv.
 
-## Using Fairmark (not developing it)
-See `skills/fairmark/SKILL.md`.
+| Goal | Command |
+| --- | --- |
+| Set up everything | `uv sync --all-extras --all-groups` |
+| Full local gate (run before every PR) | `uv run just check` |
+| Format everything | `uv run just fmt` |
+| Rust tests incl. golden | `cargo test --workspace` |
+| Python tests incl. golden and docs snippets | `uv run pytest` |
+| Regenerate schemas + methods reference | `uv run just generate` |
+| Docs preview | `uv run zensical serve` |
+
+## Adding a method (checklist)
+1. Spec approved → golden cases from an independent source in `tests/golden/<method>/`.
+2. `crates/fairmark-core/src/<area>.rs`: input/output types + function returning
+   `Result<(Output, Explain)>`.
+3. Register in `registry.rs` (`METHODS`, `input_schema`, `run`).
+4. `uv run just generate` → updates `schemas/` and `docs/reference/methods.md`.
+5. Python helper in `python/fairmark/<area>.py`; methodology page in `docs/methods/`.
+6. CHANGELOG entry. `uv run just check`.
+
+## Review standards (what reviewers and CI check)
+See `.claude/agents/code-reviewer.md` and `.claude/agents/numerical-auditor.md`. In short:
+constitution compliance, decimal-only arithmetic, explain completeness, schema docs, golden
+cases with independent sources, no adapter logic, tests for every acceptance criterion.

@@ -1,0 +1,9 @@
+[files]
+extend-exclude = ["uv.lock", "docs/vendor/**", "*.svg", "schemas/**"]
+
+[default.extend-words]
+# Domain terms and Italian accounting acronyms
+ires = "ires"
+irap = "irap"
+tfr = "tfr"
+pfn = "pfn"

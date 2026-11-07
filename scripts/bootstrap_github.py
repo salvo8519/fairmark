@@ -3,8 +3,8 @@
 Requires the GitHub CLI (`gh auth login`) and PyYAML. Idempotent: existing labels,
 milestones and issues (matched by title) are left untouched.
 
-    python scripts/bootstrap_github.py --repo OWNER/fairmark --dry-run
-    python scripts/bootstrap_github.py --repo OWNER/fairmark
+    python scripts/bootstrap_github.py --repo salvo8519/fairmark --dry-run
+    python scripts/bootstrap_github.py --repo salvo8519/fairmark
 """
 
 from __future__ import annotations

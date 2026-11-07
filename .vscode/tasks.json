@@ -1,0 +1,10 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "fairmark: check (full gate)", "type": "shell", "command": "uv run just check", "group": { "kind": "test", "isDefault": true }, "problemMatcher": ["$rustc"] },
+    { "label": "fairmark: test", "type": "shell", "command": "uv run just test", "group": "test", "problemMatcher": ["$rustc"] },
+    { "label": "fairmark: fmt", "type": "shell", "command": "uv run just fmt", "problemMatcher": [] },
+    { "label": "fairmark: generate", "type": "shell", "command": "uv run just generate", "problemMatcher": [] },
+    { "label": "fairmark: docs preview", "type": "shell", "command": "uv run zensical serve", "isBackground": true, "problemMatcher": [] }
+  ]
+}

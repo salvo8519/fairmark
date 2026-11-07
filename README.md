@@ -6,13 +6,13 @@
 
 The deterministic valuation engine for analysts and AI agents.<br/>
 Your agent reasons and writes the report. Fairmark does the math — exactly, with an audit trail.<br/><br/>
-**[Documentation](https://fairmark-dev.github.io/fairmark/)** · [Quickstart](https://fairmark-dev.github.io/fairmark/getting-started/quickstart/) · [Methods](https://fairmark-dev.github.io/fairmark/methods/) · [Roadmap](https://fairmark-dev.github.io/fairmark/project/roadmap/)
+**[Documentation](https://salvo8519.github.io/fairmark/)** · [Quickstart](https://salvo8519.github.io/fairmark/getting-started/quickstart/) · [Methods](https://salvo8519.github.io/fairmark/methods/) · [Roadmap](https://salvo8519.github.io/fairmark/project/roadmap/)
 
-[![CI](https://github.com/fairmark-dev/fairmark/actions/workflows/ci.yml/badge.svg)](https://github.com/fairmark-dev/fairmark/actions/workflows/ci.yml)
+[![CI](https://github.com/salvo8519/fairmark/actions/workflows/ci.yml/badge.svg)](https://github.com/salvo8519/fairmark/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/fairmark.svg)](https://pypi.org/project/fairmark/)
 [![Crates.io](https://img.shields.io/crates/v/fairmark-core.svg)](https://crates.io/crates/fairmark-core)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Docs](https://img.shields.io/badge/docs-fairmark-indigo.svg)](https://fairmark-dev.github.io/fairmark/)
+[![Docs](https://img.shields.io/badge/docs-fairmark-indigo.svg)](https://salvo8519.github.io/fairmark/)
 [![MCP](https://img.shields.io/badge/MCP-ready-8A2BE2.svg)](#mcp-server)
 
 </div>
@@ -144,7 +144,7 @@ fairmark verify result.json --input company.json  # reproduce a result bit for b
 | EVA, market multiples | 🗓 M4 | |
 | Real estate: property DCF, direct capitalisation, debt & waterfall | 🗓 roadmap | |
 
-See the [roadmap](roadmap/roadmap.yaml) and the [open issues](https://github.com/fairmark-dev/fairmark/issues).
+See the [roadmap](roadmap/roadmap.yaml) and the [open issues](https://github.com/salvo8519/fairmark/issues).
 
 ## Architecture
 
@@ -188,7 +188,7 @@ financial data.
 
 Fairmark is built in the open and designed for parallel contributions: every method is an
 independent module with its own golden cases. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and
-the issues labelled [`good first issue`](https://github.com/fairmark-dev/fairmark/labels/good%20first%20issue).
+the issues labelled [`good first issue`](https://github.com/salvo8519/fairmark/labels/good%20first%20issue).
 
 Valuation professionals are as welcome as developers: a well-documented test case is a
 first-class contribution.

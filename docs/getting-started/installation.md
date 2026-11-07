@@ -32,7 +32,7 @@ python -c "import fairmark; print(fairmark.__version__)"
 ## From source
 
 ```bash
-git clone https://github.com/fairmark-dev/fairmark
+git clone https://github.com/salvo8519/fairmark
 cd fairmark
 uv sync --all-extras --all-groups   # builds the Rust extension with maturin
 ```

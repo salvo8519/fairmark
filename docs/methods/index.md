@@ -17,4 +17,4 @@ page. The [methods reference](../reference/methods.md) lists every input.
   EVA, market multiples.
 - **Real estate**: property DCF, direct capitalisation, debt and equity waterfalls.
 
-Want a method? Open a [method request](https://github.com/fairmark-dev/fairmark/issues/new/choose).
+Want a method? Open a [method request](https://github.com/salvo8519/fairmark/issues/new/choose).

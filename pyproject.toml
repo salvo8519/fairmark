@@ -29,7 +29,17 @@ mcp = ["mcp>=2.3,<3"]
 
 # Development-only dependencies (PEP 735). Installed by `uv sync`, never shipped to users.
 [dependency-groups]
-dev = ["pytest>=8", "pyyaml>=6", "ruff>=0.6", "mypy>=1.10", "maturin>=1.9,<2"]
+dev = [
+  "pytest>=8",
+  "pyyaml>=6",
+  "types-pyyaml>=6",
+  "ruff>=0.6",
+  "mypy>=1.10",
+  "maturin>=1.9,<2",
+  "rust-just>=1.40",
+  "typos>=1.30",
+  "pre-commit>=4",
+]
 docs = [
   "zensical>=0.1; python_version >= '3.11'",
   "mkdocstrings-python>=1.18; python_version >= '3.11'",
@@ -39,9 +49,9 @@ docs = [
 fairmark-mcp = "fairmark.mcp_server:main"
 
 [project.urls]
-Homepage = "https://github.com/fairmark-dev/fairmark"
-Documentation = "https://fairmark-dev.github.io/fairmark/"
-Issues = "https://github.com/fairmark-dev/fairmark/issues"
+Homepage = "https://github.com/salvo8519/fairmark"
+Documentation = "https://salvo8519.github.io/fairmark/"
+Issues = "https://github.com/salvo8519/fairmark/issues"
 
 [tool.maturin]
 manifest-path = "crates/fairmark-py/Cargo.toml"

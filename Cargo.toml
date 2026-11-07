@@ -5,10 +5,10 @@ members = ["crates/fairmark-core", "crates/fairmark-cli", "crates/fairmark-py"]
 [workspace.package]
 version = "0.1.0-alpha.1"
 edition = "2021"
-rust-version = "1.80"
+rust-version = "1.88"
 license = "Apache-2.0"
-repository = "https://github.com/fairmark-dev/fairmark"
-homepage = "https://github.com/fairmark-dev/fairmark"
+repository = "https://github.com/salvo8519/fairmark"
+homepage = "https://github.com/salvo8519/fairmark"
 authors = ["The Fairmark Authors"]
 keywords = ["valuation", "finance", "dcf", "decimal", "ai-agents"]
 categories = ["finance", "mathematics"]

@@ -1,0 +1,32 @@
+# Installed by `uv run pre-commit install`. Runs fast checks on each commit;
+# the full gate is `uv run just check` (and CI).
+repos:
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt
+        entry: cargo fmt --all --check
+        language: system
+        types: [rust]
+        pass_filenames: false
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format --check
+        language: system
+        types: [python]
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check
+        language: system
+        types: [python]
+      - id: typos
+        name: typos
+        entry: uv run typos
+        language: system
+        pass_filenames: false
+      - id: generated-files
+        name: generated files up to date
+        entry: uv run just check-generated
+        language: system
+        pass_filenames: false
+        files: ^(crates/fairmark-core/src/|schemas/|docs/reference/)

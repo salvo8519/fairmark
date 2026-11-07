@@ -1,4 +1,4 @@
-# Replace @OWNER with the maintainer's GitHub handle once the repository exists.
-/crates/fairmark-core/  @OWNER
-/tests/golden/          @OWNER
-/docs/methods/          @OWNER
+# Replace @salvo8519 with the maintainer's GitHub handle once the repository exists.
+/crates/fairmark-core/  @salvo8519
+/tests/golden/          @salvo8519
+/docs/methods/          @salvo8519

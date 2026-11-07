@@ -1,0 +1,50 @@
+# Automatic AI review of every pull request, using the project's own reviewer
+# instructions. Requires the ANTHROPIC_API_KEY repository secret (or swap in
+# claude_code_oauth_token). Skipped silently when the secret is not configured.
+name: Claude review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      id-token: write
+    steps:
+      - name: Check secret
+        id: secret
+        run: echo "present=${{ secrets.ANTHROPIC_API_KEY != '' }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v6
+        if: steps.secret.outputs.present == 'true'
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        if: steps.secret.outputs.present == 'true'
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          track_progress: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this pull request following .claude/agents/code-reviewer.md exactly.
+            If files under crates/fairmark-core/src/, tests/golden/ or docs/methods/ changed,
+            also apply .claude/agents/numerical-auditor.md (recompute with Python decimal).
+            Check traceability to the spec cited in the PR title (specs/).
+            Post inline comments for specific lines and one summary comment with
+            Blocking / Should fix / Nit and a final verdict. Do not comment on formatting:
+            CI enforces it.
+          claude_args: >-
+            --max-turns 30
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git diff:*),Bash(git log:*),Bash(python3:*),Read,Grep,Glob"
