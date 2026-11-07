@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Status | Draft — proposed for approval |
+| Status | Approved — 2026-11-07, maintainer decisions recorded below |
 | Milestone | M2 (issue #45, WACC × g sensitivity grid); scenarios brought forward from M6 (part of issue #88) |
 | Owner | @salvo8519 |
 | Formula basis | Brent's root-finding method (bisection, secant, inverse quadratic interpolation) as commonly implemented; one- and two-way data tables, scenario analysis and tornado charts as practised in spreadsheet models; cross-checked against `scipy.optimize.brentq`, direct recomputation with numpy-financial and a hand-built spreadsheet data table |
@@ -222,16 +222,22 @@ adapters and reports).
   analysis result records the inner version actually run, and reproduction needs the engine
   version in `meta`.
 
-## Open questions
-- [ ] **a. Automatic bracket expansion in goal seek v1?** Recommended: no. An explicit bracket is
+## Decisions
+The maintainer accepted every recommendation on 2026-11-07: explicit bracket, per-cell
+errors, explicit tornado shocks, Monte Carlo in a follow-up spec, and composition through the
+registry for the analysis theme (ADR 0010). Results must never be ambiguous: agents combine and
+interpret them, the engine guarantees that each one is exact, validated and verified.
+
+### Questions as asked
+- [x] **a. Automatic bracket expansion in goal seek v1?** Recommended: no. An explicit bracket is
   auditable and fails loudly with `FM-E013`; expansion adds a second convention (growth factor,
   limits) for little gain. Revisit with user feedback; it can be added as an optional field.
-- [ ] **b. Per-cell errors or fail-fast in tables and scenarios?** Recommended: per-cell (R16).
+- [x] **b. Per-cell errors or fail-fast in tables and scenarios?** Recommended: per-cell (R16).
   A WACC × g table naturally contains g ≥ WACC cells, and spreadsheet data tables show an error
   per cell. Defects (`FM-E012`) still abort. An `on_error: "fail"` option can be added later.
-- [ ] **c. Symmetric percentage shocks in tornado as a convenience?** Recommended: explicit low
+- [x] **c. Symmetric percentage shocks in tornado as a convenience?** Recommended: explicit low
   and high only. "±10% on a 9% rate" is ambiguous (8.1–9.9% or 8–10%); explicit values remove
   the ambiguity and an adapter can still offer a helper that writes them.
-- [ ] **d. Monte Carlo with a seeded generator in a follow-up spec?** Recommended: yes, a
+- [x] **d. Monte Carlo with a seeded generator in a follow-up spec?** Recommended: yes, a
   separate spec with a named generator (PCG64), the seed and the generator name in the input
   and in `explain.conventions`, and distributions sampled in decimal arithmetic.

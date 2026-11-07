@@ -1,7 +1,6 @@
 # SPEC-0008 — Plan
 
-Status: provisional, written with the spec at the maintainer's request. It becomes binding
-when SPEC-0008 is `Approved`; changes to the spec are reflected here first.
+Status: active (SPEC-0008 approved on 2026-11-07); changes to the spec are reflected here first.
 
 ## Design
 

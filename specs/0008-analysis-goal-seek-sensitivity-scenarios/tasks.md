@@ -1,6 +1,6 @@
 # SPEC-0008 — Tasks
 
-Status: provisional until SPEC-0008 is `Approved`.
+Status: active (SPEC-0008 approved on 2026-11-07).
 
 Rules: test first; one task per commit; `[P]` tasks touch disjoint files and can run in
 parallel; tick a task only when `just check` passes.
