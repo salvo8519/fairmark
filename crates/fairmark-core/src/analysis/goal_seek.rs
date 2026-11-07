@@ -98,7 +98,7 @@ pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
     pointer::read_decimal(&base, &input.variable)?;
     pointer::check_syntax(&input.output)?;
     // R5: the most evaluations this request can need, checked before the first one.
-    Inner::reserve(2 + u64::from(input.max_iterations))?;
+    inner.reserve(2 + u64::from(input.max_iterations), &base)?;
 
     // One entry per evaluation, in the order of the solver's trace: (output, inner value).
     let mut values: Vec<(Decimal, Value)> = Vec::new();

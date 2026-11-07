@@ -81,6 +81,16 @@ terms:
   Brent's method: metodo di Brent
   secant method: metodo delle secanti
   inverse quadratic interpolation: interpolazione quadratica inversa
+  sensitivity table: tabella di sensitività
+  one-way table: tabella a una variabile
+  two-way table: tabella a due variabili
+  scenario analysis: analisi di scenario
+  base case: caso base
+  delta (scenario analysis): scostamento
+  relative delta: scostamento relativo
+  swing (tornado): escursione
+  tornado chart: grafico a tornado
+  currency units: unità monetarie
 keep_in_english:
   - Fairmark
   - explain

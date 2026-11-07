@@ -137,8 +137,8 @@ def test_goal_seek_on_npv_agrees_with_irr_and_pyxirr() -> None:
 def test_sensitivity_table_agrees_with_numpy_financial() -> None:
     """SPEC-0008 AC6: each cell of a WACC by growth table recomputed independently."""
     flows = [100, 110, 120, 130, 140]
-    rates = ["0.07", "0.09", "0.11"]
-    growths = ["0", "0.02", "0.08"]
+    rates = ["0.07", "0.08", "0.09", "0.10", "0.11"]
+    growths = ["0", "0.01", "0.02", "0.03", "0.08"]
     table = fm.analysis.sensitivity(
         "dcf.fcff",
         {

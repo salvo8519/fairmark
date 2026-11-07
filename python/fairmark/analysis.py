@@ -94,12 +94,15 @@ def scenarios(
     base_input: Mapping[str, Any],
     *,
     outputs: Sequence[str],
-    cases: Mapping[str, Mapping[str, Number]],
+    cases: Mapping[str, Mapping[str, Number]] | Sequence[tuple[str, Mapping[str, Number]]],
 ) -> Result:
     """The ``outputs`` of ``method`` under named cases, with deltas against the base case.
 
-    ``cases`` maps each scenario name to the inputs it changes, as ``{pointer: value}``. A case
-    the method refuses holds its error; the others are returned. Example::
+    ``cases`` maps each scenario name to the inputs it changes, as ``{pointer: value}``; it may
+    also be a list of ``(name, changes)`` pairs. A repeated key in a Python dict literal
+    silently replaces the earlier one before Fairmark sees it: use the list form when names
+    or pointers are generated, so that repeats are refused (``FM-E001``). A case the method
+    refuses holds its error; the others are returned. Example::
 
         fm.analysis.scenarios(
             "dcf.fcff", dcf_input, outputs=["/enterprise_value", "/equity_value"],
@@ -113,7 +116,7 @@ def scenarios(
         "outputs": list(outputs),
         "scenarios": [
             {"name": name, "overrides": [{"pointer": p, "value": v} for p, v in changes.items()]}
-            for name, changes in cases.items()
+            for name, changes in (cases.items() if isinstance(cases, Mapping) else cases)
         ],
     }
     return run("analysis.scenarios", payload)
@@ -124,12 +127,14 @@ def tornado(
     base_input: Mapping[str, Any],
     *,
     output: str,
-    variables: Mapping[str, tuple[Number, Number]],
+    variables: Mapping[str, tuple[Number, Number]] | Sequence[tuple[str, tuple[Number, Number]]],
 ) -> Result:
     """Which inputs move ``output`` the most: each varied alone between low and high.
 
-    ``variables`` maps each pointer to its ``(low, high)`` values. The result ranks the inputs
-    by the absolute swing of the output; equal swings keep the order given. Example::
+    ``variables`` maps each pointer to its ``(low, high)`` values; it may also be a list of
+    ``(pointer, (low, high))`` pairs, which keeps repeats visible to the engine (``FM-E001``).
+    The result ranks the inputs by the absolute swing of the output; equal swings keep the
+    order given. Example::
 
         fm.analysis.tornado(
             "dcf.fcff", dcf_input, output="/equity_value",
@@ -141,7 +146,10 @@ def tornado(
         "base_input": dict(base_input),
         "output": output,
         "variables": [
-            {"variable": p, "low": low, "high": high} for p, (low, high) in variables.items()
+            {"variable": p, "low": low, "high": high}
+            for p, (low, high) in (
+                variables.items() if isinstance(variables, Mapping) else variables
+            )
         ],
     }
     return run("analysis.tornado", payload)

@@ -182,9 +182,9 @@ fairmark verify result.json --input company.json  # riproduce un risultato bit p
 | `coc.wacc` | Disponibile | Weighted average cost of capital (WACC) |
 | `dcf.fcff` | Anteprima | DCF — unlevered free cash flow |
 | `analysis.goal_seek` | Disponibile | Goal seek |
-| `analysis.sensitivity` |  | Sensitivity table |
-| `analysis.scenarios` |  | Scenario analysis |
-| `analysis.tornado` |  | Tornado |
+| `analysis.sensitivity` | Disponibile | Sensitivity table |
+| `analysis.scenarios` | Disponibile | Scenario analysis |
+| `analysis.tornado` | Disponibile | Tornado |
 
 Le prossime funzionalità, con le loro issue e specifiche, sono nella [roadmap](https://salvo8519.github.io/fairmark/project/roadmap/), generata dal piano.
 

@@ -20,5 +20,5 @@ function calling) reports errors as `{"code": "...", "message": "..."}`.
 | `FM-E013` | Goal seek: the output minus the target has the same sign at both ends of the bracket | Widen the bracket so that the target lies between the outputs at its two ends |
 | `FM-E014` | Goal seek did not reach the tolerance within `max_iterations`; also returned when the output jumps across the target (discontinuity) | Raise `max_iterations` or the tolerance; check that the output is continuous in the variable |
 | `FM-E015` | An analysis pointer (`variable`, override `pointer`, `output`) does not resolve to a decimal | Use an RFC 6901 pointer to an existing decimal field, for example `/discount_rate` |
-| `FM-E016` | The analysis needs more than 10,000 evaluations of the inner method | Split the request into smaller tables |
+| `FM-E016` | The analysis needs more than 10,000 evaluations of the inner method, or more than 1,000,000 evaluations × values in `base_input` | Split the request into smaller tables, or shorten the inner input |
 | `FM-E017` | An analysis method was asked to evaluate another analysis method | Run the inner analysis directly; analyses do not nest |

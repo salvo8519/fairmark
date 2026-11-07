@@ -1,0 +1,26 @@
+method: analysis.tornado
+description: Equal swings keep the order of the variables
+source: >
+  Constructed: at rate 0 the NPV is the sum of the flows, so shocking either flow by plus or
+  minus 1 moves the NPV by 2 in both cases; the tie keeps the declaration order.
+input:
+  method: tvm.npv
+  base_input:
+    rate: "0"
+    cash_flows: [-100, 50, 60]
+  output: /npv
+  variables:
+  - {variable: /cash_flows/2, low: "59", high: "61"}
+  - {variable: /cash_flows/1, low: "49", high: "51"}
+expect:
+  /base: "10"
+  /ranking/0/variable: "/cash_flows/2"
+  /ranking/0/output_low: "9"
+  /ranking/0/output_high: "11"
+  /ranking/0/swing: "2"
+  /ranking/0/abs_swing: "2"
+  /ranking/1/variable: "/cash_flows/1"
+  /ranking/1/output_low: "9"
+  /ranking/1/output_high: "11"
+  /ranking/1/swing: "2"
+tolerance: "0"

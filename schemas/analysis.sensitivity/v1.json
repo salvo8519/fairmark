@@ -1,0 +1,76 @@
+{
+  "$defs": {
+    "Axis": {
+      "additionalProperties": false,
+      "description": "One axis of the table: a variable and the values it takes.",
+      "properties": {
+        "values": {
+          "description": "Values of the variable, in the variable's units, in the order of the table; at least one.",
+          "items": {
+            "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "type": "array"
+        },
+        "variable": {
+          "description": "RFC 6901 JSON Pointer to a decimal input of the inner method, for example\n`/discount_rate`.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "variable",
+        "values"
+      ],
+      "type": "object"
+    },
+    "BaseInput": {
+      "description": "Input of the inner method, exactly as that method accepts it. It is validated by the inner method at run time against its own schema; this schema does not describe it.",
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:analysis.sensitivity:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "base_input": {
+      "$ref": "#/$defs/BaseInput",
+      "description": "Input of that method, complete: the base case."
+    },
+    "columns": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Axis"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Optional second variable, along the columns, different from the row variable. Absent:\na one-way table (one column)."
+    },
+    "method": {
+      "description": "Id of the method to evaluate, for example `dcf.fcff`. Analysis methods are not accepted.",
+      "type": "string"
+    },
+    "output": {
+      "description": "RFC 6901 JSON Pointer to the decimal output reported in each cell, in the `value` of\nthe inner result, for example `/enterprise_value`.",
+      "type": "string"
+    },
+    "rows": {
+      "$ref": "#/$defs/Axis",
+      "description": "The variable that changes along the rows, and its values."
+    }
+  },
+  "required": [
+    "method",
+    "base_input",
+    "output",
+    "rows"
+  ],
+  "title": "SensitivityInput",
+  "type": "object",
+  "x-fairmark-method": "analysis.sensitivity",
+  "x-fairmark-method-version": "1"
+}

@@ -1,0 +1,49 @@
+method: analysis.tornado
+description: Equity value of a five-year DCF, four drivers ranked by swing
+source: >
+  scripts/reference_analysis.py, tornado_ranking (Python decimal, 50 digits, dcf.fcff restated
+  from its documented formula; each driver varied alone, ranked by absolute swing).
+input:
+  method: dcf.fcff
+  base_input:
+    free_cash_flows: [100, 110, 120, 130, 140]
+    discount_rate: "0.09"
+    terminal_growth: "0.02"
+    net_debt: 300
+  output: /equity_value
+  variables:
+  - {variable: /net_debt, low: "250", high: "350"}
+  - {variable: /free_cash_flows/0, low: "90", high: "110"}
+  - {variable: /terminal_growth, low: "0.01", high: "0.03"}
+  - {variable: /discount_rate, low: "0.08", high: "0.10"}
+expect:
+  /base: "1485.9356357015730744749501235001212576012519743722"
+  /ranking/0/variable: "/discount_rate"
+  /ranking/0/low: "0.08"
+  /ranking/0/high: "0.10"
+  /ranking/0/output_low: "1792.7832691368060298948205602001601933861582627862"
+  /ranking/0/output_high: "1256.0412540127040502697903148692029232975889625026"
+  /ranking/0/swing: "-536.7420151241019796250302453309572700885693002836"
+  /ranking/0/abs_swing: "536.7420151241019796250302453"
+  /ranking/1/variable: "/terminal_growth"
+  /ranking/1/low: "0.01"
+  /ranking/1/high: "0.03"
+  /ranking/1/output_low: "1308.8293329352739300705398110138314992641481068884"
+  /ranking/1/output_high: "1722.0773727233052670141638734818409353840571310172"
+  /ranking/1/swing: "413.2480397880313369436240624680094361199090241288"
+  /ranking/1/abs_swing: "413.2480397880313369436240625"
+  /ranking/2/variable: "/net_debt"
+  /ranking/2/low: "250"
+  /ranking/2/high: "350"
+  /ranking/2/output_low: "1535.9356357015730744749501235001212576012519743722"
+  /ranking/2/output_high: "1435.9356357015730744749501235001212576012519743722"
+  /ranking/2/swing: "-100.0000000000000000000000000000000000000000000000"
+  /ranking/2/abs_swing: "100.0000000000000000000000000"
+  /ranking/3/variable: "/free_cash_flows/0"
+  /ranking/3/low: "90"
+  /ranking/3/high: "110"
+  /ranking/3/output_low: "1476.7613237749675698877941601973689640232703229961"
+  /ranking/3/output_high: "1495.1099476281785790621060868028735511792336257484"
+  /ranking/3/swing: "18.3486238532110091743119266055045871559633027523"
+  /ranking/3/abs_swing: "18.34862385321100917431192661"
+tolerance: "0.000000001"

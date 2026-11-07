@@ -22,6 +22,21 @@ use crate::registry;
 /// Most inner evaluations one analysis request may perform (ADR 0010).
 pub const EVALUATION_LIMIT: u64 = 10_000;
 
+/// Most work one analysis request may perform: evaluations × values in the base input. Each
+/// evaluation parses, validates and computes the whole inner input, so the cost grows with
+/// both; this bound keeps the cost of a request predictable whatever the input size.
+pub const WORK_LIMIT: u64 = 1_000_000;
+
+/// Size of a JSON document: every value counts one, containers included, so that empty
+/// arrays and objects are not free.
+pub(crate) fn size_of(value: &Value) -> u64 {
+    match value {
+        Value::Array(items) => 1 + items.iter().map(size_of).sum::<u64>(),
+        Value::Object(map) => 1 + map.values().map(size_of).sum::<u64>(),
+        _ => 1,
+    }
+}
+
 /// Theme prefix of analysis method ids.
 const THEME: &str = "analysis.";
 
@@ -84,6 +99,8 @@ pub(crate) struct Inner {
     id: &'static str,
     version: &'static str,
     evaluations: u64,
+    /// Evaluations reserved by `reserve` before the first one; exceeding it is a defect.
+    reserved: u64,
 }
 
 impl Inner {
@@ -97,6 +114,7 @@ impl Inner {
             id: info.id,
             version: info.version,
             evaluations: 0,
+            reserved: 0,
         })
     }
 
@@ -111,21 +129,34 @@ impl Inner {
         self.id
     }
 
-    /// Fails with `FM-E016` before any evaluation when `needed` exceeds the limit.
-    pub(crate) fn reserve(needed: u64) -> Result<()> {
+    /// Fails with `FM-E016` before any evaluation when the request needs more than
+    /// `EVALUATION_LIMIT` evaluations, or more than `WORK_LIMIT` evaluations × input values.
+    pub(crate) fn reserve(&mut self, needed: u64, base: &Value) -> Result<()> {
         if needed > EVALUATION_LIMIT {
-            return Err(FairmarkError::EvaluationLimit {
-                needed,
-                limit: EVALUATION_LIMIT,
-            });
+            return Err(FairmarkError::EvaluationLimit(format!(
+                "the request needs {needed} evaluations, more than {EVALUATION_LIMIT}"
+            )));
         }
+        let size = size_of(base).max(1);
+        let work = needed.saturating_mul(size);
+        if work > WORK_LIMIT {
+            return Err(FairmarkError::EvaluationLimit(format!(
+                "{needed} evaluations of an input of {size} values need {work} units of work, \
+                more than {WORK_LIMIT}; use fewer evaluations or a shorter input"
+            )));
+        }
+        self.reserved = needed;
         Ok(())
     }
 
     /// Runs the inner method; returns the `value` of its result.
     pub(crate) fn evaluate(&mut self, input: &Value) -> Result<Value> {
         self.evaluations += 1;
-        Self::reserve(self.evaluations)?;
+        if self.evaluations > self.reserved {
+            return Err(FairmarkError::Internal(
+                "an analysis exceeded its reserved evaluations",
+            ));
+        }
         let mut envelope = registry::evaluate(self.id, input)?;
         Ok(envelope["value"].take())
     }

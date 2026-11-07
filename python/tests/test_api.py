@@ -53,3 +53,27 @@ def test_dispatch_never_raises() -> None:
     assert out["error"]["code"] == "FM-E006"
     ok = fm.tools.dispatch("fairmark_tvm_irr", {"cash_flows": [-100, 110]})
     assert Decimal(ok["value"]["irr"]) == Decimal("0.1")
+
+
+def test_names_and_versions_stay_text() -> None:
+    """Fields that name things are not turned into decimals, even when they look numeric."""
+    r = fm.analysis.scenarios(
+        "tvm.npv",
+        {"rate": "0.1", "cash_flows": [-100, 60, 60]},
+        outputs=["/npv"],
+        cases={"2025": {"/rate": "0.05"}},
+    )
+    assert r.inner_method["version"] == "2"
+    assert r.scenarios[0]["name"] == "2025"
+    assert isinstance(r.scenarios[0]["value"][0]["value"], Decimal)
+
+
+def test_repeated_names_in_the_list_form_reach_the_engine() -> None:
+    with pytest.raises(fm.FairmarkError) as err:
+        fm.analysis.scenarios(
+            "tvm.npv",
+            {"rate": "0.1", "cash_flows": [-100, 60, 60]},
+            outputs=["/npv"],
+            cases=[("a", {"/rate": "0.05"}), ("a", {"/rate": "0.2"})],
+        )
+    assert err.value.code == "FM-E001"

@@ -1,4 +1,4 @@
-"""Independent reference for SPEC-0008 (analysis: goal seek).
+"""Independent reference for SPEC-0008 (analysis: goal seek, tables, scenarios, tornado).
 
 Two references in Python's `decimal` module at 50 digits, sharing no code with the Rust engine:
 

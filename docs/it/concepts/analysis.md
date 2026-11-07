@@ -1,6 +1,6 @@
 ---
 source: concepts/analysis.md
-source_hash: 39b0c4ec36f5
+source_hash: 9c3c02b49eca
 ---
 # Metodi di analisi
 
@@ -16,10 +16,13 @@ il metodo interno, modificandone uno o più input decimali, e ne riporta gli out
 | Metodo | Stato | Domanda a cui risponde |
 | --- | --- | --- |
 | [`analysis.goal_seek`](../methods/analysis-goal-seek.md) | Disponibile | Quale valore di un input porta un output a un valore obiettivo |
+| [`analysis.sensitivity`](../methods/analysis-sensitivity.md) | Disponibile | Come varia un output in una tabella di valori degli input a una o a due variabili |
+| [`analysis.scenarios`](../methods/analysis-scenarios.md) | Disponibile | Quali sono gli output con insiemi nominati di modifiche degli input, con gli scostamenti rispetto al caso base |
+| [`analysis.tornado`](../methods/analysis-tornado.md) | Disponibile | Quali input muovono di più un output, facendo variare ciascuno da solo tra un valore basso e uno alto |
 
-Tabelle di sensitività, scenari e tornado sono specificati nella SPEC-0008 e seguiti nella
-[roadmap](https://salvo8519.github.io/fairmark/project/roadmap/) (in inglese); ogni metodo del tema `analysis` segue le regole di questa
-pagina.
+I quattro metodi sono specificati nella SPEC-0008 e ogni metodo del tema `analysis` segue le
+regole di questa pagina. Tabelle di sensitività, analisi di scenario e tornado valutano prima
+`base_input` senza modifiche e ne riportano gli output come caso base.
 
 ## Composizione tramite il registro
 
@@ -71,10 +74,24 @@ esprime un valore come numero `0.1` o come stringa `"0.1"` produce un `value` id
 
 ## Costo limitato
 
-Una richiesta esegue al massimo 10.000 valutazioni del metodo interno. Quando il numero di
-valutazioni è noto in anticipo (una tabella di 101 × 100 celle), una richiesta oltre il limite
-restituisce `FM-E016` prima della prima valutazione. La ricerca obiettivo (goal seek) richiede
-al massimo 2 + `max_iterations` valutazioni, e `max_iterations` è limitato a 1.000.
+Una richiesta esegue al massimo 10.000 valutazioni del metodo interno, compreso il caso base.
+Il numero di valutazioni è noto in anticipo, quindi una richiesta oltre il limite restituisce
+`FM-E016` prima della prima valutazione:
+
+| Metodo | Valutazioni |
+| --- | --- |
+| Ricerca obiettivo (goal seek) | al massimo 2 + `max_iterations`, e `max_iterations` è limitato a 1.000 |
+| Tabella di sensitività | righe × colonne + 1, quindi al massimo 9.999 celle (una tabella di 100 × 100 è rifiutata) |
+| Analisi di scenario | scenari + 1 |
+| Tornado | 2 × variabili + 1 |
+
+Le celle e gli scenari in errore contano ai fini del limite come qualsiasi altra valutazione.
+
+Ogni valutazione legge, valida e calcola l'intero input del metodo interno, quindi il costo
+cresce anche con la dimensione di `base_input`. Vale un secondo limite: valutazioni × valori in
+`base_input` (ogni numero, stringa, lista e oggetto conta uno) al massimo 1.000.000. Una tabella 21 × 21
+su un DCF a dieci anni usa circa 6.000 unità; una tabella 60 × 60 su un DCF con 300 flussi
+annuali è rifiutata con `FM-E016`, sempre prima della prima valutazione.
 
 ## Determinismo
 
@@ -92,8 +109,12 @@ richieste che differiscono solo per l'ordine delle chiavi hanno lo stesso hash. 
 
 Un errore sollevato dal metodo interno mantiene il proprio codice. Nella ricerca obiettivo e nel
 tornado qualsiasi errore di questo tipo interrompe la richiesta, perché la ricerca o
-l'ordinamento non sono definiti senza quel valore. Nelle tabelle di sensitività e negli scenari
-una cella o uno scenario in errore registra il proprio errore e gli altri sono comunque
-restituiti: una tabella WACC × g contiene naturalmente celle in cui la crescita non è inferiore
-al tasso di attualizzazione (`FM-E004`). Un difetto interno (`FM-E012`) interrompe sempre la
-richiesta.
+l'ordinamento non sono definiti senza quel valore.
+
+Nelle tabelle di sensitività e negli scenari gli errori sono per cella: una cella o uno scenario
+in errore contiene `{"error": {"code", "message"}}` al posto del valore, gli altri sono comunque
+restituiti e il risultato li conta in `failed_cells` o `failed_scenarios`. Una tabella WACC × g
+contiene naturalmente celle in cui la crescita non è inferiore al tasso di attualizzazione
+(`FM-E004`), e anche una tabella dati di un foglio di calcolo mostra un errore in quelle celle.
+Due errori interrompono comunque la richiesta: un errore sul caso base, rispetto al quale si
+leggono tutte le altre celle e tutti gli altri scenari, e un difetto interno (`FM-E012`).

@@ -16,8 +16,10 @@ per inner method.
 2. Composition is one level deep: an analysis method cannot evaluate another analysis method
    (`FM-E017`). This bounds recursion and cost.
 3. Every analysis result records the inner method id and version actually run.
-4. One request performs at most 10,000 inner evaluations (`FM-E016`), checked before any
-   evaluation where the count is known in advance.
+4. One request performs at most 10,000 inner evaluations, and at most 1,000,000 evaluations ×
+   values of `base_input` (`FM-E016`), checked before the first evaluation. The second bound was
+   added with SPEC-0008 R5 after the numerical audit: the cost of an evaluation grows with the
+   size of the inner input, so counting evaluations alone did not make the cost predictable.
 5. Every other theme keeps typed composition (ADR 0009). Run-time composition is the
    exception for generic tools, not a second way to build methods.
 

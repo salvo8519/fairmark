@@ -55,6 +55,9 @@ nav = [
     "methods/coc-wacc.md",
     "methods/dcf-fcff.md",
     "methods/analysis-goal-seek.md",
+    "methods/analysis-sensitivity.md",
+    "methods/analysis-scenarios.md",
+    "methods/analysis-tornado.md",
   ] },
   { "Concepts" = [
     "concepts/determinism.md",

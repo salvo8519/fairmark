@@ -23,6 +23,9 @@ page. The [methods reference](../reference/methods.md) lists every input.
 | [`coc.wacc`](coc-wacc.md) | available | Weighted average cost of capital at a target capital structure |
 | [`dcf.fcff`](dcf-fcff.md) | preview | Enterprise and equity value from unlevered free cash flows |
 | [`analysis.goal_seek`](analysis-goal-seek.md) | available | Value of one input of any method at which one of its outputs equals a target |
+| [`analysis.sensitivity`](analysis-sensitivity.md) | available | One output of any method across a one-way or two-way table of input values |
+| [`analysis.scenarios`](analysis-scenarios.md) | available | Outputs of any method under named cases, with deltas against the base case |
+| [`analysis.tornado`](analysis-tornado.md) | available | Inputs of any method ranked by the swing they cause in one output |
 
 ## Next
 

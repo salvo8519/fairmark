@@ -1,0 +1,28 @@
+# Contract cases for analysis.scenarios: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: analysis.scenarios
+extreme_inputs:
+- method: tvm.npv
+  base_input: {rate: '0.1', cash_flows: ['-100', '60', '60']}
+  outputs: [/npv]
+  scenarios:
+  - {name: max, overrides: [{pointer: /cash_flows/0, value: MAX}, {pointer: /rate, value: MIN}]}
+  - {name: min, overrides: [{pointer: /cash_flows/1, value: MIN}]}
+- method: tvm.npv
+  base_input: {rate: '0', cash_flows: ['0.0000000000000000000000000001', '0']}
+  outputs: [/npv]
+  scenarios:
+  - {name: huge, overrides: [{pointer: /cash_flows/1, value: MAX}]}
+conventions:
+- input:
+    method: tvm.npv
+    base_input: {rate: '0.1', cash_flows: ['-100', '60', '60']}
+    outputs: [/npv]
+    scenarios:
+    - {name: lower, overrides: [{pointer: /rate, value: '0.05'}]}
+  expect:
+  - inner method tvm.npv version 2
+  - inputs a scenario does not change keep their base value
+  - relative delta is null when the base output is zero
+  - the overrides are written into the inner input as decimal strings

@@ -1,0 +1,25 @@
+method: analysis.sensitivity
+description: One-way table of the enterprise value across WACC
+source: >
+  scripts/reference_analysis.py, enterprise_value (Python decimal, 50 digits); the same values
+  as the terminal growth 0.02 column of wacc-g-5x5.yaml.
+input:
+  method: dcf.fcff
+  base_input:
+    free_cash_flows: [100, 110, 120, 130, 140]
+    discount_rate: "0.09"
+    terminal_growth: "0.02"
+    net_debt: 300
+  output: /enterprise_value
+  rows:
+    variable: /discount_rate
+    values: ["0.07", "0.08", "0.09", "0.10", "0.11"]
+expect:
+  /cells/0/0/value: "2522.7749205614380837183048794907454745761699411947"
+  /cells/1/0/value: "2092.7832691368060298948205602001601933861582627862"
+  /cells/2/0/value: "1785.9356357015730744749501235001212576012519743722"
+  /cells/3/0/value: "1556.0412540127040502697903148692029232975889625026"
+  /cells/4/0/value: "1377.4391765896784428829987902574002187128827282495"
+  /failed_cells: "0"
+  /base: "1785.9356357015730744749501235001212576012519743722"
+tolerance: "0.000000001"

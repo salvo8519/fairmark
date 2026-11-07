@@ -1,0 +1,26 @@
+# Contract cases for analysis.sensitivity: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: analysis.sensitivity
+extreme_inputs:
+- method: tvm.npv
+  base_input: {rate: '0.1', cash_flows: ['-100', '60', '60']}
+  output: /npv
+  rows: {variable: /rate, values: [MIN, '-1', '0', MAX]}
+  columns: {variable: /cash_flows/0, values: [MIN, MAX]}
+- method: dcf.fcff
+  base_input: {free_cash_flows: [MAX, MAX], discount_rate: '0.1', terminal_growth: '0.02', net_debt: MIN}
+  output: /equity_value
+  rows: {variable: /discount_rate, values: ['0.0000000000000000000000000001', MAX]}
+conventions:
+- input:
+    method: tvm.npv
+    base_input: {rate: '0.1', cash_flows: ['-100', '60', '60']}
+    output: /npv
+    rows: {variable: /rate, values: ['0.05', '0.1']}
+  expect:
+  - inner method tvm.npv version 2
+  - each cell reports /npv
+  - row-major
+  - holds its error code and message and the table goes on
+  - the variables are written into the inner input as decimal strings

@@ -11,10 +11,13 @@ inner method, repeatedly, changing one or more of its decimal inputs, and report
 | Method | Status | Question it answers |
 | --- | --- | --- |
 | [`analysis.goal_seek`](../methods/analysis-goal-seek.md) | Available | Which value of one input makes one output equal a target |
+| [`analysis.sensitivity`](../methods/analysis-sensitivity.md) | Available | How one output moves across a one-way or two-way table of input values |
+| [`analysis.scenarios`](../methods/analysis-scenarios.md) | Available | What the outputs are under named sets of input changes, with deltas against the base case |
+| [`analysis.tornado`](../methods/analysis-tornado.md) | Available | Which inputs move one output the most, each varied alone between a low and a high value |
 
-Sensitivity tables, scenarios and tornado are specified in SPEC-0008 and tracked in the
-[roadmap](../project/roadmap.md); every method of the `analysis` theme follows the rules on
-this page.
+The four methods are specified in SPEC-0008, and every method of the `analysis` theme follows
+the rules on this page. Sensitivity tables, scenarios and tornado first evaluate `base_input`
+unchanged and report its outputs as the base case.
 
 ## Composition through the registry
 
@@ -62,10 +65,24 @@ covers the request as written.
 
 ## Bounded cost
 
-One request performs at most 10,000 evaluations of the inner method. Where the number of
-evaluations is known in advance (a table of 101 × 100 cells), a request above the cap returns
-`FM-E016` before the first evaluation. Goal seek needs at most 2 + `max_iterations`
-evaluations, and `max_iterations` is capped at 1,000.
+One request performs at most 10,000 evaluations of the inner method, the base case included.
+The number of evaluations is known in advance, so a request above the cap returns `FM-E016`
+before the first evaluation:
+
+| Method | Evaluations |
+| --- | --- |
+| Goal seek | at most 2 + `max_iterations`, and `max_iterations` is capped at 1,000 |
+| Sensitivity table | rows × columns + 1, so at most 9,999 cells (a 100 × 100 table is refused) |
+| Scenarios | scenarios + 1 |
+| Tornado | 2 × variables + 1 |
+
+Failed cells and failed scenarios count against the limit like any other evaluation.
+
+Each evaluation parses, validates and computes the whole inner input, so the cost also grows
+with the size of `base_input`. A second bound applies: evaluations × values in `base_input`
+(every number, string, list and object counts one) at most 1,000,000. A 21 × 21 table on a ten-year DCF
+uses about 6,000 units; a 60 × 60 table on a DCF with 300 yearly flows is refused with
+`FM-E016`, again before the first evaluation.
 
 ## Determinism
 
@@ -81,6 +98,10 @@ that differ only in key order have the same hash. See [the determinism contract]
 
 An error raised by the inner method keeps its own code. In goal seek and in tornado any such
 error stops the request, because the search or the ranking is not defined without that value.
-In sensitivity tables and scenarios a failing cell or scenario records its error and the
-others are still returned: a WACC × g table naturally contains cells where growth is not below
-the discount rate (`FM-E004`). An internal defect (`FM-E012`) always stops the request.
+
+In sensitivity tables and scenarios the errors are per cell: a failing cell or scenario holds
+`{"error": {"code", "message"}}` in place of its value, the others are still returned, and the
+result counts them in `failed_cells` or `failed_scenarios`. A WACC × g table naturally contains
+cells where growth is not below the discount rate (`FM-E004`), and a spreadsheet data table
+shows an error in those cells too. Two errors still stop the request: an error on the base case,
+which every other cell or scenario is read against, and an internal defect (`FM-E012`).
