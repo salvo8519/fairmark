@@ -1,0 +1,6 @@
+method: tvm.xirr
+description: ECMA-376 and Microsoft XIRR example (Excel iterates to 0.000001 percent)
+source: ECMA-376 / ISO/IEC 29500 SpreadsheetML, function XIRR, and Microsoft XIRR documentation, result 0.373362535
+input: { cash_flows: [{date: "2008-01-01", amount: "-10000"}, {date: "2008-03-01", amount: "2750"}, {date: "2008-10-30", amount: "4250"}, {date: "2009-02-15", amount: "3250"}, {date: "2009-04-01", amount: "2750"}] }
+expect: { xirr: "0.373362535" }
+tolerance: "0.00000001"

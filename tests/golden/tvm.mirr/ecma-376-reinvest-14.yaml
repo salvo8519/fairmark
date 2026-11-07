@@ -1,0 +1,6 @@
+method: tvm.mirr
+description: ECMA-376 MIRR example, reinvestment at 14%
+source: ECMA-376 / ISO/IEC 29500 SpreadsheetML, function MIRR, result 13.4759%; Independent 50-digit reference, scripts/reference_time.py
+input: { cash_flows: ["-120000", "39000", "30000", "21000", "37000", "46000"], finance_rate: "0.10", reinvest_rate: "0.14" }
+expect: { mirr: "0.13475911082831484628" }
+tolerance: "0.0000000000000000001"

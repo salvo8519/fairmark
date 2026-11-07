@@ -1,0 +1,6 @@
+method: rates.convert
+description: 5% continuous as a quarterly compounded rate
+source: closed form 4 (e^(0.05/4) - 1); Independent 50-digit reference, scripts/reference_time.py
+input: { rate: "0.05", from: continuous, to: quarterly }
+expect: { rate: "0.05031380616253750671" }
+tolerance: "0.0000000000000000001"

@@ -1,0 +1,6 @@
+method: dates.year_fraction
+description: Actual/360, 182 days
+source: 2006 ISDA Definitions section 4.16(e); Independent 50-digit reference, scripts/reference_time.py
+input: { start: "2024-01-15", end: "2024-07-15", day_count: act_360 }
+expect: { year_fraction: "0.50555555555555555556" }
+tolerance: "0.0000000000000000001"

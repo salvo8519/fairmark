@@ -1,0 +1,6 @@
+method: rates.convert
+description: 10% annual as a continuously compounded rate, ln(1.1)
+source: Hull, Options, Futures, and Other Derivatives, continuous compounding (ln 1.1 = 0.0953); Independent 50-digit reference, scripts/reference_time.py
+input: { rate: "0.10", from: annual, to: continuous }
+expect: { rate: "0.09531017980432486004" }
+tolerance: "0.0000000000000000001"

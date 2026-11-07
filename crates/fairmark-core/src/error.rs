@@ -15,7 +15,7 @@ pub enum FairmarkError {
     #[error("the cash flow series is empty")]
     EmptyCashFlows,
 
-    #[error("the rate must be greater than -100% (got {0})")]
+    #[error("rate out of range (got {0}): one plus the rate per period, or per compounding period, must be positive")]
     RateOutOfRange(Decimal),
 
     #[error("terminal growth ({growth}) must be lower than the discount rate ({rate})")]
@@ -32,6 +32,23 @@ pub enum FairmarkError {
 
     #[error("arithmetic overflow while computing {0}")]
     Overflow(&'static str),
+
+    #[error("invalid date: {0}")]
+    InvalidDate(String),
+
+    #[error("a cash flow dated {date} precedes the valuation date {valuation_date}")]
+    FlowBeforeValuationDate {
+        date: String,
+        valuation_date: String,
+    },
+
+    #[error("more than one rate sets the present value to zero, in the intervals {0}; the result is ambiguous")]
+    MultipleRates(String),
+
+    #[error(
+        "internal error ({0}); this is a defect in Fairmark, please report it with the input hash"
+    )]
+    Internal(&'static str),
 }
 
 impl FairmarkError {
@@ -46,6 +63,10 @@ impl FairmarkError {
             Self::NoSignChange => "FM-E006",
             Self::UnknownMethod(_) => "FM-E007",
             Self::Overflow(_) => "FM-E008",
+            Self::InvalidDate(_) => "FM-E009",
+            Self::FlowBeforeValuationDate { .. } => "FM-E010",
+            Self::MultipleRates(_) => "FM-E011",
+            Self::Internal(_) => "FM-E012",
         }
     }
 

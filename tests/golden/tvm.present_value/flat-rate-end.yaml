@@ -1,0 +1,6 @@
+method: tvm.present_value
+description: Constant 10% rate, flows growing at 10%, end of period (each PV equals 90.9090...)
+source: closed form; Independent 50-digit reference, scripts/reference_time.py
+input: { cash_flows: ["100", "110", "121"], rate: "0.10", timing: end_of_period }
+expect: { present_value: "272.72727272727272727273" }
+tolerance: "0.000000000000000001"

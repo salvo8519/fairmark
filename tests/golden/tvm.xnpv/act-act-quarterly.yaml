@@ -1,0 +1,6 @@
+method: tvm.xnpv
+description: Same flows with Actual/Actual (ISDA) and quarterly compounding
+source: Independent 50-digit reference, scripts/reference_time.py
+input: { rate: "0.09", day_count: act_act_isda, compounding: quarterly, cash_flows: [{date: "2008-01-01", amount: "-10000"}, {date: "2008-03-01", amount: "2750"}, {date: "2008-10-30", amount: "4250"}, {date: "2009-02-15", amount: "3250"}, {date: "2009-04-01", amount: "2750"}] }
+expect: { xnpv: "2060.27896286742419168513" }
+tolerance: "0.0000000000000000001"

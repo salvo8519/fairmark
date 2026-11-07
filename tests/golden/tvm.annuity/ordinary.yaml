@@ -1,0 +1,6 @@
+method: tvm.annuity
+description: Ordinary annuity of 1000 for 10 periods at 5%
+source: closed form P [1 - (1 + r)^-n] / r; Independent 50-digit reference, scripts/reference_time.py
+input: { payment: "1000", rate: "0.05", periods: 10, timing: ordinary }
+expect: { present_value: "7721.73492918481251282906" }
+tolerance: "0.0000000000000000001"

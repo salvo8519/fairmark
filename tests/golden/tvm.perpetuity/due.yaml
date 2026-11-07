@@ -1,0 +1,6 @@
+method: tvm.perpetuity
+description: Level perpetuity due, 100 at 8%
+source: closed form P (1 + r) / r; Independent 50-digit reference, scripts/reference_time.py
+input: { payment: "100", rate: "0.08", timing: due }
+expect: { present_value: "1350" }
+tolerance: "0.0000000000000000001"

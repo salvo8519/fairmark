@@ -44,6 +44,11 @@ dev = [
   "tomli-w>=1.0",
   "towncrier>=24.8",
 ]
+# Independent oracles for cross-checking results in tests only (never shipped to users).
+oracles = [
+  "pyxirr>=0.10",
+  "numpy-financial>=1.0",
+]
 docs = [
   "zensical>=0.1; python_version >= '3.11'",
   "mkdocstrings-python>=1.18; python_version >= '3.11'",
