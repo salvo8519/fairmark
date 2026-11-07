@@ -22,6 +22,7 @@ page. The [methods reference](../reference/methods.md) lists every input.
 | [`coc.cost_of_debt`](coc-cost-of-debt.md) | available | Pre-tax and after-tax cost of debt |
 | [`coc.wacc`](coc-wacc.md) | available | Weighted average cost of capital at a target capital structure |
 | [`dcf.fcff`](dcf-fcff.md) | preview | Enterprise and equity value from unlevered free cash flows |
+| [`analysis.goal_seek`](analysis-goal-seek.md) | available | Value of one input of any method at which one of its outputs equals a target |
 
 ## Coming next
 

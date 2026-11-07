@@ -17,3 +17,8 @@ function calling) reports errors as `{"code": "...", "message": "..."}`.
 | `FM-E010` | A cash flow is dated before the valuation date | Move the valuation date to or before the earliest flow, or omit it to use the earliest flow date |
 | `FM-E011` | More than one rate sets the present value to zero, or the sign changes of the flows show that another rate exists; the message lists the intervals | The IRR is ambiguous: use NPV at the cost of capital, or MIRR with explicit rates |
 | `FM-E012` | Internal error: a defect in Fairmark, not in the input | Report it with the `input_hash`; the input is never needed |
+| `FM-E013` | Goal seek: the output minus the target has the same sign at both ends of the bracket | Widen the bracket so that the target lies between the outputs at its two ends |
+| `FM-E014` | Goal seek did not reach the tolerance within `max_iterations`; also returned when the output jumps across the target (discontinuity) | Raise `max_iterations` or the tolerance; check that the output is continuous in the variable |
+| `FM-E015` | An analysis pointer (`variable`, override `pointer`, `output`) does not resolve to a decimal | Use an RFC 6901 pointer to an existing decimal field, for example `/discount_rate` |
+| `FM-E016` | The analysis needs more than 10,000 evaluations of the inner method | Split the request into smaller tables |
+| `FM-E017` | An analysis method was asked to evaluate another analysis method | Run the inner analysis directly; analyses do not nest |

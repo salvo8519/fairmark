@@ -60,7 +60,9 @@ RULES: list[tuple[str, str, str]] = [
         "function calling changed: update docs/en/guides/function-calling.md",
     ),
 ]
-NON_METHOD_FILES = {"error", "explain", "registry", "types", "lib", "num", "method"}
+# Shared engine modules, not method themes. `solver` (Brent's method) is documented on the
+# pages of the methods that use it, such as docs/en/methods/analysis-goal-seek.md.
+NON_METHOD_FILES = {"error", "explain", "registry", "types", "lib", "num", "method", "solver"}
 
 
 def git(*args: str) -> list[str]:

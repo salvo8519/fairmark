@@ -234,3 +234,20 @@ Enterprise and equity value from explicit FCFF forecasts discounted at WACC, wit
 | `timing` | `end_of_period` \| `mid_period` | no | `"end_of_period"` | When cash flows arrive within each year. Default: end of period. |
 | `net_debt` | decimale | no | `"0"` | Net financial position: debt minus cash. Negative if net cash. Default 0. |
 | `non_operating_assets` | decimale | no | `"0"` | Non-operating (surplus) assets added to equity value. Default 0. |
+
+## `analysis.goal_seek`
+
+**Goal seek** · versione del metodo 1 · tool `fairmark_analysis_goal_seek`
+
+Value of one decimal input of any method at which one of its outputs equals a target, found with Brent's method in an explicit bracket; every evaluation is reported.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `method` | string | sì |  | Id of the method to evaluate, for example `dcf.fcff`. Analysis methods are not accepted. |
+| `base_input` | object | sì |  | Input of that method, complete, including the variable at any starting value. |
+| `variable` | string | sì |  | RFC 6901 JSON Pointer to the decimal input to solve for, for example `/discount_rate`. |
+| `output` | string | sì |  | RFC 6901 JSON Pointer to the decimal output of the method, in its `value`, for example `/enterprise_value`. |
+| `target` | decimale | sì |  | Value the output must reach, in the output's units. |
+| `bracket` | lista di decimale | sì |  | `[low, high]`, low < high: the variable is searched in this interval, and the output minus the target must change sign between its ends (or meet the tolerance at one end). |
+| `tolerance` | decimale | no | `"0.000000001"` | Absolute tolerance on the output, in the output's units, greater than 0. Default: 0.000000001. |
+| `max_iterations` | integer | no | `100` | Largest number of evaluations after the two bracket ends, from 1 to 1000. Default: 100. |

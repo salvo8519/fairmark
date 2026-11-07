@@ -1,0 +1,16 @@
+method: analysis.goal_seek
+description: One iteration is not enough to reach the default tolerance
+source: Constructed; with this bracket the default tolerance needs 9 iterations (dcf-implied-discount-rate.yaml).
+input:
+  method: dcf.fcff
+  base_input:
+    free_cash_flows: [100, 110, 120]
+    discount_rate: "0.10"
+    terminal_growth: "0.02"
+    net_debt: 200
+  variable: /discount_rate
+  output: /enterprise_value
+  target: "1300"
+  bracket: ["0.05", "0.5"]
+  max_iterations: 1
+expect_error: FM-E014

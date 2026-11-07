@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 use crate::error::{FairmarkError, Result};
 use crate::explain::{Meta, Valuation};
 use crate::method::Method;
-use crate::{coc, dates, dcf, rates, tvm, ENGINE_VERSION};
+use crate::{analysis, coc, dates, dcf, rates, tvm, ENGINE_VERSION};
 
 /// Public description of a method, used to build agent tools.
 #[derive(Debug, Clone, Serialize)]
@@ -68,7 +68,7 @@ macro_rules! registry {
 
 registry! {
     // Grouped by theme, in the order of the documentation: dates, rates, time value of money,
-    // cost of capital, discounted cash flow.
+    // cost of capital, discounted cash flow, analysis.
     dates::YearFraction,
     rates::Convert,
     rates::RealNominal,
@@ -86,6 +86,14 @@ registry! {
     coc::CostOfDebt,
     coc::Wacc,
     dcf::Fcff,
+    analysis::goal_seek::GoalSeek,
+}
+
+/// Evaluates a method on a JSON value from inside the core: the same path as [`run`] (parsing,
+/// validation, computation, envelope), without a second panic guard, because it is only
+/// called from within a `run` (ADR 0010).
+pub(crate) fn evaluate(id: &str, input: &Value) -> Result<Value> {
+    dispatch(id, &input.to_string())
 }
 
 pub fn method(id: &str) -> Result<&'static MethodInfo> {

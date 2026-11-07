@@ -27,3 +27,12 @@ def test_python_snippets_run(page: Path) -> None:
     namespace: dict[str, object] = {}
     for snippet in FENCE.findall(page.read_text()):
         exec(compile(snippet, str(page), "exec"), namespace)
+
+
+def test_translation_glossary_is_valid_yaml() -> None:
+    # scripts/i18n.py does not read the glossary, so nothing else would notice a syntax error.
+    import yaml
+
+    root = Path(__file__).resolve().parents[2]
+    glossary = yaml.safe_load((root / "i18n" / "glossary.yaml").read_text(encoding="utf-8"))
+    assert isinstance(glossary, dict) and glossary, "glossary must be a non-empty mapping"

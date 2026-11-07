@@ -18,6 +18,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod analysis;
 pub mod coc;
 pub mod dates;
 pub mod dcf;
@@ -27,6 +28,7 @@ pub mod method;
 mod num;
 pub mod rates;
 pub mod registry;
+pub mod solver;
 pub mod tvm;
 pub mod types;
 

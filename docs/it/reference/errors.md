@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: 492b12ca7572
+source_hash: baca71deedda
 ---
 # Codici di errore
 
@@ -22,3 +22,8 @@ adattatore (Python, CLI, MCP, function calling) riporta gli errori come
 | `FM-E010` | Un flusso ha una data anteriore alla data di valutazione | Sposta la data di valutazione alla data del primo flusso o prima, oppure omettila per usare la data del primo flusso |
 | `FM-E011` | Più di un tasso annulla il valore attuale, oppure i cambi di segno dei flussi indicano che esiste un altro tasso; il messaggio elenca gli intervalli | Il TIR è ambiguo: usa il VAN al costo del capitale, oppure il MIRR con tassi espliciti |
 | `FM-E012` | Errore interno: un difetto di Fairmark, non dell'input | Segnalarlo con l'`input_hash`; l'input non serve mai |
+| `FM-E013` | Ricerca obiettivo: l'output meno il valore obiettivo ha lo stesso segno a entrambi gli estremi dell'intervallo di ricerca | Amplia l'intervallo di ricerca in modo che il valore obiettivo sia compreso tra gli output ai due estremi |
+| `FM-E014` | La ricerca obiettivo non ha raggiunto la tolleranza entro `max_iterations`; restituito anche quando l'output salta oltre il valore obiettivo (discontinuità) | Aumenta `max_iterations` o la tolleranza; verifica che l'output sia continuo nella variabile |
+| `FM-E015` | Un puntatore di un'analisi (`variable`, `output` o il `pointer` di una modifica di scenario) non si risolve in un decimale | Usa un JSON Pointer RFC 6901 a un campo decimale esistente, ad esempio `/discount_rate` |
+| `FM-E016` | L'analisi richiede più di 10.000 valutazioni del metodo interno | Suddividi la richiesta in tabelle più piccole |
+| `FM-E017` | A un metodo di analisi è stato chiesto di valutare un altro metodo di analisi | Esegui direttamente l'analisi interna; le analisi non si annidano |

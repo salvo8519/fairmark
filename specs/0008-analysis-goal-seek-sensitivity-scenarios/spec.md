@@ -5,7 +5,7 @@
 | Status | Approved — 2026-11-07, maintainer decisions recorded below |
 | Milestone | M2 (issue #45, WACC × g sensitivity grid); scenarios brought forward from M6 (part of issue #88) |
 | Owner | @salvo8519 |
-| Formula basis | Brent's root-finding method (bisection, secant, inverse quadratic interpolation) as commonly implemented; one- and two-way data tables, scenario analysis and tornado charts as practised in spreadsheet models; cross-checked against `scipy.optimize.brentq`, direct recomputation with numpy-financial and a hand-built spreadsheet data table |
+| Formula basis | Brent's root-finding method (bisection, secant, inverse quadratic interpolation) as commonly implemented; one- and two-way data tables, scenario analysis and tornado charts as practised in spreadsheet models; cross-checked against Brent's method written from its textbook formulation, bisection at 50 digits, `tvm.irr` and `pyxirr`, direct recomputation with numpy-financial and a hand-built spreadsheet data table |
 | Related | ADR 0009 (themed methods, registry); ADR 0010 to be written (composition through the registry on JSON values, see Plan); SPEC-0002 (`tvm`), SPEC-0003 (`coc`), `dcf.fcff`; issues #45, #88 |
 
 ## Problem
@@ -133,7 +133,7 @@ adapters and reports).
 ## Conventions and parameters
 | Convention | Options | Default | Source |
 | --- | --- | --- | --- |
-| Root-finding algorithm | Brent's method | fixed in v1 | common practice; `scipy.optimize.brentq` |
+| Root-finding algorithm | Brent's method | fixed in v1 | common practice; textbook formulation (Numerical Recipes `zbrent`), as in `scipy.optimize.brentq` |
 | Bracket | explicit [low, high] | required | explicit and auditable; no automatic search in v1 |
 | Tolerance | absolute, on the output, in output units | 0.000000001 | stated on the output so it reads in the analyst's units (currency, rate); documented in the schema |
 | Iteration cap | 1 to 1,000 | 100 | fixed bound, reported |
@@ -147,18 +147,21 @@ adapters and reports).
 ## Acceptance criteria
 - **AC1** (R10) — Goal seek on `tvm.npv` (`/rate`, output `/npv`, target 0, bracket [0, 1],
   tolerance 1e-18) for flows [-1000, 300, 400, 500] matches `tvm.irr` within 1e-15 and
-  `scipy.optimize.brentq` on the same function within 1e-12.
+  `pyxirr.irr` within a relative 1e-9; the engine reproduces the iteration count and solution
+  (within 1e-24) of Brent's method written independently from its textbook formulation in
+  `scripts/reference_analysis.py`. (Amended at implementation: `pyxirr` is already a test
+  oracle; `scipy` would be a new, heavy dependency for the same evidence.)
 - **AC2** (R10) — Goal seek on `dcf.fcff` for `/discount_rate` such that `/enterprise_value`
   equals a target matches the reference script (Python `decimal`, 50 digits, bisection to
-  1e-30) within 1e-12 and `scipy.optimize.brentq` within 1e-9; the residual is at most the
+  1e-30) within 1e-12 and reproduces the textbook Brent path; the residual is at most the
   tolerance; `solved_input` at `/discount_rate` is a JSON string.
 - **AC3** (R11) — A bracket that does not contain the target returns `FM-E013`; low ≥ high and
   tolerance 0 return `FM-E001`; a bracket end that meets the target returns it with 0
   iterations.
 - **AC4** (R12) — The case of AC2 with `max_iterations` 1 returns `FM-E014`; a step-function
   output (discontinuous at the target) returns `FM-E014`, never a false solution.
-- **AC5** (R13) — The explain of AC1 has 2 + iterations steps in evaluation order, each
-  iteration labelled with one of the three step types; the conventions name the algorithm,
+- **AC5** (R13) — The explain of AC1 has 2 + iterations evaluation steps in order, then one
+  solution step; each iteration is labelled with one of the three step types; the conventions name the algorithm,
   tolerance, cap, bracket and minimum step.
 - **AC6** (R15, R17) — A 5 × 5 WACC × g table on `dcf.fcff` matches the reference script within
   1e-9 currency units, numpy-financial recomputation within a relative 1e-9, and a hand-built
@@ -207,7 +210,8 @@ adapters and reports).
   `scenarios [{name, overrides [{pointer, value}]}]`. Tornado: `output`,
   `variables [{variable, low, high}]`.
 - Output fields: all carry `inner_method {id, version}`. Goal seek: `solution`, `achieved`,
-  `residual`, `iterations`, `tolerance`, `solved_input`, `inner_result`. Sensitivity: `base`,
+  `residual`, `iterations`, `tolerance`, `solved_input`, `inner_value` (the `value` of the inner
+  result; running the inner method on `solved_input` reproduces it with its full explain). Sensitivity: `base`,
   `rows`, `columns`, `cells` (each `{value}` or `{error {code, message}}`), `failed_cells`.
   Scenarios: `base`, `scenarios [{name, outputs [{output, value, delta, relative_delta}] |
   error}]`. Tornado: `base`, `ranking [{variable, low, high, output_low, output_high, swing,
