@@ -60,7 +60,7 @@ RULES: list[tuple[str, str, str]] = [
         "function calling changed: update docs/en/guides/function-calling.md",
     ),
 ]
-NON_METHOD_FILES = {"error", "explain", "registry", "types", "lib"}
+NON_METHOD_FILES = {"error", "explain", "registry", "types", "lib", "num"}
 
 
 def git(*args: str) -> list[str]:
