@@ -1,0 +1,5 @@
+method: tvm.xnpv
+description: A flow dated before the valuation date is rejected
+source: ECMA-376 XNPV (dates before the start date are an error); SPEC-0002 R7
+input: { rate: "0.09", valuation_date: "2008-06-30", cash_flows: [{date: "2008-01-01", amount: "-10000"}, {date: "2008-03-01", amount: "2750"}, {date: "2008-10-30", amount: "4250"}, {date: "2009-02-15", amount: "3250"}, {date: "2009-04-01", amount: "2750"}] }
+expect_error: FM-E010

@@ -1,6 +1,6 @@
 ---
 source: guides/providers.md
-source_hash: 5011f739a184
+source_hash: d8f24f3a0d78
 ---
 # Provider LLM
 
@@ -29,8 +29,9 @@ result = fm.tools.dispatch(name, arguments)   # esecuzione, per ogni provider
 | LangChain, LangGraph | `fm.tools.langchain()` | `StructuredTool` | completo |
 | Qualsiasi client MCP, n8n | `fairmark-mcp` | MCP (stdio o HTTP) | completo |
 
-Lo schema **portabile** scrive i decimali come stringhe (`"0.095"`) e rimuove le parole chiave
-di validazione che alcuni provider e modelli open-weight gestiscono male. Non si perde nulla: le
+Lo schema **portabile** scrive i decimali come stringhe (`"0.095"`), semplifica i valori
+opzionali (`X or null` diventa `X`, e il campo resta opzionale) e rimuove le parole chiave di
+validazione che alcuni provider e modelli open-weight gestiscono male. Non si perde nulla: le
 stringhe sono anche la rappresentazione esatta, e il motore valida comunque ogni input. Per
 richiederlo in modo esplicito usa `fm.tools.openai(portable=True)`.
 

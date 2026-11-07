@@ -1,0 +1,6 @@
+method: tvm.xnpv
+description: Same flows valued six months before the first flow
+source: Independent 50-digit reference, scripts/reference_time.py
+input: { rate: "0.09", valuation_date: "2007-07-01", cash_flows: [{date: "2008-01-01", amount: "-10000"}, {date: "2008-03-01", amount: "2750"}, {date: "2008-10-30", amount: "4250"}, {date: "2009-02-15", amount: "3250"}, {date: "2009-04-01", amount: "2750"}] }
+expect: { xnpv: "1997.93821626701985989269" }
+tolerance: "0.0000000000000000001"

@@ -1,0 +1,6 @@
+method: tvm.xnpv
+description: Same example at full precision
+source: Independent 50-digit reference, scripts/reference_time.py (agrees with the ECMA-376 published 2086.65)
+input: { rate: "0.09", cash_flows: [{date: "2008-01-01", amount: "-10000"}, {date: "2008-03-01", amount: "2750"}, {date: "2008-10-30", amount: "4250"}, {date: "2009-02-15", amount: "3250"}, {date: "2009-04-01", amount: "2750"}] }
+expect: { xnpv: "2086.64760203153662166361" }
+tolerance: "0.0000000000000000001"

@@ -1,0 +1,5 @@
+method: tvm.xnpv
+description: An impossible date inside the cash flows is rejected with the date error
+source: Gregorian calendar; SPEC-0002 R1
+input: { rate: "0.09", cash_flows: [{date: "2024-01-01", amount: "-100"}, {date: "2024-02-30", amount: "110"}] }
+expect_error: FM-E009

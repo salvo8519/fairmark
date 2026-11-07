@@ -1,0 +1,6 @@
+method: dates.year_fraction
+description: 30E/360 Eurobond Basis always moves day 31 to 30
+source: 2006 ISDA Definitions section 4.16(g); Independent 50-digit reference, scripts/reference_time.py
+input: { start: "2024-02-15", end: "2024-03-31", day_count: thirty_e_360 }
+expect: { year_fraction: "0.125" }
+tolerance: "0.0000000000000000001"

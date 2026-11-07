@@ -78,7 +78,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true
-      - run: uv sync --locked --all-extras
+      - run: uv sync --locked --all-extras --group oracles
       - run: uv run pytest
 
   quality:

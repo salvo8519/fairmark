@@ -1,0 +1,5 @@
+method: tvm.xirr
+description: Dated flows with two sign changes and two roots are refused
+source: same polynomial as tvm.irr/two-rates on whole years (Actual/365 Fixed, 365-day years); SPEC-0002 R9
+input: { cash_flows: [{date: "2021-01-01", amount: "-100"}, {date: "2022-01-01", amount: "230"}, {date: "2023-01-01", amount: "-132"}] }
+expect_error: FM-E011

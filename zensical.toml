@@ -37,8 +37,17 @@ nav = [
   ] },
   { "Methods" = [
     "methods/index.md",
+    "methods/dates-year-fraction.md",
+    "methods/rates-convert.md",
+    "methods/rates-real-nominal.md",
+    "methods/tvm-present-value.md",
     "methods/tvm-npv.md",
+    "methods/tvm-xnpv.md",
     "methods/tvm-irr.md",
+    "methods/tvm-xirr.md",
+    "methods/tvm-mirr.md",
+    "methods/tvm-annuity.md",
+    "methods/tvm-perpetuity.md",
     "methods/dcf-fcff.md",
   ] },
   { "Concepts" = [
@@ -67,6 +76,7 @@ nav = [
       "project/adr/0005-license-and-contributions.md",
       "project/adr/0006-provider-agnostic-tools.md",
       "project/adr/0007-structured-logging.md",
+      "project/adr/0008-time-axis-dates-and-rates.md",
     ] },
   ] },
 ]

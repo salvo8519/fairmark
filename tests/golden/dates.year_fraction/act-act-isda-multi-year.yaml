@@ -1,0 +1,6 @@
+method: dates.year_fraction
+description: Actual/Actual (ISDA) over several years including a leap year
+source: 2006 ISDA Definitions section 4.16(b); Independent 50-digit reference, scripts/reference_time.py
+input: { start: "2023-07-01", end: "2026-03-15", day_count: act_act_isda }
+expect: { year_fraction: "2.70410958904109589041", actual_days: "988" }
+tolerance: "0.0000000000000000001"

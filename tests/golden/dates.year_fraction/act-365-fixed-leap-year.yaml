@@ -1,0 +1,6 @@
+method: dates.year_fraction
+description: Actual/365 (Fixed) over the leap year 2024 gives 366/365
+source: 2006 ISDA Definitions section 4.16(d); Independent 50-digit reference, scripts/reference_time.py
+input: { start: "2024-01-01", end: "2025-01-01", day_count: act_365_fixed }
+expect: { year_fraction: "1.00273972602739726027", actual_days: "366" }
+tolerance: "0.0000000000000000001"

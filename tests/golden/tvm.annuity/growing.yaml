@@ -1,0 +1,6 @@
+method: tvm.annuity
+description: Growing annuity, first payment 1000, 20 periods, rate 8%, growth 3%
+source: closed form P [1 - ((1 + g)/(1 + r))^n] / (r - g); Independent 50-digit reference, scripts/reference_time.py
+input: { payment: "1000", rate: "0.08", growth: "0.03", periods: 20, timing: ordinary }
+expect: { present_value: "12250.04144458699209117333" }
+tolerance: "0.0000000000000000001"

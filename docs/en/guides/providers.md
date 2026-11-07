@@ -24,8 +24,9 @@ result = fm.tools.dispatch(name, arguments)   # execution, for every provider
 | LangChain, LangGraph | `fm.tools.langchain()` | `StructuredTool` | full |
 | Any MCP client, n8n | `fairmark-mcp` | MCP (stdio or HTTP) | full |
 
-The **portable** schema writes decimals as strings (`"0.095"`) and drops validation keywords
-that some providers and open-weight models handle poorly. Nothing is lost: strings are also the
+The **portable** schema writes decimals as strings (`"0.095"`), simplifies optional values
+(`X or null` becomes `X`, and the field stays optional) and drops validation keywords that some
+providers and open-weight models handle poorly. Nothing is lost: strings are also the
 exact representation, and the engine validates every input anyway. Use
 `fm.tools.openai(portable=True)` to request it explicitly.
 
