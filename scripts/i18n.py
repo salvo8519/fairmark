@@ -37,8 +37,13 @@ FRONT = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
 COMMENT = re.compile(r"\A<!-- i18n source: (\S+) source_hash: (\S+) -->\n")
 
 
+# Generated blocks (README methods table) are produced in every language by the generator,
+# so they do not make a translation stale.
+GENERATED = re.compile(rb"<!-- generated:[a-z]+:start.*?<!-- generated:[a-z]+:end -->", re.S)
+
+
 def digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+    return hashlib.sha256(GENERATED.sub(b"", path.read_bytes())).hexdigest()[:12]
 
 
 def meta(path: Path) -> dict[str, str]:

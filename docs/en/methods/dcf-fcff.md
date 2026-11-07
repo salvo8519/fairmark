@@ -56,7 +56,8 @@ print(r.terminal_value_weight)  # share of EV from the terminal value
 | Timing of explicit flows | end of period, mid period | end of period |
 | Terminal value | placed at the end of year n and discounted at $t = n$, also under mid period | fixed |
 
-Practice varies on the terminal value placement; a parameter to change it is planned.
+Practice varies on the terminal value placement; other placements are tracked in the
+[roadmap](../project/roadmap.md).
 `terminal_value_weight` reports the share of EV coming from the terminal value: a high weight
 signals that the valuation depends mostly on long-term assumptions.
 
@@ -82,7 +83,8 @@ typical inputs. The golden cases are checked to $10^{-9}$.
 - Golden cases in `tests/golden/dcf.fcff/`, from an independent decimal implementation
   (`scripts/reference_values.py`).
 
-## Planned (M2)
+## Next
 
-FCFF build-up from statutory financial statements, WACC/CAPM with size and specific risk
-premia, exit-multiple terminal value, sensitivity grids.
+The complete DCF (FCFF from financial statements, multi-stage models, other terminal value
+methods) and its building blocks are tracked in the [roadmap](../project/roadmap.md), with
+their specifications.

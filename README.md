@@ -158,14 +158,32 @@ fairmark verify result.json --input company.json  # reproduce a result bit for b
 
 ## Methods
 
+<!-- generated:methods:start (scripts/gen_reference.py) -->
+
 | Method | Status | Description |
 | --- | --- | --- |
+| `dates.year_fraction` | Available | Year fraction (day count) |
+| `rates.convert` | Available | Rate conversion between compounding conventions |
+| `rates.real_nominal` | Available | Real and nominal rates (Fisher) |
 | `tvm.npv` | Available | Net present value |
-| `tvm.irr` | Available | Internal rate of return — deterministic Newton with bisection fallback |
-| `dcf.fcff` | Preview | Unlevered DCF, Gordon terminal value, end or mid period |
-| Financial statements → FCFF/FCFE, WACC, CAPM | Specified — [SPEC-0001](specs/0001-dcf-complete/spec.md) | Complete DCF for private companies |
-| Asset-based, income-based, excess-earnings, EVA, multiples | Planned — M4 | European valuation practice |
-| Property DCF, direct capitalisation, debt & waterfall | Planned — M6 | Real estate |
+| `tvm.present_value` | Available | Present value with a constant or time-varying rate |
+| `tvm.xnpv` | Available | Net present value of dated cash flows (XNPV) |
+| `tvm.irr` | Available | Internal rate of return |
+| `tvm.xirr` | Available | Internal rate of return of dated cash flows (XIRR) |
+| `tvm.mirr` | Available | Modified internal rate of return (MIRR) |
+| `tvm.annuity` | Available | Annuity (level or growing, ordinary or due) |
+| `tvm.perpetuity` | Available | Perpetuity (level or growing) |
+| `coc.cost_of_equity` | Available | Cost of equity (CAPM with explicit premia) |
+| `coc.beta_relever` | Available | Beta unlevering and relevering |
+| `coc.beta_peers` | Available | Beta from comparable companies |
+| `coc.cost_of_debt` | Available | Cost of debt |
+| `coc.wacc` | Available | Weighted average cost of capital (WACC) |
+| `dcf.fcff` | Preview | DCF — unlevered free cash flow |
+| `analysis.goal_seek` | Available | Goal seek |
+
+What comes next, with its issues and specifications, is in the [roadmap](https://salvo8519.github.io/fairmark/project/roadmap/), generated from the plan.
+
+<!-- generated:methods:end -->
 
 ## Architecture
 
@@ -181,13 +199,13 @@ flowchart TB
     PY --> FC["Function calling<br/>Anthropic · OpenAI"]:::agent
     PY --> MCP["MCP server<br/>local · stdio"]:::agent
     CLI --> SK["Agent Skills<br/>Claude Code · Codex"]:::agent
-    REG -.-> N8N["n8n node<br/>planned"]:::planned
-    REG -.-> WASM["WASM playground<br/>planned"]:::planned
+    REG -.-> N8N["n8n node<br/>on the roadmap"]:::later
+    REG -.-> WASM["WASM playground<br/>on the roadmap"]:::later
     classDef core fill:#0B1F3A,stroke:#0B1F3A,color:#FFFFFF
     classDef gold fill:#0B1F3A,stroke:#C8A24A,stroke-width:2px,color:#FFFFFF
     classDef adapter fill:#12325C,stroke:#12325C,color:#FFFFFF
     classDef agent fill:#FFFFFF,stroke:#12325C,color:#0B1F3A
-    classDef planned fill:#F7F8FA,stroke:#94A3B8,color:#475569,stroke-dasharray:4 4
+    classDef later fill:#F7F8FA,stroke:#94A3B8,color:#475569,stroke-dasharray:4 4
 ```
 
 > **One engine, thin adapters.** Every channel is generated from the same registry and

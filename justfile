@@ -46,6 +46,7 @@ check-generated:
 # Documentation coverage (every method documented, tested, exposed)
 docs-coverage:
     python scripts/docs_sync.py coverage
+    python scripts/docs_sync.py claims
 
 # Documentation impact of this branch against main
 docs-impact base="origin/main":

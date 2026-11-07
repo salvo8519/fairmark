@@ -11,11 +11,10 @@ inner method, repeatedly, changing one or more of its decimal inputs, and report
 | Method | Status | Question it answers |
 | --- | --- | --- |
 | [`analysis.goal_seek`](../methods/analysis-goal-seek.md) | Available | Which value of one input makes one output equal a target |
-| `analysis.sensitivity` | Planned | How one output moves across a one-way or two-way table of inputs |
-| `analysis.scenarios` | Planned | The outputs of named cases, and their deltas against the base case |
-| `analysis.tornado` | Planned | Which inputs move one output the most, ranked by swing |
 
-All four belong to the `analysis` theme and follow the rules on this page (SPEC-0008).
+Sensitivity tables, scenarios and tornado are specified in SPEC-0008 and tracked in the
+[roadmap](../project/roadmap.md); every method of the `analysis` theme follows the rules on
+this page.
 
 ## Composition through the registry
 

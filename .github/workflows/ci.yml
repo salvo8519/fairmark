@@ -100,6 +100,7 @@ jobs:
       - run: uv run python scripts/check_style.py
       - run: uv run just check-generated
       - run: uv run python scripts/docs_sync.py coverage
+      - run: uv run python scripts/docs_sync.py claims
       - run: uv run python scripts/version.py check
       - name: Roadmap consistent and the closed issue planned
         env:

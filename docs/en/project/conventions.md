@@ -52,6 +52,11 @@ drift from it. Pull request numbers share the same sequence.
   that closes an issue missing from the roadmap or not marked `done` in it, a spec that no task references, and a
   roadmap page that is not generated from the file. `roadmap.py sync` copies issue states
   from GitHub; the scheduled workflow `Roadmap sync` fails on any difference.
+- **Plans in public pages**: method and concept pages, guides and the README describe what
+  exists. What comes next is stated only in the roadmap page, generated from the plan, and
+  linked from them. `scripts/docs_sync.py claims` fails on plans written in prose (planned,
+  coming next, milestone references) and on method ids that are not registered; the README
+  methods table is generated from the registry.
 - **Status**: the project board columns, plus the labels `in-progress` (claimed, a branch
   exists) and `blocked` (with a comment that says on what).
 

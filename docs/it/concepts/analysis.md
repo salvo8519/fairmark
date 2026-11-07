@@ -1,6 +1,6 @@
 ---
 source: concepts/analysis.md
-source_hash: f5859a6406ae
+source_hash: 39b0c4ec36f5
 ---
 # Metodi di analisi
 
@@ -16,12 +16,10 @@ il metodo interno, modificandone uno o più input decimali, e ne riporta gli out
 | Metodo | Stato | Domanda a cui risponde |
 | --- | --- | --- |
 | [`analysis.goal_seek`](../methods/analysis-goal-seek.md) | Disponibile | Quale valore di un input porta un output a un valore obiettivo |
-| `analysis.sensitivity` | Pianificato | Come varia un output in una tabella di sensitività a una o due variabili |
-| `analysis.scenarios` | Pianificato | Gli output di scenari con nome e i loro scostamenti rispetto allo scenario base |
-| `analysis.tornado` | Pianificato | Quali input fanno variare di più un output, ordinati per escursione |
 
-Tutti e quattro appartengono al tema `analysis` e seguono le regole di questa pagina
-(SPEC-0008).
+Tabelle di sensitività, scenari e tornado sono specificati nella SPEC-0008 e seguiti nella
+[roadmap](https://salvo8519.github.io/fairmark/project/roadmap/) (in inglese); ogni metodo del tema `analysis` segue le regole di questa
+pagina.
 
 ## Composizione tramite il registro
 

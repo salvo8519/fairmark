@@ -17,7 +17,7 @@ generated from `roadmap/roadmap.yaml`, and a scheduled job reports any differenc
 | M0 · Foundations | A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows. | 11 | 3 |
 | M1 · Numerical core | Golden harness green; NPV and IRR validated; property tests running. | 10 | 3 |
 | M2 · Complete DCF | DCF passes every golden case provided by practitioners. | 7 | 10 |
-| M3 · Agent layer and v0.1 release | An external user completes a DCF with Claude Code or Codex using only the README. | 7 | 7 |
+| M3 · Agent layer and v0.1 release | An external user completes a DCF with Claude Code or Codex using only the README. | 8 | 7 |
 | M4 · Traditional European methods | Golden cases green for every method. | 0 | 6 |
 | M5 · Opt-in usage statistics | CI proves the payload carries no financial data; privacy notice reviewed by counsel. | 0 | 4 |
 | M6 · v1.0 and real estate | Stable API with a published deprecation policy. | 0 | 8 |
@@ -103,6 +103,7 @@ Gate: An external user completes a DCF with Claude Code or Codex using only the 
 | Agent skills and docs | Agent Skill and AGENTS.md | [#57](https://github.com/salvo8519/fairmark/issues/57) |  | Done |
 | Agent skills and docs | Docs site (MkDocs Material) with one methodology page per method | [#58](https://github.com/salvo8519/fairmark/issues/58) |  | Done |
 | Agent skills and docs | Quickstarts for Claude Code, Codex, Python, n8n | [#59](https://github.com/salvo8519/fairmark/issues/59) |  | Open |
+| Agent skills and docs | Public pages state only what exists; plans live in the generated roadmap | [#121](https://github.com/salvo8519/fairmark/issues/121) |  | Done |
 | n8n node | Node/WASM build of the core | [#61](https://github.com/salvo8519/fairmark/issues/61) |  | Open |
 | n8n node | Community node n8n-nodes-fairmark; check verified-node requirements | [#62](https://github.com/salvo8519/fairmark/issues/62) |  | Open |
 | n8n node | Workflow template: financial statements PDF → valuation → report | [#63](https://github.com/salvo8519/fairmark/issues/63) |  | Open |
