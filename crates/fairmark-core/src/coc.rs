@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
+use crate::method::Method;
 use crate::num::{add, div, mul, sub};
 
 const ANNUAL: &str = "all rates are annual effective rates (decimal fractions)";
@@ -707,6 +708,97 @@ pub fn wacc(input: &WaccInput) -> Result<(WaccOutput, Explain)> {
         },
         ex,
     ))
+}
+
+// ---------------------------------------------------------------- method registrations
+
+/// `coc.cost_of_equity`: see the methodology page.
+pub struct CostOfEquity;
+
+impl Method for CostOfEquity {
+    const ID: &'static str = "coc.cost_of_equity";
+    const TITLE: &'static str = "Cost of equity (CAPM with explicit premia)";
+    const DESCRIPTION: &'static str =
+        "Cost of equity from risk-free rate, levered or relevered beta and equity risk premium, \
+        plus optional country, size and specific premia, each reported.";
+    const VERSION: &'static str = "1";
+    type Input = CostOfEquityInput;
+    type Output = CostOfEquityOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        cost_of_equity(input)
+    }
+}
+
+/// `coc.beta_relever`: see the methodology page.
+pub struct BetaRelever;
+
+impl Method for BetaRelever {
+    const ID: &'static str = "coc.beta_relever";
+    const TITLE: &'static str = "Beta unlevering and relevering";
+    const DESCRIPTION: &'static str =
+        "Converts an unlevered beta to a levered beta at a target D/E, or the reverse, with the \
+        Hamada or Harris-Pringle formula and an optional debt beta.";
+    const VERSION: &'static str = "1";
+    type Input = BetaReleverInput;
+    type Output = BetaReleverOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        beta_relever(input)
+    }
+}
+
+/// `coc.beta_peers`: see the methodology page.
+pub struct BetaPeers;
+
+impl Method for BetaPeers {
+    const ID: &'static str = "coc.beta_peers";
+    const TITLE: &'static str = "Beta from comparable companies";
+    const DESCRIPTION: &'static str =
+        "Unlevers the betas of comparable companies, takes the mean or median and relevers it to \
+        the target capital structure.";
+    const VERSION: &'static str = "1";
+    type Input = BetaPeersInput;
+    type Output = BetaPeersOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        beta_peers(input)
+    }
+}
+
+/// `coc.cost_of_debt`: see the methodology page.
+pub struct CostOfDebt;
+
+impl Method for CostOfDebt {
+    const ID: &'static str = "coc.cost_of_debt";
+    const TITLE: &'static str = "Cost of debt";
+    const DESCRIPTION: &'static str =
+        "Pre-tax cost of debt, given or as risk-free rate plus credit spread, and the after-tax \
+        cost of debt.";
+    const VERSION: &'static str = "1";
+    type Input = CostOfDebtInput;
+    type Output = CostOfDebtOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        cost_of_debt(input)
+    }
+}
+
+/// `coc.wacc`: see the methodology page.
+pub struct Wacc;
+
+impl Method for Wacc {
+    const ID: &'static str = "coc.wacc";
+    const TITLE: &'static str = "Weighted average cost of capital (WACC)";
+    const DESCRIPTION: &'static str =
+        "WACC from cost of equity, cost of debt, tax rate and target weights (D/E or D/(D+E)).";
+    const VERSION: &'static str = "1";
+    type Input = WaccInput;
+    type Output = WaccOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        wacc(input)
+    }
 }
 
 #[cfg(test)]

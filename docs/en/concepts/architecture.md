@@ -30,10 +30,12 @@ roadmap/            roadmap.yaml → GitHub milestones, epics and tasks
 
 ## Adding a method
 
-1. Implement it in `crates/fairmark-core/src/<area>.rs` with an `Input` struct (serde +
-   `JsonSchema`, `deny_unknown_fields`, doc comment on every field) and a function returning
-   `Result<(Output, Explain)>`.
-2. Register it in `registry.rs` (`METHODS`, `input_schema`, `run`).
+1. Implement it in the module of its theme, `crates/fairmark-core/src/<theme>.rs`: an `Input`
+   struct (serde + `JsonSchema`, `deny_unknown_fields`, doc comment with units on every field),
+   an `Output` struct and a unit type that implements the `Method` trait (id, version, title,
+   description, `compute`) (ADR 0009).
+2. Add one line to the list in `registry.rs`; `uv run just generate` writes its schema to
+   `schemas/<method>/v1.json` and updates `schemas/index.json`.
 3. Add golden cases in `tests/golden/<method>/` from an independent source.
 4. Add a thin Python helper in `python/fairmark/<area>.py`.
 5. Write the methodology page in `docs/en/methods/`.

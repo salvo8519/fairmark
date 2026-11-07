@@ -1,0 +1,15 @@
+# Contract cases for tvm.npv: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: tvm.npv
+extreme_inputs:
+- rate: MAX
+  cash_flows:
+  - MAX
+  - MAX
+conventions:
+- input:
+    rate: '0.1'
+    cash_flows: ['-100', '60', '60']
+  expect:
+  - cash_flows[0] occurs at t = 0

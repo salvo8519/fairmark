@@ -1,0 +1,23 @@
+# Contract cases for tvm.xirr: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: tvm.xirr
+extreme_inputs:
+- cash_flows:
+  - date: '2020-01-01'
+    amount: MIN
+  - date: '2020-01-01'
+    amount: MIN
+  - date: '2021-01-01'
+    amount: MAX
+conventions:
+- input:
+    cash_flows:
+    - date: '2024-01-01'
+      amount: '-100'
+    - date: '2025-01-01'
+      amount: '110'
+  expect:
+  - (default, ECMA-376)
+  - 'Newton starting point: 0.10 (default)'
+  - uniqueness proven

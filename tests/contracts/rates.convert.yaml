@@ -1,0 +1,16 @@
+# Contract cases for rates.convert: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: rates.convert
+extreme_inputs:
+- rate: MAX
+  from: monthly
+  to: continuous
+conventions:
+- input:
+    rate: '0.1'
+    from: annual
+    to: monthly
+  expect:
+  - 'from: annual'
+  - 'to: monthly'

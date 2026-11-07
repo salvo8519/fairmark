@@ -35,7 +35,7 @@ RULES: list[tuple[str, str, str]] = [
         "error codes changed: update docs/en/reference/errors.md",
     ),
     (
-        r"^crates/fairmark-core/src/(?P<area>[a-z_]+)\.rs$",
+        r"^crates/fairmark-core/src/(?P<area>[a-z_]+)(?:\.rs|/.*\.rs)$",
         r"^docs/en/methods/{area}-.*\.md$",
         "method area '{area}' changed: update its methodology page(s) in docs/en/methods/",
     ),
@@ -60,7 +60,7 @@ RULES: list[tuple[str, str, str]] = [
         "function calling changed: update docs/en/guides/function-calling.md",
     ),
 ]
-NON_METHOD_FILES = {"error", "explain", "registry", "types", "lib", "num"}
+NON_METHOD_FILES = {"error", "explain", "registry", "types", "lib", "num", "method"}
 
 
 def git(*args: str) -> list[str]:

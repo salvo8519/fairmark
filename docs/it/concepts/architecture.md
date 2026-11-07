@@ -1,6 +1,6 @@
 ---
 source: concepts/architecture.md
-source_hash: 13b119240b64
+source_hash: 9c57c50ed75c
 ---
 # Architettura
 
@@ -34,10 +34,12 @@ roadmap/            roadmap.yaml → milestone, epic e task su GitHub
 
 ## Aggiungere un metodo
 
-1. Implementarlo in `crates/fairmark-core/src/<area>.rs` con una struttura di input (serde +
-   `JsonSchema`, `deny_unknown_fields`, commento su ogni campo) e una funzione che restituisce
-   `Result<(Output, Explain)>`.
-2. Registrarlo in `registry.rs` (`METHODS`, `input_schema`, `run`).
+1. Implementarlo nel modulo del suo tema, `crates/fairmark-core/src/<tema>.rs`: una struttura
+   di input (serde + `JsonSchema`, `deny_unknown_fields`, commento con le unità su ogni campo),
+   una struttura di output e un tipo che implementa il trait `Method` (id, versione, titolo,
+   descrizione, `compute`) (ADR 0009).
+2. Aggiungere una riga all'elenco in `registry.rs`; `uv run just generate` scrive il suo schema
+   in `schemas/<metodo>/v1.json` e aggiorna `schemas/index.json`.
 3. Aggiungere casi di riferimento in `tests/golden/<metodo>/` da una fonte indipendente.
 4. Aggiungere un helper Python sottile in `python/fairmark/<area>.py`.
 5. Scrivere la pagina metodologica in `docs/en/methods/` e la sua traduzione in

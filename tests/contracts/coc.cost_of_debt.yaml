@@ -1,0 +1,15 @@
+# Contract cases for coc.cost_of_debt: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: coc.cost_of_debt
+extreme_inputs:
+- risk_free_rate: MAX
+  credit_spread: MAX
+  tax_rate: '0'
+conventions:
+- input:
+    pre_tax_cost_of_debt: '0.05'
+    tax_rate: '0.24'
+  expect:
+  - pre-tax cost of debt given
+  - tax rate of the tax shield 0.24

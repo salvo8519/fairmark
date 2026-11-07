@@ -1,0 +1,18 @@
+# Contract cases for tvm.perpetuity: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: tvm.perpetuity
+extreme_inputs:
+- payment: MAX
+  rate: MAX
+  growth: MIN
+  timing: due
+conventions:
+- input:
+    payment: '1'
+    rate: '0.05'
+    growth: '0.01'
+    timing: ordinary
+  expect:
+  - end of the first period
+  - grows by 0.01 per period (given)
