@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 
 use crate::error::{FairmarkError, Result};
 use crate::explain::{Explain, Meta, Valuation};
-use crate::{dates, dcf, rates, tvm, ENGINE_VERSION};
+use crate::{coc, dates, dcf, rates, tvm, ENGINE_VERSION};
 
 /// Public description of a method, used to build agent tools.
 #[derive(Debug, Clone, Serialize)]
@@ -106,6 +106,41 @@ pub const METHODS: &[MethodInfo] = &[
         description: "Present value of a level or growing perpetuity (Gordon), ordinary or due.",
         version: "1",
     },
+    MethodInfo {
+        id: "coc.cost_of_equity",
+        title: "Cost of equity (CAPM with explicit premia)",
+        description: "Cost of equity from risk-free rate, levered or relevered beta and equity \
+                      risk premium, plus optional country, size and specific premia, each reported.",
+        version: "1",
+    },
+    MethodInfo {
+        id: "coc.beta_relever",
+        title: "Beta unlevering and relevering",
+        description: "Converts an unlevered beta to a levered beta at a target D/E, or the \
+                      reverse, with the Hamada or Harris-Pringle formula and an optional debt beta.",
+        version: "1",
+    },
+    MethodInfo {
+        id: "coc.beta_peers",
+        title: "Beta from comparable companies",
+        description: "Unlevers the betas of comparable companies, takes the mean or median and \
+                      relevers it to the target capital structure.",
+        version: "1",
+    },
+    MethodInfo {
+        id: "coc.cost_of_debt",
+        title: "Cost of debt",
+        description: "Pre-tax cost of debt, given or as risk-free rate plus credit spread, and \
+                      the after-tax cost of debt.",
+        version: "1",
+    },
+    MethodInfo {
+        id: "coc.wacc",
+        title: "Weighted average cost of capital (WACC)",
+        description: "WACC from cost of equity, cost of debt, tax rate and target weights \
+                      (D/E or D/(D+E)).",
+        version: "1",
+    },
 ];
 
 pub fn method(id: &str) -> Result<&'static MethodInfo> {
@@ -130,6 +165,11 @@ pub fn input_schema(id: &str) -> Result<Value> {
         "tvm.mirr" => schema_for!(tvm::MirrInput),
         "tvm.annuity" => schema_for!(tvm::AnnuityInput),
         "tvm.perpetuity" => schema_for!(tvm::PerpetuityInput),
+        "coc.cost_of_equity" => schema_for!(coc::CostOfEquityInput),
+        "coc.beta_relever" => schema_for!(coc::BetaReleverInput),
+        "coc.beta_peers" => schema_for!(coc::BetaPeersInput),
+        "coc.cost_of_debt" => schema_for!(coc::CostOfDebtInput),
+        "coc.wacc" => schema_for!(coc::WaccInput),
         other => return Err(FairmarkError::UnknownMethod(other.to_owned())),
     };
     serde_json::to_value(schema).map_err(|e| FairmarkError::InvalidInput(e.to_string()))
@@ -165,6 +205,11 @@ fn dispatch(id: &str, input_json: &str) -> Result<Value> {
         "tvm.mirr" => execute(info, input_json, tvm::mirr),
         "tvm.annuity" => execute(info, input_json, tvm::annuity),
         "tvm.perpetuity" => execute(info, input_json, tvm::perpetuity),
+        "coc.cost_of_equity" => execute(info, input_json, coc::cost_of_equity),
+        "coc.beta_relever" => execute(info, input_json, coc::beta_relever),
+        "coc.beta_peers" => execute(info, input_json, coc::beta_peers),
+        "coc.cost_of_debt" => execute(info, input_json, coc::cost_of_debt),
+        "coc.wacc" => execute(info, input_json, coc::wacc),
         other => Err(FairmarkError::UnknownMethod(other.to_owned())),
     }
 }
@@ -308,10 +353,26 @@ mod tests {
                 ),
             ),
         ];
+        let cases = cases.into_iter().chain([
+            ("coc.cost_of_equity", format!(r#"{{"risk_free_rate": "{max}", "equity_risk_premium": "{max}", "levered_beta": "{max}", "country_risk_premium": "{max}", "size_premium": "{max}"}}"#)),
+            ("coc.cost_of_equity", format!(r#"{{"risk_free_rate": "0.03", "equity_risk_premium": "0.05", "relever": {{"unlevered_beta": "{max}", "debt_to_equity": "{max}", "tax_rate": "0.5", "formula": "hamada", "debt_beta": "{min}"}}}}"#)),
+            ("coc.beta_relever", format!(r#"{{"beta": "{max}", "direction": "unlever", "debt_to_equity": "{max}", "tax_rate": "0", "formula": "harris_pringle", "debt_beta": "{max}"}}"#)),
+            ("coc.beta_peers", format!(r#"{{"formula": "hamada", "statistic": "mean", "target_debt_to_equity": "{max}", "target_tax_rate": "0", "peers": [{{"name": "a", "levered_beta": "{max}", "debt_to_equity": "0", "tax_rate": "0"}}, {{"name": "b", "levered_beta": "{max}", "debt_to_equity": "0", "tax_rate": "0"}}]}}"#)),
+            ("coc.cost_of_debt", format!(r#"{{"risk_free_rate": "{max}", "credit_spread": "{max}", "tax_rate": "0"}}"#)),
+            ("coc.wacc", format!(r#"{{"cost_of_equity": "{max}", "pre_tax_cost_of_debt": "{max}", "tax_rate": "0", "debt_to_equity": "{max}"}}"#)),
+        ]);
+        let mut covered = std::collections::BTreeSet::new();
         for (id, input) in cases {
+            covered.insert(id);
             let out = std::panic::catch_unwind(|| dispatch(id, &input));
             assert!(out.is_ok(), "{id} panicked on {input}");
         }
+        let missing: Vec<_> = METHODS
+            .iter()
+            .map(|m| m.id)
+            .filter(|id| !covered.contains(id) && *id != "dates.year_fraction")
+            .collect();
+        assert!(missing.is_empty(), "no extreme-input case for {missing:?}");
     }
 
     /// AC11: each method reports the conventions that change its numbers, including defaults.
@@ -330,6 +391,11 @@ mod tests {
             ("tvm.mirr", r#"{"cash_flows": ["-100", "60", "60"], "finance_rate": "0.1", "reinvest_rate": "0.12"}"#.into(), vec!["cash_flows[0] occurs at t = 0", "finance rate", "reinvestment rate"]),
             ("tvm.annuity", r#"{"payment": "1", "rate": "0.05", "periods": 3, "timing": "due"}"#.into(), vec!["annuity due", "grows by 0 per period (default"]),
             ("tvm.perpetuity", r#"{"payment": "1", "rate": "0.05", "growth": "0.01", "timing": "ordinary"}"#.into(), vec!["end of the first period", "grows by 0.01 per period (given)"]),
+            ("coc.cost_of_equity", r#"{"risk_free_rate": "0.03", "equity_risk_premium": "0.05", "levered_beta": "1"}"#.into(), vec!["annual effective", "levered beta 1 (given)", "size premium 0 (default)", "country exposure (lambda) 1 (default)"]),
+            ("coc.beta_relever", r#"{"beta": "1", "direction": "relever", "debt_to_equity": "0.5", "tax_rate": "0.2", "formula": "hamada"}"#.into(), vec!["Hamada", "debt beta 0 (default"]),
+            ("coc.beta_peers", r#"{"formula": "harris_pringle", "statistic": "median", "target_debt_to_equity": "0.5", "target_tax_rate": "0.2", "peers": [{"name": "a", "levered_beta": "1", "debt_to_equity": "0.1", "tax_rate": "0.2"}]}"#.into(), vec!["Harris-Pringle", "median", "does not use the tax rate", "one debt beta applies"]),
+            ("coc.cost_of_debt", r#"{"pre_tax_cost_of_debt": "0.05", "tax_rate": "0.24"}"#.into(), vec!["pre-tax cost of debt given", "tax rate of the tax shield 0.24"]),
+            ("coc.wacc", r#"{"cost_of_equity": "0.1", "pre_tax_cost_of_debt": "0.05", "tax_rate": "0.24", "debt_weight": "0.3"}"#.into(), vec!["annual effective", "target weights from D/(D + E) 0.3", "tax rate of the tax shield 0.24"]),
         ];
         for (id, input, expected) in cases {
             let out = run(id, &input).unwrap_or_else(|e| panic!("{id}: {e}"));

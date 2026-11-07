@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `coc.wacc`.",
+  "properties": {
+    "cost_of_equity": {
+      "description": "Cost of equity, annual decimal fraction.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "debt_to_equity": {
+      "description": "Target debt-to-equity ratio D/E, decimal, not negative. Give exactly one of\n`debt_to_equity` and `debt_weight`.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "debt_weight": {
+      "description": "Target weight of debt D/(D + E), decimal fraction from 0 to below 1. Give exactly one of\n`debt_to_equity` and `debt_weight`.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "pre_tax_cost_of_debt": {
+      "description": "Pre-tax cost of debt, annual decimal fraction.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "tax_rate": {
+      "description": "Tax rate of the tax shield, decimal fraction from 0 to below 1.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    }
+  },
+  "required": [
+    "cost_of_equity",
+    "pre_tax_cost_of_debt",
+    "tax_rate"
+  ],
+  "title": "WaccInput",
+  "type": "object"
+}

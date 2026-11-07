@@ -1,0 +1,6 @@
+method: coc.beta_relever
+description: Published unlevering example, median beta 1.24 at gross D/E 27.06% and tax rate 40%
+source: "Damodaran, NYU Stern public lecture slides (pure play beta, studio entertainment): 1.24 / (1 + (1 − 0.4) × 0.2706) = 1.0668, published to four decimals"
+input: { beta: "1.24", direction: unlever, debt_to_equity: "0.2706", tax_rate: "0.4", formula: hamada }
+expect: { beta: "1.0668" }
+tolerance: "0.00005"

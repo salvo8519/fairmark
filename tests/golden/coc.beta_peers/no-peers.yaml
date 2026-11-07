@@ -1,0 +1,5 @@
+method: coc.beta_peers
+description: An empty list of comparables is rejected
+source: SPEC-0003 R6
+input: { formula: hamada, statistic: mean, target_debt_to_equity: "0.5", target_tax_rate: "0.24", peers: [] }
+expect_error: FM-E001

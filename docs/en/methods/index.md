@@ -16,12 +16,17 @@ page. The [methods reference](../reference/methods.md) lists every input.
 | [`tvm.mirr`](tvm-mirr.md) | available | Modified internal rate of return |
 | [`tvm.annuity`](tvm-annuity.md) | available | Present and future value of a level or growing annuity |
 | [`tvm.perpetuity`](tvm-perpetuity.md) | available | Present value of a level or growing perpetuity |
+| [`coc.cost_of_equity`](coc-cost-of-equity.md) | available | Cost of equity by CAPM with explicit country, size and specific premia |
+| [`coc.beta_relever`](coc-beta-relever.md) | available | Levered beta from an unlevered beta, or the reverse (Hamada, Harris-Pringle) |
+| [`coc.beta_peers`](coc-beta-peers.md) | available | Mean and median unlevered beta of comparables, relevered to a target structure |
+| [`coc.cost_of_debt`](coc-cost-of-debt.md) | available | Pre-tax and after-tax cost of debt |
+| [`coc.wacc`](coc-wacc.md) | available | Weighted average cost of capital at a target capital structure |
 | [`dcf.fcff`](dcf-fcff.md) | preview | Enterprise and equity value from unlevered free cash flows |
 
 ## Coming next
 
-- **M2 — complete DCF**: FCFF/FCFE from statutory financial statements, WACC and CAPM,
-  exit-multiple terminal value, sensitivity grids.
+- **M2 — complete DCF**: FCFF/FCFE from statutory financial statements, exit-multiple
+  terminal value, sensitivity grids.
 - **M4 — European practice**: asset-based, income-based and mixed (excess earnings) methods,
   EVA, market multiples.
 - **Real estate**: property DCF, direct capitalisation, debt and equity waterfalls.
