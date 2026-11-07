@@ -11,16 +11,20 @@ to GitHub is in English, without icons. Never merge: merging is the maintainer's
 2. **Scope.** `git status` and `git diff origin/main...HEAD --stat`. Every changed file must
    belong to the branch's issue. Unrelated changes go to a separate branch, never into this
    pull request.
-3. **Release note.** If users can see the change and no fragment exists, write one in
+3. **Roadmap.** Issues opened in this session were created with
+   `uv run python scripts/roadmap.py new` (milestone, epic, labels, spec), never by hand.
+   Run `uv run python scripts/roadmap.py check`: the issue this pull request closes must be in
+   the roadmap, and the roadmap page must be regenerated (`roadmap.py render`).
+4. **Release note.** If users can see the change and no fragment exists, write one in
    `changes/` (`<issue>.<type>.md`, plain language for analysts, see `changes/README.md`).
    Otherwise the pull request gets the label `no-release-note`.
-4. **Journal.** Write `.agents/journal/<YYYY-MM-DD>-<branch-slug>.md` from `_template.md`:
+5. **Journal.** Write `.agents/journal/<YYYY-MM-DD>-<branch-slug>.md` from `_template.md`:
    what is done (with hashes), what is half done and where, decisions, open questions and the
    very next step. Facts only, no client data.
-5. **Commit.** Use `/commit` (English message, translation for the maintainer). Signed off.
-6. **Push.** `git push -u origin <branch>`. Never force-push a branch that someone else
+6. **Commit.** Use `/commit` (English message, translation for the maintainer). Signed off.
+7. **Push.** `git push -u origin <branch>`. Never force-push a branch that someone else
    reviewed without telling the maintainer.
-7. **Pull request.** If none exists for the branch, create it; otherwise update its body.
+8. **Pull request.** If none exists for the branch, create it; otherwise update its body.
    Title: the Conventional Commit summary of the whole change. Body, in this order, filling
    every section of `.github/PULL_REQUEST_TEMPLATE.md`:
    - **Summary**: two to four sentences, what and why, for a reader who has not seen the issue.
@@ -36,7 +40,7 @@ to GitHub is in English, without icons. Never merge: merging is the maintainer's
    - **Checklist**: ticked honestly; leave unticked what is not done and say why.
    Use `gh api repos/{owner}/{repo}/pulls` (POST to create, PATCH to update) with the body in
    a file. Open as draft if the gate failed or tasks remain.
-8. **Labels and board.** Add labels that the labeler cannot infer (`numerical-change`,
+9. **Labels and board.** Add labels that the labeler cannot infer (`numerical-change`,
    `breaking-change`, `no-release-note`). Remove `in-progress` from the issue only when the
    pull request is ready for review.
-9. **Report** to the maintainer: pull request link, check status, what remains, next step.
+10. **Report** to the maintainer: pull request link, check status, what remains, next step.

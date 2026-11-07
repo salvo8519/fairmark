@@ -22,7 +22,7 @@ changing anything: its principles override convenience.
 | `specs/` | Spec-driven development: constitution, templates, one folder per feature. |
 | `docs/` | Documentation: `en/` (source), `it/` (translation), `_shared/` (assets). References are generated. |
 | `i18n/` | Language editions configuration and the translation glossary. |
-| `roadmap/roadmap.yaml` | Milestones → epics → tasks, mirrored to GitHub issues. |
+| `roadmap/roadmap.yaml` | Milestones → epics → tasks with their issue and spec; checked and synchronised by `scripts/roadmap.py`. |
 | `.agents/` | Canonical agent roles (`agents/`) and skills (`skills/`). `.claude/` is generated from it. |
 | `sprints/` | Sprint plans (`SNN.yaml`) used by the orchestrator. |
 | `.agents/journal/` | Session handover notes, one file per branch and day. |
@@ -63,6 +63,10 @@ changing anything: its principles override convenience.
   branch `<type>/<issue>-<slug>`; commit and pull request title `<type>(<scope>): <subject>`
   (Conventional Commits, scope required); pull request body `Closes #<issue>`; squash merge.
 - New dependencies and updates follow `docs/en/project/dependencies.md`.
+- **Roadmap as code.** Create issues with `python scripts/roadmap.py new` (it sets the
+  milestone, the labels and the entry in `roadmap/roadmap.yaml`); a pull request may only close
+  an issue that is in the roadmap, and every spec must be referenced by a roadmap task (CI).
+  `roadmap.py sync` copies issue states from GitHub; a scheduled workflow reports differences.
 - Sign off commits (`git commit -s`, DCO).
 
 ## House style (enforced by CI)

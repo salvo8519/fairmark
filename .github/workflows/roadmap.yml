@@ -1,0 +1,38 @@
+name: Roadmap sync
+
+# Reports any difference between roadmap/roadmap.yaml and GitHub: an issue closed or reopened
+# without updating the file, a milestone changed on GitHub, an open issue missing from the
+# roadmap. Read-only: the fix is `python scripts/roadmap.py sync --write` in a pull request.
+on:
+  issues:
+    # Not opened or edited: anyone can open an issue on a public repository, and unplanned
+    # issues without a milestone are reported as a warning by the daily run.
+    types: [closed, reopened, milestoned, demilestoned]
+  schedule:
+    - cron: "41 4 * * *"   # daily 04:41 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: roadmap-sync
+  cancel-in-progress: true
+
+jobs:
+  drift:
+    name: Roadmap and GitHub agree
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.13"
+      # Dependencies from uv.lock (no unpinned install in a job that holds a token).
+      - run: uv run --frozen --only-group dev python scripts/roadmap.py sync
+        env:
+          GH_TOKEN: ${{ github.token }}

@@ -19,6 +19,8 @@ from typing import Any
 import yaml
 
 ROADMAP = Path(__file__).resolve().parents[1] / "roadmap" / "roadmap.yaml"
+# Day-to-day changes go through scripts/roadmap.py (new, sync, check); this script only
+# bootstraps a repository from scratch.
 TAG_LABELS = {
     "parallel": "parallel",
     "gfi": "good first issue",
@@ -101,7 +103,7 @@ def main() -> None:
                     body=f"Part of #{parent['number']}.",
                 )
                 gh.api("POST", f"issues/{parent['number']}/sub_issues", sub_issue_id=child["id"])
-                if task.get("done"):
+                if task.get("status") == "done":
                     gh.api("PATCH", f"issues/{child['number']}", state="closed")
 
 
