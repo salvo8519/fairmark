@@ -3,6 +3,8 @@ name: Roadmap sync
 # Reports any difference between roadmap/roadmap.yaml and GitHub: an issue closed or reopened
 # without updating the file, a milestone changed on GitHub, an open issue missing from the
 # roadmap. Read-only: the fix is `python scripts/roadmap.py sync --write` in a pull request.
+# A difference that the roadmap file of an open pull request (from this repository) already
+# resolves is reported as a warning: it disappears when that pull request is merged.
 on:
   issues:
     # Not opened or edited: anyone can open an issue on a public repository, and unplanned
@@ -15,6 +17,8 @@ on:
 permissions:
   contents: read
   issues: read
+  # Open pull requests that already resolve a difference make it a warning (pending).
+  pull-requests: read
 
 concurrency:
   group: roadmap-sync

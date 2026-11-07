@@ -25,6 +25,8 @@ task, and every referenced spec exists; the roadmap page is generated from the f
 from __future__ import annotations
 
 import argparse
+import base64
+import copy
 import json
 import os
 import re
@@ -258,36 +260,38 @@ def github_milestones() -> dict[str, int]:
     return {m["title"]: m["number"] for m in gh(f"repos/{REPO}/milestones?state=all&per_page=100")}
 
 
-def sync(write: bool, apply_milestones: bool) -> int:
-    data = load()
-    issues = github_issues()
-    milestones = github_milestones()
+def differences(
+    data: dict[str, Any], issues: dict[int, dict[str, Any]]
+) -> tuple[list[tuple[int, str]], list[str]]:
+    """Differences between a roadmap and the issues on GitHub, without side effects.
+
+    Returns (drift, untriaged): drift is a list of (issue, message); untriaged lists open issues
+    with no milestone that are not in the roadmap (a warning, not a difference). Statuses that
+    GitHub reports are written into `data`, so that `--write` can save them.
+    """
     planned: set[int] = set()
-    drift: list[str] = []
+    drift: list[tuple[int, str]] = []
     for m, _epic, t in tasks(data):
         planned.add(t["issue"])
         issue = issues.get(t["issue"])
         if issue is None:
-            drift.append(f"#{t['issue']} ({t['title']}): no such issue on GitHub")
+            drift.append((t["issue"], f"#{t['issue']} ({t['title']}): no such issue on GitHub"))
             continue
         state = "open"
         if issue["state"] == "closed":
             state = "dropped" if issue.get("state_reason") == "not_planned" else "done"
         if t.get("status", "open") != state:
-            drift.append(f"#{t['issue']}: status {t.get('status', 'open')} here, {state} on GitHub")
+            here = t.get("status", "open")
+            drift.append((t["issue"], f"#{t['issue']}: status {here} here, {state} on GitHub"))
             t["status"] = state
         on_github = (issue.get("milestone") or {}).get("title")
         if on_github != m["title"]:
-            drift.append(f"#{t['issue']}: milestone '{on_github}' on GitHub, '{m['title']}' here")
-            if apply_milestones:
-                if m["title"] not in milestones:
-                    sys.exit(f"milestone '{m['title']}' does not exist on GitHub")
-                gh(
-                    "-X",
-                    "PATCH",
-                    f"repos/{REPO}/issues/{t['issue']}",
-                    payload={"milestone": milestones[m["title"]]},
+            drift.append(
+                (
+                    t["issue"],
+                    f"#{t['issue']}: milestone '{on_github}' on GitHub, '{m['title']}' here",
                 )
+            )
     for e in (e for m in data["milestones"] for e in m["epics"]):
         if e.get("issue") is not None:
             planned.add(e["issue"])
@@ -297,18 +301,90 @@ def sync(write: bool, apply_milestones: bool) -> int:
             continue
         title = json.dumps(issue["title"], ensure_ascii=False)
         if issue.get("milestone"):
-            drift.append(f"#{n} {title}: in a milestone on GitHub but not in the roadmap")
+            drift.append((n, f"#{n} {title}: in a milestone on GitHub but not in the roadmap"))
         else:
             # Reports from users: triage decides whether they enter the roadmap.
             untriaged.append(f"#{n} {title}")
+    return drift, untriaged
+
+
+def open_pull_roadmaps() -> dict[int, dict[str, Any]]:
+    """The roadmap file of every open pull request whose branch lives in this repository.
+
+    Pull requests from forks are ignored: anyone can open one, and a roadmap file in a fork
+    must not be able to hide a difference.
+    """
+    out: dict[int, dict[str, Any]] = {}
+    for pr in gh(f"repos/{REPO}/pulls?state=open&per_page=100"):
+        if (pr.get("head") or {}).get("repo", {}).get("full_name") != REPO:
+            continue
+        sha = pr["head"]["sha"]
+        content = gh(f"repos/{REPO}/contents/roadmap/roadmap.yaml?ref={sha}")
+        text = base64.b64decode(content["content"]).decode("utf-8")
+        data = yaml.safe_load(text)
+        if isinstance(data, dict):
+            out[pr["number"]] = data
+    return out
+
+
+def pending_in(
+    drift: list[tuple[int, str]],
+    pulls: dict[int, dict[str, Any]],
+    issues: dict[int, dict[str, Any]],
+) -> dict[int, int]:
+    """Issue -> pull request, for every difference that an open pull request already resolves.
+
+    A difference on an issue is pending when the roadmap file of an open pull request has no
+    difference at all for that issue: merging the pull request brings file and GitHub back in
+    agreement. Such differences are expected while the pull request is under review (an issue
+    created with `new`, or closed by the pull request that marks it done).
+    """
+    resolved: dict[int, int] = {}
+    for number, data in sorted(pulls.items()):
+        theirs, _ = differences(copy.deepcopy(data), issues)
+        unresolved = {n for n, _ in theirs}
+        for n, _ in drift:
+            if n not in unresolved and n not in resolved:
+                resolved[n] = number
+    return resolved
+
+
+def sync(write: bool, apply_milestones: bool) -> int:
+    data = load()
+    issues = github_issues()
+    drift, untriaged = differences(data, issues)
+    if apply_milestones:
+        milestones = github_milestones()
+        for m, _epic, t in tasks(data):
+            issue = issues.get(t["issue"])
+            if issue is None or (issue.get("milestone") or {}).get("title") == m["title"]:
+                continue
+            if m["title"] not in milestones:
+                sys.exit(f"milestone '{m['title']}' does not exist on GitHub")
+            gh(
+                "-X",
+                "PATCH",
+                f"repos/{REPO}/issues/{t['issue']}",
+                payload={"milestone": milestones[m["title"]]},
+            )
     if untriaged:
         print(
             "Open issues not yet triaged into the roadmap (warning):\n  " + "\n  ".join(untriaged)
         )
     if write:
         render(data)
+    if drift and not (write or apply_milestones):
+        pending = pending_in(drift, open_pull_roadmaps(), issues)
+        waiting = [
+            f"{msg} (resolved by pull request #{pending[n]})" for n, msg in drift if n in pending
+        ]
+        drift = [(n, msg) for n, msg in drift if n not in pending]
+        if waiting:
+            print(
+                "Differences resolved by open pull requests (warning):\n  " + "\n  ".join(waiting)
+            )
     if drift:
-        print("Roadmap and GitHub differ:\n  " + "\n  ".join(drift))
+        print("Roadmap and GitHub differ:\n  " + "\n  ".join(msg for _, msg in drift))
         if write or apply_milestones:
             print("Statuses written to the file." if write else "")
             return 0

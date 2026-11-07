@@ -14,7 +14,7 @@ generated from `roadmap/roadmap.yaml`, and a scheduled job reports any differenc
 
 | Milestone | Gate | Release | Done | Open |
 | --- | --- | --- | --- | --- |
-| M0 · Foundations | A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows. | 0.1.0 | 14 | 2 |
+| M0 · Foundations | A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows. | 0.1.0 | 15 | 2 |
 | M1 · Numerical core | Golden harness green; NPV and IRR validated; property tests running. | 0.1.0 | 10 | 3 |
 | M2 · Complete DCF | DCF passes every golden case provided by practitioners. | 0.1.0 | 9 | 8 |
 | M3 · Agent layer and v0.1 release | An external user completes a DCF with Claude Code or Codex using only the README. | 0.1.0 | 10 | 7 |
@@ -42,6 +42,7 @@ Gate: A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows.
 | CI/CD | Wheel matrix with maturin-action, trusted publishing to PyPI and crates.io | [#13](https://github.com/salvo8519/fairmark/issues/13) |  | Open |
 | CI/CD | pre-commit configuration | [#14](https://github.com/salvo8519/fairmark/issues/14) |  | Done |
 | CI/CD | Deterministic checks: workflows (actionlint, zizmor), YAML validity, unused Rust dependencies, external links | [#117](https://github.com/salvo8519/fairmark/issues/117) |  | Done |
+| CI/CD | Roadmap sync tolerates changes pending in open pull requests; Pages deploy waits for slow CDN purges | [#134](https://github.com/salvo8519/fairmark/issues/134) |  | Done |
 | Community infrastructure | Issue forms: bug, method request, numerical discrepancy | [#16](https://github.com/salvo8519/fairmark/issues/16) |  | Done |
 | Community infrastructure | Labels, GitHub Project board, Discussions | [#17](https://github.com/salvo8519/fairmark/issues/17) |  | Open |
 

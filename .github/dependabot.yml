@@ -15,7 +15,9 @@ updates:
     directory: "/"
     schedule: { interval: weekly }
     commit-message: { prefix: "ci", include: scope }
-    groups: { actions: { patterns: ["*"] } }
+    # Minor and patch updates together; each major update in its own pull request
+    # (docs/en/project/dependencies.md).
+    groups: { actions: { patterns: ["*"], update-types: [minor, patch] } }
     ignore:
       # Pinned to the commit of its toolchain branches (stable, 1.88), which Dependabot does
       # not follow; the toolchain itself is the `toolchain` input. To update: write the ref

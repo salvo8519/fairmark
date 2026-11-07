@@ -52,3 +52,7 @@ jobs:
     steps:
       - uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
         id: deployment
+        with:
+          # GitHub Pages can take more than the default 10 minutes to purge its CDN
+          # (run 42411252146); the value is in milliseconds.
+          timeout: 1800000

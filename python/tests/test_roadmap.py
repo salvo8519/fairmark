@@ -79,3 +79,51 @@ def test_the_page_is_generated_from_the_file() -> None:
     d = data()
     d["milestones"][0]["gate"] = "A different gate."
     assert any("roadmap.md is not generated" in p for p in roadmap.problems_of(d))
+
+
+# ---- sync, offline: GitHub issues are given as data
+
+
+def github_view(d: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    """Issues as GitHub would report them if it agreed with the roadmap `d`."""
+    issues: dict[int, dict[str, Any]] = {}
+    for m, _e, t in roadmap.tasks(d):
+        status = t.get("status", "open")
+        issues[t["issue"]] = {
+            "number": t["issue"],
+            "title": t["title"],
+            "state": "open" if status == "open" else "closed",
+            "state_reason": "not_planned" if status == "dropped" else "completed",
+            "milestone": {"title": m["title"]},
+        }
+    return issues
+
+
+def test_sync_agrees_with_a_matching_github() -> None:
+    d = data()
+    drift, untriaged = roadmap.differences(copy.deepcopy(d), github_view(d))
+    assert drift == [] and untriaged == []
+
+
+def test_new_issue_is_pending_while_its_pull_request_is_open() -> None:
+    main = data()
+    branch = copy.deepcopy(main)
+    epic = branch["milestones"][0]["epics"][0]
+    epic["tasks"].append({"issue": 99999, "title": "New task", "status": "open"})
+    issues = github_view(branch)
+    drift, _ = roadmap.differences(copy.deepcopy(main), issues)
+    assert [n for n, _ in drift] == [99999]
+    assert roadmap.pending_in(drift, {7: branch}, issues) == {99999: 7}
+    # Without the pull request the difference stands.
+    assert roadmap.pending_in(drift, {}, issues) == {}
+
+
+def test_a_pull_request_that_does_not_resolve_leaves_the_difference() -> None:
+    main = data()
+    issues = github_view(main)
+    task = main["milestones"][0]["epics"][0]["tasks"][0]
+    issues[task["issue"]]["state"] = "open" if task.get("status") != "open" else "closed"
+    drift, _ = roadmap.differences(copy.deepcopy(main), issues)
+    assert [n for n, _ in drift] == [task["issue"]]
+    unrelated = copy.deepcopy(main)
+    assert roadmap.pending_in(drift, {8: unrelated}, issues) == {}
