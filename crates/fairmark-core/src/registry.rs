@@ -87,6 +87,9 @@ registry! {
     coc::Wacc,
     dcf::Fcff,
     analysis::goal_seek::GoalSeek,
+    analysis::sensitivity::Sensitivity,
+    analysis::scenarios::Scenarios,
+    analysis::tornado::Tornado,
 }
 
 /// Evaluates a method on a JSON value from inside the core: the same path as [`run`] (parsing,

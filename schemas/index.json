@@ -11,6 +11,36 @@
         }
       }
     },
+    "analysis.scenarios": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "analysis.scenarios/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "cb66bb4298bdf2fd2b4584737190182141122b969d6be7175c1bda231905cabc"
+        }
+      }
+    },
+    "analysis.sensitivity": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "analysis.sensitivity/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "0a0656e61b1bcd20262ea836996e8d965761f2116796f6e22b371ee0bc0eb1b4"
+        }
+      }
+    },
+    "analysis.tornado": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "analysis.tornado/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "2727a053838eb8761e489b543b981c36eb65dc2f8863df8b05edbd59d3df9504"
+        }
+      }
+    },
     "coc.beta_peers": {
       "current": "1",
       "versions": {

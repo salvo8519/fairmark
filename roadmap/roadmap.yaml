@@ -142,7 +142,7 @@ milestones:
         tasks:
           - { issue: 43, title: "Exit-multiple terminal value; configurable terminal value timing", tags: [parallel], spec: "0006", status: open }
           - { issue: 44, title: "EV to equity: minorities, surplus assets, debt-like items", tags: [parallel], status: open }
-          - { issue: 45, title: "Deterministic WACC × g sensitivity grid", tags: [gfi], spec: "0008", status: open }
+          - { issue: 45, title: "Deterministic WACC × g sensitivity grid", tags: [gfi], spec: "0008", status: done }
           - { issue: 101, title: "Draft specs for terminal value methods and financial ratios with covenants", spec: "0006", status: done }
           - { issue: 115, title: "Terminal value building blocks tv.* (SPEC-0006)", spec: "0006", status: open }
       - title: "Analysis: goal seek, sensitivity, scenarios, tornado"
@@ -150,7 +150,7 @@ milestones:
         tasks:
           - { issue: 106, title: "Draft spec for analysis: goal seek, sensitivity, scenarios, tornado", spec: "0008", status: done }
           - { issue: 108, title: "Implement analysis.goal_seek with Brent's method on decimals", spec: "0008", status: done }
-          - { issue: 116, title: "Sensitivity tables, scenarios and tornado (SPEC-0008 R15 to R22)", spec: "0008", status: open }
+          - { issue: 116, title: "Sensitivity tables, scenarios and tornado (SPEC-0008 R15 to R22)", spec: "0008", status: done }
       - title: "Financial ratios and covenants"
         labels: []
         tasks:

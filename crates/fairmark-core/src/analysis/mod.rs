@@ -5,6 +5,9 @@
 
 pub mod goal_seek;
 pub mod pointer;
+pub mod scenarios;
+pub mod sensitivity;
+pub mod tornado;
 
 use std::borrow::Cow;
 
@@ -13,7 +16,7 @@ use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value};
 
-use crate::error::{FairmarkError, Result};
+use crate::error::{ErrorReport, FairmarkError, Result};
 use crate::registry;
 
 /// Most inner evaluations one analysis request may perform (ADR 0010).
@@ -140,4 +143,74 @@ pub(crate) fn base_value(base: &BaseInput) -> Value {
 /// The decimal at `pointer` in an inner result `value`.
 pub(crate) fn output(value: &Value, pointer: &str) -> Result<Decimal> {
     pointer::read_decimal(value, pointer)
+}
+
+/// `base` with each `(pointer, value)` written as a decimal string (R4).
+pub(crate) fn with_values(base: &Value, values: &[(&str, Decimal)]) -> Result<Value> {
+    let mut input = base.clone();
+    for (pointer, value) in values {
+        pointer::write_decimal(&mut input, pointer, *value)?;
+    }
+    Ok(input)
+}
+
+/// R9: the base case, `base_input` unchanged, and the selected outputs of its result. Any error
+/// is returned unchanged; an output pointer that does not resolve is `FM-E015`.
+pub(crate) fn base_case(inner: &mut Inner, base: &Value, outputs: &[&str]) -> Result<Vec<Decimal>> {
+    let value = inner.evaluate(base)?;
+    outputs.iter().map(|o| output(&value, o)).collect()
+}
+
+/// Outcome of one evaluation in a table or a scenario: a value, or the inner error (R16).
+#[derive(Debug, Clone, Serialize)]
+#[serde(untagged)]
+pub enum Outcome<T: Serialize> {
+    /// The evaluation succeeded.
+    Value { value: T },
+    /// The inner method returned this error; the rest of the request went on.
+    Error { error: ErrorReport },
+}
+
+/// R16: an error of the inner method is recorded and the request goes on, except `FM-E012`
+/// (a defect in Fairmark), which aborts the request.
+pub(crate) fn recorded<T: Serialize>(result: Result<T>) -> Result<Outcome<T>> {
+    match result {
+        Ok(value) => Ok(Outcome::Value { value }),
+        Err(e @ FairmarkError::Internal(_)) => Err(e),
+        Err(e) => Ok(Outcome::Error {
+            error: e.to_report(),
+        }),
+    }
+}
+
+/// `FM-E001` when `items` repeat, naming the first repeated one.
+pub(crate) fn unique<'a>(what: &str, items: impl IntoIterator<Item = &'a str>) -> Result<()> {
+    let mut seen = std::collections::BTreeSet::new();
+    for item in items {
+        if !seen.insert(item) {
+            return Err(FairmarkError::InvalidInput(format!(
+                "{what} '{item}' appears twice"
+            )));
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_defect_aborts_and_other_errors_are_recorded() {
+        let defect: Result<Decimal> = Err(FairmarkError::Internal("injected"));
+        assert_eq!(recorded(defect).unwrap_err().code(), "FM-E012");
+        let domain: Result<Decimal> = Err(FairmarkError::GrowthNotBelowRate {
+            growth: Decimal::ONE,
+            rate: Decimal::ZERO,
+        });
+        let cell = serde_json::to_value(recorded(domain).unwrap()).unwrap();
+        assert_eq!(cell["error"]["code"], "FM-E004");
+        let ok = serde_json::to_value(recorded(Ok(Decimal::TWO)).unwrap()).unwrap();
+        assert_eq!(ok, serde_json::json!({"value": "2"}));
+    }
 }

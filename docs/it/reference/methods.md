@@ -251,3 +251,43 @@ Value of one decimal input of any method at which one of its outputs equals a ta
 | `bracket` | lista di decimale | sì |  | `[low, high]`, low < high: the variable is searched in this interval, and the output minus the target must change sign between its ends (or meet the tolerance at one end). |
 | `tolerance` | decimale | no | `"0.000000001"` | Absolute tolerance on the output, in the output's units, greater than 0. Default: 0.000000001. |
 | `max_iterations` | integer | no | `100` | Largest number of evaluations after the two bracket ends, from 1 to 1000. Default: 100. |
+
+## `analysis.sensitivity`
+
+**Sensitivity table** · versione del metodo 1 · tool `fairmark_analysis_sensitivity`
+
+One output of any method across a one-way or two-way table of input values, with the base case; a combination the method refuses is recorded in its cell.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `method` | string | sì |  | Id of the method to evaluate, for example `dcf.fcff`. Analysis methods are not accepted. |
+| `base_input` | object | sì |  | Input of that method, complete: the base case. |
+| `output` | string | sì |  | RFC 6901 JSON Pointer to the decimal output reported in each cell, in the `value` of the inner result, for example `/enterprise_value`. |
+| `rows` | object | sì |  | The variable that changes along the rows, and its values. |
+| `columns` |  | no |  | Optional second variable, along the columns, different from the row variable. Absent: a one-way table (one column). |
+
+## `analysis.scenarios`
+
+**Scenario analysis** · versione del metodo 1 · tool `fairmark_analysis_scenarios`
+
+Outputs of any method under named sets of input changes, with deltas and relative deltas against the base case; a scenario the method refuses is recorded.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `method` | string | sì |  | Id of the method to evaluate, for example `dcf.fcff`. Analysis methods are not accepted. |
+| `base_input` | object | sì |  | Input of that method, complete: the base case. |
+| `outputs` | lista di string | sì |  | RFC 6901 JSON Pointers to the decimal outputs to report, in the `value` of the inner result, for example `["/enterprise_value", "/equity_value"]`; at least one, no repeats. |
+| `scenarios` | lista di object | sì |  | The cases, evaluated in this order; at least one. |
+
+## `analysis.tornado`
+
+**Tornado** · versione del metodo 1 · tool `fairmark_analysis_tornado`
+
+Which inputs move one output of any method the most: each input varied alone between explicit low and high values, ranked by the absolute swing of the output.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `method` | string | sì |  | Id of the method to evaluate, for example `dcf.fcff`. Analysis methods are not accepted. |
+| `base_input` | object | sì |  | Input of that method, complete: the base case. Each variable is changed alone, the others keep their base values. |
+| `output` | string | sì |  | RFC 6901 JSON Pointer to the decimal output to rank, in the `value` of the inner result, for example `/equity_value`. |
+| `variables` | lista di object | sì |  | The inputs to vary; at least one. |

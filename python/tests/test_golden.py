@@ -1,7 +1,9 @@
 """Runs the shared golden cases (tests/golden) through the Python API."""
 
+import re
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -23,8 +25,35 @@ def test_golden(path: Path) -> None:
     result = fm.run(case["method"], case["input"])
     tolerance = Decimal(case["tolerance"])
     for field, expected in case["expect"].items():
-        got = Decimal(str(result.value[field]))
-        assert abs(got - Decimal(str(expected))) <= tolerance, f"{field}: {got} != {expected}"
+        raw = resolve(result.value, field)
+        try:
+            want = Decimal(str(expected))
+            if not want.is_finite():  # NaN, Infinity: not numbers, as in the Rust runner
+                raise ArithmeticError
+        except ArithmeticError:
+            # Not a decimal: compared exactly (null, error codes, names).
+            if expected == "null":
+                assert raw is None, f"{field}: {raw!r} is not null"
+            else:
+                assert raw is not None and str(raw) == str(expected), f"{field}: {raw!r}"
+            continue
+        got = Decimal(str(raw))
+        assert abs(got - want) <= tolerance, f"{field}: {got} != {expected}"
+
+
+def resolve(value: Any, field: str) -> Any:
+    """A key starting with '/' is an RFC 6901 pointer into the value; other keys are fields."""
+    if not field.startswith("/"):
+        return value[field]
+    for token in field[1:].split("/"):
+        token = token.replace("~1", "/").replace("~0", "~")
+        if isinstance(value, list):
+            # RFC 6901 array index: digits, no leading zero, no sign.
+            assert re.fullmatch(r"0|[1-9][0-9]*", token), f"{field}: bad index {token!r}"
+            value = value[int(token)]
+        else:
+            value = value[token]
+    return value
 
 
 def test_golden_cases_exist() -> None:
