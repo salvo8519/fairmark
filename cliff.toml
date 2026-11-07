@@ -27,7 +27,8 @@ conventional_commits = true
 filter_unconventional = true
 split_commits = false
 commit_parsers = [
-  { body = "(?i)numerical-change:", group = "<!-- 0 -->Numerical changes" },
+  # Trailers are footers in a Conventional Commit, not part of the body.
+  { footer = "(?i)^numerical-change", group = "<!-- 0 -->Numerical changes" },
   { message = "^feat", group = "<!-- 1 -->Added" },
   { message = "^fix", group = "<!-- 2 -->Fixed" },
   { message = "^perf", group = "<!-- 3 -->Performance" },

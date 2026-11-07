@@ -16,6 +16,7 @@ import fnmatch
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -168,9 +169,45 @@ def llms_txt() -> None:
     (ROOT / "site" / "llms-full.txt").write_text("\n".join(full), encoding="utf-8")
 
 
+GENERATED = ROOT / ".generated"
+
+
+def current_notes() -> None:
+    """Release notes and changelog as of now, for the site (never committed).
+
+    RELEASE_NOTES.md and CHANGELOG.md in the repository are written at release time. The site
+    shows them with the unreleased changes included, so that what users read is current:
+    the draft section of the release notes comes from the fragments in changes/ (towncrier),
+    the unreleased section of the changelog from the commits since the last tag (git-cliff).
+    """
+    GENERATED.mkdir(exist_ok=True)
+    draft = subprocess.run(
+        ["towncrier", "build", "--draft", "--version", "Unreleased"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    notes = (ROOT / "RELEASE_NOTES.md").read_text(encoding="utf-8")
+    marker = "<!-- release notes start -->\n"
+    if marker not in notes:
+        sys.exit("RELEASE_NOTES.md: release notes marker missing")
+    if "No significant changes" in draft or not draft:
+        draft = "## Fairmark Unreleased\n\nNo user-facing changes since the last release."
+    head, tail = notes.split(marker, 1)
+    (GENERATED / "RELEASE_NOTES.md").write_text(
+        head + marker + "\n" + draft + "\n\n" + tail.lstrip("\n"), encoding="utf-8"
+    )
+    changelog = subprocess.run(
+        ["git-cliff"], cwd=ROOT, capture_output=True, text=True, check=True
+    ).stdout
+    (GENERATED / "CHANGELOG.md").write_text(changelog, encoding="utf-8")
+
+
 def prepare() -> None:
     copy_shared()
     italian_config()
+    current_notes()
 
 
 def main() -> None:
