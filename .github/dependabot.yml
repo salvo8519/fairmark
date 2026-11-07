@@ -17,5 +17,7 @@ updates:
     commit-message: { prefix: "ci", include: scope }
     groups: { actions: { patterns: ["*"] } }
     ignore:
-      # The MSRV job pins the toolchain on purpose (rust-version in Cargo.toml).
+      # Pinned to the commit of its toolchain branches (stable, 1.88), which Dependabot does
+      # not follow; the toolchain itself is the `toolchain` input. To update: write the ref
+      # back (`@stable`), then run python scripts/pin_actions.py, which skips pinned lines.
       - dependency-name: dtolnay/rust-toolchain

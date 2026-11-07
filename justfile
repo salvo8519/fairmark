@@ -24,6 +24,8 @@ lint:
     typos
     python scripts/check_style.py
     python scripts/roadmap.py check
+    python scripts/check_yaml.py
+    python scripts/pin_actions.py --check
     for f in sprints/S*.yaml; do [ -e "$f" ] && python scripts/sprint.py validate "$f"; done; true
 
 # Run all tests (Rust incl. golden, Python incl. golden and docs snippets)
