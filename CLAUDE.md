@@ -35,7 +35,8 @@ dependencies or workflows changed) → `docs-writer` → PR.
 ### Skills (`.claude/skills/`, generated from `.agents/skills/`)
 `/spec-new`, `/implement-spec`, `/add-method`, `/golden-case`, `/adr-new`, `/pre-pr`,
 `/fix-ci`, `/release`, `/plan-sprint`, `/run-sprint`, `/commit`, `/explain-changes`,
-`/translate`, `/onboarding`, `/session-start`, `/session-end`, `/pr-triage`.
+`/translate`, `/onboarding`, `/session-start`, `/session-end`, `/pr-triage`,
+`/roadmap-update`.
 
 ### Languages
 Write everything that goes into the repository in English. Talk to each person in the
@@ -59,6 +60,8 @@ To change an agent or a skill, edit `.agents/` and run `uv run just generate`; n
 ### Hooks (`.claude/settings.json`)
 - Edited `.rs` / `.py` files are formatted automatically after each edit.
 - Edits to **existing** files in `tests/golden/` are blocked: ask the maintainer.
+- Every request is read with the roadmap in mind (`UserPromptSubmit` reminder): propose the
+  roadmap change with `/roadmap-update` when a request adds, changes or drops planned work.
 
 ### MCP
 `.mcp.json` registers this repository's own `fairmark` MCP server (dogfooding): use its tools

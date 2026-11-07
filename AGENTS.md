@@ -67,6 +67,8 @@ changing anything: its principles override convenience.
   milestone, the labels and the entry in `roadmap/roadmap.yaml`); a pull request may only close
   an issue that is in the roadmap, and every spec must be referenced by a roadmap task (CI).
   `roadmap.py sync` copies issue states from GitHub; a scheduled workflow reports differences.
+  When a request adds, changes, moves or drops planned work, propose the roadmap change first
+  (skill `roadmap-update`) and apply it after the maintainer confirms.
 - Sign off commits (`git commit -s`, DCO).
 
 ## House style (enforced by CI)
@@ -97,7 +99,7 @@ Roles and workflows live in `.agents/` (see `.agents/README.md`): `architect`, `
 `security-reviewer`, `ci-investigator`, `release-manager`, `sprint-planner`, `translator`; skills
 `spec-new`, `implement-spec`, `add-method`, `golden-case`, `adr-new`, `pre-pr`, `fix-ci`,
 `release`, `plan-sprint`, `run-sprint`, `commit`, `explain-changes`, `translate`, `onboarding`,
-`session-start`, `session-end`, `pr-triage`. Sprints: see `sprints/README.md`.
+`session-start`, `session-end`, `pr-triage`, `roadmap-update`. Sprints: see `sprints/README.md`.
 Edit them in `.agents/` only; `uv run just generate` mirrors them to `.claude/`.
 
 ## Documentation stays in sync automatically
