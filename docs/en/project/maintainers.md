@@ -60,7 +60,7 @@ These cannot be set from the code and are listed here so that they are not forgo
 | --- | --- |
 | General, Pull requests | Allow squash merging only; default commit message "Pull request title"; delete head branches automatically; suggest updating branches |
 | Rules, Rulesets for `main` | Require a pull request; require status checks *CI*, *PR hygiene*, *Docs*, *Security*; block force pushes and deletions; require linear history |
-| Code security | Dependabot alerts, security updates, secret scanning and push protection, CodeQL: all enabled |
+| Advanced Security | Dependency graph (required by Dependency review), Dependabot alerts and security updates, secret scanning and push protection: all enabled. CodeQL runs from `security.yml`, so leave "default setup" off |
 | Pages | Source: GitHub Actions |
 | Actions, General | Workflow permissions: read repository contents; allow Actions to create pull requests only if needed |
 
