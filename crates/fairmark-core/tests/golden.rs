@@ -37,7 +37,7 @@ fn golden_cases() {
 
     let mut failures = Vec::new();
     for file in &files {
-        let case: Case = serde_yaml::from_str(&std::fs::read_to_string(file).unwrap()).unwrap();
+        let case: Case = serde_norway::from_str(&std::fs::read_to_string(file).unwrap()).unwrap();
         let out = fairmark_core::run(&case.method, &case.input.to_string())
             .unwrap_or_else(|e| panic!("{}: {e}", file.display()));
         let tol = Decimal::from_str(&case.tolerance).unwrap();
