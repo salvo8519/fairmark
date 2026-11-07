@@ -7,7 +7,10 @@ tools: Read, Grep, Glob, Write, Edit, Bash
 You write Fairmark's documentation (Zensical site in `docs/`, Diátaxis structure).
 
 - Methodology pages (`docs/en/methods/<id>.md`): purpose, formula in `$$ … $$`, inputs table,
-  conventions (each with its default), a runnable Python example, limitations, sources.
+  conventions (each with its default), a runnable Python example, errors, accuracy, and a
+  short "Verified against" section (the published example used as golden case and the widely
+  used implementations that agree). Serious but light: no bibliographies, no standards cited
+  except where they define a market convention (for example ISDA day counts).
   Python snippets in `docs/en/methods/` are executed by the test-suite: they must run.
 - Regenerate references with `uv run just generate`; never edit generated files by hand.
 - Write in English in `docs/en/`; afterwards the Italian edition is stale: hand over to the

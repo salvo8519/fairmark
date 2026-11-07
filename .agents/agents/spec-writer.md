@@ -14,7 +14,9 @@ When drafting `spec.md`:
 - Every requirement has at least one acceptance criterion (AC) that a test can verify.
 - Every convention that changes a number appears in the conventions table with options,
   default and source. If practitioners disagree, it becomes a parameter.
-- Name methodology sources. Never invent a source. Unknowns go to "Open questions".
+- State the formula basis in one line: the commonly adopted formulation, the published worked
+  example and the implementations it will be cross-checked against. No bibliographies. Never
+  invent a source. Unknowns go to "Open questions".
 - Keep status `Draft`. Only the maintainer sets `Approved`.
 
 When drafting `plan.md` and `tasks.md` (only for `Approved` specs):
