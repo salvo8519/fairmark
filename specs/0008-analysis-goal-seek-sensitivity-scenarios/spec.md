@@ -238,6 +238,10 @@ errors, explicit tornado shocks, Monte Carlo in a follow-up spec, and compositio
 registry for the analysis theme (ADR 0010). Results must never be ambiguous: agents combine and
 interpret them, the engine guarantees that each one is exact, validated and verified.
 
+Amendments made at implementation (AC1, AC2, AC5, AC6, R5, R18, R19, interfaces), approved
+by the maintainer on 2026-11-08: the work bound of R5, overflowing deltas recorded in their
+scenario (R19), and the spreadsheet table of AC6 replaced by the property test of AC8.
+
 ### Questions as asked
 - [x] **a. Automatic bracket expansion in goal seek v1?** Recommended: no. An explicit bracket is
   auditable and fails loudly with `FM-E013`; expansion adds a second convention (growth factor,
