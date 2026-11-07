@@ -49,7 +49,7 @@ drift from it. Pull request numbers share the same sequence.
   its issue and, where one exists, its spec. Create issues with
   `python scripts/roadmap.py new --milestone M2 --epic "<epic>" --title "<title>"`, which sets
   the milestone and labels on GitHub and adds the task to the file. CI refuses a pull request
-  that closes an issue missing from the roadmap, a spec that no task references, and a
+  that closes an issue missing from the roadmap or not marked `done` in it, a spec that no task references, and a
   roadmap page that is not generated from the file. `roadmap.py sync` copies issue states
   from GitHub; the scheduled workflow `Roadmap sync` fails on any difference.
 - **Status**: the project board columns, plus the labels `in-progress` (claimed, a branch

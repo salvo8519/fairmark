@@ -54,7 +54,8 @@ milestones:
           - { issue: 9, title: "ADR 0001–0005", tags: [maintainer], status: done }
           - { issue: 93, title: "Session protocol, naming conventions and dependency maintenance", status: done }
           - { issue: 111, title: "Commit scopes for every engine theme", status: done }
-          - { issue: 113, title: "Roadmap as code: checked offline, synchronised with GitHub", status: open }
+          - { issue: 113, title: "Roadmap as code: checked offline, synchronised with GitHub", status: done }
+          - { issue: 119, title: "A pull request marks the task it closes as done in the roadmap", status: done }
       - title: "CI/CD"
         issue: 10
         labels: ["area:infra"]
