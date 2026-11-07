@@ -1,0 +1,28 @@
+# Contract cases for coc.cost_of_equity: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: coc.cost_of_equity
+extreme_inputs:
+- risk_free_rate: MAX
+  equity_risk_premium: MAX
+  levered_beta: MAX
+  country_risk_premium: MAX
+  size_premium: MAX
+- risk_free_rate: '0.03'
+  equity_risk_premium: '0.05'
+  relever:
+    unlevered_beta: MAX
+    debt_to_equity: MAX
+    tax_rate: '0.5'
+    formula: hamada
+    debt_beta: MIN
+conventions:
+- input:
+    risk_free_rate: '0.03'
+    equity_risk_premium: '0.05'
+    levered_beta: '1'
+  expect:
+  - annual effective
+  - levered beta 1 (given)
+  - size premium 0 (default)
+  - country exposure (lambda) 1 (default)

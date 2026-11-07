@@ -64,7 +64,7 @@ così che i due input descrivano la stessa struttura finanziaria.
 | `wacc` | Costo medio ponderato del capitale, frazione decimale annua |
 | `equity_weight` | E / (D + E) |
 | `debt_weight` | D / (D + E) |
-| `debt_to_equity` | D/E implicito nei pesi; confrontarlo con il D/E usato per riportare a leva il beta |
+| `debt_to_equity` | D/E implicito nei pesi; confrontarlo con il D/E usato per il relevering del beta |
 | `after_tax_cost_of_debt` | $k_d (1 - t)$, frazione decimale annua |
 
 I passaggi mostrano il peso del debito (derivato dal D/E quando è fornito in quella forma), il
@@ -72,8 +72,8 @@ peso del capitale proprio, il costo del debito dopo le imposte e la somma ponder
 
 ## Coerenza con il beta
 
-Usare la stessa struttura finanziaria nel costo del capitale proprio e nei pesi: riportare a
-leva il beta al D/E implicito nei pesi del WACC (restituito come `debt_to_equity`). I pesi
+Usare la stessa struttura finanziaria nel costo del capitale proprio e nei pesi: applicare il
+relevering al beta in base al D/E implicito nei pesi del WACC (restituito come `debt_to_equity`). I pesi
 obiettivo presuppongono un rapporto D/V costante, coerente con Harris-Pringle; Hamada presuppone
 un ammontare di debito costante. Combinare un beta Hamada con pesi obiettivo è
 un'approssimazione diffusa e tollerata: va dichiarata quando è rilevante.

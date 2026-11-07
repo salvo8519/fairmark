@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
+use crate::method::Method;
 use crate::num;
 
 /// How often interest is compounded within a year.
@@ -295,6 +296,43 @@ pub fn real_nominal(input: &RealNominalInput) -> Result<(RealNominalOutput, Expl
     };
     ex.step(label, formula, rate);
     Ok((RealNominalOutput { rate }, ex))
+}
+
+// ---------------------------------------------------------------- method registrations
+
+/// `rates.convert`: see the methodology page.
+pub struct Convert;
+
+impl Method for Convert {
+    const ID: &'static str = "rates.convert";
+    const TITLE: &'static str = "Rate conversion between compounding conventions";
+    const DESCRIPTION: &'static str =
+        "Equivalent annual rate under another compounding (annual, semi-annual, quarterly, \
+        monthly, continuous).";
+    const VERSION: &'static str = "1";
+    type Input = ConvertInput;
+    type Output = ConvertOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        convert(input)
+    }
+}
+
+/// `rates.real_nominal`: see the methodology page.
+pub struct RealNominal;
+
+impl Method for RealNominal {
+    const ID: &'static str = "rates.real_nominal";
+    const TITLE: &'static str = "Real and nominal rates (Fisher)";
+    const DESCRIPTION: &'static str =
+        "Converts a nominal rate to a real rate, or the reverse, with the exact Fisher relation.";
+    const VERSION: &'static str = "1";
+    type Input = RealNominalInput;
+    type Output = RealNominalOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        real_nominal(input)
+    }
 }
 
 #[cfg(test)]

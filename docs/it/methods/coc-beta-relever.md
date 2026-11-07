@@ -2,12 +2,12 @@
 source: methods/coc-beta-relever.md
 source_hash: b9e7907e5ab9
 ---
-# Ricalcolo del beta (`coc.beta_relever`)
+# Unlevering e relevering del beta (`coc.beta_relever`)
 
-Converte un beta dalla forma unlevered (beta non indebitato, o beta dell'attivo) alla forma
-levered (beta indebitato, o beta del capitale proprio) a una data struttura finanziaria, o
-viceversa. Serve a riportare il beta di settore o delle società comparabili al rapporto D/E
-obiettivo della società oggetto di valutazione, oppure a depurare dalla leva un beta osservato.
+Converte un beta dalla forma unlevered (beta dell'attivo, o asset beta) alla forma levered
+(beta del capitale proprio) a una data struttura finanziaria, o viceversa. Serve per il
+relevering del beta di settore o delle società comparabili al rapporto D/E obiettivo della
+società oggetto di valutazione, oppure per l'unlevering di un beta osservato.
 
 ## Formula
 
@@ -63,7 +63,7 @@ hp = fm.coc.beta_relever(
 )
 assert hp.beta == Decimal("1.1")
 
-# Hamada, depurazione dalla leva con beta del debito 0.1: 1.245 / 1.45
+# Hamada, unlevering con beta del debito 0.1: 1.245 / 1.45
 u = fm.coc.beta_relever(
     "1.2",
     direction="unlever",
@@ -116,14 +116,14 @@ I passaggi mostrano il fattore di leva $k$ e il beta convertito.
 ## Precisione
 
 Le formule sono razionali: i risultati sono esatti fino alle 28 cifre significative del tipo
-decimale. Depurando dalla leva e poi riportando a leva alla stessa struttura si ottiene il beta
+decimale. Applicando l'unlevering e poi il relevering alla stessa struttura si ottiene il beta
 originale entro $10^{-26}$ (property test, entrambe le formule, con e senza beta del debito).
 
 ## Verificato con
 
 - Esempi pubblicati (Damodaran, slide pubbliche dei corsi alla NYU Stern): Tata Motors, beta
-  unlevered 0.8601 riportato a leva con D/E 41.41% e aliquota 32.45% dà 1.1007; un beta mediano di
-  1.24 depurato dalla leva con D/E lordo 27.06% e aliquota 40% dà 1.0668. Entrambi sono golden case.
+  unlevered 0.8601, con relevering a D/E 41.41% e aliquota 32.45%, dà 1.1007; un beta mediano di
+  1.24, con unlevering a D/E lordo 27.06% e aliquota 40%, dà 1.0668. Entrambi sono golden case.
   Le stesse slide riportano la versione con beta del debito, algebricamente identica a quella usata qui.
 
 - Casi di riferimento (golden case) in `tests/golden/coc.beta_relever/`, i cui valori attesi

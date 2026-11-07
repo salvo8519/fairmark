@@ -1,0 +1,39 @@
+# Contract cases for tvm.xnpv: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: tvm.xnpv
+extreme_inputs:
+- rate: MAX
+  compounding: semi_annual
+  cash_flows:
+  - date: '2020-01-01'
+    amount: MAX
+  - date: '2199-12-31'
+    amount: MAX
+conventions:
+- input:
+    rate: '0.1'
+    cash_flows:
+    - date: '2024-01-01'
+      amount: '-100'
+    - date: '2025-01-01'
+      amount: '110'
+  expect:
+  - Actual/365 (Fixed)
+  - (default, ECMA-376)
+  - annual compounding
+  - earliest flow date (default
+- input:
+    rate: '0.1'
+    day_count: act_360
+    compounding: monthly
+    valuation_date: '2023-12-01'
+    cash_flows:
+    - date: '2024-01-01'
+      amount: '-100'
+    - date: '2025-01-01'
+      amount: '110'
+  expect:
+  - Actual/360
+  - (given)
+  - monthly compounding

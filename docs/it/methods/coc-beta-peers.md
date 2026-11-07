@@ -5,10 +5,10 @@ source_hash: aa67630c1740
 # Beta da società comparabili (`coc.beta_peers`)
 
 Stima il beta di una società non quotata a partire da società comparabili quotate (peers):
-depura dalla leva il beta osservato di ciascuna comparabile alla sua struttura finanziaria e
-alla sua aliquota fiscale, calcola la media o la mediana dei beta unlevered e riporta la
-statistica scelta alla struttura finanziaria obiettivo della società oggetto di valutazione. Le
-formule di ricalcolo sono quelle di [`coc.beta_relever`](coc-beta-relever.md).
+esegue l'unlevering del beta osservato di ciascuna comparabile in base alla sua struttura
+finanziaria e alla sua aliquota fiscale, calcola la media o la mediana dei beta unlevered e
+applica il relevering alla statistica scelta in base alla struttura finanziaria obiettivo della società oggetto di valutazione. Le
+formule di unlevering e relevering sono quelle di [`coc.beta_relever`](coc-beta-relever.md).
 
 ## Formula
 
@@ -26,8 +26,8 @@ società. Con un numero pari di comparabili la mediana è la media dei due valor
 
 ## Esempio
 
-Cinque comparabili depurate dalla leva con Hamada; la mediana è riportata a leva a D/E 0.5 con
-aliquota fiscale del 24%.
+Unlevering di cinque comparabili con Hamada; relevering della mediana a D/E 0.5 con aliquota
+fiscale del 24%.
 
 ```python
 from decimal import Decimal
@@ -48,7 +48,7 @@ r = fm.coc.beta_peers(
     target_debt_to_equity="0.5",
     target_tax_rate="0.24",
 )
-# La mediana è Peer B: 0.95 / (1 + 0.75 × 0.2) = 0.95 / 1.15; riportata a leva × (1 + 0.76 × 0.5)
+# La mediana è Peer B: 0.95 / (1 + 0.75 × 0.2) = 0.95 / 1.15; relevering × (1 + 0.76 × 0.5)
 assert r.median_unlevered_beta == Decimal("0.8260869565217391304347826087")
 assert r.mean_unlevered_beta == Decimal("0.8349189472537530893029774557")
 assert r.relevered_beta == Decimal("1.14")
@@ -60,7 +60,7 @@ print(r.conventions[-1])  # selected statistic: median (mean of the two central 
 | Campo | Significato | Default |
 | --- | --- | --- |
 | `peers` | Società comparabili, almeno una: `{name, levered_beta, debt_to_equity, tax_rate}`; D/E non negativo, aliquota fiscale da 0 (incluso) a 1 (escluso); `name` è usato solo nella tracciabilità del calcolo | obbligatorio |
-| `formula` | `hamada` oppure `harris_pringle`, usata sia per depurare dalla leva sia per riportare a leva | obbligatorio |
+| `formula` | `hamada` oppure `harris_pringle`, usata sia per l'unlevering sia per il relevering | obbligatorio |
 | `statistic` | `mean` (media) oppure `median` (mediana) dei beta unlevered | obbligatorio |
 | `target_debt_to_equity` | D/E obiettivo della società oggetto di valutazione, decimale, non negativo | obbligatorio |
 | `target_tax_rate` | Aliquota fiscale della società oggetto di valutazione, frazione decimale da 0 (incluso) a 1 (escluso) | obbligatorio |
@@ -74,7 +74,7 @@ print(r.conventions[-1])  # selected statistic: median (mean of the two central 
 | `mean_unlevered_beta` | Media aritmetica dei beta unlevered |
 | `median_unlevered_beta` | Mediana dei beta unlevered |
 | `selected_unlevered_beta` | La statistica scelta con `statistic` |
-| `relevered_beta` | Beta unlevered selezionato, riportato a leva alla struttura finanziaria obiettivo |
+| `relevered_beta` | Beta levered ottenuto con il relevering del beta unlevered selezionato alla struttura finanziaria obiettivo |
 
 Entrambe le statistiche sono sempre restituite, così che l'effetto della scelta sia visibile. I
 passaggi mostrano ciascuna comparabile per nome, entrambe le statistiche e il beta riportato a

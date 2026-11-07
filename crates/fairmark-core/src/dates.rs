@@ -14,6 +14,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
+use crate::method::Method;
 
 /// First and last supported years.
 pub const MIN_YEAR: i32 = 1900;
@@ -285,6 +286,26 @@ pub fn year_fraction(input: &YearFractionInput) -> Result<(YearFractionOutput, E
         },
         ex,
     ))
+}
+
+// ---------------------------------------------------------------- method registrations
+
+/// `dates.year_fraction`: see the methodology page.
+pub struct YearFraction;
+
+impl Method for YearFraction {
+    const ID: &'static str = "dates.year_fraction";
+    const TITLE: &'static str = "Year fraction (day count)";
+    const DESCRIPTION: &'static str =
+        "Fraction of a year between two dates under an ISDA 2006 day-count convention: Actual/365 \
+        Fixed, Actual/360, Actual/Actual ISDA, 30/360, 30E/360.";
+    const VERSION: &'static str = "1";
+    type Input = YearFractionInput;
+    type Output = YearFractionOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        year_fraction(input)
+    }
 }
 
 #[cfg(test)]

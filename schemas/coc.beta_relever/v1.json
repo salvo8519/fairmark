@@ -1,0 +1,92 @@
+{
+  "$defs": {
+    "BetaDirection": {
+      "description": "Direction of a beta conversion.",
+      "oneOf": [
+        {
+          "const": "relever",
+          "description": "The given beta is unlevered; return the levered beta.",
+          "type": "string"
+        },
+        {
+          "const": "unlever",
+          "description": "The given beta is levered; return the unlevered beta.",
+          "type": "string"
+        }
+      ]
+    },
+    "BetaFormula": {
+      "description": "Formula linking levered and unlevered beta.",
+      "oneOf": [
+        {
+          "const": "hamada",
+          "description": "Hamada: β_L = β_U + (β_U − β_D)(1 − t) D/E (debt at a fixed amount, tax shield at the\ncost of debt).",
+          "type": "string"
+        },
+        {
+          "const": "harris_pringle",
+          "description": "Harris-Pringle: β_L = β_U + (β_U − β_D) D/E (debt rebalanced to a target ratio).",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:fairmark:schema:coc.beta_relever:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `coc.beta_relever`.",
+  "properties": {
+    "beta": {
+      "description": "Beta to convert (unlevered for `relever`, levered for `unlever`), dimensionless.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "debt_beta": {
+      "description": "Beta of debt, dimensionless. Default: 0 (risk-free debt).",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "debt_to_equity": {
+      "description": "Debt-to-equity ratio D/E, decimal (0.5 = debt equal to half of equity), not negative.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "direction": {
+      "$ref": "#/$defs/BetaDirection",
+      "description": "`relever` or `unlever`."
+    },
+    "formula": {
+      "$ref": "#/$defs/BetaFormula",
+      "description": "`hamada` or `harris_pringle`."
+    },
+    "tax_rate": {
+      "description": "Tax rate of the tax shield, decimal fraction from 0 to below 1.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    }
+  },
+  "required": [
+    "beta",
+    "direction",
+    "debt_to_equity",
+    "tax_rate",
+    "formula"
+  ],
+  "title": "BetaReleverInput",
+  "type": "object",
+  "x-fairmark-method": "coc.beta_relever",
+  "x-fairmark-method-version": "1"
+}

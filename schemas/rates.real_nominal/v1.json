@@ -1,0 +1,54 @@
+{
+  "$defs": {
+    "FisherDirection": {
+      "description": "Direction of the Fisher conversion.",
+      "oneOf": [
+        {
+          "const": "to_real",
+          "description": "The given rate is nominal; return the real rate.",
+          "type": "string"
+        },
+        {
+          "const": "to_nominal",
+          "description": "The given rate is real; return the nominal rate.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:fairmark:schema:rates.real_nominal:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `rates.real_nominal`.",
+  "properties": {
+    "direction": {
+      "$ref": "#/$defs/FisherDirection",
+      "description": "`to_real` or `to_nominal`."
+    },
+    "inflation": {
+      "description": "Inflation over the same period, decimal fraction (0.03 = 3%).",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "rate": {
+      "description": "Rate to convert, decimal fraction per period (0.08 = 8%).",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    }
+  },
+  "required": [
+    "rate",
+    "inflation",
+    "direction"
+  ],
+  "title": "RealNominalInput",
+  "type": "object",
+  "x-fairmark-method": "rates.real_nominal",
+  "x-fairmark-method-version": "1"
+}

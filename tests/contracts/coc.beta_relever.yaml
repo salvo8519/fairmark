@@ -1,0 +1,21 @@
+# Contract cases for coc.beta_relever: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: coc.beta_relever
+extreme_inputs:
+- beta: MAX
+  direction: unlever
+  debt_to_equity: MAX
+  tax_rate: '0'
+  formula: harris_pringle
+  debt_beta: MAX
+conventions:
+- input:
+    beta: '1'
+    direction: relever
+    debt_to_equity: '0.5'
+    tax_rate: '0.2'
+    formula: hamada
+  expect:
+  - Hamada
+  - debt beta 0 (default

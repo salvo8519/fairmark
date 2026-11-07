@@ -1,0 +1,35 @@
+{
+  "$id": "urn:fairmark:schema:tvm.irr:v2",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `tvm.irr`.",
+  "properties": {
+    "cash_flows": {
+      "description": "Cash flows; the first one occurs at t = 0. Needs at least one sign change.",
+      "items": {
+        "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+        "type": [
+          "string",
+          "number"
+        ]
+      },
+      "type": "array"
+    },
+    "guess": {
+      "description": "Starting point for Newton's method, decimal fraction per period. Default: 0.10.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "cash_flows"
+  ],
+  "title": "IrrInput",
+  "type": "object",
+  "x-fairmark-method": "tvm.irr",
+  "x-fairmark-method-version": "2"
+}

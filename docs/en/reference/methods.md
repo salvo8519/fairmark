@@ -7,43 +7,6 @@ the CLI (`fairmark run`), MCP and function calling
 (tool name `fairmark_<id with underscores>`).
 Decimals may be passed as JSON numbers or strings and are returned as strings.
 
-## `dcf.fcff`
-
-**DCF — unlevered free cash flow** · method version 2 · tool `fairmark_dcf_fcff`
-
-Enterprise and equity value from explicit FCFF forecasts discounted at WACC, with a Gordon growth terminal value. Returns every step for audit.
-
-| Input | Type | Required | Default | Description |
-| --- | --- | --- | --- | --- |
-| `free_cash_flows` | list of decimal | yes |  | Free cash flows to the firm for explicit forecast years 1..n. |
-| `discount_rate` | decimal | yes |  | Discount rate (WACC) per year as a decimal fraction (0.09 = 9%). |
-| `terminal_growth` | decimal | yes |  | Perpetual growth rate after year n as a decimal fraction. Must be below the discount rate. |
-| `timing` | `end_of_period` \| `mid_period` | no | `"end_of_period"` | When cash flows arrive within each year. Default: end of period. |
-| `net_debt` | decimal | no | `"0"` | Net financial position: debt minus cash. Negative if net cash. Default 0. |
-| `non_operating_assets` | decimal | no | `"0"` | Non-operating (surplus) assets added to equity value. Default 0. |
-
-## `tvm.npv`
-
-**Net present value** · method version 2 · tool `fairmark_tvm_npv`
-
-Net present value of a cash flow series; the first flow is at t = 0.
-
-| Input | Type | Required | Default | Description |
-| --- | --- | --- | --- | --- |
-| `rate` | decimal | yes |  | Discount rate per period as a decimal fraction (0.10 = 10%). |
-| `cash_flows` | list of decimal | yes |  | Cash flows; the first one occurs at t = 0 (no discounting). |
-
-## `tvm.irr`
-
-**Internal rate of return** · method version 2 · tool `fairmark_tvm_irr`
-
-Rate at which the NPV of a periodic cash flow series is zero, solved deterministically; refuses inputs with more than one IRR.
-
-| Input | Type | Required | Default | Description |
-| --- | --- | --- | --- | --- |
-| `cash_flows` | list of decimal | yes |  | Cash flows; the first one occurs at t = 0. Needs at least one sign change. |
-| `guess` | decimal | no |  | Starting point for Newton's method, decimal fraction per period. Default: 0.10. |
-
 ## `dates.year_fraction`
 
 **Year fraction (day count)** · method version 1 · tool `fairmark_dates_year_fraction`
@@ -80,6 +43,17 @@ Converts a nominal rate to a real rate, or the reverse, with the exact Fisher re
 | `inflation` | decimal | yes |  | Inflation over the same period, decimal fraction (0.03 = 3%). |
 | `direction` | `to_real` \| `to_nominal` | yes |  | `to_real` or `to_nominal`. |
 
+## `tvm.npv`
+
+**Net present value** · method version 2 · tool `fairmark_tvm_npv`
+
+Net present value of a cash flow series; the first flow is at t = 0.
+
+| Input | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `rate` | decimal | yes |  | Discount rate per period as a decimal fraction (0.10 = 10%). |
+| `cash_flows` | list of decimal | yes |  | Cash flows; the first one occurs at t = 0 (no discounting). |
+
 ## `tvm.present_value`
 
 **Present value with a constant or time-varying rate** · method version 1 · tool `fairmark_tvm_present_value`
@@ -106,6 +80,17 @@ Present value of dated flows at a valuation date, with explicit day count and co
 | `valuation_date` |  | no |  | Date at which the value is computed. Default: the earliest flow date (ECMA-376 XNPV). |
 | `day_count` |  | no |  | Day count for the time between dates. Default: `act_365_fixed` (ECMA-376 XNPV). |
 | `compounding` |  | no |  | Compounding of `rate`. Default: `annual` (ECMA-376 XNPV). |
+
+## `tvm.irr`
+
+**Internal rate of return** · method version 2 · tool `fairmark_tvm_irr`
+
+Rate at which the NPV of a periodic cash flow series is zero, solved deterministically; refuses inputs with more than one IRR.
+
+| Input | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `cash_flows` | list of decimal | yes |  | Cash flows; the first one occurs at t = 0. Needs at least one sign change. |
+| `guess` | decimal | no |  | Starting point for Newton's method, decimal fraction per period. Default: 0.10. |
 
 ## `tvm.xirr`
 
@@ -233,3 +218,18 @@ WACC from cost of equity, cost of debt, tax rate and target weights (D/E or D/(D
 | `tax_rate` | decimal | yes |  | Tax rate of the tax shield, decimal fraction from 0 to below 1. |
 | `debt_to_equity` | decimal | no |  | Target debt-to-equity ratio D/E, decimal, not negative. Give exactly one of `debt_to_equity` and `debt_weight`. |
 | `debt_weight` | decimal | no |  | Target weight of debt D/(D + E), decimal fraction from 0 to below 1. Give exactly one of `debt_to_equity` and `debt_weight`. |
+
+## `dcf.fcff`
+
+**DCF — unlevered free cash flow** · method version 2 · tool `fairmark_dcf_fcff`
+
+Enterprise and equity value from explicit FCFF forecasts discounted at WACC, with a Gordon growth terminal value. Returns every step for audit.
+
+| Input | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `free_cash_flows` | list of decimal | yes |  | Free cash flows to the firm for explicit forecast years 1..n. |
+| `discount_rate` | decimal | yes |  | Discount rate (WACC) per year as a decimal fraction (0.09 = 9%). |
+| `terminal_growth` | decimal | yes |  | Perpetual growth rate after year n as a decimal fraction. Must be below the discount rate. |
+| `timing` | `end_of_period` \| `mid_period` | no | `"end_of_period"` | When cash flows arrive within each year. Default: end of period. |
+| `net_debt` | decimal | no | `"0"` | Net financial position: debt minus cash. Negative if net cash. Default 0. |
+| `non_operating_assets` | decimal | no | `"0"` | Non-operating (surplus) assets added to equity value. Default 0. |
