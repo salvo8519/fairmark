@@ -11,8 +11,10 @@ preferred review language (default: English, no translation).
    per commit).
 2. Write the message:
    - subject: `<type>(<scope>): <imperative summary>` in English, at most 72 characters,
-     citing the spec when relevant (`[SPEC-0001 R2]`);
+     citing the spec when relevant (`[SPEC-0001 R2]`); types and scopes are those in
+     `docs/en/project/conventions.md`;
    - body: what changed and why, wrapped at 72 characters;
+   - trailer `Refs: #<issue>` (the number in the branch name);
    - trailers when applicable: `Numerical-change: <method> v<N> -> v<N+1>`,
      `Docs-impact: none` (only for genuinely docs-neutral changes).
 3. Show the maintainer, in their review language:
@@ -21,5 +23,7 @@ preferred review language (default: English, no translation).
    - a short summary of the files changed.
 4. If the change is visible to users and has no fragment yet, propose one in `changes/`
    (`changes/README.md`), in plain language for analysts, and show its translation too.
-5. Commit only after the maintainer approves: `git commit -s -F <message file>`.
+5. Validate the message: `python scripts/conventions.py commit-msg <message file>`
+   (after adding the sign-off line), then commit only after the maintainer approves:
+   `git commit -s -F <message file>`.
    Never use icons or emoji.

@@ -1,0 +1,190 @@
+{
+  "format": 1,
+  "methods": {
+    "coc.beta_peers": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "coc.beta_peers/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "5813875b423ff1918da9dd02fe57ae7c02a18b59fcc0c5f668d98fd78ff465c4"
+        }
+      }
+    },
+    "coc.beta_relever": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "coc.beta_relever/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "f650a8cfc9d2d8783df954e4d2fd59ef6d3b3ecb1d4b3acc2211929fac83038c"
+        }
+      }
+    },
+    "coc.cost_of_debt": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "coc.cost_of_debt/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "346cf71636cc053d3f4ad61320d40e4b47ce3b0b8b503fe10aa2c01d9d0e6af3"
+        }
+      }
+    },
+    "coc.cost_of_equity": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "coc.cost_of_equity/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "a1abaddf05c473dc58f3ad15871881e355273002b678fac129ef6f32815a32be"
+        }
+      }
+    },
+    "coc.wacc": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "coc.wacc/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "ce65fc3cbe0a97dc6efbf1067951f7199df6365982bb43a164b62fd3ef8d3434"
+        }
+      }
+    },
+    "dates.year_fraction": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "dates.year_fraction/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "51ab5b308f51a54753187d0da3472cea8078439a0f7b79fe93f2b2a8ac3c88e5"
+        }
+      }
+    },
+    "dcf.fcff": {
+      "current": "2",
+      "versions": {
+        "1": {
+          "file": "dcf.fcff/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "7cc84e4cb1203c8c5f8db34e10c20e6b7134fb7bb84077f9b996988f3b3f3940"
+        },
+        "2": {
+          "file": "dcf.fcff/v2.json",
+          "introduced_in": "unreleased",
+          "sha256": "9568f0e156f5bc4276f3db571f7beaa66dcf3604d080a696ec6c507346e01f42"
+        }
+      }
+    },
+    "rates.convert": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "rates.convert/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "9f31f833bf0c5c427c7b3106668a5c710321c0e7bc46c6d3578393cfcae7f60d"
+        }
+      }
+    },
+    "rates.real_nominal": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "rates.real_nominal/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "5d70756fff0ebea5011e1d4689d5963e23c0d4bb2ef25a46246febcf1944de33"
+        }
+      }
+    },
+    "tvm.annuity": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "tvm.annuity/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "c9f3fd7e0088eb84911526e0b6f75c5513c8e783b7f9f349074e877bb5817272"
+        }
+      }
+    },
+    "tvm.irr": {
+      "current": "2",
+      "versions": {
+        "1": {
+          "file": "tvm.irr/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "69d85c58c684edc7c97cde28833768e28d6641c449a930026afcf7a83cf9bf67"
+        },
+        "2": {
+          "file": "tvm.irr/v2.json",
+          "introduced_in": "unreleased",
+          "sha256": "1adc3769c92a77986fee1aa9b91e07a148ddff5c515f42d794574a70a5f22e6a"
+        }
+      }
+    },
+    "tvm.mirr": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "tvm.mirr/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "1b5faf47afcc655c7a293ee225e7d567d6a203f2ddbe1b0f38c1a5f9bdb2e213"
+        }
+      }
+    },
+    "tvm.npv": {
+      "current": "2",
+      "versions": {
+        "1": {
+          "file": "tvm.npv/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "1ccdfaa943813d821df9cfc26c71dab15bb7c9e0bfaedfa839b97fcf1c762459"
+        },
+        "2": {
+          "file": "tvm.npv/v2.json",
+          "introduced_in": "unreleased",
+          "sha256": "9add4abd9272012a0e8ccb3f0f115e1bc7d49581a1a3d17852e530ea6e12d241"
+        }
+      }
+    },
+    "tvm.perpetuity": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "tvm.perpetuity/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "849fdfc1217df9ba2664e2eb6837c10e98077c04f2c0e84cf4dcc36f9c66bb5e"
+        }
+      }
+    },
+    "tvm.present_value": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "tvm.present_value/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "5747a80082a6157d6b925bd5a3ebf008b6d931323cde40835e783eb44a993697"
+        }
+      }
+    },
+    "tvm.xirr": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "tvm.xirr/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "f80b3afb66fbf2c2edc21d4943e718edd5b7e43e502d0ebea3449a7fd44c9e2f"
+        }
+      }
+    },
+    "tvm.xnpv": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "tvm.xnpv/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "9914f4eae08c3dfc9373a488dff6f2ca322ba13a69476de346e66e8093977c54"
+        }
+      }
+    }
+  }
+}

@@ -1,6 +1,8 @@
 # Terminology for the Italian edition. Translators (human or agent) must use these terms.
 # Where Italian practice keeps the English term, the English term is used, optionally with
 # the Italian explanation at first use.
+# Rule: use only terms in use in Italian professional practice; never invent Italian terms or
+# verbs from English roots. English terms are kept when practice uses them.
 terms:
   valuation: valutazione
   enterprise value: enterprise value (valore del capitale operativo)
@@ -47,6 +49,28 @@ terms:
   grid scan: scansione su griglia
   bisection: bisezione
   accuracy: precisione
+  cost of equity: costo del capitale proprio
+  cost of debt: costo del debito
+  pre-tax: prima delle imposte
+  after-tax: dopo le imposte
+  capital asset pricing model (CAPM): capital asset pricing model (CAPM)
+  risk-free rate: tasso privo di rischio
+  levered beta: beta levered (beta del capitale proprio)
+  unlevered beta: beta unlevered (beta dell'attivo, asset beta)
+  debt beta: beta del debito
+  relever: relevering (sostantivo: il relevering del beta, applicare il relevering)
+  unlever: unlevering (sostantivo: l'unlevering dei beta delle comparabili)
+  equity risk premium: premio per il rischio di mercato
+  country risk premium: premio per il rischio paese
+  size premium: premio dimensionale
+  specific risk premium: premio per il rischio specifico
+  credit spread: spread creditizio
+  tax shield: scudo fiscale
+  tax rate: aliquota fiscale
+  debt-to-equity ratio (D/E): rapporto tra debito e capitale proprio (D/E)
+  debt weight: peso del debito
+  target capital structure: struttura finanziaria obiettivo
+  comparable companies (peers): società comparabili (peers)
 keep_in_english:
   - Fairmark
   - explain

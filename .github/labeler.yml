@@ -1,0 +1,21 @@
+# Area labels applied from the changed paths (actions/labeler). Documented in
+# docs/en/project/conventions.md. Labels that need judgement are added by the author.
+"area:core":
+  - changed-files: [{ any-glob-to-any-file: ["crates/fairmark-core/**", "tests/golden/**", "schemas/**"] }]
+"area:cli":
+  - changed-files: [{ any-glob-to-any-file: ["crates/fairmark-cli/**"] }]
+"area:python":
+  - changed-files: [{ any-glob-to-any-file: ["crates/fairmark-py/**", "python/**", "pyproject.toml"] }]
+"area:mcp":
+  - changed-files: [{ any-glob-to-any-file: ["python/fairmark/mcp_server.py", "python/fairmark/tools.py"] }]
+"area:docs":
+  - changed-files: [{ any-glob-to-any-file: ["docs/**", "README*.md", "zensical.toml", "i18n/**"] }]
+"area:infra":
+  - changed-files:
+      - any-glob-to-any-file: [".github/**", "scripts/**", "justfile", "deny.toml", ".pre-commit-config.yaml", "Cargo.toml", "uv.lock", "Cargo.lock"]
+"area:agents":
+  - changed-files: [{ any-glob-to-any-file: [".agents/**", ".claude/**", "AGENTS.md", "CLAUDE.md", "specs/**"] }]
+"method:dcf":
+  - changed-files: [{ any-glob-to-any-file: ["crates/fairmark-core/src/dcf.rs", "tests/golden/dcf.*/**", "docs/*/methods/dcf-*.md", "python/fairmark/dcf.py"] }]
+"golden-cases":
+  - changed-files: [{ any-glob-to-any-file: ["tests/golden/**"] }]

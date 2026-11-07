@@ -1,0 +1,5 @@
+method: coc.beta_relever
+description: A negative debt-to-equity ratio is rejected
+source: SPEC-0003 R6
+input: { beta: "0.8", direction: relever, debt_to_equity: "-0.1", tax_rate: "0.24", formula: hamada }
+expect_error: FM-E001

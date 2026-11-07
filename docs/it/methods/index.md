@@ -1,6 +1,6 @@
 ---
 source: methods/index.md
-source_hash: 074a12726840
+source_hash: f13fc43c1f3b
 ---
 # Metodi
 
@@ -21,12 +21,17 @@ elenca tutti gli input.
 | [`tvm.mirr`](tvm-mirr.md) | Disponibile | Tasso interno di rendimento modificato |
 | [`tvm.annuity`](tvm-annuity.md) | Disponibile | Valore attuale e valore futuro di una rendita costante o crescente |
 | [`tvm.perpetuity`](tvm-perpetuity.md) | Disponibile | Valore attuale di una rendita perpetua costante o crescente |
+| [`coc.cost_of_equity`](coc-cost-of-equity.md) | Disponibile | Costo del capitale proprio con il CAPM e premi espliciti per rischio paese, dimensione e rischio specifico |
+| [`coc.beta_relever`](coc-beta-relever.md) | Disponibile | Beta levered da un beta unlevered, o viceversa (Hamada, Harris-Pringle) |
+| [`coc.beta_peers`](coc-beta-peers.md) | Disponibile | Beta unlevered medio e mediano delle società comparabili, con relevering alla struttura finanziaria obiettivo |
+| [`coc.cost_of_debt`](coc-cost-of-debt.md) | Disponibile | Costo del debito prima e dopo le imposte |
+| [`coc.wacc`](coc-wacc.md) | Disponibile | Costo medio ponderato del capitale alla struttura finanziaria obiettivo |
 | [`dcf.fcff`](dcf-fcff.md) | Anteprima | Enterprise value ed equity value dai flussi di cassa operativi |
 
 ## Prossimamente
 
-- **M2, DCF completo**: FCFF e FCFE dal bilancio d'esercizio, WACC e CAPM, valore terminale
-  con multiplo di uscita, griglie di sensitività.
+- **M2, DCF completo**: FCFF e FCFE dal bilancio d'esercizio, valore terminale con multiplo
+  di uscita, griglie di sensitività.
 - **M4, prassi europea**: metodi patrimoniale, reddituale e misto con stima autonoma
   dell'avviamento, EVA, multipli di mercato.
 - **Real estate**: DCF immobiliare, capitalizzazione diretta, debito e waterfall.

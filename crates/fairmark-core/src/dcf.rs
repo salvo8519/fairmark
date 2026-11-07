@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
+use crate::method::Method;
 use crate::tvm::discount_factor;
 use crate::types::Timing;
 
@@ -145,6 +146,26 @@ pub fn fcff(input: &DcfFcffInput) -> Result<(DcfFcffOutput, Explain)> {
         },
         ex,
     ))
+}
+
+// ---------------------------------------------------------------- method registrations
+
+/// `dcf.fcff`: see the methodology page.
+pub struct Fcff;
+
+impl Method for Fcff {
+    const ID: &'static str = "dcf.fcff";
+    const TITLE: &'static str = "DCF — unlevered free cash flow";
+    const DESCRIPTION: &'static str =
+        "Enterprise and equity value from explicit FCFF forecasts discounted at WACC, with a \
+        Gordon growth terminal value. Returns every step for audit.";
+    const VERSION: &'static str = "2";
+    type Input = DcfFcffInput;
+    type Output = DcfFcffOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        fcff(input)
+    }
 }
 
 #[cfg(test)]

@@ -27,6 +27,16 @@ labels:
   - { name: "breaking-change", color: "b60205" }
   - { name: "no-docs-needed", color: "cfd3d7" }
   - { name: "docs-sync", color: "5319e7" }
+  - { name: "area:agents", color: "1d76db" }
+  - { name: "task", color: "1d76db" }
+  - { name: "in-progress", color: "0e8a16" }
+  - { name: "blocked", color: "b60205" }
+  - { name: "needs-maintainer", color: "d93f0b" }
+  - { name: "no-issue", color: "cfd3d7" }
+  - { name: "no-release-note", color: "cfd3d7" }
+  - { name: "translation-pending", color: "fbca04" }
+  - { name: "golden-cases", color: "5319e7" }
+  - { name: "maintenance", color: "fbca04" }
 
 milestones:
   - title: "M0 · Foundations"

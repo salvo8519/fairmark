@@ -1,0 +1,6 @@
+method: coc.wacc
+description: WACC with a target D/(D+E) of 30%
+source: "closed form: 0.7 × 0.10 + 0.3 × 0.06 × (1 − 0.25) = 0.07 + 0.0135 = 0.0835"
+input: { cost_of_equity: "0.10", pre_tax_cost_of_debt: "0.06", tax_rate: "0.25", debt_weight: "0.3" }
+expect: { wacc: "0.0835", equity_weight: "0.7", debt_weight: "0.3" }
+tolerance: "0"

@@ -1,0 +1,34 @@
+# Contract cases for coc.beta_peers: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: coc.beta_peers
+extreme_inputs:
+- formula: hamada
+  statistic: mean
+  target_debt_to_equity: MAX
+  target_tax_rate: '0'
+  peers:
+  - name: a
+    levered_beta: MAX
+    debt_to_equity: '0'
+    tax_rate: '0'
+  - name: b
+    levered_beta: MAX
+    debt_to_equity: '0'
+    tax_rate: '0'
+conventions:
+- input:
+    formula: harris_pringle
+    statistic: median
+    target_debt_to_equity: '0.5'
+    target_tax_rate: '0.2'
+    peers:
+    - name: a
+      levered_beta: '1'
+      debt_to_equity: '0.1'
+      tax_rate: '0.2'
+  expect:
+  - Harris-Pringle
+  - median
+  - does not use the tax rate
+  - one debt beta applies

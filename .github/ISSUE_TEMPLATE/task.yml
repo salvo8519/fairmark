@@ -1,0 +1,36 @@
+name: Task
+description: A planned unit of work, part of an epic (maintainers and agreed contributions)
+labels: ["task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Title: the outcome as a short sentence, for example "Mid-year discounting convention for dcf.fcff".
+        See docs/en/project/conventions.md.
+  - type: input
+    id: epic
+    attributes: { label: Parent epic, placeholder: "#9" }
+    validations: { required: true }
+  - type: input
+    id: spec
+    attributes: { label: Specification and requirements, placeholder: "SPEC-0001 R3, or Not applicable" }
+  - type: textarea
+    id: outcome
+    attributes: { label: Outcome, description: What exists when this task is done, and why it matters. }
+    validations: { required: true }
+  - type: textarea
+    id: acceptance
+    attributes: { label: Acceptance criteria, description: Verifiable statements; each becomes a test. }
+    validations: { required: true }
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [core, python, cli, mcp, n8n, docs, infra, agents]
+    validations: { required: true }
+  - type: checkboxes
+    id: parallel
+    attributes:
+      label: Planning
+      options:
+        - label: Can be worked on in parallel with other tasks of the same epic

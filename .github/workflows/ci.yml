@@ -20,7 +20,7 @@ jobs:
     name: Rust · fmt, clippy, tests, golden
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -33,7 +33,7 @@ jobs:
     name: Rust · MSRV 1.88
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.88
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace
@@ -42,7 +42,7 @@ jobs:
     name: Rust · coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: llvm-tools-preview
@@ -59,7 +59,7 @@ jobs:
     name: Dependencies · licenses, bans, advisories
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
 
   python:
@@ -71,10 +71,10 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python: ["3.10", "3.13"]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true
@@ -85,10 +85,10 @@ jobs:
     name: Quality · lint, types, typos, generated files
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.13"
           enable-cache: true
@@ -108,12 +108,12 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.13"
           enable-cache: true
@@ -133,16 +133,12 @@ jobs:
           else
             echo "No user-facing source changes."
           fi
-      - name: Schema changes are additive (or labelled breaking-change)
+      - name: Schema history is immutable and changes are additive
         run: |
+          # Exit 3: breaking change to an existing schema version (bump the method version).
+          # Exit 4: history rewritten (earlier version, index entry or current version altered).
+          # There is no override label: a breaking change always means a new method version.
           git worktree add /tmp/base origin/${{ github.base_ref }}
           if [ -d /tmp/base/schemas ]; then
-            set +e
             uv run python scripts/schema_snapshots.py --diff-against /tmp/base/schemas
-            code=$?
-            set -e
-            if [ "$code" = "3" ] && ${{ !contains(github.event.pull_request.labels.*.name, 'breaking-change') }}; then
-              echo "::error::Breaking schema change: add the 'breaking-change' label and bump method_version."
-              exit 1
-            fi
           fi

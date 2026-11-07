@@ -1,5 +1,7 @@
 # Installed by `uv run pre-commit install`. Runs fast checks on each commit;
 # the full gate is `uv run just check` (and CI).
+# Install both hook types: `uv run pre-commit install --hook-type pre-commit --hook-type commit-msg`.
+default_install_hook_types: [pre-commit, commit-msg]
 repos:
   - repo: local
     hooks:
@@ -40,3 +42,8 @@ repos:
         entry: python3 scripts/docs_sync.py impact --staged
         language: system
         pass_filenames: false
+      - id: conventional-commit
+        name: commit message follows docs/en/project/conventions.md
+        entry: python3 scripts/conventions.py commit-msg
+        language: system
+        stages: [commit-msg]

@@ -18,13 +18,23 @@ changing anything: its principles override convenience.
 | `crates/fairmark-py/` | PyO3 bridge: 3 functions, JSON strings across the boundary. |
 | `python/fairmark/` | Pythonic API, `tools.py` (function calling), `mcp_server.py`. Adapters only. |
 | `tests/golden/` | Golden cases shared by Rust and Python. Human-reviewed. |
-| `schemas/` | Committed JSON Schema snapshots of every method input (the "migrations"). |
+| `schemas/` | Versioned JSON Schema snapshots: `<method>/v<N>.json` for every method version, `index.json` with the history (the "migrations"). Earlier versions are immutable. |
 | `specs/` | Spec-driven development: constitution, templates, one folder per feature. |
 | `docs/` | Documentation: `en/` (source), `it/` (translation), `_shared/` (assets). References are generated. |
 | `i18n/` | Language editions configuration and the translation glossary. |
 | `roadmap/roadmap.yaml` | Milestones → epics → tasks, mirrored to GitHub issues. |
 | `.agents/` | Canonical agent roles (`agents/`) and skills (`skills/`). `.claude/` is generated from it. |
 | `sprints/` | Sprint plans (`SNN.yaml`) used by the orchestrator. |
+| `.agents/journal/` | Session handover notes, one file per branch and day. |
+
+## Sessions and project memory
+- **Start** every session with the `session-start` skill (or
+  `uv run python scripts/project_state.py`): branch, issue, journal, pull requests, CI, sprint
+  and the issues that can run in parallel.
+- **End** every session with `session-end`: gate, journal entry in `.agents/journal/`,
+  release note, commit, push and a complete pull request. Never leave work only on a laptop.
+- **Review the queue** with `pr-triage`. Agents comment and recommend; only the maintainer
+  approves and merges.
 
 ## How work is done here: spec-driven
 1. Find or write the spec: `specs/NNNN-*/spec.md`. **No method code without an `Approved`
@@ -41,13 +51,18 @@ changing anything: its principles override convenience.
   a doc comment on every field stating units (rates are decimal fractions).
 - Every calculation step that produces a number the user sees goes into `Explain`; every
   convention that changes a number goes into `explain.conventions`.
+- Method versions: bump on any numerical change or breaking input change. The schema of each
+  version is kept in `schemas/<method>/v<N>.json`; earlier versions are never edited (CI checks).
 - Errors: add a variant to `FairmarkError` with the next free stable code, document it in
   `docs/en/reference/errors.md`. Never reuse or renumber codes.
 - **Never modify expected values of an existing golden case.** If a result must change it is
   a `numerical-change`: stop and ask the maintainer. New golden cases need an independent
   source noted in the file.
 - Never commit real client data. Anonymise or reconstruct.
-- Conventional Commits for messages and PR titles: `feat|fix|docs|refactor|test|chore|ci|perf(scope): …`.
+- Names follow `docs/en/project/conventions.md`, enforced by `scripts/conventions.py`:
+  branch `<type>/<issue>-<slug>`; commit and pull request title `<type>(<scope>): <subject>`
+  (Conventional Commits, scope required); pull request body `Closes #<issue>`; squash merge.
+- New dependencies and updates follow `docs/en/project/dependencies.md`.
 - Sign off commits (`git commit -s`, DCO).
 
 ## House style (enforced by CI)
@@ -77,7 +92,8 @@ Roles and workflows live in `.agents/` (see `.agents/README.md`): `architect`, `
 `test-engineer`, `core-engineer`, `docs-writer`, `code-reviewer`, `numerical-auditor`,
 `security-reviewer`, `ci-investigator`, `release-manager`, `sprint-planner`, `translator`; skills
 `spec-new`, `implement-spec`, `add-method`, `golden-case`, `adr-new`, `pre-pr`, `fix-ci`,
-`release`, `plan-sprint`, `run-sprint`, `commit`, `explain-changes`, `translate`, `onboarding`. Sprints: see `sprints/README.md`.
+`release`, `plan-sprint`, `run-sprint`, `commit`, `explain-changes`, `translate`, `onboarding`,
+`session-start`, `session-end`, `pr-triage`. Sprints: see `sprints/README.md`.
 Edit them in `.agents/` only; `uv run just generate` mirrors them to `.claude/`.
 
 ## Documentation stays in sync automatically
@@ -117,16 +133,19 @@ Install [`uv`](https://docs.astral.sh/uv/) and Rust stable. `just` is installed 
 | Python tests incl. golden and docs snippets | `uv run pytest` |
 | Regenerate schemas, methods reference, `.claude/` | `uv run just generate` |
 | Translation status | `uv run just i18n` |
+| Project state for a new session | `uv run python scripts/project_state.py` |
+| Outdated dependencies / advisories | `uv run just deps-outdated` / `uv run just deps-audit` |
 | Version check / preview of release notes | `uv run just version` / `uv run just release-notes` |
 | Build both documentation sites | `uv run just docs` |
 | Docs preview (English or Italian) | `uv run just docs-serve` / `uv run just docs-serve it` |
 
 ## Adding a method (checklist)
 1. Spec approved → golden cases from an independent source in `tests/golden/<method>/`.
-2. `crates/fairmark-core/src/<area>.rs`: input/output types + function returning
-   `Result<(Output, Explain)>`.
-3. Register in `registry.rs` (`METHODS`, `input_schema`, `run`).
-4. `uv run just generate` → updates `schemas/` and `docs/en/reference/methods.md`.
+2. `crates/fairmark-core/src/<theme>.rs`: input/output types and a unit type implementing the
+   `Method` trait (ADR 0009).
+3. Add one line to the registry list in `registry.rs`.
+4. `uv run just generate` → writes `schemas/<method>/v<N>.json`, updates `schemas/index.json`
+   and `docs/en/reference/methods.md`. A breaking input change needs a new method version.
 5. Python helper in `python/fairmark/<area>.py`; methodology page in `docs/en/methods/`.
 6. Conventional Commit messages (the CHANGELOG is generated by git-cliff). `uv run just check`.
 

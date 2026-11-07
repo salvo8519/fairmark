@@ -81,6 +81,12 @@ def bump(spec: str) -> None:
     CARGO.write_text(text)
     subprocess.run(["uv", "lock", "--quiet"], cwd=ROOT, check=True)
     subprocess.run(["cargo", "update", "--workspace", "--quiet"], cwd=ROOT, check=True)
+    # Schema versions added since the previous release are published by this one (ADR 0009).
+    subprocess.run(
+        [sys.executable, "scripts/schema_snapshots.py", "--stamp-release", new],
+        cwd=ROOT,
+        check=True,
+    )
     print(f"{old} -> {new} (Python {pep440(new)})")
 
 

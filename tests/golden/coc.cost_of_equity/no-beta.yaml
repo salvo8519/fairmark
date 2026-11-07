@@ -1,0 +1,5 @@
+method: coc.cost_of_equity
+description: A beta is required
+source: SPEC-0003 R6
+input: { risk_free_rate: "0.03", equity_risk_premium: "0.05" }
+expect_error: FM-E001

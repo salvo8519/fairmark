@@ -18,10 +18,12 @@
 
 #![forbid(unsafe_code)]
 
+pub mod coc;
 pub mod dates;
 pub mod dcf;
 pub mod error;
 pub mod explain;
+pub mod method;
 mod num;
 pub mod rates;
 pub mod registry;
@@ -29,6 +31,7 @@ pub mod tvm;
 pub mod types;
 
 pub use error::{FairmarkError, Result};
+pub use method::Method;
 pub use registry::{input_schema, method, run, MethodInfo, METHODS};
 
 /// Version of the engine, stamped into every result.

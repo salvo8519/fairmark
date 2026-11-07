@@ -1,0 +1,5 @@
+method: coc.wacc
+description: Giving both D/E and D/(D+E) is ambiguous and rejected
+source: SPEC-0003 R6
+input: { cost_of_equity: "0.10", pre_tax_cost_of_debt: "0.06", tax_rate: "0.25", debt_weight: "0.3", debt_to_equity: "0.4" }
+expect_error: FM-E001

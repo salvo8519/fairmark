@@ -1,0 +1,18 @@
+# Contract cases for dcf.fcff: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: dcf.fcff
+extreme_inputs:
+- free_cash_flows:
+  - MAX
+  - MAX
+  discount_rate: MAX
+  terminal_growth: '0.01'
+conventions:
+- input:
+    free_cash_flows: ['100', '110', '120']
+    discount_rate: '0.10'
+    terminal_growth: '0.02'
+    net_debt: '200'
+  expect:
+  - end of period

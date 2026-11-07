@@ -1,0 +1,65 @@
+{
+  "$defs": {
+    "Compounding": {
+      "description": "How often interest is compounded within a year.",
+      "oneOf": [
+        {
+          "const": "annual",
+          "description": "Once a year: the rate is an effective annual rate.",
+          "type": "string"
+        },
+        {
+          "const": "semi_annual",
+          "description": "Twice a year (nominal rate / 2 per half year).",
+          "type": "string"
+        },
+        {
+          "const": "quarterly",
+          "description": "Four times a year.",
+          "type": "string"
+        },
+        {
+          "const": "monthly",
+          "description": "Twelve times a year.",
+          "type": "string"
+        },
+        {
+          "const": "continuous",
+          "description": "Continuously: growth factor e^(r t).",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:fairmark:schema:rates.convert:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `rates.convert`.",
+  "properties": {
+    "from": {
+      "$ref": "#/$defs/Compounding",
+      "description": "Compounding of the given rate."
+    },
+    "rate": {
+      "description": "Annual rate as a decimal fraction (0.12 = 12% a year), quoted with `from` compounding.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "to": {
+      "$ref": "#/$defs/Compounding",
+      "description": "Compounding of the equivalent rate to return."
+    }
+  },
+  "required": [
+    "rate",
+    "from",
+    "to"
+  ],
+  "title": "ConvertInput",
+  "type": "object",
+  "x-fairmark-method": "rates.convert",
+  "x-fairmark-method-version": "1"
+}

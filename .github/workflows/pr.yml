@@ -1,29 +1,35 @@
 name: PR hygiene
 
+# Naming and traceability rules from docs/en/project/conventions.md, enforced by
+# scripts/conventions.py (the same code as the local commit-msg hook), plus area labels.
 on:
-  pull_request:
-    types: [opened, edited, synchronize, reopened]
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
 
 permissions:
-  pull-requests: read
+  contents: read
 
 jobs:
-  title:
-    name: Conventional Commit title
+  conventions:
+    name: Title, branch and linked issue
     runs-on: ubuntu-latest
     steps:
-      - uses: amannn/action-semantic-pull-request@v5
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Only the base branch is checked out: no code from the pull request is executed.
+      - uses: actions/checkout@v7
         with:
-          types: |
-            feat
-            fix
-            docs
-            refactor
-            perf
-            test
-            build
-            ci
-            chore
-            revert
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+      - run: python scripts/conventions.py pr
+
+  labels:
+    name: Area labels
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/labeler@v7
+        with:
+          sync-labels: false

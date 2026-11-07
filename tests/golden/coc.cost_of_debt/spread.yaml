@@ -1,0 +1,6 @@
+method: coc.cost_of_debt
+description: Cost of debt as risk-free rate plus a credit spread, after a 24% tax shield
+source: "closed form: 0.03 + 0.025 = 0.055; 0.055 × (1 − 0.24) = 0.0418"
+input: { risk_free_rate: "0.03", credit_spread: "0.025", tax_rate: "0.24" }
+expect: { pre_tax_cost_of_debt: "0.055", after_tax_cost_of_debt: "0.0418" }
+tolerance: "0"

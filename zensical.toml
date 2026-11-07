@@ -48,6 +48,11 @@ nav = [
     "methods/tvm-mirr.md",
     "methods/tvm-annuity.md",
     "methods/tvm-perpetuity.md",
+    "methods/coc-cost-of-equity.md",
+    "methods/coc-beta-relever.md",
+    "methods/coc-beta-peers.md",
+    "methods/coc-cost-of-debt.md",
+    "methods/coc-wacc.md",
     "methods/dcf-fcff.md",
   ] },
   { "Concepts" = [
@@ -66,6 +71,9 @@ nav = [
     "project/roadmap.md",
     "project/release-notes.md",
     "project/contributing.md",
+    "project/conventions.md",
+    "project/maintainers.md",
+    "project/dependencies.md",
     "project/changelog.md",
     "project/telemetry.md",
     { "Decisions (ADR)" = [
@@ -77,6 +85,7 @@ nav = [
       "project/adr/0006-provider-agnostic-tools.md",
       "project/adr/0007-structured-logging.md",
       "project/adr/0008-time-axis-dates-and-rates.md",
+      "project/adr/0009-themed-methods-and-versioned-contracts.md",
     ] },
   ] },
 ]

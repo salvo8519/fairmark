@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::dates::{Date, DayCount};
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
+use crate::method::Method;
 use crate::num;
 use crate::rates::{self, Compounding};
 
@@ -1190,6 +1191,149 @@ pub fn perpetuity(input: &PerpetuityInput) -> Result<(PerpetuityOutput, Explain)
         pv = due;
     }
     Ok((PerpetuityOutput { present_value: pv }, ex))
+}
+
+// ---------------------------------------------------------------- method registrations
+
+/// `tvm.npv`: see the methodology page.
+pub struct Npv;
+
+impl Method for Npv {
+    const ID: &'static str = "tvm.npv";
+    const TITLE: &'static str = "Net present value";
+    const DESCRIPTION: &'static str =
+        "Net present value of a cash flow series; the first flow is at t = 0.";
+    const VERSION: &'static str = "2";
+    type Input = NpvInput;
+    type Output = NpvOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        npv(input)
+    }
+}
+
+/// `tvm.irr`: see the methodology page.
+pub struct Irr;
+
+impl Method for Irr {
+    const ID: &'static str = "tvm.irr";
+    const TITLE: &'static str = "Internal rate of return";
+    const DESCRIPTION: &'static str =
+        "Rate at which the NPV of a periodic cash flow series is zero, solved deterministically; \
+        refuses inputs with more than one IRR.";
+    const VERSION: &'static str = "2";
+    type Input = IrrInput;
+    type Output = IrrOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        irr(input)
+    }
+}
+
+/// `tvm.present_value`: see the methodology page.
+pub struct PresentValue;
+
+impl Method for PresentValue {
+    const ID: &'static str = "tvm.present_value";
+    const TITLE: &'static str = "Present value with a constant or time-varying rate";
+    const DESCRIPTION: &'static str =
+        "Present value of periodic flows for periods 1..n with one rate or one rate per period, \
+        at end, mid or beginning of period. Returns every discount factor.";
+    const VERSION: &'static str = "1";
+    type Input = PresentValueInput;
+    type Output = PresentValueOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        present_value(input)
+    }
+}
+
+/// `tvm.xnpv`: see the methodology page.
+pub struct Xnpv;
+
+impl Method for Xnpv {
+    const ID: &'static str = "tvm.xnpv";
+    const TITLE: &'static str = "Net present value of dated cash flows (XNPV)";
+    const DESCRIPTION: &'static str =
+        "Present value of dated flows at a valuation date, with explicit day count and \
+        compounding (defaults as in ECMA-376 XNPV).";
+    const VERSION: &'static str = "1";
+    type Input = XnpvInput;
+    type Output = XnpvOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        xnpv(input)
+    }
+}
+
+/// `tvm.xirr`: see the methodology page.
+pub struct Xirr;
+
+impl Method for Xirr {
+    const ID: &'static str = "tvm.xirr";
+    const TITLE: &'static str = "Internal rate of return of dated cash flows (XIRR)";
+    const DESCRIPTION: &'static str =
+        "Annual rate at which the XNPV of dated flows is zero, solved deterministically; refuses \
+        inputs with more than one rate.";
+    const VERSION: &'static str = "1";
+    type Input = XirrInput;
+    type Output = XirrOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        xirr(input)
+    }
+}
+
+/// `tvm.mirr`: see the methodology page.
+pub struct Mirr;
+
+impl Method for Mirr {
+    const ID: &'static str = "tvm.mirr";
+    const TITLE: &'static str = "Modified internal rate of return (MIRR)";
+    const DESCRIPTION: &'static str =
+        "Rate of return with negative flows financed at a finance rate and positive flows \
+        reinvested at a reinvestment rate (ECMA-376 MIRR).";
+    const VERSION: &'static str = "1";
+    type Input = MirrInput;
+    type Output = MirrOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        mirr(input)
+    }
+}
+
+/// `tvm.annuity`: see the methodology page.
+pub struct Annuity;
+
+impl Method for Annuity {
+    const ID: &'static str = "tvm.annuity";
+    const TITLE: &'static str = "Annuity (level or growing, ordinary or due)";
+    const DESCRIPTION: &'static str =
+        "Present and future value of a finite series of level or growing payments.";
+    const VERSION: &'static str = "1";
+    type Input = AnnuityInput;
+    type Output = AnnuityOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        annuity(input)
+    }
+}
+
+/// `tvm.perpetuity`: see the methodology page.
+pub struct Perpetuity;
+
+impl Method for Perpetuity {
+    const ID: &'static str = "tvm.perpetuity";
+    const TITLE: &'static str = "Perpetuity (level or growing)";
+    const DESCRIPTION: &'static str =
+        "Present value of a level or growing perpetuity (Gordon), ordinary or due.";
+    const VERSION: &'static str = "1";
+    type Input = PerpetuityInput;
+    type Output = PerpetuityOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        perpetuity(input)
+    }
 }
 
 #[cfg(test)]

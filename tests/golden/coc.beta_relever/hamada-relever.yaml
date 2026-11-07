@@ -1,0 +1,6 @@
+method: coc.beta_relever
+description: Hamada relevering of an unlevered beta
+source: "closed form: 0.8 × (1 + (1 − 0.24) × 0.5) = 1.104"
+input: { beta: "0.8", direction: relever, debt_to_equity: "0.5", tax_rate: "0.24", formula: hamada }
+expect: { beta: "1.104" }
+tolerance: "0"

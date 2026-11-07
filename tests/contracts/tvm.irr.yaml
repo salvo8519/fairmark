@@ -1,0 +1,19 @@
+# Contract cases for tvm.irr: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: tvm.irr
+extreme_inputs:
+- cash_flows:
+  - MIN
+  - MAX
+  - MAX
+conventions:
+- input:
+    cash_flows:
+    - '-100'
+    - '110'
+    guess: '0.2'
+  expect:
+  - cash_flows[0] occurs at t = 0
+  - 'Newton starting point: 0.2 (given)'
+  - uniqueness proven

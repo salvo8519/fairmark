@@ -35,7 +35,7 @@ dependencies or workflows changed) → `docs-writer` → PR.
 ### Skills (`.claude/skills/`, generated from `.agents/skills/`)
 `/spec-new`, `/implement-spec`, `/add-method`, `/golden-case`, `/adr-new`, `/pre-pr`,
 `/fix-ci`, `/release`, `/plan-sprint`, `/run-sprint`, `/commit`, `/explain-changes`,
-`/translate`, `/onboarding`.
+`/translate`, `/onboarding`, `/session-start`, `/session-end`, `/pr-triage`.
 
 ### Languages
 Write everything that goes into the repository in English. Talk to each person in the
@@ -63,6 +63,10 @@ To change an agent or a skill, edit `.agents/` and run `uv run just generate`; n
 ### MCP
 `.mcp.json` registers this repository's own `fairmark` MCP server (dogfooding): use its tools
 to sanity-check numbers while developing instead of computing them yourself.
+
+### Session protocol
+Begin with `/session-start`, end with `/session-end`, review the merge queue with `/pr-triage`.
+The journal in `.agents/journal/` is how the next session knows where this one stopped.
 
 ### Working style
 - Plan before multi-file changes; keep diffs small and focused on one task.
