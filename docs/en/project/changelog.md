@@ -1,1 +1,1 @@
---8<-- "CHANGELOG.md"
+--8<-- ".generated/CHANGELOG.md"

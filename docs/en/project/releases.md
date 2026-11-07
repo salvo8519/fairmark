@@ -30,6 +30,14 @@ documented.
 - `main` is green, no open pull request carries `numerical-change`, and the roadmap agrees with
   GitHub.
 
+## What users read between releases
+
+`RELEASE_NOTES.md` and `CHANGELOG.md` are written in the repository at release time. The
+documentation site renders both at every build, with the changes not yet released on top: the
+release notes from the fragments in `changes/` (towncrier, draft), the changelog from the
+commits since the last tag (git-cliff). Every user-facing pull request adds its fragment (CI
+checks it), so the site is current after each merge.
+
 ## Steps
 
 1. The maintainer decides to release. An agent runs the `release` skill, which starts with

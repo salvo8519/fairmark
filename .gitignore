@@ -8,6 +8,7 @@ dist/
 .mypy_cache/
 .ruff_cache/
 site/
+.generated/
 
 # Shared docs assets are copied into each language at build time (scripts/docs.py)
 /docs/en/assets/
