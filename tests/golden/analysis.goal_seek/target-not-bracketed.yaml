@@ -1,0 +1,15 @@
+method: analysis.goal_seek
+description: The offer lies outside the outputs at both ends of the bracket
+source: Constructed with scripts/reference_analysis.py; the enterprise value is 622.685 at 0.2 and 226.667 at 0.5, both below 1300.
+input:
+  method: dcf.fcff
+  base_input:
+    free_cash_flows: [100, 110, 120]
+    discount_rate: "0.10"
+    terminal_growth: "0.02"
+    net_debt: 200
+  variable: /discount_rate
+  output: /enterprise_value
+  target: "1300"
+  bracket: ["0.2", "0.5"]
+expect_error: FM-E013

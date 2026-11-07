@@ -1,0 +1,19 @@
+method: analysis.goal_seek
+description: Discount rate at which the DCF enterprise value equals an offer of 1300
+source: >
+  scripts/reference_analysis.py (Python decimal, 50 digits, bisection to 1e-30, dcf.fcff
+  restated from its documented formula): 0.107373099787207080471595861361.
+input:
+  method: dcf.fcff
+  base_input:
+    free_cash_flows: [100, 110, 120]
+    discount_rate: "0.10"
+    terminal_growth: "0.02"
+    net_debt: 200
+  variable: /discount_rate
+  output: /enterprise_value
+  target: "1300"
+  bracket: ["0.05", "0.5"]
+expect:
+  solution: "0.107373099787207080471595861361"
+tolerance: "0.000000000001"

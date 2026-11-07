@@ -49,6 +49,21 @@ pub enum FairmarkError {
         "internal error ({0}); this is a defect in Fairmark, please report it with the input hash"
     )]
     Internal(&'static str),
+
+    #[error("the target is not bracketed: {0}")]
+    TargetNotBracketed(String),
+
+    #[error("goal seek did not reach the tolerance after {iterations} iterations: {detail}")]
+    GoalSeekNoConvergence { iterations: u32, detail: String },
+
+    #[error("invalid analysis pointer '{pointer}': {reason}")]
+    InvalidPointer { pointer: String, reason: String },
+
+    #[error("the request needs {needed} evaluations, more than the limit of {limit}")]
+    EvaluationLimit { needed: u64, limit: u64 },
+
+    #[error("'{0}' is an analysis method; an analysis cannot evaluate another analysis")]
+    NestedAnalysis(String),
 }
 
 impl FairmarkError {
@@ -67,6 +82,11 @@ impl FairmarkError {
             Self::FlowBeforeValuationDate { .. } => "FM-E010",
             Self::MultipleRates(_) => "FM-E011",
             Self::Internal(_) => "FM-E012",
+            Self::TargetNotBracketed(_) => "FM-E013",
+            Self::GoalSeekNoConvergence { .. } => "FM-E014",
+            Self::InvalidPointer { .. } => "FM-E015",
+            Self::EvaluationLimit { .. } => "FM-E016",
+            Self::NestedAnalysis(_) => "FM-E017",
         }
     }
 

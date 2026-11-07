@@ -1,6 +1,6 @@
 ---
 source: methods/index.md
-source_hash: f13fc43c1f3b
+source_hash: 730b951bf6d5
 ---
 # Metodi
 
@@ -27,6 +27,7 @@ elenca tutti gli input.
 | [`coc.cost_of_debt`](coc-cost-of-debt.md) | Disponibile | Costo del debito prima e dopo le imposte |
 | [`coc.wacc`](coc-wacc.md) | Disponibile | Costo medio ponderato del capitale alla struttura finanziaria obiettivo |
 | [`dcf.fcff`](dcf-fcff.md) | Anteprima | Enterprise value ed equity value dai flussi di cassa operativi |
+| [`analysis.goal_seek`](analysis-goal-seek.md) | Disponibile | Valore di un input di qualsiasi metodo al quale uno dei suoi output è pari a un valore obiettivo |
 
 ## Prossimamente
 

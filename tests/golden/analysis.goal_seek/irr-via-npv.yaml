@@ -1,0 +1,19 @@
+method: analysis.goal_seek
+description: Rate at which the NPV of -1000, 300, 400, 500 is zero, solved on tvm.npv
+source: >
+  scripts/reference_analysis.py (Python decimal, 50 digits, bisection to 1e-30):
+  0.0889633946933499353177656796866, rounded here to 28 decimals. Confirmed by tvm.irr
+  (0.0889633946933499353177656797) and pyxirr.irr (0.08896339469334472, binary floating point).
+input:
+  method: tvm.npv
+  base_input:
+    rate: "0.05"
+    cash_flows: [-1000, 300, 400, 500]
+  variable: /rate
+  output: /npv
+  target: "0"
+  bracket: ["0", "1"]
+  tolerance: "0.000000000000000001"
+expect:
+  solution: "0.0889633946933499353177656797"
+tolerance: "0.000000000000001"

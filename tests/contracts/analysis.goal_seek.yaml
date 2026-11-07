@@ -1,0 +1,44 @@
+# Contract cases for analysis.goal_seek: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: analysis.goal_seek
+extreme_inputs:
+- method: tvm.npv
+  base_input: {rate: '0.1', cash_flows: ['-100', '60', '60']}
+  variable: /rate
+  output: /npv
+  target: MAX
+  bracket: [MIN, MAX]
+- method: tvm.npv
+  base_input: {rate: '0.1', cash_flows: [MAX, MIN, MAX]}
+  variable: /cash_flows/1
+  output: /npv
+  target: '0'
+  bracket: [MIN, MAX]
+  tolerance: '0.0000000000000000000000000001'
+  max_iterations: 1000
+- method: dcf.fcff
+  base_input: {free_cash_flows: ['100'], discount_rate: '0.1', terminal_growth: '0.02', net_debt: '0'}
+  variable: /discount_rate
+  output: /enterprise_value
+  target: '1000'
+  bracket: ['-0.99', MAX]
+conventions:
+- input:
+    method: tvm.npv
+    base_input: {rate: '0.1', cash_flows: ['-100', '60', '60']}
+    variable: /rate
+    output: /npv
+    target: '0'
+    bracket: ['0', '1']
+  expect:
+  - inner method tvm.npv version 2
+  - Brent's method
+  - bracket [0, 1] given by the caller; no automatic search
+  - "stop when |output − target| ≤ 0.000000001 (absolute, in output units), the default"
+  - at most 100 iterations after the two bracket ends, the default
+  - the variable is written into the inner input as a decimal string
+  - "evaluation order: low end, high end, then one evaluation per iteration"
+  - if the output meets the tolerance at both bracket ends, low is returned
+  - with several solutions in the bracket, one is returned
+  - minimum step on the variable 10^-24 × max(1, |x|)

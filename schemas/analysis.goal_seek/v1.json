@@ -1,0 +1,78 @@
+{
+  "$defs": {
+    "BaseInput": {
+      "description": "Input of the inner method, exactly as that method accepts it. It is validated by the inner method at run time against its own schema; this schema does not describe it.",
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:analysis.goal_seek:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "base_input": {
+      "$ref": "#/$defs/BaseInput",
+      "description": "Input of that method, complete, including the variable at any starting value."
+    },
+    "bracket": {
+      "description": "`[low, high]`, low < high: the variable is searched in this interval, and the output\nminus the target must change sign between its ends (or meet the tolerance at one end).",
+      "items": {
+        "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+        "type": [
+          "string",
+          "number"
+        ]
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "max_iterations": {
+      "default": 100,
+      "description": "Largest number of evaluations after the two bracket ends, from 1 to 1000. Default: 100.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "method": {
+      "description": "Id of the method to evaluate, for example `dcf.fcff`. Analysis methods are not accepted.",
+      "type": "string"
+    },
+    "output": {
+      "description": "RFC 6901 JSON Pointer to the decimal output of the method, in its `value`, for example\n`/enterprise_value`.",
+      "type": "string"
+    },
+    "target": {
+      "description": "Value the output must reach, in the output's units.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "tolerance": {
+      "default": "0.000000001",
+      "description": "Absolute tolerance on the output, in the output's units, greater than 0. Default:\n0.000000001.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "variable": {
+      "description": "RFC 6901 JSON Pointer to the decimal input to solve for, for example `/discount_rate`.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "method",
+    "base_input",
+    "variable",
+    "output",
+    "target",
+    "bracket"
+  ],
+  "title": "GoalSeekInput",
+  "type": "object",
+  "x-fairmark-method": "analysis.goal_seek",
+  "x-fairmark-method-version": "1"
+}

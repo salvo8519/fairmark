@@ -1,0 +1,11 @@
+method: analysis.goal_seek
+description: An analysis cannot evaluate another analysis method
+source: Constructed (SPEC-0008 R2).
+input:
+  method: analysis.goal_seek
+  base_input: {}
+  variable: /target
+  output: /solution
+  target: "0"
+  bracket: ["0", "1"]
+expect_error: FM-E017

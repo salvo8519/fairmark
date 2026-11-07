@@ -114,3 +114,21 @@ def test_annuities_agree_with_numpy_financial() -> None:
             ours = fm.tvm.annuity(payment, rate, periods, timing=timing).present_value  # type: ignore[arg-type]
             theirs = -npf.pv(float(rate), periods, float(payment), 0, when)
             assert close(ours, theirs)
+
+
+def test_goal_seek_on_npv_agrees_with_irr_and_pyxirr() -> None:
+    """SPEC-0008 AC1: the rate that sets the NPV to zero, found by goal seek."""
+    flows = [-1000, 300, 400, 500]
+    seek = fm.analysis.goal_seek(
+        "tvm.npv",
+        {"rate": "0.05", "cash_flows": flows},
+        variable="/rate",
+        output="/npv",
+        target="0",
+        bracket=("0", "1"),
+        tolerance="0.000000000000000001",
+    )
+    solution = Decimal(str(seek.value["solution"]))
+    irr = Decimal(str(fm.tvm.irr(flows).value["irr"]))
+    assert abs(solution - irr) <= Decimal("1e-15")
+    assert close(solution, pyxirr.irr(flows))

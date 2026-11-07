@@ -1,6 +1,16 @@
 {
   "format": 1,
   "methods": {
+    "analysis.goal_seek": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "analysis.goal_seek/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "5459dabe66dc9234feed55398e319ebfb2f816a41ebe88e4f19cd32f00f45cf2"
+        }
+      }
+    },
     "coc.beta_peers": {
       "current": "1",
       "versions": {

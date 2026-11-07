@@ -1,0 +1,13 @@
+method: analysis.goal_seek
+description: The variable points to a list, not to a decimal
+source: Constructed (SPEC-0008 R3).
+input:
+  method: tvm.npv
+  base_input:
+    rate: "0.05"
+    cash_flows: [-1000, 300, 400, 500]
+  variable: /cash_flows
+  output: /npv
+  target: "0"
+  bracket: ["0", "1"]
+expect_error: FM-E015

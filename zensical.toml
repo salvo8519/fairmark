@@ -54,11 +54,13 @@ nav = [
     "methods/coc-cost-of-debt.md",
     "methods/coc-wacc.md",
     "methods/dcf-fcff.md",
+    "methods/analysis-goal-seek.md",
   ] },
   { "Concepts" = [
     "concepts/determinism.md",
     "concepts/audit-trail.md",
     "concepts/architecture.md",
+    "concepts/analysis.md",
   ] },
   { "Reference" = [
     "reference/python.md",
@@ -86,6 +88,7 @@ nav = [
       "project/adr/0007-structured-logging.md",
       "project/adr/0008-time-axis-dates-and-rates.md",
       "project/adr/0009-themed-methods-and-versioned-contracts.md",
+      "project/adr/0010-analysis-composes-through-the-registry.md",
     ] },
   ] },
 ]
