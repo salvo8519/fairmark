@@ -56,6 +56,10 @@ docs-impact base="origin/main":
 changelog:
     git-cliff --output CHANGELOG.md
 
+# Whether a version can be released (policy in docs/en/project/releases.md)
+release-ready version:
+    python scripts/release.py ready {{version}}
+
 # Preview the functional release notes of the next version (from changes/)
 release-notes:
     towncrier build --draft --version "$(python scripts/version.py show)"
