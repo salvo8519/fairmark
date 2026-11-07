@@ -19,7 +19,7 @@ jobs:
     name: Tests with the newest compatible dependencies
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: astral-sh/setup-uv@v7
       - name: Upgrade lock files (not committed)
@@ -33,7 +33,7 @@ jobs:
     name: Security advisories
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
         with: { command: check advisories }
       - uses: astral-sh/setup-uv@v7
@@ -46,7 +46,7 @@ jobs:
     name: Links in documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: lycheeverse/lychee-action@v2
         with:
           args: --no-progress --max-retries 3 --exclude-path docs/_shared/vendor './**/*.md'
@@ -57,13 +57,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@v2
         with: { tool: cargo-mutants }
       - run: cargo mutants --package fairmark-core --timeout 300 --no-shuffle
       - if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with: { name: mutants-report, path: mutants.out, if-no-files-found: ignore }
 
   report:
