@@ -38,7 +38,8 @@ Before opening a PR: `cargo fmt --all`, `cargo clippy --workspace -- -D warnings
 
 1. Every PR touching a method includes golden cases and updates its page in `docs/methods/`.
 2. Any change in a golden result needs the `numerical-change` label, a `method_version` bump and
-   a CHANGELOG entry. Maintainers of `crates/fairmark-core` must approve.
+   the commit trailer `Numerical-change: <method> v<N> -> v<N+1>` (the CHANGELOG is generated
+   from commits). Maintainers of `crates/fairmark-core` must approve.
 3. New methodological choices start as an issue labelled `needs-methodology` and are discussed
    before code is written.
 4. Never commit real client data.

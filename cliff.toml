@@ -1,0 +1,42 @@
+# CHANGELOG generated from Conventional Commits by git-cliff (https://git-cliff.org).
+#   uv run just changelog
+[changelog]
+header = """
+# Changelog
+
+All notable changes to Fairmark. Generated from Conventional Commits; do not edit by hand.
+Numerical changes (a different result for the same input) are always listed first.\n
+"""
+body = """
+{% if version %}\
+## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim | upper_first }}
+{% for commit in commits %}
+- {% if commit.scope %}**{{ commit.scope }}**: {% endif %}{{ commit.message | upper_first }}\
+{% endfor %}
+{% endfor %}\n
+"""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+commit_parsers = [
+  { body = "(?i)numerical-change:", group = "<!-- 0 -->Numerical changes" },
+  { message = "^feat", group = "<!-- 1 -->Added" },
+  { message = "^fix", group = "<!-- 2 -->Fixed" },
+  { message = "^perf", group = "<!-- 3 -->Performance" },
+  { message = "^refactor", group = "<!-- 4 -->Changed" },
+  { message = "^docs", group = "<!-- 5 -->Documentation" },
+  { message = "^(build|ci)", group = "<!-- 6 -->Build and CI" },
+  { message = "^chore\\(release\\)", skip = true },
+  { message = "^(chore|test|style)", group = "<!-- 7 -->Maintenance" },
+]
+protect_breaking_commits = true
+tag_pattern = "v[0-9].*"
+sort_commits = "oldest"

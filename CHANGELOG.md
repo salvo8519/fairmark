@@ -1,14 +1,22 @@
 # Changelog
 
-All notable changes are documented here. Numerical changes are always listed under
-**Numerical changes**, with the affected methods and versions.
+All notable changes to Fairmark. Generated from Conventional Commits; do not edit by hand.
+Numerical changes (a different result for the same input) are always listed first.
 
 ## [Unreleased]
 
 ### Added
-- Rust engine with exact decimal arithmetic, audit trail (`explain`) and input fingerprint.
-- Methods: `tvm.npv`, `tvm.irr`, `dcf.fcff` (preview).
-- Python SDK, function-calling tools (Anthropic, OpenAI), MCP server, CLI with `verify`.
-- Shared golden test cases for Rust and Python.
-- Documentation site (Zensical): quickstart, agent guides, methodology pages, generated
-  methods reference, Python API reference; code snippets tested in CI.
+
+- **brand**: Logo, palette and a README worthy of the project
+
+### Build and CI
+
+- **deps**: Replace unmaintained serde_yaml with serde_norway in golden runner
+
+### Maintenance
+
+- Agentic, spec-driven development setup and extended CI
+- **scripts**: Make GitHub roadmap bootstrap resumable with retries
+- **agents**: Canonical .agents/ folder, new roles, and a no-icons house style
+- **project**: Script to create the Kanban GitHub Project and auto-add workflow
+

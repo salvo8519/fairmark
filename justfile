@@ -23,6 +23,7 @@ lint:
     mypy
     typos
     python scripts/check_style.py
+    for f in sprints/S*.yaml; do [ -e "$f" ] && python scripts/sprint.py validate "$f"; done; true
 
 # Run all tests (Rust incl. golden, Python incl. golden and docs snippets)
 test:
@@ -41,8 +42,20 @@ check-generated:
     python scripts/gen_reference.py --check
     python scripts/sync_agents.py --check
 
+# Documentation coverage (every method documented, tested, exposed)
+docs-coverage:
+    python scripts/docs_sync.py coverage
+
+# Documentation impact of this branch against main
+docs-impact base="origin/main":
+    python scripts/docs_sync.py impact --base {{base}}
+
+# Regenerate CHANGELOG.md from Conventional Commits
+changelog:
+    git-cliff --output CHANGELOG.md
+
 # Build the documentation site in strict mode
-docs:
+docs: docs-coverage
     zensical build --strict
 
 # The full local gate: run before every PR

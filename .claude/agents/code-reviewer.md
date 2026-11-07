@@ -20,7 +20,8 @@ Check, in this order:
 5. **Schemas**: `deny_unknown_fields`, a unit-explicit doc comment on every field; `schemas/`
    and `docs/reference/methods.md` regenerated; breaking changes flagged.
 6. **Golden cases**: no existing expected value changed; new cases cite an independent source.
-7. **Quality**: names, small functions, no dead code, docs and CHANGELOG updated.
+7. **Quality**: names, small functions, no dead code, docs updated (`docs_sync.py` green),
+   Conventional Commit messages, `Numerical-change:` trailer when results changed.
 
 Run `uv run just check` if it has not been run. Report findings grouped as
 **Blocking**, **Should fix**, **Nit**, each with file:line and a concrete fix. End with a

@@ -39,6 +39,7 @@ dev = [
   "rust-just>=1.40",
   "typos>=1.30",
   "pre-commit>=4",
+  "git-cliff>=2.6",
 ]
 docs = [
   "zensical>=0.1; python_version >= '3.11'",

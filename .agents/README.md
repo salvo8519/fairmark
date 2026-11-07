@@ -18,17 +18,21 @@ specifics, imports `AGENTS.md`).
 | `spec-writer` | Specs, plans, task lists | No |
 | `test-engineer` | Golden cases, property and error tests, before code | Tests only |
 | `core-engineer` | Rust core implementation from `tasks.md` | Yes |
-| `docs-writer` | Methodology pages, guides, CHANGELOG | Docs only |
+| `docs-writer` | Methodology pages, guides, regenerated references | Docs only |
 | `code-reviewer` | Diff review against AGENTS.md, constitution, spec | No |
 | `numerical-auditor` | Independent recomputation, determinism | No |
 | `security-reviewer` | Supply chain, workflows, data handling | No |
 | `ci-investigator` | Root cause of red CI runs | No |
 | `release-manager` | Release readiness, versioning, verification | Release files |
+| `sprint-planner` | Next sprint: issues, lanes, `sprints/SNN.yaml` | Sprint files |
 
 ## Skills
 
 `spec-new`, `implement-spec`, `add-method`, `golden-case`, `adr-new`, `pre-pr`, `fix-ci`,
-`release`.
+`release`, `plan-sprint`, `run-sprint`.
+
+Orchestration: the main session runs `/run-sprint` and delegates to the roles above, because
+subagents cannot start other subagents.
 
 ## Editing
 

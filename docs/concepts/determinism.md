@@ -22,7 +22,8 @@ the contract; CI enforces it on every commit.
 6. **Fingerprinting.** `meta.input_hash` is the SHA-256 of the canonical parsed input.
    `fairmark verify` re-runs a saved result and checks hash and value.
 7. **Numerical versioning.** If any golden case changes result for the same input, the PR
-   carries the `numerical-change` label, bumps `method_version` and adds a CHANGELOG entry.
+   carries the `numerical-change` label, bumps `method_version` and a commit trailer
+   `Numerical-change: <method> v<N> -> v<N+1>`, which the generated CHANGELOG lists first.
 
 ## Golden cases
 

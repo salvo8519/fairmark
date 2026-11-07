@@ -15,7 +15,7 @@ parallel; tick a task only when `just check` passes.
 ## Adapters and docs
 - [ ] T6 [P] Python helper
 - [ ] T7 [P] Methodology page `docs/methods/...`
-- [ ] T8 CHANGELOG entry
+- [ ] T8 `uv run just generate` and docs coverage green (`uv run just docs`)
 
 ## Verification
 - [ ] T9 `numerical-auditor` review, `code-reviewer` review, all AC ticked in spec.md

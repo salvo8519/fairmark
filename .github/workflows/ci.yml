@@ -99,6 +99,8 @@ jobs:
       - run: uv run typos
       - run: uv run python scripts/check_style.py
       - run: uv run just check-generated
+      - run: uv run python scripts/docs_sync.py coverage
+      - run: for f in sprints/S*.yaml; do [ -e "$f" ] && uv run python scripts/sprint.py validate "$f"; done; true
 
   contracts:
     name: Contracts · schema changes and golden cases
@@ -119,6 +121,9 @@ jobs:
         run: |
           uv run python scripts/check_golden_changes.py --base origin/${{ github.base_ref }} \
             ${{ contains(github.event.pull_request.labels.*.name, 'numerical-change') && '--allowed' || '' }}
+      - name: Documentation updated with the code (or labelled no-docs-needed)
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-docs-needed') }}
+        run: python3 scripts/docs_sync.py impact --base origin/${{ github.base_ref }}
       - name: Schema changes are additive (or labelled breaking-change)
         run: |
           git worktree add /tmp/base origin/${{ github.base_ref }}

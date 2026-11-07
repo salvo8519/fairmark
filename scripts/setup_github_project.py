@@ -13,7 +13,9 @@ What it does (idempotent: re-running only adds what is missing):
      `area:*` label; Type from the `epic` label.
 
 Afterwards, in the project page: open the view menu, choose the "Board" layout grouped by
-Status, and optionally a "Roadmap" layout grouped by Milestone.
+Status, and optionally a "Roadmap" layout grouped by Milestone. For sprints, add once an
+"Iteration" field (two-week cycle) in the project settings: the GitHub CLI cannot create it.
+Sprint plans for agents live in sprints/ (see sprints/README.md).
 """
 
 from __future__ import annotations

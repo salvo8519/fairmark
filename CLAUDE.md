@@ -19,12 +19,13 @@ Delegate instead of doing everything in the main context:
 | `spec-writer` | Turning a request into `spec.md`, then `plan.md` + `tasks.md` |
 | `test-engineer` | Golden cases and property tests from acceptance criteria, before code |
 | `core-engineer` | Implementing Rust core tasks from `tasks.md` |
-| `docs-writer` | Methodology pages, regenerated reference, CHANGELOG |
+| `docs-writer` | Methodology pages, guides, regenerated reference |
 | `code-reviewer` | Reviewing the current diff against AGENTS.md and the constitution |
 | `numerical-auditor` | Independently recomputing results, checking conventions and determinism |
 | `security-reviewer` | Dependencies, workflows, data handling |
 | `ci-investigator` | Root cause of a red CI run |
 | `release-manager` | Release readiness and verification |
+| `sprint-planner` | Proposing the next sprint (`sprints/SNN.yaml`) with parallel lanes |
 
 Standard loop: `spec-writer` → (maintainer approves) → `test-engineer` → `core-engineer` →
 `code-reviewer` (+ `numerical-auditor` when numbers changed, + `security-reviewer` when
@@ -32,7 +33,17 @@ dependencies or workflows changed) → `docs-writer` → PR.
 
 ### Skills (`.claude/skills/`, generated from `.agents/skills/`)
 `/spec-new`, `/implement-spec`, `/add-method`, `/golden-case`, `/adr-new`, `/pre-pr`,
-`/fix-ci`, `/release`.
+`/fix-ci`, `/release`, `/plan-sprint`, `/run-sprint`.
+
+### Sprints and orchestration
+Subagents cannot start other subagents: the main session is the orchestrator. `/run-sprint`
+delegates each issue of `sprints/SNN.yaml` to the agents above (locally, lane by lane) or to
+Claude in GitHub Actions (remotely, via `@claude` on the issue). Every issue ends as a PR;
+nothing is merged without the maintainer.
+
+### Documentation
+A Stop hook runs `scripts/docs_sync.py impact`: if code changed without its documentation,
+you are sent back to fix it (delegate to `docs-writer`).
 
 To change an agent or a skill, edit `.agents/` and run `uv run just generate`; never edit
 `.claude/agents` or `.claude/skills` directly.

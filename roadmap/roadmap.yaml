@@ -25,6 +25,8 @@ labels:
   - { name: "needs-methodology", color: "fbca04" }
   - { name: "numerical-change", color: "b60205" }
   - { name: "breaking-change", color: "b60205" }
+  - { name: "no-docs-needed", color: "cfd3d7" }
+  - { name: "docs-sync", color: "5319e7" }
 
 milestones:
   - title: "M0 · Foundations"

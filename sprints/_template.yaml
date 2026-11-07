@@ -1,0 +1,11 @@
+id: S00
+goal: One sentence describing the outcome of the sprint
+start: 2026-01-01
+end: 2026-01-14
+milestone: "M0 · Foundations"
+status: planned
+lanes:
+  - name: core
+    issues: []
+  - name: docs
+    issues: []
