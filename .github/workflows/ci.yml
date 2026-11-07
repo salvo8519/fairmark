@@ -105,7 +105,7 @@ jobs:
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.md"
             uv run python scripts/roadmap.py check --pr-body "$RUNNER_TEMP/pr-body.md"
           else
