@@ -103,7 +103,7 @@ def current() -> dict[str, tuple[str, str]]:
 
 
 def load_index(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text()) if path.exists() else {"methods": {}}
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"methods": {}}
 
 
 def build_index(schemas: dict[str, tuple[str, str]], index_path: Path) -> dict[str, Any]:
@@ -233,7 +233,7 @@ def diff_against(base: Path) -> int:
             if not new_file.exists():
                 rewritten.append(f"{label}: removed")
                 continue
-            if old_file.read_text() == new_file.read_text():
+            if old_file.read_text(encoding="utf-8") == new_file.read_text(encoding="utf-8"):
                 if head_record["sha256"] != record["sha256"]:
                     rewritten.append(f"{label}: hash changed in the index")
                 continue
@@ -242,7 +242,9 @@ def diff_against(base: Path) -> int:
                 rewritten.append(f"{label}: an earlier version changed")
                 continue
             problems = classify(
-                method, json.loads(old_file.read_text()), json.loads(new_file.read_text())
+                method,
+                json.loads(old_file.read_text(encoding="utf-8")),
+                json.loads(new_file.read_text(encoding="utf-8")),
             )
             breaking += [f"v{version} {p}" for p in problems]
     if rewritten:
@@ -274,7 +276,9 @@ def diff_against_flat(base: Path, schemas: dict[str, tuple[str, str]]) -> int:
         if method not in schemas:
             breaking.append(f"{method}: method removed")
             continue
-        breaking += classify(method, json.loads(flat.read_text()), json.loads(schemas[method][1]))
+        breaking += classify(
+            method, json.loads(flat.read_text(encoding="utf-8")), json.loads(schemas[method][1])
+        )
     if breaking:
         report("BREAKING schema changes", breaking)
         return 3
@@ -290,9 +294,11 @@ def check() -> int:
     problems = []
     for method, (version, text) in schemas.items():
         path = SCHEMAS / method / f"v{version}.json"
-        if not path.exists() or path.read_text() != text:
+        if not path.exists() or path.read_text(encoding="utf-8") != text:
             problems.append(f"{method} v{version}: snapshot missing or stale")
-    if not INDEX.exists() or INDEX.read_text() != dump_index(build_index(schemas, INDEX)):
+    if not INDEX.exists() or INDEX.read_text(encoding="utf-8") != dump_index(
+        build_index(schemas, INDEX)
+    ):
         problems.append("schemas/index.json is stale")
     indexed = set()
     for entry in load_index(INDEX).get("methods", {}).values():
@@ -301,7 +307,7 @@ def check() -> int:
             path = SCHEMAS / record["file"]
             if not path.exists():
                 problems.append(f"{record['file']}: listed in the index but missing")
-            elif sha256(path.read_text()) != record["sha256"]:
+            elif sha256(path.read_text(encoding="utf-8")) != record["sha256"]:
                 problems.append(f"{record['file']}: content does not match its recorded hash")
     for path in sorted(SCHEMAS.glob("*/v*.json")):
         rel = path.relative_to(SCHEMAS).as_posix()
@@ -338,8 +344,8 @@ def write() -> int:
     for method, (version, text) in schemas.items():
         path = SCHEMAS / method / f"v{version}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text)
-    INDEX.write_text(dump_index(build_index(schemas, INDEX)))
+        path.write_text(text, encoding="utf-8", newline="\n")
+    INDEX.write_text(dump_index(build_index(schemas, INDEX)), encoding="utf-8", newline="\n")
     return 0
 
 
@@ -352,7 +358,7 @@ def stamp_release(version: str) -> int:
             if record.get("introduced_in") == UNRELEASED:
                 record["introduced_in"] = version
                 stamped += 1
-    INDEX.write_text(dump_index(index))
+    INDEX.write_text(dump_index(index), encoding="utf-8", newline="\n")
     return stamped
 
 

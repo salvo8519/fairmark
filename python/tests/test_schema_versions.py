@@ -32,9 +32,9 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
 
 
 def edit(path: Path, change: Any) -> None:
-    data = json.loads(path.read_text())
+    data = json.loads(path.read_text(encoding="utf-8"))
     change(data)
-    path.write_text(snap.dump(data))
+    path.write_text(snap.dump(data), encoding="utf-8", newline="\n")
 
 
 def test_committed_snapshots_are_current() -> None:
@@ -78,10 +78,10 @@ def test_a_new_optional_field_in_the_current_version_is_additive(
 
 
 def test_every_snapshot_names_its_method_and_version() -> None:
-    index = json.loads((ROOT / "schemas/index.json").read_text())
+    index = json.loads((ROOT / "schemas/index.json").read_text(encoding="utf-8"))
     for method, entry in index["methods"].items():
         for version, record in entry["versions"].items():
-            data = json.loads((ROOT / "schemas" / record["file"]).read_text())
+            data = json.loads((ROOT / "schemas" / record["file"]).read_text(encoding="utf-8"))
             assert data["$id"] == f"urn:fairmark:schema:{method}:v{version}"
             assert data["x-fairmark-method-version"] == version
 
@@ -97,7 +97,7 @@ def test_a_removed_definition_is_breaking(repo: tuple[Path, Path]) -> None:
 
 def test_documented_enumerations_may_widen_but_not_narrow() -> None:
     # schemars generates documented enums as oneOf of const members, as in rates.convert.
-    real = json.loads((ROOT / "schemas/rates.convert/v1.json").read_text())
+    real = json.loads((ROOT / "schemas/rates.convert/v1.json").read_text(encoding="utf-8"))
     name = next(n for n, d in real["$defs"].items() if snap.const_members(d.get("oneOf")))
     widened = json.loads(json.dumps(real))
     widened["$defs"][name]["oneOf"].append({"const": "new_value", "type": "string"})
@@ -153,14 +153,16 @@ def test_a_current_version_cannot_go_back(
 ) -> None:
     base, head = repo
     engine = snap.current()
-    engine["tvm.npv"] = ("1", (head / "tvm.npv/v1.json").read_text())
+    engine["tvm.npv"] = ("1", (head / "tvm.npv/v1.json").read_text(encoding="utf-8"))
     monkeypatch.setattr(snap, "current", lambda: engine)
     edit(head / "index.json", lambda d: d["methods"]["tvm.npv"].__setitem__("current", "1"))
     assert snap.diff_against(base) == 4
     # Generating snapshots from such an engine is refused too, before anything is written.
     shutil.copy(base / "index.json", head / "index.json")
     assert snap.write() == 4
-    assert (head / "index.json").read_text() == (base / "index.json").read_text()
+    assert (head / "index.json").read_text(encoding="utf-8") == (base / "index.json").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_a_released_entry_of_the_index_is_immutable(repo: tuple[Path, Path]) -> None:
@@ -178,7 +180,7 @@ def test_stamping_a_release_is_allowed(repo: tuple[Path, Path]) -> None:
     base, _ = repo
     assert snap.stamp_release("0.1.0") == sum(
         len(e["versions"])
-        for e in json.loads((base / "index.json").read_text())["methods"].values()
+        for e in json.loads((base / "index.json").read_text(encoding="utf-8"))["methods"].values()
     )
     assert snap.diff_against(base) == 0
 
@@ -195,10 +197,10 @@ def test_a_hash_rewritten_in_the_index_is_refused(repo: tuple[Path, Path]) -> No
 def test_stray_and_unindexed_files_fail_the_check(repo: tuple[Path, Path]) -> None:
     _, head = repo
     assert snap.check() == 0
-    (head / "tvm.npv/v9.json").write_text("{}\n")
+    (head / "tvm.npv/v9.json").write_text("{}\n", encoding="utf-8", newline="\n")
     assert snap.check() == 1
     (head / "tvm.npv/v9.json").unlink()
-    (head / "tvm.npv.json").write_text("{}\n")
+    (head / "tvm.npv.json").write_text("{}\n", encoding="utf-8", newline="\n")
     assert snap.check() == 1
 
 
@@ -206,7 +208,7 @@ def test_flat_base_layout(repo: tuple[Path, Path], tmp_path: Path) -> None:
     flat = tmp_path / "flat"
     flat.mkdir()
     for method, (_, text) in snap.current().items():
-        (flat / f"{method}.json").write_text(text)
+        (flat / f"{method}.json").write_text(text, encoding="utf-8", newline="\n")
     assert snap.diff_against(flat) == 0
     edit(flat / "tvm.npv.json", lambda d: d["properties"].__setitem__("gone", {"type": "string"}))
     assert snap.diff_against(flat) == 3
