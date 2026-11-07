@@ -30,6 +30,10 @@ decides. Every tool used is free for public open-source repositories.
 | Supply-chain practices of the project | OpenSSF Scorecard | Weekly and on `main` | Free |
 | Breakage coming with the next compatible versions | Weekly maintenance: tests with upgraded lock files | Weekly | Free |
 | Unmaintained or yanked crates, duplicate versions | `cargo deny` | Every pull request | Free |
+| Unsafe workflows: injection, excessive permissions, persisted credentials, unpinned actions | zizmor | Every pull request | Free |
+| Workflow syntax, runner labels that no longer exist, shell mistakes | actionlint with shellcheck | Every pull request | Free |
+| A YAML file that does not parse | `scripts/check_yaml.py` | Every pull request | Free |
+| Rust dependencies declared but not used | cargo-machete | Every pull request | Free |
 
 Locally: `uv run just deps-outdated` lists what can be updated, `uv run just deps-audit`
 lists known advisories.
@@ -46,6 +50,17 @@ lists known advisories.
 
 A release is never made with an open security alert, a red weekly maintenance run or a
 dependency pull request older than one month.
+
+## GitHub Actions are pinned to commits
+
+A tag such as `v7` can be moved to other code by whoever controls the action; a commit hash
+cannot. Every `uses:` names a commit with the tag as a comment
+(`actions/checkout@<commit> # v7`); Dependabot updates both when the comment is a version
+tag. `dtolnay/rust-toolchain` is pinned to the commit of its toolchain branch and updated by
+hand (see `.github/dependabot.yml`). After adding or changing an
+action, run `python scripts/pin_actions.py`; CI refuses an unpinned action. A workflow that
+needs a dangerous trigger or persisted credentials says why in an inline
+`# zizmor: ignore[...]` comment, which is reviewed like code.
 
 ## How to review a dependency pull request
 
