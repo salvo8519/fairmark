@@ -1,0 +1,19 @@
+# Contract cases for coc.wacc: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: coc.wacc
+extreme_inputs:
+- cost_of_equity: MAX
+  pre_tax_cost_of_debt: MAX
+  tax_rate: '0'
+  debt_to_equity: MAX
+conventions:
+- input:
+    cost_of_equity: '0.1'
+    pre_tax_cost_of_debt: '0.05'
+    tax_rate: '0.24'
+    debt_weight: '0.3'
+  expect:
+  - annual effective
+  - target weights from D/(D + E) 0.3
+  - tax rate of the tax shield 0.24

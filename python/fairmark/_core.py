@@ -6,6 +6,7 @@ import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -26,6 +27,10 @@ class FairmarkError(ValueError):
 def _encode(obj: Any) -> Any:
     if isinstance(obj, Decimal):
         return str(obj)
+    if isinstance(obj, datetime):
+        raise TypeError("pass a datetime.date (calendar date), not a datetime: dates carry no time")
+    if isinstance(obj, date):
+        return obj.isoformat()
     if isinstance(obj, float):
         # repr() is the shortest exact round-trip: 0.1 -> "0.1".
         return repr(obj)

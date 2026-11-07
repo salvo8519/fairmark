@@ -1,0 +1,5 @@
+method: coc.cost_of_debt
+description: A given rate and a rate plus spread together are ambiguous
+source: SPEC-0003 R6
+input: { pre_tax_cost_of_debt: "0.05", risk_free_rate: "0.03", credit_spread: "0.02", tax_rate: "0.24" }
+expect_error: FM-E001

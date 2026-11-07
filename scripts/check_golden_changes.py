@@ -28,20 +28,26 @@ def main() -> None:
 
     changes = git("diff", "--name-status", f"{args.base}...HEAD", "--", "tests/golden")
     problems = []
+    unsourced = []
     for line in changes.splitlines():
         status, *paths = line.split("\t")
         path = paths[-1]
         if status.startswith("A"):
+            added = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+            if not str(added.get("source", "")).strip():
+                unsourced.append(path)
             continue
         if status.startswith("D"):
             problems.append(f"deleted: {path}")
             continue
         before = yaml.safe_load(git("show", f"{args.base}:{paths[0]}"))
         after = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
-        for key in ("method", "input", "expect", "tolerance"):
+        for key in ("method", "input", "expect", "expect_error", "tolerance"):
             if before.get(key) != after.get(key):
                 problems.append(f"changed '{key}': {path}")
 
+    if unsourced:
+        sys.exit("New golden cases must name an independent 'source':\n  " + "\n  ".join(unsourced))
     if not problems:
         print("No existing golden case changed.")
         return

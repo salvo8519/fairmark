@@ -1,6 +1,6 @@
 ---
 source: guides/function-calling.md
-source_hash: 200931c26546
+source_hash: bd285587d083
 ---
 # Function calling
 
@@ -39,4 +39,7 @@ Gli schemi sono espansi (senza `$ref`) per la compatibilità tra fornitori. I ca
 accettano numeri o stringhe; le descrizioni dichiarano le unità in modo esplicito ("decimal
 fraction, 0.09 = 9%"), ed è questo che porta i modelli a estrarre i tassi correttamente. La
 variante portabile (`portable=True`, usata per Gemini e per i runtime locali di modelli
-open-weight) dichiara i decimali come stringhe e rimuove `pattern` e `additionalProperties`.
+open-weight) dichiara i decimali come stringhe, trasforma i valori opzionali (`X or null`) in
+semplici `X` (un campo opzionale è semplicemente non obbligatorio) e rimuove `pattern` e
+`additionalProperties`. Le date sono stringhe ISO 8601 (`"2026-06-30"`) in entrambe le
+varianti.

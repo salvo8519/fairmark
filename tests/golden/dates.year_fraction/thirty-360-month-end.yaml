@@ -1,0 +1,6 @@
+method: dates.year_fraction
+description: 30/360 Bond Basis keeps day 31 at the end when the start day is below 30
+source: 2006 ISDA Definitions section 4.16(f); Independent 50-digit reference, scripts/reference_time.py
+input: { start: "2024-02-15", end: "2024-03-31", day_count: thirty_360 }
+expect: { year_fraction: "0.12777777777777777778" }
+tolerance: "0.0000000000000000001"

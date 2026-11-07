@@ -1,0 +1,22 @@
+# Contract cases for tvm.mirr: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: tvm.mirr
+extreme_inputs:
+- cash_flows:
+  - MIN
+  - MAX
+  finance_rate: MAX
+  reinvest_rate: MAX
+conventions:
+- input:
+    cash_flows:
+    - '-100'
+    - '60'
+    - '60'
+    finance_rate: '0.1'
+    reinvest_rate: '0.12'
+  expect:
+  - cash_flows[0] occurs at t = 0
+  - finance rate
+  - reinvestment rate

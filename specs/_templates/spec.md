@@ -5,7 +5,7 @@
 | Status | Draft |
 | Milestone | M? |
 | Owner | @handle |
-| Methodology sources | <standard / textbook / practitioner model> |
+| Formula basis | <commonly adopted formulation; implementations and published examples it is verified against> |
 | Related | ADRs, issues, other specs |
 
 ## Problem

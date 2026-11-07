@@ -1,0 +1,6 @@
+method: tvm.xirr
+description: Same example at full precision
+source: Independent 50-digit reference, scripts/reference_time.py (bisection, 300 iterations)
+input: { cash_flows: [{date: "2008-01-01", amount: "-10000"}, {date: "2008-03-01", amount: "2750"}, {date: "2008-10-30", amount: "4250"}, {date: "2009-02-15", amount: "3250"}, {date: "2009-04-01", amount: "2750"}] }
+expect: { xirr: "0.37336253351883151031" }
+tolerance: "0.00000000000000001"

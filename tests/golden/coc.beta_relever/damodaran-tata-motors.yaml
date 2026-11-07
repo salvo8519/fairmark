@@ -1,0 +1,6 @@
+method: coc.beta_relever
+description: Published relevering example, unlevered beta 0.8601 at D/E 41.41% and tax rate 32.45%
+source: "Damodaran, NYU Stern public lecture slides (bottom-up beta, Tata Motors): 0.8601 × (1 + (1 − 0.3245) × 0.4141) = 1.1007, published to four decimals"
+input: { beta: "0.8601", direction: relever, debt_to_equity: "0.4141", tax_rate: "0.3245", formula: hamada }
+expect: { beta: "1.1007" }
+tolerance: "0.00005"

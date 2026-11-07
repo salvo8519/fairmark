@@ -1,0 +1,5 @@
+method: tvm.irr
+description: Flows -100, 230, -132 have two IRRs (10% and 20%); the engine refuses to choose
+source: roots of -100 x^2 + 230 x - 132 = 0 with x = 1 + r; SPEC-0002 R9
+input: { cash_flows: ["-100", "230", "-132"] }
+expect_error: FM-E011

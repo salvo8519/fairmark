@@ -35,7 +35,7 @@ RULES: list[tuple[str, str, str]] = [
         "error codes changed: update docs/en/reference/errors.md",
     ),
     (
-        r"^crates/fairmark-core/src/(?P<area>[a-z_]+)\.rs$",
+        r"^crates/fairmark-core/src/(?P<area>[a-z_]+)(?:\.rs|/.*\.rs)$",
         r"^docs/en/methods/{area}-.*\.md$",
         "method area '{area}' changed: update its methodology page(s) in docs/en/methods/",
     ),
@@ -60,7 +60,7 @@ RULES: list[tuple[str, str, str]] = [
         "function calling changed: update docs/en/guides/function-calling.md",
     ),
 ]
-NON_METHOD_FILES = {"error", "explain", "registry", "types", "lib"}
+NON_METHOD_FILES = {"error", "explain", "registry", "types", "lib", "num", "method"}
 
 
 def git(*args: str) -> list[str]:
@@ -81,7 +81,9 @@ def changed_files(args: argparse.Namespace) -> list[str]:
 
 def impact(args: argparse.Namespace) -> int:
     if not args.worktree and not args.staged:
-        trailer = git("log", "-1", "--format=%(trailers:key=Docs-impact,valueonly)")
+        # --no-merges: in pull-request CI, HEAD is the merge commit GitHub creates, which carries
+        # no trailers; the waiver belongs to the latest commit of the branch itself.
+        trailer = git("log", "-1", "--no-merges", "--format=%(trailers:key=Docs-impact,valueonly)")
         if any(t.strip().lower() == "none" for t in trailer):
             print("Docs impact waived by 'Docs-impact: none' trailer.")
             return 0

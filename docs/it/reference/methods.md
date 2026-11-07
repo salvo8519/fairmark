@@ -8,9 +8,221 @@ Ogni metodo è disponibile con lo stesso identificativo e gli stessi input da Py
 sono restituiti come stringhe. Le descrizioni dei campi provengono dal codice
 sorgente e sono in inglese.
 
+## `dates.year_fraction`
+
+**Year fraction (day count)** · versione del metodo 1 · tool `fairmark_dates_year_fraction`
+
+Fraction of a year between two dates under an ISDA 2006 day-count convention: Actual/365 Fixed, Actual/360, Actual/Actual ISDA, 30/360, 30E/360.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `start` | string | sì |  | Start date (ISO 8601). |
+| `end` | string | sì |  | End date (ISO 8601), not earlier than the start date. |
+| `day_count` | `act_365_fixed` \| `act_360` \| `act_act_isda` \| `thirty_360` \| `thirty_e_360` | sì |  | Day-count convention. |
+
+## `rates.convert`
+
+**Rate conversion between compounding conventions** · versione del metodo 1 · tool `fairmark_rates_convert`
+
+Equivalent annual rate under another compounding (annual, semi-annual, quarterly, monthly, continuous).
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `rate` | decimale | sì |  | Annual rate as a decimal fraction (0.12 = 12% a year), quoted with `from` compounding. |
+| `from` | `annual` \| `semi_annual` \| `quarterly` \| `monthly` \| `continuous` | sì |  | Compounding of the given rate. |
+| `to` | `annual` \| `semi_annual` \| `quarterly` \| `monthly` \| `continuous` | sì |  | Compounding of the equivalent rate to return. |
+
+## `rates.real_nominal`
+
+**Real and nominal rates (Fisher)** · versione del metodo 1 · tool `fairmark_rates_real_nominal`
+
+Converts a nominal rate to a real rate, or the reverse, with the exact Fisher relation.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `rate` | decimale | sì |  | Rate to convert, decimal fraction per period (0.08 = 8%). |
+| `inflation` | decimale | sì |  | Inflation over the same period, decimal fraction (0.03 = 3%). |
+| `direction` | `to_real` \| `to_nominal` | sì |  | `to_real` or `to_nominal`. |
+
+## `tvm.npv`
+
+**Net present value** · versione del metodo 2 · tool `fairmark_tvm_npv`
+
+Net present value of a cash flow series; the first flow is at t = 0.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `rate` | decimale | sì |  | Discount rate per period as a decimal fraction (0.10 = 10%). |
+| `cash_flows` | lista di decimale | sì |  | Cash flows; the first one occurs at t = 0 (no discounting). |
+
+## `tvm.present_value`
+
+**Present value with a constant or time-varying rate** · versione del metodo 1 · tool `fairmark_tvm_present_value`
+
+Present value of periodic flows for periods 1..n with one rate or one rate per period, at end, mid or beginning of period. Returns every discount factor.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `cash_flows` | lista di decimale | sì |  | Cash flows of periods 1, 2, ..., n, in currency units. |
+| `rate` | decimale | no |  | One discount rate for every period, decimal fraction per period. Give exactly one of `rate` and `period_rates`. |
+| `period_rates` | array \| null | no |  | One discount rate per period (forward period rates, decimal fractions), exactly one per cash flow. |
+| `timing` | `end_of_period` \| `mid_period` \| `beginning_of_period` | sì |  | When flows occur within each period. |
+
+## `tvm.xnpv`
+
+**Net present value of dated cash flows (XNPV)** · versione del metodo 1 · tool `fairmark_tvm_xnpv`
+
+Present value of dated flows at a valuation date, with explicit day count and compounding (defaults as in ECMA-376 XNPV).
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `rate` | decimale | sì |  | Annual discount rate, decimal fraction (0.09 = 9%), quoted with `compounding`. |
+| `cash_flows` | lista di object | sì |  | Dated cash flows, in any order. |
+| `valuation_date` |  | no |  | Date at which the value is computed. Default: the earliest flow date (ECMA-376 XNPV). |
+| `day_count` |  | no |  | Day count for the time between dates. Default: `act_365_fixed` (ECMA-376 XNPV). |
+| `compounding` |  | no |  | Compounding of `rate`. Default: `annual` (ECMA-376 XNPV). |
+
+## `tvm.irr`
+
+**Internal rate of return** · versione del metodo 2 · tool `fairmark_tvm_irr`
+
+Rate at which the NPV of a periodic cash flow series is zero, solved deterministically; refuses inputs with more than one IRR.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `cash_flows` | lista di decimale | sì |  | Cash flows; the first one occurs at t = 0. Needs at least one sign change. |
+| `guess` | decimale | no |  | Starting point for Newton's method, decimal fraction per period. Default: 0.10. |
+
+## `tvm.xirr`
+
+**Internal rate of return of dated cash flows (XIRR)** · versione del metodo 1 · tool `fairmark_tvm_xirr`
+
+Annual rate at which the XNPV of dated flows is zero, solved deterministically; refuses inputs with more than one rate.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `cash_flows` | lista di object | sì |  | Dated cash flows, in any order; at least one positive and one negative amount. |
+| `day_count` |  | no |  | Day count for the time between dates. Default: `act_365_fixed` (ECMA-376 XIRR). |
+| `compounding` |  | no |  | Compounding of the returned rate. Default: `annual` (ECMA-376 XIRR). |
+| `guess` | decimale | no |  | Starting point for Newton's method, annual decimal fraction. Default: 0.10 (ECMA-376 XIRR). |
+
+## `tvm.mirr`
+
+**Modified internal rate of return (MIRR)** · versione del metodo 1 · tool `fairmark_tvm_mirr`
+
+Rate of return with negative flows financed at a finance rate and positive flows reinvested at a reinvestment rate (ECMA-376 MIRR).
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `cash_flows` | lista di decimale | sì |  | Periodic cash flows; the first one occurs at t = 0. At least one positive and one negative. |
+| `finance_rate` | decimale | sì |  | Rate paid on the money invested (applied to negative flows), decimal fraction per period. |
+| `reinvest_rate` | decimale | sì |  | Rate earned on reinvested positive flows, decimal fraction per period. |
+
+## `tvm.annuity`
+
+**Annuity (level or growing, ordinary or due)** · versione del metodo 1 · tool `fairmark_tvm_annuity`
+
+Present and future value of a finite series of level or growing payments.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `payment` | decimale | sì |  | First payment, in currency units. |
+| `rate` | decimale | sì |  | Discount rate per period, decimal fraction. |
+| `periods` | integer | sì |  | Number of payments, from 1 to 10000. |
+| `growth` | decimale | no |  | Growth of the payment per period, decimal fraction. Default: 0 (level annuity). |
+| `timing` | `ordinary` \| `due` | sì |  | `ordinary` (end of period) or `due` (beginning of period). |
+
+## `tvm.perpetuity`
+
+**Perpetuity (level or growing)** · versione del metodo 1 · tool `fairmark_tvm_perpetuity`
+
+Present value of a level or growing perpetuity (Gordon), ordinary or due.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `payment` | decimale | sì |  | First payment, in currency units. |
+| `rate` | decimale | sì |  | Discount rate per period, decimal fraction; must exceed `growth`. |
+| `growth` | decimale | no |  | Growth of the payment per period, decimal fraction, greater than -1. Default: 0 (level perpetuity). |
+| `timing` | `ordinary` \| `due` | sì |  | `ordinary` (first payment at t = 1) or `due` (first payment at t = 0). |
+
+## `coc.cost_of_equity`
+
+**Cost of equity (CAPM with explicit premia)** · versione del metodo 1 · tool `fairmark_coc_cost_of_equity`
+
+Cost of equity from risk-free rate, levered or relevered beta and equity risk premium, plus optional country, size and specific premia, each reported.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `risk_free_rate` | decimale | sì |  | Risk-free rate, annual decimal fraction. |
+| `equity_risk_premium` | decimale | sì |  | Equity risk premium of the market, annual decimal fraction. |
+| `levered_beta` | decimale | no |  | Levered beta, dimensionless. Give exactly one of `levered_beta` and `relever`. |
+| `relever` |  | no |  | Unlevered beta and target structure to relever. Give exactly one of `levered_beta` and `relever`. |
+| `country_risk_premium` | decimale | no |  | Country risk premium, annual decimal fraction, not negative. Default: 0. |
+| `country_exposure` | decimale | no |  | Exposure of the company to the country risk (lambda), dimensionless, not negative. Default: 1. |
+| `size_premium` | decimale | no |  | Size premium, annual decimal fraction. Default: 0. |
+| `specific_risk_premium` | decimale | no |  | Company-specific risk premium, annual decimal fraction. Default: 0. When not zero, `specific_risk_justification` is required. |
+| `specific_risk_justification` | string \| null | no |  | Written reason for the specific risk premium, echoed in the audit trail. |
+
+## `coc.beta_relever`
+
+**Beta unlevering and relevering** · versione del metodo 1 · tool `fairmark_coc_beta_relever`
+
+Converts an unlevered beta to a levered beta at a target D/E, or the reverse, with the Hamada or Harris-Pringle formula and an optional debt beta.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `beta` | decimale | sì |  | Beta to convert (unlevered for `relever`, levered for `unlever`), dimensionless. |
+| `direction` | `relever` \| `unlever` | sì |  | `relever` or `unlever`. |
+| `debt_to_equity` | decimale | sì |  | Debt-to-equity ratio D/E, decimal (0.5 = debt equal to half of equity), not negative. |
+| `tax_rate` | decimale | sì |  | Tax rate of the tax shield, decimal fraction from 0 to below 1. |
+| `formula` | `hamada` \| `harris_pringle` | sì |  | `hamada` or `harris_pringle`. |
+| `debt_beta` | decimale | no |  | Beta of debt, dimensionless. Default: 0 (risk-free debt). |
+
+## `coc.beta_peers`
+
+**Beta from comparable companies** · versione del metodo 1 · tool `fairmark_coc_beta_peers`
+
+Unlevers the betas of comparable companies, takes the mean or median and relevers it to the target capital structure.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `peers` | lista di object | sì |  | Comparable companies, at least one. |
+| `formula` | `hamada` \| `harris_pringle` | sì |  | `hamada` or `harris_pringle`, used to unlever and to relever. |
+| `statistic` | `mean` \| `median` | sì |  | `mean` or `median` of the unlevered betas. |
+| `target_debt_to_equity` | decimale | sì |  | Target debt-to-equity ratio D/E of the company being valued, decimal, not negative. |
+| `target_tax_rate` | decimale | sì |  | Tax rate of the company being valued, decimal fraction from 0 to below 1. |
+| `debt_beta` | decimale | no |  | Beta of debt, dimensionless, for peers and target. Default: 0 (risk-free debt). |
+
+## `coc.cost_of_debt`
+
+**Cost of debt** · versione del metodo 1 · tool `fairmark_coc_cost_of_debt`
+
+Pre-tax cost of debt, given or as risk-free rate plus credit spread, and the after-tax cost of debt.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `pre_tax_cost_of_debt` | decimale | no |  | Pre-tax cost of debt, annual decimal fraction. Give either this, or `risk_free_rate` and `credit_spread`. |
+| `risk_free_rate` | decimale | no |  | Risk-free rate, annual decimal fraction (with `credit_spread`). |
+| `credit_spread` | decimale | no |  | Credit spread over the risk-free rate, annual decimal fraction (with `risk_free_rate`). |
+| `tax_rate` | decimale | sì |  | Tax rate of the tax shield, decimal fraction from 0 to below 1. |
+
+## `coc.wacc`
+
+**Weighted average cost of capital (WACC)** · versione del metodo 1 · tool `fairmark_coc_wacc`
+
+WACC from cost of equity, cost of debt, tax rate and target weights (D/E or D/(D+E)).
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `cost_of_equity` | decimale | sì |  | Cost of equity, annual decimal fraction. |
+| `pre_tax_cost_of_debt` | decimale | sì |  | Pre-tax cost of debt, annual decimal fraction. |
+| `tax_rate` | decimale | sì |  | Tax rate of the tax shield, decimal fraction from 0 to below 1. |
+| `debt_to_equity` | decimale | no |  | Target debt-to-equity ratio D/E, decimal, not negative. Give exactly one of `debt_to_equity` and `debt_weight`. |
+| `debt_weight` | decimale | no |  | Target weight of debt D/(D + E), decimal fraction from 0 to below 1. Give exactly one of `debt_to_equity` and `debt_weight`. |
+
 ## `dcf.fcff`
 
-**DCF — unlevered free cash flow** · versione del metodo 1 · tool `fairmark_dcf_fcff`
+**DCF — unlevered free cash flow** · versione del metodo 2 · tool `fairmark_dcf_fcff`
 
 Enterprise and equity value from explicit FCFF forecasts discounted at WACC, with a Gordon growth terminal value. Returns every step for audit.
 
@@ -22,25 +234,3 @@ Enterprise and equity value from explicit FCFF forecasts discounted at WACC, wit
 | `timing` | `end_of_period` \| `mid_period` | no | `"end_of_period"` | When cash flows arrive within each year. Default: end of period. |
 | `net_debt` | decimale | no | `"0"` | Net financial position: debt minus cash. Negative if net cash. Default 0. |
 | `non_operating_assets` | decimale | no | `"0"` | Non-operating (surplus) assets added to equity value. Default 0. |
-
-## `tvm.npv`
-
-**Net present value** · versione del metodo 1 · tool `fairmark_tvm_npv`
-
-Net present value of a cash flow series; the first flow is at t = 0.
-
-| Input | Tipo | Obbligatorio | Default | Descrizione |
-| --- | --- | --- | --- | --- |
-| `rate` | decimale | sì |  | Discount rate per period as a decimal fraction (0.10 = 10%). |
-| `cash_flows` | lista di decimale | sì |  | Cash flows; the first one occurs at t = 0 (no discounting). |
-
-## `tvm.irr`
-
-**Internal rate of return** · versione del metodo 1 · tool `fairmark_tvm_irr`
-
-Rate at which the NPV of a cash flow series is zero, solved deterministically.
-
-| Input | Tipo | Obbligatorio | Default | Descrizione |
-| --- | --- | --- | --- | --- |
-| `cash_flows` | lista di decimale | sì |  | Cash flows; the first one occurs at t = 0. Needs at least one sign change. |
-| `guess` | decimale | no |  | Starting point for Newton's method (default 0.10). |

@@ -78,7 +78,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true
-      - run: uv sync --locked --all-extras
+      - run: uv sync --locked --all-extras --group oracles
       - run: uv run pytest
 
   quality:
@@ -133,16 +133,12 @@ jobs:
           else
             echo "No user-facing source changes."
           fi
-      - name: Schema changes are additive (or labelled breaking-change)
+      - name: Schema history is immutable and changes are additive
         run: |
+          # Exit 3: breaking change to an existing schema version (bump the method version).
+          # Exit 4: history rewritten (earlier version, index entry or current version altered).
+          # There is no override label: a breaking change always means a new method version.
           git worktree add /tmp/base origin/${{ github.base_ref }}
           if [ -d /tmp/base/schemas ]; then
-            set +e
             uv run python scripts/schema_snapshots.py --diff-against /tmp/base/schemas
-            code=$?
-            set -e
-            if [ "$code" = "3" ] && ${{ !contains(github.event.pull_request.labels.*.name, 'breaking-change') }}; then
-              echo "::error::Breaking schema change: add the 'breaking-change' label and bump method_version."
-              exit 1
-            fi
           fi

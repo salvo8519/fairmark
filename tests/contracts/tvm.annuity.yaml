@@ -1,0 +1,24 @@
+# Contract cases for tvm.annuity: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: tvm.annuity
+extreme_inputs:
+- payment: MAX
+  rate: MAX
+  growth: MIN
+  periods: 3
+  timing: due
+- payment: MAX
+  rate: '0.05'
+  growth: '0.05'
+  periods: 3
+  timing: due
+conventions:
+- input:
+    payment: '1'
+    rate: '0.05'
+    periods: 3
+    timing: due
+  expect:
+  - annuity due
+  - grows by 0 per period (default

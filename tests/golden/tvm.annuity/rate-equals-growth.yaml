@@ -1,0 +1,6 @@
+method: tvm.annuity
+description: Growing annuity in the limit case rate = growth, n P / (1 + r)
+source: limit of the closed form; Independent 50-digit reference, scripts/reference_time.py
+input: { payment: "1000", rate: "0.06", growth: "0.06", periods: 15, timing: ordinary }
+expect: { present_value: "14150.94339622641509433962" }
+tolerance: "0.0000000000000000001"

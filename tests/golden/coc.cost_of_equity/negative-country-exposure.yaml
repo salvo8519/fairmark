@@ -1,0 +1,5 @@
+method: coc.cost_of_equity
+description: A negative country exposure is rejected
+source: SPEC-0003 R6
+input: { risk_free_rate: "0.03", equity_risk_premium: "0.05", levered_beta: "1", country_risk_premium: "0.02", country_exposure: "-3" }
+expect_error: FM-E001

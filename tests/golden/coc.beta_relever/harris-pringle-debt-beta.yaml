@@ -1,0 +1,6 @@
+method: coc.beta_relever
+description: Harris-Pringle relevering with a debt beta of 0.2
+source: "closed form: 0.8 + (0.8 − 0.2) × 0.5 = 1.1"
+input: { beta: "0.8", direction: relever, debt_to_equity: "0.5", tax_rate: "0.24", formula: harris_pringle, debt_beta: "0.2" }
+expect: { beta: "1.1" }
+tolerance: "0"

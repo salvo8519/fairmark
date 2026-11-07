@@ -1,0 +1,5 @@
+method: dates.year_fraction
+description: A date after 2199-12-31 is outside the supported range
+source: supported range of ADR 0008; SPEC-0002 R1
+input: { start: "2024-01-01", end: "2200-01-01", day_count: act_360 }
+expect_error: FM-E009

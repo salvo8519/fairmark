@@ -1,0 +1,19 @@
+method: coc.beta_peers
+description: Five comparables unlevered by Hamada, median relevered to D/E 0.5 at 24% tax
+source: "closed form per peer: beta_L / (1 + (1 − t) × D/E); the median is peer 2, 0.95 / 1.15; relevered 0.95 / 1.15 × (1 + 0.76 × 0.5) = 1.14; confirmed by scripts/reference_coc.py"
+input:
+  formula: hamada
+  statistic: median
+  target_debt_to_equity: "0.5"
+  target_tax_rate: "0.24"
+  peers:
+    - { name: Peer A, levered_beta: "1.15", debt_to_equity: "0.40", tax_rate: "0.24" }
+    - { name: Peer B, levered_beta: "0.95", debt_to_equity: "0.20", tax_rate: "0.25" }
+    - { name: Peer C, levered_beta: "1.30", debt_to_equity: "0.75", tax_rate: "0.21" }
+    - { name: Peer D, levered_beta: "1.05", debt_to_equity: "0.35", tax_rate: "0.24" }
+    - { name: Peer E, levered_beta: "0.88", debt_to_equity: "0.10", tax_rate: "0.28" }
+expect:
+  mean_unlevered_beta: "0.8349189472537530893029774557"
+  median_unlevered_beta: "0.8260869565217391304347826087"
+  relevered_beta: "1.14"
+tolerance: "0.0000000000000000000000000003"

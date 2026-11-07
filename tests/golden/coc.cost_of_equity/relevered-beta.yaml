@@ -1,0 +1,9 @@
+method: coc.cost_of_equity
+description: CAPM with an unlevered beta relevered by Hamada at D/E 0.5 and tax rate 24%
+source: "closed form: beta = 0.8 × (1 + (1 − 0.24) × 0.5) = 1.104; ke = 0.03 + 1.104 × 0.05 = 0.0852"
+input:
+  risk_free_rate: "0.03"
+  equity_risk_premium: "0.05"
+  relever: { unlevered_beta: "0.8", debt_to_equity: "0.5", tax_rate: "0.24", formula: hamada }
+expect: { cost_of_equity: "0.0852", levered_beta: "1.104" }
+tolerance: "0"

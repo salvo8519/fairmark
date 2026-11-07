@@ -1,0 +1,15 @@
+# Contract cases for rates.real_nominal: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: rates.real_nominal
+extreme_inputs:
+- rate: MAX
+  inflation: MAX
+  direction: to_nominal
+conventions:
+- input:
+    rate: '0.05'
+    inflation: '0.02'
+    direction: to_real
+  expect:
+  - exact Fisher

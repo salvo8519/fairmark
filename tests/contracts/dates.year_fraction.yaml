@@ -1,0 +1,15 @@
+# Contract cases for dates.year_fraction: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: dates.year_fraction
+extreme_inputs:
+- start: '1900-01-01'
+  end: '2199-12-31'
+  day_count: act_act_isda
+conventions:
+- input:
+    start: '2024-01-01'
+    end: '2024-07-01'
+    day_count: act_360
+  expect:
+  - Actual/360

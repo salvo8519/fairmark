@@ -1,0 +1,6 @@
+method: tvm.present_value
+description: Same curve, mid-period timing (half a period at the period rate)
+source: product of period discount factors; Independent 50-digit reference, scripts/reference_time.py
+input: { cash_flows: ["100", "100", "100"], period_rates: ["0.05", "0.06", "0.07"], timing: mid_period }
+expect: { present_value: "276.95204711016002295632" }
+tolerance: "0.0000000000000000001"

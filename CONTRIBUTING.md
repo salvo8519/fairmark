@@ -66,8 +66,11 @@ The technical detail goes in your commit messages, which generate `CHANGELOG.md`
 2. Any change in a golden result needs the `numerical-change` label, a `method_version` bump and
    the commit trailer `Numerical-change: <method> v<N> -> v<N+1>` (the CHANGELOG is generated
    from commits). Maintainers of `crates/fairmark-core` must approve.
-3. New methodological choices start as an issue labelled `needs-methodology` and are discussed
+3. Input schemas are versioned (`schemas/<method>/v<N>.json`, ADR 0009). A version present on
+   `main` may only gain optional fields or documentation; removing or tightening anything needs
+   the next method version. CI refuses any other change, without an override label.
+4. New methodological choices start as an issue labelled `needs-methodology` and are discussed
    before code is written.
-4. Never commit real client data.
-5. Sign off your commits (`git commit -s`) to certify the
+5. Never commit real client data.
+6. Sign off your commits (`git commit -s`) to certify the
    [Developer Certificate of Origin](https://developercertificate.org/).
