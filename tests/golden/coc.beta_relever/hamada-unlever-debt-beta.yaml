@@ -1,0 +1,6 @@
+method: coc.beta_relever
+description: Hamada unlevering with a debt beta of 0.1
+source: "closed form: (1.2 + 0.1 × (1 − 0.25) × 0.6) / (1 + (1 − 0.25) × 0.6) = 1.245 / 1.45"
+input: { beta: "1.2", direction: unlever, debt_to_equity: "0.6", tax_rate: "0.25", formula: hamada, debt_beta: "0.1" }
+expect: { beta: "0.8586206896551724137931034483" }
+tolerance: "0.0000000000000000000000000001"

@@ -1,0 +1,5 @@
+method: coc.cost_of_equity
+description: A levered beta and a beta to relever together are ambiguous
+source: SPEC-0003 R6
+input: { risk_free_rate: "0.03", equity_risk_premium: "0.05", levered_beta: "1", relever: { unlevered_beta: "0.8", debt_to_equity: "0.5", tax_rate: "0.2", formula: hamada } }
+expect_error: FM-E001

@@ -1,0 +1,14 @@
+method: coc.cost_of_equity
+description: CAPM with country (exposure 0.5), size and specific premia
+source: "closed form: 0.035 + 1.1 × 0.055 + 0.02 × 0.5 + 0.02 + 0.01 = 0.1355"
+input:
+  risk_free_rate: "0.035"
+  levered_beta: "1.1"
+  equity_risk_premium: "0.055"
+  country_risk_premium: "0.02"
+  country_exposure: "0.5"
+  size_premium: "0.02"
+  specific_risk_premium: "0.01"
+  specific_risk_justification: "Dependence on two customers for 60% of revenue"
+expect: { cost_of_equity: "0.1355" }
+tolerance: "0"

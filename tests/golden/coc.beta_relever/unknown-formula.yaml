@@ -1,0 +1,5 @@
+method: coc.beta_relever
+description: A formula that is not Hamada or Harris-Pringle is rejected
+source: SPEC-0003 R6
+input: { beta: "1", direction: relever, debt_to_equity: "0.5", tax_rate: "0.2", formula: miles_ezzell }
+expect_error: FM-E001

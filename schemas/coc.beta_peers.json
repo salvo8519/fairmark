@@ -1,0 +1,129 @@
+{
+  "$defs": {
+    "BetaFormula": {
+      "description": "Formula linking levered and unlevered beta.",
+      "oneOf": [
+        {
+          "const": "hamada",
+          "description": "Hamada: β_L = β_U + (β_U − β_D)(1 − t) D/E (debt at a fixed amount, tax shield at the\ncost of debt).",
+          "type": "string"
+        },
+        {
+          "const": "harris_pringle",
+          "description": "Harris-Pringle: β_L = β_U + (β_U − β_D) D/E (debt rebalanced to a target ratio).",
+          "type": "string"
+        }
+      ]
+    },
+    "Peer": {
+      "additionalProperties": false,
+      "description": "One comparable company.",
+      "properties": {
+        "debt_to_equity": {
+          "description": "Debt-to-equity ratio D/E of the comparable, decimal, not negative.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "levered_beta": {
+          "description": "Observed levered beta, dimensionless.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "name": {
+          "description": "Name of the comparable, used in the audit trail only.",
+          "type": "string"
+        },
+        "tax_rate": {
+          "description": "Tax rate of the comparable, decimal fraction from 0 to below 1.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "levered_beta",
+        "debt_to_equity",
+        "tax_rate"
+      ],
+      "type": "object"
+    },
+    "PeerStatistic": {
+      "description": "Statistic used to summarise the unlevered betas.",
+      "oneOf": [
+        {
+          "const": "mean",
+          "description": "Arithmetic mean.",
+          "type": "string"
+        },
+        {
+          "const": "median",
+          "description": "Median (mean of the two central values for an even count).",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `coc.beta_peers`.",
+  "properties": {
+    "debt_beta": {
+      "description": "Beta of debt, dimensionless, for peers and target. Default: 0 (risk-free debt).",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "formula": {
+      "$ref": "#/$defs/BetaFormula",
+      "description": "`hamada` or `harris_pringle`, used to unlever and to relever."
+    },
+    "peers": {
+      "description": "Comparable companies, at least one.",
+      "items": {
+        "$ref": "#/$defs/Peer"
+      },
+      "type": "array"
+    },
+    "statistic": {
+      "$ref": "#/$defs/PeerStatistic",
+      "description": "`mean` or `median` of the unlevered betas."
+    },
+    "target_debt_to_equity": {
+      "description": "Target debt-to-equity ratio D/E of the company being valued, decimal, not negative.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "target_tax_rate": {
+      "description": "Tax rate of the company being valued, decimal fraction from 0 to below 1.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    }
+  },
+  "required": [
+    "peers",
+    "formula",
+    "statistic",
+    "target_debt_to_equity",
+    "target_tax_rate"
+  ],
+  "title": "BetaPeersInput",
+  "type": "object"
+}

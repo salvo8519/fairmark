@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Status | Draft — proposed for approval |
+| Status | Implementing — approved by the maintainer on 2026-11-07 |
 | Milestone | M1 |
 | Owner | @salvo8519 |
 | Formula basis | Commonly adopted CAPM, Hamada and Harris-Pringle relevering, WACC; cross-checked against widely used implementations and published worked examples |
@@ -35,10 +35,11 @@ without CAPM (possible later spec).
   rate plus spread, and the after-tax cost of debt as kd × (1 − t).
 - **R5** — WHEN given ke, kd, tax rate and target weights (D/E or D/(D+E)), THE ENGINE SHALL
   return WACC = E/V × ke + D/V × kd × (1 − t) with weights reported.
-- **R6** — IF a weight is negative, D/(D+E) ≥ 1, or a beta formula is not one of the listed ones,
-  THEN THE ENGINE SHALL return a typed error.
-- **R7** — Every result SHALL report its compounding (annual effective rates) and the relevering
-  formula in `explain.conventions`.
+- **R6** — IF a weight is negative, D/(D+E) ≥ 1 (or a D/E so large that the equity weight
+  rounds to zero), a country risk premium or country exposure is negative, or a beta formula is
+  not one of the listed ones, THEN THE ENGINE SHALL return a typed error.
+- **R7** — Every result that contains rates SHALL report that they are annual effective rates,
+  and every beta conversion SHALL report its formula, in `explain.conventions`.
 
 ## Conventions and parameters
 | Convention | Options | Default | Source |
@@ -50,8 +51,10 @@ without CAPM (possible later spec).
 | Peer statistic | mean, median | required | practice |
 
 ## Acceptance criteria
-- **AC1** (R1, R5) — A textbook WACC example (source cited in the golden file) matches within
-  1e-12.
+- **AC1** (R1, R2, R5) — Published worked examples (Damodaran's public lecture slides: Hamada
+  relevering and unlevering) match at their published precision; cost of equity and WACC
+  examples whose expected values are closed forms written out in the golden file match to the
+  28th significant digit.
 - **AC2** (R2) — Unlever then relever at the same D/E returns the original beta (property test),
   for both formulas, with and without debt beta.
 - **AC3** (R3) — Peer table of five comparables matches the 50-digit reference for mean and
@@ -62,8 +65,8 @@ without CAPM (possible later spec).
 - Method ids: `coc.cost_of_equity`, `coc.beta_relever`, `coc.beta_peers`, `coc.cost_of_debt`,
   `coc.wacc`.
 
-## Open questions
-- [ ] Italian practice for IRAP in the tax shield: excluded by default (IRAP is not deductible
-      on interest in most cases); confirm.
-- [ ] Specific risk premium: free input, or a documented scale? Proposal: free input with a
-      mandatory text justification echoed in `explain`.
+## Decisions (maintainer, 2026-11-07)
+- The tax rate of the tax shield is an explicit input; the engine has no IRAP logic. Analysts
+  who include or exclude IRAP do so in the rate they pass, and the rate is echoed in `explain`.
+- The specific risk premium is a free input; when it is not zero, a written justification is
+  required and echoed in `explain.conventions`.

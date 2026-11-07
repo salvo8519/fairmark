@@ -159,3 +159,78 @@ Present value of a level or growing perpetuity (Gordon), ordinary or due.
 | `rate` | decimale | sì |  | Discount rate per period, decimal fraction; must exceed `growth`. |
 | `growth` | decimale | no |  | Growth of the payment per period, decimal fraction, greater than -1. Default: 0 (level perpetuity). |
 | `timing` | `ordinary` \| `due` | sì |  | `ordinary` (first payment at t = 1) or `due` (first payment at t = 0). |
+
+## `coc.cost_of_equity`
+
+**Cost of equity (CAPM with explicit premia)** · versione del metodo 1 · tool `fairmark_coc_cost_of_equity`
+
+Cost of equity from risk-free rate, levered or relevered beta and equity risk premium, plus optional country, size and specific premia, each reported.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `risk_free_rate` | decimale | sì |  | Risk-free rate, annual decimal fraction. |
+| `equity_risk_premium` | decimale | sì |  | Equity risk premium of the market, annual decimal fraction. |
+| `levered_beta` | decimale | no |  | Levered beta, dimensionless. Give exactly one of `levered_beta` and `relever`. |
+| `relever` |  | no |  | Unlevered beta and target structure to relever. Give exactly one of `levered_beta` and `relever`. |
+| `country_risk_premium` | decimale | no |  | Country risk premium, annual decimal fraction, not negative. Default: 0. |
+| `country_exposure` | decimale | no |  | Exposure of the company to the country risk (lambda), dimensionless, not negative. Default: 1. |
+| `size_premium` | decimale | no |  | Size premium, annual decimal fraction. Default: 0. |
+| `specific_risk_premium` | decimale | no |  | Company-specific risk premium, annual decimal fraction. Default: 0. When not zero, `specific_risk_justification` is required. |
+| `specific_risk_justification` | string \| null | no |  | Written reason for the specific risk premium, echoed in the audit trail. |
+
+## `coc.beta_relever`
+
+**Beta unlevering and relevering** · versione del metodo 1 · tool `fairmark_coc_beta_relever`
+
+Converts an unlevered beta to a levered beta at a target D/E, or the reverse, with the Hamada or Harris-Pringle formula and an optional debt beta.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `beta` | decimale | sì |  | Beta to convert (unlevered for `relever`, levered for `unlever`), dimensionless. |
+| `direction` | `relever` \| `unlever` | sì |  | `relever` or `unlever`. |
+| `debt_to_equity` | decimale | sì |  | Debt-to-equity ratio D/E, decimal (0.5 = debt equal to half of equity), not negative. |
+| `tax_rate` | decimale | sì |  | Tax rate of the tax shield, decimal fraction from 0 to below 1. |
+| `formula` | `hamada` \| `harris_pringle` | sì |  | `hamada` or `harris_pringle`. |
+| `debt_beta` | decimale | no |  | Beta of debt, dimensionless. Default: 0 (risk-free debt). |
+
+## `coc.beta_peers`
+
+**Beta from comparable companies** · versione del metodo 1 · tool `fairmark_coc_beta_peers`
+
+Unlevers the betas of comparable companies, takes the mean or median and relevers it to the target capital structure.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `peers` | lista di object | sì |  | Comparable companies, at least one. |
+| `formula` | `hamada` \| `harris_pringle` | sì |  | `hamada` or `harris_pringle`, used to unlever and to relever. |
+| `statistic` | `mean` \| `median` | sì |  | `mean` or `median` of the unlevered betas. |
+| `target_debt_to_equity` | decimale | sì |  | Target debt-to-equity ratio D/E of the company being valued, decimal, not negative. |
+| `target_tax_rate` | decimale | sì |  | Tax rate of the company being valued, decimal fraction from 0 to below 1. |
+| `debt_beta` | decimale | no |  | Beta of debt, dimensionless, for peers and target. Default: 0 (risk-free debt). |
+
+## `coc.cost_of_debt`
+
+**Cost of debt** · versione del metodo 1 · tool `fairmark_coc_cost_of_debt`
+
+Pre-tax cost of debt, given or as risk-free rate plus credit spread, and the after-tax cost of debt.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `pre_tax_cost_of_debt` | decimale | no |  | Pre-tax cost of debt, annual decimal fraction. Give either this, or `risk_free_rate` and `credit_spread`. |
+| `risk_free_rate` | decimale | no |  | Risk-free rate, annual decimal fraction (with `credit_spread`). |
+| `credit_spread` | decimale | no |  | Credit spread over the risk-free rate, annual decimal fraction (with `risk_free_rate`). |
+| `tax_rate` | decimale | sì |  | Tax rate of the tax shield, decimal fraction from 0 to below 1. |
+
+## `coc.wacc`
+
+**Weighted average cost of capital (WACC)** · versione del metodo 1 · tool `fairmark_coc_wacc`
+
+WACC from cost of equity, cost of debt, tax rate and target weights (D/E or D/(D+E)).
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `cost_of_equity` | decimale | sì |  | Cost of equity, annual decimal fraction. |
+| `pre_tax_cost_of_debt` | decimale | sì |  | Pre-tax cost of debt, annual decimal fraction. |
+| `tax_rate` | decimale | sì |  | Tax rate of the tax shield, decimal fraction from 0 to below 1. |
+| `debt_to_equity` | decimale | no |  | Target debt-to-equity ratio D/E, decimal, not negative. Give exactly one of `debt_to_equity` and `debt_weight`. |
+| `debt_weight` | decimale | no |  | Target weight of debt D/(D + E), decimal fraction from 0 to below 1. Give exactly one of `debt_to_equity` and `debt_weight`. |

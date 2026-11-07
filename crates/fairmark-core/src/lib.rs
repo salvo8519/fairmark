@@ -18,6 +18,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod coc;
 pub mod dates;
 pub mod dcf;
 pub mod error;

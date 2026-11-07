@@ -48,6 +48,11 @@ nav = [
     "methods/tvm-mirr.md",
     "methods/tvm-annuity.md",
     "methods/tvm-perpetuity.md",
+    "methods/coc-cost-of-equity.md",
+    "methods/coc-beta-relever.md",
+    "methods/coc-beta-peers.md",
+    "methods/coc-cost-of-debt.md",
+    "methods/coc-wacc.md",
     "methods/dcf-fcff.md",
   ] },
   { "Concepts" = [
