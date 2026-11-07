@@ -1,0 +1,190 @@
+# Source of truth for GitHub milestones, epics (parent issues) and tasks (sub-issues).
+# Apply with: python scripts/bootstrap_github.py --repo OWNER/fairmark [--dry-run]
+# Task tags: parallel = can be done independently; gfi = good first issue; maintainer = maintainer decision.
+
+labels:
+  - { name: "area:core", color: "1d76db" }
+  - { name: "area:python", color: "1d76db" }
+  - { name: "area:cli", color: "1d76db" }
+  - { name: "area:mcp", color: "1d76db" }
+  - { name: "area:n8n", color: "1d76db" }
+  - { name: "area:docs", color: "1d76db" }
+  - { name: "area:infra", color: "1d76db" }
+  - { name: "area:telemetry", color: "1d76db" }
+  - { name: "method:dcf", color: "0e8a16" }
+  - { name: "method:asset-based", color: "0e8a16" }
+  - { name: "method:income-based", color: "0e8a16" }
+  - { name: "method:excess-earnings", color: "0e8a16" }
+  - { name: "method:multiples", color: "0e8a16" }
+  - { name: "method:real-estate", color: "0e8a16" }
+  - { name: "epic", color: "5319e7" }
+  - { name: "good first issue", color: "7057ff" }
+  - { name: "help wanted", color: "008672" }
+  - { name: "parallel", color: "c2e0c6" }
+  - { name: "maintainer", color: "d93f0b" }
+  - { name: "needs-methodology", color: "fbca04" }
+  - { name: "numerical-change", color: "b60205" }
+
+milestones:
+  - title: "M0 · Foundations"
+    gate: "A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows."
+    epics:
+      - title: "Repository and governance"
+        labels: ["area:infra"]
+        tasks:
+          - { title: "Monorepo layout, LICENSE, NOTICE, README", tags: [maintainer], done: true }
+          - { title: "CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, GOVERNANCE", tags: [parallel], done: true }
+          - { title: "ADR 0001–0005", tags: [maintainer], done: true }
+      - title: "CI/CD"
+        labels: ["area:infra"]
+        tasks:
+          - { title: "Rust pipeline: fmt, clippy, test, cargo-deny", tags: [parallel], done: true }
+          - { title: "Python pipeline: ruff, mypy, pytest on 3 OS", tags: [parallel], done: true }
+          - { title: "Wheel matrix with maturin-action, trusted publishing to PyPI and crates.io", tags: [parallel] }
+          - { title: "pre-commit configuration", tags: [gfi] }
+      - title: "Community infrastructure"
+        labels: ["area:infra"]
+        tasks:
+          - { title: "Issue forms: bug, method request, numerical discrepancy", tags: [gfi], done: true }
+          - { title: "Labels, GitHub Project board, Discussions", tags: [parallel] }
+
+  - title: "M1 · Numerical core"
+    gate: "Golden harness green; NPV and IRR validated; property tests running."
+    epics:
+      - title: "Domain types"
+        labels: ["area:core"]
+        tasks:
+          - { title: "Money, Rate (annual vs per period), Period, Timeline with timing convention" }
+      - title: "Time value of money"
+        labels: ["area:core"]
+        tasks:
+          - { title: "Discount factors, NPV", tags: [parallel], done: true }
+          - { title: "XNPV / XIRR with day-count conventions", tags: [parallel] }
+          - { title: "Annuities and growing perpetuities", tags: [parallel] }
+          - { title: "Deterministic IRR solver", tags: [parallel], done: true }
+      - title: "Explain and audit trail"
+        labels: ["area:core"]
+        tasks:
+          - { title: "Explain structure, JSON serialization", done: true }
+          - { title: "Markdown and Excel (live formulas) rendering of explain", tags: [parallel] }
+      - title: "Errors and schema"
+        labels: ["area:core"]
+        tasks:
+          - { title: "Typed errors with stable codes and catalogue", tags: [gfi], done: true }
+          - { title: "Schema versioning and changelog of schema changes" }
+      - title: "Test harness"
+        labels: ["area:core"]
+        tasks:
+          - { title: "Golden YAML runner shared by Rust and Python", done: true }
+          - { title: "Property tests with proptest (NPV at IRR = 0, monotonicity)", tags: [parallel] }
+
+  - title: "M2 · Complete DCF"
+    gate: "DCF passes every golden case provided by practitioners."
+    epics:
+      - title: "Financial statements input"
+        labels: ["area:core", "method:dcf"]
+        tasks:
+          - { title: "Statutory income statement and balance sheet schema", tags: [parallel, needs-methodology] }
+          - { title: "Reclassifications: functional / financial balance sheet, value-added P&L, net financial position", tags: [parallel] }
+      - title: "Free cash flows"
+        labels: ["area:core", "method:dcf"]
+        tasks:
+          - { title: "FCFF and FCFE build-up: working capital, capex, notional taxes on EBIT" }
+      - title: "Cost of capital"
+        labels: ["area:core", "method:dcf"]
+        tasks:
+          - { title: "CAPM, beta unlevering/relevering (Hamada, Harris-Pringle)", tags: [parallel] }
+          - { title: "WACC with size and specific risk premia as explicit inputs", tags: [parallel] }
+      - title: "Terminal value and equity bridge"
+        labels: ["area:core", "method:dcf"]
+        tasks:
+          - { title: "Exit-multiple terminal value; configurable terminal value timing", tags: [parallel] }
+          - { title: "EV to equity: minorities, surplus assets, debt-like items", tags: [parallel] }
+          - { title: "Deterministic WACC × g sensitivity grid", tags: [gfi] }
+
+  - title: "M3 · Agent layer and v0.1 release"
+    gate: "An external user completes a DCF with Claude Code or Codex using only the README."
+    epics:
+      - title: "Python SDK"
+        labels: ["area:python"]
+        tasks:
+          - { title: "PyO3 bindings, Pythonic API, Result object", done: true }
+          - { title: "Typed input models generated from JSON Schema", tags: [parallel] }
+      - title: "CLI"
+        labels: ["area:cli"]
+        tasks:
+          - { title: "methods / schema / run / verify", done: true }
+          - { title: "Markdown output and batch mode", tags: [parallel] }
+      - title: "MCP and function calling"
+        labels: ["area:mcp"]
+        tasks:
+          - { title: "MCP server (stdio) generated from the registry", done: true }
+          - { title: "Function-calling tools for Anthropic and OpenAI with dispatcher", done: true }
+          - { title: "Gemini and LangChain adapters", tags: [parallel, gfi] }
+      - title: "Agent skills and docs"
+        labels: ["area:docs"]
+        tasks:
+          - { title: "Agent Skill and AGENTS.md", done: true }
+          - { title: "Docs site (MkDocs Material) with one methodology page per method", tags: [parallel] }
+          - { title: "Quickstarts for Claude Code, Codex, Python, n8n", tags: [parallel] }
+      - title: "n8n node"
+        labels: ["area:n8n"]
+        tasks:
+          - { title: "Node/WASM build of the core", tags: [parallel] }
+          - { title: "Community node n8n-nodes-fairmark; check verified-node requirements", tags: [parallel] }
+          - { title: "Workflow template: financial statements PDF → valuation → report", tags: [parallel] }
+      - title: "Launch"
+        labels: ["area:docs"]
+        tasks:
+          - { title: "Release v0.1.0, MCP registry listings, announcement", tags: [maintainer] }
+
+  - title: "M4 · Traditional European methods"
+    gate: "Golden cases green for every method."
+    epics:
+      - title: "Asset-based method (simple and complex, with intangibles)"
+        labels: ["area:core", "method:asset-based"]
+        tasks: [{ title: "Implementation, golden cases, methodology page", tags: [parallel, needs-methodology] }]
+      - title: "Income-based method (normalised earnings, finite and infinite capitalisation)"
+        labels: ["area:core", "method:income-based"]
+        tasks: [{ title: "Implementation, golden cases, methodology page", tags: [parallel, needs-methodology] }]
+      - title: "Mixed method with excess earnings / separate goodwill"
+        labels: ["area:core", "method:excess-earnings"]
+        tasks: [{ title: "Implementation, golden cases, methodology page", tags: [parallel, needs-methodology] }]
+      - title: "EVA and residual income"
+        labels: ["area:core"]
+        tasks: [{ title: "Implementation, golden cases, methodology page", tags: [parallel] }]
+      - title: "Market multiples with user-provided comparables"
+        labels: ["area:core", "method:multiples"]
+        tasks: [{ title: "Implementation, golden cases, methodology page", tags: [parallel] }]
+      - title: "Cross-method valuation report (value range, stated assumptions)"
+        labels: ["area:python", "area:docs"]
+        tasks: [{ title: "Report generator from multiple results" }]
+
+  - title: "M5 · Opt-in usage statistics"
+    gate: "CI proves the payload carries no financial data; privacy notice reviewed by counsel."
+    epics:
+      - title: "Telemetry RFC and implementation"
+        labels: ["area:telemetry"]
+        tasks:
+          - { title: "Public RFC in Discussions (docs/telemetry.md)", tags: [maintainer] }
+          - { title: "Client in adapters: consent, show/off, DO_NOT_TRACK", tags: [parallel] }
+          - { title: "Open-source collector without IP storage", tags: [parallel] }
+          - { title: "Public aggregated dashboard", tags: [parallel] }
+
+  - title: "M6 · v1.0 and real estate"
+    gate: "Stable API with a published deprecation policy."
+    epics:
+      - title: "Real estate module"
+        labels: ["area:core", "method:real-estate"]
+        tasks:
+          - { title: "Property DCF and direct capitalisation", tags: [parallel, needs-methodology] }
+          - { title: "Debt schedule, levered returns and equity waterfall", tags: [parallel] }
+          - { title: "Market comparison approach with explicit adjustments", tags: [parallel, needs-methodology] }
+      - title: "Platform"
+        labels: ["area:core"]
+        tasks:
+          - { title: "Scenarios and seeded Monte Carlo", tags: [parallel] }
+          - { title: "WASM playground in the docs", tags: [parallel] }
+          - { title: "Hosted MCP with API key and free tier", tags: [maintainer] }
+          - { title: "External methodological review", tags: [maintainer] }
+          - { title: "Jurisdiction profiles and translated manuals", tags: [parallel] }

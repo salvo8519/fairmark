@@ -1,0 +1,15 @@
+# Golden case: values from scripts/reference_values.py (independent Decimal implementation).
+method: dcf.fcff
+description: Three explicit years, end-of-period discounting, net debt 200
+input:
+  free_cash_flows: [100, 110, 120]
+  discount_rate: "0.10"
+  terminal_growth: "0.02"
+  net_debt: 200
+expect:
+  enterprise_value: "1421.487603305785"
+  equity_value: "1221.487603305785"
+  terminal_value: "1530"
+  pv_terminal_value: "1149.511645379414"
+  pv_explicit_period: "271.975957926371"
+tolerance: "0.000000001"

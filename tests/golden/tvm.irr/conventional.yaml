@@ -1,0 +1,7 @@
+method: tvm.irr
+description: Conventional project, one sign change
+input:
+  cash_flows: [-1000, 300, 400, 500]
+expect:
+  irr: "0.088963394693"
+tolerance: "0.000000000001"

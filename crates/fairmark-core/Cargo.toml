@@ -1,0 +1,25 @@
+[package]
+name = "fairmark-core"
+description = "Deterministic valuation engine: decimal-exact time value of money, DCF and auditable results."
+readme = "../../README.md"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+# The core performs no I/O and has no network dependencies.
+# This is enforced in CI by `cargo deny` (see deny.toml).
+[dependencies]
+rust_decimal.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_yaml.workspace = true

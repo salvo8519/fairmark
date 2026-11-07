@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "fairmark": {
+      "command": "uvx",
+      "args": ["--from", "fairmark[mcp]", "fairmark-mcp"]
+    }
+  }
+}

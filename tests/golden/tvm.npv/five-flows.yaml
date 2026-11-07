@@ -1,0 +1,8 @@
+method: tvm.npv
+description: Investment of 5000 with four growing inflows at 7%
+input:
+  rate: "0.07"
+  cash_flows: [-5000, 1200, 1500, 1800, 2100]
+expect:
+  npv: "503.069543215958"
+tolerance: "0.000000001"

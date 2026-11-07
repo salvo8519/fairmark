@@ -1,0 +1,60 @@
+[build-system]
+requires = ["maturin>=1.9,<2"]
+build-backend = "maturin"
+
+[project]
+name = "fairmark"
+description = "Deterministic valuation engine for analysts and AI agents — fair value, hallmarked."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [{ name = "The Fairmark Authors" }]
+keywords = ["valuation", "dcf", "corporate-finance", "real-estate", "ai-agents", "mcp", "function-calling", "decimal"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Rust",
+    "Topic :: Office/Business :: Financial",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+dynamic = ["version"]
+dependencies = []
+
+[project.optional-dependencies]
+mcp = ["mcp>=2.3,<3"]
+dev = ["pytest>=8", "pyyaml>=6", "ruff>=0.6", "mypy>=1.10", "maturin>=1.9,<2"]
+
+[project.scripts]
+fairmark-mcp = "fairmark.mcp_server:main"
+
+[project.urls]
+Homepage = "https://github.com/fairmark-dev/fairmark"
+Documentation = "https://github.com/fairmark-dev/fairmark/tree/main/docs"
+Issues = "https://github.com/fairmark-dev/fairmark/issues"
+
+[tool.maturin]
+manifest-path = "crates/fairmark-py/Cargo.toml"
+python-source = "python"
+module-name = "fairmark._engine"
+features = ["pyo3/extension-module"]
+
+[tool.pytest.ini_options]
+testpaths = ["python/tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+strict = true
+packages = ["fairmark"]
+mypy_path = "python"
+
+[tool.ruff.lint.isort]
+known-first-party = ["fairmark"]

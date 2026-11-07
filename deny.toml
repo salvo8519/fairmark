@@ -1,0 +1,13 @@
+# cargo-deny: licenses, bans and advisories. The core must never gain network capabilities.
+[licenses]
+allow = ["Apache-2.0", "MIT", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-3.0", "Zlib", "Apache-2.0 WITH LLVM-exception"]
+
+[bans]
+multiple-versions = "warn"
+deny = [
+  { name = "reqwest" }, { name = "hyper" }, { name = "ureq" },
+  { name = "tokio" }, { name = "openssl" }, { name = "native-tls" },
+]
+
+[advisories]
+yanked = "deny"

@@ -1,0 +1,7 @@
+{
+  "free_cash_flows": ["1200000", "1350000", "1500000", "1600000", "1700000"],
+  "discount_rate": "0.095",
+  "terminal_growth": "0.02",
+  "timing": "mid_period",
+  "net_debt": "3100000"
+}

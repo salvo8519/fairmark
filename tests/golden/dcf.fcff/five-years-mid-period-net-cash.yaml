@@ -1,0 +1,17 @@
+# Golden case: mid-period convention, net cash position and surplus assets.
+method: dcf.fcff
+description: Five years, mid-period, net cash 50, non-operating assets 30
+input:
+  free_cash_flows: [250, 270, 290, 300, 310]
+  discount_rate: "0.085"
+  terminal_growth: "0.015"
+  timing: mid_period
+  net_debt: -50
+  non_operating_assets: 30
+expect:
+  enterprise_value: "4145.016559076593"
+  equity_value: "4225.016559076593"
+  terminal_value: "4495"
+  pv_terminal_value: "2989.379177681520"
+  pv_explicit_period: "1155.637381395072"
+tolerance: "0.000000001"

@@ -1,0 +1,18 @@
+name: Method request
+description: Propose a valuation method or a convention
+labels: ["method-request", "needs-methodology"]
+body:
+  - type: input
+    id: name
+    attributes: { label: Method name }
+    validations: { required: true }
+  - type: textarea
+    id: formula
+    attributes: { label: Formula and methodological source (standard, textbook, practice) }
+    validations: { required: true }
+  - type: textarea
+    id: conventions
+    attributes: { label: Conventions and choices an analyst must be able to set }
+  - type: textarea
+    id: example
+    attributes: { label: A worked numerical example (inputs and expected outputs) }

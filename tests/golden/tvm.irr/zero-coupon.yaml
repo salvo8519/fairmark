@@ -1,0 +1,7 @@
+method: tvm.irr
+description: Single payoff after three periods (intermediate zero flows)
+input:
+  cash_flows: [-2500, 0, 0, 4000]
+expect:
+  irr: "0.169607095285"
+tolerance: "0.000000000001"
