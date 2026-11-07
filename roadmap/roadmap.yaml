@@ -1,6 +1,9 @@
-# Source of truth for GitHub milestones, epics (parent issues) and tasks (sub-issues).
-# Apply with: python scripts/bootstrap_github.py --repo salvo8519/fairmark [--dry-run]
-# Task tags: parallel = can be done independently; gfi = good first issue; maintainer = maintainer decision.
+# Source of truth for the plan: milestones, epics (parent issues) and tasks (sub-issues).
+# The state of each issue lives on GitHub; `python scripts/roadmap.py sync --write` copies it
+# here. Edit by hand or with `python scripts/roadmap.py new`; then `python scripts/roadmap.py
+# render` rewrites this file canonically and regenerates docs/en/project/roadmap.md.
+# Task tags: parallel = can be done independently; gfi = good first issue; maintainer =
+# maintainer decision; needs-methodology = methodology to agree first.
 
 labels:
   - { name: "area:core", color: "1d76db" }
@@ -43,161 +46,215 @@ milestones:
     gate: "A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows."
     epics:
       - title: "Repository and governance"
+        issue: 6
         labels: ["area:infra"]
         tasks:
-          - { title: "Monorepo layout, LICENSE, NOTICE, README", tags: [maintainer], done: true }
-          - { title: "CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, GOVERNANCE", tags: [parallel], done: true }
-          - { title: "ADR 0001–0005", tags: [maintainer], done: true }
+          - { issue: 7, title: "Monorepo layout, LICENSE, NOTICE, README", tags: [maintainer], status: done }
+          - { issue: 8, title: "CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, GOVERNANCE", tags: [parallel], status: done }
+          - { issue: 9, title: "ADR 0001–0005", tags: [maintainer], status: done }
+          - { issue: 93, title: "Session protocol, naming conventions and dependency maintenance", status: done }
+          - { issue: 111, title: "Commit scopes for every engine theme", status: done }
+          - { issue: 113, title: "Roadmap as code: checked offline, synchronised with GitHub", status: open }
       - title: "CI/CD"
+        issue: 10
         labels: ["area:infra"]
         tasks:
-          - { title: "Rust pipeline: fmt, clippy, test, cargo-deny", tags: [parallel], done: true }
-          - { title: "Python pipeline: ruff, mypy, pytest on 3 OS", tags: [parallel], done: true }
-          - { title: "Wheel matrix with maturin-action, trusted publishing to PyPI and crates.io", tags: [parallel] }
-          - { title: "pre-commit configuration", tags: [gfi] }
+          - { issue: 11, title: "Rust pipeline: fmt, clippy, test, cargo-deny", tags: [parallel], status: done }
+          - { issue: 12, title: "Python pipeline: ruff, mypy, pytest on 3 OS", tags: [parallel], status: done }
+          - { issue: 13, title: "Wheel matrix with maturin-action, trusted publishing to PyPI and crates.io", tags: [parallel], status: open }
+          - { issue: 14, title: "pre-commit configuration", tags: [gfi], status: done }
+          - { issue: 117, title: "Deterministic checks: workflows (actionlint, zizmor), YAML validity, unused Rust dependencies, external links", tags: [parallel], status: open }
       - title: "Community infrastructure"
+        issue: 15
         labels: ["area:infra"]
         tasks:
-          - { title: "Issue forms: bug, method request, numerical discrepancy", tags: [gfi], done: true }
-          - { title: "Labels, GitHub Project board, Discussions", tags: [parallel] }
+          - { issue: 16, title: "Issue forms: bug, method request, numerical discrepancy", tags: [gfi], status: done }
+          - { issue: 17, title: "Labels, GitHub Project board, Discussions", tags: [parallel], status: open }
 
   - title: "M1 · Numerical core"
     gate: "Golden harness green; NPV and IRR validated; property tests running."
     epics:
       - title: "Domain types"
+        issue: 18
         labels: ["area:core"]
         tasks:
-          - { title: "Money, Rate (annual vs per period), Period, Timeline with timing convention" }
+          - { issue: 19, title: "Money, Rate (annual vs per period), Period, Timeline with timing convention", status: open }
       - title: "Time value of money"
+        issue: 20
         labels: ["area:core"]
         tasks:
-          - { title: "Discount factors, NPV", tags: [parallel], done: true }
-          - { title: "XNPV / XIRR with day-count conventions", tags: [parallel] }
-          - { title: "Annuities and growing perpetuities", tags: [parallel] }
-          - { title: "Deterministic IRR solver", tags: [parallel], done: true }
+          - { issue: 21, title: "Discount factors, NPV", tags: [parallel], status: done }
+          - { issue: 22, title: "XNPV / XIRR with day-count conventions", tags: [parallel], status: done }
+          - { issue: 23, title: "Annuities and growing perpetuities", tags: [parallel], status: done }
+          - { issue: 24, title: "Deterministic IRR solver", tags: [parallel], status: done }
+          - { issue: 95, title: "Time value foundations: dates, day counts, rates, XNPV, XIRR, MIRR, annuities", spec: "0002", status: done }
       - title: "Explain and audit trail"
+        issue: 25
         labels: ["area:core"]
         tasks:
-          - { title: "Explain structure, JSON serialization", done: true }
-          - { title: "Markdown and Excel (live formulas) rendering of explain", tags: [parallel] }
+          - { issue: 26, title: "Explain structure, JSON serialization", status: done }
+          - { issue: 27, title: "Markdown and Excel (live formulas) rendering of explain", tags: [parallel], status: open }
       - title: "Errors and schema"
+        issue: 28
         labels: ["area:core"]
         tasks:
-          - { title: "Typed errors with stable codes and catalogue", tags: [gfi], done: true }
-          - { title: "Schema versioning and changelog of schema changes" }
+          - { issue: 29, title: "Typed errors with stable codes and catalogue", tags: [gfi], status: done }
+          - { issue: 30, title: "Schema versioning and changelog of schema changes", status: done }
+          - { issue: 103, title: "Method trait per theme, single registry list, versioned input schemas", status: done }
       - title: "Test harness"
+        issue: 31
         labels: ["area:core"]
         tasks:
-          - { title: "Golden YAML runner shared by Rust and Python", done: true }
-          - { title: "Property tests with proptest (NPV at IRR = 0, monotonicity)", tags: [parallel] }
+          - { issue: 32, title: "Golden YAML runner shared by Rust and Python", status: done }
+          - { issue: 33, title: "Property tests with proptest (NPV at IRR = 0, monotonicity)", tags: [parallel], status: open }
 
   - title: "M2 · Complete DCF"
     gate: "DCF passes every golden case provided by practitioners."
     epics:
       - title: "Financial statements input"
+        issue: 34
         labels: ["area:core", "method:dcf"]
         tasks:
-          - { title: "Statutory income statement and balance sheet schema", tags: [parallel, needs-methodology] }
-          - { title: "Reclassifications: functional / financial balance sheet, value-added P&L, net financial position", tags: [parallel] }
+          - { issue: 35, title: "Statutory income statement and balance sheet schema", tags: [parallel, needs-methodology], spec: "0005", status: open }
+          - { issue: 36, title: "Reclassifications: functional / financial balance sheet, value-added P&L, net financial position", tags: [parallel], spec: "0005", status: open }
       - title: "Free cash flows"
+        issue: 37
         labels: ["area:core", "method:dcf"]
         tasks:
-          - { title: "FCFF and FCFE build-up: working capital, capex, notional taxes on EBIT" }
+          - { issue: 38, title: "FCFF and FCFE build-up: working capital, capex, notional taxes on EBIT", spec: "0001", status: open }
+          - { issue: 97, title: "Draft specs for cost of capital, multi-stage DCF and Italian valuation methods", spec: "0001", status: done }
+          - { issue: 110, title: "Parametric stages: explicit stage lengths, optional growth and inflation, nominal and real conversions", tags: [needs-methodology], spec: "0001", status: open }
       - title: "Cost of capital"
+        issue: 39
         labels: ["area:core", "method:dcf"]
         tasks:
-          - { title: "CAPM, beta unlevering/relevering (Hamada, Harris-Pringle)", tags: [parallel] }
-          - { title: "WACC with size and specific risk premia as explicit inputs", tags: [parallel] }
+          - { issue: 40, title: "CAPM, beta unlevering/relevering (Hamada, Harris-Pringle)", tags: [parallel], spec: "0003", status: done }
+          - { issue: 41, title: "WACC with size and specific risk premia as explicit inputs", tags: [parallel], spec: "0003", status: done }
+          - { issue: 99, title: "Cost of capital: CAPM, beta relevering, peer betas, cost of debt and WACC", spec: "0003", status: done }
       - title: "Terminal value and equity bridge"
+        issue: 42
         labels: ["area:core", "method:dcf"]
         tasks:
-          - { title: "Exit-multiple terminal value; configurable terminal value timing", tags: [parallel] }
-          - { title: "EV to equity: minorities, surplus assets, debt-like items", tags: [parallel] }
-          - { title: "Deterministic WACC × g sensitivity grid", tags: [gfi] }
+          - { issue: 43, title: "Exit-multiple terminal value; configurable terminal value timing", tags: [parallel], spec: "0006", status: open }
+          - { issue: 44, title: "EV to equity: minorities, surplus assets, debt-like items", tags: [parallel], status: open }
+          - { issue: 45, title: "Deterministic WACC × g sensitivity grid", tags: [gfi], spec: "0008", status: open }
+          - { issue: 101, title: "Draft specs for terminal value methods and financial ratios with covenants", spec: "0006", status: done }
+          - { issue: 115, title: "Terminal value building blocks tv.* (SPEC-0006)", spec: "0006", status: open }
+      - title: "Analysis: goal seek, sensitivity, scenarios, tornado"
+        labels: ["area:core"]
+        tasks:
+          - { issue: 106, title: "Draft spec for analysis: goal seek, sensitivity, scenarios, tornado", spec: "0008", status: done }
+          - { issue: 108, title: "Implement analysis.goal_seek with Brent's method on decimals", spec: "0008", status: done }
+          - { issue: 116, title: "Sensitivity tables, scenarios and tornado (SPEC-0008 R15 to R22)", spec: "0008", status: open }
+      - title: "Financial ratios and covenants"
+        labels: []
+        tasks:
+          - { issue: 114, title: "Ratios and covenants: profitability, capital structure, liquidity, working capital, debt service (SPEC-0007)", tags: [parallel], spec: "0007", status: open }
 
   - title: "M3 · Agent layer and v0.1 release"
     gate: "An external user completes a DCF with Claude Code or Codex using only the README."
     epics:
       - title: "Python SDK"
+        issue: 46
         labels: ["area:python"]
         tasks:
-          - { title: "PyO3 bindings, Pythonic API, Result object", done: true }
-          - { title: "Typed input models generated from JSON Schema", tags: [parallel] }
+          - { issue: 47, title: "PyO3 bindings, Pythonic API, Result object", status: done }
+          - { issue: 48, title: "Typed input models generated from JSON Schema", tags: [parallel], status: open }
       - title: "CLI"
+        issue: 49
         labels: ["area:cli"]
         tasks:
-          - { title: "methods / schema / run / verify", done: true }
-          - { title: "Markdown output and batch mode", tags: [parallel] }
+          - { issue: 50, title: "methods / schema / run / verify", status: done }
+          - { issue: 51, title: "Markdown output and batch mode", tags: [parallel], status: open }
       - title: "MCP and function calling"
+        issue: 52
         labels: ["area:mcp"]
         tasks:
-          - { title: "MCP server (stdio) generated from the registry", done: true }
-          - { title: "Function-calling tools for Anthropic and OpenAI with dispatcher", done: true }
-          - { title: "Gemini and LangChain adapters", tags: [parallel, gfi] }
+          - { issue: 53, title: "MCP server (stdio) generated from the registry", status: done }
+          - { issue: 54, title: "Function-calling tools for Anthropic and OpenAI with dispatcher", status: done }
+          - { issue: 55, title: "Gemini and LangChain adapters", tags: [parallel, gfi], status: done }
       - title: "Agent skills and docs"
+        issue: 56
         labels: ["area:docs"]
         tasks:
-          - { title: "Agent Skill and AGENTS.md", done: true }
-          - { title: "Docs site (MkDocs Material) with one methodology page per method", tags: [parallel] }
-          - { title: "Quickstarts for Claude Code, Codex, Python, n8n", tags: [parallel] }
+          - { issue: 57, title: "Agent Skill and AGENTS.md", status: done }
+          - { issue: 58, title: "Docs site (MkDocs Material) with one methodology page per method", tags: [parallel], status: done }
+          - { issue: 59, title: "Quickstarts for Claude Code, Codex, Python, n8n", tags: [parallel], status: open }
       - title: "n8n node"
+        issue: 60
         labels: ["area:n8n"]
         tasks:
-          - { title: "Node/WASM build of the core", tags: [parallel] }
-          - { title: "Community node n8n-nodes-fairmark; check verified-node requirements", tags: [parallel] }
-          - { title: "Workflow template: financial statements PDF → valuation → report", tags: [parallel] }
+          - { issue: 61, title: "Node/WASM build of the core", tags: [parallel], status: open }
+          - { issue: 62, title: "Community node n8n-nodes-fairmark; check verified-node requirements", tags: [parallel], status: open }
+          - { issue: 63, title: "Workflow template: financial statements PDF → valuation → report", tags: [parallel], status: open }
       - title: "Launch"
+        issue: 64
         labels: ["area:docs"]
         tasks:
-          - { title: "Release v0.1.0, MCP registry listings, announcement", tags: [maintainer] }
+          - { issue: 65, title: "Release v0.1.0, MCP registry listings, announcement", tags: [maintainer], status: open }
 
   - title: "M4 · Traditional European methods"
     gate: "Golden cases green for every method."
     epics:
       - title: "Asset-based method (simple and complex, with intangibles)"
+        issue: 66
         labels: ["area:core", "method:asset-based"]
-        tasks: [{ title: "Implementation, golden cases, methodology page", tags: [parallel, needs-methodology] }]
+        tasks:
+          - { issue: 67, title: "Implementation, golden cases, methodology page", tags: [parallel, needs-methodology], spec: "0004", status: open }
       - title: "Income-based method (normalised earnings, finite and infinite capitalisation)"
+        issue: 68
         labels: ["area:core", "method:income-based"]
-        tasks: [{ title: "Implementation, golden cases, methodology page", tags: [parallel, needs-methodology] }]
+        tasks:
+          - { issue: 69, title: "Implementation, golden cases, methodology page", tags: [parallel, needs-methodology], spec: "0004", status: open }
       - title: "Mixed method with excess earnings / separate goodwill"
+        issue: 70
         labels: ["area:core", "method:excess-earnings"]
-        tasks: [{ title: "Implementation, golden cases, methodology page", tags: [parallel, needs-methodology] }]
+        tasks:
+          - { issue: 71, title: "Implementation, golden cases, methodology page", tags: [parallel, needs-methodology], spec: "0004", status: open }
       - title: "EVA and residual income"
+        issue: 72
         labels: ["area:core"]
-        tasks: [{ title: "Implementation, golden cases, methodology page", tags: [parallel] }]
+        tasks:
+          - { issue: 73, title: "Implementation, golden cases, methodology page", tags: [parallel], status: open }
       - title: "Market multiples with user-provided comparables"
+        issue: 74
         labels: ["area:core", "method:multiples"]
-        tasks: [{ title: "Implementation, golden cases, methodology page", tags: [parallel] }]
+        tasks:
+          - { issue: 75, title: "Implementation, golden cases, methodology page", tags: [parallel], status: open }
       - title: "Cross-method valuation report (value range, stated assumptions)"
+        issue: 76
         labels: ["area:python", "area:docs"]
-        tasks: [{ title: "Report generator from multiple results" }]
+        tasks:
+          - { issue: 77, title: "Report generator from multiple results", status: open }
 
   - title: "M5 · Opt-in usage statistics"
     gate: "CI proves the payload carries no financial data; privacy notice reviewed by counsel."
     epics:
       - title: "Telemetry RFC and implementation"
+        issue: 78
         labels: ["area:telemetry"]
         tasks:
-          - { title: "Public RFC in Discussions (docs/telemetry.md)", tags: [maintainer] }
-          - { title: "Client in adapters: consent, show/off, DO_NOT_TRACK", tags: [parallel] }
-          - { title: "Open-source collector without IP storage", tags: [parallel] }
-          - { title: "Public aggregated dashboard", tags: [parallel] }
+          - { issue: 79, title: "Public RFC in Discussions (docs/telemetry.md)", tags: [maintainer], status: open }
+          - { issue: 80, title: "Client in adapters: consent, show/off, DO_NOT_TRACK", tags: [parallel], status: open }
+          - { issue: 81, title: "Open-source collector without IP storage", tags: [parallel], status: open }
+          - { issue: 82, title: "Public aggregated dashboard", tags: [parallel], status: open }
 
   - title: "M6 · v1.0 and real estate"
     gate: "Stable API with a published deprecation policy."
     epics:
       - title: "Real estate module"
+        issue: 83
         labels: ["area:core", "method:real-estate"]
         tasks:
-          - { title: "Property DCF and direct capitalisation", tags: [parallel, needs-methodology] }
-          - { title: "Debt schedule, levered returns and equity waterfall", tags: [parallel] }
-          - { title: "Market comparison approach with explicit adjustments", tags: [parallel, needs-methodology] }
+          - { issue: 84, title: "Property DCF and direct capitalisation", tags: [parallel, needs-methodology], status: open }
+          - { issue: 85, title: "Debt schedule, levered returns and equity waterfall", tags: [parallel], status: open }
+          - { issue: 86, title: "Market comparison approach with explicit adjustments", tags: [parallel, needs-methodology], status: open }
       - title: "Platform"
+        issue: 87
         labels: ["area:core"]
         tasks:
-          - { title: "Scenarios and seeded Monte Carlo", tags: [parallel] }
-          - { title: "WASM playground in the docs", tags: [parallel] }
-          - { title: "Hosted MCP with API key and free tier", tags: [maintainer] }
-          - { title: "External methodological review", tags: [maintainer] }
-          - { title: "Jurisdiction profiles and translated manuals", tags: [parallel] }
+          - { issue: 88, title: "Scenarios and seeded Monte Carlo", tags: [parallel], status: open }
+          - { issue: 89, title: "WASM playground in the docs", tags: [parallel], status: open }
+          - { issue: 90, title: "Hosted MCP with API key and free tier", tags: [maintainer], status: open }
+          - { issue: 91, title: "External methodological review", tags: [maintainer], status: open }
+          - { issue: 92, title: "Jurisdiction profiles and translated manuals", tags: [parallel], status: open }

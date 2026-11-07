@@ -101,6 +101,16 @@ jobs:
       - run: uv run just check-generated
       - run: uv run python scripts/docs_sync.py coverage
       - run: uv run python scripts/version.py check
+      - name: Roadmap consistent and the closed issue planned
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.md"
+            uv run python scripts/roadmap.py check --pr-body "$RUNNER_TEMP/pr-body.md"
+          else
+            uv run python scripts/roadmap.py check
+          fi
       - run: for f in sprints/S*.yaml; do [ -e "$f" ] && uv run python scripts/sprint.py validate "$f"; done; true
 
   contracts:

@@ -45,7 +45,13 @@ drift from it. Pull request numbers share the same sequence.
 - **Area**: one `area:*` label, plus `method:*` for methodology work. Areas decide which
   issues can run in parallel.
 - **Hierarchy**: every task is a sub-issue of an epic; every epic belongs to a milestone.
-  The roadmap file `roadmap/roadmap.yaml` is the source of this structure.
+  The roadmap file `roadmap/roadmap.yaml` is the source of this structure: each task names
+  its issue and, where one exists, its spec. Create issues with
+  `python scripts/roadmap.py new --milestone M2 --epic "<epic>" --title "<title>"`, which sets
+  the milestone and labels on GitHub and adds the task to the file. CI refuses a pull request
+  that closes an issue missing from the roadmap, a spec that no task references, and a
+  roadmap page that is not generated from the file. `roadmap.py sync` copies issue states
+  from GitHub; the scheduled workflow `Roadmap sync` fails on any difference.
 - **Status**: the project board columns, plus the labels `in-progress` (claimed, a branch
   exists) and `blocked` (with a comment that says on what).
 

@@ -11,6 +11,9 @@ file in this skill: it only reads and proposes.
 1. Collect the state, deterministically:
    `uv run python scripts/project_state.py` (add `--json` if you need to process it).
    If the GitHub CLI is not authenticated, say so and continue with git only.
+   Then `uv run python scripts/roadmap.py sync`: it compares `roadmap/roadmap.yaml` with
+   GitHub (statuses, milestones, open issues missing from the roadmap). Report any difference
+   and propose `sync --write --apply-milestones` in a `chore(project)` pull request.
 2. Read the context that the script points to:
    - the latest entry in `.agents/journal/` for the current branch, otherwise the latest
      overall; its "Next steps" are the default continuation;
