@@ -1,0 +1,87 @@
+name: Weekly maintenance
+
+# Early warning, never blocking: tests against the newest compatible dependencies, security
+# advisories, broken links and mutation testing of the core. A failure opens (or updates) one
+# issue labelled `maintenance`. Policy: docs/en/project/dependencies.md.
+on:
+  schedule:
+    - cron: "17 5 * * 1"   # Monday 05:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  latest-deps:
+    name: Tests with the newest compatible dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: astral-sh/setup-uv@v7
+      - name: Upgrade lock files (not committed)
+        run: |
+          cargo update --verbose 2>&1 | tee cargo-update.txt
+          uv lock --upgrade 2>&1 | tee uv-upgrade.txt
+      - run: cargo test --workspace --locked
+      - run: uv sync --all-extras --group dev && uv run pytest -q
+
+  audit:
+    name: Security advisories
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with: { command: check advisories }
+      - uses: astral-sh/setup-uv@v7
+      - name: pip-audit on the locked Python dependencies
+        run: |
+          uv export --frozen --all-extras --no-emit-project --no-hashes -o requirements.txt
+          uvx pip-audit --strict -r requirements.txt
+
+  links:
+    name: Links in documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: --no-progress --max-retries 3 --exclude-path docs/_shared/vendor './**/*.md'
+          fail: true
+
+  mutants:
+    name: Mutation testing of fairmark-core
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with: { tool: cargo-mutants }
+      - run: cargo mutants --package fairmark-core --timeout 300 --no-shuffle
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: mutants-report, path: mutants.out, if-no-files-found: ignore }
+
+  report:
+    name: Open or update the maintenance issue
+    needs: [latest-deps, audit, links, mutants]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RESULTS: >-
+            latest-deps=${{ needs.latest-deps.result }}, audit=${{ needs.audit.result }},
+            links=${{ needs.links.result }}, mutants=${{ needs.mutants.result }}
+        run: |
+          body="Weekly maintenance found problems: ${RESULTS}. Run: ${RUN}. Triage with the dependency policy (docs/en/project/dependencies.md)."
+          n=$(gh issue list -R "$GITHUB_REPOSITORY" --label maintenance --state open --json number -q '.[0].number')
+          if [ -n "$n" ]; then gh issue comment "$n" -R "$GITHUB_REPOSITORY" --body "$body"
+          else gh issue create -R "$GITHUB_REPOSITORY" --title "Weekly maintenance report" --label maintenance --body "$body"; fi
