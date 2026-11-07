@@ -25,6 +25,16 @@ changing anything: its principles override convenience.
 | `roadmap/roadmap.yaml` | Milestones → epics → tasks, mirrored to GitHub issues. |
 | `.agents/` | Canonical agent roles (`agents/`) and skills (`skills/`). `.claude/` is generated from it. |
 | `sprints/` | Sprint plans (`SNN.yaml`) used by the orchestrator. |
+| `.agents/journal/` | Session handover notes, one file per branch and day. |
+
+## Sessions and project memory
+- **Start** every session with the `session-start` skill (or
+  `uv run python scripts/project_state.py`): branch, issue, journal, pull requests, CI, sprint
+  and the issues that can run in parallel.
+- **End** every session with `session-end`: gate, journal entry in `.agents/journal/`,
+  release note, commit, push and a complete pull request. Never leave work only on a laptop.
+- **Review the queue** with `pr-triage`. Agents comment and recommend; only the maintainer
+  approves and merges.
 
 ## How work is done here: spec-driven
 1. Find or write the spec: `specs/NNNN-*/spec.md`. **No method code without an `Approved`
@@ -47,7 +57,10 @@ changing anything: its principles override convenience.
   a `numerical-change`: stop and ask the maintainer. New golden cases need an independent
   source noted in the file.
 - Never commit real client data. Anonymise or reconstruct.
-- Conventional Commits for messages and PR titles: `feat|fix|docs|refactor|test|chore|ci|perf(scope): …`.
+- Names follow `docs/en/project/conventions.md`, enforced by `scripts/conventions.py`:
+  branch `<type>/<issue>-<slug>`; commit and pull request title `<type>(<scope>): <subject>`
+  (Conventional Commits, scope required); pull request body `Closes #<issue>`; squash merge.
+- New dependencies and updates follow `docs/en/project/dependencies.md`.
 - Sign off commits (`git commit -s`, DCO).
 
 ## House style (enforced by CI)
@@ -77,7 +90,8 @@ Roles and workflows live in `.agents/` (see `.agents/README.md`): `architect`, `
 `test-engineer`, `core-engineer`, `docs-writer`, `code-reviewer`, `numerical-auditor`,
 `security-reviewer`, `ci-investigator`, `release-manager`, `sprint-planner`, `translator`; skills
 `spec-new`, `implement-spec`, `add-method`, `golden-case`, `adr-new`, `pre-pr`, `fix-ci`,
-`release`, `plan-sprint`, `run-sprint`, `commit`, `explain-changes`, `translate`, `onboarding`. Sprints: see `sprints/README.md`.
+`release`, `plan-sprint`, `run-sprint`, `commit`, `explain-changes`, `translate`, `onboarding`,
+`session-start`, `session-end`, `pr-triage`. Sprints: see `sprints/README.md`.
 Edit them in `.agents/` only; `uv run just generate` mirrors them to `.claude/`.
 
 ## Documentation stays in sync automatically
@@ -117,6 +131,8 @@ Install [`uv`](https://docs.astral.sh/uv/) and Rust stable. `just` is installed 
 | Python tests incl. golden and docs snippets | `uv run pytest` |
 | Regenerate schemas, methods reference, `.claude/` | `uv run just generate` |
 | Translation status | `uv run just i18n` |
+| Project state for a new session | `uv run python scripts/project_state.py` |
+| Outdated dependencies / advisories | `uv run just deps-outdated` / `uv run just deps-audit` |
 | Version check / preview of release notes | `uv run just version` / `uv run just release-notes` |
 | Build both documentation sites | `uv run just docs` |
 | Docs preview (English or Italian) | `uv run just docs-serve` / `uv run just docs-serve it` |

@@ -78,3 +78,18 @@ docs-serve lang="en":
 # The full local gate: run before every PR
 check: lint test check-generated docs
     @echo "All checks passed."
+
+# Dependencies with newer versions available (nothing is changed)
+deps-outdated:
+    cargo update --dry-run --verbose 2>&1 | grep -E "Updating|Unchanged" || true
+    uv tree --outdated --depth 1 | grep -E "latest" || echo "Python: all direct dependencies are current."
+
+# Security advisories for Rust and Python dependencies
+deps-audit:
+    cargo deny check advisories
+    uv export --frozen --all-extras --no-emit-project --no-hashes -o /tmp/fairmark-requirements.txt
+    uvx pip-audit --strict -r /tmp/fairmark-requirements.txt
+
+# Check commit message, or pull request title, branch and body, against the conventions
+conventions title branch body="":
+    python scripts/conventions.py pr --title "{{title}}" --branch "{{branch}}" --body "{{body}}"

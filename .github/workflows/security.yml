@@ -1,0 +1,65 @@
+name: Security
+
+# Free for public repositories: CodeQL code scanning, dependency review on pull requests and
+# the OpenSSF Scorecard of the project's supply-chain practices.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "41 4 * * 3"   # Wednesday 04:41 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, actions, rust]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+      - uses: github/codeql-action/analyze@v4
+        with: { category: "/language:${{ matrix.language }}" }
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/dependency-review-action@v4.9.0
+        with:
+          fail-on-severity: moderate
+          allow-licenses: Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause, ISC, Unicode-3.0, Zlib, MPL-2.0, PSF-2.0, Python-2.0, 0BSD, CC0-1.0, Unlicense, BSL-1.0, LGPL-2.1-or-later, LGPL-3.0-or-later, CDLA-Permissive-2.0
+          comment-summary-in-pr: on-failure
+
+  scorecard:
+    name: OpenSSF Scorecard
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with: { persist-credentials: false }
+      - uses: ossf/scorecard-action@v2.4.3
+        with:
+          results_file: scorecard.sarif
+          results_format: sarif
+          publish_results: true
+      - uses: github/codeql-action/upload-sarif@v4
+        with: { sarif_file: scorecard.sarif }

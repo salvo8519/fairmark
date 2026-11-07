@@ -30,7 +30,13 @@ specifics, imports `AGENTS.md`).
 ## Skills
 
 `spec-new`, `implement-spec`, `add-method`, `golden-case`, `adr-new`, `pre-pr`, `fix-ci`,
-`release`, `plan-sprint`, `run-sprint`, `commit`, `explain-changes`, `translate`, `onboarding`.
+`release`, `plan-sprint`, `run-sprint`, `commit`, `explain-changes`, `translate`, `onboarding`,
+`session-start`, `session-end`, `pr-triage`.
+
+## Journal
+
+`journal/` holds session handover notes (see `journal/README.md`), written by `session-end`
+and read by `session-start`.
 
 Orchestration: the main session runs `/run-sprint` and delegates to the roles above, because
 subagents cannot start other subagents.

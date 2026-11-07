@@ -57,6 +57,9 @@ nav = [
     "project/roadmap.md",
     "project/release-notes.md",
     "project/contributing.md",
+    "project/conventions.md",
+    "project/maintainers.md",
+    "project/dependencies.md",
     "project/changelog.md",
     "project/telemetry.md",
     { "Decisions (ADR)" = [

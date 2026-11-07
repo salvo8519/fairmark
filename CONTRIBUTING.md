@@ -34,6 +34,18 @@ uv run zensical serve                    # live preview at http://localhost:8000
 Before opening a PR: `cargo fmt --all`, `cargo clippy --workspace -- -D warnings`,
 `uv run ruff check python && uv run ruff format python`, `uv run mypy`.
 
+## Branches, commits and pull requests
+
+Names follow [the conventions](docs/en/project/conventions.md) and are checked automatically:
+
+- branch `<type>/<issue>-<slug>`, for example `feat/42-mid-year-discounting`;
+- commits and pull request titles `<type>(<scope>): <subject>` (Conventional Commits), signed off;
+- the pull request body links its issue with `Closes #42`.
+
+Install the hooks once: `uv run pre-commit install` (checks formatting and commit messages).
+Check a title before opening a pull request:
+`uv run just conventions "feat(dcf): add mid-year discounting" feat/42-mid-year-discounting "Closes #42"`.
+
 ## Languages
 
 Code, commits, issues, pull requests, specs and the source documentation are in **English**.
