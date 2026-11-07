@@ -5,7 +5,7 @@ Status: proposed · 2026-11-07
 ## Decision
 The core never performs network I/O (enforced by `cargo deny`). Any usage statistics are opt-in,
 live in adapters, follow an explicit allow-list that excludes all financial data, and are
-designed in public before implementation. See `docs/telemetry.md`.
+designed in public before implementation. See `docs/project/telemetry.md`.
 
 ## Consequences
 + Analysts and companies can adopt Fairmark without data-protection concerns.

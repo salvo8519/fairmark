@@ -5,12 +5,14 @@
 **Fair value, hallmarked.**
 
 The deterministic valuation engine for analysts and AI agents.<br/>
-Your agent reasons and writes the report. Fairmark does the math — exactly, with an audit trail.
+Your agent reasons and writes the report. Fairmark does the math — exactly, with an audit trail.<br/><br/>
+**[Documentation](https://fairmark-dev.github.io/fairmark/)** · [Quickstart](https://fairmark-dev.github.io/fairmark/getting-started/quickstart/) · [Methods](https://fairmark-dev.github.io/fairmark/methods/) · [Roadmap](https://fairmark-dev.github.io/fairmark/project/roadmap/)
 
 [![CI](https://github.com/fairmark-dev/fairmark/actions/workflows/ci.yml/badge.svg)](https://github.com/fairmark-dev/fairmark/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/fairmark.svg)](https://pypi.org/project/fairmark/)
 [![Crates.io](https://img.shields.io/crates/v/fairmark-core.svg)](https://crates.io/crates/fairmark-core)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-fairmark-indigo.svg)](https://fairmark-dev.github.io/fairmark/)
 [![MCP](https://img.shields.io/badge/MCP-ready-8A2BE2.svg)](#mcp-server)
 
 </div>
@@ -32,7 +34,7 @@ Fairmark splits the job:
 ```
 
 - **Deterministic.** Exact decimal arithmetic, no binary floats, fixed solvers. Same input, same
-  output, to the last digit, on every platform. See [the determinism contract](docs/determinism.md).
+  output, to the last digit, on every platform. See [the determinism contract](docs/concepts/determinism.md).
 - **Auditable.** Every result carries `explain`: the formula, the conventions and every
   intermediate step, ready to paste into a valuation report.
 - **Agent-native.** One engine, every channel: Python, function calling (Anthropic, OpenAI),
@@ -163,7 +165,7 @@ flowchart LR
 
 One Rust engine, thin adapters. Every adapter is generated from the same registry and schemas,
 so a method added to the core is immediately available to Python, the CLI, MCP and every LLM.
-Details in [docs/architecture.md](docs/architecture.md).
+Details in [docs/concepts/architecture.md](docs/concepts/architecture.md).
 
 ## The determinism contract
 
@@ -179,7 +181,7 @@ every commit.
 ## Privacy
 
 The engine has no network dependencies, enforced in CI. Optional, opt-in usage statistics are
-under public discussion in [docs/telemetry.md](docs/telemetry.md) and will never include
+under public discussion in [docs/project/telemetry.md](docs/project/telemetry.md) and will never include
 financial data.
 
 ## Contributing

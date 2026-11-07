@@ -7,7 +7,7 @@ professionals are equally welcome.
 
 - **Golden cases.** A worked example with inputs, expected outputs and its source is one of the
   most valuable contributions. Use the *Numerical discrepancy* or *Method request* issue forms.
-- **Methods.** Implement a method from the roadmap (see `docs/architecture.md#adding-a-method`).
+- **Methods.** Implement a method from the roadmap (see `docs/concepts/architecture.md#adding-a-method`).
 - **Docs and translations.** Methodology pages, examples, translations.
 
 ## Development setup
@@ -18,6 +18,14 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev,mcp]"        # builds the Rust extension via maturin
 cargo test --workspace             # Rust tests + golden cases
 pytest                             # Python tests + the same golden cases
+```
+
+Documentation (Zensical):
+
+```bash
+pip install -e ".[docs]"
+python scripts/gen_reference.py   # regenerate the methods reference after changing a method
+zensical serve                    # live preview at http://localhost:8000
 ```
 
 Before opening a PR: `cargo fmt --all`, `cargo clippy --workspace -- -D warnings`,

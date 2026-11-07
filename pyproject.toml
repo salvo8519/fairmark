@@ -26,13 +26,14 @@ dependencies = []
 [project.optional-dependencies]
 mcp = ["mcp>=2.3,<3"]
 dev = ["pytest>=8", "pyyaml>=6", "ruff>=0.6", "mypy>=1.10", "maturin>=1.9,<2"]
+docs = ["zensical>=0.1", "mkdocstrings-python>=1.18"]
 
 [project.scripts]
 fairmark-mcp = "fairmark.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/fairmark-dev/fairmark"
-Documentation = "https://github.com/fairmark-dev/fairmark/tree/main/docs"
+Documentation = "https://fairmark-dev.github.io/fairmark/"
 Issues = "https://github.com/fairmark-dev/fairmark/issues"
 
 [tool.maturin]

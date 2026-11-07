@@ -1,0 +1,10 @@
+/* Landing page */
+.fm-hero { text-align: center; padding: 1.5rem 0 0.5rem; }
+.fm-hero h1 { font-size: 2.6rem; margin-bottom: 0.2rem; font-weight: 700; }
+.fm-hero .fm-tagline { font-size: 1.25rem; opacity: 0.85; margin-top: 0; }
+.fm-hero .md-button { margin: 0.3rem; }
+
+/* Feature cards on the landing page: two columns */
+@media screen and (min-width: 60em) {
+  .fm-features.grid.cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
