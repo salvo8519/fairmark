@@ -81,7 +81,9 @@ def changed_files(args: argparse.Namespace) -> list[str]:
 
 def impact(args: argparse.Namespace) -> int:
     if not args.worktree and not args.staged:
-        trailer = git("log", "-1", "--format=%(trailers:key=Docs-impact,valueonly)")
+        # --no-merges: in pull-request CI, HEAD is the merge commit GitHub creates, which carries
+        # no trailers; the waiver belongs to the latest commit of the branch itself.
+        trailer = git("log", "-1", "--no-merges", "--format=%(trailers:key=Docs-impact,valueonly)")
         if any(t.strip().lower() == "none" for t in trailer):
             print("Docs impact waived by 'Docs-impact: none' trailer.")
             return 0
