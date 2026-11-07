@@ -3,6 +3,8 @@ name: golden-case
 description: Author a golden test case for a Fairmark method with expected values from an independent source. Use when adding coverage for a method or an acceptance criterion.
 ---
 
+<!-- Generated from .agents/skills/golden-case/SKILL.md by scripts/sync_agents.py. Edit the source, not this file. -->
+
 1. Choose the source of truth, in order of preference: a practitioner model supplied by the
    maintainer; a published worked example re-derived by hand; an independent reference
    implementation in `scripts/reference_values.py` (Python `decimal`, precision 50, written

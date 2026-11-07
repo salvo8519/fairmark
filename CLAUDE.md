@@ -5,27 +5,37 @@
 
 ## Claude Code specifics
 
-### Subagents (`.claude/agents/`)
+### House style — non-negotiable
+Never use icons, emoji, pictograms or decorative symbols: not in documents, README, comments,
+commit messages, PR or issue text, nor in your replies about this project. Use words.
+`scripts/check_style.py` enforces it in CI.
+
+### Subagents (`.claude/agents/`, generated from `.agents/agents/`)
 Delegate instead of doing everything in the main context:
 
 | Subagent | Use it for |
 | --- | --- |
-| `spec-writer` | Turning a request into `spec.md`, then `plan.md` + `tasks.md` from the templates |
-| `test-engineer` | Writing golden cases and property tests from acceptance criteria, before code |
-| `code-reviewer` | Reviewing the current diff against AGENTS.md and the constitution |
-| `numerical-auditor` | Independently recomputing results and checking conventions/determinism |
+| `architect` | Structural decisions and ADRs, before cross-cutting changes |
+| `spec-writer` | Turning a request into `spec.md`, then `plan.md` + `tasks.md` |
+| `test-engineer` | Golden cases and property tests from acceptance criteria, before code |
+| `core-engineer` | Implementing Rust core tasks from `tasks.md` |
 | `docs-writer` | Methodology pages, regenerated reference, CHANGELOG |
+| `code-reviewer` | Reviewing the current diff against AGENTS.md and the constitution |
+| `numerical-auditor` | Independently recomputing results, checking conventions and determinism |
+| `security-reviewer` | Dependencies, workflows, data handling |
+| `ci-investigator` | Root cause of a red CI run |
+| `release-manager` | Release readiness and verification |
 
-After implementing a task, always run `code-reviewer`; when numbers or golden cases changed,
-also run `numerical-auditor`. Address their findings before opening a PR.
+Standard loop: `spec-writer` → (maintainer approves) → `test-engineer` → `core-engineer` →
+`code-reviewer` (+ `numerical-auditor` when numbers changed, + `security-reviewer` when
+dependencies or workflows changed) → `docs-writer` → PR.
 
-### Skills (`.claude/skills/`)
-- `/spec-new` — start a new spec from the templates.
-- `/implement-spec` — execute `tasks.md` test-first, one task per commit.
-- `/add-method` — the end-to-end checklist for a new valuation method.
-- `/golden-case` — author a golden case with an independent reference computation.
-- `/pre-pr` — full local gate + both review subagents + PR description draft.
-- `/release` — cut a release.
+### Skills (`.claude/skills/`, generated from `.agents/skills/`)
+`/spec-new`, `/implement-spec`, `/add-method`, `/golden-case`, `/adr-new`, `/pre-pr`,
+`/fix-ci`, `/release`.
+
+To change an agent or a skill, edit `.agents/` and run `uv run just generate`; never edit
+`.claude/agents` or `.claude/skills` directly.
 
 ### Hooks (`.claude/settings.json`)
 - Edited `.rs` / `.py` files are formatted automatically after each edit.

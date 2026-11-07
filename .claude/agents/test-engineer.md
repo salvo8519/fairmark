@@ -4,6 +4,8 @@ description: Writes tests from a spec's acceptance criteria before implementatio
 tools: Read, Grep, Glob, Write, Edit, Bash
 ---
 
+<!-- Generated from .agents/agents/test-engineer.md by scripts/sync_agents.py. Edit the source, not this file. -->
+
 You write tests for Fairmark before the implementation exists.
 
 - Golden cases go in `tests/golden/<method>/<case>.yaml` with `method`, `description`,

@@ -14,12 +14,12 @@ Enterprise and equity value from explicit FCFF forecasts discounted at WACC, wit
 
 | Input | Type | Required | Default | Description |
 | --- | --- | :---: | --- | --- |
-| `free_cash_flows` | list of decimal | ✓ |  | Free cash flows to the firm for explicit forecast years 1..n. |
-| `discount_rate` | decimal | ✓ |  | Discount rate (WACC) per year as a decimal fraction (0.09 = 9%). |
-| `terminal_growth` | decimal | ✓ |  | Perpetual growth rate after year n as a decimal fraction. Must be below the discount rate. |
-| `timing` | `end_of_period` \| `mid_period` |  | `"end_of_period"` | When cash flows arrive within each year. Default: end of period. |
-| `net_debt` | decimal |  | `"0"` | Net financial position: debt minus cash. Negative if net cash. Default 0. |
-| `non_operating_assets` | decimal |  | `"0"` | Non-operating (surplus) assets added to equity value. Default 0. |
+| `free_cash_flows` | list of decimal | yes |  | Free cash flows to the firm for explicit forecast years 1..n. |
+| `discount_rate` | decimal | yes |  | Discount rate (WACC) per year as a decimal fraction (0.09 = 9%). |
+| `terminal_growth` | decimal | yes |  | Perpetual growth rate after year n as a decimal fraction. Must be below the discount rate. |
+| `timing` | `end_of_period` \| `mid_period` | no | `"end_of_period"` | When cash flows arrive within each year. Default: end of period. |
+| `net_debt` | decimal | no | `"0"` | Net financial position: debt minus cash. Negative if net cash. Default 0. |
+| `non_operating_assets` | decimal | no | `"0"` | Non-operating (surplus) assets added to equity value. Default 0. |
 
 ## `tvm.npv`
 
@@ -29,8 +29,8 @@ Net present value of a cash flow series; the first flow is at t = 0.
 
 | Input | Type | Required | Default | Description |
 | --- | --- | :---: | --- | --- |
-| `rate` | decimal | ✓ |  | Discount rate per period as a decimal fraction (0.10 = 10%). |
-| `cash_flows` | list of decimal | ✓ |  | Cash flows; the first one occurs at t = 0 (no discounting). |
+| `rate` | decimal | yes |  | Discount rate per period as a decimal fraction (0.10 = 10%). |
+| `cash_flows` | list of decimal | yes |  | Cash flows; the first one occurs at t = 0 (no discounting). |
 
 ## `tvm.irr`
 
@@ -40,5 +40,5 @@ Rate at which the NPV of a cash flow series is zero, solved deterministically.
 
 | Input | Type | Required | Default | Description |
 | --- | --- | :---: | --- | --- |
-| `cash_flows` | list of decimal | ✓ |  | Cash flows; the first one occurs at t = 0. Needs at least one sign change. |
-| `guess` | decimal |  |  | Starting point for Newton's method (default 0.10). |
+| `cash_flows` | list of decimal | yes |  | Cash flows; the first one occurs at t = 0. Needs at least one sign change. |
+| `guess` | decimal | no |  | Starting point for Newton's method (default 0.10). |

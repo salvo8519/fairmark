@@ -3,6 +3,8 @@ name: spec-new
 description: Start a new feature spec for Fairmark from the templates (spec-driven development). Use when the user asks for a new method, behaviour change or any feature that changes what Fairmark computes or exposes.
 ---
 
+<!-- Generated from .agents/skills/spec-new/SKILL.md by scripts/sync_agents.py. Edit the source, not this file. -->
+
 1. Pick the next number: list `specs/` and take the highest `NNNN` + 1.
 2. Create `specs/NNNN-<kebab-name>/` and copy `specs/_templates/spec.md` into it.
 3. Delegate drafting to the `spec-writer` subagent with the user's request and any

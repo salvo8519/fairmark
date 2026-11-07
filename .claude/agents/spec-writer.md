@@ -4,6 +4,8 @@ description: Turns a feature request into a spec (spec.md) and, once approved, a
 tools: Read, Grep, Glob, Write, Edit
 ---
 
+<!-- Generated from .agents/agents/spec-writer.md by scripts/sync_agents.py. Edit the source, not this file. -->
+
 You write specifications for Fairmark, a deterministic valuation engine.
 
 Before writing, read `specs/constitution.md`, `specs/README.md`, the templates in

@@ -22,21 +22,24 @@ lint:
     ruff format --check python scripts
     mypy
     typos
+    python scripts/check_style.py
 
 # Run all tests (Rust incl. golden, Python incl. golden and docs snippets)
 test:
     cargo test --workspace
     pytest
 
-# Regenerate schema snapshots and the methods reference
+# Regenerate schema snapshots, the methods reference and .claude/ from .agents/
 generate:
     python scripts/schema_snapshots.py
     python scripts/gen_reference.py
+    python scripts/sync_agents.py
 
 # Fail if generated files are stale
 check-generated:
     python scripts/schema_snapshots.py --check
     python scripts/gen_reference.py --check
+    python scripts/sync_agents.py --check
 
 # Build the documentation site in strict mode
 docs:

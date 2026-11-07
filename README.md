@@ -23,7 +23,7 @@ exactly, reproducibly, with every step on the record.
 [![Function calling](https://img.shields.io/badge/function%20calling-Anthropic%20%C2%B7%20OpenAI-0B1F3A)](https://salvo8519.github.io/fairmark/guides/function-calling/)
 [![Rust core](https://img.shields.io/badge/core-Rust-12325C?logo=rust)](crates/fairmark-core)
 [![uv](https://img.shields.io/badge/built%20with-uv-12325C)](https://docs.astral.sh/uv/)
-[![Spec-driven](https://img.shields.io/badge/spec--driven-✓-0F7B5F)](specs/README.md)
+[![Spec-driven](https://img.shields.io/badge/development-spec--driven-0F7B5F)](specs/README.md)
 
 **[Documentation](https://salvo8519.github.io/fairmark/)** ·
 **[Quickstart](https://salvo8519.github.io/fairmark/getting-started/quickstart/)** ·
@@ -46,9 +46,9 @@ Fairmark splits the job in two:
 
 ```mermaid
 flowchart LR
-    D["📄 Financial statements<br/>business plan"]:::input --> L["🤖 LLM<br/>extracts the inputs"]:::llm
-    L --> F["◆ Fairmark<br/>computes · explains · fingerprints"]:::engine
-    F --> R["📝 LLM<br/>writes the report, citing every step"]:::llm
+    D["Financial statements<br/>business plan"]:::input --> L["LLM<br/>extracts the inputs"]:::llm
+    L --> F["Fairmark<br/>computes · explains · fingerprints"]:::engine
+    F --> R["LLM<br/>writes the report, citing every step"]:::llm
     classDef input fill:#F7F8FA,stroke:#475569,color:#0B1F3A
     classDef llm fill:#FFFFFF,stroke:#12325C,color:#0B1F3A
     classDef engine fill:#0B1F3A,stroke:#C8A24A,stroke-width:2px,color:#FFFFFF
@@ -99,8 +99,7 @@ print(r.explain_markdown())
 | Enterprise value              | 271.9759... + 1149.5116...         | 1421.4876...|
 ```
 
-> [!TIP]
-> Pass amounts and rates as strings or `Decimal` for exactness. Floats are accepted and
+> **Tip.** Pass amounts and rates as strings or `Decimal` for exactness. Floats are accepted and
 > converted through their shortest representation (`0.1` → `"0.1"`).
 
 ## Use it from an AI agent
@@ -146,21 +145,20 @@ fairmark run dcf.fcff --input company.json        # JSON in, JSON out
 fairmark verify result.json --input company.json  # reproduce a result bit for bit
 ```
 
-> [!NOTE]
-> Tool definitions are generated from the engine's JSON Schemas, so they never drift from the
+> **Note.** Tool definitions are generated from the engine's JSON Schemas, so they never drift from the
 > implementation. Invalid inputs come back as `{"error": {"code": "FM-E004", …}}` so the model
 > can correct its own call.
 
 ## Methods
 
 | Method | Status | Description |
-| --- | :---: | --- |
-| `tvm.npv` | ✅ | Net present value |
-| `tvm.irr` | ✅ | Internal rate of return — deterministic Newton with bisection fallback |
-| `dcf.fcff` | 🧪 preview | Unlevered DCF, Gordon terminal value, end or mid period |
-| Financial statements → FCFF/FCFE, WACC, CAPM | 🛠 [SPEC-0001](specs/0001-dcf-complete/spec.md) | Complete DCF for private companies |
-| Asset-based, income-based, excess-earnings, EVA, multiples | 🗓 M4 | European valuation practice |
-| Property DCF, direct capitalisation, debt & waterfall | 🗓 M6 | Real estate |
+| --- | --- | --- |
+| `tvm.npv` | Available | Net present value |
+| `tvm.irr` | Available | Internal rate of return — deterministic Newton with bisection fallback |
+| `dcf.fcff` | Preview | Unlevered DCF, Gordon terminal value, end or mid period |
+| Financial statements → FCFF/FCFE, WACC, CAPM | Specified — [SPEC-0001](specs/0001-dcf-complete/spec.md) | Complete DCF for private companies |
+| Asset-based, income-based, excess-earnings, EVA, multiples | Planned — M4 | European valuation practice |
+| Property DCF, direct capitalisation, debt & waterfall | Planned — M6 | Real estate |
 
 ## Architecture
 
@@ -185,7 +183,6 @@ flowchart TB
     classDef planned fill:#F7F8FA,stroke:#94A3B8,color:#475569,stroke-dasharray:4 4
 ```
 
-> [!IMPORTANT]
 > **One engine, thin adapters.** Every channel is generated from the same registry and
 > schemas: a method added to the core is immediately available to Python, the CLI, MCP and
 > every LLM. Details in [docs/concepts/architecture.md](docs/concepts/architecture.md).

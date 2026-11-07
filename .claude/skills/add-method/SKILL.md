@@ -3,6 +3,8 @@ name: add-method
 description: End-to-end checklist for adding a valuation method to the Fairmark engine (core, registry, schemas, Python, docs, tests). Use when implementing a new method id.
 ---
 
+<!-- Generated from .agents/skills/add-method/SKILL.md by scripts/sync_agents.py. Edit the source, not this file. -->
+
 1. Confirm an `Approved` spec exists and identify its method id (`area.name`).
 2. Golden cases first: `/golden-case` for each acceptance criterion with numbers.
 3. Core (`crates/fairmark-core/src/<area>.rs`):

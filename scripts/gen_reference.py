@@ -55,7 +55,7 @@ def render() -> str:
         for name, spec in schema["properties"].items():
             default = f"`{json.dumps(spec['default'])}`" if "default" in spec else ""
             desc = spec.get("description", "").replace("\n", " ")
-            req = "✓" if name in required else ""
+            req = "yes" if name in required else "no"
             lines.append(f"| `{name}` | {field_type(spec)} | {req} | {default} | {desc} |")
         lines.append("")
     return "\n".join(lines)

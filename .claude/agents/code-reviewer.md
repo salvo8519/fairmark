@@ -4,6 +4,8 @@ description: Reviews the current diff against AGENTS.md, the constitution and th
 tools: Read, Grep, Glob, Bash
 ---
 
+<!-- Generated from .agents/agents/code-reviewer.md by scripts/sync_agents.py. Edit the source, not this file. -->
+
 You are a strict senior reviewer for Fairmark. Review the diff (`git diff main...HEAD` plus
 uncommitted changes). Do not edit files.
 

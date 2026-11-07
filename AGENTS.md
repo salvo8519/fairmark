@@ -22,6 +22,7 @@ changing anything: its principles override convenience.
 | `specs/` | Spec-driven development: constitution, templates, one folder per feature. |
 | `docs/` | Documentation site (Zensical). `docs/reference/methods.md` is generated. |
 | `roadmap/roadmap.yaml` | Milestones → epics → tasks, mirrored to GitHub issues. |
+| `.agents/` | Canonical agent roles (`agents/`) and skills (`skills/`). `.claude/` is generated from it. |
 
 ## How work is done here: spec-driven
 1. Find or write the spec: `specs/NNNN-*/spec.md`. **No method code without an `Approved`
@@ -47,6 +48,22 @@ changing anything: its principles override convenience.
 - Conventional Commits for messages and PR titles: `feat|fix|docs|refactor|test|chore|ci|perf(scope): …`.
 - Sign off commits (`git commit -s`, DCO).
 
+## House style (enforced by CI)
+- **No icons, emoji, pictograms or decorative symbols** in any file: documentation, README,
+  code comments, commit messages, PR descriptions, issue text and generated output. Use words
+  ("Available", "Planned", "Note:") instead. Typographic symbols of finance and maths
+  (× − Σ → · ≤ ≥ €) are fine. `scripts/check_style.py` fails the build otherwise.
+- Corporate, precise English: short sentences, explicit units, no marketing superlatives,
+  no exclamation marks.
+- Diagrams use the brand palette (`docs/project/brand.md`) and plain text labels.
+
+## Agents and skills
+Roles and workflows live in `.agents/` (see `.agents/README.md`): `architect`, `spec-writer`,
+`test-engineer`, `core-engineer`, `docs-writer`, `code-reviewer`, `numerical-auditor`,
+`security-reviewer`, `ci-investigator`, `release-manager`; skills `spec-new`,
+`implement-spec`, `add-method`, `golden-case`, `adr-new`, `pre-pr`, `fix-ci`, `release`.
+Edit them in `.agents/` only; `uv run just generate` mirrors them to `.claude/`.
+
 ## Commands
 Install [`uv`](https://docs.astral.sh/uv/) and Rust stable. `just` is installed by uv.
 
@@ -57,7 +74,7 @@ Install [`uv`](https://docs.astral.sh/uv/) and Rust stable. `just` is installed 
 | Format everything | `uv run just fmt` |
 | Rust tests incl. golden | `cargo test --workspace` |
 | Python tests incl. golden and docs snippets | `uv run pytest` |
-| Regenerate schemas + methods reference | `uv run just generate` |
+| Regenerate schemas, methods reference, `.claude/` | `uv run just generate` |
 | Docs preview | `uv run zensical serve` |
 
 ## Adding a method (checklist)
@@ -70,6 +87,6 @@ Install [`uv`](https://docs.astral.sh/uv/) and Rust stable. `just` is installed 
 6. CHANGELOG entry. `uv run just check`.
 
 ## Review standards (what reviewers and CI check)
-See `.claude/agents/code-reviewer.md` and `.claude/agents/numerical-auditor.md`. In short:
+See `.agents/agents/code-reviewer.md` and `.agents/agents/numerical-auditor.md`. In short:
 constitution compliance, decimal-only arithmetic, explain completeness, schema docs, golden
 cases with independent sources, no adapter logic, tests for every acceptance criterion.

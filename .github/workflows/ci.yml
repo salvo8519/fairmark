@@ -97,6 +97,7 @@ jobs:
       - run: uv run ruff format --check python scripts
       - run: uv run mypy
       - run: uv run typos
+      - run: uv run python scripts/check_style.py
       - run: uv run just check-generated
 
   contracts:

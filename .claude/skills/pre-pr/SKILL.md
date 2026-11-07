@@ -3,6 +3,8 @@ name: pre-pr
 description: Run the full local quality gate and both review subagents, then draft the pull request description. Use before pushing a branch or opening a PR.
 ---
 
+<!-- Generated from .agents/skills/pre-pr/SKILL.md by scripts/sync_agents.py. Edit the source, not this file. -->
+
 1. `uv run just check` — must be green. Fix and re-run until it is.
 2. Run the `code-reviewer` subagent on the branch diff. Fix blocking findings.
 3. If any file under `crates/fairmark-core/src/`, `tests/golden/` or `docs/methods/` changed,

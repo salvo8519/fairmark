@@ -24,9 +24,14 @@ repos:
         entry: uv run typos
         language: system
         pass_filenames: false
+      - id: house-style
+        name: no icons or emoji
+        entry: uv run python scripts/check_style.py
+        language: system
+        pass_filenames: false
       - id: generated-files
         name: generated files up to date
         entry: uv run just check-generated
         language: system
         pass_filenames: false
-        files: ^(crates/fairmark-core/src/|schemas/|docs/reference/)
+        files: ^(crates/fairmark-core/src/|schemas/|docs/reference/|\.agents/|\.claude/)

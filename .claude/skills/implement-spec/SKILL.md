@@ -3,6 +3,8 @@ name: implement-spec
 description: Execute an approved spec's tasks.md test-first, one task per commit, with review subagents. Use when the user asks to implement or continue a spec.
 ---
 
+<!-- Generated from .agents/skills/implement-spec/SKILL.md by scripts/sync_agents.py. Edit the source, not this file. -->
+
 Preconditions: the spec is `Approved` and has `plan.md` and `tasks.md`. If not, stop and
 use `/spec-new`.
 

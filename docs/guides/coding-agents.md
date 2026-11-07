@@ -5,7 +5,7 @@ Coding agents work best with a CLI and a skill that tells them how to use it.
 ## Install the skill
 
 Copy `skills/fairmark/` from the repository into your agent's skills directory (for Claude
-Code: `.claude/skills/fairmark/` in your project, or `~/.claude/skills/fairmark/`).
+Code: `.agents/skills/fairmark/` in your project, or `~/.agents/skills/fairmark/`).
 
 The skill instructs the agent to:
 

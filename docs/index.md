@@ -34,41 +34,41 @@ r.explain_markdown()  # every step, ready for your valuation report
 
 <div class="grid cards fm-features" markdown>
 
--   :material-scale-balance:{ .lg .middle } __Deterministic__
+-   __Deterministic__
 
     ---
 
     Exact decimal arithmetic and fixed solvers. Same input, same output, to the last digit,
     on every platform.
 
-    [:octicons-arrow-right-24: The determinism contract](concepts/determinism.md)
+    [The determinism contract](concepts/determinism.md)
 
--   :material-file-document-check-outline:{ .lg .middle } __Auditable__
+-   __Auditable__
 
     ---
 
     Every result explains itself: formula, conventions and each intermediate step,
     plus a fingerprint to reproduce it later.
 
-    [:octicons-arrow-right-24: The audit trail](concepts/audit-trail.md)
+    [The audit trail](concepts/audit-trail.md)
 
--   :material-robot-outline:{ .lg .middle } __Agent-native__
+-   __Agent-native__
 
     ---
 
     One engine for Python, function calling, MCP, the CLI and Agent Skills for Claude Code
     and Codex. The model never does the arithmetic.
 
-    [:octicons-arrow-right-24: Agent guides](guides/function-calling.md)
+    [Agent guides](guides/function-calling.md)
 
--   :material-office-building-outline:{ .lg .middle } __Built for private companies__
+-   __Built for private companies__
 
     ---
 
     Inputs come from financial statements and business plans, not tickers. European
     valuation practice is first-class.
 
-    [:octicons-arrow-right-24: Methods](methods/index.md)
+    [Methods](methods/index.md)
 
 </div>
 

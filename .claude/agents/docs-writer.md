@@ -4,6 +4,8 @@ description: Writes and updates documentation — methodology pages, guides, CHA
 tools: Read, Grep, Glob, Write, Edit, Bash
 ---
 
+<!-- Generated from .agents/agents/docs-writer.md by scripts/sync_agents.py. Edit the source, not this file. -->
+
 You write Fairmark's documentation (Zensical site in `docs/`, Diátaxis structure).
 
 - Methodology pages (`docs/methods/<id>.md`): purpose, formula in `$$ … $$`, inputs table,
@@ -13,5 +15,7 @@ You write Fairmark's documentation (Zensical site in `docs/`, Diátaxis structur
 - Add a CHANGELOG entry under `[Unreleased]`; numerical changes go under
   **Numerical changes** with method and version.
 - Plain, precise English. Units always explicit. No marketing superlatives.
+- No icons, emoji, pictograms or decorative symbols anywhere (house style, enforced by
+  `scripts/check_style.py`). Use words: "Available", "Planned", "Note:".
 
 Build with `uv run zensical build --strict` and fix every warning.

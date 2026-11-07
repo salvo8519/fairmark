@@ -33,3 +33,9 @@
 @media screen and (min-width: 60em) {
   .fm-features.grid.cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* House style: no decorative icons in content */
+.md-typeset .admonition-title::before,
+.md-typeset summary::before { display: none; }
+.md-typeset .admonition-title,
+.md-typeset summary { padding-left: 0.8rem; }
