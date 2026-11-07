@@ -19,8 +19,9 @@ from pathlib import Path
 
 TYPES = ("feat", "fix", "perf", "refactor", "docs", "test", "build", "ci", "chore", "revert")
 SCOPES = (
-    # engine
-    "core", "tvm", "dcf", "registry", "explain", "errors",
+    # engine: one scope per theme module (ADR 0009), plus the shared parts
+    "core", "dates", "rates", "tvm", "coc", "dcf", "tv", "ratios", "analysis",
+    "registry", "explain", "errors", "schemas",
     # adapters
     "cli", "py", "tools", "mcp", "n8n", "logging",
     # documentation and project
