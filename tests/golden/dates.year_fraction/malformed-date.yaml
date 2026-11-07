@@ -1,0 +1,5 @@
+method: dates.year_fraction
+description: A date not written as YYYY-MM-DD is rejected
+source: ISO 8601 calendar date format; SPEC-0002 R1
+input: { start: "2024/01/01", end: "2024-02-01", day_count: act_360 }
+expect_error: FM-E009

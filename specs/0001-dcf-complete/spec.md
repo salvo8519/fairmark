@@ -74,7 +74,7 @@ special handling beyond an explicit lease-liability input, real estate (separate
 ## Interfaces
 - New method ids (tentative): `statements.reclassify`, `dcf.fcff_build`, `coc.wacc`,
   `dcf.valuation` (end-to-end), `dcf.sensitivity`, `dcf.fcfe`.
-- `dcf.fcff` stays available (method v1); end-to-end valuation reuses it.
+- `dcf.fcff` stays available; end-to-end valuation reuses it.
 
 ## Open questions
 - [ ] Maintainer methodology sheet: formulas and conventions used in practice (IRES/IRAP, PFN

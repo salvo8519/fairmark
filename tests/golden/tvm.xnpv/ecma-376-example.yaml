@@ -1,0 +1,6 @@
+method: tvm.xnpv
+description: ECMA-376 XNPV example, 9%, five dated flows (published to two decimals)
+source: ECMA-376 / ISO/IEC 29500 SpreadsheetML, function XNPV, example result 2086.65
+input: { rate: "0.09", cash_flows: [{date: "2008-01-01", amount: "-10000"}, {date: "2008-03-01", amount: "2750"}, {date: "2008-10-30", amount: "4250"}, {date: "2009-02-15", amount: "3250"}, {date: "2009-04-01", amount: "2750"}] }
+expect: { xnpv: "2086.65" }
+tolerance: "0.005"

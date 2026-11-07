@@ -81,19 +81,32 @@ def _portable(node: Any) -> Any:
     """Simplify a schema for providers and open-weight models with limited JSON Schema support.
 
     Decimal fields (number or string) become plain strings with an explicit hint: strings are
-    also the exact representation, so nothing is lost. Validation keywords some providers
-    reject (`pattern`, `additionalProperties`) are removed; the engine still validates.
+    also the exact representation, so nothing is lost. Optional values (`X or null`) become
+    `X`. Validation keywords some providers reject (`pattern`, `additionalProperties`) are
+    removed; the engine still validates.
     """
     if isinstance(node, list):
         return [_portable(v) for v in node]
     if not isinstance(node, dict):
         return node
+    variants = node.get("anyOf") or node.get("oneOf")
+    if isinstance(variants, list):
+        # Optional values (`X or null`): keep X; optional fields are simply not required.
+        concrete = [v for v in variants if not (isinstance(v, dict) and v.get("type") == "null")]
+        if len(concrete) == 1 and isinstance(concrete[0], dict):
+            merged = {k: v for k, v in node.items() if k not in ("anyOf", "oneOf")}
+            return _portable({**concrete[0], **merged})
     out = {k: _portable(v) for k, v in node.items() if k not in ("pattern", "additionalProperties")}
     kind = node.get("type")
-    if isinstance(kind, list) and "string" in kind and "number" in kind:
-        out["type"] = "string"
-        if "description" in out:
-            out["description"] = str(out["description"]) + _DECIMAL_HINT
+    if isinstance(kind, list):
+        kinds = [k for k in kind if k != "null"]
+        if "string" in kinds and "number" in kinds:
+            out["type"] = "string"
+            if "description" in out:
+                out["description"] = str(out["description"]) + _DECIMAL_HINT
+        elif len(kinds) == 1:
+            out["type"] = kinds[0]
+        kind = out["type"]
     items = node.get("items")
     if kind == "array" and isinstance(items, dict) and isinstance(items.get("type"), list):
         out["description"] = str(out.get("description", "")) + " Each item:" + _DECIMAL_HINT

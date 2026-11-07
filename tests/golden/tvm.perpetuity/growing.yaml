@@ -1,0 +1,6 @@
+method: tvm.perpetuity
+description: Growing perpetuity, first payment 100, rate 8%, growth 2% (Gordon)
+source: Gordon (1959) closed form P / (r - g); Independent 50-digit reference, scripts/reference_time.py
+input: { payment: "100", rate: "0.08", growth: "0.02", timing: ordinary }
+expect: { present_value: "1666.66666666666666666667" }
+tolerance: "0.0000000000000000001"

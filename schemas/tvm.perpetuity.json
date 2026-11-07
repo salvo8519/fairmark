@@ -1,0 +1,60 @@
+{
+  "$defs": {
+    "AnnuityTiming": {
+      "description": "When the payments of an annuity or perpetuity occur.",
+      "oneOf": [
+        {
+          "const": "ordinary",
+          "description": "Payments at the end of each period (first payment at t = 1).",
+          "type": "string"
+        },
+        {
+          "const": "due",
+          "description": "Payments at the beginning of each period (first payment at t = 0).",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `tvm.perpetuity`.",
+  "properties": {
+    "growth": {
+      "description": "Growth of the payment per period, decimal fraction, greater than -1. Default: 0 (level\nperpetuity).",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "payment": {
+      "description": "First payment, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "rate": {
+      "description": "Discount rate per period, decimal fraction; must exceed `growth`.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "timing": {
+      "$ref": "#/$defs/AnnuityTiming",
+      "description": "`ordinary` (first payment at t = 1) or `due` (first payment at t = 0)."
+    }
+  },
+  "required": [
+    "payment",
+    "rate",
+    "timing"
+  ],
+  "title": "PerpetuityInput",
+  "type": "object"
+}

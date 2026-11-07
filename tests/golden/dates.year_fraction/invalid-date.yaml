@@ -1,0 +1,5 @@
+method: dates.year_fraction
+description: 29 February in a non-leap year is rejected
+source: Gregorian calendar; SPEC-0002 R1
+input: { start: "2023-02-29", end: "2024-01-01", day_count: act_360 }
+expect_error: FM-E009

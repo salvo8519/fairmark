@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: ef289aa4908a
+source_hash: 492b12ca7572
 ---
 # Codici di errore
 
@@ -10,11 +10,15 @@ adattatore (Python, CLI, MCP, function calling) riporta gli errori come
 
 | Codice | Significato | Correzione tipica |
 | --- | --- | --- |
-| `FM-E001` | Input non valido: tipo errato, campo obbligatorio mancante, campo sconosciuto | Controlla l'input con `fairmark schema <metodo>` |
-| `FM-E002` | Serie di flussi di cassa vuota | Fornisci almeno un flusso |
-| `FM-E003` | Tasso ≤ −100% | I tassi sono frazioni decimali: 10% è `0.10` |
-| `FM-E004` | Crescita di lungo periodo ≥ tasso di attualizzazione | Il modello di Gordon richiede g < WACC |
-| `FM-E005` | L'algoritmo del TIR non converge | Controlla i flussi; prova un `guess` diverso |
-| `FM-E006` | Nessun cambio di segno nei flussi | Il TIR richiede sia uscite sia entrate |
+| `FM-E001` | Input non valido: tipo errato, campo obbligatorio mancante, campo sconosciuto | Controlla l'input con `fairmark schema <method>` |
+| `FM-E002` | Serie di flussi di cassa vuota | Fornisci almeno un flusso di cassa |
+| `FM-E003` | Tasso fuori intervallo: il tasso per periodo, o per periodo di capitalizzazione, è pari o inferiore a −100% | I tassi sono frazioni decimali: 10% è `0.10`; un tasso nominale con capitalizzazione è verificato per periodo di capitalizzazione ($r/m$) |
+| `FM-E004` | Crescita ≥ tasso di attualizzazione (valore terminale, rendita perpetua) | Il modello di Gordon richiede g < r |
+| `FM-E005` | L'algoritmo del TIR o dell'XIRR non converge | Controlla i flussi; prova un `guess` diverso |
+| `FM-E006` | Nessun cambio di segno nei flussi | TIR, XIRR e MIRR richiedono sia uscite sia entrate |
 | `FM-E007` | Metodo o tool sconosciuto | Vedi `fairmark methods` |
 | `FM-E008` | Overflow aritmetico | Input fuori da un intervallo realistico |
+| `FM-E009` | Data non valida: malformata, inesistente (`2023-02-29`) o fuori dall'intervallo 1900-01-01 - 2199-12-31 | Scrivi le date in formato ISO 8601 `YYYY-MM-DD` entro l'intervallo supportato |
+| `FM-E010` | Un flusso ha una data anteriore alla data di valutazione | Sposta la data di valutazione alla data del primo flusso o prima, oppure omettila per usare la data del primo flusso |
+| `FM-E011` | Più di un tasso annulla il valore attuale, oppure i cambi di segno dei flussi indicano che esiste un altro tasso; il messaggio elenca gli intervalli | Il TIR è ambiguo: usa il VAN al costo del capitale, oppure il MIRR con tassi espliciti |
+| `FM-E012` | Errore interno: un difetto di Fairmark, non dell'input | Segnalarlo con l'`input_hash`; l'input non serve mai |

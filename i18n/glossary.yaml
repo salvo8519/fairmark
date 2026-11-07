@@ -26,6 +26,27 @@ terms:
   financial statements: bilancio d'esercizio
   business plan: business plan
   spec: specifica
+  day count: convenzione di calcolo dei giorni
+  year fraction: frazione d'anno
+  valuation date: data di valutazione
+  compounding: capitalizzazione
+  continuous compounding: capitalizzazione continua
+  effective annual rate: tasso annuo effettivo
+  nominal rate: tasso nominale
+  real rate: tasso reale
+  annuity: rendita
+  ordinary annuity: rendita posticipata
+  annuity due: rendita anticipata
+  growing annuity: rendita crescente
+  perpetuity: rendita perpetua
+  modified internal rate of return (MIRR): tasso interno di rendimento modificato (TIRM, MIRR)
+  finance rate: tasso di finanziamento
+  reinvestment rate: tasso di reinvestimento
+  forward period rate: tasso forward di periodo
+  solver: algoritmo
+  grid scan: scansione su griglia
+  bisection: bisezione
+  accuracy: precisione
 keep_in_english:
   - Fairmark
   - explain

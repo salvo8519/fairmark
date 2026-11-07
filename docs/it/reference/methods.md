@@ -10,7 +10,7 @@ sorgente e sono in inglese.
 
 ## `dcf.fcff`
 
-**DCF — unlevered free cash flow** · versione del metodo 1 · tool `fairmark_dcf_fcff`
+**DCF — unlevered free cash flow** · versione del metodo 2 · tool `fairmark_dcf_fcff`
 
 Enterprise and equity value from explicit FCFF forecasts discounted at WACC, with a Gordon growth terminal value. Returns every step for audit.
 
@@ -25,7 +25,7 @@ Enterprise and equity value from explicit FCFF forecasts discounted at WACC, wit
 
 ## `tvm.npv`
 
-**Net present value** · versione del metodo 1 · tool `fairmark_tvm_npv`
+**Net present value** · versione del metodo 2 · tool `fairmark_tvm_npv`
 
 Net present value of a cash flow series; the first flow is at t = 0.
 
@@ -36,11 +36,126 @@ Net present value of a cash flow series; the first flow is at t = 0.
 
 ## `tvm.irr`
 
-**Internal rate of return** · versione del metodo 1 · tool `fairmark_tvm_irr`
+**Internal rate of return** · versione del metodo 2 · tool `fairmark_tvm_irr`
 
-Rate at which the NPV of a cash flow series is zero, solved deterministically.
+Rate at which the NPV of a periodic cash flow series is zero, solved deterministically; refuses inputs with more than one IRR.
 
 | Input | Tipo | Obbligatorio | Default | Descrizione |
 | --- | --- | --- | --- | --- |
 | `cash_flows` | lista di decimale | sì |  | Cash flows; the first one occurs at t = 0. Needs at least one sign change. |
-| `guess` | decimale | no |  | Starting point for Newton's method (default 0.10). |
+| `guess` | decimale | no |  | Starting point for Newton's method, decimal fraction per period. Default: 0.10. |
+
+## `dates.year_fraction`
+
+**Year fraction (day count)** · versione del metodo 1 · tool `fairmark_dates_year_fraction`
+
+Fraction of a year between two dates under an ISDA 2006 day-count convention: Actual/365 Fixed, Actual/360, Actual/Actual ISDA, 30/360, 30E/360.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `start` | string | sì |  | Start date (ISO 8601). |
+| `end` | string | sì |  | End date (ISO 8601), not earlier than the start date. |
+| `day_count` | `act_365_fixed` \| `act_360` \| `act_act_isda` \| `thirty_360` \| `thirty_e_360` | sì |  | Day-count convention. |
+
+## `rates.convert`
+
+**Rate conversion between compounding conventions** · versione del metodo 1 · tool `fairmark_rates_convert`
+
+Equivalent annual rate under another compounding (annual, semi-annual, quarterly, monthly, continuous).
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `rate` | decimale | sì |  | Annual rate as a decimal fraction (0.12 = 12% a year), quoted with `from` compounding. |
+| `from` | `annual` \| `semi_annual` \| `quarterly` \| `monthly` \| `continuous` | sì |  | Compounding of the given rate. |
+| `to` | `annual` \| `semi_annual` \| `quarterly` \| `monthly` \| `continuous` | sì |  | Compounding of the equivalent rate to return. |
+
+## `rates.real_nominal`
+
+**Real and nominal rates (Fisher)** · versione del metodo 1 · tool `fairmark_rates_real_nominal`
+
+Converts a nominal rate to a real rate, or the reverse, with the exact Fisher relation.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `rate` | decimale | sì |  | Rate to convert, decimal fraction per period (0.08 = 8%). |
+| `inflation` | decimale | sì |  | Inflation over the same period, decimal fraction (0.03 = 3%). |
+| `direction` | `to_real` \| `to_nominal` | sì |  | `to_real` or `to_nominal`. |
+
+## `tvm.present_value`
+
+**Present value with a constant or time-varying rate** · versione del metodo 1 · tool `fairmark_tvm_present_value`
+
+Present value of periodic flows for periods 1..n with one rate or one rate per period, at end, mid or beginning of period. Returns every discount factor.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `cash_flows` | lista di decimale | sì |  | Cash flows of periods 1, 2, ..., n, in currency units. |
+| `rate` | decimale | no |  | One discount rate for every period, decimal fraction per period. Give exactly one of `rate` and `period_rates`. |
+| `period_rates` | array \| null | no |  | One discount rate per period (forward period rates, decimal fractions), exactly one per cash flow. |
+| `timing` | `end_of_period` \| `mid_period` \| `beginning_of_period` | sì |  | When flows occur within each period. |
+
+## `tvm.xnpv`
+
+**Net present value of dated cash flows (XNPV)** · versione del metodo 1 · tool `fairmark_tvm_xnpv`
+
+Present value of dated flows at a valuation date, with explicit day count and compounding (defaults as in ECMA-376 XNPV).
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `rate` | decimale | sì |  | Annual discount rate, decimal fraction (0.09 = 9%), quoted with `compounding`. |
+| `cash_flows` | lista di object | sì |  | Dated cash flows, in any order. |
+| `valuation_date` |  | no |  | Date at which the value is computed. Default: the earliest flow date (ECMA-376 XNPV). |
+| `day_count` |  | no |  | Day count for the time between dates. Default: `act_365_fixed` (ECMA-376 XNPV). |
+| `compounding` |  | no |  | Compounding of `rate`. Default: `annual` (ECMA-376 XNPV). |
+
+## `tvm.xirr`
+
+**Internal rate of return of dated cash flows (XIRR)** · versione del metodo 1 · tool `fairmark_tvm_xirr`
+
+Annual rate at which the XNPV of dated flows is zero, solved deterministically; refuses inputs with more than one rate.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `cash_flows` | lista di object | sì |  | Dated cash flows, in any order; at least one positive and one negative amount. |
+| `day_count` |  | no |  | Day count for the time between dates. Default: `act_365_fixed` (ECMA-376 XIRR). |
+| `compounding` |  | no |  | Compounding of the returned rate. Default: `annual` (ECMA-376 XIRR). |
+| `guess` | decimale | no |  | Starting point for Newton's method, annual decimal fraction. Default: 0.10 (ECMA-376 XIRR). |
+
+## `tvm.mirr`
+
+**Modified internal rate of return (MIRR)** · versione del metodo 1 · tool `fairmark_tvm_mirr`
+
+Rate of return with negative flows financed at a finance rate and positive flows reinvested at a reinvestment rate (ECMA-376 MIRR).
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `cash_flows` | lista di decimale | sì |  | Periodic cash flows; the first one occurs at t = 0. At least one positive and one negative. |
+| `finance_rate` | decimale | sì |  | Rate paid on the money invested (applied to negative flows), decimal fraction per period. |
+| `reinvest_rate` | decimale | sì |  | Rate earned on reinvested positive flows, decimal fraction per period. |
+
+## `tvm.annuity`
+
+**Annuity (level or growing, ordinary or due)** · versione del metodo 1 · tool `fairmark_tvm_annuity`
+
+Present and future value of a finite series of level or growing payments.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `payment` | decimale | sì |  | First payment, in currency units. |
+| `rate` | decimale | sì |  | Discount rate per period, decimal fraction. |
+| `periods` | integer | sì |  | Number of payments, from 1 to 10000. |
+| `growth` | decimale | no |  | Growth of the payment per period, decimal fraction. Default: 0 (level annuity). |
+| `timing` | `ordinary` \| `due` | sì |  | `ordinary` (end of period) or `due` (beginning of period). |
+
+## `tvm.perpetuity`
+
+**Perpetuity (level or growing)** · versione del metodo 1 · tool `fairmark_tvm_perpetuity`
+
+Present value of a level or growing perpetuity (Gordon), ordinary or due.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `payment` | decimale | sì |  | First payment, in currency units. |
+| `rate` | decimale | sì |  | Discount rate per period, decimal fraction; must exceed `growth`. |
+| `growth` | decimale | no |  | Growth of the payment per period, decimal fraction, greater than -1. Default: 0 (level perpetuity). |
+| `timing` | `ordinary` \| `due` | sì |  | `ordinary` (first payment at t = 1) or `due` (first payment at t = 0). |

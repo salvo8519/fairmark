@@ -1,0 +1,6 @@
+method: rates.real_nominal
+description: Nominal rate from 2% real and 3% inflation
+source: Fisher relation; Independent 50-digit reference, scripts/reference_time.py
+input: { rate: "0.02", inflation: "0.03", direction: to_nominal }
+expect: { rate: "0.0506" }
+tolerance: "0.0000000000000000001"

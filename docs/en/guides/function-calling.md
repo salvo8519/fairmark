@@ -32,5 +32,7 @@ Method `dcf.fcff` becomes tool `fairmark_dcf_fcff`. Use `fm.tools.method_id(name
 Schemas are inlined (no `$ref`) for compatibility across providers. Decimal fields accept
 numbers or strings; descriptions state units explicitly ("decimal fraction, 0.09 = 9%"),
 which is what makes models extract rates correctly. The portable variant (`portable=True`,
-used for Gemini and local open-weight runtimes) declares decimals as strings and removes
-`pattern` and `additionalProperties`.
+used for Gemini and local open-weight runtimes) declares decimals as strings, turns optional
+values (`X or null`) into plain `X` (an optional field is simply not required), and removes
+`pattern` and `additionalProperties`. Dates are ISO 8601 strings (`"2026-06-30"`) in both
+variants.
