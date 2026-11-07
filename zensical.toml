@@ -71,6 +71,7 @@ nav = [
     "project/vision.md",
     "project/brand.md",
     "project/roadmap.md",
+    "project/releases.md",
     "project/release-notes.md",
     "project/contributing.md",
     "project/conventions.md",

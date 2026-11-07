@@ -115,6 +115,9 @@ Edit them in `.agents/` only; `uv run just generate` mirrors them to `.claude/`.
   CHANGELOG lists them first.
 
 ## Versions, releases and project memory
+- **Releases**: each milestone names the release that ships it (`roadmap/roadmap.yaml`);
+  `python scripts/release.py ready <version>` decides whether a version can be released
+  (`docs/en/project/releases.md`). The maintainer decides when to release.
 - **One version**: `[workspace.package] version` in `Cargo.toml`. Everything else derives from
   it; `scripts/version.py check` verifies it in CI, `scripts/version.py bump` changes it.
 - **Two audiences, two documents**:

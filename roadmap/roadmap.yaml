@@ -44,6 +44,7 @@ labels:
 milestones:
   - title: "M0 · Foundations"
     gate: "A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows."
+    release: "0.1.0"
     epics:
       - title: "Repository and governance"
         issue: 6
@@ -75,6 +76,7 @@ milestones:
 
   - title: "M1 · Numerical core"
     gate: "Golden harness green; NPV and IRR validated; property tests running."
+    release: "0.1.0"
     epics:
       - title: "Domain types"
         issue: 18
@@ -112,6 +114,7 @@ milestones:
 
   - title: "M2 · Complete DCF"
     gate: "DCF passes every golden case provided by practitioners."
+    release: "0.1.0"
     epics:
       - title: "Financial statements input"
         issue: 34
@@ -155,6 +158,7 @@ milestones:
 
   - title: "M3 · Agent layer and v0.1 release"
     gate: "An external user completes a DCF with Claude Code or Codex using only the README."
+    release: "0.1.0"
     epics:
       - title: "Python SDK"
         issue: 46
@@ -195,9 +199,11 @@ milestones:
         labels: ["area:docs"]
         tasks:
           - { issue: 65, title: "Release v0.1.0, MCP registry listings, announcement", tags: [maintainer], status: open }
+          - { issue: 125, title: "Release readiness check and version policy", status: done }
 
   - title: "M4 · Traditional European methods"
     gate: "Golden cases green for every method."
+    release: "0.2.0"
     epics:
       - title: "Asset-based method (simple and complex, with intangibles)"
         issue: 66
@@ -232,6 +238,7 @@ milestones:
 
   - title: "M5 · Opt-in usage statistics"
     gate: "CI proves the payload carries no financial data; privacy notice reviewed by counsel."
+    release: "0.3.0"
     epics:
       - title: "Telemetry RFC and implementation"
         issue: 78
@@ -244,6 +251,7 @@ milestones:
 
   - title: "M6 · v1.0 and real estate"
     gate: "Stable API with a published deprecation policy."
+    release: "1.0.0"
     epics:
       - title: "Real estate module"
         issue: 83
