@@ -1,6 +1,6 @@
 ---
 source: methods/index.md
-source_hash: 730b951bf6d5
+source_hash: f046d34b90e0
 ---
 # Metodi
 
@@ -29,13 +29,10 @@ elenca tutti gli input.
 | [`dcf.fcff`](dcf-fcff.md) | Anteprima | Enterprise value ed equity value dai flussi di cassa operativi |
 | [`analysis.goal_seek`](analysis-goal-seek.md) | Disponibile | Valore di un input di qualsiasi metodo al quale uno dei suoi output è pari a un valore obiettivo |
 
-## Prossimamente
+## Sviluppi
 
-- **M2, DCF completo**: FCFF e FCFE dal bilancio d'esercizio, valore terminale con multiplo
-  di uscita, griglie di sensitività.
-- **M4, prassi europea**: metodi patrimoniale, reddituale e misto con stima autonoma
-  dell'avviamento, EVA, multipli di mercato.
-- **Real estate**: DCF immobiliare, capitalizzazione diretta, debito e waterfall.
+Le prossime funzionalità, con le loro issue e specifiche, sono nella
+[roadmap](https://salvo8519.github.io/fairmark/project/roadmap/) (in inglese), generata dal piano.
 
 Vuoi un metodo? Apri una
 [richiesta di metodo](https://github.com/salvo8519/fairmark/issues/new/choose).

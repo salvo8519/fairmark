@@ -24,12 +24,9 @@ page. The [methods reference](../reference/methods.md) lists every input.
 | [`dcf.fcff`](dcf-fcff.md) | preview | Enterprise and equity value from unlevered free cash flows |
 | [`analysis.goal_seek`](analysis-goal-seek.md) | available | Value of one input of any method at which one of its outputs equals a target |
 
-## Coming next
+## Next
 
-- **M2 — complete DCF**: FCFF/FCFE from statutory financial statements, exit-multiple
-  terminal value, sensitivity grids.
-- **M4 — European practice**: asset-based, income-based and mixed (excess earnings) methods,
-  EVA, market multiples.
-- **Real estate**: property DCF, direct capitalisation, debt and equity waterfalls.
+What comes next, with its issues and specifications, is in the
+[roadmap](../project/roadmap.md), generated from the plan.
 
 Want a method? Open a [method request](https://github.com/salvo8519/fairmark/issues/new/choose).

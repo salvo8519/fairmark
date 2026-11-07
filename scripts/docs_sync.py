@@ -118,6 +118,50 @@ def impact(args: argparse.Namespace) -> int:
     return 1
 
 
+# Forward-looking statements in public pages go stale silently: what comes next lives only in
+# the generated roadmap page (scripts/roadmap.py). Project pages (vision, roadmap) are exempt.
+FUTURE = re.compile(
+    r"\bplanned\b|coming next|will be (?:added|available|supported)|\bM[0-6]\b"
+    r"|in programma|prossimamente|sarà disponibile|\bpianificat[oaie]\b",
+    re.IGNORECASE,
+)
+METHOD_ID = re.compile(r"`((?:dates|rates|tvm|coc|dcf|tv|ratios|analysis)\.[a-z_]+)`")
+GENERATED = re.compile(r"<!-- generated:[a-z]+:start.*?<!-- generated:[a-z]+:end -->", re.S)
+
+
+def public_pages() -> list[Path]:
+    pages = [ROOT / "README.md", ROOT / "README.it.md"]
+    for lang in ("en", "it"):
+        for page in sorted((ROOT / "docs" / lang).rglob("*.md")):
+            rel = page.relative_to(ROOT / "docs" / lang).as_posix()
+            if not rel.startswith("project/") and rel != "reference/methods.md":
+                pages.append(page)
+    return pages
+
+
+def claims() -> int:
+    """Public pages state only what exists: no plans in prose, no unknown method ids."""
+    import fairmark as fm  # needs the project environment
+
+    known = {m["id"] for m in fm.methods()}
+    problems = []
+    for page in public_pages():
+        text = GENERATED.sub("", page.read_text(encoding="utf-8"))
+        rel = page.relative_to(ROOT).as_posix()
+        for number, line in enumerate(text.splitlines(), 1):
+            if FUTURE.search(line):
+                problems.append(f"{rel}:{number}: plans belong to the roadmap: {line.strip()}")
+            for mid in METHOD_ID.findall(line):
+                if mid not in known:
+                    problems.append(f"{rel}:{number}: `{mid}` is not a registered method")
+    if problems:
+        print("Public pages describe what does not exist:\n  " + "\n  ".join(problems))
+        print("Link the roadmap instead (docs/en/project/roadmap.md, generated from the plan).")
+        return 1
+    print(f"Public pages describe only existing methods ({len(public_pages())} pages).")
+    return 0
+
+
 def coverage() -> int:
     import fairmark as fm  # needs the project environment
 
@@ -152,6 +196,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("coverage")
+    sub.add_parser("claims")
     p = sub.add_parser("impact")
     group = p.add_mutually_exclusive_group(required=True)
     group.add_argument("--base")
@@ -159,6 +204,8 @@ def main() -> None:
     group.add_argument("--worktree", action="store_true")
     p.add_argument("--hook", action="store_true", help="exit 2 with stderr (Claude Code hook)")
     args = parser.parse_args()
+    if args.cmd == "claims":
+        sys.exit(claims())
     sys.exit(coverage() if args.cmd == "coverage" else impact(args))
 
 

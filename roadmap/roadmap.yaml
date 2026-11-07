@@ -181,6 +181,7 @@ milestones:
           - { issue: 57, title: "Agent Skill and AGENTS.md", status: done }
           - { issue: 58, title: "Docs site (MkDocs Material) with one methodology page per method", tags: [parallel], status: done }
           - { issue: 59, title: "Quickstarts for Claude Code, Codex, Python, n8n", tags: [parallel], status: open }
+          - { issue: 121, title: "Public pages state only what exists; plans live in the generated roadmap", status: done }
       - title: "n8n node"
         issue: 60
         labels: ["area:n8n"]

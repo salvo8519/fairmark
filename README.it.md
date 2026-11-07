@@ -1,4 +1,4 @@
-<!-- i18n source: README.md source_hash: 5295eac63cc5 -->
+<!-- i18n source: README.md source_hash: ab99cf9092b6 -->
 <div align="center">
 
 <a href="https://salvo8519.github.io/fairmark/it/">
@@ -160,14 +160,32 @@ fairmark verify result.json --input company.json  # riproduce un risultato bit p
 
 ## Metodi
 
+<!-- generated:methods:start (scripts/gen_reference.py) -->
+
 | Metodo | Stato | Descrizione |
 | --- | --- | --- |
-| `tvm.npv` | Disponibile | Valore attuale netto |
-| `tvm.irr` | Disponibile | Tasso interno di rendimento: Newton deterministico con bisezione di riserva |
-| `dcf.fcff` | Anteprima | DCF unlevered, valore terminale di Gordon, fine o metà periodo |
-| Bilancio → FCFF/FCFE, WACC, CAPM | Specificato — [SPEC-0001](specs/0001-dcf-complete/spec.md) | DCF completo per le società non quotate |
-| Metodi patrimoniale, reddituale, misto, EVA, multipli | In programma — M4 | Prassi valutativa europea |
-| DCF immobiliare, capitalizzazione diretta, debito e waterfall | In programma — M6 | Real estate |
+| `dates.year_fraction` | Disponibile | Year fraction (day count) |
+| `rates.convert` | Disponibile | Rate conversion between compounding conventions |
+| `rates.real_nominal` | Disponibile | Real and nominal rates (Fisher) |
+| `tvm.npv` | Disponibile | Net present value |
+| `tvm.present_value` | Disponibile | Present value with a constant or time-varying rate |
+| `tvm.xnpv` | Disponibile | Net present value of dated cash flows (XNPV) |
+| `tvm.irr` | Disponibile | Internal rate of return |
+| `tvm.xirr` | Disponibile | Internal rate of return of dated cash flows (XIRR) |
+| `tvm.mirr` | Disponibile | Modified internal rate of return (MIRR) |
+| `tvm.annuity` | Disponibile | Annuity (level or growing, ordinary or due) |
+| `tvm.perpetuity` | Disponibile | Perpetuity (level or growing) |
+| `coc.cost_of_equity` | Disponibile | Cost of equity (CAPM with explicit premia) |
+| `coc.beta_relever` | Disponibile | Beta unlevering and relevering |
+| `coc.beta_peers` | Disponibile | Beta from comparable companies |
+| `coc.cost_of_debt` | Disponibile | Cost of debt |
+| `coc.wacc` | Disponibile | Weighted average cost of capital (WACC) |
+| `dcf.fcff` | Anteprima | DCF — unlevered free cash flow |
+| `analysis.goal_seek` | Disponibile | Goal seek |
+
+Le prossime funzionalità, con le loro issue e specifiche, sono nella [roadmap](https://salvo8519.github.io/fairmark/project/roadmap/), generata dal piano.
+
+<!-- generated:methods:end -->
 
 ## Architettura
 
@@ -183,13 +201,13 @@ flowchart TB
     PY --> FC["Function calling<br/>Anthropic · OpenAI"]:::agent
     PY --> MCP["Server MCP<br/>locale · stdio"]:::agent
     CLI --> SK["Agent Skills<br/>Claude Code · Codex"]:::agent
-    REG -.-> N8N["Nodo n8n<br/>in programma"]:::planned
-    REG -.-> WASM["Playground WASM<br/>in programma"]:::planned
+    REG -.-> N8N["Nodo n8n<br/>nella roadmap"]:::later
+    REG -.-> WASM["Playground WASM<br/>nella roadmap"]:::later
     classDef core fill:#0B1F3A,stroke:#0B1F3A,color:#FFFFFF
     classDef gold fill:#0B1F3A,stroke:#C8A24A,stroke-width:2px,color:#FFFFFF
     classDef adapter fill:#12325C,stroke:#12325C,color:#FFFFFF
     classDef agent fill:#FFFFFF,stroke:#12325C,color:#0B1F3A
-    classDef planned fill:#F7F8FA,stroke:#94A3B8,color:#475569,stroke-dasharray:4 4
+    classDef later fill:#F7F8FA,stroke:#94A3B8,color:#475569,stroke-dasharray:4 4
 ```
 
 > **Un solo motore, adattatori sottili.** Ogni canale è generato dallo stesso registro e dagli

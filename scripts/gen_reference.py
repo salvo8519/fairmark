@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -99,6 +100,51 @@ def render(lang: str) -> str:
     return "\n".join(lines)
 
 
+ROADMAP_URL = "https://salvo8519.github.io/fairmark/project/roadmap/"
+README = {
+    "en": {
+        "file": "README.md",
+        "head": "| Method | Status | Description |",
+        "status": {"available": "Available", "preview": "Preview"},
+        "next": "What comes next, with its issues and specifications, is in the "
+        f"[roadmap]({ROADMAP_URL}), generated from the plan.",
+    },
+    "it": {
+        "file": "README.it.md",
+        "head": "| Metodo | Stato | Descrizione |",
+        "status": {"available": "Disponibile", "preview": "Anteprima"},
+        "next": "Le prossime funzionalità, con le loro issue e specifiche, sono nella "
+        f"[roadmap]({ROADMAP_URL}), generata dal piano.",
+    },
+}
+README_START = "<!-- generated:methods:start (scripts/gen_reference.py) -->"
+README_END = "<!-- generated:methods:end -->"
+
+
+def statuses() -> dict[str, str]:
+    """Status of each method as declared in the methods index (available, preview)."""
+    index = (ROOT / "docs/en/methods/index.md").read_text(encoding="utf-8")
+    return dict(re.findall(r"^\| \[`([a-z_]+\.[a-z_]+)`\]\([^)]*\) \| ([a-z]+) \|", index, re.M))
+
+
+def readme_block(lang: str) -> str:
+    t = README[lang]
+    status = statuses()
+    rows = [t["head"], "| --- | --- | --- |"]
+    for m in fm.methods():
+        state = t["status"].get(status.get(m["id"], ""), "")
+        rows.append(f"| `{m['id']}` | {state} | {m['title']} |")
+    return "\n".join([README_START, "", *rows, "", t["next"], "", README_END])
+
+
+def readme_with_block(lang: str) -> tuple[Path, str]:
+    path = ROOT / README[lang]["file"]
+    text = path.read_text(encoding="utf-8")
+    head, rest = text.split(README_START, 1)
+    tail = rest.split(README_END, 1)[1]
+    return path, head + readme_block(lang) + tail
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
@@ -113,6 +159,13 @@ def main() -> None:
         else:
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(content)
+    for lang in README:
+        path, content = readme_with_block(lang)
+        if args.check:
+            if path.read_text(encoding="utf-8") != content:
+                stale.append(str(path.relative_to(ROOT)))
+        else:
+            path.write_text(content, encoding="utf-8", newline="\n")
     if stale:
         sys.exit(f"Stale generated reference: {stale}. Run: uv run just generate")
 

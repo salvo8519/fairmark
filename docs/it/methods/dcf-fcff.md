@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: b069f01e8b3b
+source_hash: 21d8ca62a71d
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
@@ -61,8 +61,8 @@ print(r.terminal_value_weight)  # quota dell'EV che deriva dal valore terminale
 | Collocazione temporale dei flussi espliciti | fine periodo, metà periodo | fine periodo |
 | Valore terminale | collocato alla fine dell'anno n e attualizzato in $t = n$, anche con la convenzione di metà periodo | fissa |
 
-La prassi varia sulla collocazione del valore terminale; è previsto un parametro per
-modificarla. `terminal_value_weight` indica la quota dell'EV che deriva dal valore terminale:
+La prassi varia sulla collocazione del valore terminale; le altre collocazioni sono seguite
+nella [roadmap](https://salvo8519.github.io/fairmark/project/roadmap/) (in inglese). `terminal_value_weight` indica la quota dell'EV che deriva dal valore terminale:
 un peso elevato segnala che la valutazione dipende soprattutto dalle ipotesi di lungo periodo.
 
 ## Errori
@@ -88,7 +88,8 @@ entro $10^{-9}$.
 - Casi di riferimento (golden case) in `tests/golden/dcf.fcff/`, da un'implementazione
   decimale indipendente (`scripts/reference_values.py`).
 
-## In programma (M2)
+## Sviluppi
 
-Costruzione dei FCFF dal bilancio d'esercizio, WACC/CAPM con premio dimensionale e rischio
-specifico, valore terminale con multiplo di uscita, griglie di sensitività.
+Il DCF completo (FCFF dal bilancio, modelli a più stadi, altri metodi per il valore
+terminale) e i suoi componenti sono seguiti nella [roadmap](https://salvo8519.github.io/fairmark/project/roadmap/) (in inglese), con le
+loro specifiche.
