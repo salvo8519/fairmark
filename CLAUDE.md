@@ -26,6 +26,7 @@ Delegate instead of doing everything in the main context:
 | `ci-investigator` | Root cause of a red CI run |
 | `release-manager` | Release readiness and verification |
 | `sprint-planner` | Proposing the next sprint (`sprints/SNN.yaml`) with parallel lanes |
+| `translator` | Updating the Italian edition from the English source, with the glossary |
 
 Standard loop: `spec-writer` → (maintainer approves) → `test-engineer` → `core-engineer` →
 `code-reviewer` (+ `numerical-auditor` when numbers changed, + `security-reviewer` when
@@ -33,7 +34,14 @@ dependencies or workflows changed) → `docs-writer` → PR.
 
 ### Skills (`.claude/skills/`, generated from `.agents/skills/`)
 `/spec-new`, `/implement-spec`, `/add-method`, `/golden-case`, `/adr-new`, `/pre-pr`,
-`/fix-ci`, `/release`, `/plan-sprint`, `/run-sprint`.
+`/fix-ci`, `/release`, `/plan-sprint`, `/run-sprint`, `/commit`, `/explain-changes`,
+`/translate`, `/onboarding`.
+
+### Languages
+Write everything that goes into the repository in English. Talk to each person in the
+language they prefer: read `CLAUDE.local.md` if it exists. Prepare commits with `/commit`
+(English message plus a translation for review). After English documentation changes, run
+`/translate` so the Italian edition stays current.
 
 ### Sprints and orchestration
 Subagents cannot start other subagents: the main session is the orchestrator. `/run-sprint`
@@ -58,5 +66,5 @@ to sanity-check numbers while developing instead of computing them yourself.
 
 ### Working style
 - Plan before multi-file changes; keep diffs small and focused on one task.
-- Prefer reading `specs/` and `docs/concepts/` over guessing intent.
+- Prefer reading `specs/` and `docs/en/concepts/` over guessing intent.
 - When a methodology choice is ambiguous, ask the maintainer instead of picking one.

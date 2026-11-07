@@ -1,14 +1,17 @@
 # Documentation site — built with Zensical (https://zensical.org).
-#   pip install -e ".[docs]"   then   zensical serve   (local preview)
-#   zensical build --strict    (what CI runs)
+# English edition (source). The Italian edition is generated: see scripts/docs.py and i18n/.
+#   uv run python scripts/docs.py serve [--lang it]   (local preview)
+#   uv run python scripts/docs.py build               (both sites, strict; what CI runs)
 
 [project]
 site_name = "Fairmark"
 site_description = "Deterministic valuation engine for analysts and AI agents — fair value, hallmarked."
 site_url = "https://salvo8519.github.io/fairmark/"
+docs_dir = "docs/en"
+site_dir = "site"
 repo_url = "https://github.com/salvo8519/fairmark"
 repo_name = "salvo8519/fairmark"
-edit_uri = "edit/main/docs/"
+edit_uri = "edit/main/docs/en/"
 copyright = "Copyright &copy; 2026 The Fairmark Authors"
 # KaTeX is vendored (docs/vendor/katex, MIT): the site loads no third-party CDN.
 extra_css = ["vendor/katex/katex.min.css", "stylesheets/extra.css"]
@@ -112,6 +115,10 @@ toggle.icon = "lucide/moon"
 toggle.name = "Switch to system preference"
 
 [project.extra]
+alternate = [
+  { name = "English", link = "https://salvo8519.github.io/fairmark/", lang = "en" },
+  { name = "Italiano", link = "https://salvo8519.github.io/fairmark/it/", lang = "it" },
+]
 social = [
   { icon = "fontawesome/brands/github", link = "https://github.com/salvo8519/fairmark" },
   { icon = "fontawesome/brands/python", link = "https://pypi.org/project/fairmark/" },

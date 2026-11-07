@@ -31,10 +31,10 @@ repos:
         pass_filenames: false
       - id: generate
         name: regenerate schemas, reference and .claude/ (fails if files changed; re-add them)
-        entry: bash -c 'uv run just generate >/dev/null && git diff --exit-code -- schemas docs/reference .claude'
+        entry: bash -c 'uv run just generate >/dev/null && git diff --exit-code -- schemas docs/en/reference docs/it/reference .claude'
         language: system
         pass_filenames: false
-        files: ^(crates/fairmark-core/src/|schemas/|docs/reference/|\.agents/|\.claude/)
+        files: ^(crates/fairmark-core/src/|schemas/|docs/(en|it)/reference/|\.agents/|\.claude/)
       - id: docs-impact
         name: documentation updated with the code
         entry: python3 scripts/docs_sync.py impact --staged

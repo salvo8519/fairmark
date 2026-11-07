@@ -14,7 +14,7 @@ Check:
 3. **Workflows**: least-privilege `permissions`, no `pull_request_target` with checkout of PR
    code, secrets never echoed, third-party actions from reputable publishers.
 4. **Data handling**: no financial values logged, persisted or sent anywhere; telemetry (if
-   any) respects `docs/project/telemetry.md`.
+   any) respects `docs/en/project/telemetry.md`.
 5. **Inputs**: untrusted JSON cannot cause panics (checked ops, bounded loops, no recursion on
    user data).
 

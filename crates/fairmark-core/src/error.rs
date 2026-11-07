@@ -1,7 +1,7 @@
 //! Typed errors with stable, documented codes.
 //!
 //! Codes never change meaning once released: agents and integrations can
-//! match on them. The catalogue lives in `docs/reference/errors.md`.
+//! match on them. The catalogue lives in `docs/en/reference/errors.md`.
 
 use rust_decimal::Decimal;
 use serde::Serialize;

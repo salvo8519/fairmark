@@ -54,9 +54,18 @@ docs-impact base="origin/main":
 changelog:
     git-cliff --output CHANGELOG.md
 
-# Build the documentation site in strict mode
+# Translation status (English is the source)
+i18n:
+    python scripts/i18n.py status
+
+# Build both documentation sites (English and Italian) in strict mode
 docs: docs-coverage
-    zensical build --strict
+    python scripts/i18n.py check
+    python scripts/docs.py build
+
+# Live preview of one language: just docs-serve it
+docs-serve lang="en":
+    python scripts/docs.py serve --lang {{lang}}
 
 # The full local gate: run before every PR
 check: lint test check-generated docs

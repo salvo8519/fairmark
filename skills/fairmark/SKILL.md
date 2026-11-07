@@ -28,7 +28,7 @@ report its results.
 ## Errors
 
 Errors come back as `{"error": {"code": "FM-E00x", "message": ...}}`. Read the message, fix the
-input (see `docs/reference/errors.md`) and retry. Do not work around an error by computing manually.
+input (see `docs/en/reference/errors.md`) and retry. Do not work around an error by computing manually.
 
 ## Checks before you answer
 

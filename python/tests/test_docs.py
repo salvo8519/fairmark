@@ -10,9 +10,14 @@ import pytest
 
 DOCS = Path(__file__).resolve().parents[2] / "docs"
 PAGES = [
-    DOCS / "index.md",
-    DOCS / "getting-started" / "quickstart.md",
-    *sorted((DOCS / "methods").glob("*.md")),
+    page
+    for lang in ("en", "it")
+    for page in [
+        DOCS / lang / "index.md",
+        DOCS / lang / "getting-started" / "quickstart.md",
+        *sorted((DOCS / lang / "methods").glob("*.md")),
+    ]
+    if page.exists()
 ]
 FENCE = re.compile(r"```python\n(.*?)```", re.DOTALL)
 

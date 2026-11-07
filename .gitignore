@@ -8,3 +8,17 @@ dist/
 .mypy_cache/
 .ruff_cache/
 site/
+
+# Shared docs assets are copied into each language at build time (scripts/docs.py)
+/docs/en/assets/
+/docs/en/stylesheets/
+/docs/en/javascripts/
+/docs/en/vendor/
+/docs/it/assets/
+/docs/it/stylesheets/
+/docs/it/javascripts/
+/docs/it/vendor/
+/zensical.it.toml
+
+# Personal Claude Code preferences
+CLAUDE.local.md

@@ -1,0 +1,29 @@
+# Italian edition of the documentation. English (docs/en) is the source of truth;
+# docs/it holds tracked translations (see scripts/i18n.py).
+language: it
+name: Italiano
+site_description: "Motore di valutazione deterministico per analisti e agenti AI."
+sections:
+  Home: Home
+  Getting started: Per iniziare
+  Guides: Guide
+  Methods: Metodi
+  Concepts: Concetti
+  Reference: Riferimenti
+  Project: Progetto
+  Decisions (ADR): Decisioni (ADR)
+# Pages that must exist in Italian (glob patterns relative to docs/en)
+required:
+  - index.md
+  - getting-started/*.md
+  - guides/*.md
+  - methods/*.md
+  - concepts/*.md
+  - reference/*.md
+# Pages kept in English only: the Italian site links to the English version
+english_only:
+  - project/*.md
+  - project/adr/*.md
+# Generated in both languages by scripts/gen_reference.py: not tracked as translations
+generated:
+  - reference/methods.md

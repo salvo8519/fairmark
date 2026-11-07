@@ -1,0 +1,36 @@
+# Terminology for the Italian edition. Translators (human or agent) must use these terms.
+# Where Italian practice keeps the English term, the English term is used, optionally with
+# the Italian explanation at first use.
+terms:
+  valuation: valutazione
+  enterprise value: enterprise value (valore del capitale operativo)
+  equity value: equity value (valore del capitale proprio)
+  free cash flow to the firm (FCFF): flusso di cassa operativo disponibile (FCFF)
+  free cash flow to equity (FCFE): flusso di cassa disponibile per gli azionisti (FCFE)
+  discount rate: tasso di attualizzazione
+  discount factor: fattore di sconto
+  present value: valore attuale
+  net present value (NPV): valore attuale netto (VAN, NPV)
+  internal rate of return (IRR): tasso interno di rendimento (TIR, IRR)
+  terminal value: valore terminale
+  terminal growth: tasso di crescita di lungo periodo
+  net debt: posizione finanziaria netta (PFN)
+  non-operating assets: attività non operative (surplus asset)
+  cost of capital: costo del capitale
+  weighted average cost of capital (WACC): costo medio ponderato del capitale (WACC)
+  end of period: fine periodo
+  mid period: metà periodo
+  golden case: caso di riferimento (golden case)
+  audit trail: tracciabilità del calcolo (audit trail)
+  convention: convenzione
+  financial statements: bilancio d'esercizio
+  business plan: business plan
+  spec: specifica
+keep_in_english:
+  - Fairmark
+  - explain
+  - input hash
+  - MCP
+  - function calling
+  - CLI
+  - pull request

@@ -20,7 +20,8 @@ changing anything: its principles override convenience.
 | `tests/golden/` | Golden cases shared by Rust and Python. Human-reviewed. |
 | `schemas/` | Committed JSON Schema snapshots of every method input (the "migrations"). |
 | `specs/` | Spec-driven development: constitution, templates, one folder per feature. |
-| `docs/` | Documentation site (Zensical). `docs/reference/methods.md` is generated. |
+| `docs/` | Documentation: `en/` (source), `it/` (translation), `_shared/` (assets). References are generated. |
+| `i18n/` | Language editions configuration and the translation glossary. |
 | `roadmap/roadmap.yaml` | Milestones → epics → tasks, mirrored to GitHub issues. |
 | `.agents/` | Canonical agent roles (`agents/`) and skills (`skills/`). `.claude/` is generated from it. |
 | `sprints/` | Sprint plans (`SNN.yaml`) used by the orchestrator. |
@@ -41,7 +42,7 @@ changing anything: its principles override convenience.
 - Every calculation step that produces a number the user sees goes into `Explain`; every
   convention that changes a number goes into `explain.conventions`.
 - Errors: add a variant to `FairmarkError` with the next free stable code, document it in
-  `docs/reference/errors.md`. Never reuse or renumber codes.
+  `docs/en/reference/errors.md`. Never reuse or renumber codes.
 - **Never modify expected values of an existing golden case.** If a result must change it is
   a `numerical-change`: stop and ask the maintainer. New golden cases need an independent
   source noted in the file.
@@ -56,18 +57,31 @@ changing anything: its principles override convenience.
   (× − Σ → · ≤ ≥ €) are fine. `scripts/check_style.py` fails the build otherwise.
 - Corporate, precise English: short sentences, explicit units, no marketing superlatives,
   no exclamation marks.
-- Diagrams use the brand palette (`docs/project/brand.md`) and plain text labels.
+- Diagrams use the brand palette (`docs/en/project/brand.md`) and plain text labels.
+
+## Languages
+- **Repository language: English.** Code, comments, commit messages, PR and issue text, specs,
+  ADRs and the source documentation (`docs/en/`, `README.md`) are written in English.
+- **Conversation language: the contributor's choice.** Personal preferences go in
+  `CLAUDE.local.md` (not committed; see `CLAUDE.local.md.example`). The `commit` skill shows the
+  English message with a translation for review; `explain-changes` explains changes in any
+  language; `onboarding` guides newcomers in their language.
+- **Documentation editions: English (source) and Italian.** Translations live in `docs/it/`
+  and `README.it.md`, each tracking the hash of its English source. `scripts/i18n.py check`
+  fails when a required translation is stale or missing; the `translate` skill and the
+  `translator` agent fix it, using `i18n/glossary.yaml`. New languages are added only by the
+  maintainers.
 
 ## Agents and skills
 Roles and workflows live in `.agents/` (see `.agents/README.md`): `architect`, `spec-writer`,
 `test-engineer`, `core-engineer`, `docs-writer`, `code-reviewer`, `numerical-auditor`,
-`security-reviewer`, `ci-investigator`, `release-manager`, `sprint-planner`; skills `spec-new`,
-`implement-spec`, `add-method`, `golden-case`, `adr-new`, `pre-pr`, `fix-ci`, `release`,
-`plan-sprint`, `run-sprint`. Sprints: see `sprints/README.md`.
+`security-reviewer`, `ci-investigator`, `release-manager`, `sprint-planner`, `translator`; skills
+`spec-new`, `implement-spec`, `add-method`, `golden-case`, `adr-new`, `pre-pr`, `fix-ci`,
+`release`, `plan-sprint`, `run-sprint`, `commit`, `explain-changes`, `translate`, `onboarding`. Sprints: see `sprints/README.md`.
 Edit them in `.agents/` only; `uv run just generate` mirrors them to `.claude/`.
 
 ## Documentation stays in sync automatically
-- Generated, never hand-edited: `schemas/`, `docs/reference/methods.md`, the Python API
+- Generated, never hand-edited: `schemas/`, `docs/en/reference/methods.md`, the Python API
   reference (docstrings), `.claude/` and `CHANGELOG.md` (git-cliff, from Conventional Commits).
 - `scripts/docs_sync.py coverage`: every method has a methodology page, nav entry, index row,
   golden cases and a Python helper.
@@ -89,15 +103,17 @@ Install [`uv`](https://docs.astral.sh/uv/) and Rust stable. `just` is installed 
 | Rust tests incl. golden | `cargo test --workspace` |
 | Python tests incl. golden and docs snippets | `uv run pytest` |
 | Regenerate schemas, methods reference, `.claude/` | `uv run just generate` |
-| Docs preview | `uv run zensical serve` |
+| Translation status | `uv run just i18n` |
+| Build both documentation sites | `uv run just docs` |
+| Docs preview (English or Italian) | `uv run just docs-serve` / `uv run just docs-serve it` |
 
 ## Adding a method (checklist)
 1. Spec approved → golden cases from an independent source in `tests/golden/<method>/`.
 2. `crates/fairmark-core/src/<area>.rs`: input/output types + function returning
    `Result<(Output, Explain)>`.
 3. Register in `registry.rs` (`METHODS`, `input_schema`, `run`).
-4. `uv run just generate` → updates `schemas/` and `docs/reference/methods.md`.
-5. Python helper in `python/fairmark/<area>.py`; methodology page in `docs/methods/`.
+4. `uv run just generate` → updates `schemas/` and `docs/en/reference/methods.md`.
+5. Python helper in `python/fairmark/<area>.py`; methodology page in `docs/en/methods/`.
 6. Conventional Commit messages (the CHANGELOG is generated by git-cliff). `uv run just check`.
 
 ## Review standards (what reviewers and CI check)

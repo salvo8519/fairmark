@@ -17,6 +17,6 @@ description: End-to-end checklist for adding a valuation method to the Fairmark 
    `input_schema` and `run`.
 5. `uv run just generate` (schemas + methods reference).
 6. Python: thin helper in `python/fairmark/<area>.py`, exported in `__init__.py`.
-7. Docs: `docs/methods/<id>.md` (via `docs-writer`), nav entry in `zensical.toml`,
-   row in `docs/methods/index.md`; `python scripts/docs_sync.py coverage` must pass.
+7. Docs: `docs/en/methods/<id>.md` (via `docs-writer`), nav entry in `zensical.toml`,
+   row in `docs/en/methods/index.md`; `python scripts/docs_sync.py coverage` must pass.
 8. `uv run just check`, then `code-reviewer` and `numerical-auditor`.

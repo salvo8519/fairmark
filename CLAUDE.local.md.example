@@ -1,0 +1,10 @@
+# CLAUDE.local.md — personal preferences (copy to CLAUDE.local.md; never committed)
+
+## Lingua
+- Conversa con me in italiano.
+- Commit, codice, commenti, issue, PR e documentazione sorgente restano in inglese (regola del
+  progetto).
+- Quando prepari un commit (skill `commit`), mostrami il messaggio in inglese e la sua
+  traduzione italiana, e attendi la mia approvazione.
+- Per spiegarmi modifiche, commit o PR usa la skill `explain-changes` in italiano.
+- Review language: Italian.

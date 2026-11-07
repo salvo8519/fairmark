@@ -25,11 +25,12 @@ specifics, imports `AGENTS.md`).
 | `ci-investigator` | Root cause of red CI runs | No |
 | `release-manager` | Release readiness, versioning, verification | Release files |
 | `sprint-planner` | Next sprint: issues, lanes, `sprints/SNN.yaml` | Sprint files |
+| `translator` | Maintained translations of docs and README, with the glossary | Translations |
 
 ## Skills
 
 `spec-new`, `implement-spec`, `add-method`, `golden-case`, `adr-new`, `pre-pr`, `fix-ci`,
-`release`, `plan-sprint`, `run-sprint`.
+`release`, `plan-sprint`, `run-sprint`, `commit`, `explain-changes`, `translate`, `onboarding`.
 
 Orchestration: the main session runs `/run-sprint` and delegates to the roles above, because
 subagents cannot start other subagents.

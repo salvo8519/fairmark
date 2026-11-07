@@ -17,7 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SUFFIXES = {".md", ".py", ".rs", ".toml", ".yml", ".yaml", ".json", ".html", ".css", ".js"}
-EXCLUDE = ("docs/vendor/", "uv.lock", "Cargo.lock", "schemas/")
+EXCLUDE = ("docs/_shared/vendor/", "uv.lock", "Cargo.lock", "schemas/")
 
 FORBIDDEN = re.compile(
     "["

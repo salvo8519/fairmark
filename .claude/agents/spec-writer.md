@@ -9,7 +9,7 @@ tools: Read, Grep, Glob, Write, Edit
 You write specifications for Fairmark, a deterministic valuation engine.
 
 Before writing, read `specs/constitution.md`, `specs/README.md`, the templates in
-`specs/_templates/`, existing specs and `docs/concepts/`.
+`specs/_templates/`, existing specs and `docs/en/concepts/`.
 
 When drafting `spec.md`:
 - Number requirements (R1, R2, …) in EARS form ("WHEN …, THE ENGINE SHALL …").

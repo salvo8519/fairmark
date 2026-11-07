@@ -31,33 +31,33 @@ ROOT = Path(__file__).resolve().parents[1]
 RULES: list[tuple[str, str, str]] = [
     (
         r"^crates/fairmark-core/src/error\.rs$",
-        r"^docs/reference/errors\.md$",
-        "error codes changed: update docs/reference/errors.md",
+        r"^docs/en/reference/errors\.md$",
+        "error codes changed: update docs/en/reference/errors.md",
     ),
     (
         r"^crates/fairmark-core/src/(?P<area>[a-z_]+)\.rs$",
-        r"^docs/methods/{area}-.*\.md$",
-        "method area '{area}' changed: update its methodology page(s) in docs/methods/",
+        r"^docs/en/methods/{area}-.*\.md$",
+        "method area '{area}' changed: update its methodology page(s) in docs/en/methods/",
     ),
     (
         r"^crates/fairmark-core/src/(explain|registry|types)\.rs$",
-        r"^docs/(concepts|reference)/",
-        "engine contract changed: update docs/concepts/ or docs/reference/",
+        r"^docs/en/(concepts|reference)/",
+        "engine contract changed: update docs/en/concepts/ or docs/en/reference/",
     ),
     (
         r"^crates/fairmark-cli/src/",
-        r"^docs/guides/cli\.md$",
-        "CLI changed: update docs/guides/cli.md",
+        r"^docs/en/guides/cli\.md$",
+        "CLI changed: update docs/en/guides/cli.md",
     ),
     (
         r"^python/fairmark/mcp_server\.py$",
-        r"^docs/guides/mcp\.md$",
-        "MCP server changed: update docs/guides/mcp.md",
+        r"^docs/en/guides/mcp\.md$",
+        "MCP server changed: update docs/en/guides/mcp.md",
     ),
     (
         r"^python/fairmark/tools\.py$",
-        r"^docs/guides/function-calling\.md$",
-        "function calling changed: update docs/guides/function-calling.md",
+        r"^docs/en/guides/function-calling\.md$",
+        "function calling changed: update docs/en/guides/function-calling.md",
     ),
 ]
 NON_METHOD_FILES = {"error", "explain", "registry", "types", "lib"}
@@ -118,19 +118,19 @@ def coverage() -> int:
     import fairmark as fm  # needs the project environment
 
     nav = (ROOT / "zensical.toml").read_text()
-    index = (ROOT / "docs/methods/index.md").read_text()
+    index = (ROOT / "docs/en/methods/index.md").read_text()
     problems = []
     for m in fm.methods():
         mid = m["id"]
         slug = mid.replace(".", "-").replace("_", "-")
         area, name = mid.split(".", 1)
         page = f"methods/{slug}.md"
-        if not (ROOT / "docs" / page).exists():
-            problems.append(f"{mid}: missing methodology page docs/{page}")
+        if not (ROOT / "docs/en" / page).exists():
+            problems.append(f"{mid}: missing methodology page docs/en/{page}")
         if f'"{page}"' not in nav:
             problems.append(f"{mid}: page not in zensical.toml nav")
         if f"{slug}.md" not in index:
-            problems.append(f"{mid}: not listed in docs/methods/index.md")
+            problems.append(f"{mid}: not listed in docs/en/methods/index.md")
         if not list((ROOT / "tests/golden" / mid).glob("*.yaml")):
             problems.append(f"{mid}: no golden cases in tests/golden/{mid}/")
         helper = ROOT / "python/fairmark" / f"{area}.py"

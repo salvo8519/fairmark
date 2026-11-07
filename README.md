@@ -2,10 +2,12 @@
 
 <a href="https://salvo8519.github.io/fairmark/">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/banner-dark.svg">
-    <img alt="Fairmark — Fair value, hallmarked." src="docs/assets/brand/banner-light.svg" width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/_shared/assets/brand/banner-dark.svg">
+    <img alt="Fairmark — Fair value, hallmarked." src="docs/_shared/assets/brand/banner-light.svg" width="100%">
   </picture>
 </a>
+
+**English** · [Italiano](README.it.md)
 
 <h3>The deterministic valuation engine for analysts and AI agents.</h3>
 
@@ -185,7 +187,7 @@ flowchart TB
 
 > **One engine, thin adapters.** Every channel is generated from the same registry and
 > schemas: a method added to the core is immediately available to Python, the CLI, MCP and
-> every LLM. Details in [docs/concepts/architecture.md](docs/concepts/architecture.md).
+> every LLM. Details in [docs/en/concepts/architecture.md](docs/en/concepts/architecture.md).
 
 ## The determinism contract
 
@@ -196,7 +198,7 @@ flowchart TB
 5. Any change to a golden result is a reviewed, versioned `numerical-change`.
 
 Golden cases in [`tests/golden`](tests/golden) run against both Rust and Python on every
-commit. Read the full [contract](docs/concepts/determinism.md) and the project's
+commit. Read the full [contract](docs/en/concepts/determinism.md) and the project's
 [constitution](specs/constitution.md).
 
 ## Built in the open, spec-first

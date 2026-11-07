@@ -7,7 +7,7 @@ professionals are equally welcome.
 
 - **Golden cases.** A worked example with inputs, expected outputs and its source is one of the
   most valuable contributions. Use the *Numerical discrepancy* or *Method request* issue forms.
-- **Methods.** Implement a method from the roadmap (see `docs/concepts/architecture.md#adding-a-method`).
+- **Methods.** Implement a method from the roadmap (see `docs/en/concepts/architecture.md#adding-a-method`).
 - **Docs and translations.** Methodology pages, examples, translations.
 
 ## Development setup
@@ -34,9 +34,17 @@ uv run zensical serve                    # live preview at http://localhost:8000
 Before opening a PR: `cargo fmt --all`, `cargo clippy --workspace -- -D warnings`,
 `uv run ruff check python && uv run ruff format python`, `uv run mypy`.
 
+## Languages
+
+Code, commits, issues, pull requests, specs and the source documentation are in **English**.
+The documentation also has an **Italian** edition (`docs/it/`, `README.it.md`): when you change
+an English page, update its translation or label the PR `translation-pending`, and a
+maintainer or the `translator` agent will do it. Use the terms in `i18n/glossary.yaml`.
+Proposals for new documentation languages are welcome as a Discussion first.
+
 ## Rules
 
-1. Every PR touching a method includes golden cases and updates its page in `docs/methods/`.
+1. Every PR touching a method includes golden cases and updates its page in `docs/en/methods/`.
 2. Any change in a golden result needs the `numerical-change` label, a `method_version` bump and
    the commit trailer `Numerical-change: <method> v<N> -> v<N+1>` (the CHANGELOG is generated
    from commits). Maintainers of `crates/fairmark-core` must approve.

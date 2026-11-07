@@ -18,7 +18,7 @@ Check, in this order:
    edge cases (empty series, zero/negative rates, g ≥ r).
 4. **Explain**: every user-visible number has a step with substituted values; conventions listed.
 5. **Schemas**: `deny_unknown_fields`, a unit-explicit doc comment on every field; `schemas/`
-   and `docs/reference/methods.md` regenerated; breaking changes flagged.
+   and `docs/en/reference/methods.md` regenerated; breaking changes flagged.
 6. **Golden cases**: no existing expected value changed; new cases cite an independent source.
 7. **Quality**: names, small functions, no dead code, docs updated (`docs_sync.py` green),
    Conventional Commit messages, `Numerical-change:` trailer when results changed.

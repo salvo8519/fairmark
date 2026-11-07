@@ -36,7 +36,7 @@ roadmap/            roadmap.yaml → GitHub milestones, epics and tasks
 2. Register it in `registry.rs` (`METHODS`, `input_schema`, `run`).
 3. Add golden cases in `tests/golden/<method>/` from an independent source.
 4. Add a thin Python helper in `python/fairmark/<area>.py`.
-5. Write the methodology page in `docs/methods/`.
+5. Write the methodology page in `docs/en/methods/`.
 
 Function-calling tools, MCP tools and CLI support come for free.
 

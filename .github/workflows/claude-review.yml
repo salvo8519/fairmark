@@ -39,7 +39,7 @@ jobs:
             PR NUMBER: ${{ github.event.pull_request.number }}
 
             Review this pull request following .agents/agents/code-reviewer.md exactly.
-            If files under crates/fairmark-core/src/, tests/golden/ or docs/methods/ changed,
+            If files under crates/fairmark-core/src/, tests/golden/ or docs/en/methods/ changed,
             also apply .agents/agents/numerical-auditor.md (recompute with Python decimal).
             Check traceability to the spec cited in the PR title (specs/).
             Post inline comments for specific lines and one summary comment with

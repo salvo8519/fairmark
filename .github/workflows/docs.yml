@@ -20,10 +20,14 @@ jobs:
         with:
           python-version: "3.13"
           enable-cache: true
-      - run: uv sync --locked --group docs
+      - run: uv sync --locked --all-extras --all-groups
       - run: uv run python scripts/gen_reference.py --check
       - run: uv run pytest python/tests/test_docs.py
-      - run: uv run zensical build --clean --strict
+      - name: Translations current (or labelled translation-pending)
+        if: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'translation-pending') }}
+        run: uv run python scripts/i18n.py check
+      - name: Build English and Italian sites
+        run: uv run python scripts/docs.py build
       - if: github.event_name == 'push'
         uses: actions/upload-pages-artifact@v5
         with:
