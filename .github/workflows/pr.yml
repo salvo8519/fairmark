@@ -2,7 +2,9 @@ name: PR hygiene
 
 # Naming and traceability rules from docs/en/project/conventions.md, enforced by
 # scripts/conventions.py (the same code as the local commit-msg hook), plus area labels.
-on:
+# pull_request_target runs with the base repository's token, so no code from the pull request
+# is ever checked out or run here: only the base branch (see the checkout below).
+on:  # zizmor: ignore[dangerous-triggers] base branch only, read-only contents
   pull_request_target:
     types: [opened, edited, synchronize, reopened, labeled, unlabeled]
 
@@ -15,11 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Only the base branch is checked out: no code from the pull request is executed.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with: { python-version: "3.12" }
       - run: python scripts/conventions.py pr
 
@@ -30,6 +32,6 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/labeler@v7
+      - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7
         with:
           sync-labels: false

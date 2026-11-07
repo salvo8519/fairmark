@@ -20,11 +20,14 @@ jobs:
     name: Rust · fmt, clippy, tests, golden
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
@@ -33,34 +36,47 @@ jobs:
     name: Rust · MSRV 1.88
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.88
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@360a4e93673de6630fac2478bc9e35244b01a759 # 1.88
+        with:
+          toolchain: "1.88"
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       - run: cargo check --workspace
 
   coverage:
     name: Rust · coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
           components: llvm-tools-preview
-      - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2
+        with:
+          tool: cargo-llvm-cov
       - run: cargo llvm-cov -p fairmark-core --summary-only | tee coverage.txt
       - run: |
-          echo '### Rust core coverage' >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          tail -n 3 coverage.txt >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo '### Rust core coverage'
+            echo '```'
+            tail -n 3 coverage.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   deny:
     name: Dependencies · licenses, bans, advisories
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2
 
   python:
     name: Python ${{ matrix.python }} · ${{ matrix.os }}
@@ -71,24 +87,53 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python: ["3.10", "3.13"]
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true
       - run: uv sync --locked --all-extras --group oracles
       - run: uv run pytest
 
+  workflows:
+    name: Quality · workflows, YAML, unused dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: "0.11.32"
+      # Security audit of the workflows: injections, permissions, credentials, pins.
+      - run: uvx zizmor@1.32.0 --offline --min-severity low .github/workflows
+      # Workflow syntax, runner labels and shell scripts (shellcheck is on the runner).
+      - run: uvx --from actionlint-py@1.7.12.25 actionlint
+      - run: python3 scripts/pin_actions.py --check
+      - run: uv run --frozen --only-group dev python scripts/check_yaml.py
+      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2
+        with:
+          tool: cargo-machete
+      - run: cargo machete
+
   quality:
     name: Quality · lint, types, typos, generated files
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: astral-sh/setup-uv@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           python-version: "3.13"
           enable-cache: true
@@ -119,28 +164,31 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          persist-credentials: false
           fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: astral-sh/setup-uv@v7
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           python-version: "3.13"
           enable-cache: true
       - run: uv sync --locked --all-extras --all-groups
       - name: Golden cases unchanged (or labelled numerical-change)
         run: |
-          uv run python scripts/check_golden_changes.py --base origin/${{ github.base_ref }} \
+          uv run python scripts/check_golden_changes.py --base "origin/$GITHUB_BASE_REF" \
             ${{ contains(github.event.pull_request.labels.*.name, 'numerical-change') && '--allowed' || '' }}
       - name: Documentation updated with the code (or labelled no-docs-needed)
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-docs-needed') }}
-        run: python3 scripts/docs_sync.py impact --base origin/${{ github.base_ref }}
+        run: python3 scripts/docs_sync.py impact --base "origin/$GITHUB_BASE_REF"
       - name: Release note fragment for user-facing changes (or labelled no-release-note)
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-release-note') }}
         run: |
-          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -qE '^(crates/[^/]+/src/|python/fairmark/)'; then
-            uv run towncrier check --compare-with origin/${{ github.base_ref }}
+          if git diff --name-only "origin/$GITHUB_BASE_REF...HEAD" | grep -qE '^(crates/[^/]+/src/|python/fairmark/)'; then
+            uv run towncrier check --compare-with "origin/$GITHUB_BASE_REF"
           else
             echo "No user-facing source changes."
           fi
@@ -149,7 +197,7 @@ jobs:
           # Exit 3: breaking change to an existing schema version (bump the method version).
           # Exit 4: history rewritten (earlier version, index entry or current version altered).
           # There is no override label: a breaking change always means a new method version.
-          git worktree add /tmp/base origin/${{ github.base_ref }}
+          git worktree add /tmp/base "origin/$GITHUB_BASE_REF"
           if [ -d /tmp/base/schemas ]; then
             uv run python scripts/schema_snapshots.py --diff-against /tmp/base/schemas
           fi

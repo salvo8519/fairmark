@@ -7,6 +7,8 @@ on:
   pull_request:
     types: [labeled]
 
+permissions: {}
+
 jobs:
   docs:
     if: github.event.label.name == 'docs-sync' && github.event.pull_request.head.repo.full_name == github.repository
@@ -17,16 +19,21 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          # The action replaces checkout credentials with its own token before it pushes;
+          # none stays on disk while the project builds from the pull request branch.
+          persist-credentials: false
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: astral-sh/setup-uv@v7
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           python-version: "3.13"
       - run: uv sync --locked --all-extras --all-groups
-      - uses: anthropics/claude-code-action@v1
+      - uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe # v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
