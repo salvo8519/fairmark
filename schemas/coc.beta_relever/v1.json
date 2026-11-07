@@ -31,6 +31,7 @@
       ]
     }
   },
+  "$id": "urn:fairmark:schema:coc.beta_relever:v1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Input of `coc.beta_relever`.",
@@ -85,5 +86,7 @@
     "formula"
   ],
   "title": "BetaReleverInput",
-  "type": "object"
+  "type": "object",
+  "x-fairmark-method": "coc.beta_relever",
+  "x-fairmark-method-version": "1"
 }

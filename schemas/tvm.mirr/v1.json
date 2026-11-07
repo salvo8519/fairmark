@@ -1,4 +1,5 @@
 {
+  "$id": "urn:fairmark:schema:tvm.mirr:v1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Input of `tvm.mirr`.",
@@ -37,5 +38,7 @@
     "reinvest_rate"
   ],
   "title": "MirrInput",
-  "type": "object"
+  "type": "object",
+  "x-fairmark-method": "tvm.mirr",
+  "x-fairmark-method-version": "1"
 }

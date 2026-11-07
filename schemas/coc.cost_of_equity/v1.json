@@ -66,6 +66,7 @@
       "type": "object"
     }
   },
+  "$id": "urn:fairmark:schema:coc.cost_of_equity:v1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Input of `coc.cost_of_equity`.",
@@ -155,5 +156,7 @@
     "equity_risk_premium"
   ],
   "title": "CostOfEquityInput",
-  "type": "object"
+  "type": "object",
+  "x-fairmark-method": "coc.cost_of_equity",
+  "x-fairmark-method-version": "1"
 }

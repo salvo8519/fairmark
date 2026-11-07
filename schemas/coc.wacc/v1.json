@@ -1,4 +1,5 @@
 {
+  "$id": "urn:fairmark:schema:coc.wacc:v1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Input of `coc.wacc`.",
@@ -52,5 +53,7 @@
     "tax_rate"
   ],
   "title": "WaccInput",
-  "type": "object"
+  "type": "object",
+  "x-fairmark-method": "coc.wacc",
+  "x-fairmark-method-version": "1"
 }

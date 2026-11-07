@@ -1,4 +1,5 @@
 {
+  "$id": "urn:fairmark:schema:tvm.npv:v2",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Input of `tvm.npv`.",
@@ -28,5 +29,7 @@
     "cash_flows"
   ],
   "title": "NpvInput",
-  "type": "object"
+  "type": "object",
+  "x-fairmark-method": "tvm.npv",
+  "x-fairmark-method-version": "2"
 }

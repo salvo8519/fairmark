@@ -37,6 +37,7 @@
       ]
     }
   },
+  "$id": "urn:fairmark:schema:dates.year_fraction:v1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Input of `dates.year_fraction`.",
@@ -60,5 +61,7 @@
     "day_count"
   ],
   "title": "YearFractionInput",
-  "type": "object"
+  "type": "object",
+  "x-fairmark-method": "dates.year_fraction",
+  "x-fairmark-method-version": "1"
 }

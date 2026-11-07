@@ -16,6 +16,7 @@
       ]
     }
   },
+  "$id": "urn:fairmark:schema:rates.real_nominal:v1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Input of `rates.real_nominal`.",
@@ -47,5 +48,7 @@
     "direction"
   ],
   "title": "RealNominalInput",
-  "type": "object"
+  "type": "object",
+  "x-fairmark-method": "rates.real_nominal",
+  "x-fairmark-method-version": "1"
 }

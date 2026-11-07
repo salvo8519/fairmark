@@ -90,12 +90,13 @@
       ]
     }
   },
+  "$id": "urn:fairmark:schema:tvm.xnpv:v1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Input of `tvm.xirr`.",
+  "description": "Input of `tvm.xnpv`.",
   "properties": {
     "cash_flows": {
-      "description": "Dated cash flows, in any order; at least one positive and one negative amount.",
+      "description": "Dated cash flows, in any order.",
       "items": {
         "$ref": "#/$defs/DatedCashFlow"
       },
@@ -110,7 +111,7 @@
           "type": "null"
         }
       ],
-      "description": "Compounding of the returned rate. Default: `annual` (ECMA-376 XIRR)."
+      "description": "Compounding of `rate`. Default: `annual` (ECMA-376 XNPV)."
     },
     "day_count": {
       "anyOf": [
@@ -121,21 +122,34 @@
           "type": "null"
         }
       ],
-      "description": "Day count for the time between dates. Default: `act_365_fixed` (ECMA-376 XIRR)."
+      "description": "Day count for the time between dates. Default: `act_365_fixed` (ECMA-376 XNPV)."
     },
-    "guess": {
-      "description": "Starting point for Newton's method, annual decimal fraction. Default: 0.10 (ECMA-376 XIRR).",
+    "rate": {
+      "description": "Annual discount rate, decimal fraction (0.09 = 9%), quoted with `compounding`.",
       "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
       "type": [
         "string",
-        "number",
-        "null"
+        "number"
       ]
+    },
+    "valuation_date": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Date"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Date at which the value is computed. Default: the earliest flow date (ECMA-376 XNPV)."
     }
   },
   "required": [
+    "rate",
     "cash_flows"
   ],
-  "title": "XirrInput",
-  "type": "object"
+  "title": "XnpvInput",
+  "type": "object",
+  "x-fairmark-method": "tvm.xnpv",
+  "x-fairmark-method-version": "1"
 }

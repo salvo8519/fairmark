@@ -21,6 +21,7 @@
       ]
     }
   },
+  "$id": "urn:fairmark:schema:tvm.present_value:v1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Input of `tvm.present_value`.",
@@ -69,5 +70,7 @@
     "timing"
   ],
   "title": "PresentValueInput",
-  "type": "object"
+  "type": "object",
+  "x-fairmark-method": "tvm.present_value",
+  "x-fairmark-method-version": "1"
 }

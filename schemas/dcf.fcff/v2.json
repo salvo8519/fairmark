@@ -16,6 +16,7 @@
       ]
     }
   },
+  "$id": "urn:fairmark:schema:dcf.fcff:v2",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Input of `dcf.fcff`.",
@@ -77,5 +78,7 @@
     "terminal_growth"
   ],
   "title": "DcfFcffInput",
-  "type": "object"
+  "type": "object",
+  "x-fairmark-method": "dcf.fcff",
+  "x-fairmark-method-version": "2"
 }

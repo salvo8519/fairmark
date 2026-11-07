@@ -72,6 +72,7 @@
       ]
     }
   },
+  "$id": "urn:fairmark:schema:coc.beta_peers:v1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Input of `coc.beta_peers`.",
@@ -125,5 +126,7 @@
     "target_tax_rate"
   ],
   "title": "BetaPeersInput",
-  "type": "object"
+  "type": "object",
+  "x-fairmark-method": "coc.beta_peers",
+  "x-fairmark-method-version": "1"
 }

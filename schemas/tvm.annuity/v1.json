@@ -16,12 +16,13 @@
       ]
     }
   },
+  "$id": "urn:fairmark:schema:tvm.annuity:v1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Input of `tvm.perpetuity`.",
+  "description": "Input of `tvm.annuity`.",
   "properties": {
     "growth": {
-      "description": "Growth of the payment per period, decimal fraction, greater than -1. Default: 0 (level\nperpetuity).",
+      "description": "Growth of the payment per period, decimal fraction. Default: 0 (level annuity).",
       "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
       "type": [
         "string",
@@ -37,8 +38,14 @@
         "number"
       ]
     },
+    "periods": {
+      "description": "Number of payments, from 1 to 10000.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
     "rate": {
-      "description": "Discount rate per period, decimal fraction; must exceed `growth`.",
+      "description": "Discount rate per period, decimal fraction.",
       "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
       "type": [
         "string",
@@ -47,14 +54,17 @@
     },
     "timing": {
       "$ref": "#/$defs/AnnuityTiming",
-      "description": "`ordinary` (first payment at t = 1) or `due` (first payment at t = 0)."
+      "description": "`ordinary` (end of period) or `due` (beginning of period)."
     }
   },
   "required": [
     "payment",
     "rate",
+    "periods",
     "timing"
   ],
-  "title": "PerpetuityInput",
-  "type": "object"
+  "title": "AnnuityInput",
+  "type": "object",
+  "x-fairmark-method": "tvm.annuity",
+  "x-fairmark-method-version": "1"
 }

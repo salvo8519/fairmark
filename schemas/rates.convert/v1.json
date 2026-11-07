@@ -31,6 +31,7 @@
       ]
     }
   },
+  "$id": "urn:fairmark:schema:rates.convert:v1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Input of `rates.convert`.",
@@ -58,5 +59,7 @@
     "to"
   ],
   "title": "ConvertInput",
-  "type": "object"
+  "type": "object",
+  "x-fairmark-method": "rates.convert",
+  "x-fairmark-method-version": "1"
 }
