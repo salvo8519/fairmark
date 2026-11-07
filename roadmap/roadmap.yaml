@@ -56,6 +56,7 @@ milestones:
           - { issue: 111, title: "Commit scopes for every engine theme", status: done }
           - { issue: 113, title: "Roadmap as code: checked offline, synchronised with GitHub", status: done }
           - { issue: 119, title: "A pull request marks the task it closes as done in the roadmap", status: done }
+          - { issue: 123, title: "Roadmap updates proposed from the maintainer's requests", status: done }
       - title: "CI/CD"
         issue: 10
         labels: ["area:infra"]

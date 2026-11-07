@@ -14,7 +14,7 @@ generated from `roadmap/roadmap.yaml`, and a scheduled job reports any differenc
 
 | Milestone | Gate | Done | Open |
 | --- | --- | --- | --- |
-| M0 · Foundations | A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows. | 11 | 3 |
+| M0 · Foundations | A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows. | 12 | 3 |
 | M1 · Numerical core | Golden harness green; NPV and IRR validated; property tests running. | 10 | 3 |
 | M2 · Complete DCF | DCF passes every golden case provided by practitioners. | 7 | 10 |
 | M3 · Agent layer and v0.1 release | An external user completes a DCF with Claude Code or Codex using only the README. | 8 | 7 |
@@ -35,6 +35,7 @@ Gate: A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows.
 | Repository and governance | Commit scopes for every engine theme | [#111](https://github.com/salvo8519/fairmark/issues/111) |  | Done |
 | Repository and governance | Roadmap as code: checked offline, synchronised with GitHub | [#113](https://github.com/salvo8519/fairmark/issues/113) |  | Done |
 | Repository and governance | A pull request marks the task it closes as done in the roadmap | [#119](https://github.com/salvo8519/fairmark/issues/119) |  | Done |
+| Repository and governance | Roadmap updates proposed from the maintainer's requests | [#123](https://github.com/salvo8519/fairmark/issues/123) |  | Done |
 | CI/CD | Rust pipeline: fmt, clippy, test, cargo-deny | [#11](https://github.com/salvo8519/fairmark/issues/11) |  | Done |
 | CI/CD | Python pipeline: ruff, mypy, pytest on 3 OS | [#12](https://github.com/salvo8519/fairmark/issues/12) |  | Done |
 | CI/CD | Wheel matrix with maturin-action, trusted publishing to PyPI and crates.io | [#13](https://github.com/salvo8519/fairmark/issues/13) |  | Open |

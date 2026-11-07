@@ -66,6 +66,15 @@ def test_a_pull_request_must_close_a_planned_issue() -> None:
     assert any("#99999" in p for p in roadmap.problems_of(d, "Closes #99999"))
 
 
+def test_dropped_work_stays_visible_and_is_not_counted() -> None:
+    d = data()
+    task = d["milestones"][0]["epics"][0]["tasks"][0]
+    task["status"] = "dropped"
+    block = roadmap.page_block(d)
+    assert "| Dropped |" in block
+    assert not [p for p in roadmap.problems_of(d) if "status" in p]
+
+
 def test_the_page_is_generated_from_the_file() -> None:
     d = data()
     d["milestones"][0]["gate"] = "A different gate."
