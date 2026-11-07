@@ -17,7 +17,7 @@ $$
 k_e = r_f + \beta_L \cdot ERP + CRP \cdot \lambda + SP + SRP
 $$
 
-dove $r_f$ è il tasso privo di rischio, $\beta_L$ il beta levered (beta indebitato), $ERP$ il
+dove $r_f$ è il tasso privo di rischio, $\beta_L$ il beta levered (beta del capitale proprio), $ERP$ il
 premio per il rischio di mercato, $CRP$ il premio per il rischio paese, $\lambda$ l'esposizione
 della società al rischio paese, $SP$ il premio dimensionale e $SRP$ il premio per il rischio
 specifico. Tutti i tassi sono tassi annui effettivi, espressi come frazioni decimali.
@@ -54,7 +54,7 @@ legge il risultato possa vedere quali premi sono stati applicati e quali esclusi
 
 Tasso privo di rischio 3.5%, beta 1.1, premio per il rischio di mercato 5.5%, premio per il
 rischio paese 2% con esposizione 0.5, premio dimensionale 2% e premio per il rischio specifico
-motivato dell'1%; quindi un beta unlevered di 0.8 riportato a leva con Hamada a D/E 0.5 e
+motivato dell'1%; quindi relevering con Hamada di un beta unlevered di 0.8 a D/E 0.5 e
 aliquota fiscale del 24%.
 
 ```python
@@ -98,7 +98,7 @@ assert relevered.cost_of_equity == Decimal("0.0852")
 | `risk_free_rate` | Tasso privo di rischio, frazione decimale annua | obbligatorio |
 | `equity_risk_premium` | Premio per il rischio di mercato, frazione decimale annua | obbligatorio |
 | `levered_beta` | Beta levered, adimensionale; fornire esattamente uno tra `levered_beta` e `relever` | nessuno |
-| `relever` | `{unlevered_beta, debt_to_equity, tax_rate, formula, debt_beta}` per riportare a leva un beta unlevered; `formula` è `hamada` oppure `harris_pringle`, `debt_beta` vale 0 per default | nessuno |
+| `relever` | `{unlevered_beta, debt_to_equity, tax_rate, formula, debt_beta}` per il relevering di un beta unlevered; `formula` è `hamada` oppure `harris_pringle`, `debt_beta` vale 0 per default | nessuno |
 | `country_risk_premium` | Premio per il rischio paese, frazione decimale annua, non negativo | `0` |
 | `country_exposure` | Esposizione al rischio paese ($\lambda$), adimensionale, non negativa | `1` |
 | `size_premium` | Premio dimensionale, frazione decimale annua | `0` |
@@ -112,7 +112,7 @@ assert relevered.cost_of_equity == Decimal("0.0852")
 | `cost_of_equity` | Costo del capitale proprio, frazione decimale annua |
 | `levered_beta` | Beta levered utilizzato, fornito o ricalcolato |
 
-I passaggi mostrano il beta riportato a leva (quando calcolato), la componente di rischio di
+I passaggi mostrano il beta levered ottenuto con il relevering (quando calcolato), la componente di rischio di
 mercato $\beta_L \cdot ERP$, la componente di rischio paese $CRP \cdot \lambda$ e la somma.
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
@@ -120,7 +120,7 @@ mercato $\beta_L \cdot ERP$, la componente di rischio paese $CRP \cdot \lambda$ 
 | Convenzione | Opzioni | Default |
 | --- | --- | --- |
 | Tassi | annui effettivi, frazioni decimali | fissa |
-| Beta | fornito, oppure riportato a leva con Hamada o Harris-Pringle | nessuno: uno dei due va fornito |
+| Beta | fornito, oppure ottenuto con il relevering secondo Hamada o Harris-Pringle | nessuno: uno dei due va fornito |
 | Beta del debito (nel ricalcolo) | qualsiasi valore | 0, debito privo di rischio |
 | Premio per il rischio paese, esposizione | qualsiasi valore | 0 e 1 |
 | Premio dimensionale | qualsiasi valore | 0 |
