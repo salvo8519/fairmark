@@ -15,7 +15,7 @@ generated from `roadmap/roadmap.yaml`, and a scheduled job reports any differenc
 | Milestone | Gate | Release | Done | Open |
 | --- | --- | --- | --- | --- |
 | M0 · Foundations | A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows. | 0.1.0 | 15 | 2 |
-| M1 · Numerical core | Golden harness green; NPV and IRR validated; property tests running. | 0.1.0 | 10 | 3 |
+| M1 · Numerical core | Golden harness green; NPV and IRR validated; property tests running. | 0.1.0 | 10 | 6 |
 | M2 · Complete DCF | DCF passes every golden case provided by practitioners. | 0.1.0 | 9 | 8 |
 | M3 · Agent layer and v0.1 release | An external user completes a DCF with Claude Code or Codex using only the README. | 0.1.0 | 10 | 7 |
 | M4 · Traditional European methods | Golden cases green for every method. | 0.2.0 | 0 | 6 |
@@ -58,6 +58,9 @@ Gate: Golden harness green; NPV and IRR validated; property tests running.
 | Time value of money | Annuities and growing perpetuities | [#23](https://github.com/salvo8519/fairmark/issues/23) |  | Done |
 | Time value of money | Deterministic IRR solver | [#24](https://github.com/salvo8519/fairmark/issues/24) |  | Done |
 | Time value of money | Time value foundations: dates, day counts, rates, XNPV, XIRR, MIRR, annuities | [#95](https://github.com/salvo8519/fairmark/issues/95) | [0002](https://github.com/salvo8519/fairmark/tree/main/specs) | Done |
+| Time value of money | Draft spec for loans: payment, number of periods, future value and amortisation schedules | [#135](https://github.com/salvo8519/fairmark/issues/135) | [0009](https://github.com/salvo8519/fairmark/tree/main/specs) | Open |
+| Time value of money | Loan payment, number of periods and future value | [#136](https://github.com/salvo8519/fairmark/issues/136) | [0009](https://github.com/salvo8519/fairmark/tree/main/specs) | Open |
+| Time value of money | Amortisation schedules: constant instalment, constant principal, bullet, interest-only period | [#137](https://github.com/salvo8519/fairmark/issues/137) | [0009](https://github.com/salvo8519/fairmark/tree/main/specs) | Open |
 | Explain and audit trail | Explain structure, JSON serialization | [#26](https://github.com/salvo8519/fairmark/issues/26) |  | Done |
 | Explain and audit trail | Markdown and Excel (live formulas) rendering of explain | [#27](https://github.com/salvo8519/fairmark/issues/27) |  | Open |
 | Errors and schema | Typed errors with stable codes and catalogue | [#29](https://github.com/salvo8519/fairmark/issues/29) |  | Done |
