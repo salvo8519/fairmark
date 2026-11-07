@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Status | Draft — proposed for approval |
+| Status | Approved — 2026-11-07, maintainer decisions recorded below |
 | Milestone | M2 |
 | Owner | @salvo8519 |
 | Formula basis | Ratios commonly used in Italian and international credit and equity analysis; covenant definitions as written in loan agreements (each covenant states its own definition); verified on closed forms and published worked examples |
@@ -70,11 +70,12 @@ sector benchmarks; scoring models (for example Altman Z), possible later.
 ## Interfaces
 - Method ids: as in the structure table.
 
-## Open questions
-- [ ] Italian crisis indicators (CNDCEC: negative equity, six-month DSCR, sector indices). After
-      Legislative Decree 83/2022 the Code of business crisis no longer makes the CNDCEC sector
-      indices mandatory; they remain a professional reference. Before implementing them, verify
-      the current official text (Normattiva) and the current CNDCEC document, and decide whether
-      to expose them as a separate method `ratios.crisis_indicators`.
-- [ ] ROE decomposition: which Italian form to adopt as the reference (the classic leverage
-      formula with ROI, cost of debt and D/E, or the three-factor decomposition: margin, turnover, equity multiplier).
+## Decisions (maintainer, 2026-11-07)
+- [x] Italian crisis indicators (CNDCEC: negative equity, six-month DSCR, sector indices):
+      deferred. After Legislative Decree 83/2022 the sector indices are no longer mandatory and
+      remain a professional reference; they are implemented only after verifying the current
+      official text on Normattiva and the current CNDCEC document, as a separate method
+      `ratios.crisis_indicators`.
+- [x] ROE decomposition: both forms, as two outputs of the same method, so the analyst reads
+      either without ambiguity: the leverage formula ROE = [ROI + (ROI − i) × D/E] × (1 − t)
+      and the three-factor decomposition (margin × turnover × equity multiplier).

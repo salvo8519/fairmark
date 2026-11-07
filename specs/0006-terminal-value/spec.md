@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Status | Draft — proposed for approval |
+| Status | Approved — 2026-11-07, maintainer decisions recorded below |
 | Milestone | M1 |
 | Owner | @salvo8519 |
 | Formula basis | The three families used in practice (stable growth, multiples, liquidation) and the Italian finite-horizon and normalised-income forms; value driver tied to reinvestment and return on new capital; verified on published worked examples and closed forms |
@@ -89,8 +89,11 @@ SPEC-0002); estimating the inputs (normalised flows, multiples from comparables)
 - Method ids: as in the taxonomy. SPEC-0001 `dcf.value` takes a terminal specification that
   names one of these methods and its inputs; the DCF discounts the result.
 
-## Open questions
-- [ ] Which Italian finite-horizon conventions to support first (constant flow for n periods;
-      flow declining to zero; goodwill decay to the asset value).
-- [ ] Default metric list for exit multiples; whether to support equity multiples (P/E) for
-      equity bases only.
+## Decisions (maintainer, 2026-11-07)
+- [x] Finite horizon: the constant flow for n periods first, with n an explicit input; the
+      flow declining to zero and the goodwill decay follow as further options.
+- [x] Exit multiples: EV/EBITDA, EV/EBIT and EV/Sales on an enterprise basis; P/E is accepted
+      only on an equity basis, never mixed with enterprise measures.
+- [x] Stage lengths, growth and inflation in multi-stage models are tracked separately in the
+      issue on parametric stages (explicit periods per stage, optional growth and inflation
+      switches, nominal and real conversions through `rates.real_nominal`).
