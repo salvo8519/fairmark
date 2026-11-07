@@ -12,7 +12,7 @@
 ## Commands
 ```bash
 cargo fmt --all && cargo clippy --workspace -- -D warnings && cargo test --workspace
-maturin develop && pytest && ruff check python && mypy
+uv sync --all-extras --all-groups && uv run pytest && uv run ruff check python && uv run mypy
 ```
 
 ## Using Fairmark (not developing it)

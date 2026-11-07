@@ -24,9 +24,16 @@ dynamic = ["version"]
 dependencies = []
 
 [project.optional-dependencies]
+# User-facing extra: pip install "fairmark[mcp]"
 mcp = ["mcp>=2.3,<3"]
+
+# Development-only dependencies (PEP 735). Installed by `uv sync`, never shipped to users.
+[dependency-groups]
 dev = ["pytest>=8", "pyyaml>=6", "ruff>=0.6", "mypy>=1.10", "maturin>=1.9,<2"]
-docs = ["zensical>=0.1", "mkdocstrings-python>=1.18"]
+docs = [
+  "zensical>=0.1; python_version >= '3.11'",
+  "mkdocstrings-python>=1.18; python_version >= '3.11'",
+]
 
 [project.scripts]
 fairmark-mcp = "fairmark.mcp_server:main"
@@ -41,6 +48,11 @@ manifest-path = "crates/fairmark-py/Cargo.toml"
 python-source = "python"
 module-name = "fairmark._engine"
 features = ["pyo3/extension-module"]
+
+[tool.uv]
+# Rebuild the Rust extension automatically when Rust sources change.
+cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "crates/**/*.rs" }, { file = "crates/**/Cargo.toml" }]
+default-groups = ["dev"]
 
 [tool.pytest.ini_options]
 testpaths = ["python/tests"]

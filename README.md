@@ -46,8 +46,8 @@ Fairmark splits the job:
 ## Install
 
 ```bash
-pip install fairmark            # library + function-calling tools
-pip install "fairmark[mcp]"     # + MCP server
+uv add fairmark                 # or: pip install fairmark
+uv add "fairmark[mcp]"          # + MCP server  (or: pip install "fairmark[mcp]")
 ```
 
 Prebuilt wheels for Linux, macOS and Windows (x86_64 and arm64). No compiler needed.

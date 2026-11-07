@@ -12,24 +12,27 @@ professionals are equally welcome.
 
 ## Development setup
 
+Requirements: [Rust](https://rustup.rs) (stable) and [uv](https://docs.astral.sh/uv/).
+uv installs the right Python version for you.
+
 ```bash
-# Rust (stable) and Python ≥ 3.10 required
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev,mcp]"        # builds the Rust extension via maturin
+uv sync --all-extras --all-groups  # creates .venv, builds the Rust extension, installs tools
 cargo test --workspace             # Rust tests + golden cases
-pytest                             # Python tests + the same golden cases
+uv run pytest                      # Python tests + the same golden cases
 ```
+
+The Rust extension is rebuilt automatically by `uv run` / `uv sync` when Rust sources change.
+`uv.lock` is committed: dependency updates go through PRs.
 
 Documentation (Zensical):
 
 ```bash
-pip install -e ".[docs]"
-python scripts/gen_reference.py   # regenerate the methods reference after changing a method
-zensical serve                    # live preview at http://localhost:8000
+uv run python scripts/gen_reference.py   # regenerate the methods reference after changing a method
+uv run zensical serve                    # live preview at http://localhost:8000
 ```
 
 Before opening a PR: `cargo fmt --all`, `cargo clippy --workspace -- -D warnings`,
-`ruff check python && ruff format python`, `mypy`.
+`uv run ruff check python && uv run ruff format python`, `uv run mypy`.
 
 ## Rules
 

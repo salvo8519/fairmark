@@ -3,18 +3,18 @@
 Fairmark requires Python 3.10 or newer. Prebuilt wheels are published for Linux, macOS and
 Windows on x86_64 and arm64, so no Rust compiler is needed.
 
-=== "pip"
-
-    ```bash
-    pip install fairmark            # library and function-calling tools
-    pip install "fairmark[mcp]"     # plus the MCP server
-    ```
-
 === "uv"
 
     ```bash
-    uv add fairmark
-    uv add "fairmark[mcp]"
+    uv add fairmark                 # library and function-calling tools
+    uv add "fairmark[mcp]"          # plus the MCP server
+    ```
+
+=== "pip"
+
+    ```bash
+    pip install fairmark
+    pip install "fairmark[mcp]"
     ```
 
 === "CLI only (Rust)"
@@ -34,8 +34,7 @@ python -c "import fairmark; print(fairmark.__version__)"
 ```bash
 git clone https://github.com/fairmark-dev/fairmark
 cd fairmark
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev,mcp,docs]"    # builds the Rust extension with maturin
+uv sync --all-extras --all-groups   # builds the Rust extension with maturin
 ```
 
 See [Contributing](../project/contributing.md) for the full development setup.
