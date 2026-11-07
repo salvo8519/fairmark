@@ -1,0 +1,23 @@
+# Adds every new issue and pull request to the "Fairmark roadmap" project.
+# Needs: repository variable PROJECT_URL (e.g. https://github.com/users/salvo8519/projects/1)
+# and secret PROJECT_TOKEN (fine-grained PAT with Projects read/write). Skipped otherwise.
+name: Project sync
+
+on:
+  issues:
+    types: [opened, reopened, transferred]
+  pull_request:
+    types: [opened, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  add:
+    if: vars.PROJECT_URL != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/add-to-project@v1
+        with:
+          project-url: ${{ vars.PROJECT_URL }}
+          github-token: ${{ secrets.PROJECT_TOKEN }}

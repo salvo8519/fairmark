@@ -3,6 +3,8 @@
 The roadmap lives in [`roadmap/roadmap.yaml`](https://github.com/salvo8519/fairmark/blob/main/roadmap/roadmap.yaml)
 and is mirrored on GitHub as milestones, epics and sub-issues. Tasks marked
 `parallel` can be picked up independently; `good first issue` is a good place to start.
+The Kanban board lives in the GitHub Project "Fairmark roadmap", created and filled by
+`scripts/setup_github_project.py`.
 
 | Milestone | Goal | Gate |
 | --- | --- | --- |
