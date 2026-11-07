@@ -17,7 +17,8 @@ so the published roadmap page is generated offline, deterministically, from a re
 Rules checked by `check`: the file is in canonical form; issue numbers are unique; every task
 has an issue; statuses are `open` or `done`; every spec folder in `specs/` is referenced by a
 task, and every referenced spec exists; the roadmap page is generated from the file; with
-`--pr-body`, the issue that the pull request closes is in the roadmap.
+`--pr-body`, the issue that the pull request closes is in the roadmap and its task is marked
+`done` in the same change, so that GitHub and the file agree as soon as it is merged.
 """
 
 from __future__ import annotations
@@ -149,6 +150,7 @@ def problems_of(data: dict[str, Any], pr_body: str | None = None) -> list[str]:
     if set(data) != {"labels", "milestones"}:
         problems.append(f"top-level keys must be labels and milestones, not {sorted(data)}")
     seen: dict[int, str] = {}
+    status_of: dict[int, str] = {}
     referenced: set[str] = set()
     spec_ids = {p.name[:4] for p in SPECS.glob("[0-9][0-9][0-9][0-9]-*") if p.is_dir()}
     for m in data["milestones"]:
@@ -166,6 +168,7 @@ def problems_of(data: dict[str, Any], pr_body: str | None = None) -> list[str]:
                     problems.append(f"{where}: every task needs an issue number")
                 else:
                     numbers.append(t["issue"])
+                    status_of[t["issue"]] = t.get("status", "open")
                 if t.get("status", "open") not in STATUSES:
                     problems.append(f"{where}: status must be one of {STATUSES}")
                 if t.get("spec"):
@@ -186,6 +189,10 @@ def problems_of(data: dict[str, Any], pr_body: str | None = None) -> list[str]:
         for n in re.findall(r"(?im)^[ \t]*(?:closes|fixes|resolves)[ \t]+#(\d+)", pr_body):
             if int(n) not in seen:
                 problems.append(f"the pull request closes #{n}, which is not in the roadmap")
+            elif int(n) in status_of and status_of[int(n)] != "done":
+                # Merging closes the issue: the file must say so in the same change, or the
+                # roadmap and GitHub differ until another pull request.
+                problems.append(f"the pull request closes #{n}: mark its task done here")
     return problems
 
 

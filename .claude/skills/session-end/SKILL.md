@@ -15,8 +15,9 @@ to GitHub is in English, without icons. Never merge: merging is the maintainer's
    pull request.
 3. **Roadmap.** Issues opened in this session were created with
    `uv run python scripts/roadmap.py new` (milestone, epic, labels, spec), never by hand.
-   Run `uv run python scripts/roadmap.py check`: the issue this pull request closes must be in
-   the roadmap, and the roadmap page must be regenerated (`roadmap.py render`).
+   Mark the task of the issue this pull request closes as `status: done` in
+   `roadmap/roadmap.yaml` and run `uv run python scripts/roadmap.py render`: merging closes the
+   issue, and the file must already say so. CI checks it (`roadmap.py check --pr-body`).
 4. **Release note.** If users can see the change and no fragment exists, write one in
    `changes/` (`<issue>.<type>.md`, plain language for analysts, see `changes/README.md`).
    Otherwise the pull request gets the label `no-release-note`.

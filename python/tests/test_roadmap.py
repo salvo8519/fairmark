@@ -56,8 +56,13 @@ def test_unknown_status_and_keys_are_refused() -> None:
 
 def test_a_pull_request_must_close_a_planned_issue() -> None:
     d = data()
-    planned = d["milestones"][0]["epics"][0]["tasks"][0]["issue"]
-    assert not roadmap.problems_of(d, f"Summary.\n\nCloses #{planned}.")
+    task = d["milestones"][0]["epics"][0]["tasks"][0]
+    planned = task["issue"]
+    task["status"] = "open"
+    assert any("mark its task done" in p for p in roadmap.problems_of(d, f"Closes #{planned}."))
+    task["status"] = "done"
+    problems = roadmap.problems_of(d, f"Summary.\n\nCloses #{planned}.")
+    assert not [p for p in problems if "closes" in p]
     assert any("#99999" in p for p in roadmap.problems_of(d, "Closes #99999"))
 
 
