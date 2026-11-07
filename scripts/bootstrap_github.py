@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -37,9 +38,13 @@ class GitHub:
         cmd = ["gh", "api", "-X", method, f"repos/{self.repo}/{path}", "--input", "-"]
         if method == "GET":
             cmd = ["gh", "api", "--paginate", f"repos/{self.repo}/{path}"]
-        out = subprocess.run(
-            cmd, input=json.dumps(fields), capture_output=True, text=True, check=True
-        )
+        for attempt in range(3):
+            out = subprocess.run(cmd, input=json.dumps(fields), capture_output=True, text=True)
+            if out.returncode == 0:
+                break
+            time.sleep(2 * (attempt + 1))
+        else:
+            raise RuntimeError(f"{method} {path} failed: {out.stderr.strip()}")
         return json.loads(out.stdout) if out.stdout.strip() else None
 
 
@@ -72,18 +77,20 @@ def main() -> None:
 
         for epic in ms["epics"]:
             epic_title = f"[Epic] {epic['title']}"
-            if epic_title in issues:
-                continue
-            body = f"Milestone gate: {ms['gate']}\n\nTasks are linked as sub-issues."
-            parent = gh.api(
-                "POST",
-                "issues",
-                title=epic_title,
-                body=body,
-                milestone=number,
-                labels=["epic", *epic.get("labels", [])],
-            )
+            parent = issues.get(epic_title)
+            if parent is None:
+                body = f"Milestone gate: {ms['gate']}\n\nTasks are linked as sub-issues."
+                parent = gh.api(
+                    "POST",
+                    "issues",
+                    title=epic_title,
+                    body=body,
+                    milestone=number,
+                    labels=["epic", *epic.get("labels", [])],
+                )
             for task in epic["tasks"]:
+                if task["title"] in issues:
+                    continue
                 labels = [*epic.get("labels", []), *(TAG_LABELS[t] for t in task.get("tags", []))]
                 child = gh.api(
                     "POST",
