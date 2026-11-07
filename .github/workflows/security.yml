@@ -24,7 +24,7 @@ jobs:
       matrix:
         language: [python, actions, rust]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
@@ -39,8 +39,8 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/dependency-review-action@v4.9.0
+      - uses: actions/checkout@v7
+      - uses: actions/dependency-review-action@v5.0.0
         with:
           fail-on-severity: moderate
           allow-licenses: Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause, ISC, Unicode-3.0, Zlib, MPL-2.0, PSF-2.0, Python-2.0, 0BSD, CC0-1.0, Unlicense, BSL-1.0, LGPL-2.1-or-later, LGPL-3.0-or-later, CDLA-Permissive-2.0
@@ -54,9 +54,9 @@ jobs:
       security-events: write
       id-token: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with: { persist-credentials: false }
-      - uses: ossf/scorecard-action@v2.4.3
+      - uses: ossf/scorecard-action@v2.5.0
         with:
           results_file: scorecard.sarif
           results_format: sarif
