@@ -1,3 +1,28 @@
+/* Fairmark brand palette — see docs/project/brand.md */
+:root {
+  --fm-navy: #0B1F3A;
+  --fm-deep: #12325C;
+  --fm-gold: #C8A24A;
+  --fm-green: #0F7B5F;
+  --fm-red: #B42318;
+  --fm-slate: #475569;
+  --fm-paper: #F7F8FA;
+}
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: var(--fm-navy);
+  --md-primary-fg-color--light: var(--fm-deep);
+  --md-primary-fg-color--dark: #07152A;
+  --md-accent-fg-color: var(--fm-gold);
+  --md-typeset-a-color: var(--fm-deep);
+}
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: var(--fm-navy);
+  --md-primary-fg-color--light: var(--fm-deep);
+  --md-primary-fg-color--dark: #07152A;
+  --md-accent-fg-color: var(--fm-gold);
+  --md-typeset-a-color: #9DB7DD;
+  --md-default-bg-color: #0A1628;
+}
 /* Landing page */
 .fm-hero { text-align: center; padding: 1.5rem 0 0.5rem; }
 .fm-hero h1 { font-size: 2.6rem; margin-bottom: 0.2rem; font-weight: 700; }

@@ -49,6 +49,7 @@ nav = [
   ] },
   { "Project" = [
     "project/vision.md",
+    "project/brand.md",
     "project/roadmap.md",
     "project/contributing.md",
     "project/changelog.md",
@@ -66,7 +67,8 @@ nav = [
 [project.theme]
 language = "en"
 icon.repo = "fontawesome/brands/github"
-icon.logo = "lucide/scale"
+logo = "assets/brand/mark.svg"
+favicon = "assets/favicon.svg"
 features = [
   "announce.dismiss",
   "content.action.edit",
@@ -96,16 +98,16 @@ toggle.name = "Switch to light mode"
 [[project.theme.palette]]
 media = "(prefers-color-scheme: light)"
 scheme = "default"
-primary = "indigo"
-accent = "amber"
+primary = "custom"
+accent = "custom"
 toggle.icon = "lucide/sun"
 toggle.name = "Switch to dark mode"
 
 [[project.theme.palette]]
 media = "(prefers-color-scheme: dark)"
 scheme = "slate"
-primary = "indigo"
-accent = "amber"
+primary = "custom"
+accent = "custom"
 toggle.icon = "lucide/moon"
 toggle.name = "Switch to system preference"
 

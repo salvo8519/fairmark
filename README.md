@@ -1,19 +1,35 @@
 <div align="center">
 
-# Fairmark
+<a href="https://salvo8519.github.io/fairmark/">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/banner-dark.svg">
+    <img alt="Fairmark — Fair value, hallmarked." src="docs/assets/brand/banner-light.svg" width="100%">
+  </picture>
+</a>
 
-**Fair value, hallmarked.**
+<h3>The deterministic valuation engine for analysts and AI agents.</h3>
 
-The deterministic valuation engine for analysts and AI agents.<br/>
-Your agent reasons and writes the report. Fairmark does the math — exactly, with an audit trail.<br/><br/>
-**[Documentation](https://salvo8519.github.io/fairmark/)** · [Quickstart](https://salvo8519.github.io/fairmark/getting-started/quickstart/) · [Methods](https://salvo8519.github.io/fairmark/methods/) · [Roadmap](https://salvo8519.github.io/fairmark/project/roadmap/)
+Your agent reads the documents and writes the report. Fairmark does the math —<br/>
+exactly, reproducibly, with every step on the record.
 
 [![CI](https://github.com/salvo8519/fairmark/actions/workflows/ci.yml/badge.svg)](https://github.com/salvo8519/fairmark/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/fairmark.svg)](https://pypi.org/project/fairmark/)
-[![Crates.io](https://img.shields.io/crates/v/fairmark-core.svg)](https://crates.io/crates/fairmark-core)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Docs](https://img.shields.io/badge/docs-fairmark-indigo.svg)](https://salvo8519.github.io/fairmark/)
-[![MCP](https://img.shields.io/badge/MCP-ready-8A2BE2.svg)](#mcp-server)
+[![Docs](https://github.com/salvo8519/fairmark/actions/workflows/docs.yml/badge.svg)](https://salvo8519.github.io/fairmark/)
+[![PyPI](https://img.shields.io/pypi/v/fairmark?color=0B1F3A&label=PyPI)](https://pypi.org/project/fairmark/)
+[![Python](https://img.shields.io/pypi/pyversions/fairmark?color=12325C)](https://pypi.org/project/fairmark/)
+[![Crates.io](https://img.shields.io/crates/v/fairmark-core?color=0B1F3A)](https://crates.io/crates/fairmark-core)
+[![License](https://img.shields.io/badge/license-Apache--2.0-C8A24A)](LICENSE)
+
+[![MCP ready](https://img.shields.io/badge/MCP-ready-0B1F3A)](https://salvo8519.github.io/fairmark/guides/mcp/)
+[![Function calling](https://img.shields.io/badge/function%20calling-Anthropic%20%C2%B7%20OpenAI-0B1F3A)](https://salvo8519.github.io/fairmark/guides/function-calling/)
+[![Rust core](https://img.shields.io/badge/core-Rust-12325C?logo=rust)](crates/fairmark-core)
+[![uv](https://img.shields.io/badge/built%20with-uv-12325C)](https://docs.astral.sh/uv/)
+[![Spec-driven](https://img.shields.io/badge/spec--driven-✓-0F7B5F)](specs/README.md)
+
+**[Documentation](https://salvo8519.github.io/fairmark/)** ·
+**[Quickstart](https://salvo8519.github.io/fairmark/getting-started/quickstart/)** ·
+**[Methods](https://salvo8519.github.io/fairmark/methods/)** ·
+**[Roadmap](https://salvo8519.github.io/fairmark/project/roadmap/)** ·
+**[Contributing](CONTRIBUTING.md)**
 
 </div>
 
@@ -21,36 +37,40 @@ Your agent reasons and writes the report. Fairmark does the math — exactly, wi
 
 ## Why Fairmark
 
-Large language models are great at reading a balance sheet and writing an investment memo.
+Language models are excellent at reading financial statements and drafting an investment memo.
 They are not reliable calculators: a discount factor rounded the wrong way, a terminal value
 discounted one year too many, a growth rate read as 20 instead of 0.02. In a valuation, those
-mistakes change the answer.
+mistakes change the answer — and nobody can tell.
 
-Fairmark splits the job:
+Fairmark splits the job in two:
 
+```mermaid
+flowchart LR
+    D["📄 Financial statements<br/>business plan"]:::input --> L["🤖 LLM<br/>extracts the inputs"]:::llm
+    L --> F["◆ Fairmark<br/>computes · explains · fingerprints"]:::engine
+    F --> R["📝 LLM<br/>writes the report, citing every step"]:::llm
+    classDef input fill:#F7F8FA,stroke:#475569,color:#0B1F3A
+    classDef llm fill:#FFFFFF,stroke:#12325C,color:#0B1F3A
+    classDef engine fill:#0B1F3A,stroke:#C8A24A,stroke-width:2px,color:#FFFFFF
 ```
-  document / prompt ──▶  LLM extracts the inputs  ──▶  Fairmark computes  ──▶  LLM writes the report
-                                                       exact · auditable          citing every step
-```
 
-- **Deterministic.** Exact decimal arithmetic, no binary floats, fixed solvers. Same input, same
-  output, to the last digit, on every platform. See [the determinism contract](docs/concepts/determinism.md).
-- **Auditable.** Every result carries `explain`: the formula, the conventions and every
-  intermediate step, ready to paste into a valuation report.
-- **Agent-native.** One engine, every channel: Python, function calling (Anthropic, OpenAI),
-  MCP, CLI, and Agent Skills for Claude Code and Codex.
-- **Built for private companies and real assets.** Inputs come from financial statements and
-  business plans, not stock tickers. European valuation practice is a first-class citizen.
-- **Private by design.** The engine never touches the network. Your numbers stay on your machine.
+| | |
+| --- | --- |
+| **Deterministic** | Exact decimal arithmetic, fixed solvers. Same input, same output, to the last digit, on every platform. |
+| **Auditable** | Every result carries `explain`: formula, conventions and each intermediate step — ready for a valuation report. |
+| **Reproducible** | Every result carries an input fingerprint; `fairmark verify` re-runs it bit for bit. |
+| **Agent-native** | One engine for Python, function calling, MCP, the CLI and Agent Skills for Claude Code and Codex. |
+| **Built for private companies** | Inputs come from financial statements and business plans, not tickers. European practice is first-class. |
+| **Private by design** | The engine never touches the network. Your numbers stay on your machine. |
 
 ## Install
 
 ```bash
-uv add fairmark                 # or: pip install fairmark
-uv add "fairmark[mcp]"          # + MCP server  (or: pip install "fairmark[mcp]")
+uv add fairmark              # or: pip install fairmark
+uv add "fairmark[mcp]"       # + MCP server
 ```
 
-Prebuilt wheels for Linux, macOS and Windows (x86_64 and arm64). No compiler needed.
+Prebuilt wheels for Linux, macOS and Windows (x86_64 and arm64) — no compiler needed.
 
 ## Quickstart
 
@@ -64,139 +84,141 @@ r = fm.dcf.fcff(
     net_debt=200,
 )
 
-r.enterprise_value      # Decimal('1421.4876033057851239669421487')
-r.equity_value          # Decimal('1221.4876033057851239669421487')
-r.terminal_value_weight # Decimal('0.8086680761099365750528541226')
+r.enterprise_value       # Decimal('1421.4876033057851239669421487')
+r.equity_value           # Decimal('1221.4876033057851239669421487')
+r.terminal_value_weight  # Decimal('0.8086680761099365750528541226')
 print(r.explain_markdown())
 ```
 
 ```text
-### dcf.fcff
-| Step                           | Calculation                       | Value      |
-| ------------------------------ | --------------------------------- | ---------: |
-| Discount factor, year 1        | 1 / (1 + 0.10)^1                  | 0.90909... |
-| Present value of FCFF, year 1  | 100 × 0.90909...                  | 90.9090... |
-| ...                            |                                   |            |
-| Terminal value at year n       | 120 × (1 + 0.02) / (0.10 − 0.02)  | 1530       |
-| Enterprise value               | 271.9759... + 1149.5116...        | 1421.48... |
+| Step                          | Calculation                        | Value       |
+| ----------------------------- | ---------------------------------- | ----------: |
+| Discount factor, year 1       | 1 / (1 + 0.10)^1                   | 0.909090... |
+| Present value of FCFF, year 1 | 100 × 0.909090...                  | 90.909090...|
+| Terminal value at year n      | 120 × (1 + 0.02) / (0.10 − 0.02)   | 1530        |
+| Enterprise value              | 271.9759... + 1149.5116...         | 1421.4876...|
 ```
 
-Pass numbers as `Decimal` or strings for exactness. Floats are accepted and converted through
-their shortest representation (`0.1` → `"0.1"`).
+> [!TIP]
+> Pass amounts and rates as strings or `Decimal` for exactness. Floats are accepted and
+> converted through their shortest representation (`0.1` → `"0.1"`).
 
 ## Use it from an AI agent
 
-### Function calling (any LLM)
+<table>
+<tr><th>Function calling</th><th>MCP server</th></tr>
+<tr><td>
 
 ```python
-import anthropic, fairmark as fm
-
-client = anthropic.Anthropic()
-messages = [{"role": "user", "content": "Value this company: FCFF 100, 110, 120; WACC 10%; g 2%; net debt 200."}]
-
-response = client.messages.create(model="claude-opus-5-5", max_tokens=2048,
-                                  tools=fm.tools.anthropic(), messages=messages)
-
-for block in response.content:
+resp = client.messages.create(
+    model="claude-opus-5-5",
+    tools=fm.tools.anthropic(),   # or fm.tools.openai()
+    messages=messages,
+)
+for block in resp.content:
     if block.type == "tool_use":
-        result = fm.tools.dispatch(block.name, block.input)   # deterministic computation
-        # send `result` back as a tool_result; the model writes the report citing explain.steps
+        out = fm.tools.dispatch(block.name, block.input)
 ```
 
-`fm.tools.openai()` returns the same tools for OpenAI-compatible APIs. Tool definitions are
-generated from the engine's JSON Schemas, so they never drift from the implementation.
-Invalid inputs come back as `{"error": {"code": "FM-E004", ...}}` so the model can fix its call.
-
-### MCP server
+</td><td>
 
 ```json
 {
   "mcpServers": {
-    "fairmark": { "command": "uvx", "args": ["--from", "fairmark[mcp]", "fairmark-mcp"] }
+    "fairmark": {
+      "command": "uvx",
+      "args": ["--from", "fairmark[mcp]", "fairmark-mcp"]
+    }
   }
 }
 ```
 
-Runs locally over stdio. Nothing to host.
+</td></tr>
+</table>
 
-### Claude Code, Codex and other coding agents
-
-Copy [`skills/fairmark`](skills/fairmark) into your agent's skills folder, or let the agent use
-the CLI directly:
+**Claude Code, Codex and other coding agents** — copy [`skills/fairmark`](skills/fairmark)
+into your agent's skills folder, or let it drive the CLI:
 
 ```bash
 fairmark methods                                  # what can I compute?
-fairmark schema dcf.fcff                          # what inputs does it need?
+fairmark schema dcf.fcff                          # which inputs, with units?
 fairmark run dcf.fcff --input company.json        # JSON in, JSON out
 fairmark verify result.json --input company.json  # reproduce a result bit for bit
 ```
 
+> [!NOTE]
+> Tool definitions are generated from the engine's JSON Schemas, so they never drift from the
+> implementation. Invalid inputs come back as `{"error": {"code": "FM-E004", …}}` so the model
+> can correct its own call.
+
 ## Methods
 
 | Method | Status | Description |
-| --- | --- | --- |
-| `tvm.npv` | ✅ available | Net present value |
-| `tvm.irr` | ✅ available | Internal rate of return (deterministic Newton + bisection) |
-| `dcf.fcff` | ✅ preview | Unlevered DCF with Gordon terminal value, end or mid period |
-| `dcf.fcfe`, WACC/CAPM, beta relevering | 🛠 M2 | Full DCF stack |
-| Financial statements & reclassification | 🛠 M2 | Statutory accounts → FCFF, net financial position |
-| Asset-based, income-based, mixed (excess earnings) methods | 🗓 M4 | European / Italian practice |
-| EVA, market multiples | 🗓 M4 | |
-| Real estate: property DCF, direct capitalisation, debt & waterfall | 🗓 roadmap | |
-
-See the [roadmap](roadmap/roadmap.yaml) and the [open issues](https://github.com/salvo8519/fairmark/issues).
+| --- | :---: | --- |
+| `tvm.npv` | ✅ | Net present value |
+| `tvm.irr` | ✅ | Internal rate of return — deterministic Newton with bisection fallback |
+| `dcf.fcff` | 🧪 preview | Unlevered DCF, Gordon terminal value, end or mid period |
+| Financial statements → FCFF/FCFE, WACC, CAPM | 🛠 [SPEC-0001](specs/0001-dcf-complete/spec.md) | Complete DCF for private companies |
+| Asset-based, income-based, excess-earnings, EVA, multiples | 🗓 M4 | European valuation practice |
+| Property DCF, direct capitalisation, debt & waterfall | 🗓 M6 | Real estate |
 
 ## Architecture
 
 ```mermaid
-flowchart LR
-    subgraph core["fairmark-core (Rust)"]
-        M[Methods<br/>decimal-exact] --> E[explain + meta]
-        R[Registry + JSON Schemas]
+flowchart TB
+    subgraph CORE["fairmark-core · Rust · no I/O"]
+        direction LR
+        M["Methods<br/>decimal-exact"]:::core --> E["explain + meta<br/>audit trail · input hash"]:::core
+        REG["Registry + JSON Schemas<br/>single source of truth"]:::gold
     end
-    R --> PY["Python SDK<br/>pip install fairmark"]
-    R --> CLI["CLI<br/>fairmark run"]
-    PY --> FC["Function calling<br/>Anthropic · OpenAI"]
-    PY --> MCP["MCP server<br/>stdio"]
-    CLI --> SK["Agent Skills<br/>Claude Code · Codex"]
-    R -.-> N8N["n8n node (planned)"]
-    R -.-> WASM["WASM playground (planned)"]
+    REG --> PY["Python SDK<br/><code>pip install fairmark</code>"]:::adapter
+    REG --> CLI["CLI<br/><code>fairmark run</code>"]:::adapter
+    PY --> FC["Function calling<br/>Anthropic · OpenAI"]:::agent
+    PY --> MCP["MCP server<br/>local · stdio"]:::agent
+    CLI --> SK["Agent Skills<br/>Claude Code · Codex"]:::agent
+    REG -.-> N8N["n8n node<br/>planned"]:::planned
+    REG -.-> WASM["WASM playground<br/>planned"]:::planned
+    classDef core fill:#0B1F3A,stroke:#0B1F3A,color:#FFFFFF
+    classDef gold fill:#0B1F3A,stroke:#C8A24A,stroke-width:2px,color:#FFFFFF
+    classDef adapter fill:#12325C,stroke:#12325C,color:#FFFFFF
+    classDef agent fill:#FFFFFF,stroke:#12325C,color:#0B1F3A
+    classDef planned fill:#F7F8FA,stroke:#94A3B8,color:#475569,stroke-dasharray:4 4
 ```
 
-One Rust engine, thin adapters. Every adapter is generated from the same registry and schemas,
-so a method added to the core is immediately available to Python, the CLI, MCP and every LLM.
-Details in [docs/concepts/architecture.md](docs/concepts/architecture.md).
+> [!IMPORTANT]
+> **One engine, thin adapters.** Every channel is generated from the same registry and
+> schemas: a method added to the core is immediately available to Python, the CLI, MCP and
+> every LLM. Details in [docs/concepts/architecture.md](docs/concepts/architecture.md).
 
 ## The determinism contract
 
-1. Decimal arithmetic only (96-bit mantissa); no `f64` in any calculation path.
-2. Fixed algorithms with tolerances and iteration counts reported in the result.
-3. No silent defaults: missing or unknown inputs are typed errors with stable codes.
+1. Decimal arithmetic only — no `f64` in any calculation path.
+2. Fixed algorithms; tolerances and iteration counts are reported in the result.
+3. No silent defaults: unknown or missing inputs are typed errors with stable codes.
 4. Every result carries `meta.input_hash`: same hash + same versions = same result.
-5. Any change to a golden result is a versioned, documented `numerical change`.
+5. Any change to a golden result is a reviewed, versioned `numerical-change`.
 
-Golden cases live in [`tests/golden`](tests/golden) and run against both Rust and Python on
-every commit.
+Golden cases in [`tests/golden`](tests/golden) run against both Rust and Python on every
+commit. Read the full [contract](docs/concepts/determinism.md) and the project's
+[constitution](specs/constitution.md).
 
-## Privacy
+## Built in the open, spec-first
 
-The engine has no network dependencies, enforced in CI. Optional, opt-in usage statistics are
-under public discussion in [docs/project/telemetry.md](docs/project/telemetry.md) and will never include
-financial data.
+Fairmark is developed with **spec-driven development** and is ready for **agentic
+contributors**: every feature starts as a spec with numbered requirements and acceptance
+criteria ([`specs/`](specs/README.md)); every acceptance criterion becomes a test; every PR is
+checked by CI for determinism, schema contracts and golden cases, and reviewed by humans and
+by AI reviewers with the project's own standards ([`AGENTS.md`](AGENTS.md)).
 
-## Contributing
-
-Fairmark is built in the open and designed for parallel contributions: every method is an
-independent module with its own golden cases. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and
-the issues labelled [`good first issue`](https://github.com/salvo8519/fairmark/labels/good%20first%20issue).
-
-Valuation professionals are as welcome as developers: a well-documented test case is a
-first-class contribution.
+- Start with [CONTRIBUTING.md](CONTRIBUTING.md) and issues labelled
+  [`good first issue`](https://github.com/salvo8519/fairmark/labels/good%20first%20issue).
+- Valuation professionals are as welcome as developers: a well-sourced test case is a
+  first-class contribution.
 
 ## License
 
 [Apache-2.0](LICENSE). The license covers the code; it grants no rights to use the Fairmark
 name or logo (Apache-2.0, section 6).
 
-> Fairmark computes what you ask it to compute. It is not investment, accounting or legal advice;
-> the choice of method and inputs remains the analyst's responsibility.
+<sub>Fairmark computes what you ask it to compute. It is not investment, accounting or legal
+advice; the choice of method and inputs remains the analyst's responsibility.</sub>

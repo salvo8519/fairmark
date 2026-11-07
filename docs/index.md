@@ -6,6 +6,8 @@ hide:
 
 <div class="fm-hero" markdown>
 
+![Fairmark](assets/brand/mark.svg){ width="96" }
+
 # Fairmark
 
 <p class="fm-tagline">Fair value, hallmarked.</p>
