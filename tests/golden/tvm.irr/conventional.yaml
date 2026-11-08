@@ -1,5 +1,10 @@
 method: tvm.irr
 description: Conventional project, one sign change
+source: >
+  scripts/reference_npv_irr.py (Python decimal, 50 digits, bisection of NPV on [0, 1] to 1e-45;
+  one sign change, so the root is unique): 0.088963394693349935317765679686868942760827790780395,
+  which rounds to the expected value at 12 decimals. Source added 2026-11-08, maintainer
+  decision on #149.
 input:
   cash_flows: [-1000, 300, 400, 500]
 expect:
