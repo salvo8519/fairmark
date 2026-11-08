@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: 9e533a59f31a
+source_hash: 5e8cf78ac85c
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
@@ -159,9 +159,32 @@ print(r.value_of_operations)  # 1573.18265943050768644554905...
 ```
 
 Lo stesso valore si ottiene fornendo direttamente il tasso reale con
-`discount_rate_terms="real"`; con la convenzione di fine periodo coincide anche con i flussi
-riespressi in termini nominali (ogni flusso reale per l'indice cumulato dell'inflazione)
-attualizzati al tasso nominale con la crescita nominale.
+`discount_rate_terms="real"`. I flussi reali sono espressi ai prezzi della data di valutazione
+(t = 0). Con la convenzione di fine periodo il valore coincide anche con quello dei flussi
+riespressi in termini nominali, ogni flusso reale per l'indice cumulato dell'inflazione
+$\prod_{i \le k} (1 + i_i)$, attualizzati al tasso nominale con la crescita nominale; con la
+convenzione di metà periodo l'equivalenza vale con l'indice calcolato in t = k − 0.5,
+$\prod_{i < k} (1 + i_i) \, (1 + i_k)^{0.5}$. Quando il tasso terminale è stato convertito, la
+convenzione sul tasso della tecnica del valore terminale indica "converted" (convertito) invece
+di "given" (fornito).
+
+Aspetti della prassi che il motore non verifica:
+
+- Un WACC reale deve essere il WACC nominale dopo le imposte deflazionato con la relazione di
+  Fisher: lo scudo fiscale si applica agli interessi nominali, quindi il WACC va calcolato in
+  termini nominali e convertito dal motore (o deflazionato dall'utente), invece di applicare
+  l'aliquota fiscale a un costo del debito reale.
+- Con voci di costruzione (`lines`) in termini reali, le imposte calcolate sull'EBIT reale
+  sottostimano le imposte effettivamente pagate, perché gli ammortamenti fiscali sono sul costo
+  storico e non sono indicizzati all'inflazione; quando l'inflazione è rilevante è preferibile
+  un piano in termini nominali (come raccomanda Damodaran). È una nota di documentazione:
+  nessuna avvertenza è riportata.
+- Una rendita perpetua a crescita costante (`tv.gordon`) dà lo stesso valore in termini reali
+  e in termini nominali. L'H-model approssima una crescita decrescente e il value driver
+  sottrae un reinvestimento g / RONIC, quindi una valutazione reale e una nominale della stessa
+  impresa differiscono leggermente con `tv.h_model` e `tv.value_driver`: è una proprietà delle
+  tecniche, non della conversione. I loro parametri, compreso il RONIC (rendimento del nuovo
+  capitale investito), sono nei termini dei flussi di cassa (Decision 5).
 
 ## Esempio
 

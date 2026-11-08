@@ -146,9 +146,30 @@ print(r.value["terms"]["perpetual_growth_other_terms"])  # 1.01 × 1.02 − 1 = 
 print(r.value_of_operations)  # 1573.18265943050768644554905...
 ```
 
-The same value follows from the real rate given directly with `discount_rate_terms="real"`;
-under end-of-period timing it also equals the flows restated in nominal terms (each real flow
-times the cumulated inflation index) discounted at the nominal rate with the nominal growth.
+The same value follows from the real rate given directly with `discount_rate_terms="real"`.
+Real flows are expressed at the prices of the valuation date (t = 0). Under end-of-period
+timing the value also equals the flows restated in nominal terms, each real flow times the
+cumulated inflation index $\prod_{i \le k} (1 + i_i)$, discounted at the nominal rate with the
+nominal growth; under mid-period timing the equivalence holds with the index taken at
+t = k − 0.5, $\prod_{i < k} (1 + i_i) \, (1 + i_k)^{0.5}$. When the terminal rate was converted,
+the rate convention of the terminal technique says "converted" instead of "given".
+
+Points of practice that the engine does not check:
+
+- A real WACC must be the nominal after-tax WACC deflated by the Fisher relation: the interest
+  tax shield is earned on nominal interest, so compute the WACC in nominal terms and let the
+  engine convert it (or deflate it yourself), rather than applying the tax rate to a real cost
+  of debt.
+- With real build-up lines, taxes computed on real EBIT understate the tax actually paid,
+  because tax depreciation is on historical cost and is not indexed to inflation; when
+  inflation matters, prefer a plan in nominal terms (as Damodaran recommends). This is a
+  documentation note: no warning is reported.
+- A constant growth perpetuity (`tv.gordon`) gives the same value in real and in nominal
+  terms. The H-model approximates a declining growth and the value driver subtracts a
+  reinvestment g / RONIC, so a real and a nominal valuation of the same business differ
+  slightly with `tv.h_model` and `tv.value_driver`: this is a property of the techniques, not
+  of the conversion. Their terms, RONIC included, are in the terms of the cash flows
+  (Decision 5).
 
 ## Example
 
