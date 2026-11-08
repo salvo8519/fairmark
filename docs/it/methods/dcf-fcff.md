@@ -201,7 +201,7 @@ dal capitale proprio si sottraggono per ottenere l'equity value:
 | --- | --- | --- |
 | Attività non operative | `non_operating_assets`: `{"label", "value"}`, valori pari a zero o positivi | aggiunte |
 | Posizione finanziaria netta | `net_financial_position`: debiti finanziari lordi − liquidità + altre voci con il loro segno, come in SPEC-0007 | sottratta; positiva per un indebitamento netto |
-| Debt-like items | `debt_like_items`: `{"label", "value", "measurement_basis"}`, valori pari a zero o positivi; per esempio obbligazioni pensionistiche non coperte o fondi per rischi e oneri | sottratti |
+| Debt-like items | `debt_like_items`: `{"label", "value", "measurement_basis"}`, valori pari a zero o positivi; per esempio obblighi pensionistici non finanziati o fondi per rischi e oneri | sottratti |
 | Partecipazioni di minoranza | `non_controlling_interests`: `{"label", "value", "measurement_basis"}`, valori pari a zero o positivi; la quota delle controllate consolidate che appartiene ad altri soci | sottratte |
 
 Ogni importo è misurato alla data di valutazione e preso come fornito: Fairmark non sceglie
