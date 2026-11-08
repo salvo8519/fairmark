@@ -45,6 +45,35 @@ Approved by the maintainer on 2026-11-08.
   case in AC6. R8 clarified on 2026-11-08: `default` destinations of Appendix A applied to a
   given aggregate are also listed in `meta.defaults_applied` (pointer, destination, reason),
   consistent with SPEC-0001 Decision 24; acceptance in AC13. `FM-E026` confirmed free on main.
+- **Amendments of 2026-11-08 (maintainer decisions D1 to D6, after the code review and the
+  numerical audit of the first pull request).** Approved by the maintainer on 2026-11-08:
+  - **D1, subscribed capital unpaid.** When item A (`subscribed_capital_unpaid`) is not given,
+    it is zero. The default is documented in the schema, listed for each year in
+    `meta.defaults_applied` and stated in the conventions; the same amount is used everywhere it
+    enters a number (equity, `current_non_current/total_assets`).
+  - **D2, "of which" parts.** An "of which" part that is not given (item A and assets D within
+    C.II, liabilities E within D, derivative liabilities within B) is none. Each is listed in
+    `meta.defaults_applied`, not only in the conventions, also when its parent node is absent
+    (provisions not given: derivative liabilities none, listed).
+  - **D3, derivatives.** The derivative liabilities within B default to none as in D2. When
+    treated as `financial_liability` they are non-current in the net financial position, stated
+    as a convention. Derivative assets, which are not given separately, follow the same declared
+    rule: those within B.III (B.III.4) follow the treatment of B.III and are non-current in the
+    net financial position; those within C.III (C.III.5) are current financial assets of the net
+    financial position; stated as a convention.
+  - **D4, schema.** Approved additions to the input: `beyond_one_year` on the parts of a split of
+    shareholder loans (for a `financial_debt` part only), and the grouped node of B10
+    (`value_adjustments_of_fixed_assets`, B10 a to c as one amount, art. 2435-bis). The
+    reclassified income statement fields `external_costs` and `other_charges_below_ebitda` are
+    removed from the first pull request and deferred to the second (issue #236), as additive
+    fields of version 1.
+  - **D5, signed totals.** Recorded clarification of Appendix B: every total that can be
+    negative is marked "(signed)", and the statutory totals of equity, A, B, A − B, C and D are
+    signed inputs (R3).
+  - **D6, intercompany and other financial payables.** Payables D.8 to D.11 (to subsidiaries,
+    associates, parents and sister companies) are not separated from the remainder of D in this
+    version; moving their financial part into the net financial position is a separate issue,
+    not the first pull request. The limitation is stated on the methodology page.
 
 ## Analysis
 
@@ -314,6 +343,9 @@ IRAP (SPEC-0003); ratios and margins (SPEC-0007).
 | Signs | as presented in the statutory layouts | fixed | Decision 3; OIC 12 (V12) |
 | Treatments; adjustments | stated once; adjustment amounts per year; overrides for B.III and shareholder loans | fixed | Revision 4 |
 | Provisions B, TFR C | `operating_provision`; `debt_like` by adjustment | default | Decision 5; ESMA32-382-1138 guideline 39 (V15) |
+| Item A not given | zero, listed in `meta.defaults_applied` | default | D1 |
+| "Of which" parts not given (A and D within C.II, E within D, derivatives within B) | none, listed in `meta.defaults_applied` | default | D2 |
+| Derivatives | liabilities treated as financial: non-current in the NFP; assets follow B.III (non-current) or C.III (current) | fixed, stated | D3 |
 | B.III; shareholder loans; derivatives in B | required treatment when given and not zero | none | Decisions 5, 6, 10 |
 | Net financial position | SPEC-0007 structure; C.III and C.IV inside; operating cash by adjustment | default | Decision 11; ESMA (V15) |
 | A5, B14 | core; investing and non-recurring parts by adjustment | default | Decision 7; OIC 12; art. 2427 n. 13 (V9) |
@@ -391,7 +423,9 @@ Every golden case compares exactly (tolerance 0).
   `current_non_current`, the reconciliations, the assignments and adjustments applied, and
   `not_computed`; once, `changes` per pair of consecutive entries.
 - **Schema changes:** additive: one new method, `schemas/statements.reorganise/v1.json`, one entry
-  in `schemas/index.json`. No existing method, golden case or number changes.
+  in `schemas/index.json`. No existing method, golden case or number changes. Under D4 the
+  second pull request adds `external_costs` and `other_charges_below_ebitda` to the reclassified
+  income statement of version 1, an additive change before the first release.
 - **Building blocks reused:** `ratios::NetFinancialPosition`, `NfpItem`; `tv::Line`; the
   debt-like item type and `MeasurementBasis` of SPEC-0001 (#44, Decision 21); field names of
   `FreeCashFlowLines` and of the SPEC-0007 inputs; `Explain`; `crate::num`; the registry.
@@ -403,6 +437,7 @@ Every golden case compares exactly (tolerance 0).
 - Methodology page `docs/en/methods/statements-reorganise.md`: the two forms, best-effort rules,
   Appendix A to C as tables, the write-down rule, which output feeds which method (R20), an
   example from a filed abridged statement, "Verified against".
+- The methodology page states the limitation of D6 (payables D.8 to D.11 not separated).
 - Concept page `docs/en/concepts/financial-statements.md`: from a filing or a few totals to
   `ratios.*`, `dcf.free_cash_flows` and the `dcf.fcff` bridge.
 - `docs/en/reference/errors.md` (`FM-E026`); regenerated reference and schema; Italian editions;
@@ -537,7 +572,7 @@ when given and not zero. "NFP": component of the net financial position.
 
 | Reference | Identifier | Destination | Choice | Adjustments | Current / non-current |
 | --- | --- | --- | --- | --- | --- |
-| Assets A | `subscribed_capital_unpaid` (or "of which" of C.II) | deducted from equity | F | none | deducted |
+| Assets A | `subscribed_capital_unpaid` (or "of which" of C.II); zero when not given (D1) | deducted from equity | F | none | deducted |
 | B.I | `intangible_assets` (gross and accumulated optional) | operating fixed assets | D | `non_operating_asset` | non-current |
 | B.II | `tangible_assets` (gross and accumulated optional) | operating fixed assets | D | `non_operating_asset`, `lease` | non-current |
 | B.III | `financial_fixed_assets` | operating, non-operating, or NFP financial asset | R | none | non-current |
@@ -548,7 +583,7 @@ when given and not zero. "NFP": component of the net financial position.
 | Assets D | `prepayments_and_accrued_income` (or "of which" of C.II) | operating working capital | D | `lease` (prepayment) | current, or part given |
 | Liabilities A | `equity` (total or Roman numerals; A.IX) | equity | F | `dividends_declared`, `lease` | equity |
 | B, other | `provisions` | operating provision | D | `debt_like_provision` | non-current, or part given |
-| B, derivatives | `provisions.of_which_derivative_liabilities` | NFP other financial liability, or operating provision | R | none | non-current, or part given |
+| B, derivatives | `provisions.of_which_derivative_liabilities`; none when not given (D2, D3) | NFP other financial liability, or operating provision | R | none | non-current (D3) |
 | C | `employee_severance_indemnity` | operating provision | D | `debt_like_provision` | non-current, or part given |
 | D, financial debt | `payables.financial_debt` (beyond one year) | NFP gross debt | F | none | its split |
 | D, shareholder loans | `payables.shareholder_loans` (beyond one year) | NFP gross debt, or quasi-equity | R | none | its split |
@@ -581,23 +616,23 @@ when given and not zero. "NFP": component of the net financial position.
 ### B.1 Balance sheet
 - `operating_fixed_assets` = B.I + B.II + B.III (operating) − non-operating parts + lease assets.
 - `operating_working_capital` = C.I + C.II (operating) + assets D + operating cash − payables D
-  (operating) − E (operating); `trade_working_capital` = trade receivables + inventories − trade
+  (operating) − E (operating) (signed); `trade_working_capital` = trade receivables + inventories − trade
   payables, when given.
 - `operating_provisions` = B and C treated as operating provisions.
 - `invested_capital` = `operating_fixed_assets` + `operating_working_capital` −
-  `operating_provisions`.
+  `operating_provisions` (signed).
 - `non_operating_assets` = B.III (non-operating) + parts moved by `non_operating_asset`.
-- `total_funds_invested` = `invested_capital` + Σ `non_operating_assets`.
+- `total_funds_invested` = `invested_capital` + Σ `non_operating_assets` (signed).
 - `equity` = liabilities A − subscribed capital unpaid − dividends declared ± lease effect
   (signed).
 - `net_financial_position` = gross debt − cash + Σ other items (SPEC-0007, signed);
   `excess_cash` = C.IV − operating cash.
-- Sources = `equity` + Σ `quasi_equity_items` + `net_financial_position` + Σ `debt_like_items`;
-  `total_funds_invested` = sources.
+- Sources (`total_sources`) = `equity` + Σ `quasi_equity_items` + `net_financial_position` +
+  Σ `debt_like_items` (signed); `total_funds_invested` = sources.
 
 ### B.2 Income statement
 - `value_of_production` = A1 + A2 + A3 + A4 + A5 (core).
-- `value_added` = `value_of_production` − (B6 + B11 + B7 + B8 + B14 (core)).
+- `value_added` = `value_of_production` − (B6 + B11 + B7 + B8 + B14 (core)) (signed).
 - `ebitda` = `value_added` − B9 (signed).
 - `operating_profit` = `ebitda` − `depreciation_and_amortisation` − B12 − B13 (− B10 d with the
   treatment `operating`) (signed).
@@ -607,7 +642,8 @@ when given and not zero. "NFP": component of the net financial position.
 - `non_recurring_result` = Σ non-recurring income − Σ non-recurring expense.
 - `financing_result` = C17-bis − C17 (signed).
 - `profit_before_tax` = `profit_before_financing_and_taxes` + `non_recurring_result` +
-  `financing_result`; equals A − B ± C ± D.
+  `financing_result` (signed); equals A − B ± C ± D.
+- Statutory totals given as inputs are signed (D5): equity, A, B, A − B, C, D.
 - `net_income` = `profit_before_tax` − `income_taxes`; equals item 21.
 - Lease adjustment: B8 less the lease payments; depreciation added; interest added to C17.
 

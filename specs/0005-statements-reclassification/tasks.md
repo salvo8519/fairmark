@@ -112,7 +112,8 @@ request where every output they assert exists (`plan.md`, "Test strategy").
 - [ ] T26 Property tests AC10; unit tests AC11 and AC13 for the income statement, including the
   `default` destinations of A5, B14 and B10 d in `meta.defaults_applied`; exhaustiveness
   of `not_computed` for `few-totals.yaml`
-- [ ] T27 `uv run just generate`; `schemas/statements.reorganise/v1.json` and its hash unchanged
+- [ ] T27 `uv run just generate`; `schemas/statements.reorganise/v1.json` changed only by the two
+  additive fields deferred by D4 (`external_costs`, `other_charges_below_ebitda`)
 
 ### Adapters and docs
 - [ ] T28 [P] `python/tests/test_reference_statements.py` extended to income statements

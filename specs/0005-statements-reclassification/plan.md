@@ -75,7 +75,9 @@ The type path `fairmark_core::statements::Reorganise` satisfies the ADR 0009 tes
 - **The input schema is complete in the first pull request.** `schemas/statements.reorganise/
   v1.json` is generated once, with every field of the spec, so later pull requests change the
   computation and the output but never the input schema (its hash in `schemas/index.json` stays
-  the same).
+  the same). Exception, D4 of 2026-11-08: `external_costs` and `other_charges_below_ebitda` of
+  the reclassified income statement come with the second pull request, an additive change of
+  version 1 before the first release.
 
 ### Defaults (`Method::apply_defaults`, `meta.defaults_applied`)
 Every default is read in one place, `meta.defaults_applied` (R8 as clarified on 2026-11-08,
@@ -96,6 +98,16 @@ consistent with SPEC-0001 Decision 24). Two kinds exist:
    Because the mapping defaults depend on which aggregates are given and on the adjustments,
    they are derived in `apply_defaults` from the parsed input, before `compute`; `compute` uses
    the same mapping table, so the two cannot drift (one constant table for Appendix A).
+3. **Value defaults** (D1, D2 of 2026-11-08): item A not given is zero, and an "of which" part
+   not given (A and D within C.II, E within D, derivatives within B) is none. For each statutory
+   year with a balance sheet, every such item not given is listed in `meta.defaults_applied`
+   with its pointer, the value `"0"` and the reason, also when its parent node is absent; the
+   computation uses the same zero everywhere.
+The mapping defaults of the income statement (A5, B14, B10 d) are listed from the second pull
+request, which assigns them; the first lists only the input default of
+`write_downs_of_receivables`. Order of the list: mapping destinations by year, then the input
+default, then the value defaults by year. Both tables are typed (one function per row returning
+the amount given), so a misspelt key cannot drop a default.
 The conventions of R2 (order assumed when a date is missing) and R15 (twelve-month reading,
 provisions non-current) remain conventions, not defaults.
 
