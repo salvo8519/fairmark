@@ -350,8 +350,9 @@ added, and output fields are added next to the existing ones.
 | `inflation_per_period` | list of decimals, optional | one per period of the explicit horizon, exactly N (`FM-E025` otherwise); requires `terminal_inflation` |
 | `terminal_inflation` | decimal, optional | expected inflation of the terminal phase; required with `inflation_per_period`, refused with `inflation` and alone |
 
-Exactly one form or none; any other combination, or an inflation of -1 or lower, is `FM-E001`
-naming the field by its JSON pointer and stating the fix. The form mirrors the rate forms of
+Exactly one form or none; any other combination is `FM-E001` naming the fields by their JSON
+pointers and stating the fix (Decision 18); an inflation of -1 or lower is `FM-E003` naming its
+pointer, the code of `rates.real_nominal` (Decision 19). The form mirrors the rate forms of
 R12 and Decision 13 (one value for every period and the terminal phase, or one per period plus
 a terminal value), so that the two lists read the same way. The forms are checked whenever
 they are given, also when the terms are equal (R18).
@@ -418,13 +419,14 @@ rate: expected inflation", "Terminal rate used", "Perpetual growth in real (nomi
 - Rust unit tests: every new error with its JSON pointer, every convention, the R17 warning,
   no conversion with equal terms.
 
-### Open questions for the maintainer (issue #166)
-- **R17 for techniques without a stated perpetual growth.** `tv.exit_multiple` (implied growth
-  only when `next_flow` is given), `tv.limited_horizon` (a finite growth) and `tv.liquidation`
-  state no perpetual growth. Implemented: nothing is restated and a convention says so. The
-  implied growth of an exit multiple could be restated too.
-- **Inflation of the R17 warning with inflation per period.** Implemented: the inflation of
-  the terminal phase (`terminal_inflation`), since the perpetual growth applies after N. The
-  spec says "expected inflation" without naming the period.
-- **R17 for real flows.** The spec asks for the warning only for nominal flows; a negative real
-  perpetual growth on real flows is reported in the other terms but not as a warning.
+### Resolved by the maintainer (issue #166)
+Approved on 2026-11-08 (spec, "Decisions"):
+- **R17 for techniques without a stated perpetual growth**: nothing is restated for
+  `tv.exit_multiple`, `tv.limited_horizon` and `tv.liquidation`, and a convention says so; the
+  implied growth of an exit multiple is an output, not restated (Decision 20 a).
+- **Inflation of the R17 warning with inflation per period**: the inflation of the terminal
+  phase (Decision 20 b).
+- **R17 for real flows**: no warning; the restated nominal growth is reported (Decision 20 c).
+- **Terminal inflation next to one inflation**: refused with `FM-E001` naming both fields
+  (Decision 18).
+- **Inflation at or below -1**: `FM-E003`, the code of `rates.real_nominal` (Decision 19).

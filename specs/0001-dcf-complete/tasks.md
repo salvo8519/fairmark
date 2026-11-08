@@ -167,5 +167,6 @@ Plan: `plan.md`, section "Issue #166". Additive to `dcf.fcff` version 3.
 - [x] N8 Italian edition; roadmap #166 done; `uv run just check`
 
 ### Verification
-- [ ] N9 `numerical-auditor` and `code-reviewer` reviews, open questions of plan.md (issue
-  #166) answered, AC8 and AC9 ticked in spec.md (maintainer)
+- [x] N9 `numerical-auditor` (numerically sound) and `code-reviewer` (approve) reviews, their
+  findings applied; open questions of plan.md (issue #166) resolved by Decisions 18 to 20;
+  AC8 and AC9 ticked in spec.md (maintainer, 2026-11-08)
