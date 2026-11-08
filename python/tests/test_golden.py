@@ -16,7 +16,7 @@ CASES = sorted(GOLDEN.rglob("*.yaml"))
 
 @pytest.mark.parametrize("path", CASES, ids=lambda p: f"{p.parent.name}/{p.stem}")
 def test_golden(path: Path) -> None:
-    case = yaml.safe_load(path.read_text())
+    case = yaml.safe_load(path.read_text(encoding="utf-8"))
     if "expect_error" in case:
         with pytest.raises(fm.FairmarkError) as err:
             fm.run(case["method"], case["input"])
@@ -65,7 +65,7 @@ NEW_CASE_KEYS = {"method", "description", "source", "input", "expect", "expect_e
 
 @pytest.mark.parametrize("path", CASES, ids=lambda p: f"{p.parent.name}/{p.stem}")
 def test_golden_case_shape(path: Path) -> None:
-    case = yaml.safe_load(path.read_text())
+    case = yaml.safe_load(path.read_text(encoding="utf-8"))
     assert set(case) <= NEW_CASE_KEYS, f"unknown keys: {set(case) - NEW_CASE_KEYS}"
     assert ("expect" in case) != ("expect_error" in case), "exactly one of expect, expect_error"
     if "expect" in case:

@@ -25,7 +25,7 @@ FENCE = re.compile(r"```python\n(.*?)```", re.DOTALL)
 @pytest.mark.parametrize("page", PAGES, ids=lambda p: str(p.relative_to(DOCS)))
 def test_python_snippets_run(page: Path) -> None:
     namespace: dict[str, object] = {}
-    for snippet in FENCE.findall(page.read_text()):
+    for snippet in FENCE.findall(page.read_text(encoding="utf-8")):
         exec(compile(snippet, str(page), "exec"), namespace)
 
 

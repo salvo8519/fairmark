@@ -68,6 +68,7 @@ def test_numerical_changes_name_the_method_versions(tmp_path: Path) -> None:
         check=True,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     ).stdout
     assert (
         "- **tvm**: Exact discounting at negative rates. "
