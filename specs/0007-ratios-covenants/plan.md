@@ -169,3 +169,86 @@ All questions below were decided on 2026-11-08; the decisions are recorded in `s
 11. **LLCR reserve account.** Resolved: optional `debt_schedule.reserve_balance`, added
     undiscounted at the valuation date to the LLCR numerator; the discount rate is documented as
     the cost of debt per period chosen by the analyst.
+
+## Covenants (`ratios.covenants`, issue #147, R5, AC5)
+
+Implements decision 1 of 2026-11-08: the tested value comes from the numerator and the
+denominator defined by the loan agreement; a ratio that cannot be computed is "not tested" with
+the reason, never a breach; the test date refers to the period ending on that date. The method
+is read mainly by AI agents, so every outcome is an explicit machine-readable value and every
+choice that changes an outcome is a required input.
+
+### Module
+`src/ratios/covenants.rs`: `Covenants` method, `ratios.covenants`, one line in the registry
+after `ratios::debt_service::DebtService`. It does not call the other ratio groups: the
+covenant's own definitions replace the standard ratios.
+
+### Input
+| Field | Content |
+| --- | --- |
+| `covenants` | List of at least one covenant; empty is `FM-E001` |
+| `covenants[i].name` | Name of the covenant as in the agreement, not blank (`FM-E001`) |
+| `covenants[i].test_date` | ISO 8601 date; the amounts refer to the period ending on it (`FM-E009` when invalid) |
+| `covenants[i].numerator`, `.denominator` | `{definition, amount}`: the definition in the words of the agreement (not blank, `FM-E001`) and the amount in currency units |
+| `covenants[i].operator` | Required, no default: `at_most` (≤, inclusive maximum), `less_than` (<, strict maximum), `at_least` (≥, inclusive minimum), `greater_than` (>, strict minimum) |
+| `covenants[i].threshold` | In the unit of numerator / denominator: a multiple or a decimal fraction (0.30 = 30%) |
+
+### Output
+`covenants`: one result per covenant, in the input order, and `summary` with the number of
+covenants `passed`, `breached` and `not_tested`. Each result:
+
+| Field | Content |
+| --- | --- |
+| `name`, `test_date`, `operator`, `threshold` | Echoed from the input |
+| `outcome` | `passed`, `breached` or `not_tested` |
+| `value` | Tested value = numerator / denominator, exact, not rounded; null when not tested |
+| `headroom` | Distance from the threshold in the unit of the tested value, positive on the compliant side and negative on the breach side: threshold − value for a maximum, value − threshold for a minimum; null when not tested |
+| `headroom_relative` | `{value, not_defined}`: headroom / threshold, decimal fraction; not defined when the threshold is zero, when the threshold is negative (open question 3 below) or when the covenant is not tested |
+| `not_tested_reason` | Null, or why the covenant was not tested |
+
+At the threshold the headroom is zero: an inclusive operator passes, a strict operator breaches.
+
+### Rules
+- Not tested (never a breach): the denominator amount is zero ("denominator is zero: <definition>").
+- A negative numerator is compared as computed (a net cash position gives a negative leverage
+  that passes a maximum; a negative EBITDA gives a negative cover that breaches a minimum).
+- A negative denominator is refused with `FM-E001`, naming the field: the sign reverses the
+  order of the quotient and the treatment is not decided (open question 1). Refusing keeps the
+  later decision additive (an input that fails today may succeed later; no published outcome
+  changes).
+- No error code is added: missing, blank or unknown fields are `FM-E001`, invalid dates
+  `FM-E009`, overflow `FM-E008`.
+
+### Explain
+Per covenant: numerator and denominator as given, with the definitions; the tested value with
+the numbers substituted; the headroom and the relative headroom. Conventions: the definitions
+come from the agreement, the period ending on the test date, exact comparison without rounding,
+the headroom sign convention, the not-tested rule, and for each covenant its test rule
+("passes when the tested value ≤ 3.5") and, when not tested, the reason.
+
+### Tests
+| Test | Source of expected values | Proves |
+| --- | --- | --- |
+| Golden `ratios.covenants/one-breach.yaml` | `scripts/reference_ratios.py`, `covenants` | AC5 |
+| Golden `ratios.covenants/zero-denominator.yaml` | same | decision 1, not tested is never a breach |
+| Golden `ratios.covenants/at-the-threshold.yaml` | same, exact | inclusive and strict operators |
+| Golden `ratios.covenants/negative-numerator.yaml` | same | sign of the tested value |
+| Golden `ratios.covenants/non-positive-threshold.yaml` | same | relative headroom not defined |
+| Golden error cases (empty list, blank definition, negative denominator, missing operator, invalid date) | constructed | errors |
+| Contract cases `tests/contracts/ratios.covenants.yaml` | constructed | extreme inputs, conventions |
+| Unit tests in `src/ratios/covenants.rs` | constructed | rules above |
+
+### Open questions for the maintainer (not implemented)
+1. **Negative denominator.** A covenant ratio over a negative amount (for example net debt /
+   EBITDA with negative EBITDA): breach, not tested, or tested as computed? Some agreements say
+   so explicitly. Refused with `FM-E001` until decided.
+2. **Rounding of the tested value.** Some agreements round the ratio (for example to two
+   decimals) before the comparison. Version 1 compares the exact quotient and says so; an
+   optional, explicit rounding input would be a new field.
+3. **Relative headroom on a negative threshold.** Headroom / threshold reverses the sign
+   convention when the threshold is negative; dividing by the absolute value is a choice. Not
+   defined until decided.
+4. **Covenants on a single amount** (minimum net worth, maximum capital expenditure) have no
+   denominator. Not covered by R5 as written; a later addition if wanted.
+5. **Equity cure, step-down thresholds and grace periods.** Out of scope: each test date is one
+   entry with its own threshold; cures are not modelled.

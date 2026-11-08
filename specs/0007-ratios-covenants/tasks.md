@@ -44,4 +44,18 @@ parallel; tick a task only when `just check` passes.
 - [x] T24 Optional `debt_schedule`; `reserve_balance` in the LLCR [decisions 8, 9]
 - [x] T25 Golden tolerance 1e-20 for every `ratios.*` case [decision 10]
 - [x] T26 Reference script, docs (English and Italian), glossary, release note, schemas v1
-- [ ] T27 `ratios.covenants` [R5; AC5]: separate method and issue (decision 1)
+- [ ] T27 `ratios.covenants` [R5; AC5]: separate method and issue #147 (decision 1), broken
+  down in T28 to T35
+
+## Covenants, issue #147 (plan.md, "Covenants")
+- [ ] T28 Reference function `covenants` in `scripts/reference_ratios.py` [R5; AC5]
+- [ ] T29 Golden cases `tests/golden/ratios.covenants/` and contract cases
+  `tests/contracts/ratios.covenants.yaml` [R5; AC5; decision 1]
+- [ ] T30 `ratios/covenants.rs`: input, outcome, headroom, not-tested rule, explain and
+  conventions, unit tests [R5; decision 1]
+- [ ] T31 Registry entry, `uv run just generate` (schema v1, index, methods reference)
+- [ ] T32 [P] Python helper `fairmark.ratios.covenants`
+- [ ] T33 [P] Methodology page `docs/en/methods/ratios-covenants.md`, nav entry, index row;
+  Italian edition with the glossary, stamped
+- [ ] T34 [P] Release note fragment `changes/147.feature.md`; roadmap #147 done
+- [ ] T35 `uv run just check` green
