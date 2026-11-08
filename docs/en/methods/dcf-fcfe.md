@@ -12,7 +12,9 @@ Method version: 1. Status: preview.
 ## Formula
 
 $$
-FCFE_t = FCFF_t - \text{interest}_t \, (1 - t) + \text{net borrowing}_t
+FCFE_t = FCFF_t - (\text{interest}_t - S_t) + \text{net borrowing}_t
+\qquad
+S_t = t \times D_t
 $$
 
 $$
@@ -49,10 +51,17 @@ for new borrowing) in every line. The FCFE of each period is built up as in
 [`dcf.free_cash_flows`](dcf-free-cash-flows.md):
 
 - with `notional_tax_rate` and `negative_ebit`, the taxes on EBIT come from the rate and the
-  interest tax shield uses the same rate; in a period where EBIT is negative and the treatment
-  is `zero`, there is no tax and no interest tax shield, so the interest is subtracted in full;
+  interest tax shield $S_t$ uses the same rate. Under `credit` the deductible interest $D_t$ is
+  the whole interest expense. Under `zero` no tax credit arises on a pre-tax loss, so the
+  deductible interest is limited to the taxable income available,
+  $D_t = \min(\text{interest}_t, \max(EBIT_t, 0))$ (SPEC-0001 Decision 22): with a negative EBIT
+  there is no shield and the interest is subtracted in full; with an EBIT above zero but below
+  the interest the shield is t × EBIT; the FCFE then equals the net-income route in every
+  period;
 - with `operating_taxes` in every line, the rate of the interest tax shield is the required
-  `interest_tax_rate`.
+  `interest_tax_rate` and the whole interest expense is deductible.
+
+`dcf.fcfe` applies this rule from version 1, through `dcf.free_cash_flows` version 2.
 
 Lines without the financing lines are refused: the equity basis needs them in every period.
 With `cash_flow_terms` real, the interest expense must be real interest: the part of nominal
@@ -219,7 +228,7 @@ the equity value of `dcf.fcff` without a net financial position, to the last dig
 | --- | --- | --- |
 | Basis | equity: FCFE discounted at the cost of equity; equity value directly, no net financial position | fixed by the method |
 | FCFE of a `given` stage | amounts (`flows`) or line items with interest and net borrowing (`lines`) | one of the two required |
-| Interest tax shield | interest × (1 − t), t the tax rate on EBIT or `interest_tax_rate`; none in a period where the `zero` treatment applies | fixed |
+| Interest tax shield | t × deductible interest, t the tax rate on EBIT or `interest_tax_rate`; the deductible interest is the whole interest under `credit` and in the amounts form, and min(interest, max(EBIT, 0)) under `zero` (Decision 22) | fixed |
 | Stages, discount rate, terms, inflation, timing, terminal discounting time | as in [`dcf.fcff`](dcf-fcff.md), with the cost of equity as the discount rate | required |
 | Terminal technique | on the equity basis, at the terminal cost of equity | required |
 | Bridge items | measured at the valuation date as given; none given means none | none |
@@ -243,9 +252,10 @@ negative equity value is reported as a warning, never floored at zero.
 | `FM-E024` | `cash_flow_terms` and `discount_rate_terms` differ and no expected inflation is given |
 | `FM-E025` | A count does not match the stages: flows or lines, costs of equity or inflation per period, or a misplaced base flow |
 
-Validation errors name the field by its JSON pointer and state the fix; errors raised while
-reading the input (a missing or unknown field, a wrong type) report the line and column of the
-input instead.
+Every error names the field by its JSON pointer, for example `/cost_of_equity_per_period/2`,
+and states the fix, including errors raised while reading the input: a missing or unknown field
+(`/terminal/tv.gordon/first_flow`), a wrong type or an unknown choice (`/stages/0/projection`,
+with the values expected).
 
 ## Accuracy
 
@@ -262,7 +272,7 @@ golden cases from the reference are checked to $10^{-20}$.
   and timings.
 - Stages with `lines`: the 50-digit build-up of `scripts/reference_free_cash_flows.py`
   (`equity_stages_with_flows`) composed with `scripts/reference_dcf.py`, in both tax forms and
-  with the `zero` treatment of a negative EBIT
+  with the `zero` treatment of a negative EBIT and of an EBIT above zero but below the interest
   (`stage-with-build-up-lines-*.yaml`).
 - Consistency with `dcf.fcff` (seeded, parametrised tests): with no debt and no net borrowing, the equity
   value of `dcf.fcfe` equals the equity value of `dcf.fcff` on the same flows, at a WACC equal

@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-free-cash-flows.md
-source_hash: 21c4bb2349c5
+source_hash: 8d8a91d9cc04
 ---
 # Costruzione dei flussi di cassa disponibili (`dcf.free_cash_flows`)
 

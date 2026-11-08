@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcfe.md
-source_hash: c18c1a9ebc58
+source_hash: 9acd6e548bdc
 ---
 # DCF, flussi di cassa disponibili per gli azionisti (`dcf.fcfe`)
 
@@ -18,7 +18,9 @@ Versione del metodo: 1. Stato: anteprima.
 ## Formula
 
 $$
-FCFE_t = FCFF_t - \text{oneri finanziari}_t \, (1 - t) + \text{net borrowing}_t
+FCFE_t = FCFF_t - (\text{oneri finanziari}_t - S_t) + \text{net borrowing}_t
+\qquad
+S_t = t \times D_t
 $$
 
 $$
@@ -56,11 +58,19 @@ Uno stage `given` può ricevere i flussi come voci in `lines`, un oggetto per pe
 costruito come in [`dcf.free_cash_flows`](dcf-free-cash-flows.md):
 
 - con `notional_tax_rate` e `negative_ebit`, le imposte sull'EBIT derivano dall'aliquota e lo
-  scudo fiscale sugli oneri finanziari usa la stessa aliquota; in un periodo con EBIT negativo
-  e trattamento `zero` non ci sono imposte né scudo fiscale, quindi gli oneri finanziari sono
-  sottratti per intero;
+  scudo fiscale sugli oneri finanziari $S_t$ usa la stessa aliquota. Con `credit` gli oneri
+  finanziari deducibili $D_t$ sono l'intero importo. Con `zero` non sorge alcun credito
+  d'imposta su una perdita prima delle imposte, quindi gli oneri finanziari deducibili sono
+  limitati al reddito imponibile disponibile,
+  $D_t = \min(\text{oneri finanziari}_t, \max(EBIT_t, 0))$ (SPEC-0001 Decision 22): con EBIT
+  negativo non c'è scudo fiscale e gli oneri finanziari sono sottratti per intero; con EBIT
+  positivo ma inferiore agli oneri finanziari lo scudo è t × EBIT; il FCFE coincide allora con
+  il calcolo dall'utile netto in ogni periodo;
 - con `operating_taxes` in ogni voce, l'aliquota dello scudo fiscale è il campo obbligatorio
-  `interest_tax_rate`.
+  `interest_tax_rate` e gli oneri finanziari sono interamente deducibili.
+
+`dcf.fcfe` applica questa regola fin dalla versione 1, attraverso `dcf.free_cash_flows`
+versione 2.
 
 Le voci senza le voci finanziarie sono rifiutate: l'approccio equity side le richiede in ogni
 periodo. Con `cash_flow_terms` real, gli oneri finanziari devono essere in termini reali: la
@@ -233,7 +243,7 @@ cifra.
 | --- | --- | --- |
 | Approccio | equity side: FCFE attualizzati al costo del capitale proprio; equity value direttamente, senza posizione finanziaria netta | fissato dal metodo |
 | FCFE di uno stage `given` | importi (`flows`) o voci con oneri finanziari e net borrowing (`lines`) | uno dei due, obbligatorio |
-| Scudo fiscale sugli oneri finanziari | oneri finanziari × (1 − t), con t l'aliquota sull'EBIT o `interest_tax_rate`; nessuno in un periodo in cui si applica il trattamento `zero` | fisso |
+| Scudo fiscale sugli oneri finanziari | t × oneri finanziari deducibili, con t l'aliquota sull'EBIT o `interest_tax_rate`; gli oneri deducibili sono l'intero importo con `credit` e nella forma a importi, e min(oneri finanziari, max(EBIT, 0)) con `zero` (Decision 22) | fisso |
 | Stage, tasso di attualizzazione, termini, inflazione, collocazione temporale dei flussi, momento di attualizzazione del valore terminale | come in [`dcf.fcff`](dcf-fcff.md), con il costo del capitale proprio come tasso di attualizzazione | obbligatori |
 | Tecnica del valore terminale | con approccio equity side, al costo del capitale proprio della fase terminale | obbligatoria |
 | Voci del passaggio all'equity value | misurate alla data di valutazione come fornite; nessuna voce significa nessuna | nessuna |
@@ -258,9 +268,11 @@ come avvertenza, mai riportato a zero.
 | `FM-E024` | `cash_flow_terms` e `discount_rate_terms` sono diversi e non è fornita l'inflazione attesa |
 | `FM-E025` | Un conteggio non corrisponde agli stage: flussi o voci, costi del capitale proprio o inflazione per periodo, oppure un base flow fuori posto |
 
-Gli errori di validazione indicano il campo con il suo JSON Pointer e la correzione da
-apportare; gli errori rilevati durante la lettura dell'input (un campo mancante o sconosciuto,
-un tipo errato) indicano invece la riga e la colonna dell'input.
+Ogni errore indica il campo con il suo JSON Pointer, per esempio
+`/cost_of_equity_per_period/2`, e la correzione da apportare, compresi gli errori rilevati
+durante la lettura dell'input: un campo mancante o sconosciuto
+(`/terminal/tv.gordon/first_flow`), un tipo errato o una scelta sconosciuta
+(`/stages/0/projection`, con i valori ammessi).
 
 ## Precisione
 
@@ -279,7 +291,8 @@ $10^{-20}$.
   collocazioni temporali dei flussi.
 - Stage con `lines`: la costruzione a 50 cifre di `scripts/reference_free_cash_flows.py`
   (`equity_stages_with_flows`) composta con `scripts/reference_dcf.py`, in entrambe le forme
-  fiscali e con il trattamento `zero` di un EBIT negativo (`stage-with-build-up-lines-*.yaml`).
+  fiscali e con il trattamento `zero` di un EBIT negativo e di un EBIT positivo ma inferiore agli
+  oneri finanziari (`stage-with-build-up-lines-*.yaml`).
 - Coerenza con `dcf.fcff` (test parametrizzati con seme fisso): senza debito e senza net borrowing, l'equity
   value di `dcf.fcfe` è uguale all'equity value di `dcf.fcff` sugli stessi flussi, con un WACC
   pari al costo del capitale proprio e le stesse voci, fino all'ultima cifra; anche su voci con
