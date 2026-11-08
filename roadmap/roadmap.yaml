@@ -121,7 +121,7 @@ milestones:
         labels: ["area:core"]
         tasks:
           - { issue: 32, title: "Golden YAML runner shared by Rust and Python", status: done }
-          - { issue: 33, title: "Property tests with proptest (NPV at IRR = 0, monotonicity)", tags: [parallel], status: open }
+          - { issue: 33, title: "Property tests with proptest (NPV at IRR = 0, monotonicity)", tags: [parallel], status: done }
           - { issue: 148, title: "Golden runners compare expected values exactly in Rust and Python", status: done }
 
   - title: "M2 · Complete DCF"

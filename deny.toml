@@ -7,6 +7,8 @@ multiple-versions = "warn"
 deny = [
   { name = "reqwest" }, { name = "hyper" }, { name = "ureq" },
   { name = "tokio" }, { name = "openssl" }, { name = "native-tls" },
+  # proptest features that fork processes and write temporary files; keep them disabled.
+  { name = "tempfile" }, { name = "rusty-fork" },
 ]
 
 [advisories]

@@ -12,7 +12,9 @@ decides. Every tool used is free for public open-source repositories.
 ## What may be added
 
 - **Core (`fairmark-core`)**: as few crates as possible; no network, file-system or
-  async-runtime crates (`deny.toml` bans them). A new core dependency requires an ADR.
+  async-runtime crates (`deny.toml` bans them). A new runtime dependency of the core requires
+  an ADR; dev-dependencies follow the Adapters and tooling rule and must not enable network,
+  file-system or process features.
 - **Adapters and tooling**: an actively maintained project with a release in the last twelve
   months, a permissive licence on the allow-list in `deny.toml` and in the *Security*
   workflow, and a reason that a few lines of our own code would not cover.

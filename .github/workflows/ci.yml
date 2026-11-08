@@ -31,6 +31,14 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
+      - name: Test-only crates stay out of the shipped dependency graph
+        run: |
+          out="$(cargo tree --workspace --target all -e normal,build -i proptest 2>/dev/null)"
+          if [ -n "$out" ]; then
+            echo "proptest is a normal or build dependency:"
+            echo "$out"
+            exit 1
+          fi
 
   msrv:
     name: Rust · MSRV 1.88
