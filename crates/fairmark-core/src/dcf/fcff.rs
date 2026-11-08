@@ -1,6 +1,6 @@
 //! `dcf.fcff` version 3: enterprise DCF, free cash flows to the firm discounted at the WACC
 //! over explicit stages and a terminal value, then value of operations, enterprise value and
-//! equity value (SPEC-0001 R1, R6 to R15, R19 to R23, R25).
+//! equity value (SPEC-0001 R1, R6 to R15, R19 to R23, R25, R26).
 
 use rust_decimal::Decimal;
 use schemars::JsonSchema;
@@ -97,6 +97,69 @@ pub struct DcfFcffInput {
     /// (zero or more), added to the value of operations. Default: none, reported.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub non_operating_assets: Vec<Line>,
+    /// Debt-like items (debt equivalents) at the valuation date, for example unfunded pension
+    /// obligations or provisions, each a label, a value in currency units (zero or more) and
+    /// its measurement basis, subtracted from enterprise value. Do not repeat an item
+    /// already among the `other_items` of the net financial position. Default: none, reported.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub debt_like_items: Vec<BridgeClaim>,
+    /// Non-controlling interests (minority interests) at the valuation date, each a label, a
+    /// value in currency units (zero or more) and its measurement basis (for example
+    /// `book_value` or `fair_value`), subtracted from enterprise value. Default: none, reported.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub non_controlling_interests: Vec<BridgeClaim>,
+}
+
+/// A claim on the value of the company other than the net financial position, subtracted from
+/// enterprise value to reach equity value: a debt-like item or a non-controlling interest
+/// (R25). Fairmark subtracts the amount as given and does not choose how it is measured.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct BridgeClaim {
+    /// What the claim is, for example "Unfunded pension obligation" or "30% of Subsidiary A".
+    /// Not empty.
+    pub label: String,
+    /// Amount at the valuation date, in currency units, zero or more; subtracted.
+    pub value: Decimal,
+    /// How the amount was measured, stated by the analyst: `book_value`, `market_value`,
+    /// `fair_value`, `present_value` or `other` (then describe it in `basis_note`). Required,
+    /// no default. Reported with the amount, never used in the calculation.
+    pub measurement_basis: MeasurementBasis,
+    /// Free text that qualifies the basis, for example "net of tax" or "49% of the book value
+    /// of equity of the subsidiary"; required with `other`, optional otherwise, never empty
+    /// when given. Reported, never used in the calculation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub basis_note: Option<String>,
+}
+
+/// How the amount of a bridge claim was measured (Decision 21). Fairmark does not choose the
+/// basis: the analyst states it and the result reports it next to the amount.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum MeasurementBasis {
+    /// Book value per the accounts at the valuation date.
+    BookValue,
+    /// Quoted market price at the valuation date.
+    MarketValue,
+    /// Fair value as defined by IFRS 13.
+    FairValue,
+    /// Present value of the obligation, for example unfunded pensions or provisions.
+    PresentValue,
+    /// Another basis, described in `basis_note` (required).
+    Other,
+}
+
+impl MeasurementBasis {
+    /// The JSON value and its meaning, as reported in `explain`.
+    fn describe(self) -> (&'static str, &'static str) {
+        match self {
+            Self::BookValue => ("book_value", "book value per the accounts"),
+            Self::MarketValue => ("market_value", "quoted market price"),
+            Self::FairValue => ("fair_value", "fair value as defined by IFRS 13"),
+            Self::PresentValue => ("present_value", "present value of the obligation"),
+            Self::Other => ("other", "described in the note"),
+        }
+    }
 }
 
 /// From value of operations to equity value, every line as given (R23, R25).
@@ -112,7 +175,16 @@ pub struct FcffBridge {
     pub enterprise_value: Decimal,
     /// Net financial position subtracted, positive for net debt; `null` when none is given.
     pub net_financial_position: Option<Decimal>,
-    /// Enterprise value minus the net financial position.
+    /// Each debt-like item, label, value and measurement basis, as given.
+    pub debt_like_items: Vec<BridgeClaim>,
+    /// Sum of the debt-like items, in currency units, subtracted.
+    pub debt_like_items_total: Decimal,
+    /// Each non-controlling interest, label, value and measurement basis, as given.
+    pub non_controlling_interests: Vec<BridgeClaim>,
+    /// Sum of the non-controlling interests, in currency units, subtracted.
+    pub non_controlling_interests_total: Decimal,
+    /// Enterprise value minus the net financial position, the debt-like items and the
+    /// non-controlling interests.
     pub equity_value: Decimal,
 }
 
@@ -125,7 +197,8 @@ pub struct DcfFcffOutput {
     pub value_of_operations: Decimal,
     /// Value of operations plus the non-operating assets.
     pub enterprise_value: Decimal,
-    /// Enterprise value minus the net financial position.
+    /// Enterprise value minus the net financial position, the debt-like items and the
+    /// non-controlling interests.
     pub equity_value: Decimal,
     /// Present value of the explicit FCFF, in currency units.
     pub pv_explicit_period: Decimal,
@@ -145,7 +218,7 @@ pub struct DcfFcffOutput {
 
 const FORMULA: &str = "Value of operations = Σ FCFF_k × DF_k + TV_N × DF_TV; Enterprise value = \
     value of operations + Σ non-operating assets; Equity value = enterprise value − net \
-    financial position";
+    financial position − Σ debt-like items − Σ non-controlling interests";
 
 pub fn fcff(input: &DcfFcffInput) -> Result<(DcfFcffOutput, Explain)> {
     let mut ex = Explain::new("dcf.fcff", FORMULA);
@@ -182,19 +255,26 @@ pub fn fcff(input: &DcfFcffInput) -> Result<(DcfFcffOutput, Explain)> {
     };
     // Bridge items are checked before any calculation, like every other input.
     for (i, a) in input.non_operating_assets.iter().enumerate() {
-        if a.value.is_sign_negative() && !a.value.is_zero() {
-            return Err(FairmarkError::InvalidInput(format!(
-                "`/non_operating_assets/{i}/value` is {}; a non-operating asset is zero or \
-                 more (obligations belong in the net financial position)",
-                a.value
-            )));
-        }
-        if a.label.trim().is_empty() {
-            return Err(FairmarkError::InvalidInput(format!(
-                "`/non_operating_assets/{i}/label` is empty; name the asset"
-            )));
-        }
+        check_labelled_amount(
+            &format!("/non_operating_assets/{i}"),
+            &a.label,
+            a.value,
+            "name the asset",
+            "a non-operating asset is zero or more (obligations belong in the net financial \
+             position)",
+        )?;
     }
+    check_claims(
+        &input.debt_like_items,
+        "debt_like_items",
+        "a debt-like item is zero or more (an asset belongs in `non_operating_assets`)",
+    )?;
+    check_claims(
+        &input.non_controlling_interests,
+        "non_controlling_interests",
+        "a non-controlling interest is zero or more (SPEC-0001 R25); give zero or a positive \
+         amount",
+    )?;
     let out = engine::run(&engine_input, &mut ex)?;
 
     let pv_tv = out.terminal.present_value;
@@ -234,14 +314,114 @@ pub fn fcff(input: &DcfFcffInput) -> Result<(DcfFcffOutput, Explain)> {
     ))
 }
 
+/// R25, R27: a bridge line at `pointer` has a value of zero or more and a label that is not
+/// empty; each refusal names the field by its JSON pointer and states the fix. Shared by the
+/// non-operating assets, the debt-like items and the non-controlling interests.
+fn check_labelled_amount(
+    pointer: &str,
+    label: &str,
+    value: Decimal,
+    label_fix: &str,
+    sign_rule: &str,
+) -> Result<()> {
+    if value.is_sign_negative() && !value.is_zero() {
+        return Err(FairmarkError::InvalidInput(format!(
+            "`{pointer}/value` is {value}; {sign_rule}"
+        )));
+    }
+    if label.trim().is_empty() {
+        return Err(FairmarkError::InvalidInput(format!(
+            "`{pointer}/label` is empty; {label_fix}"
+        )));
+    }
+    Ok(())
+}
+
+/// R25, R27, Decision 21: every claim has a label, a value of zero or more and a note when the
+/// basis is `other`;
+/// each refusal names the field by its JSON pointer and states the fix.
+fn check_claims(claims: &[BridgeClaim], field: &str, sign_rule: &str) -> Result<()> {
+    for (i, c) in claims.iter().enumerate() {
+        check_labelled_amount(
+            &format!("/{field}/{i}"),
+            &c.label,
+            c.value,
+            "name the item",
+            sign_rule,
+        )?;
+        let blank = c.basis_note.as_deref().map(|n| n.trim().is_empty());
+        match (blank, c.measurement_basis) {
+            (None | Some(true), MeasurementBasis::Other) => {
+                return Err(FairmarkError::InvalidInput(format!(
+                    "`/{field}/{i}/basis_note` is missing or empty; with `measurement_basis` `other`, \
+                     describe in `basis_note` how the amount was measured, for example \
+                     \"settlement amount, undiscounted\", or choose `book_value`, \
+                     `market_value`, `fair_value` or `present_value`"
+                )));
+            }
+            (Some(true), _) => {
+                return Err(FairmarkError::InvalidInput(format!(
+                    "`/{field}/{i}/basis_note` is empty; write the note or remove the field"
+                )));
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+/// R25: each claim as an explain step labelled with its basis, its stated basis as a
+/// convention, and the total with the values substituted.
+fn claims_total(
+    ex: &mut Explain,
+    claims: &[BridgeClaim],
+    singular: &str,
+    plural: &str,
+) -> Result<Decimal> {
+    if claims.is_empty() {
+        ex.convention(format!("{}: none given", plural.to_lowercase()));
+        return Ok(Decimal::ZERO);
+    }
+    let mut total = Decimal::ZERO;
+    let mut terms = Vec::with_capacity(claims.len());
+    for c in claims {
+        let (basis, meaning) = c.measurement_basis.describe();
+        let (in_label, note) = match &c.basis_note {
+            Some(n) => (format!("{basis}: {n}"), format!("; note: {n}")),
+            None => (basis.to_owned(), String::new()),
+        };
+        ex.step(
+            format!("{singular}: {} ({in_label})", c.label),
+            "as given",
+            c.value,
+        );
+        ex.convention(format!(
+            "{} '{}': measurement basis {basis} ({meaning}), stated by the analyst{note}",
+            singular.to_lowercase(),
+            c.label,
+        ));
+        total = add(total, c.value)?;
+        terms.push(c.value.to_string());
+    }
+    ex.step(format!("{plural}, total"), terms.join(" + "), total);
+    Ok(total)
+}
+
 /// R23, R25: value of operations + non-operating assets = enterprise value; enterprise value −
-/// net financial position = equity value. Every line echoed in `explain`.
+/// net financial position − debt-like items − non-controlling interests = equity value. Every
+/// line echoed in `explain`.
 fn bridge(
     ex: &mut Explain,
     input: &DcfFcffInput,
     value_of_operations: Decimal,
 ) -> Result<FcffBridge> {
     ex.convention("bridge items measured at the valuation date, as given");
+    ex.convention(
+        "bridge signs: non-operating assets added to the value of operations; net financial \
+         position (positive for net debt), debt-like items and non-controlling interests \
+         subtracted from enterprise value; every debt-like item and non-controlling interest \
+         is zero or more",
+    );
     let mut total = Decimal::ZERO;
     if input.non_operating_assets.is_empty() {
         ex.convention("non-operating assets: none given");
@@ -270,7 +450,22 @@ fn bridge(
             None
         }
     };
-    let equity_value = sub(enterprise_value, nfp.unwrap_or_default())?;
+    let debt_like = claims_total(
+        ex,
+        &input.debt_like_items,
+        "Debt-like item",
+        "Debt-like items",
+    )?;
+    let non_controlling = claims_total(
+        ex,
+        &input.non_controlling_interests,
+        "Non-controlling interest",
+        "Non-controlling interests",
+    )?;
+    let equity_value = sub(
+        sub(sub(enterprise_value, nfp.unwrap_or_default())?, debt_like)?,
+        non_controlling,
+    )?;
     if equity_value.is_sign_negative() && !equity_value.is_zero() {
         // R26: reported, never floored at zero and never refused.
         ex.convention(format!(
@@ -280,7 +475,10 @@ fn bridge(
     }
     ex.step(
         "Equity value",
-        format!("{enterprise_value} − {}", nfp.unwrap_or_default()),
+        format!(
+            "{enterprise_value} − {} − {debt_like} − {non_controlling}",
+            nfp.unwrap_or_default()
+        ),
         equity_value,
     );
     Ok(FcffBridge {
@@ -289,6 +487,10 @@ fn bridge(
         non_operating_assets_total: total,
         enterprise_value,
         net_financial_position: nfp,
+        debt_like_items: input.debt_like_items.clone(),
+        debt_like_items_total: debt_like,
+        non_controlling_interests: input.non_controlling_interests.clone(),
+        non_controlling_interests_total: non_controlling,
         equity_value,
     })
 }
@@ -956,5 +1158,290 @@ mod tests {
             out["value"]["bridge"]["non_operating_assets"][1]["label"],
             "Shares"
         );
+    }
+
+    fn bridge_input() -> Value {
+        with(base(), |m| {
+            m.insert(
+                "net_financial_position".into(),
+                json!({"gross_debt": "300", "cash": "40",
+                       "other_items": [{"name": "lease liabilities", "amount": "25"}]}),
+            );
+            m.insert(
+                "non_operating_assets".into(),
+                json!([{"label": "Land", "value": "60"}]),
+            );
+            m.insert(
+                "debt_like_items".into(),
+                json!([
+                    {"label": "Unfunded pension obligation", "value": "70",
+                     "measurement_basis": "present_value", "basis_note": "net of tax"},
+                    {"label": "Restructuring provision", "value": "12.5",
+                     "measurement_basis": "book_value"}
+                ]),
+            );
+            m.insert(
+                "non_controlling_interests".into(),
+                json!([{"label": "20% of Subsidiary A", "value": "45",
+                        "measurement_basis": "fair_value"}]),
+            );
+        })
+    }
+
+    /// R23, R25 (#44): equity value = enterprise value − net financial position − Σ debt-like
+    /// items − Σ non-controlling interests, every line echoed with its label and basis.
+    #[test]
+    fn bridge_subtracts_debt_like_items_and_non_controlling_interests() {
+        let out = run("dcf.fcff", &bridge_input().to_string()).unwrap();
+        let d = |p: &str| -> rust_decimal::Decimal {
+            out["value"]
+                .pointer(p)
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .parse()
+                .unwrap()
+        };
+        assert_eq!(d("/bridge/net_financial_position"), "285".parse().unwrap());
+        assert_eq!(d("/bridge/debt_like_items_total"), "82.5".parse().unwrap());
+        assert_eq!(
+            d("/bridge/non_controlling_interests_total"),
+            "45".parse().unwrap()
+        );
+        assert_eq!(
+            d("/equity_value"),
+            d("/enterprise_value")
+                - d("/bridge/net_financial_position")
+                - d("/bridge/debt_like_items_total")
+                - d("/bridge/non_controlling_interests_total")
+        );
+        assert_eq!(d("/bridge/equity_value"), d("/equity_value"));
+        assert_eq!(
+            out["value"]["bridge"]["debt_like_items"][1]["measurement_basis"],
+            "book_value"
+        );
+        assert_eq!(
+            out["value"]["bridge"]["debt_like_items"][0]["basis_note"],
+            "net of tax"
+        );
+        assert!(out["value"]["bridge"]["debt_like_items"][1]
+            .get("basis_note")
+            .is_none());
+        assert_eq!(
+            out["value"]["bridge"]["non_controlling_interests"][0]["label"],
+            "20% of Subsidiary A"
+        );
+        let steps = out["explain"]["steps"].as_array().unwrap();
+        let step = |label: &str| {
+            steps
+                .iter()
+                .find(|s| s["label"] == label)
+                .unwrap_or_else(|| panic!("no step '{label}' in {steps:?}"))
+                .clone()
+        };
+        assert_eq!(
+            step("Debt-like item: Unfunded pension obligation (present_value: net of tax)")
+                ["value"],
+            "70"
+        );
+        assert_eq!(step("Debt-like items, total")["formula"], "70 + 12.5");
+        assert_eq!(
+            step("Non-controlling interest: 20% of Subsidiary A (fair_value)")["value"],
+            "45"
+        );
+        assert_eq!(step("Non-controlling interests, total")["formula"], "45");
+        let equity = step("Equity value");
+        let formula = equity["formula"].as_str().unwrap();
+        assert!(
+            formula.ends_with(" − 285 − 82.5 − 45"),
+            "equity value formula without every term substituted: {formula}"
+        );
+    }
+
+    /// R25, R28 (#44): signs, the stated measurement basis of each claim, and "none given"
+    /// for empty lists are reported.
+    #[test]
+    fn bridge_conventions_are_reported() {
+        let c = conventions(&bridge_input()).join("\n");
+        for needle in [
+            "bridge items measured at the valuation date, as given",
+            "bridge signs: non-operating assets added to the value of operations; net financial \
+             position (positive for net debt), debt-like items and non-controlling interests \
+             subtracted from enterprise value; every debt-like item and non-controlling \
+             interest is zero or more",
+            "debt-like item 'Unfunded pension obligation': measurement basis present_value \
+             (present value of the obligation), stated by the analyst; note: net of tax",
+            "debt-like item 'Restructuring provision': measurement basis book_value (book \
+             value per the accounts), stated by the analyst",
+            "non-controlling interest '20% of Subsidiary A': measurement basis fair_value (fair \
+             value as defined by IFRS 13), stated by the analyst",
+        ] {
+            assert!(c.contains(needle), "missing '{needle}' in:\n{c}");
+        }
+        assert!(!c.contains("debt-like items: none given"));
+        let c = conventions(&base()).join("\n");
+        assert!(c.contains("debt-like items: none given"), "{c}");
+        assert!(c.contains("non-controlling interests: none given"), "{c}");
+    }
+
+    /// R26 (#44): claims above the enterprise value give a negative equity value, reported
+    /// with the warning and not floored.
+    #[test]
+    fn claims_above_enterprise_value_are_a_warning() {
+        let v = with(base(), |m| {
+            m.insert(
+                "debt_like_items".into(),
+                json!([{"label": "Pension", "value": "1000", "measurement_basis": "book_value"}]),
+            );
+            m.insert(
+                "non_controlling_interests".into(),
+                json!([{"label": "Minority", "value": "500", "measurement_basis": "book_value"}]),
+            );
+        });
+        let out = run("dcf.fcff", &v.to_string()).unwrap();
+        let equity: rust_decimal::Decimal = out["value"]["equity_value"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert!(equity.is_sign_negative());
+        let c = out["explain"]["conventions"].to_string();
+        assert!(c.contains("warning: the equity value is negative"), "{c}");
+    }
+
+    /// R25, R27 (#44): every refusal of a bridge claim names its field by JSON pointer and
+    /// states the fix.
+    #[test]
+    fn bridge_claim_errors_name_their_field() {
+        let claim = |label: &str, value: &str, basis: &str| json!([{"label": label, "value": value, "measurement_basis": basis}]);
+        let noted = |basis: &str, note: &str| {
+            json!([{"label": "Pension", "value": "1", "measurement_basis": basis,
+                    "basis_note": note}])
+        };
+        let cases = [
+            (
+                "debt_like_items",
+                claim("Pension", "-1", "book_value"),
+                "`/debt_like_items/0/value`",
+                "non_operating_assets",
+            ),
+            (
+                "non_controlling_interests",
+                claim("Minority", "-1", "book_value"),
+                "`/non_controlling_interests/0/value`",
+                "a non-controlling interest is zero or more (SPEC-0001 R25); give zero or a \
+                 positive amount",
+            ),
+            (
+                "debt_like_items",
+                claim(" ", "1", "market_value"),
+                "`/debt_like_items/0/label`",
+                "name the item",
+            ),
+            (
+                "non_controlling_interests",
+                claim("", "1", "fair_value"),
+                "`/non_controlling_interests/0/label`",
+                "name the item",
+            ),
+            (
+                "debt_like_items",
+                claim("Pension", "1", "other"),
+                "`/debt_like_items/0/basis_note`",
+                "with `measurement_basis` `other`, describe in `basis_note` how the amount was \
+                 measured",
+            ),
+            (
+                "non_controlling_interests",
+                noted("other", "  "),
+                "`/non_controlling_interests/0/basis_note`",
+                "with `measurement_basis` `other`, describe in `basis_note` how the amount was \
+                 measured",
+            ),
+            (
+                "debt_like_items",
+                noted("book_value", ""),
+                "`/debt_like_items/0/basis_note`",
+                "write the note or remove the field",
+            ),
+        ];
+        for (field, items, pointer, fix) in cases {
+            let v = with(base(), |m| {
+                m.insert(field.into(), items);
+            });
+            let e = err(&v);
+            assert_eq!(e.code(), "FM-E001", "{e}");
+            let text = e.to_string();
+            assert!(text.contains(pointer), "{pointer} not in: {text}");
+            assert!(text.contains(fix), "'{fix}' not in: {text}");
+        }
+        // A missing measurement basis, or one that is not an option, is refused, never
+        // defaulted (R29, Decision 21).
+        for items in [
+            json!([{"label": "Pension", "value": "1"}]),
+            json!([{"label": "Pension", "value": "1", "measurement_basis": "book value"}]),
+            json!([{"label": "Pension", "value": "1", "measurement_basis": ""}]),
+        ] {
+            let v = with(base(), |m| {
+                m.insert("debt_like_items".into(), items);
+            });
+            assert_eq!(err(&v).code(), "FM-E001");
+        }
+    }
+
+    /// Decision 21: `other` with a note is accepted and the note is echoed in the step, the
+    /// convention and the output; every option of the enumeration is accepted.
+    #[test]
+    fn every_measurement_basis_is_accepted_and_echoed() {
+        for basis in [
+            "book_value",
+            "market_value",
+            "fair_value",
+            "present_value",
+            "other",
+        ] {
+            let v = with(base(), |m| {
+                m.insert(
+                    "non_controlling_interests".into(),
+                    json!([{"label": "Minority", "value": "10", "measurement_basis": basis,
+                            "basis_note": "valued by a multiple of the subsidiary's earnings"}]),
+                );
+            });
+            let out = run("dcf.fcff", &v.to_string()).unwrap();
+            let claim = &out["value"]["bridge"]["non_controlling_interests"][0];
+            assert_eq!(claim["measurement_basis"], basis);
+            assert_eq!(
+                claim["basis_note"],
+                "valued by a multiple of the subsidiary's earnings"
+            );
+            let steps = out["explain"]["steps"].to_string();
+            assert!(
+                steps.contains(&format!(
+                    "Non-controlling interest: Minority ({basis}: valued by a multiple of the \
+                     subsidiary's earnings)"
+                )),
+                "{steps}"
+            );
+            let c = out["explain"]["conventions"].to_string();
+            assert!(
+                c.contains(&format!(
+                    "non-controlling interest 'Minority': measurement basis {basis}"
+                )) && c.contains("note: valued by a multiple of the subsidiary's earnings"),
+                "{c}"
+            );
+        }
+    }
+
+    /// Decision 21: no measurement basis on the non-operating assets yet (pending the
+    /// maintainer's decision under the schema of version 3); the input is unchanged.
+    #[test]
+    fn non_operating_assets_keep_their_shape() {
+        let v = with(base(), |m| {
+            m.insert(
+                "non_operating_assets".into(),
+                json!([{"label": "Land", "value": "1", "measurement_basis": "book_value"}]),
+            );
+        });
+        assert_eq!(err(&v).code(), "FM-E001");
     }
 }

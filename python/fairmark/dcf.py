@@ -27,6 +27,7 @@ FirstFlow = Literal["last_flow_grown", "normalised_next_flow"]
 NegativeEbit = Literal["credit", "zero"]
 Metric = Literal["ebitda", "ebit", "revenue", "earnings", "book_value"]
 Basis = Literal["enterprise", "equity"]
+MeasurementBasis = Literal["book_value", "market_value", "fair_value", "present_value", "other"]
 
 
 def given(flows: Sequence[Number]) -> dict[str, Any]:
@@ -208,6 +209,26 @@ def liquidation(
     }
 
 
+def bridge_claim(
+    label: str,
+    value: Number,
+    *,
+    measurement_basis: MeasurementBasis,
+    basis_note: str | None = None,
+) -> dict[str, Any]:
+    """A debt-like item or a non-controlling interest for :func:`fcff`: the amount at the
+    valuation date (zero or more), how it was measured, and an optional note that qualifies
+    the basis (required with ``measurement_basis="other"``)."""
+    claim: dict[str, Any] = {
+        "label": label,
+        "value": value,
+        "measurement_basis": measurement_basis,
+    }
+    if basis_note is not None:
+        claim["basis_note"] = basis_note
+    return claim
+
+
 def fcff(
     stages: Iterable[Mapping[str, Any]],
     *,
@@ -225,6 +246,8 @@ def fcff(
     base_flow: Number | None = None,
     net_financial_position: Mapping[str, Any] | None = None,
     non_operating_assets: Iterable[Mapping[str, Any]] | None = None,
+    debt_like_items: Iterable[Mapping[str, Any]] | None = None,
+    non_controlling_interests: Iterable[Mapping[str, Any]] | None = None,
     notional_tax_rate: Number | None = None,
     negative_ebit: NegativeEbit | None = None,
 ) -> Result:
@@ -242,6 +265,13 @@ def fcff(
     or ``operating_taxes`` in every line.
     ``terminal`` is built by ``gordon``, ``h_model``, ``value_driver``, ``exit_multiple``,
     ``limited_horizon``, ``normalised_income`` or ``liquidation``.
+
+    From value of operations to equity value: ``non_operating_assets`` (``{"label",
+    "value"}``) are added; ``net_financial_position`` (``{"gross_debt", "cash",
+    "other_items"}``), ``debt_like_items`` and ``non_controlling_interests`` (each
+    built by :func:`bridge_claim`, values zero or more) are subtracted. The measurement basis
+    (``book_value``, ``market_value``, ``fair_value``, ``present_value`` or ``other`` with a
+    note) is stated by the analyst and reported, never used in the calculation.
 
     >>> r = fcff(
     ...     [given([100, 110, 120])],
@@ -278,6 +308,14 @@ def fcff(
         ),
         "non_operating_assets": (
             None if non_operating_assets is None else [dict(a) for a in non_operating_assets]
+        ),
+        "debt_like_items": (
+            None if debt_like_items is None else [dict(c) for c in debt_like_items]
+        ),
+        "non_controlling_interests": (
+            None
+            if non_controlling_interests is None
+            else [dict(c) for c in non_controlling_interests]
         ),
         "notional_tax_rate": notional_tax_rate,
         "negative_ebit": negative_ebit,

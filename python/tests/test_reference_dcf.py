@@ -9,6 +9,7 @@ timings, and the properties AC5 and AC7.
 from __future__ import annotations
 
 import importlib.util
+from decimal import Context, localcontext
 from decimal import Decimal as D
 from itertools import product
 from pathlib import Path
@@ -518,3 +519,113 @@ def test_ac9_real_flows_equal_the_inflated_nominal_flows(inflation: dict[str, An
     assert abs(ref.dcf_fcff(payload)["/value_of_operations"] - want) <= D("1e-40") * want
     for got in (run(payload), run(nominal)):
         assert abs(D(got["value_of_operations"]) - want) <= D("1e-20") * abs(want)
+
+
+# Issue #44: from value of operations to equity value (R23, R25, AC13).
+
+
+BASES = ["book_value", "market_value", "fair_value", "present_value", "other"]
+
+
+def random_bridge(rng: Any) -> dict[str, Any]:
+    """A bridge with zero to three lines of each kind, amounts with up to four decimals."""
+
+    def amount() -> str:
+        return str(D(rng.randint(0, 50_000_000)).scaleb(-4))
+
+    def basis(i: int) -> dict[str, str]:
+        b = rng.choice(BASES)
+        return (
+            {"measurement_basis": b, "basis_note": f"note {i}"}
+            if b == "other"
+            else {"measurement_basis": b}
+        )
+
+    def claims(kind: str) -> list[dict[str, str]]:
+        return [
+            {"label": f"{kind} {i}", "value": amount(), **basis(i)}
+            for i in range(rng.randint(0, 3))
+        ]
+
+    bridge: dict[str, Any] = {
+        "non_operating_assets": [
+            {"label": f"asset {i}", "value": amount()} for i in range(rng.randint(0, 3))
+        ],
+        "debt_like_items": claims("debt-like item"),
+        "non_controlling_interests": claims("non-controlling interest"),
+    }
+    if rng.random() < 0.8:
+        bridge["net_financial_position"] = {
+            "gross_debt": amount(),
+            "cash": amount(),
+            "other_items": [{"name": "lease liabilities", "amount": amount()}],
+        }
+    return {k: v for k, v in bridge.items() if v}
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_bridge_matches_reference_on_random_lines(seed: int) -> None:
+    """AC13 (R23, R25): value of operations, enterprise value, equity value and the totals of
+    the bridge equal the 50-digit reference for random bridges with every kind of line."""
+    import random
+
+    rng = random.Random(seed)
+    payload: dict[str, Any] = {
+        "stages": STAGES[seed % len(STAGES)],
+        "cash_flow_terms": "nominal",
+        "discount_rate_terms": "nominal",
+        "wacc": RATES[seed % len(RATES)],
+        "timing": "end_of_period",
+        "terminal": {"tv.gordon": {"growth": "0.015", "first_flow": "last_flow_grown"}},
+        **random_bridge(rng),
+    }
+    got, want = run(payload), ref.dcf_fcff(payload)
+    for key, value in want.items():
+        assert close(pointer(got, key), value, "end_of_period"), key
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_bridge_identity_holds_to_the_last_digit(seed: int) -> None:
+    """AC13 (R23, R25): enterprise value - value of operations is the sum of the non-operating
+    assets, and equity value = enterprise value - net financial position - Σ debt-like items -
+    Σ non-controlling interests, within the rounding of the engine's 28 significant digits
+    (one unit in the last place per addition or subtraction); the totals of the claims are
+    exact; every label, amount and basis is echoed in the bridge."""
+    import random
+
+    rng = random.Random(1000 + seed)
+    bridge = random_bridge(rng)
+    payload: dict[str, Any] = {
+        "stages": STAGES[1],
+        "cash_flow_terms": "nominal",
+        "discount_rate_terms": "nominal",
+        "wacc": "0.09",
+        "timing": "mid_period",
+        "terminal_discount_time": "mid_period",
+        "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}},
+        **bridge,
+    }
+    got = run(payload)
+    b = got["bridge"]
+    # Exact arithmetic on the returned decimals: 60 digits, so that nothing here is rounded.
+    with localcontext(Context(prec=60)):
+
+        def total(items: list[dict[str, Any]]) -> D:
+            return sum((D(i["value"]) for i in items), D(0))
+
+        ev = D(got["enterprise_value"])
+        ulp = D("1e-27") * max(D(1), abs(ev))
+        nfp = D(b["net_financial_position"] or 0)
+        assert abs(ev - D(got["value_of_operations"]) - total(b["non_operating_assets"])) <= ulp
+        assert D(b["debt_like_items_total"]) == total(b["debt_like_items"])
+        assert D(b["non_controlling_interests_total"]) == total(b["non_controlling_interests"])
+        equity = ev - nfp - D(b["debt_like_items_total"]) - D(b["non_controlling_interests_total"])
+        assert abs(D(got["equity_value"]) - equity) <= 3 * ulp
+    for kind in ("debt_like_items", "non_controlling_interests"):
+        given = bridge.get(kind, [])
+        assert [
+            (c["label"], D(c["value"]), c["measurement_basis"], c.get("basis_note"))
+            for c in b[kind]
+        ] == [
+            (c["label"], D(c["value"]), c["measurement_basis"], c.get("basis_note")) for c in given
+        ]

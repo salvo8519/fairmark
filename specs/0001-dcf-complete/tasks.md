@@ -170,3 +170,39 @@ Plan: `plan.md`, section "Issue #166". Additive to `dcf.fcff` version 3.
 - [x] N9 `numerical-auditor` (numerically sound) and `code-reviewer` (approve) reviews, their
   findings applied; open questions of plan.md (issue #166) resolved by Decisions 18 to 20;
   AC8 and AC9 ticked in spec.md (maintainer, 2026-11-08)
+
+## Issue #44 — From value of operations to equity value
+
+Plan: `plan.md`, section "Issue #44". Additive to `dcf.fcff` version 3; edits in
+`src/dcf/fcff.rs` only on the engine side.
+
+### Tests (write first, they must fail)
+- [x] B1 [P] Reference `scripts/reference_dcf.py`: debt-like items and non-controlling
+  interests subtracted from enterprise value [R23, R25; AC13]
+- [x] B2 [P] Golden cases (new files): a bridge with every kind of line, a negative equity
+  value, Damodaran Illustration 16.6 (Segovia, consolidated approach), error cases
+  [R23, R25, R26, R27; AC13]
+- [x] B3 [P] Python: engine against the reference on random bridges; property EV − NFP −
+  Σ debt-like items − Σ non-controlling interests = equity value [R23, R25; AC13]
+
+### Implementation
+- [x] B4 `dcf/fcff.rs`: `BridgeClaim`, `debt_like_items`, `non_controlling_interests`, checks
+  with JSON pointers, explain steps and conventions, bridge output; unit tests; contract
+  cases [R23, R25 to R28; AC13, AC14]
+- [x] B5 `uv run just generate`: schema `dcf.fcff/v3.json` changed additively only
+  (`scripts/schema_snapshots.py --diff-against` the schemas of main), methods reference
+
+### Adapters and docs
+- [x] B6 [P] Python helper `fcff(debt_like_items=..., non_controlling_interests=...)`
+- [x] B7 [P] Methodology page `docs/en/methods/dcf-fcff.md`, release note
+  `changes/44.feature.md`; Italian edition (glossary: "partecipazioni di minoranza")
+- [x] B8 Roadmap #44 done; `uv run just check`
+
+- [x] B10 Decision 21: `MeasurementBasis` enumeration and `basis_note` for debt-like items and
+  non-controlling interests, test first (unit, golden, contract and Python tests; error case
+  for `other` without a note), helper `bridge_claim`, docs and glossary; measurement basis of
+  non-operating assets pending (schema v3 constraint) [R25, R27, R28; AC13]
+
+### Verification
+- [x] B9 `numerical-auditor` review, `code-reviewer` review, AC13 (enterprise part) ticked in
+  spec.md (maintainer)

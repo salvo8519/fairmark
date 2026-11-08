@@ -21,8 +21,11 @@ $$
 
 $$
 EV = V_{op} + \sum \text{non-operating assets}
-\qquad
-Equity = EV - \text{net financial position}
+$$
+
+$$
+Equity = EV - \text{net financial position} - \sum \text{debt-like items} - \sum
+\text{non-controlling interests}
 $$
 
 The explicit horizon N is the sum of the periods of the stages; one period is one year. The
@@ -171,6 +174,70 @@ Points of practice that the engine does not check:
   of the conversion. Their terms, RONIC included, are in the terms of the cash flows
   (Decision 5).
 
+## From value of operations to enterprise value and equity value
+
+The value of operations is the value of the core operations: the present value of the
+explicit FCFF and of the terminal value. Non-operating assets (for example excess cash
+invested outside the operations, land held for sale, investments in non-consolidated
+companies) are added to reach enterprise value. The claims on the company other than equity
+are subtracted to reach equity value:
+
+| Line | Input | Sign |
+| --- | --- | --- |
+| Non-operating assets | `non_operating_assets`: `{"label", "value"}`, values zero or more | added |
+| Net financial position | `net_financial_position`: gross debt − cash + signed other items, as in SPEC-0007 | subtracted; positive for net debt |
+| Debt-like items | `debt_like_items`: `{"label", "value", "measurement_basis", "basis_note"}`, values zero or more; for example unfunded pension obligations or provisions | subtracted |
+| Non-controlling interests | `non_controlling_interests`: `{"label", "value", "measurement_basis", "basis_note"}`, values zero or more; the share of consolidated subsidiaries that belongs to other shareholders | subtracted |
+
+Every amount is measured at the valuation date and taken as given: Fairmark does not choose
+which items are included or how they are measured. How each debt-like item and each
+non-controlling interest is measured is a choice of the analyst, stated in the required
+`measurement_basis`:
+
+| `measurement_basis` | Meaning |
+| --- | --- |
+| `book_value` | Book value per the accounts at the valuation date |
+| `market_value` | Quoted market price at the valuation date |
+| `fair_value` | Fair value as defined by IFRS 13 |
+| `present_value` | Present value of the obligation, for example unfunded pensions or provisions |
+| `other` | Another basis, described in `basis_note` (required) |
+
+The optional `basis_note` qualifies the basis, for example "net of tax" or "49% of the book
+value of equity of the subsidiary"; with `other` it is required. The basis and the note are
+reported next to the amount in `explain` and are never used in the calculation. An item
+given among the `other_items` of the net financial position (for example lease liabilities) must
+not be repeated in `debt_like_items`: the engine does not check for double counting. Lists that
+are not given are reported as "none given". Each line is an `explain` step with its label, each
+list has a total step, and the equity value step shows every term subtracted.
+
+```python
+import fairmark as fm
+
+r = fm.dcf.fcff(
+    [fm.dcf.given([250, 270, 285, 300])],
+    cash_flow_terms="nominal",
+    discount_rate_terms="nominal",
+    wacc="0.09",
+    timing="end_of_period",
+    terminal=fm.dcf.gordon("0.02", first_flow="last_flow_grown"),
+    net_financial_position={"gross_debt": 900, "cash": 150},
+    non_operating_assets=[{"label": "Land held for sale", "value": 80}],
+    debt_like_items=[
+        fm.dcf.bridge_claim(
+            "Unfunded pension obligation",
+            95,
+            measurement_basis="present_value",
+            basis_note="net of plan assets, after tax",
+        )
+    ],
+    non_controlling_interests=[
+        fm.dcf.bridge_claim("30% of Subsidiary A", 210, measurement_basis="fair_value")
+    ],
+)
+print(r.bridge["debt_like_items_total"], r.bridge["non_controlling_interests_total"])  # 95 210
+assert r.enterprise_value - r.equity_value == 750 + 95 + 210
+```
+
 ## Example
 
 A plan with three given years, then four years in which growth declines in linear increments
@@ -256,6 +323,8 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | `terminal` | One technique written with its method id, for example `{"tv.gordon": {"growth", "first_flow", "normalised_next_flow", "growth_cap"}}`; see "Terminal techniques" | required |
 | `net_financial_position` | `{"gross_debt", "cash", "other_items"}` as in [`ratios.debt_service`](ratios-debt-service.md), positive for net debt | none, reported |
 | `non_operating_assets` | List of `{"label", "value"}`, values zero or more | none, reported |
+| `debt_like_items` | List of `{"label", "value", "measurement_basis", "basis_note"}`, values zero or more, subtracted from enterprise value; `measurement_basis` required, `basis_note` required with `other` | none, reported |
+| `non_controlling_interests` | List of `{"label", "value", "measurement_basis", "basis_note"}`, values zero or more, subtracted from enterprise value; `measurement_basis` required, `basis_note` required with `other` | none, reported |
 
 ## Outputs
 
@@ -263,13 +332,13 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | --- | --- |
 | `value_of_operations` | Present value of the explicit FCFF plus present value of the terminal value |
 | `enterprise_value` | Value of operations plus the non-operating assets |
-| `equity_value` | Enterprise value minus the net financial position |
+| `equity_value` | Enterprise value minus the net financial position, the debt-like items and the non-controlling interests |
 | `pv_explicit_period` | Present value of the explicit FCFF |
 | `terminal_value_weight` | Present value of the terminal value divided by the value of operations |
 | `periods` | Per period: stage, projection, growth applied, flow, discount rate given, rate used (in the terms of the cash flows), inflation used to convert it (`null` without conversion), discount factor, present value |
 | `terms` | Terms of the flows and of the rates, the conversion (`none`, `to_real`, `to_nominal`), terminal rate given and used, inflation of the terminal phase, perpetual growth in the terms of the flows and in the other terms |
 | `terminal` | Technique and its method version, terminal rate, value at N, discounting time, factor, present value, the technique's own output (for example the implied growth of an exit multiple) |
-| `bridge` | Every line from value of operations to equity value, with labels |
+| `bridge` | Every line from value of operations to equity value, with labels and measurement bases, and the total of each list |
 
 ## Conventions (explicit, reported in `explain.conventions`)
 
@@ -288,6 +357,8 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | Terminal technique | `tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income`, `tv.liquidation`, at the terminal rate, on the enterprise basis | required |
 | First terminal flow (`tv.gordon`, `tv.h_model`) | last flow grown; or a normalised flow at N + 1 (`tv.gordon`), a normalised base flow at N (`tv.h_model`) | required |
 | Bridge items | measured at the valuation date as given; none given means none | none |
+| Bridge signs | non-operating assets added; net financial position (positive for net debt), debt-like items and non-controlling interests subtracted | fixed |
+| Measurement basis of debt-like items and non-controlling interests | `book_value`, `market_value`, `fair_value`, `present_value`, `other` (with `basis_note`); stated by the analyst, reported, not used in the calculation | required per item |
 
 Warnings are reported in `explain.conventions` and never refuse the input: a growth applied to
 a negative flow; a growth of the last explicit period that differs from the perpetual growth
@@ -305,7 +376,7 @@ on long-term assumptions.
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | A field is missing, unknown or not used by the chosen option; both `inflation` and `inflation_per_period`, `inflation_per_period` without `terminal_inflation`, `terminal_inflation` without `inflation_per_period`, `terminal_inflation` with `inflation`; no stage or more than three; stages adding up to more than 10,000 periods; a growth of −100% or lower; a terminal rate with one rate, or none with rates per period; a terminal discounting time missing under mid-period timing or given at end of period; no terminal technique or more than one; a `normalised_base_flow` of `tv.h_model` missing with `first_flow` = `normalised_base_flow` or given otherwise; a growth cap of an exit multiple without `next_flow`; a liquidation without assets or with an unlabelled line; a negative non-operating asset, or one with an empty label; a `given` stage with both or neither of `flows` and `lines`, `lines` on a generated stage, tax fields without `lines`, interest expense or net borrowing in `lines`, and every refusal of [`dcf.free_cash_flows`](dcf-free-cash-flows.md) for the lines, named by pointer (for example `/stages/0/lines/2/capital_expenditure`) |
+| `FM-E001` | A field is missing, unknown or not used by the chosen option; both `inflation` and `inflation_per_period`, `inflation_per_period` without `terminal_inflation`, `terminal_inflation` without `inflation_per_period`, `terminal_inflation` with `inflation`; no stage or more than three; stages adding up to more than 10,000 periods; a growth of −100% or lower; a terminal rate with one rate, or none with rates per period; a terminal discounting time missing under mid-period timing or given at end of period; no terminal technique or more than one; a `normalised_base_flow` of `tv.h_model` missing with `first_flow` = `normalised_base_flow` or given otherwise; a growth cap of an exit multiple without `next_flow`; a liquidation without assets or with an unlabelled line; a negative non-operating asset, or one with an empty label; a negative debt-like item or non-controlling interest, or one with an empty label; a measurement basis missing or not one of the options; `other` without a `basis_note`, or an empty `basis_note` (for example `/non_controlling_interests/0/basis_note`); a `given` stage with both or neither of `flows` and `lines`, `lines` on a generated stage, tax fields without `lines`, interest expense or net borrowing in `lines`, and every refusal of [`dcf.free_cash_flows`](dcf-free-cash-flows.md) for the lines, named by pointer (for example `/stages/0/lines/2/capital_expenditure`) |
 | `FM-E003` | A discount rate, given or converted, or an expected inflation is −100% or lower; the message names the field and the period (the same code as [`rates.real_nominal`](rates-real-nominal.md) for the same value) |
 | `FM-E004` | The perpetual growth (`growth`, or `long_term_growth` for `tv.h_model`) is equal to or greater than the terminal rate in the terms of the cash flows (after conversion, when the terms differ) |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
@@ -334,6 +405,11 @@ golden cases from the reference are checked to $10^{-20}$.
   period 8,327, value of the operating assets 39,161, equity value 40,867 and terminal value
   81,364 are matched within 2 (terminal value: 20) of the published figures, which come from
   rounded inputs; the golden files decompose the differences.
+- Damodaran, *Investment Valuation*, 2nd edition, chapter 16, Illustration 16.6 (Segovia
+  Entertainment, consolidated approach): value of the operating assets 2,205, plus the 15%
+  holding in LatinWorks at book value 22.5, minus consolidated debt 500, minus the minority
+  interests in Seville at book value 122.5, equity value 1,605, matched exactly
+  (`damodaran-segovia-consolidated.yaml`).
 - An independent 50-digit implementation, `scripts/reference_dcf.py`, for every golden case in
   `tests/golden/dcf.fcff/`, and properties: a constant growth stage equals the same flows
   given; a linear decline with equal growths equals constant growth; discount factors equal

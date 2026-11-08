@@ -83,6 +83,16 @@ extreme_inputs:
   inflation: MAX
   timing: end_of_period
   terminal: {tv.gordon: {growth: '0.01', first_flow: last_flow_grown}}
+- stages: [{periods: 1, projection: given, flows: [MAX]}]
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  wacc: '0.10'
+  timing: end_of_period
+  terminal: {tv.gordon: {growth: '0.01', first_flow: last_flow_grown}}
+  net_financial_position: {gross_debt: MAX, cash: MIN}
+  non_operating_assets: [{label: a, value: MAX}]
+  debt_like_items: [{label: b, value: MAX, measurement_basis: present_value}, {label: c, value: MAX, measurement_basis: other, basis_note: e}]
+  non_controlling_interests: [{label: d, value: MAX, measurement_basis: fair_value}]
 conventions:
 - input:
     stages: [{periods: 3, projection: given, flows: ['100', '110', '120']}]
@@ -165,3 +175,20 @@ conventions:
   - cash flows and growth rates are never converted
   - 'discount rate: one rate, 0.10, for every period and for the terminal value (as given, in nominal terms)'
   - 'perpetual growth of the terminal value (tv.gordon): 0.01 in real terms, (1 + 0.01) × (1 + 0.02) − 1 = 0.0302 in nominal terms'
+- input:
+    stages: [{periods: 3, projection: given, flows: ['100', '110', '120']}]
+    cash_flow_terms: nominal
+    discount_rate_terms: nominal
+    wacc: '0.10'
+    timing: end_of_period
+    terminal: {tv.gordon: {growth: '0.02', first_flow: last_flow_grown}}
+    net_financial_position: {gross_debt: '1100', cash: '50'}
+    debt_like_items: [{label: Unfunded pension obligation, value: '300', measurement_basis: present_value, basis_note: net of tax}]
+    non_controlling_interests: [{label: 40% of Subsidiary B, value: '150', measurement_basis: fair_value}]
+  expect:
+  - bridge items measured at the valuation date, as given
+  - 'bridge signs: non-operating assets added to the value of operations; net financial position (positive for net debt), debt-like items and non-controlling interests subtracted from enterprise value; every debt-like item and non-controlling interest is zero or more'
+  - 'non-operating assets: none given'
+  - 'debt-like item ''Unfunded pension obligation'': measurement basis present_value (present value of the obligation), stated by the analyst; note: net of tax'
+  - 'non-controlling interest ''40% of Subsidiary B'': measurement basis fair_value (fair value as defined by IFRS 13), stated by the analyst'
+  - 'warning: the equity value is negative'

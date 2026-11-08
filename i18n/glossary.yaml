@@ -222,11 +222,20 @@ terms:
   change in net working capital: variazione del capitale circolante netto
   interest expense: oneri finanziari
   non-controlling interests: partecipazioni di minoranza
+  # art. 2426 c.c. ("criteri di valutazione"), OIC terminology
+  measurement basis: criterio di valutazione
+  # Options of the measurement basis (SPEC-0001 Decision 21); present value is above
+  book value: valore contabile
+  market value: valore di mercato
   available (method status): disponibile
   preview (method status): anteprima
   promotion rule (method status): regola di promozione
 keep_in_english:
   - Fairmark
+  # SPEC-0001: Italian equivalent "to verify" (no verified source); kept in English
+  - debt-like items
+  # IFRS 13 term, kept in English in Italian practice (SPEC-0001 Decision 21)
+  - fair value
   - explain
   - input hash
   - MCP

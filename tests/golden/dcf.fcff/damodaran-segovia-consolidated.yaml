@@ -1,0 +1,44 @@
+method: dcf.fcff
+description: "Damodaran Illustration 16.6 (Segovia Entertainment), consolidated approach: value of operating assets, a minority holding, consolidated debt and the non-controlling interest in a subsidiary at book value (R23, R25; AC13)"
+source: >
+  Damodaran, Investment Valuation, 2nd edition, chapter 16 "Estimating Equity Value per Share",
+  Illustration 16.6 "Valuing Holdings in other company" (Segovia Entertainment), consolidated
+  approach (pages.stern.nyu.edu/~adamodar/pdfiles/valn2ed/ch16.pdf), $ million; checked against
+  the published PDF on 2026-11-08. Published inputs: consolidated EBIT 300, tax rate 40%,
+  capital invested 1,500 (return on capital 12%), stable growth 5% forever, cost of capital
+  10%, consolidated debt 500; minority interests in Seville Television "computed as 49% of the
+  book value of equity at Seville": book equity 250 = capital invested 400 - debt 150, and
+  0.49 x 250 = 122.5; the 15% holding in LatinWorks at 15% of its book value of equity (see
+  the note on LatinWorks below), 22.5. Published result: value of
+  operating assets 2,205, value of equity "= 2205 - 500 - 122.5 + 22.5 = $1,605 million".
+  Mapping to dcf.fcff: the value of operating assets is EBIT(1 - t)(1 + g)(1 - g / ROC) /
+  (cost of capital - g) = 300 x 0.6 x 1.05 x (1 - 0.05 / 0.12) / 0.05 = 110.25 / 0.05 = 2,205,
+  expressed as one explicit period with FCFF 110.25 at t = 1 and a Gordon terminal value on
+  that flow grown by 5% at N = 1: (110.25 + 115.7625 / 0.05) / 1.10 = 2,205 exactly. The
+  reinvestment rate is taken as g / ROC = 5/12 exactly; the printed 41.67% would give
+  2,204.87, which the source rounds to 2,205. The LatinWorks holding is a non-operating asset
+  (investment in a nonconsolidated company), Seville's minority interests a non-controlling
+  interest, the consolidated debt the net financial position (no cash is stated). Note on
+  LatinWorks: its inputs are capital invested 250 and debt outstanding 100, so capital invested
+  - debt outstanding = 250 - 100 = 150. The text labels LatinWorks' book equity "$250 million
+  (Capital invested - Debt outstanding)": the printed 250 is inconsistent with its own formula,
+  which gives 150. The published 22.5 is consistent with 150 (0.15 x 150 = 22.5), not with 250
+  (0.15 x 250 = 37.5); 22.5 is used here.
+  Published figures are reproduced exactly; the 50-digit reference (scripts/reference_dcf.py)
+  gives the same values.
+input:
+  stages: [{"periods": 1, "projection": "given", "flows": ["110.25"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.10"
+  timing: "end_of_period"
+  terminal: {"tv.gordon": {"growth": "0.05", "first_flow": "last_flow_grown"}}
+  net_financial_position: {"gross_debt": "500", "cash": "0"}
+  non_operating_assets: [{"label": "15% holding in LatinWorks", "value": "22.5"}]
+  non_controlling_interests: [{"label": "49% of Seville Television", "value": "122.5", "measurement_basis": "book_value", "basis_note": "49% of the book value of equity of Seville"}]
+expect:
+  /value_of_operations: "2205"
+  /enterprise_value: "2227.5"
+  /equity_value: "1605"
+  /bridge/non_controlling_interests_total: "122.5"
+tolerance: "0.00000000000000000001"

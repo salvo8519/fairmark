@@ -426,6 +426,8 @@ Value of operations, enterprise value and equity value from FCFF discounted at t
 | `terminal` | object | yes |  | The terminal technique, an object with exactly one key, the method id, for example `{"tv.gordon": {"growth", "first_flow", ...}}`: `tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income` or `tv.liquidation`, on the enterprise basis. |
 | `net_financial_position` |  | no |  | Net financial position at the valuation date (SPEC-0007): gross debt − cash + signed other items, positive for net debt, subtracted from enterprise value. Default: none, reported. |
 | `non_operating_assets` | list of object | no |  | Non-operating assets at the valuation date, each a label and a value in currency units (zero or more), added to the value of operations. Default: none, reported. |
+| `debt_like_items` | list of object | no |  | Debt-like items (debt equivalents) at the valuation date, for example unfunded pension obligations or provisions, each a label, a value in currency units (zero or more) and its measurement basis, subtracted from enterprise value. Do not repeat an item already among the `other_items` of the net financial position. Default: none, reported. |
+| `non_controlling_interests` | list of object | no |  | Non-controlling interests (minority interests) at the valuation date, each a label, a value in currency units (zero or more) and its measurement basis (for example `book_value` or `fair_value`), subtracted from enterprise value. Default: none, reported. |
 
 ## `dcf.free_cash_flows`
 
