@@ -1,0 +1,72 @@
+method: statements.reorganise
+description: 'AC4, R7: total assets 2851000 differ from total liabilities and equity 2850000, each consistent
+  with its items; FM-E026 with both amounts, the difference and the fix'
+source: scripts/reference_statements.py (Python decimal, 50 digits, local context), written from Appendices
+  A.1, B.1 and C of specs/0005-statements-reclassification/spec.md and R2 to R15, R22, without reading
+  the Rust code.
+input:
+  years:
+  - label: '2024'
+    date: '2024-12-31'
+    statutory:
+      layout: ordinary
+      balance_sheet:
+        subscribed_capital_unpaid: '0'
+        intangible_assets:
+          total: '120000'
+          gross: '200000'
+          accumulated: '80000'
+        tangible_assets:
+          total: '900000'
+          gross: '1500000'
+          accumulated: '600000'
+        financial_fixed_assets: '150000'
+        fixed_assets: '1170000'
+        inventories: '400000'
+        receivables:
+          total: '950000'
+          beyond_one_year: '50000'
+          trade: '800000'
+        current_financial_assets: '60000'
+        cash: '241000'
+        current_assets: '1651000'
+        prepayments_and_accrued_income:
+          total: '30000'
+        total_assets: '2851000'
+        equity:
+          total: '900000'
+          share_capital: '100000'
+          share_premium: '0'
+          revaluation_reserves: '0'
+          legal_reserve: '20000'
+          statutory_reserves: '0'
+          other_reserves: '380000'
+          cash_flow_hedge_reserve: '0'
+          retained_earnings: '250000'
+          profit_or_loss_for_the_year: '150000'
+          negative_reserve_for_own_shares: '0'
+        provisions:
+          total: '70000'
+          of_which_derivative_liabilities: '10000'
+        employee_severance_indemnity:
+          total: '180000'
+        payables:
+          total: '1650000'
+          beyond_one_year: '600000'
+          financial_debt:
+            total: '900000'
+            beyond_one_year: '550000'
+          shareholder_loans:
+            total: '100000'
+            beyond_one_year: '50000'
+          trade: '500000'
+        accruals_and_deferred_income:
+          total: '50000'
+        total_liabilities_and_equity: '2850000'
+      income_statement:
+        profit_or_loss_for_the_year: '150000'
+  treatments:
+    financial_fixed_assets: non_operating
+    shareholder_loans: financial_debt
+    derivative_liabilities: financial_liability
+expect_error: FM-E026
