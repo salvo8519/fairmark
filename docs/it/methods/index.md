@@ -1,6 +1,6 @@
 ---
 source: methods/index.md
-source_hash: f303ba2ed84e
+source_hash: 7a1d10a572d8
 ---
 # Metodi
 
@@ -26,6 +26,14 @@ elenca tutti gli input.
 | [`coc.beta_peers`](coc-beta-peers.md) | Disponibile | Beta unlevered medio e mediano delle società comparabili, con relevering alla struttura finanziaria obiettivo |
 | [`coc.cost_of_debt`](coc-cost-of-debt.md) | Disponibile | Costo del debito prima e dopo le imposte |
 | [`coc.wacc`](coc-wacc.md) | Disponibile | Costo medio ponderato del capitale alla struttura finanziaria obiettivo |
+| [`tv.gordon`](tv-gordon.md) | Disponibile | Valore terminale all'orizzonte N a crescita costante, CF_{N+1} / (r − g) |
+| [`tv.value_driver`](tv-value-driver.md) | Disponibile | Valore terminale all'orizzonte N con la crescita ottenuta reinvestendo g / RONIC |
+| [`tv.h_model`](tv-h-model.md) | Disponibile | Valore terminale all'orizzonte N con crescita in calo lineare (H-model) |
+| [`tv.exit_multiple`](tv-exit-multiple.md) | Disponibile | Valore terminale all'orizzonte N come multiplo di una grandezza, con la crescita implicita |
+| [`tv.limited_horizon`](tv-limited-horizon.md) | Disponibile | Valore terminale all'orizzonte N di un flusso che dura altri n periodi, più un valore residuo |
+| [`tv.normalised_income`](tv-normalised-income.md) | Disponibile | Valore terminale all'orizzonte N come reddito normalizzato capitalizzato |
+| [`tv.liquidation`](tv-liquidation.md) | Disponibile | Valore netto di liquidazione all'orizzonte N, ogni voce nella tracciabilità del calcolo |
+| [`tv.compare`](tv-compare.md) | Disponibile | Più tecniche di valore terminale su un unico tasso, limite alla crescita e approccio |
 | [`dcf.fcff`](dcf-fcff.md) | Anteprima | Enterprise value ed equity value dai flussi di cassa operativi |
 | [`ratios.profitability`](ratios-profitability.md) | Anteprima | ROE, ROI, ROA, ROS, margini, rotazione del capitale investito e scomposizione del ROE in tre fattori e nella forma con leva finanziaria |
 | [`ratios.capital_structure`](ratios-capital-structure.md) | Anteprima | Rapporto tra debito e capitale proprio, PFN su capitale proprio, indice di indipendenza finanziaria, margini e quozienti di struttura |
