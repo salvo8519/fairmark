@@ -145,7 +145,9 @@ Each is additive to version 3 under the schema checker.
   added to `bridge` in `dcf/fcff.rs` and reported (the negative equity warning of R26 is
   already in place).
 - **#167 dated periods**: optional `valuation_date` and period end dates; the engine's time
-  axis (today t = k or k − 0.5) becomes the dated axis of `tvm::time_axis`.
+  axis (today t = k or k − 0.5) becomes the dated axis of `tvm::time_axis`. The next version of
+  `dcf.fcff`, planned with this issue, also adds the required measurement basis of the
+  non-operating assets (spec, Decision 21).
 
 ## Issue #43 — Terminal value technique and discounting time
 Extends version 3 additively through the extension point above.
@@ -452,7 +454,7 @@ used in the calculation. The engine does not choose the basis: the analyst state
 result shows it next to the amount. The first draft of this plan used a free text; the
 maintainer replaced it with the enumeration (Decision 21). The net financial position keeps the
 SPEC-0007 structure unchanged (R23, SPEC-0007 R6); `non_operating_assets` keeps the shape of
-main (see "Resolved" below).
+main (`tv::Line`) in version 3 (see "Resolved" below).
 
 ### Computation
 equity value = enterprise value − net financial position − Σ debt-like items − Σ
@@ -500,8 +502,9 @@ Output fields are not part of the schema snapshots.
 - **Negative non-controlling interests.** Stay refused (R25, "zero or more").
 - **Double counting with the net financial position.** No duplicate-label warning: covered in
   the documentation only (R25, SPEC-0007 R6: the engine does not choose the items).
-- Measurement basis of non-operating assets: pending maintainer decision (schema v3
-  constraint). `scripts/schema_snapshots.py --diff-against` main reports a breaking change
-  (`v3 dcf.fcff.non_operating_assets[]: '$ref' changed`), so `non_operating_assets` keeps the
-  shape of main (`tv::Line`) until the maintainer chooses between a new method version and an
-  optional field.
+- **Measurement basis of non-operating assets.** Non-operating assets keep the shape of tv::Line
+  in dcf.fcff version 3; a required measurement basis for them is added at the next version of
+  dcf.fcff (planned with dated periods, issue #167), because adding it now would break the v3
+  schema or change the shared tv::Line type. Approved by the maintainer on 2026-11-08.
+  (`scripts/schema_snapshots.py --diff-against` main reported
+  `v3 dcf.fcff.non_operating_assets[]: '$ref' changed`.)

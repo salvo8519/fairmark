@@ -560,11 +560,13 @@ the source verification.
       pensions or provisions), `other`; with an optional free-text `basis_note`; `other` without
       a non-empty `basis_note` is refused (`FM-E001`, pointer to the note, the fix states what
       to write). The basis and the note are echoed in `explain`, never used in the calculation.
-      (2) Measurement basis of non-operating assets: pending maintainer decision (schema v3
-      constraint). (3) Negative non-controlling interests stay refused (R25, "zero or more");
-      no duplicate-label warning between the bridge claims and the net financial position:
-      double counting is covered in the documentation only (R25, SPEC-0007 R6, the engine does
-      not choose the items). Amends R25 and "Interfaces".
+      (2) Non-operating assets keep the shape of tv::Line in dcf.fcff version 3; a required
+      measurement basis for them is added at the next version of dcf.fcff (planned with dated
+      periods, issue #167), because adding it now would break the v3 schema or change the shared
+      tv::Line type. Approved by the maintainer on 2026-11-08. (3) Negative non-controlling
+      interests stay refused (R25, "zero or more"); no duplicate-label warning between the
+      bridge claims and the net financial position: double counting is covered in the
+      documentation only (R25, SPEC-0007 R6, the engine does not choose the items). Amends R25 and "Interfaces".
 
 Terminology decisions from the source verification:
 - [x] **a.** The projection option `linear_fade` is renamed `linear_decline` everywhere
