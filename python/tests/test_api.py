@@ -230,3 +230,25 @@ def test_bridge_claim_builds_a_claim() -> None:
             debt_like_items=[fm.dcf.bridge_claim("Provision", 5, measurement_basis="other")],
         )
     assert "/debt_like_items/0/basis_note" in str(info.value)
+
+
+def test_input_errors_name_the_field_by_its_json_pointer() -> None:
+    # Issue #174: the code is unchanged, the message names the field, not a line and column.
+    flows = [{"date": "2024-01-01", "amount": -100}, {"date": "2025-01-01", "amount": 110}]
+    with pytest.raises(fm.FairmarkError) as err:
+        fm.run("tvm.xirr", {"cash_flows": flows, "day_count": "act_365"})
+    assert err.value.code == "FM-E001"
+    assert "`/day_count`" in str(err.value)
+    assert "expected one of `act_365_fixed`" in str(err.value)
+    assert " at line " not in str(err.value)
+
+    with pytest.raises(fm.FairmarkError) as err:
+        fm.run("tvm.xirr", {"cash_flows": [flows[0], {"date": "2025-01-01"}]})
+    assert err.value.code == "FM-E001"
+    assert "`/cash_flows/1/amount`" in str(err.value)
+    assert "missing required field `amount`" in str(err.value)
+
+    with pytest.raises(fm.FairmarkError) as err:
+        fm.tvm.irr([-100, 60, 60], guess={"value": "0.1"})  # type: ignore[arg-type]
+    assert err.value.code == "FM-E001"
+    assert "`/guess`" in str(err.value)

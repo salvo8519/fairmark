@@ -385,9 +385,10 @@ on long-term assumptions.
 | `FM-E024` | `cash_flow_terms` and `discount_rate_terms` differ and no expected inflation is given; the message states both fixes |
 | `FM-E025` | A `given` stage with more or fewer flows or lines than its periods, rates or expected inflation per period not one per period, a base flow missing for a generated first stage or given for a `given` one |
 
-Validation errors name the field by its JSON pointer, for example `/stages/1/flows`, and state
-the fix; errors raised while reading the input (a missing or unknown field, a wrong type) report
-the line and column of the input instead.
+Every error names the field by its JSON pointer, for example `/stages/1/flows`, and states
+the fix, including errors raised while reading the input: a missing or unknown field
+(`/terminal/tv.gordon/first_flow`), a wrong type or an unknown choice (`/stages/0/projection`,
+with the values expected).
 
 ## Accuracy
 

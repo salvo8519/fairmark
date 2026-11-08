@@ -77,7 +77,7 @@ assert long.terminal_value == Decimal("1000")
 | Code | When |
 | --- | --- |
 | `FM-E001` | The growth is −100% or lower, or a field is missing or unknown |
-| `FM-E003` | The rate is −100% or lower |
+| `FM-E003` | The rate is −100% or lower; the message names `/rate` |
 | `FM-E018` | `periods` is outside 1 to 10,000 (the same code for both ends of the range) |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 

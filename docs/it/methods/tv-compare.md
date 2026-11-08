@@ -1,6 +1,6 @@
 ---
 source: methods/tv-compare.md
-source_hash: 766e805d973f
+source_hash: 593e7eb65b7f
 ---
 # Confronto tra tecniche di valore terminale (`tv.compare`)
 
@@ -104,7 +104,7 @@ except fm.FairmarkError as err:
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | L'elenco delle tecniche è vuoto, una voce ha più di una chiave, l'id di una tecnica è sconosciuto, oppure un campo manca o è sconosciuto |
+| `FM-E001` | L'elenco delle tecniche è vuoto, una voce ha più di una chiave distinta, l'id di una tecnica è sconosciuto, oppure un campo manca o è sconosciuto; il messaggio indica il campo con il suo JSON Pointer, per esempio `/techniques/1/tv.gordon/next_flow` o `/techniques/0/tv.gordo` per un id sconosciuto. Nella versione 1 una chiave ripetuta nella stessa voce è accettata e vale il suo ultimo valore |
 | `FM-E019` | Un multiplo di uscita, un reddito normalizzato o una liquidazione è sull'approccio diverso da quello dichiarato |
 | Qualsiasi codice di una tecnica | La prima tecnica che fallisce restituisce il proprio errore (ad esempio `FM-E004`, `FM-E018`) |
 

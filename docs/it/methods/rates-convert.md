@@ -1,6 +1,6 @@
 ---
 source: methods/rates-convert.md
-source_hash: 366352523bc3
+source_hash: fbdbf60c15ec
 ---
 # Conversione di tassi (`rates.convert`)
 
@@ -94,7 +94,7 @@ Quando `from` e `to` coincidono il tasso viene restituito invariato.
 | Codice | Quando |
 | --- | --- |
 | `FM-E001` | Un campo è mancante o sconosciuto, oppure una capitalizzazione non è una delle cinque opzioni |
-| `FM-E003` | Il tasso per periodo di capitalizzazione, $r/m$, è pari o inferiore a −100% |
+| `FM-E003` | Il tasso per periodo di capitalizzazione, $r/m$, è pari o inferiore a −100%; il messaggio indica `/rate` e, con più di un periodo di capitalizzazione all'anno, il limite $-m$ |
 | `FM-E008` | L'esponenziale o il logaritmo va in overflow (tassi molto al di fuori di un intervallo realistico) |
 
 ## Precisione

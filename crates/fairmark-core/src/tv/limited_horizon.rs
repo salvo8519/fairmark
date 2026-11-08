@@ -111,7 +111,7 @@ pub(crate) fn check(input: &LimitedHorizonInput) -> Checked {
 
 /// TV_N = flow × annuity factor(r, g, n) + RV × (1 + r)^−n.
 pub fn limited_horizon(input: &LimitedHorizonInput) -> Result<(LimitedHorizonOutput, Explain)> {
-    check(input).map_err(|e| e.error)?;
+    check(input).map_err(super::FieldError::into_error)?;
     let (cf, r, n) = (input.flow, input.rate, input.periods);
     // Rate and growth are validated by the annuity factor shared with `tvm.annuity` (R5:
     // reused). Only the factor is used: no value at N + n is computed, so long horizons do not

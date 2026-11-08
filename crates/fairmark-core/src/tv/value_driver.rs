@@ -99,7 +99,7 @@ pub(crate) fn check(input: &ValueDriverInput) -> Checked {
 
 /// TV_N = NOPAT_{N+1} × (1 − g / RONIC) / (r − g); NOPAT_{N+1} / r when RONIC = r.
 pub fn value_driver(input: &ValueDriverInput) -> Result<(ValueDriverOutput, Explain)> {
-    check(input).map_err(|e| e.error)?;
+    check(input).map_err(super::FieldError::into_error)?;
     let (nopat, g, ronic, r) = (input.nopat_next, input.growth, input.ronic, input.rate);
     let mut ex = Explain::new(
         "tv.value_driver",

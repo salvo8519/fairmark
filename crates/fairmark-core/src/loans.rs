@@ -13,7 +13,7 @@ use rust_decimal::{Decimal, MathematicalOps, RoundingStrategy};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{FairmarkError, Result};
+use crate::error::{rate_field, FairmarkError, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num;
@@ -165,7 +165,9 @@ fn periodic_rate(form: &RateForm, ex: &mut Explain) -> Result<Decimal> {
             )));
         }
         if i <= -Decimal::ONE {
-            return Err(FairmarkError::RateOutOfRange(i));
+            return Err(rate_field("/periodic_rate", None)(
+                FairmarkError::RateOutOfRange(i),
+            ));
         }
         ex.convention("rate form (b): rate per payment period, as given");
         ex.convention(format!("periodic rate: {i}"));
@@ -190,11 +192,14 @@ fn periodic_rate(form: &RateForm, ex: &mut Explain) -> Result<Decimal> {
         )));
     };
     let target = frequency.compounding();
+    // The rule is that of the given compounding: the conversion raises the rate's error.
+    let at_rate = rate_field("/rate", compounding.per_year());
     let (converted, conversion) = rates::convert(&ConvertInput {
         rate,
         from: compounding,
         to: target,
-    })?;
+    })
+    .map_err(&at_rate)?;
     for step in conversion.steps {
         ex.step(
             format!("Rate conversion: {}", step.label.to_lowercase()),
@@ -205,7 +210,11 @@ fn periodic_rate(form: &RateForm, ex: &mut Explain) -> Result<Decimal> {
     let per_year = frequency.per_year();
     let i = num::div(converted.rate, Decimal::from(per_year))?;
     if i <= -Decimal::ONE {
-        return Err(FairmarkError::RateOutOfRange(i));
+        // Not reached: a rate that passed the conversion has a periodic rate above -1, so
+        // reaching this is a defect, not an input error.
+        return Err(FairmarkError::Internal(
+            "periodic rate at or below -1 after a valid rate conversion",
+        ));
     }
     ex.step(
         "Periodic rate",

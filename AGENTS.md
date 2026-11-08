@@ -53,7 +53,9 @@ changing anything: its principles override convenience.
   convention that changes a number goes into `explain.conventions`.
 - Method versions: bump on any numerical change or breaking input change. The schema of each
   version is kept in `schemas/<method>/v<N>.json`; earlier versions are never edited (CI checks).
-- Errors: add a variant to `FairmarkError` with the next free stable code, document it in
+- Errors: a new meaning gets a new variant of `FairmarkError` with the next free stable code;
+  a variant that only adds the location of an existing condition (for example its JSON
+  pointer) keeps that condition's code: one condition, one code. Document both in
   `docs/en/reference/errors.md`. Never reuse or renumber codes.
 - **Never modify expected values of an existing golden case.** If a result must change it is
   a `numerical-change`: stop and ask the maintainer. New golden cases need an independent

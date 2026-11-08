@@ -118,13 +118,21 @@ pub struct Line {
 }
 
 /// An input error of a `tv.*` method together with the input field it concerns, for example
-/// `growth` or `assets/0/value`. The standalone methods report only `error`, unchanged; a
-/// method that composes a technique (the DCF) turns `field` into a JSON pointer of its own
-/// input (R27 of SPEC-0001).
+/// `growth` or `assets/0/value`. The standalone methods report `error`, with the rate named
+/// by its pointer (see [`FieldError::into_error`]); a method that composes a technique (the
+/// DCF) turns `field` into a JSON pointer of its own input (R27 of SPEC-0001).
 #[derive(Debug)]
 pub(crate) struct FieldError {
     pub field: String,
     pub error: FairmarkError,
+}
+
+impl FieldError {
+    /// The error a standalone method, or `tv.compare` with its shared rate, reports: an
+    /// `FM-E003` names the rate field (issue #174), every other error is unchanged.
+    pub(crate) fn into_error(self) -> FairmarkError {
+        crate::error::rate_field(&format!("/{}", self.field), None)(self.error)
+    }
 }
 
 /// Validation result of a `tv.*` input.

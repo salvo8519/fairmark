@@ -31,10 +31,14 @@ use crate::explain::Explain;
 use crate::method::Method;
 
 /// A technique entry as written in the input: an object with exactly one key, the method id.
-/// Deserialised through a JSON value so that an entry with several keys gets a clear message;
-/// numbers keep their exact text (`serde_json` is built with `arbitrary_precision`).
-#[derive(Debug, Clone, Deserialize)]
-#[serde(try_from = "serde_json::Value")]
+///
+/// The entry is read as `tv.compare` version 1 has always read it: its keys are collected
+/// first, a key repeated in the entry keeps its last value (earlier values are not read), and
+/// an entry with two distinct keys is refused before any terms are read. Only then are the
+/// terms of the single key read, with their JSON pointer kept in any error
+/// (`/techniques/0/tv.gordon/next_flow`, issue #174). Refusing a repeated key is planned, but
+/// it would refuse inputs accepted today, so it needs a new version of `tv.compare`.
+#[derive(Debug, Clone)]
 pub struct TechniqueEntry(pub Technique);
 
 impl Serialize for TechniqueEntry {
@@ -43,30 +47,63 @@ impl Serialize for TechniqueEntry {
     }
 }
 
-impl TryFrom<serde_json::Value> for TechniqueEntry {
-    type Error = String;
+/// What a technique entry is, for the messages of the entry.
+const ONE_KEY: &str = "each technique is an object with exactly one key, the method id, for \
+                       example {\"tv.gordon\": {...}}";
 
-    fn try_from(v: serde_json::Value) -> std::result::Result<Self, String> {
-        match &v {
-            serde_json::Value::Object(map) if map.len() == 1 => {}
-            serde_json::Value::Object(map) => {
-                let keys: Vec<&str> = map.keys().map(String::as_str).collect();
-                return Err(format!(
-                    "each technique is an object with exactly one key, the method id, for \
-                    example {{\"tv.gordon\": {{...}}}} (got {} keys: {})",
-                    keys.len(),
-                    keys.join(", ")
-                ));
-            }
-            _ => {
-                return Err(
-                    "each technique is an object with exactly one key, the method id".to_owned(),
-                )
+impl<'de> Deserialize<'de> for TechniqueEntry {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Self, D::Error> {
+        d.deserialize_map(EntryVisitor)
+    }
+}
+
+struct EntryVisitor;
+
+impl<'de> serde::de::Visitor<'de> for EntryVisitor {
+    type Value = TechniqueEntry;
+
+    fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("an object with exactly one key, the method id")
+    }
+
+    fn visit_map<A: serde::de::MapAccess<'de>>(
+        self,
+        mut map: A,
+    ) -> std::result::Result<TechniqueEntry, A::Error> {
+        use serde::de::Error;
+        // Numbers keep their exact text in a `Value` (`serde_json` is built with
+        // `arbitrary_precision`).
+        let mut entries: Vec<(String, serde_json::Value)> = Vec::new();
+        while let Some(key) = map.next_key::<String>()? {
+            let value = map.next_value()?;
+            match entries.iter_mut().find(|(k, _)| *k == key) {
+                Some(entry) => entry.1 = value,
+                None => entries.push((key, value)),
             }
         }
-        serde_json::from_value(v)
+        let (id, terms) = match entries.len() {
+            0 => return Err(A::Error::custom(format!("{ONE_KEY} (got an empty object)"))),
+            1 => entries.remove(0),
+            n => {
+                let keys: Vec<&str> = entries.iter().map(|(k, _)| k.as_str()).collect();
+                return Err(A::Error::custom(format!(
+                    "{ONE_KEY} (got {n} keys: {})",
+                    keys.join(", ")
+                )));
+            }
+        };
+        let mut entry = serde_json::Map::new();
+        entry.insert(id.clone(), terms);
+        serde_path_to_error::deserialize(serde_json::Value::Object(entry))
             .map(TechniqueEntry)
-            .map_err(|e| e.to_string())
+            .map_err(|e| {
+                // An unknown method id is reported at its key, as `dcf.fcff` reports
+                // `/terminal/tv.gordo`.
+                let unknown_id = e.path().iter().next().is_none()
+                    && e.inner().to_string().starts_with("unknown variant");
+                let relative = if unknown_id { vec![id] } else { Vec::new() };
+                A::Error::custom(crate::registry::nested_error(&relative, e))
+            })
     }
 }
 

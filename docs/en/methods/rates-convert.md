@@ -87,7 +87,7 @@ When `from` and `to` are equal the rate is returned unchanged.
 | Code | When |
 | --- | --- |
 | `FM-E001` | A field is missing or unknown, or a compounding is not one of the five options |
-| `FM-E003` | The rate per compounding period, $r/m$, is −100% or lower |
+| `FM-E003` | The rate per compounding period, $r/m$, is −100% or lower; the message names `/rate` and, with more than one compounding period a year, the bound $-m$ |
 | `FM-E008` | The exponential or logarithm overflows (rates far outside a realistic range) |
 
 ## Accuracy

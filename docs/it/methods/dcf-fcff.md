@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: 0534e598416b
+source_hash: bc5884d37162
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
@@ -401,10 +401,10 @@ elevato segnala che la valutazione dipende soprattutto dalle ipotesi di lungo pe
 | `FM-E024` | `cash_flow_terms` e `discount_rate_terms` sono diversi e non è fornita l'inflazione attesa; il messaggio indica entrambe le correzioni |
 | `FM-E025` | Uno stage `given` con più o meno flussi o voci dei suoi periodi, tassi o inflazione attesa per periodo non uno per periodo, un base flow mancante per un primo stage generato o fornito per uno `given` |
 
-Gli errori di validazione indicano il campo con il suo JSON Pointer, per esempio
-`/stages/1/flows`, e la correzione da apportare; gli errori rilevati durante la lettura
-dell'input (un campo mancante o sconosciuto, un tipo errato) indicano invece la riga e la
-colonna dell'input.
+Ogni errore indica il campo con il suo JSON Pointer, per esempio `/stages/1/flows`, e la
+correzione da apportare, compresi gli errori rilevati durante la lettura dell'input: un campo
+mancante o sconosciuto (`/terminal/tv.gordon/first_flow`), un tipo errato o una scelta
+sconosciuta (`/stages/0/projection`, con i valori ammessi).
 
 ## Precisione
 

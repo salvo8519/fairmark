@@ -93,7 +93,7 @@ pub(crate) fn check(input: &NormalisedIncomeInput) -> Checked {
 pub fn normalised_income(
     input: &NormalisedIncomeInput,
 ) -> Result<(NormalisedIncomeOutput, Explain)> {
-    check(input).map_err(|e| e.error)?;
+    check(input).map_err(super::FieldError::into_error)?;
     let (income, i) = (input.income, input.capitalisation_rate);
     let g = input.growth.unwrap_or_default();
     let mut ex = Explain::new(

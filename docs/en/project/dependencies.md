@@ -13,8 +13,22 @@ decides. Every tool used is free for public open-source repositories.
 
 - **Core (`fairmark-core`)**: as few crates as possible; no network, file-system or
   async-runtime crates (`deny.toml` bans them). A new runtime dependency of the core requires
-  an ADR; dev-dependencies follow the Adapters and tooling rule and must not enable network,
-  file-system or process features.
+  an ADR that shows it meets every criterion below; dev-dependencies follow the Adapters and
+  tooling rule and must not enable network, file-system or process features.
+  - an established maintainer or organisation, with a record of maintaining crates the Rust
+    ecosystem relies on;
+  - no `unsafe` code, or `unsafe` code that the ADR reviews and accepts;
+  - no build script;
+  - no I/O and no network access, directly or through its dependencies;
+  - a small, fixed scope: the crate does one thing, and the ADR states its size;
+  - a permissive licence on the allow-list in `deny.toml`;
+  - a release in the last twelve months, or one sentence in the ADR on why an older release
+    is acceptable (for example a fixed scope that follows a crate the core already uses);
+  - a fallback named in the ADR (vendoring, or our own code) for when the crate is abandoned
+    or compromised.
+
+  Upgrades of core runtime dependencies in the lock file are always reviewed and never merged
+  automatically, whatever the size of the version change.
 - **Adapters and tooling**: an actively maintained project with a release in the last twelve
   months, a permissive licence on the allow-list in `deny.toml` and in the *Security*
   workflow, and a reason that a few lines of our own code would not cover.

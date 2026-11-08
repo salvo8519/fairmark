@@ -248,7 +248,7 @@ fn dispatch(id: &str, input_json: &str) -> Result<Value> {
 }
 
 fn execute<M: Method>(input_json: &str) -> Result<Value> {
-    let input: M::Input = serde_json::from_str(input_json).map_err(input_error)?;
+    let input: M::Input = parse(input_json)?;
     let canonical =
         serde_json::to_string(&input).map_err(|e| FairmarkError::InvalidInput(e.to_string()))?;
     let (value, explain) = M::compute(&input)?;
@@ -268,15 +268,168 @@ fn execute<M: Method>(input_json: &str) -> Result<Value> {
     serde_json::to_value(envelope).map_err(|e| FairmarkError::InvalidInput(e.to_string()))
 }
 
-/// Deserialisation failures are `FM-E001`, except invalid dates, which are `FM-E009`.
-fn input_error(e: serde_json::Error) -> FairmarkError {
-    let msg = e.to_string();
+/// Reads a method input. Every failure names the field by its JSON pointer (issue #174,
+/// SPEC-0001 R27): `FM-E001`, or `FM-E009` for an invalid date. Only a malformed JSON text
+/// (a syntax error, a truncated input, trailing characters) keeps serde's line and column,
+/// because it has no field to name.
+fn parse<T: serde::de::DeserializeOwned>(input_json: &str) -> Result<T> {
+    let mut de = serde_json::Deserializer::from_str(input_json);
+    let input = serde_path_to_error::deserialize(&mut de).map_err(input_error)?;
+    // `serde_json::from_str` does the same: nothing but whitespace may follow the value.
+    de.end()
+        .map_err(|e| FairmarkError::InvalidInput(e.to_string()))?;
+    Ok(input)
+}
+
+/// Key under which `serde_json` (with `arbitrary_precision`) hands an exact number to its
+/// deserialiser; it is not part of the input, so it never appears in a pointer.
+const NUMBER_TOKEN: &str = "$serde_json::private::Number";
+
+/// Text of the error `serde_json` and `rust_decimal` raise when an object is given where a
+/// decimal is expected: they read numbers through a map with one private key.
+const OBJECT_FOR_NUMBER: &str = "expected field with custom name";
+
+/// What `rust_decimal` says it expects, for a decimal and for an optional decimal.
+const RUST_DECIMAL_EXPECTED: &str = "a Decimal type representing a fixed-point number";
+
+/// What Fairmark says instead, in every error about a decimal.
+const DECIMAL_EXPECTED: &str = "a decimal number (a JSON number or a string such as \"0.10\")";
+
+/// Marks an error raised while reading a value that its type buffered before reading it
+/// (`tv::compare::TechniqueEntry`): the text between the two markers is the pointer of the
+/// error relative to that value, which [`input_error`] appends to the path. Built only by
+/// [`nested_error`]; never shown.
+const NESTED: &str = "\u{1f}fairmark-relative-pointer\u{1f}";
+
+/// The text of a custom error that carries the relative pointer of an error raised while
+/// reading a buffered value, so that the reported pointer still names the field (issue #174).
+pub(crate) fn nested_error(
+    relative: &[String],
+    e: serde_path_to_error::Error<serde_json::Error>,
+) -> String {
+    let mut tokens = relative.to_vec();
+    tokens.extend(path_tokens(e.path()));
+    format!(
+        "{NESTED}{}{NESTED}{}",
+        pointer(&tokens).unwrap_or_default(),
+        e.into_inner()
+    )
+}
+
+fn input_error(e: serde_path_to_error::Error<serde_json::Error>) -> FairmarkError {
+    let mut tokens = path_tokens(e.path());
+    let inner = e.into_inner();
+    if !inner.is_data() {
+        return FairmarkError::InvalidInput(inner.to_string());
+    }
+    // The pointer replaces serde's position, which says where the reader stopped, not which
+    // field is wrong.
+    let full = inner.to_string();
+    let suffix = format!(" at line {} column {}", inner.line(), inner.column());
+    let mut msg = full.strip_suffix(&suffix).unwrap_or(&full);
+    if let Some((relative, rest)) = msg.strip_prefix(NESTED).and_then(|m| m.split_once(NESTED)) {
+        tokens.extend(relative.split('/').skip(1).map(unescape));
+        msg = rest;
+    }
+
     // serde_json puts the text of a custom error first; other errors start differently
     // ("unknown field", "missing field", "invalid type"), so a prefix match is exact.
-    match msg.strip_prefix(dates::INVALID_DATE) {
-        Some(rest) => FairmarkError::InvalidDate(rest.trim_start_matches(": ").to_owned()),
-        None => FairmarkError::InvalidInput(msg),
+    if let Some(rest) = msg.strip_prefix(dates::INVALID_DATE) {
+        let detail = rest.trim_start_matches(": ").to_owned();
+        return match pointer(&tokens) {
+            Some(pointer) => FairmarkError::InvalidDateAt { pointer, detail },
+            None => FairmarkError::InvalidDate(detail),
+        };
     }
+    let detail = if let Some(field) = quoted_field(msg, "missing field `") {
+        // Reported at the object that lacks the field: the pointer is completed with it.
+        tokens.push(field.to_owned());
+        format!("missing required field `{field}`; add it")
+    } else if let Some(field) = quoted_field(msg, "duplicate field `") {
+        // serde refuses a repeated field of a struct at the object that holds it.
+        tokens.push(field.to_owned());
+        format!("field `{field}` appears more than once; keep one")
+    } else if quoted_field(msg, "unknown field `").is_some() {
+        // The path already ends with the unknown key.
+        format!("{msg}; remove or rename it")
+    } else if msg == OBJECT_FOR_NUMBER {
+        // The path ends with the first key of the object; the decimal is its parent.
+        tokens.pop();
+        format!("invalid type: map, expected {DECIMAL_EXPECTED}")
+    } else {
+        without_type_names(&msg.replace(RUST_DECIMAL_EXPECTED, DECIMAL_EXPECTED))
+    };
+    match pointer(&tokens) {
+        Some(pointer) => FairmarkError::InvalidInputAt { pointer, detail },
+        None => FairmarkError::InvalidInput(detail),
+    }
+}
+
+/// serde names the Rust type it expected ("expected struct Stage"); the input knows objects,
+/// not Rust types, so the name becomes "an object". "struct variant" is left as it is.
+fn without_type_names(msg: &str) -> String {
+    const STRUCT: &str = "expected struct ";
+    let mut out = String::with_capacity(msg.len());
+    let mut rest = msg;
+    while let Some(at) = rest.find(STRUCT) {
+        let after = &rest[at + STRUCT.len()..];
+        let name_len = after
+            .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+            .unwrap_or(after.len());
+        out.push_str(&rest[..at]);
+        if name_len == 0 || &after[..name_len] == "variant" {
+            out.push_str(STRUCT);
+        } else {
+            out.push_str("expected an object");
+        }
+        rest = &after[name_len..];
+    }
+    out.push_str(rest);
+    out
+}
+
+/// One reference token of an RFC 6901 pointer, unescaped.
+fn unescape(token: &str) -> String {
+    token.replace("~1", "/").replace("~0", "~")
+}
+
+/// The field name in a serde message that starts with `prefix` and quotes the name in
+/// backticks, for example "missing field `rate`".
+fn quoted_field<'a>(msg: &'a str, prefix: &str) -> Option<&'a str> {
+    msg.strip_prefix(prefix)?
+        .split_once('`')
+        .map(|(field, _)| field)
+}
+
+/// Reference tokens of a serde path, unescaped. An unknown segment (a key that is not a
+/// string, which JSON cannot produce) ends the path at its parent, still a valid location.
+fn path_tokens(path: &serde_path_to_error::Path) -> Vec<String> {
+    use serde_path_to_error::Segment;
+    let mut tokens = Vec::new();
+    for segment in path.iter() {
+        match segment {
+            Segment::Seq { index } => tokens.push(index.to_string()),
+            Segment::Map { key } if key == NUMBER_TOKEN => {}
+            Segment::Map { key } => tokens.push(key.clone()),
+            Segment::Enum { variant } => tokens.push(variant.clone()),
+            Segment::Unknown => break,
+        }
+    }
+    tokens
+}
+
+/// RFC 6901 pointer of the tokens (`~` escaped as `~0`, `/` as `~1`); `None` for the whole
+/// input, whose pointer is empty.
+fn pointer(tokens: &[String]) -> Option<String> {
+    if tokens.is_empty() {
+        return None;
+    }
+    Some(
+        tokens
+            .iter()
+            .map(|t| format!("/{}", t.replace('~', "~0").replace('/', "~1")))
+            .collect(),
+    )
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {

@@ -12,7 +12,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::dates::{Date, DayCount};
-use crate::error::{FairmarkError, Result};
+use crate::error::{rate_field, FairmarkError, Result};
 use crate::explain::{Explain, Step};
 use crate::method::Method;
 use crate::num;
@@ -31,19 +31,6 @@ pub fn discount_factor(rate: Decimal, t: Decimal) -> Result<Decimal> {
         return Err(FairmarkError::RateOutOfRange(rate));
     }
     rates::inverse_pow(num::one_plus(rate)?, t)
-}
-
-/// Names the rate field of the method in an `FM-E003` raised by a shared helper (issue #176):
-/// the helpers only know the value, the method knows the field.
-fn rate_field(field: &'static str) -> impl Fn(FairmarkError) -> FairmarkError {
-    move |e| match e {
-        FairmarkError::RateOutOfRange(rate) => FairmarkError::DiscountRateOutOfRange {
-            field: field.to_owned(),
-            rate,
-            converted_with: None,
-        },
-        other => other,
-    }
 }
 
 /// `FM-E003` naming `field` when `rate` is −100% or lower.
@@ -115,8 +102,8 @@ pub fn npv(input: &NpvInput) -> Result<(NpvOutput, Explain)> {
 
     let mut pvs = Vec::with_capacity(input.cash_flows.len());
     for (i, cf) in input.cash_flows.iter().enumerate() {
-        let df =
-            discount_factor(input.rate, Decimal::from(i as u64)).map_err(rate_field("/rate"))?;
+        let df = discount_factor(input.rate, Decimal::from(i as u64))
+            .map_err(rate_field("/rate", None))?;
         let pv = cf.checked_mul(df).ok_or(FairmarkError::Overflow("npv"))?;
         ex.step(
             format!("Present value, t = {i}"),
@@ -883,7 +870,8 @@ pub fn xnpv(input: &XnpvInput) -> Result<(XnpvOutput, Explain)> {
     let mut flows = Vec::with_capacity(ts.len());
     for ((f, t), yf_formula) in input.cash_flows.iter().zip(ts).zip(&axis.formulas) {
         ex.step(format!("Year fraction, {}", f.date), yf_formula.clone(), *t);
-        let df = rates::discount_factor(input.rate, c, *t)?;
+        let df =
+            rates::discount_factor(input.rate, c, *t).map_err(rate_field("/rate", c.per_year()))?;
         ex.step(
             format!("Discount factor, {}", f.date),
             discount_formula(input.rate, c, *t),
@@ -1293,7 +1281,8 @@ fn factor_with(
 
 pub fn annuity(input: &AnnuityInput) -> Result<(AnnuityOutput, Explain)> {
     let (r, g, n) = (input.rate, input.growth.unwrap_or_default(), input.periods);
-    let (factor, steps) = factor_with(r, g, n, input.timing, false).map_err(rate_field("/rate"))?;
+    let (factor, steps) =
+        factor_with(r, g, n, input.timing, false).map_err(rate_field("/rate", None))?;
     let periods = Decimal::from(n);
     let one_r = num::one_plus(r)?;
     let mut ex = Explain::new(

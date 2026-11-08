@@ -100,7 +100,7 @@ pub(crate) fn check(input: &HModelInput) -> Checked {
 
 /// TV_N = CF_N × [(1 + g_l) + H × (g_s − g_l)] / (r − g_l).
 pub fn h_model(input: &HModelInput) -> Result<(HModelOutput, Explain)> {
-    check(input).map_err(|e| e.error)?;
+    check(input).map_err(super::FieldError::into_error)?;
     let (cf, gs, gl, h, r) = (
         input.last_flow,
         input.short_term_growth,
