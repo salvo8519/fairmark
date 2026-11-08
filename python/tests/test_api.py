@@ -103,6 +103,7 @@ def test_existing_results_keep_their_shape() -> None:
     # A tv.compare row: the method id stays text, its output is converted.
     row = fm.tv.compare("0.1", "enterprise", [{"tv.gordon": {"growth": "0", "next_flow": 10}}])
     assert row.results[0]["method"] == "tv.gordon"
+    assert row.results[0]["method_version"] == "1"
     assert row.results[0]["output"]["terminal_value"] == Decimal("100")
     # An analysis result: the inner method version stays text, the solution is a Decimal.
     seek = fm.analysis.goal_seek(

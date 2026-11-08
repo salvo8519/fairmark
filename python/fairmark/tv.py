@@ -167,22 +167,30 @@ def normalised_income(
     return run("tv.normalised_income", payload)
 
 
+Lines = Mapping[str, Number] | Iterable[tuple[str, Number]]
+
+
 def liquidation(
-    assets: Mapping[str, Number],
-    liabilities: Mapping[str, Number],
-    liquidation_costs: Mapping[str, Number],
+    assets: Lines,
+    liabilities: Lines,
+    liquidation_costs: Lines,
     tax_on_gains: Number,
 ) -> Result:
     """Net liquidation value: realisable assets less liabilities, costs and tax on gains.
 
-    Each mapping goes from a label to an amount, for example ``{"Land": 800}``.
+    Each group is a mapping from a label to an amount, for example ``{"Land": 800}``, or a list
+    of ``(label, amount)`` pairs, which allows the same label twice. At least one asset is
+    required; a negative net value is returned as is.
 
     >>> liquidation({"Land": 800}, {"Bank loan": 600}, {"Legal fees": 40}, 30).terminal_value
     Decimal('130')
+    >>> liquidation([("Lot", 500), ("Lot", 300)], [], [], 0).terminal_value
+    Decimal('800')
     """
 
-    def lines(items: Mapping[str, Number]) -> list[dict[str, Any]]:
-        return [{"label": label, "value": value} for label, value in items.items()]
+    def lines(items: Lines) -> list[dict[str, Any]]:
+        pairs = items.items() if isinstance(items, Mapping) else items
+        return [{"label": label, "value": value} for label, value in pairs]
 
     payload = {
         "assets": lines(assets),

@@ -87,3 +87,9 @@ def test_compare_equals_each_technique_run_alone() -> None:
     values = [D(r["terminal_value"]) for r in result.value["results"]]
     assert values[0] == fm.tv.gordon("0.1", "0.02", last_flow="100").terminal_value
     assert values[1] == fm.tv.normalised_income("95", "0.11").terminal_value
+
+
+def test_liquidation_accepts_label_pairs() -> None:
+    pairs = fm.tv.liquidation([("Lot", 500), ("Lot", 300)], [("Suppliers", 100)], [], 0)
+    mapping = fm.tv.liquidation({"Lot": 800}, {"Suppliers": 100}, {}, 0)
+    assert pairs.terminal_value == mapping.terminal_value == D(700)

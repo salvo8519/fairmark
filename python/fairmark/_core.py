@@ -42,7 +42,18 @@ def _encode(obj: Any) -> Any:
 # such a key stay as they are; only an object under it (the `output` of a `tv.compare` row,
 # which holds a whole method output) is converted like any other value.
 _TEXT_KEYS = frozenset(
-    {"id", "version", "method", "name", "output", "variable", "pointer", "code", "message"}
+    {
+        "id",
+        "version",
+        "method",
+        "method_version",
+        "name",
+        "output",
+        "variable",
+        "pointer",
+        "code",
+        "message",
+    }
 )
 
 
