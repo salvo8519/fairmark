@@ -502,6 +502,13 @@ def validate(inp: dict[str, Any]) -> None:
                         raise RefError("FM-E001", "split amount negative")
                     if not str(p["label"]).strip():
                         raise RefError("FM-E001", "split label blank")
+                    if (
+                        key == "shareholder_loans"
+                        and p["destination"] == "quasi_equity"
+                        and "beyond_one_year" in p
+                    ):
+                        # A quasi-equity part is outside the net financial position: no maturity.
+                        raise RefError("FM-E001", "beyond_one_year on a quasi_equity part")
     for k, adj in enumerate(inp.get("adjustments") or []):
         if adj["kind"] in IS_KINDS:
             raise RefError("FM-E001", f"/adjustments/{k}/kind not implemented in this build")
@@ -827,6 +834,11 @@ def statutory_balance_sheet(inp: dict[str, Any], i: int) -> dict[str, Any]:
     permits: dict[str, list[str]] = {}
     for name in ("financial_fixed_assets", "shareholder_loans"):
         checks[f"{name}_split"] = "not_checked"
+    loan_split_maturities(
+        checks,
+        overrides.get("shareholder_loans"),
+        get(pay_node, "shareholder_loans", "beyond_one_year"),
+    )
     t, tp = treatment_of("financial_fixed_assets")
     ffa, p = shares_of(
         b3,
@@ -1151,6 +1163,40 @@ def statutory_balance_sheet(inp: dict[str, Any], i: int) -> dict[str, Any]:
         "excess_cash": cash_nfp,
     }
     return finish(balance_sheet, cnc, checks, permits, i)
+
+
+def loan_split_maturities(checks: dict[str, str], override: Any, node_beyond: Any) -> None:
+    """A split of shareholder loans: each financial-debt part's amount beyond one year is at
+    most the part; the parts' amounts beyond one year equal the loans' when every part is
+    financial debt with its maturity given, and never exceed it."""
+    parts_rel, sum_rel = (
+        "shareholder_loans_split_parts_beyond_one_year",
+        "shareholder_loans_split_beyond_one_year",
+    )
+    if not isinstance(override, dict) or "split" not in override:
+        checks[parts_rel] = checks[sum_rel] = "not_checked"
+        return
+    total_beyond, n_given, complete = ZERO, 0, True
+    for p in override["split"]:
+        if p["destination"] != "financial_debt" or "beyond_one_year" not in p:
+            complete = False
+            continue
+        if dec(p["beyond_one_year"]) > dec(p["amount"]):
+            raise e026(parts_rel)
+        total_beyond += dec(p["beyond_one_year"])
+        n_given += 1
+    every = complete and n_given > 0
+    checks[parts_rel] = "reconciled" if every else "not_checked"
+    if node_beyond is None:
+        checks[sum_rel] = "not_checked"
+    elif every:
+        if total_beyond != dec(node_beyond):
+            raise e026(sum_rel)
+        checks[sum_rel] = "reconciled"
+    elif total_beyond > dec(node_beyond):
+        raise e026(sum_rel)
+    else:
+        checks[sum_rel] = "not_checked"
 
 
 def node_part(node: dict[str, Any] | None, base: str, key: str, whole: Amt) -> Amt:

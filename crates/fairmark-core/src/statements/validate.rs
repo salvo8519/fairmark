@@ -8,7 +8,8 @@ use rust_decimal::Decimal;
 use super::input::{
     Adjustment, Equity, FinancialFixedAssetsOverride, NetFixedAsset, Payables, Provisions,
     Receivables, ReclassifiedBalanceSheet, ReclassifiedIncomeStatement, ReorganiseInput,
-    ShareholderLoansOverride, StatutoryBalanceSheet, StatutoryIncomeStatement, WithMaturity,
+    ShareholderLoansDestination, ShareholderLoansOverride, StatutoryBalanceSheet,
+    StatutoryIncomeStatement, WithMaturity,
 };
 use crate::dates::{days_in_month, Date};
 use crate::error::{FairmarkError, Result};
@@ -74,6 +75,16 @@ pub(crate) fn validate(input: &ReorganiseInput) -> Result<()> {
                     let pp = format!("{at}/shareholder_loans/split/{j}");
                     unsigned(&format!("{pp}/amount"), Some(p.amount))?;
                     unsigned(&format!("{pp}/beyond_one_year"), p.beyond_one_year)?;
+                    if p.beyond_one_year.is_some()
+                        && p.destination == ShareholderLoansDestination::QuasiEquity
+                    {
+                        return Err(invalid(format!(
+                            "`{pp}/beyond_one_year` is given for a `quasi_equity` part: a \
+                             quasi-equity part is not in the net financial position and has no \
+                             maturity there; remove the field, or give the part the destination \
+                             `financial_debt`"
+                        )));
+                    }
                     not_blank(&format!("{pp}/label"), &p.label, "name the part")?;
                 }
             }

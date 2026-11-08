@@ -122,6 +122,84 @@ fn shares_of(
     })
 }
 
+/// The maturities of a split of shareholder loans (review of PR 1): each `financial_debt`
+/// part's amount beyond one year is at most the part; and the parts' amounts beyond one year sum
+/// to the loans' when every part is financial debt with its maturity given (otherwise not
+/// checked, but a sum already larger than the loans' is refused). `FM-E026` on a difference.
+fn split_maturities(
+    checks: &mut Checks,
+    choice: Option<&ShareholderLoansOverride>,
+    node_beyond: Option<Decimal>,
+    split: &str,
+    node_pointer: &str,
+) -> Result<()> {
+    const PARTS: &str = "shareholder_loans_split_parts_beyond_one_year";
+    const SUM: &str = "shareholder_loans_split_beyond_one_year";
+    let Some(ShareholderLoansOverride::Split(parts)) = choice else {
+        checks.not_checked(PARTS, Vec::new());
+        checks.not_checked(SUM, Vec::new());
+        return Ok(());
+    };
+    let mut given = Vec::new();
+    let mut sum = Decimal::ZERO;
+    let mut complete = true;
+    for (j, part) in parts.iter().enumerate() {
+        if part.destination != Sl::FinancialDebt {
+            complete = false;
+            continue;
+        }
+        let Some(beyond) = part.beyond_one_year else {
+            complete = false;
+            continue;
+        };
+        let at = format!("{split}/{j}/beyond_one_year");
+        checks.at_most(
+            PARTS,
+            Side::new("the part beyond one year", vec![at.clone()], Some(beyond)),
+            Side::new(
+                "the part",
+                vec![format!("{split}/{j}/amount")],
+                Some(part.amount),
+            ),
+            "the amount beyond one year of a part cannot exceed the part: correct one of them",
+        )?;
+        sum = crate::num::add(sum, beyond)?;
+        given.push(at);
+    }
+    let every_part = complete && !given.is_empty();
+    if every_part {
+        checks.map.insert(
+            PARTS,
+            checks::Check {
+                status: checks::CheckStatus::Reconciled,
+                pointers: given.clone(),
+            },
+        );
+    } else {
+        checks.not_checked(PARTS, given.clone());
+    }
+    let parts_side = Side::new("the parts beyond one year", given.clone(), Some(sum));
+    let node_side = Side::new(
+        "shareholder loans beyond one year",
+        vec![node_pointer.to_owned()],
+        node_beyond,
+    );
+    let fix = "the parts of a split of shareholder loans hold the loans' amount beyond one year: \
+               correct a part or the loans' amount beyond one year";
+    match node_beyond {
+        Some(_) if every_part => checks.equal(SUM, parts_side, node_side, fix)?,
+        Some(node) if sum > node => {
+            return Err(checks.error(&parts_side, sum, &node_side, node, fix)?);
+        }
+        _ => {
+            let mut pointers = given;
+            pointers.push(node_pointer.to_owned());
+            checks.not_checked(SUM, pointers);
+        }
+    }
+    Ok(())
+}
+
 fn dest_sum(shares: &[Share], destination: Destination) -> Result<Partial> {
     Partial::plus_all(
         shares
@@ -424,6 +502,15 @@ pub(crate) fn statutory(
             "/treatments/shareholder_loans".to_owned(),
         ),
     };
+    split_maturities(
+        &mut checks,
+        y.treatment_overrides
+            .as_ref()
+            .and_then(|o| o.shareholder_loans.as_ref()),
+        sl_node.and_then(|n| n.beyond_one_year),
+        &format!("/years/{i}/treatment_overrides/shareholder_loans/split"),
+        &r.p("payables/shareholder_loans/beyond_one_year"),
+    )?;
     let ffa_analyst = !matches!(ffa_choice.0, Choice::None);
     let sl_analyst = !matches!(sl_choice.0, Choice::None);
     checks.not_checked("financial_fixed_assets_split", Vec::new());

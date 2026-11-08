@@ -345,6 +345,93 @@ fn a_non_recurring_adjustment_of_d19_is_refused() {
     assert_eq!(err(&input).code(), "FM-E001");
 }
 
+/// The ordinary company with its shareholder loans (100000, of which 50000 beyond one year)
+/// split by `parts` for the year.
+fn split_loans(parts: Value) -> Value {
+    let mut input = golden_input("balance-sheet-ordinary");
+    input["years"][0]["treatment_overrides"] = json!({"shareholder_loans": {"split": parts}});
+    input
+}
+
+/// Review of PR 1 (item 4): a quasi-equity part has no maturity in the net financial position.
+#[test]
+fn a_quasi_equity_part_with_an_amount_beyond_one_year_is_refused() {
+    let e = err(&split_loans(json!([
+        {"destination": "financial_debt", "amount": "60000", "label": "Loan A",
+         "beyond_one_year": "30000"},
+        {"destination": "quasi_equity", "amount": "40000", "label": "Subordinated",
+         "beyond_one_year": "20000"}])));
+    assert_eq!(e.code(), "FM-E001");
+    let msg = e.to_string();
+    assert!(
+        msg.contains("/years/0/treatment_overrides/shareholder_loans/split/1/beyond_one_year"),
+        "{msg}"
+    );
+}
+
+/// Review of PR 1 (item 4): a part's amount beyond one year cannot exceed the part.
+#[test]
+fn a_part_beyond_one_year_larger_than_the_part_is_refused() {
+    let e = err(&split_loans(json!([
+        {"destination": "financial_debt", "amount": "60000", "label": "Loan A",
+         "beyond_one_year": "60001"},
+        {"destination": "financial_debt", "amount": "40000", "label": "Loan B",
+         "beyond_one_year": "0"}])));
+    assert_eq!(e.code(), "FM-E026");
+    assert!(e.to_string().contains("split/0/beyond_one_year"), "{e}");
+}
+
+/// Review of PR 1 (item 4): the parts' amounts beyond one year sum to the loans' when every part
+/// is financial debt with its maturity given; otherwise the relation is not checked, and a sum
+/// already larger than the loans' is refused.
+#[test]
+fn the_parts_beyond_one_year_reconcile_with_the_loans() {
+    let both = |a: &str, b: &str| {
+        split_loans(json!([
+            {"destination": "financial_debt", "amount": "60000", "label": "Loan A",
+             "beyond_one_year": a},
+            {"destination": "financial_debt", "amount": "40000", "label": "Loan B",
+             "beyond_one_year": b}]))
+    };
+    let out = run(&both("30000", "20000"));
+    let checks = &out["value"]["years"][0]["checks"];
+    assert_eq!(
+        checks["shareholder_loans_split_beyond_one_year"]["status"],
+        "reconciled"
+    );
+    assert_eq!(
+        checks["shareholder_loans_split_parts_beyond_one_year"]["status"],
+        "reconciled"
+    );
+    assert_eq!(
+        out["value"]["years"][0]["balance_sheet"]["sources"]["net_financial_position"]
+            ["non_current"],
+        "610000"
+    );
+    let e = err(&both("30000", "20001"));
+    assert_eq!(e.code(), "FM-E026");
+    assert!(
+        e.to_string().contains(
+            "/years/0/statutory/balance_sheet/payables/shareholder_loans/beyond_one_year"
+        ),
+        "{e}"
+    );
+    let mixed = split_loans(json!([
+        {"destination": "financial_debt", "amount": "60000", "label": "Loan A",
+         "beyond_one_year": "30000"},
+        {"destination": "quasi_equity", "amount": "40000", "label": "Subordinated"}]));
+    let out = run(&mixed);
+    assert_eq!(
+        out["value"]["years"][0]["checks"]["shareholder_loans_split_beyond_one_year"]["status"],
+        "not_checked"
+    );
+    let over = split_loans(json!([
+        {"destination": "financial_debt", "amount": "60000", "label": "Loan A",
+         "beyond_one_year": "50001"},
+        {"destination": "quasi_equity", "amount": "40000", "label": "Subordinated"}]));
+    assert_eq!(err(&over).code(), "FM-E026");
+}
+
 #[test]
 fn an_empty_list_of_years_is_refused() {
     let e = err(&json!({"years": []}));
