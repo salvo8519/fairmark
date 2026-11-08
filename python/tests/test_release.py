@@ -24,3 +24,25 @@ def test_pre_releases_come_before_their_release() -> None:
 def test_invalid_versions_are_refused(bad: str) -> None:
     with pytest.raises(ValueError):
         release.key(bad)
+
+
+_vspec = importlib.util.spec_from_file_location("version", ROOT / "scripts/version.py")
+assert _vspec and _vspec.loader
+version_script = importlib.util.module_from_spec(_vspec)
+_vspec.loader.exec_module(version_script)
+
+
+@pytest.mark.parametrize("bad", ["1.2.3\n", "0.1.0-alpha.1\n"])
+def test_trailing_newline_is_refused(bad: str) -> None:
+    """`$` matches before a final newline; the patterns must anchor at the end (#154)."""
+    with pytest.raises(ValueError):
+        release.key(bad)
+    assert release.ready(bad, offline=True) == 1
+    with pytest.raises(SystemExit):
+        version_script.pep440(bad)
+    assert not release.SEMVER.match(bad)
+
+
+def test_valid_versions_still_pass() -> None:
+    assert release.key("1.2.3") == (1, 2, 3, 1, "")
+    assert version_script.pep440("0.1.0-alpha.1") == "0.1.0a1"
