@@ -227,6 +227,8 @@ terms:
   promotion rule (method status): regola di promozione
 keep_in_english:
   - Fairmark
+  # SPEC-0001: Italian equivalent "to verify" (no verified source); kept in English
+  - debt-like items
   - explain
   - input hash
   - MCP

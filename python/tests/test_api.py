@@ -184,3 +184,27 @@ def test_dcf_converts_rates_with_inflation() -> None:
     assert one.value["terms"]["conversion"] == "to_real"
     assert one.terminal["rate"] == Decimal("0.08")
     assert one.value_of_operations == per.value_of_operations
+
+
+def test_dcf_bridge_with_debt_like_items_and_non_controlling_interests() -> None:
+    """Issue #44: the helper passes both claim lists through; Damodaran Illustration 16.6
+    (Segovia, consolidated approach) gives an equity value of 1,605."""
+    r = dcf(
+        [Decimal("110.25")],
+        "0.10",
+        "0.05",
+        net_financial_position={"gross_debt": 500, "cash": 0},
+        non_operating_assets=[{"label": "15% holding in LatinWorks", "value": "22.5"}],
+        debt_like_items=[],
+        non_controlling_interests=[
+            {
+                "label": "49% of Seville Television",
+                "value": "122.5",
+                "measurement_basis": "book value",
+            }
+        ],
+    )
+    assert r.value_of_operations.quantize(Decimal("0.000001")) == Decimal("2205")
+    assert r.equity_value.quantize(Decimal("0.000001")) == Decimal("1605")
+    assert r.bridge["non_controlling_interests"][0]["measurement_basis"] == "book value"
+    assert any("debt-like items: none given" in c for c in r.conventions)

@@ -166,7 +166,7 @@ milestones:
         labels: ["area:core", "method:dcf"]
         tasks:
           - { issue: 43, title: "Terminal value inside the DCF: technique and discounting time", tags: [parallel], spec: "0001", status: done }
-          - { issue: 44, title: "From enterprise value to equity value: non-operating assets, debt-like items, non-controlling interests", tags: [parallel], spec: "0001", status: open }
+          - { issue: 44, title: "From enterprise value to equity value: non-operating assets, debt-like items, non-controlling interests", tags: [parallel], spec: "0001", status: done }
           - { issue: 45, title: "Deterministic WACC × g sensitivity grid", tags: [gfi], spec: "0008", status: done }
           - { issue: 101, title: "Draft specs for terminal value methods and financial ratios with covenants", spec: "0006", status: done }
           - { issue: 115, title: "Terminal value building blocks tv.* (SPEC-0006)", spec: "0006", status: done }
