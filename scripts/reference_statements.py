@@ -453,7 +453,8 @@ def validate(inp: dict[str, Any]) -> None:
                     if not str(line["label"]).strip():
                         raise RefError("FM-E001", f"{key}/{j}/label")
                     other = key == "debt_like_items" and line["measurement_basis"] == "other"
-                    if other and not str(line.get("basis_note", "")).strip():
+                    blank_note = "basis_note" in line and not str(line["basis_note"]).strip()
+                    if blank_note or (other and not str(line.get("basis_note", "")).strip()):
                         raise RefError("FM-E001", f"{key}/{j}/basis_note")
             if "treatment_overrides" in y:
                 raise RefError("FM-E001", f"/years/{i}/treatment_overrides on reclassified")
