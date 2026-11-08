@@ -161,3 +161,54 @@ def test_sensitivity_table_agrees_with_numpy_financial() -> None:
             explicit = npf.npv(rate, [0.0, *flows])  # npv discounts from t = 0
             terminal = flows[-1] * (1 + growth) / (rate - growth) / (1 + rate) ** len(flows)
             assert close(Decimal(str(cell["value"])), explicit + terminal)
+
+
+LOANS_RNG = random.Random(20261108)  # SPEC-0009: its own seed, independent of the cases above
+
+
+def random_loan() -> tuple[Decimal, Decimal, int]:
+    principal = Decimal(LOANS_RNG.randrange(1_000, 1_000_000))
+    periodic_rate = Decimal(LOANS_RNG.randrange(1, 200)) / 10_000
+    return principal, periodic_rate, LOANS_RNG.randrange(1, 361)
+
+
+def test_loan_instalments_agree_with_numpy_financial() -> None:
+    """SPEC-0009 R6: numpy_financial.pmt, with a balloon as its future value, both timings."""
+    for _ in range(200):
+        principal, i, n = random_loan()
+        balloon = principal * Decimal(LOANS_RNG.randrange(0, 50)) / 100
+        for timing, when in (("ordinary", "end"), ("due", "begin")):
+            ours = fm.loans.instalment(
+                principal, n, periodic_rate=i, balloon_amount=balloon, timing=timing
+            ).instalment  # type: ignore[arg-type]
+            theirs = -npf.pmt(float(i), n, float(principal), -float(balloon), when)
+            assert close(ours, theirs), f"{principal} {i} {n} {balloon} {timing}"
+
+
+def test_number_of_instalments_agrees_with_numpy_financial() -> None:
+    """SPEC-0009 AC3: numpy_financial.nper on ten random loans, both timings."""
+    for _ in range(10):
+        principal, i, n = random_loan()
+        instalment = fm.loans.instalment(principal, n, periodic_rate=i, timing="ordinary")
+        payment = instalment.instalment * Decimal("1.05")
+        for timing, when in (("ordinary", "end"), ("due", "begin")):
+            ours = fm.loans.number_of_instalments(
+                principal, payment, periodic_rate=i, timing=timing
+            ).exact_number_of_periods  # type: ignore[arg-type]
+            theirs = float(npf.nper(float(i), -float(payment), float(principal), 0, when))
+            assert close(ours, theirs), f"{principal} {i} {payment} {timing}"
+
+
+def test_future_value_agrees_with_numpy_financial() -> None:
+    """SPEC-0009 R10: numpy_financial.fv with its cash-flow signs reversed."""
+    for _ in range(200):
+        rate = Decimal(LOANS_RNG.randrange(-50, 200)) / 10_000
+        periods = LOANS_RNG.randrange(1, 400)
+        pv = Decimal(LOANS_RNG.randrange(-100_000, 100_000))
+        pmt = Decimal(LOANS_RNG.randrange(-5_000, 5_000))
+        for timing, when in (("ordinary", "end"), ("due", "begin")):
+            ours = fm.tvm.future_value(
+                rate, periods, present_value=pv, payment=pmt, timing=timing
+            ).future_value  # type: ignore[arg-type]
+            theirs = -npf.fv(float(rate), periods, float(pmt), float(pv), when)
+            assert close(ours, theirs), f"{rate} {periods} {pv} {pmt} {timing}"

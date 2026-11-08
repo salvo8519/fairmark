@@ -1,6 +1,6 @@
 ---
 source: methods/index.md
-source_hash: 1d2e9834bcfe
+source_hash: 81651d7795cf
 ---
 # Metodi
 
@@ -21,6 +21,9 @@ elenca tutti gli input.
 | [`tvm.mirr`](tvm-mirr.md) | Disponibile | Tasso interno di rendimento modificato |
 | [`tvm.annuity`](tvm-annuity.md) | Disponibile | Valore attuale e valore futuro di una rendita costante o crescente |
 | [`tvm.perpetuity`](tvm-perpetuity.md) | Disponibile | Valore attuale di una rendita perpetua costante o crescente |
+| [`tvm.future_value`](tvm-future-value.md) | Disponibile | Valore futuro (montante) di un importo attuale e di pagamenti costanti |
+| [`loans.instalment`](loans-instalment.md) | Disponibile | Rata costante di un finanziamento, con balloon e arrotondamento facoltativi |
+| [`loans.number_of_instalments`](loans-number-of-instalments.md) | Disponibile | Numero delle rate che rimborsa un finanziamento e ultima rata ridotta |
 | [`coc.cost_of_equity`](coc-cost-of-equity.md) | Disponibile | Costo del capitale proprio con il CAPM e premi espliciti per rischio paese, dimensione e rischio specifico |
 | [`coc.beta_relever`](coc-beta-relever.md) | Disponibile | Beta levered da un beta unlevered, o viceversa (Hamada, Harris-Pringle) |
 | [`coc.beta_peers`](coc-beta-peers.md) | Disponibile | Beta unlevered medio e mediano delle società comparabili, con relevering alla struttura finanziaria obiettivo |

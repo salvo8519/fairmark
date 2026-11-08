@@ -191,6 +191,8 @@ terms:
   tax on gains: imposte sulle plusvalenze
   value driver (terminal value): value driver (formula dei value driver)
   half-life (H-model): H, metà della durata della fase di declino (half-life)
+  final-period adjustment: rettifica dell'ultima rata
+  rounding: arrotondamento
 keep_in_english:
   - Fairmark
   - explain

@@ -386,7 +386,7 @@ pub fn instalment(input: &InstalmentInput) -> Result<(InstalmentOutput, Explain)
     ex.convention(rounding_convention(input.rounding.as_ref(), "instalment"));
     ex.convention(
         "totals: number of instalments × instalment (as returned) + balloon amount; with \
-         rounding, the final-period adjustment is computed by loans.amortisation_schedule",
+         rounding, a schedule adjusts the last instalment (final-period adjustment)",
     );
     let n = input.number_of_instalments;
     let mut a = level_instalment(input.principal, b, i, n, input.timing, &mut ex)?;

@@ -125,7 +125,7 @@ FUTURE = re.compile(
     r"|in programma|prossimamente|sarà disponibile|\bpianificat[oaie]\b",
     re.IGNORECASE,
 )
-METHOD_ID = re.compile(r"`((?:dates|rates|tvm|coc|dcf|tv|ratios|analysis)\.[a-z_]+)`")
+METHOD_ID = re.compile(r"`((?:dates|rates|tvm|loans|coc|dcf|tv|ratios|analysis)\.[a-z_]+)`")
 GENERATED = re.compile(r"<!-- generated:[a-z]+:start.*?<!-- generated:[a-z]+:end -->", re.S)
 
 
