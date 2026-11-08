@@ -13,14 +13,14 @@
 - `uv run just check` passes locally.
 
 ## Decisions taken
-- Scope limited to the active navigation item, as the issue states. Gold on the light
-  background is also used by the theme for hover and focus states of links (2.4:1); not
-  changed here, reported to the maintainer.
+- First commit limited to the active navigation item. The maintainer then asked to fix the
+  other uses of gold on white as well (hover and focus of links and controls, 2.4:1): the
+  light theme accent is now Deep Navy (12.8:1), links underline on hover and focus, and the
+  active item keeps a gold marker (acceptance criterion 3 of the issue).
 - Issues #142 and #143 were opened in the same session and run on their own branches.
 
 ## Open questions for the maintainer
-- Should hover and focus states in the light theme stop using gold as well (brand.md: gold on
-  navy only)?
+- None.
 
 ## Next steps
 1. Review the pull request and the rendered site in the light theme after merge.
