@@ -232,6 +232,25 @@ def bridge_claim(
     return claim
 
 
+def _plain(value: Any) -> Any:
+    """Copies mappings to dicts and other iterables (not strings) to lists, at every level, so
+    that the payload is plain JSON-like data whatever the caller passed."""
+    if isinstance(value, Mapping):
+        return {k: _plain(v) for k, v in value.items()}
+    if isinstance(value, Iterable) and not isinstance(value, str | bytes):
+        return [_plain(v) for v in value]
+    return value
+
+
+def _dcf_payload(required: Mapping[str, Any], optional: Mapping[str, Any]) -> dict[str, Any]:
+    """The input of a DCF method: every required field, and the optional fields that were
+    given. An optional field left at None is omitted, so the engine applies its documented
+    rule; the helper never fills in a value."""
+    payload = {k: _plain(v) for k, v in required.items()}
+    payload.update({k: _plain(v) for k, v in optional.items() if v is not None})
+    return payload
+
+
 def fcff(
     stages: Iterable[Mapping[str, Any]],
     *,
@@ -288,43 +307,34 @@ def fcff(
     >>> r.value_of_operations
     Decimal('1421.4876033057851239669421487')
     """
-    payload: dict[str, Any] = {
-        "stages": [dict(s) for s in stages],
-        "cash_flow_terms": cash_flow_terms,
-        "discount_rate_terms": discount_rate_terms,
-        "timing": timing,
-        "terminal": dict(terminal),
-    }
-    optional: dict[str, Any] = {
-        "wacc": wacc,
-        "wacc_per_period": None if wacc_per_period is None else list(wacc_per_period),
-        "terminal_wacc": terminal_wacc,
-        "inflation": inflation,
-        "inflation_per_period": (
-            None if inflation_per_period is None else list(inflation_per_period)
+    return run(
+        "dcf.fcff",
+        _dcf_payload(
+            {
+                "stages": stages,
+                "cash_flow_terms": cash_flow_terms,
+                "discount_rate_terms": discount_rate_terms,
+                "timing": timing,
+                "terminal": terminal,
+            },
+            {
+                "wacc": wacc,
+                "wacc_per_period": wacc_per_period,
+                "terminal_wacc": terminal_wacc,
+                "inflation": inflation,
+                "inflation_per_period": inflation_per_period,
+                "terminal_inflation": terminal_inflation,
+                "terminal_discount_time": terminal_discount_time,
+                "base_flow": base_flow,
+                "net_financial_position": net_financial_position,
+                "non_operating_assets": non_operating_assets,
+                "debt_like_items": debt_like_items,
+                "non_controlling_interests": non_controlling_interests,
+                "notional_tax_rate": notional_tax_rate,
+                "negative_ebit": negative_ebit,
+            },
         ),
-        "terminal_inflation": terminal_inflation,
-        "terminal_discount_time": terminal_discount_time,
-        "base_flow": base_flow,
-        "net_financial_position": (
-            None if net_financial_position is None else dict(net_financial_position)
-        ),
-        "non_operating_assets": (
-            None if non_operating_assets is None else [dict(a) for a in non_operating_assets]
-        ),
-        "debt_like_items": (
-            None if debt_like_items is None else [dict(c) for c in debt_like_items]
-        ),
-        "non_controlling_interests": (
-            None
-            if non_controlling_interests is None
-            else [dict(c) for c in non_controlling_interests]
-        ),
-        "notional_tax_rate": notional_tax_rate,
-        "negative_ebit": negative_ebit,
-    }
-    payload.update({k: v for k, v in optional.items() if v is not None})
-    return run("dcf.fcff", payload)
+    )
 
 
 def fcfe(
@@ -379,46 +389,35 @@ def fcfe(
     >>> r.equity_value
     Decimal('1291.5318020723426128831534237')
     """
-    payload: dict[str, Any] = {
-        "stages": [dict(s) for s in stages],
-        "cash_flow_terms": cash_flow_terms,
-        "discount_rate_terms": discount_rate_terms,
-        "timing": timing,
-        "terminal": dict(terminal),
-    }
-    optional: dict[str, Any] = {
-        "cost_of_equity": cost_of_equity,
-        "cost_of_equity_per_period": (
-            None if cost_of_equity_per_period is None else list(cost_of_equity_per_period)
+    return run(
+        "dcf.fcfe",
+        _dcf_payload(
+            {
+                "stages": stages,
+                "cash_flow_terms": cash_flow_terms,
+                "discount_rate_terms": discount_rate_terms,
+                "timing": timing,
+                "terminal": terminal,
+            },
+            {
+                "cost_of_equity": cost_of_equity,
+                "cost_of_equity_per_period": cost_of_equity_per_period,
+                "terminal_cost_of_equity": terminal_cost_of_equity,
+                "inflation": inflation,
+                "inflation_per_period": inflation_per_period,
+                "terminal_inflation": terminal_inflation,
+                "terminal_discount_time": terminal_discount_time,
+                "base_flow": base_flow,
+                "net_financial_position": net_financial_position,
+                "non_operating_assets": non_operating_assets,
+                "debt_like_items": debt_like_items,
+                "non_controlling_interests": non_controlling_interests,
+                "notional_tax_rate": notional_tax_rate,
+                "negative_ebit": negative_ebit,
+                "interest_tax_rate": interest_tax_rate,
+            },
         ),
-        "terminal_cost_of_equity": terminal_cost_of_equity,
-        "inflation": inflation,
-        "inflation_per_period": (
-            None if inflation_per_period is None else list(inflation_per_period)
-        ),
-        "terminal_inflation": terminal_inflation,
-        "terminal_discount_time": terminal_discount_time,
-        "base_flow": base_flow,
-        "net_financial_position": (
-            None if net_financial_position is None else dict(net_financial_position)
-        ),
-        "non_operating_assets": (
-            None if non_operating_assets is None else [dict(a) for a in non_operating_assets]
-        ),
-        "debt_like_items": (
-            None if debt_like_items is None else [dict(c) for c in debt_like_items]
-        ),
-        "non_controlling_interests": (
-            None
-            if non_controlling_interests is None
-            else [dict(c) for c in non_controlling_interests]
-        ),
-        "notional_tax_rate": notional_tax_rate,
-        "negative_ebit": negative_ebit,
-        "interest_tax_rate": interest_tax_rate,
-    }
-    payload.update({k: v for k, v in optional.items() if v is not None})
-    return run("dcf.fcfe", payload)
+    )
 
 
 def free_cash_flows(
