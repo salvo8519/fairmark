@@ -5,8 +5,8 @@ WACC, over one to three explicit stages followed by a terminal value. Every choi
 the stages and their projection, the terms of the flows and of the rates, the timing, and the
 terminal technique. The helpers ``given``, ``constant_growth``, ``linear_decline`` and the
 terminal techniques ``gordon``, ``h_model``, ``value_driver``, ``exit_multiple``,
-``limited_horizon`` and ``liquidation`` only build the input objects; the engine computes
-everything.
+``limited_horizon``, ``normalised_income`` and ``liquidation`` only build the input objects;
+the engine computes everything.
 
 Rates and growths are decimal fractions per period (``"0.09"`` = 9%); one period is one year.
 """
@@ -160,6 +160,24 @@ def limited_horizon(
     return {"tv.limited_horizon": terms}
 
 
+def normalised_income(
+    income: Number,
+    *,
+    basis: Basis,
+    growth: Number,
+    growth_cap: Number | None = None,
+) -> dict[str, Any]:
+    """The terminal technique ``tv.normalised_income``, written
+    ``{"tv.normalised_income": {...}}``: the normalised income at N + 1 capitalised at the
+    terminal rate of the DCF (no separate capitalisation rate), R / (r - g). ``basis`` must be
+    the basis of the DCF (``"enterprise"`` for ``fcff``); ``growth`` is required (give 0 for
+    none)."""
+    terms: dict[str, Any] = {"income": income, "basis": basis, "growth": growth}
+    if growth_cap is not None:
+        terms["growth_cap"] = growth_cap
+    return {"tv.normalised_income": terms}
+
+
 def liquidation(
     assets: Iterable[Mapping[str, Any]],
     *,
@@ -207,7 +225,7 @@ def fcff(
     Stages built with :func:`given_lines` take ``notional_tax_rate`` with ``negative_ebit``,
     or ``operating_taxes`` in every line.
     ``terminal`` is built by ``gordon``, ``h_model``, ``value_driver``, ``exit_multiple``,
-    ``limited_horizon`` or ``liquidation``.
+    ``limited_horizon``, ``normalised_income`` or ``liquidation``.
 
     >>> r = fcff(
     ...     [given([100, 110, 120])],

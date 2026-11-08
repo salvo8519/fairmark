@@ -138,6 +138,7 @@ def test_dcf_terminal_helpers_build_each_technique() -> None:
         fm.dcf.value_driver(150, "0.02", "0.12", growth_cap="0.03"),
         fm.dcf.exit_multiple(8, "ebitda", 180, next_flow=120, growth_cap="0.03"),
         fm.dcf.limited_horizon(110, 5, growth=0, residual_value=300, growth_cap="0.03"),
+        fm.dcf.normalised_income(140, basis="enterprise", growth="0.01", growth_cap="0.03"),
         fm.dcf.liquidation(
             lines, liabilities=[], liquidation_costs=[], tax_on_gains=0, basis="enterprise"
         ),
