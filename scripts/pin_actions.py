@@ -45,6 +45,7 @@ def resolve(action: str, ref: str, cache: dict[tuple[str, str], str]) -> str:
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
         refs = dict(reversed(line.split("\t")) for line in out.stdout.split("\n") if line)
         sha = (

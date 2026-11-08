@@ -119,7 +119,9 @@ def ruleset_checks(repo: str) -> set[str]:
     """Required checks of the active rulesets that apply to the default branch."""
 
     def gh(path: str) -> Any:
-        res = subprocess.run(["gh", "api", path], capture_output=True, text=True, check=True)
+        res = subprocess.run(
+            ["gh", "api", path], capture_output=True, text=True, check=True, encoding="utf-8"
+        )
         return json.loads(res.stdout)
 
     found: set[str] = set()

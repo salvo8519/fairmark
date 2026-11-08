@@ -145,7 +145,7 @@ def test_results_report_the_method_status() -> None:
     )
     # The inner input of the golden case, dcf.fcff version 3.
     case = yaml.safe_load(
-        (ROOT / "tests/golden/analysis.sensitivity/wacc-one-way.yaml").read_text()
+        (ROOT / "tests/golden/analysis.sensitivity/wacc-one-way.yaml").read_text(encoding="utf-8")
     )
     out = fm.tools.dispatch("fairmark_analysis_sensitivity", case["input"])
     assert "error" not in out, out

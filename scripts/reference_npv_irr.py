@@ -61,7 +61,7 @@ def cases() -> list[tuple[str, D, D, D]]:
     """(case, reference, expected, tolerance) for each of the three cases."""
     out = []
     golden = ROOT / "tests/golden"
-    npv_case = yaml.safe_load((golden / "tvm.npv/five-flows.yaml").read_text())
+    npv_case = yaml.safe_load((golden / "tvm.npv/five-flows.yaml").read_text(encoding="utf-8"))
     flows = [D(str(x)) for x in npv_case["input"]["cash_flows"]]
     out.append(
         (
@@ -72,7 +72,7 @@ def cases() -> list[tuple[str, D, D, D]]:
         )
     )
     for name in ("conventional", "zero-coupon"):
-        case = yaml.safe_load((golden / f"tvm.irr/{name}.yaml").read_text())
+        case = yaml.safe_load((golden / f"tvm.irr/{name}.yaml").read_text(encoding="utf-8"))
         flows = [D(str(x)) for x in case["input"]["cash_flows"]]
         ref = irr_bisection(flows)
         if name == "zero-coupon":

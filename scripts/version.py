@@ -24,7 +24,9 @@ SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.]+))?\Z")
 
 
 def current() -> str:
-    m = re.search(r'\[workspace\.package\][^\[]*?\nversion = "([^"]+)"', CARGO.read_text())
+    m = re.search(
+        r'\[workspace\.package\][^\[]*?\nversion = "([^"]+)"', CARGO.read_text(encoding="utf-8")
+    )
     if not m:
         sys.exit("version not found in Cargo.toml [workspace.package]")
     return m.group(1)
@@ -47,12 +49,12 @@ def pep440(version: str) -> str:
 
 def check() -> None:
     version = current()
-    text = CARGO.read_text()
+    text = CARGO.read_text(encoding="utf-8")
     problems = []
     dep = re.search(r'fairmark-core = \{[^}]*version = "([^"]+)"', text)
     if not dep or dep.group(1) != version:
         problems.append("workspace dependency fairmark-core version differs from the workspace")
-    lock = (ROOT / "uv.lock").read_text()
+    lock = (ROOT / "uv.lock").read_text(encoding="utf-8")
     m = re.search(r'\[\[package\]\]\nname = "fairmark"\nversion = "([^"]+)"', lock)
     if m and m.group(1) != pep440(version):
         problems.append(
@@ -77,8 +79,8 @@ def bump(spec: str) -> None:
         "patch": f"{major}.{minor}.{patch + 1}",
     }.get(spec, spec)
     pep440(new)  # validates
-    text = CARGO.read_text().replace(f'version = "{old}"', f'version = "{new}"')
-    CARGO.write_text(text)
+    text = CARGO.read_text(encoding="utf-8").replace(f'version = "{old}"', f'version = "{new}"')
+    CARGO.write_text(text, encoding="utf-8")
     subprocess.run(["uv", "lock", "--quiet"], cwd=ROOT, check=True)
     subprocess.run(["cargo", "update", "--workspace", "--quiet"], cwd=ROOT, check=True)
     # Schema versions added since the previous release are published by this one (ADR 0009).

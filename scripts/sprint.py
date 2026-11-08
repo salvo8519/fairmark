@@ -22,7 +22,7 @@ STATUSES = {"planned", "active", "done"}
 
 
 def load(path: Path) -> dict[str, Any]:
-    data: dict[str, Any] = yaml.safe_load(path.read_text())
+    data: dict[str, Any] = yaml.safe_load(path.read_text(encoding="utf-8"))
     return data
 
 
@@ -49,7 +49,11 @@ def validate(sprint: dict[str, Any]) -> list[str]:
 
 def origin_repo() -> str:
     url = subprocess.run(
-        ["git", "remote", "get-url", "origin"], capture_output=True, text=True, check=True
+        ["git", "remote", "get-url", "origin"],
+        capture_output=True,
+        text=True,
+        check=True,
+        encoding="utf-8",
     ).stdout.strip()
     return re.sub(r"(\.git)?$", "", re.split(r"github\.com[:/]", url)[-1])
 
@@ -63,7 +67,9 @@ def status(sprint: dict[str, Any], repo: str | None) -> None:
         for issue in lane.get("issues", []):
             cmd = ["gh", "api", f"repos/{repo}/issues/{issue}"]
             info = json.loads(
-                subprocess.run(cmd, capture_output=True, text=True, check=True).stdout
+                subprocess.run(
+                    cmd, capture_output=True, text=True, check=True, encoding="utf-8"
+                ).stdout
             )
             state = "done" if info["state"] == "closed" else "open"
             total += 1

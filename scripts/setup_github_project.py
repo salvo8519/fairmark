@@ -30,7 +30,9 @@ AREAS = ["core", "python", "cli", "mcp", "n8n", "docs", "infra", "telemetry"]
 
 
 def gh(*args: str) -> Any:
-    out = subprocess.run(["gh", *args], capture_output=True, text=True, check=True).stdout
+    out = subprocess.run(
+        ["gh", *args], capture_output=True, text=True, check=True, encoding="utf-8"
+    ).stdout
     return json.loads(out) if out.strip().startswith(("{", "[")) else out
 
 

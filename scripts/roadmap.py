@@ -239,6 +239,7 @@ def gh(*args: str, payload: dict[str, Any] | None = None) -> Any:
         input=json.dumps(payload) if payload is not None else None,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     if out.returncode != 0:
         sys.exit(f"gh api {' '.join(args)} failed: {out.stderr.strip()}")

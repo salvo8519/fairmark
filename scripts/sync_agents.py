@@ -42,7 +42,9 @@ def expected() -> dict[Path, str]:
         for src in sorted((SRC / kind).rglob("*")):
             if src.is_file():
                 rel = src.relative_to(SRC)
-                files[DST / rel] = render(src) if src.suffix == ".md" else src.read_text()
+                files[DST / rel] = (
+                    render(src) if src.suffix == ".md" else src.read_text(encoding="utf-8")
+                )
     return files
 
 
@@ -54,7 +56,9 @@ def main() -> None:
     current = {p for kind in ("skills", "agents") for p in (DST / kind).rglob("*") if p.is_file()}
 
     if args.check:
-        stale = [p for p, c in files.items() if not p.exists() or p.read_text() != c]
+        stale = [
+            p for p, c in files.items() if not p.exists() or p.read_text(encoding="utf-8") != c
+        ]
         extra = sorted(current - files.keys())
         if stale or extra:
             names = [str(p.relative_to(ROOT)) for p in [*stale, *extra]]

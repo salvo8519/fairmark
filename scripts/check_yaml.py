@@ -17,7 +17,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def tracked_yaml() -> list[Path]:
     out = subprocess.run(
-        ["git", "ls-files", "*.yml", "*.yaml"], cwd=ROOT, capture_output=True, text=True, check=True
+        ["git", "ls-files", "*.yml", "*.yaml"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+        encoding="utf-8",
     ).stdout
     return [ROOT / line for line in out.splitlines() if line]
 

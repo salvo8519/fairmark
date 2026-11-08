@@ -60,7 +60,7 @@ def meta(path: Path) -> dict[str, str]:
 
 def languages() -> dict[str, dict[str, list[str]]]:
     return {
-        p.stem: yaml.safe_load(p.read_text())
+        p.stem: yaml.safe_load(p.read_text(encoding="utf-8"))
         for p in sorted((ROOT / "i18n").glob("*.yaml"))
         if p.stem != "glossary"
     }

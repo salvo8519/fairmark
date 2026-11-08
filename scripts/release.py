@@ -40,13 +40,13 @@ def key(version: str) -> tuple[int, int, int, int, str]:
 
 
 def run(*cmd: str) -> tuple[bool, str]:
-    out = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
+    out = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, encoding="utf-8")
     text = (out.stdout + out.stderr).strip().splitlines()
     return out.returncode == 0, text[-1] if text else ""
 
 
 def gh(path: str) -> object:
-    out = subprocess.run(["gh", "api", path], capture_output=True, text=True)
+    out = subprocess.run(["gh", "api", path], capture_output=True, text=True, encoding="utf-8")
     if out.returncode != 0:
         raise RuntimeError(out.stderr.strip())
     return json.loads(out.stdout)
@@ -69,7 +69,9 @@ def ready(version: str, offline: bool) -> int:
         return 1
     pre = SEMVER.match(version).group(4)  # type: ignore[union-attr]
 
-    tags = subprocess.run(["git", "tag", "-l", "v*"], cwd=ROOT, capture_output=True, text=True)
+    tags = subprocess.run(
+        ["git", "tag", "-l", "v*"], cwd=ROOT, capture_output=True, text=True, encoding="utf-8"
+    )
     previous = [t[1:] for t in tags.stdout.split() if SEMVER.match(t[1:])]
     last = max(previous, key=key) if previous else None
     record(

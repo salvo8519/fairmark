@@ -83,8 +83,8 @@ def flatten(nav: list[Any]) -> list[Any]:
 
 
 def italian_config() -> None:
-    base = tomllib.loads((ROOT / "zensical.toml").read_text())
-    cfg = yaml.safe_load((ROOT / "i18n/it.yaml").read_text())
+    base = tomllib.loads((ROOT / "zensical.toml").read_text(encoding="utf-8"))
+    cfg = yaml.safe_load((ROOT / "i18n/it.yaml").read_text(encoding="utf-8"))
     it = copy.deepcopy(base)
     p = it["project"]
     en_site = base["project"]["site_url"]
@@ -103,7 +103,9 @@ def italian_config() -> None:
     marker = "\n[project."
     cut = body.index(marker)
     nav_toml = "nav = " + toml_inline(nav, 0) + "\n"
-    (ROOT / "zensical.it.toml").write_text(header + body[:cut] + "\n" + nav_toml + body[cut:])
+    (ROOT / "zensical.it.toml").write_text(
+        header + body[:cut] + "\n" + nav_toml + body[cut:], encoding="utf-8"
+    )
 
 
 def toml_inline(value: Any, indent: int) -> str:
@@ -142,7 +144,7 @@ def page_list(nav: list[Any]) -> list[str]:
 
 def llms_txt() -> None:
     """Agent-readable context (llmstxt.org): an index and the full English documentation."""
-    base = tomllib.loads((ROOT / "zensical.toml").read_text())["project"]
+    base = tomllib.loads((ROOT / "zensical.toml").read_text(encoding="utf-8"))["project"]
     site = base["site_url"]
     pages = [p for p in page_list(base["nav"]) if not p.startswith("http")]
     index = [
@@ -204,6 +206,7 @@ def current_notes() -> None:
         capture_output=True,
         text=True,
         check=True,
+        encoding="utf-8",
     ).stdout.strip()
     notes = (ROOT / "RELEASE_NOTES.md").read_text(encoding="utf-8")
     marker = "<!-- release notes start -->\n"
@@ -217,7 +220,7 @@ def current_notes() -> None:
         head + marker + "\n" + draft + "\n\n" + tail.lstrip("\n"), encoding="utf-8"
     )
     changelog = subprocess.run(
-        ["git-cliff"], cwd=ROOT, capture_output=True, text=True, check=True
+        ["git-cliff"], cwd=ROOT, capture_output=True, text=True, check=True, encoding="utf-8"
     ).stdout
     (GENERATED / "CHANGELOG.md").write_text(changelog, encoding="utf-8")
 

@@ -51,8 +51,8 @@ def test_valid_versions_still_pass() -> None:
 def test_a_release_needs_an_empty_legacy_list(tmp_path: Path) -> None:
     """ADR 0012: no release ships a method available on legacy grounds."""
     evidence = tmp_path / "method-evidence.yaml"
-    evidence.write_text("specs: {}\nlegacy: [tvm.npv]\n")
+    evidence.write_text("specs: {}\nlegacy: [tvm.npv]\n", encoding="utf-8")
     assert release.legacy_methods(evidence) == ["tvm.npv"]
-    evidence.write_text("specs: {}\nlegacy: []\n")
+    evidence.write_text("specs: {}\nlegacy: []\n", encoding="utf-8")
     assert release.legacy_methods(evidence) == []
     assert release.legacy_methods() == [], "the repository's legacy list must be empty"

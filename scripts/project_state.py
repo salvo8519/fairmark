@@ -24,7 +24,7 @@ JOURNAL = ROOT / ".agents" / "journal"
 
 
 def sh(*args: str) -> str:
-    out = subprocess.run(args, cwd=ROOT, capture_output=True, text=True)
+    out = subprocess.run(args, cwd=ROOT, capture_output=True, text=True, encoding="utf-8")
     return out.stdout.strip() if out.returncode == 0 else ""
 
 
@@ -97,7 +97,7 @@ def collect() -> dict[str, Any]:
     state["blocked"] = [f"#{i['number']} {i['title']}" for i in issues if "blocked" in labels(i)]
     sprint = None
     for f in sorted((ROOT / "sprints").glob("S*.yaml")):
-        data = yaml.safe_load(f.read_text())
+        data = yaml.safe_load(f.read_text(encoding="utf-8"))
         if data.get("status") == "active":
             sprint = {
                 "file": f.name,
