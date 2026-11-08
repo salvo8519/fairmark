@@ -7,3 +7,5 @@ ires = "ires"
 irap = "irap"
 tfr = "tfr"
 pfn = "pfn"
+# Italian words quoted from official sources in specs
+semestre = "semestre"
