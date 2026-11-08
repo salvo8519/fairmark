@@ -471,19 +471,19 @@ bank-practice judgement.
 - [ ] **3. Signs.** (a) As presented in the statutory layouts (R5); (b) signed by effect on the
       result. Recommendation: (a): an agent copies the filing as printed. B11 is the trap
       (positive is a decrease); the schema and page say so.
-- [ ] **4. Payables D by nature. [bank]** The abridged layout shows D as one total with the
+- [x] **4. Payables D by nature. [bank]** Resolved 2026-11-08: option (a), approved by the maintainer. The abridged layout shows D as one total with the
       amount beyond the next financial year. (a) Require the financial debt part and the
       shareholder loans part, each with its beyond part; remainder operating; trade payables
       optional; (b) require the full split by nature; (c) default D to operating. Recommendation:
       (a). The net financial position cannot be built without them, and the notes or the filed
       detail give them; (c) would be a silent and material default.
-- [ ] **5. Provisions B and employee severance indemnity C. [bank]** (a) Required treatment when
+- [x] **5. Provisions B and employee severance indemnity C. [bank]** Resolved 2026-11-08: the maintainer asked for the choice a bank or a financial intermediary would make. Credit practice and the Italian functional layout deduct the TFR and the provisions of operating risks from invested capital, as operating liabilities, and keep them out of the net financial position; provisions on financial assets go to the financial area. Decision: documented default `operating_provision` for C (TFR) and for B, reported in conventions; never inside the net financial position; the analyst may move all or part to `debt_like` with a reason (valuation practice), and B.3 (derivatives) keeps a required treatment when not zero. Sources: Italian functional layout as taught in analisi di bilancio (capitale investito operativo netto net of operating provisions and TFR); ESMA32-382-1138 guideline 39 keeps provisions out of financial indebtedness; to cite precisely at approval (V27, V28). (a) Required treatment when
       not zero: `operating_provision` (deducted from invested capital) or `debt_like` (a claim in
       the bridge), or a split; never inside the net financial position; (b) documented
       defaults: TFR debt-like, B operating. Recommendation: (a). Textbook functional layouts
       deduct the TFR from invested capital, valuation practice treats it as debt-like, and the
       ESMA and bank definitions keep it out of the net financial position; the analyst decides.
-- [ ] **6. Shareholder loans. [bank]** (a) Required treatment `financial_debt` (in the net
+- [x] **6. Shareholder loans. [bank]** Resolved 2026-11-08: option (a), approved by the maintainer. (a) Required treatment `financial_debt` (in the net
       financial position) or `quasi_equity` (a separate source line, not in equity nor in the
       net financial position), or a split (for example the postponed part); (b) default
       financial debt. Recommendation: (a). Credit analysis often treats postponed loans as
@@ -504,7 +504,7 @@ bank-practice judgement.
 - [ ] **10. Financial fixed assets B.III.** (a) Required treatment when not zero: operating,
       non-operating or financial asset, or a split; (b) default non-operating. Recommendation:
       (a): the aggregate mixes strategic stakes, surplus investments and loans.
-- [ ] **11. Net financial position composition. [bank]** (a) SPEC-0007 structure with
+- [x] **11. Net financial position composition. [bank]** Resolved 2026-11-08: option (a), approved by the maintainer. (a) SPEC-0007 structure with
       composition and current and non-current parts; C.III and all of C.IV inside by default;
       operating cash, financial receivables in C.II, accrued interest, non-current trade
       payables and tax debts in instalments moved by adjustment; (b) operating cash deducted by
