@@ -104,7 +104,7 @@ Annual rate at which the XNPV of dated flows is zero, solved deterministically; 
 | `cash_flows` | lista di object | sì |  | Dated cash flows, in any order; at least one positive and one negative amount. |
 | `day_count` |  | no |  | Day count for the time between dates. Default: `act_365_fixed` (ECMA-376 XIRR). |
 | `compounding` |  | no |  | Compounding of the returned rate. Default: `annual` (ECMA-376 XIRR). |
-| `guess` | decimale | no |  | Starting point for Newton's method, annual decimal fraction in the compounding of the result: the guess per compounding period must be greater than -1 (-100%), so greater than -1 with annual compounding and no bound with continuous compounding. Default: 0.10 (ECMA-376 XIRR). |
+| `guess` | decimale | no |  | Starting point for Newton's method, annual decimal fraction in the compounding of the result, greater than -m, with m the compounding periods a year (-1 annual, -2 semi-annual, -4 quarterly, -12 monthly; no bound for continuous). Default: 0.10 (ECMA-376 XIRR). |
 
 ## `tvm.mirr`
 

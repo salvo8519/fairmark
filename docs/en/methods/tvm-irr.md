@@ -9,11 +9,11 @@ reinvestment rates explicitly use [`tvm.mirr`](tvm-mirr.md).
 Method version: 3. Version 3 refuses a `guess` at or below −100% with `FM-E003` before any
 iteration; version 2 ignored such a guess (Newton's method failed at once and the solver fell
 back to bisection, or returned `FM-E005`). Results for any other guess are unchanged. Version 2
-added the grid scan, the uniqueness check, the output
-`uniqueness_verified` and the error `FM-E011`. Inputs with one sign change and an IRR inside
-the grid range give the same result as version 1; inputs whose only rate lies outside the grid
-while the flows change sign more than once now return `FM-E011`, and results at negative rates
-can differ in the last digits (discount factors are computed from the reciprocal of the base).
+added the grid scan, the uniqueness check, the output `uniqueness_verified` and the error
+`FM-E011`. Inputs with one sign change and an IRR inside the grid range give the same result as
+version 1; inputs whose only rate lies outside the grid while the flows change sign more than
+once now return `FM-E011`, and results at negative rates can differ in the last digits (discount
+factors are computed from the reciprocal of the base).
 
 ## Formula
 
@@ -121,7 +121,7 @@ false` and a convention. When the rate is ambiguous, prefer NPV at the cost of c
 | --- | --- |
 | `FM-E001` | A field is missing or unknown |
 | `FM-E002` | `cash_flows` is empty |
-| `FM-E003` | `guess` is −100% or lower: Newton's method cannot start there; the message names `/guess`. Checked before any iteration |
+| `FM-E003` | `guess` is −100% or lower: Newton's method cannot start there; the message names `/guess` and suggests a guess near the expected rate or leaving out `guess` to use the default 0.10. Checked before any iteration |
 | `FM-E005` | No root was bracketed on the grid and Newton's method from `guess` did not converge; the rate may lie outside the decimal range or far from `guess`: give a `guess` near the expected rate |
 | `FM-E006` | `cash_flows` has no positive or no negative amount |
 | `FM-E008` | Arithmetic overflow while refining the root |

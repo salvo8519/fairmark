@@ -125,7 +125,7 @@
       "description": "Day count for the time between dates. Default: `act_365_fixed` (ECMA-376 XIRR)."
     },
     "guess": {
-      "description": "Starting point for Newton's method, annual decimal fraction in the compounding of the\nresult: the guess per compounding period must be greater than -1 (-100%), so greater\nthan -1 with annual compounding and no bound with continuous compounding. Default: 0.10\n(ECMA-376 XIRR).",
+      "description": "Starting point for Newton's method, annual decimal fraction in the compounding of the\nresult, greater than -m, with m the compounding periods a year (-1 annual, -2\nsemi-annual, -4 quarterly, -12 monthly; no bound for continuous). Default: 0.10\n(ECMA-376 XIRR).",
       "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
       "type": [
         "string",

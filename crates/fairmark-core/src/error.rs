@@ -138,6 +138,18 @@ pub enum FairmarkError {
         periods_per_year: u32,
     },
 
+    /// A `guess` of `tvm.irr` or `tvm.xirr` outside the domain of the rate (issue #190): the
+    /// rule of the rate, then how to correct the guess.
+    #[error(
+        "{}; give a `guess` near the expected rate, or leave out `guess` to use the default 0.10",
+        guess_rule(*.guess, *.periods_per_year)
+    )]
+    GuessOutOfRange {
+        guess: Decimal,
+        /// Compounding periods a year of the rate, 1 for `tvm.irr`.
+        periods_per_year: u32,
+    },
+
     #[error(
         "`{growth_field}` ({growth}) must be lower than the discount rate `{rate_field}`{} \
          ({rate}): a perpetual growth at or above the rate has no finite value; lower the \
@@ -198,6 +210,11 @@ fn inflation_fix(converted_with: &Option<Box<str>>) -> String {
         .unwrap_or_default()
 }
 
+/// The rule a guess breaks, worded as the `FM-E003` of any other rate named `/guess`.
+fn guess_rule(guess: Decimal, periods_per_year: u32) -> String {
+    rate_field("/guess", Some(periods_per_year))(FairmarkError::RateOutOfRange(guess)).to_string()
+}
+
 /// Names the rate field in an `FM-E003` raised by a shared helper, which knows only the value
 /// (issues #174, #176): the method knows the field and the compounding of the rate.
 /// `periods_per_year` is that of the rate's compounding: `None` (continuous) or `Some(1)` gives
@@ -255,6 +272,7 @@ impl FairmarkError {
             // of the field in the message (SPEC-0001 R27).
             Self::DiscountRateOutOfRange { .. } => "FM-E003",
             Self::CompoundedRateOutOfRange { .. } => "FM-E003",
+            Self::GuessOutOfRange { .. } => "FM-E003",
             Self::GrowthNotBelowTerminalRate { .. } => "FM-E004",
             // Same meanings as `InvalidInput` and `InvalidDate`, with the JSON pointer of the
             // field that could not be read (issue #174).
