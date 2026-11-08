@@ -38,8 +38,9 @@ dcf_input! {
         /// none.
         notional_tax_rate,
         /// For stages with `lines` and `notional_tax_rate`: treatment of a negative EBIT, `credit`
-        /// (taxes = rate × EBIT) or `zero` (no tax, and no interest tax shield in that period);
-        /// required with `notional_tax_rate`, no default.
+        /// (taxes = rate × EBIT) or `zero` (no tax; the interest tax shield is limited to the
+        /// taxable income, rate × min(interest, max(EBIT, 0)), Decision 22); required with
+        /// `notional_tax_rate`, no default.
         negative_ebit,
         equity_only
         /// For stages with `lines` and `operating_taxes`: the tax rate t of the interest tax
@@ -265,6 +266,8 @@ impl Method for Fcfe {
 mod tests {
     use serde_json::{json, Value};
 
+    use crate::dcf::free_cash_flows::{FreeCashFlows, FORMULA_FCFE, FORMULA_FCFF};
+    use crate::method::Method;
     use crate::registry::{input_schema, run};
 
     fn base() -> Value {
@@ -602,12 +605,12 @@ mod tests {
             "{steps}"
         );
         let c = conventions(&v).join("\n");
+        let source = format!("{} v{}", FreeCashFlows::ID, FreeCashFlows::VERSION);
         assert!(
-            c.contains(
-                "for the stages with lines: FCFF_t = EBIT_t − taxes on EBIT_t + D&A_t − \
-                 capex_t − ΔNWC_t + Σ adjustments_t; FCFE_t = FCFF_t − interest_t × (1 − t) \
-                 + net borrowing_t"
-            ),
+            c.contains(&format!(
+                "free cash flow build-up ({source}) for the stages with lines: {FORMULA_FCFF}; \
+                 {FORMULA_FCFE}"
+            )),
             "{c}"
         );
     }

@@ -992,7 +992,7 @@
           "type": "null"
         }
       ],
-      "description": "For stages with `lines` and `notional_tax_rate`: treatment of a negative EBIT, `credit`\n(taxes = rate × EBIT) or `zero` (no tax, and no interest tax shield in that period);\nrequired with `notional_tax_rate`, no default."
+      "description": "For stages with `lines` and `notional_tax_rate`: treatment of a negative EBIT, `credit`\n(taxes = rate × EBIT) or `zero` (no tax; the interest tax shield is limited to the\ntaxable income, rate × min(interest, max(EBIT, 0)), Decision 22); required with\n`notional_tax_rate`, no default."
     },
     "net_financial_position": {
       "anyOf": [
