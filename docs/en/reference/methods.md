@@ -180,7 +180,7 @@ Constant instalment of a loan from its principal, rate, number of instalments an
 
 **Number of instalments of a loan** · method version 1 · tool `fairmark_loans_number_of_instalments`
 
-Number of instalments needed to repay a loan with a given instalment, the exact number of periods and the reduced final instalment.
+Number of instalments needed to repay a loan with a given instalment, the exact number of periods and the final instalment.
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |

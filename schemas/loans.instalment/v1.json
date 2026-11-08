@@ -81,8 +81,15 @@
           "type": "integer"
         },
         "mode": {
-          "$ref": "#/$defs/RoundingMode",
-          "description": "`half_up` or `half_even`; required, there is no default mode."
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RoundingMode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`half_up` or `half_even`; required, there is no default mode. A missing mode is\nreported as `FM-E001` naming `rounding.mode` and its allowed values."
         }
       },
       "required": [

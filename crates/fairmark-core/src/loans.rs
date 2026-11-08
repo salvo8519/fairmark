@@ -22,7 +22,10 @@ use crate::tvm::{self, AnnuityTiming, MAX_PERIODS};
 
 /// An exact number of periods within this distance of an integer is taken as that integer
 /// (`loans.number_of_instalments`): the logarithms are series approximations.
-const WHOLE_PERIOD_TOLERANCE: Decimal = Decimal::from_parts(1, 0, 0, false, 15); // 1e-15
+const WHOLE_PERIOD_TOLERANCE: Decimal = Decimal::from_parts(1, 0, 0, false, 20); // 1e-20
+/// The number of instalments is confirmed by the balance recurrence: an amount owed within
+/// this fraction of the principal above the instalment is paid by that instalment.
+const BALANCE_TOLERANCE: Decimal = Decimal::from_parts(1, 0, 0, false, 20); // 1e-20
 
 // ---------------------------------------------------------------- shared inputs
 
@@ -42,12 +45,8 @@ pub enum PaymentFrequency {
 
 impl PaymentFrequency {
     fn per_year(self) -> u32 {
-        match self {
-            Self::Annual => 1,
-            Self::SemiAnnual => 2,
-            Self::Quarterly => 4,
-            Self::Monthly => 12,
-        }
+        // A payment frequency maps to a periodic compounding, never to `continuous`.
+        self.compounding().per_year().unwrap_or(1)
     }
 
     /// The compounding whose period is the payment period.
@@ -92,15 +91,27 @@ impl RoundingMode {
 /// Rounding of the amount that the schedule type keeps constant (SPEC-0009 R19).
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+// Both fields are required: `mode` is optional only in Rust, so that its absence is reported with
+// a message naming `rounding.mode` instead of the generic missing-field text.
+#[schemars(extend("required" = ["decimal_places", "mode"]))]
 pub struct Rounding {
     /// Number of decimal places, from 0 to 6 (2 rounds to the cent).
     pub decimal_places: u32,
-    /// `half_up` or `half_even`; required, there is no default mode.
-    pub mode: RoundingMode,
+    /// `half_up` or `half_even`; required, there is no default mode. A missing mode is
+    /// reported as `FM-E001` naming `rounding.mode` and its allowed values.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<RoundingMode>,
 }
 
 impl Rounding {
     fn validate(&self) -> Result<()> {
+        if self.mode.is_none() {
+            return Err(FairmarkError::InvalidInput(
+                "`rounding.mode` is required when `rounding` is given: `half_up` or `half_even` \
+                 (there is no default mode); omit `rounding` for no rounding"
+                    .to_owned(),
+            ));
+        }
         if self.decimal_places > 6 {
             return Err(FairmarkError::InvalidInput(format!(
                 "`rounding.decimal_places` must be between 0 and 6 (got {})",
@@ -111,7 +122,8 @@ impl Rounding {
     }
 
     fn apply(&self, x: Decimal) -> Decimal {
-        let strategy = match self.mode {
+        // `validate` has checked that the mode is given; `half_even` is never a silent default.
+        let strategy = match self.mode.unwrap_or(RoundingMode::HalfEven) {
             RoundingMode::HalfUp => RoundingStrategy::MidpointAwayFromZero,
             RoundingMode::HalfEven => RoundingStrategy::MidpointNearestEven,
         };
@@ -122,7 +134,7 @@ impl Rounding {
         format!(
             "{} decimal places, {}",
             self.decimal_places,
-            self.mode.name()
+            self.mode.map_or("no mode", RoundingMode::name)
         )
     }
 }
@@ -301,7 +313,7 @@ fn level_instalment(
         financed
     };
     let (factor, steps) = tvm::annuity_factor(i, Decimal::ZERO, n, timing)?;
-    ex.steps.extend(steps);
+    ex.steps.extend(tvm::level_factor_steps(steps, i, n));
     let a = num::div(financed, factor)?;
     ex.step("Instalment", format!("{financed} / {factor}"), a);
     Ok(a)
@@ -312,6 +324,37 @@ fn rounding_convention(rounding: Option<&Rounding>, what: &str) -> String {
         Some(r) => format!("rounding: {}, applied to the {what}", r.describe()),
         None => format!("rounding: none (default); the {what} is exact to 28 significant digits"),
     }
+}
+
+/// Below this magnitude `ln(1 + x) / x` is summed from its series instead of dividing the
+/// logarithm of `1 + x` by `x`: decimals keep at most 28 decimal places, so a small `x` (a rate
+/// of 1e-9 per period) would leave the logarithm with few significant digits.
+const LN_1P_SERIES: Decimal = Decimal::from_parts(1, 0, 0, false, 2); // 0.01
+
+/// `ln(1 + x) / x` for `x > −1`, `x ≠ 0`, with full relative precision: for |x| < 0.01 the
+/// series `2 / (2 + x) × (1 + y²/3 + y⁴/5 + …)`, `y = x / (2 + x)`, summed until a term
+/// vanishes at 28 digits (a few terms), so the result is near 1 and keeps 28 significant
+/// digits.
+fn ln_1p_over_x(x: Decimal) -> Result<Decimal> {
+    if x.abs() >= LN_1P_SERIES {
+        let ln = num::one_plus(x)?
+            .checked_ln()
+            .ok_or(FairmarkError::Overflow("logarithm"))?;
+        return num::div(ln, x);
+    }
+    let two_x = num::add(Decimal::TWO, x)?;
+    let y = num::div(x, two_x)?;
+    let y2 = num::mul(y, y)?;
+    let (mut power, mut sum) = (Decimal::ONE, Decimal::ONE);
+    for k in 1..=64u32 {
+        power = num::mul(power, y2)?;
+        let term = num::div(power, Decimal::from(2 * k + 1))?;
+        if term.is_zero() {
+            break;
+        }
+        sum = num::add(sum, term)?;
+    }
+    num::div(num::mul(Decimal::TWO, sum)?, two_x)
 }
 
 // ---------------------------------------------------------------- loans.instalment
@@ -454,12 +497,14 @@ pub struct NumberOfInstalmentsInput {
 pub struct NumberOfInstalmentsOutput {
     /// Rate per payment period used, decimal fraction.
     pub periodic_rate: Decimal,
-    /// Exact number of periods n* that repays the loan with the given instalment.
+    /// Exact number of periods n* that repays the loan with the given instalment, in periods.
     pub exact_number_of_periods: Decimal,
-    /// Number of instalments, the smallest whole number not below n*, from 1 to 10000.
+    /// Number of instalments (a count of payment periods), the smallest whole number not
+    /// below n*, from 1 to 10000.
     pub number_of_instalments: u32,
     /// Amount of the last instalment, in currency units: the amount owed on its payment date,
-    /// so that the outstanding balance is exactly zero (reduced when n* is not whole).
+    /// so that the outstanding balance is exactly zero: lower than the instalment when n* is not
+    /// whole, above it by at most 1e-20 × principal when n* is taken as a whole number.
     pub final_instalment: Decimal,
 }
 
@@ -485,13 +530,15 @@ pub fn number_of_instalments(
     )?;
     ex.convention("rounding: none (the instalment is used as given)");
     ex.convention(format!(
-        "number of instalments N = ⌈n*⌉; an n* within {WHOLE_PERIOD_TOLERANCE} of an integer \
-         is taken as that integer (within 1e-15 of an integer: the logarithms are series \
-         approximations)"
+        "number of instalments N = ⌈n*⌉, an n* within {WHOLE_PERIOD_TOLERANCE} of an integer \
+         taken as that integer (within 1e-20 of an integer: the logarithms are series \
+         approximations); N is confirmed by the balance recurrence as the first instalment \
+         whose amount owed exceeds the instalment by at most {BALANCE_TOLERANCE} × principal"
     ));
     ex.convention(
         "final instalment: the amount owed on its payment date, so that the outstanding balance \
-         is exactly zero",
+         is exactly zero; lower than the instalment when n* is not whole, and above it by at \
+         most 1e-20 × principal when n* is taken as a whole number",
     );
     let one_i = num::one_plus(i)?;
     let p_eff = match input.timing {
@@ -530,56 +577,84 @@ pub fn number_of_instalments(
             format!("{i} × {p_eff}"),
             interest,
         );
-        let x = num::sub(Decimal::ONE, num::div(interest, a)?)?;
-        ex.step("1 − i P' / A", format!("1 − {interest} / {a}"), x);
-        let ln_x = x.checked_ln().ok_or(FairmarkError::Overflow("logarithm"))?;
-        let ln_1i = one_i
-            .checked_ln()
-            .ok_or(FairmarkError::Overflow("logarithm"))?;
-        let e = num::div(-ln_x, ln_1i)?;
+        // n* = −ln(1 − i q) / ln(1 + i) with q = P' / A, written as
+        // q × [ln(1 − i q) / (−i q)] / [ln(1 + i) / i] so that small rates keep every digit.
+        let q = num::div(p_eff, a)?;
+        ex.step("P' / A", format!("{p_eff} / {a}"), q);
+        let ratio = num::mul(i, q)?;
+        let f_ratio = ln_1p_over_x(-ratio)?;
+        let f_i = ln_1p_over_x(i)?;
+        let e = num::div(num::mul(q, f_ratio)?, f_i)?;
         ex.step(
             "Exact number of periods",
-            format!("−ln({x}) / ln(1 + {i}) = {} / {ln_1i}", -ln_x),
+            format!(
+                "−ln(1 − {i} × {q}) / ln(1 + {i}) = {q} × {f_ratio} / {f_i}, \
+                 with ln(1 + x) / x for x = −{ratio} and x = {i}"
+            ),
             e,
         );
         e
     };
     let max = Decimal::from(MAX_PERIODS);
-    if exact > max + Decimal::ONE {
-        return Err(FairmarkError::InvalidInput(format!(
-            "with this `instalment` the loan needs {exact} periods, more than the \
-             {MAX_PERIODS} instalments allowed: raise `instalment`"
-        )));
+    let too_many = || {
+        FairmarkError::InvalidInput(format!(
+            "with this `instalment` the loan needs more than the {MAX_PERIODS} instalments \
+             allowed (n* = {exact}): raise `instalment`"
+        ))
+    };
+    // n* comes from series logarithms: far above the limit it cannot be within one period of
+    // it, so the limit is applied at once; near the limit it is confirmed by the recurrence.
+    if exact > max + Decimal::TWO {
+        return Err(too_many());
     }
     let nearest = exact.round();
-    let whole = if (exact - nearest).abs() <= WHOLE_PERIOD_TOLERANCE {
+    let candidate = if (exact - nearest).abs() <= WHOLE_PERIOD_TOLERANCE {
         nearest
     } else {
         exact.ceil()
-    };
-    let whole = whole.max(Decimal::ONE);
-    if whole > max {
-        return Err(FairmarkError::InvalidInput(format!(
-            "with this `instalment` the loan needs {whole} instalments, more than the \
-             {MAX_PERIODS} allowed: raise `instalment`"
-        )));
     }
-    let count = whole
-        .to_u32()
-        .ok_or(FairmarkError::Internal("number of instalments"))?;
-    ex.step("Number of instalments", format!("⌈{exact}⌉"), whole);
-    // Amount owed on the payment date of instalment k: time k (ordinary) or k − 1 (due).
+    .max(Decimal::ONE)
+    .to_u32()
+    .ok_or_else(too_many)?;
+    // Confirm N with the balance recurrence (exact up to the 28 significant digits): the
+    // amount owed on the payment date of instalment k, time k (ordinary) or k − 1 (due).
+    // N is the smallest k whose amount owed does not exceed the instalment by more than
+    // BALANCE_TOLERANCE × principal; at small rates the logarithms can miss it by one.
+    let tolerance = num::mul(p, BALANCE_TOLERANCE)?;
     let first = match input.timing {
         AnnuityTiming::Ordinary => num::mul(p, one_i)?,
         AnnuityTiming::Due => p,
     };
-    let mut owed = first;
-    for _ in 1..count {
-        owed = num::mul(num::sub(owed, a)?, one_i)?;
+    let mut owed = vec![first];
+    while (owed.len() as u32) < candidate {
+        let last = owed[owed.len() - 1];
+        owed.push(num::mul(num::sub(last, a)?, one_i)?);
     }
-    if owed <= Decimal::ZERO {
-        return Err(FairmarkError::Internal("final instalment is not positive"));
+    // Down: the loan is already repaid by instalment N − 1.
+    while owed.len() > 1 && num::sub(owed[owed.len() - 2], a)? <= tolerance {
+        owed.pop();
     }
+    // Up: the amount owed at N still exceeds the instalment.
+    while num::sub(owed[owed.len() - 1], a)? > tolerance {
+        if owed.len() as u32 >= MAX_PERIODS {
+            return Err(too_many());
+        }
+        let last = owed[owed.len() - 1];
+        owed.push(num::mul(num::sub(last, a)?, one_i)?);
+    }
+    let count = owed.len() as u32;
+    if count > MAX_PERIODS {
+        return Err(too_many());
+    }
+    let owed = owed[owed.len() - 1];
+    ex.step(
+        "Number of instalments",
+        format!(
+            "⌈{exact}⌉, confirmed by the balance recurrence (first k whose amount owed exceeds \
+             {a} by at most {tolerance})"
+        ),
+        Decimal::from(count),
+    );
     ex.step(
         "Final instalment (amount owed on its payment date)",
         format!(
@@ -671,20 +746,24 @@ pub struct AmortisationScheduleInput {
 /// One period of the schedule.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct ScheduleRow {
-    /// Period number, from 1 to n.
+    /// Period number (a count of payment periods), from 1 to n.
     pub period: u32,
     /// Payment time of the instalment, in periods from the start (time k for period k).
     pub time: u32,
-    /// Amount paid, interest plus principal portion (balloon amount included in the last row).
+    /// Amount paid, interest plus principal portion (balloon amount included in the last row),
+    /// in currency units.
     pub instalment: Decimal,
-    /// Periodic rate × outstanding balance at the start of the period; not rounded.
+    /// Periodic rate × outstanding balance at the start of the period, in currency units; not
+    /// rounded.
     pub interest_portion: Decimal,
-    /// Principal repaid in the period (balloon amount included in the last row).
+    /// Principal repaid in the period (balloon amount included in the last row), in currency
+    /// units.
     pub principal_portion: Decimal,
-    /// Balloon amount repaid with the instalment; present in the last row only.
+    /// Balloon amount repaid with the instalment, in currency units; present in the last row
+    /// only.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub balloon_amount: Option<Decimal>,
-    /// Outstanding balance after the instalment.
+    /// Outstanding balance after the instalment, in currency units.
     pub outstanding_balance: Decimal,
 }
 
@@ -703,12 +782,12 @@ pub struct ScheduleTotals {
 pub struct AmortisationScheduleOutput {
     /// Rate per payment period used, decimal fraction.
     pub periodic_rate: Decimal,
-    /// One row per period.
+    /// One row per period, amounts in currency units.
     pub rows: Vec<ScheduleRow>,
-    /// Totals of instalments, interest and principal.
+    /// Totals of instalments, interest and principal, in currency units.
     pub totals: ScheduleTotals,
     /// Last instalment less the balloon amount less the regular instalment of the last period:
-    /// the correction that brings the outstanding balance exactly to zero.
+    /// the correction that brings the outstanding balance exactly to zero, in currency units.
     pub final_adjustment: Decimal,
 }
 
@@ -833,7 +912,7 @@ pub fn amortisation_schedule(
         AmortisationType::Bullet => Regular::InterestOnly,
     };
     ex.step(
-        "Recurrence of every period k (the rows carry the numbers)",
+        "Recurrence of every period k (value: the periodic rate i; the rows carry the numbers)",
         match regular {
             Regular::Instalment(a) => format!(
                 "interest_k = {i} × opening balance_k; principal_k = {a} − interest_k \
@@ -1101,7 +1180,7 @@ impl Method for NumberOfInstalments {
     const TITLE: &'static str = "Number of instalments of a loan";
     const DESCRIPTION: &'static str =
         "Number of instalments needed to repay a loan with a given instalment, the exact number \
-        of periods and the reduced final instalment.";
+        of periods and the final instalment.";
     const VERSION: &'static str = "1";
     type Input = NumberOfInstalmentsInput;
     type Output = NumberOfInstalmentsOutput;
@@ -1266,26 +1345,27 @@ mod tests {
     /// principal and the final adjustment vanishes.
     #[test]
     fn schedule_properties_hold_on_a_grid() {
-        let tol = d("1e-18");
+        // Relative to the principal (AC14 within 1e-18 relative).
+        let tol = d("1e-18") * d("150000");
         let roundings = [
             None,
             Some(Rounding {
                 decimal_places: 2,
-                mode: RoundingMode::HalfUp,
+                mode: Some(RoundingMode::HalfUp),
             }),
             Some(Rounding {
                 decimal_places: 0,
-                mode: RoundingMode::HalfEven,
+                mode: Some(RoundingMode::HalfEven),
             }),
         ];
-        let mut checked = 0;
+        let (mut checked_exact, mut checked_rounded) = (0, 0);
         for kind in [
             AmortisationType::French,
             AmortisationType::FixedAmortisationSchedule,
             AmortisationType::Bullet,
         ] {
-            for i in ["0", "0.004", "0.0125", "-0.001"] {
-                for n in [1u32, 2, 12, 37] {
+            for i in ["0", "0.004", "0.0125", "-0.001", "0.05"] {
+                for n in [1u32, 2, 12, 37, 360, 1200] {
                     for grace in [None, Some(2)] {
                         for balloon_amount in [None, Some(d("30000"))] {
                             for rounding in roundings {
@@ -1306,7 +1386,13 @@ mod tests {
                                 let label = format!("{kind:?} i={i} n={n} g={grace:?} b={balloon_amount:?} r={rounding:?}");
                                 assert_eq!(out.rows.len(), n as usize, "{label}");
                                 let p = input.principal;
-                                assert!((out.totals.principal - p).abs() < tol, "{label}");
+                                // AC14: the principal portions add up to the principal to
+                                // the last of the 28 significant digits.
+                                assert!(
+                                    (out.totals.principal - p).abs() <= d("1e-26") * p,
+                                    "{label}: {}",
+                                    out.totals.principal
+                                );
                                 assert!(
                                     (out.totals.instalments
                                         - out.totals.interest
@@ -1322,6 +1408,23 @@ mod tests {
                                     let k = k as u32 + 1;
                                     assert_eq!((row.period, row.time), (k, k), "{label}");
                                     assert_eq!(row.interest_portion, rate * opening, "{label}");
+                                    // AC14: row identities to the last of the 28 significant
+                                    // digits (a few units of 1e-27 relative to the principal).
+                                    let ulp = d("1e-26") * p;
+                                    assert!(
+                                        (row.instalment
+                                            - row.interest_portion
+                                            - row.principal_portion)
+                                            .abs()
+                                            <= ulp,
+                                        "{label}: row {k}"
+                                    );
+                                    assert!(
+                                        (opening - row.principal_portion - row.outstanding_balance)
+                                            .abs()
+                                            <= ulp,
+                                        "{label}: row {k}"
+                                    );
                                     if k > g {
                                         assert!(row.outstanding_balance <= opening, "{label}");
                                     }
@@ -1355,16 +1458,39 @@ mod tests {
                                 assert!(opening.is_zero(), "{label}: final balance {opening}");
                                 if rounding.is_none() {
                                     assert!((pv - p).abs() < tol, "{label}: pv {pv}");
-                                    assert!(out.final_adjustment.abs() < tol, "{label}");
+                                    // AC9 (precision stated after the audit): the
+                                    // adjustment absorbs the last stored digit of the
+                                    // instalment amplified by (1 + i)^n; it is below 1e-18 of
+                                    // the principal while (1 + i)^n <= 1e10 (about 470
+                                    // periods at 5%, 1200 at 1.9%) and is documented beyond.
+                                    let growth = (Decimal::ONE + rate).powi(n.into());
+                                    if growth <= d("1e10") {
+                                        assert!(
+                                            out.final_adjustment.abs() < tol,
+                                            "{label}: {}",
+                                            out.final_adjustment
+                                        );
+                                    }
                                 }
-                                checked += 1;
+                                if rounding.is_some() {
+                                    checked_rounded += 1;
+                                } else {
+                                    checked_exact += 1;
+                                }
                             }
                         }
                     }
                 }
             }
         }
-        assert!(checked > 200, "only {checked} schedules checked");
+        assert!(
+            checked_exact >= 200,
+            "only {checked_exact} unrounded schedules checked"
+        );
+        assert!(
+            checked_rounded >= 400,
+            "only {checked_rounded} rounded schedules checked"
+        );
     }
 
     /// AC12a: the same loan in form (a) and form (b) gives the same rows.
@@ -1418,7 +1544,7 @@ mod tests {
             assert!(long.steps.len() < 40, "{kind:?}: {}", long.steps.len());
             let labels: Vec<&str> = long.steps.iter().map(|s| s.label.as_str()).collect();
             for wanted in [
-                "Recurrence of every period k (the rows carry the numbers)",
+                "Recurrence of every period k (value: the periodic rate i; the rows carry the numbers)",
                 "Period 1: interest portion",
                 "Period 2: principal portion",
                 "Final adjustment",
@@ -1437,5 +1563,48 @@ mod tests {
         let mut input = schedule_input(AmortisationType::French, "0.01", 12, None, None, None);
         input.timing = AnnuityTiming::Due;
         assert_eq!(amortisation_schedule(&input).unwrap_err().code(), "FM-E001");
+    }
+
+    /// B1 (audit 2026-11-08): small rates of either sign give back exactly the number of
+    /// instalments of the instalment computed for it, never n + 1, an internal error or a false
+    /// limit error.
+    #[test]
+    fn small_rates_give_back_their_number_of_instalments() {
+        for i in [
+            "-0.000000005",
+            "-0.000000001",
+            "-0.0000000003",
+            "-0.00000000001",
+            "0.00000000001",
+            "0.000000001",
+        ] {
+            for n in [1200u32, 5000, 10000] {
+                for timing in [AnnuityTiming::Ordinary, AnnuityTiming::Due] {
+                    let mut input = loan(n, timing);
+                    input.rate = None;
+                    input.compounding = None;
+                    input.payment_frequency = None;
+                    input.periodic_rate = Some(d(i));
+                    let (a, _) = instalment(&input).unwrap();
+                    let (out, _) = number_of_instalments(&NumberOfInstalmentsInput {
+                        principal: input.principal,
+                        rate: None,
+                        compounding: None,
+                        payment_frequency: None,
+                        periodic_rate: Some(d(i)),
+                        instalment: a.instalment,
+                        timing,
+                    })
+                    .unwrap_or_else(|e| panic!("{i} {n} {timing:?}: {e}"));
+                    assert_eq!(out.number_of_instalments, n, "{i} {timing:?}");
+                    assert!((out.exact_number_of_periods - Decimal::from(n)).abs() < d("1e-15"));
+                    let gap = (out.final_instalment - a.instalment).abs();
+                    assert!(
+                        gap < d("1e-18") * input.principal,
+                        "{i} {n} {timing:?}: {gap}"
+                    );
+                }
+            }
+        }
     }
 }

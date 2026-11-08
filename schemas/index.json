@@ -122,7 +122,7 @@
         "1": {
           "file": "loans.amortisation_schedule/v1.json",
           "introduced_in": "unreleased",
-          "sha256": "70f5b57ec018451087951db5e9bca26b10b71b8fe820df2d2d8a26ca3390dc5b"
+          "sha256": "50a501b8204439e2ab38985babac314f98ffc1624bb7330e1eab6068ca3dabdf"
         }
       }
     },
@@ -132,7 +132,7 @@
         "1": {
           "file": "loans.instalment/v1.json",
           "introduced_in": "unreleased",
-          "sha256": "00f8a0cefb56490c1371679938097416d22caee38a31b893628fd615c09900a3"
+          "sha256": "b406bc5a1584b6a6e5e6e8ae0238ec5f19e2b2c22992d0bebab65e086395d3e4"
         }
       }
     },

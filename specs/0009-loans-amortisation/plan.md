@@ -79,12 +79,11 @@ the extraction of the annuity factor is a refactoring with identical numbers and
    with `round_dp_with_strategy` (`half_up`: halves away from zero; `half_even`: halves to the
    even digit). Totals: `n × A + B` with the instalment as returned, and `total_paid − P`.
 3. **Number of instalments**: `n* = −ln(1 − i P' / A) / ln(1 + i)`, `P' = P` or `P / (1 + i)`;
-   `n* = P / A` at `i = 0`. `n*` uses the logarithm series (approximate, about 1e-25 relative);
-   to keep `⌈n*⌉` stable, an `n*` within 1e-15 of an integer is taken as that integer, reported
-   as a convention (the loan is then repaid by that whole number of instalments up to the
-   digits of the given instalment). The final instalment follows from the exact recurrence of
-   the balance over `N − 1` periods (`b_k = b_(k−1) (1 + i) − A`, or its in-advance form),
-   so it agrees with the schedule.
+   `n* = P / A` at `i = 0`; computed as `q × f(−i q) / f(i)` with `q = P' / A` and
+   `f(x) = ln(1 + x) / x` summed from its series for |x| < 0.01. `N = ⌈n*⌉` (an `n*` within
+   1e-20 of an integer taken as that integer) is confirmed by the exact balance recurrence
+   (`b_k = (b_(k−1) − A) (1 + i)`), which also gives the final instalment, so it agrees with
+   the schedule (decision 1).
 4. **Future value**: `FV = PV (1 + r)^n + PMT × a × (1 + r)^n` with `a` the ordinary or due
    factor; `PV + n × PMT` at `r = 0`.
 5. **Schedule**: one pass over the periods with checked arithmetic. Grace periods: interest
@@ -142,9 +141,13 @@ the extraction of the annuity factor is a refactoring with identical numbers and
   pages cite only the regulatory definitions of the amortisation types.
 
 ## Risks and alternatives
-- **Logarithm accuracy and the ceiling of `n*`**: a tolerance on the integer snap is the
-  alternative to computing `N` only from the recurrence; the recurrence alone would turn a
-  last-digit excess into an extra instalment of 1e-20. The snap (1e-15) is reported.
+- **Logarithm accuracy and the ceiling of `n*`**: `N` from the closed form is confirmed by the
+  recurrence with a tolerance of 1e-20 × principal, so a last-digit excess never becomes an
+  extra instalment of 1e-20 and a logarithm error never changes `N`.
+- **Final adjustment on long terms at high rates**: the instalment is stored with 28
+  significant digits; without rounding the final adjustment is that storage error amplified by
+  (1 + i)^n: below 1e-18 of the principal while (1 + i)^n <= 1e10, about 4e2 on 150,000 at 5%
+  over 1200 periods. This is a property of the stored instalment, not of the recurrence.
 - **Rate conversion accuracy**: conversions between different compoundings use series
   functions; golden tolerances on such cases are 1e-19 or looser where stated.
 - **Explain size**: one step per period was rejected (decision 8); rows carry the numbers.
@@ -165,8 +168,14 @@ maintainer on 2026-11-08 (the library is used mainly by AI agents: one condition
 code; explicit, machine-readable conventions; error messages that name the field and the fix).
 
 1. **Whole number of periods.** `loans.number_of_instalments` takes an exact number of periods
-   within 1e-15 of an integer as that integer, reported in `explain.conventions`, so that an
-   instalment computed to full precision gives back its number of instalments. Confirmed.
+   within 1e-20 of an integer as that integer (tightened from 1e-15 after the numerical audit
+   of 2026-11-08), then confirms the number of instalments with the exact balance recurrence:
+   N is the first instalment whose amount owed exceeds the instalment by at most 1e-20 ×
+   principal (corrected down or up from the closed form); the limit of 10000 applies to the
+   corrected N. Both are reported in `explain.conventions`. n* is computed with the series of
+   ln(1 + x) / x for |x| < 0.01, so small rates keep every digit (about 1e-24 against the
+   reference). Confirmed by the maintainer; tolerance and recurrence check after the audit
+   (B1: small negative rates gave n + 1 instalments, an internal error or a false limit error).
 2. **Final adjustment.** `final_adjustment` excludes the balloon amount (last instalment −
    balloon − regular instalment of the last period); for a fixed amortisation schedule it is
    measured on the principal portion; for bullet it is 0. Confirmed.

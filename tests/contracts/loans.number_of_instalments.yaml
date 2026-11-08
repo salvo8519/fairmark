@@ -28,4 +28,5 @@ conventions:
   - 'rate form (b)'
   - 'periodic rate: 0.02'
   - 'rounding: none'
-  - within 1e-15 of an integer
+  - within 1e-20 of an integer
+  - confirmed by the balance recurrence

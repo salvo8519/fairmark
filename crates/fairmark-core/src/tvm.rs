@@ -1241,6 +1241,37 @@ pub fn perpetuity(input: &PerpetuityInput) -> Result<(PerpetuityOutput, Explain)
 
 // ---------------------------------------------------------------- future value
 
+/// The steps of [`annuity_factor`] for level payments (growth 0), relabelled with the level
+/// formulas: same values, no `(1 + 0)` in the text. Used by `tvm.future_value` and the loan
+/// methods; `tvm.annuity` keeps its own labels.
+pub(crate) fn level_factor_steps(steps: Vec<Step>, r: Decimal, n: u32) -> Vec<Step> {
+    steps
+        .into_iter()
+        .map(|step| {
+            let (label, formula) = match step.label.as_str() {
+                "Annuity factor" => (
+                    "Annuity factor (level payments)".to_owned(),
+                    format!("[1 − (1 + {r})^−{n}] / {r}"),
+                ),
+                "Annuity factor (r close to g, direct sum)" => (
+                    "Annuity factor (level payments, rate close to 0, direct sum)".to_owned(),
+                    format!("Σ_(k=1..{n}) (1 + {r})^−k"),
+                ),
+                "Annuity factor (r = g)" => (
+                    "Annuity factor (level payments, rate 0)".to_owned(),
+                    format!("{n} / (1 + {r})"),
+                ),
+                _ => (step.label, step.formula),
+            };
+            Step {
+                label,
+                formula,
+                value: step.value,
+            }
+        })
+        .collect()
+}
+
 /// Input of `tvm.future_value`.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -1288,8 +1319,8 @@ pub fn future_value(input: &FutureValueInput) -> Result<(FutureValueOutput, Expl
     let pmt = input.payment.unwrap_or_default();
     let mut ex = Explain::new(
         "tvm.future_value",
-        "FV = PV (1 + r)^n + PMT ((1 + r)^n − 1) / r, the payment term × (1 + r) if due; \
-         PV + n PMT when r = 0",
+        "FV = PV (1 + r)^n + A ((1 + r)^n − 1) / r, A the level payment, the payment term \
+         × (1 + r) if due; PV + n A when r = 0",
     );
     ex.convention(match input.timing {
         AnnuityTiming::Ordinary => "ordinary: payments at the end of each period",
@@ -1327,7 +1358,7 @@ pub fn future_value(input: &FutureValueInput) -> Result<(FutureValueOutput, Expl
             fv_pv,
         );
         let (factor, steps) = annuity_factor(r, Decimal::ZERO, n, input.timing)?;
-        ex.steps.extend(steps);
+        ex.steps.extend(level_factor_steps(steps, r, n));
         let accumulation = num::mul(factor, growth)?;
         ex.step(
             "Accumulation factor of the payments",

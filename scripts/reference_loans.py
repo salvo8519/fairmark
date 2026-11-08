@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from decimal import ROUND_CEILING, ROUND_HALF_EVEN, ROUND_HALF_UP, Context, localcontext
+from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Context, localcontext
 from decimal import Decimal as D
 from functools import wraps
 from typing import Any, TypeVar
@@ -93,20 +93,22 @@ class Term:
 
 @at_50_digits
 def number_of_instalments(principal: D, i: D, a: D, timing: str) -> Term:
-    """n* = -ln(1 - i P' / A) / ln(1 + i); count = ⌈n*⌉; final instalment by recurrence."""
+    """n* = -ln(1 - i P' / A) / ln(1 + i); count and final instalment by the recurrence."""
     if i == 0:
         exact = principal / a
     else:
         p_eff = principal if timing == "ordinary" else principal / (1 + i)
         exact = -(1 - i * p_eff / a).ln() / (1 + i).ln()
-    nearest = exact.to_integral_value()
-    count = int(
-        nearest if abs(exact - nearest) <= D("1e-15") else exact.to_integral_value(ROUND_CEILING)
-    )
-    # Amount owed on the date of payment k: ordinary at time k, due at time k - 1.
+    # The count is found by the recurrence alone (independently of n*): the first payment k
+    # whose amount owed exceeds the instalment by at most 1e-20 x principal. Amount owed on
+    # the date of payment k: ordinary at time k, due at time k - 1.
     owed = principal * (1 + i) if timing == "ordinary" else principal
-    for _ in range(count - 1):
+    count = 1
+    while owed - a > D("1e-20") * principal:
         owed = (owed - a) * (1 + i)
+        count += 1
+        if count > 10_001:
+            break
     return Term(exact, count, owed)
 
 

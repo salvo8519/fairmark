@@ -76,8 +76,9 @@ pub enum FairmarkError {
 
     #[error(
         "`instalment` ({instalment}) never repays the loan: it must be greater than 0 and \
-         than the interest of the first period ({interest}), otherwise the outstanding balance \
-         never reaches zero; raise `instalment`"
+         than the interest of the first period ({interest}), which is periodic rate × principal \
+         for payments in arrears and periodic rate × principal / (1 + periodic rate) for \
+         payments in advance; raise `instalment`"
     )]
     LoanNeverRepaid {
         instalment: Decimal,

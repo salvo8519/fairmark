@@ -1,0 +1,15 @@
+method: loans.number_of_instalments
+description: "Rate -1e-9 per period, the instalment of 1200 periods (ordinary) gives back 1200 instalments (R8, R9; AC3)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py; the instalment is the closed form
+  of R6 for 1200 periods rounded to 28 significant digits, the count and the final instalment
+  come from the period recurrence alone (independently of n*). Regression for the audit of
+  2026-11-08: small negative rates returned n + 1 instalments, an internal error or a false
+  limit error. Tolerance 1e-20: n* is accurate to about 1e-24 here, the final instalment to
+  about 1e-21.
+input: { principal: "100000", periodic_rate: "-0.000000001", instalment: "83.33328329167666665972722198", timing: "ordinary" }
+expect:
+  number_of_instalments: "1200"
+  exact_number_of_periods: "1200"
+  final_instalment: "83.33328329167666665972722"
+tolerance: "0.00000000000000000001"
