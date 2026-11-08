@@ -206,6 +206,8 @@ fairmark verify result.json --input company.json  # reproduce a result bit for b
 | `analysis.scenarios` | Available | Scenario analysis |
 | `analysis.tornado` | Available | Tornado |
 
+Available: verified independently, with recorded evidence (spec approved, golden cases with sources, numerical audit, code review). Preview: works and is tested; some evidence is still to be recorded. Rule: [method status](https://salvo8519.github.io/fairmark/project/releases/#method-status).
+
 What comes next, with its issues and specifications, is in the [roadmap](https://salvo8519.github.io/fairmark/project/roadmap/), generated from the plan.
 
 <!-- generated:methods:end -->
