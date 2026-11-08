@@ -54,15 +54,17 @@ oggetto per periodo con `ebit`, `depreciation_and_amortisation`, `capital_expend
 `operating_taxes`. Il FCFF di ogni periodo è costruito come in
 [`dcf.free_cash_flows`](dcf-free-cash-flows.md), con le operating taxes (imposte sull'EBIT) da
 `notional_tax_rate` e `negative_ebit`, oppure da `operating_taxes` in ogni voce. Oneri
-finanziari e net borrowing sono rifiutati: il FCFF è prima dei flussi finanziari. Ogni passo
-della costruzione è nell'explain, con il prefisso "Build-up:", e le sue convenzioni indicano la
-versione della costruzione (`dcf.free_cash_flows v2`). Con `zero` la versione 2 limita lo scudo
-fiscale sugli oneri finanziari al reddito imponibile disponibile; il FCFF esclude gli oneri
-finanziari, quindi flussi e valori di `dcf.fcff` non cambiano. Il beneficio fiscale del debito
-è invece nel WACC: un costo del debito Kd × (1 − t) presuppone lo scudo pieno ogni anno. Negli
-anni con EBIT negativo o basso e trattamento `zero` l'aliquota effettiva sugli oneri finanziari
-è più bassa, quindi si fornisca `wacc_per_period` con un WACC che ne tenga conto in quegli anni,
-oppure si motivi l'ipotesi di scudo pieno; Fairmark non rettifica il tasso.
+finanziari e net borrowing sono rifiutati: il FCFF è prima dei flussi finanziari; il DCF
+equity side [`dcf.fcfe`](dcf-fcfe.md) li accetta e attualizza il FCFE al costo del capitale
+proprio. Ogni passo della costruzione è nell'explain, con il prefisso "Build-up:", e le sue
+convenzioni indicano la versione della costruzione (`dcf.free_cash_flows v2`). Con `zero` la
+versione 2 limita lo scudo fiscale sugli oneri finanziari al reddito imponibile disponibile; il
+FCFF esclude gli oneri finanziari, quindi flussi e valori di `dcf.fcff` non cambiano. Il
+beneficio fiscale del debito è invece nel WACC: un costo del debito Kd × (1 − t) presuppone lo
+scudo pieno ogni anno. Negli anni con EBIT negativo o basso e trattamento `zero` l'aliquota
+effettiva sugli oneri finanziari è più bassa, quindi si fornisca `wacc_per_period` con un WACC
+che ne tenga conto in quegli anni, oppure si motivi l'ipotesi di scudo pieno; Fairmark non
+rettifica il tasso.
 
 Con la convenzione di metà periodo il flusso del periodo k è attualizzato mezzo periodo prima,
 $DF_k = DF_{k-1} (1 + r_k)^{-0.5}$. Il valore terminale $TV_N$ è calcolato dalla tecnica

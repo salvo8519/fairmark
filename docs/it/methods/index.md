@@ -1,6 +1,6 @@
 ---
 source: methods/index.md
-source_hash: '809331826504'
+source_hash: bb0717142114
 ---
 # Metodi
 
@@ -54,6 +54,7 @@ Stato di ogni metodo, come lo riporta il registro del motore a `fm.methods()`, `
 | [`tv.liquidation`](tv-liquidation.md) | Valore netto di liquidazione all'orizzonte N, ogni voce nella tracciabilità del calcolo |
 | [`tv.compare`](tv-compare.md) | Più tecniche di valore terminale su un unico tasso, limite alla crescita e approccio |
 | [`dcf.fcff`](dcf-fcff.md) | Value of operations, enterprise value ed equity value dai flussi di cassa operativi, su stage espliciti e un valore terminale |
+| [`dcf.fcfe`](dcf-fcfe.md) | Equity value direttamente dai flussi di cassa disponibili per gli azionisti al costo del capitale proprio, su stage espliciti e un valore terminale, senza posizione finanziaria netta |
 | [`dcf.free_cash_flows`](dcf-free-cash-flows.md) | FCFF e FCFE per periodo da EBIT, imposte, investimenti in immobilizzazioni e capitale circolante |
 | [`ratios.profitability`](ratios-profitability.md) | ROE, ROI, ROA, ROS, margini, rotazione del capitale investito e scomposizione del ROE in tre fattori e nella forma con leva finanziaria |
 | [`ratios.capital_structure`](ratios-capital-structure.md) | Rapporto tra debito e capitale proprio, PFN su capitale proprio, indice di indipendenza finanziaria, margini e quozienti di struttura |
