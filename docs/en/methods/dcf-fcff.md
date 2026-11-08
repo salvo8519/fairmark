@@ -3,13 +3,60 @@
 Values the operating business by discounting free cash flows to the firm (FCFF) at the weighted
 average cost of capital (WACC) over one to three explicit stages, adds a terminal value, and
 moves from the value of operations to enterprise value and equity value. Every choice that
-changes the value is an explicit input: the stages and how their flows are obtained, the terms
-of the flows and of the rates, the timing, the terminal technique and when it is discounted.
+changes the value is an input: the stages and how their flows are obtained, the terms of the
+flows and of the rates, the timing, the terminal value and when it is discounted. A choice not
+given takes a documented default, reported in the result.
 
-Method version: 3. Version 3 replaced the single list of flows of version 2 with stages, made
-the timing and the terminal technique required inputs, and renamed the version 2
-`enterprise_value` (present values only) to `value_of_operations`; the version 2 examples give
-the same numbers in version 3.
+Method version: 3. Version 3 replaced the single list of flows of version 2 with stages and
+renamed the version 2 `enterprise_value` (present values only) to `value_of_operations`; the
+version 2 examples give the same numbers in version 3. Since SPEC-0001 Decision 24 (issue
+#197), only the flows and the WACC are required: an additive change, every earlier input gives
+the same result.
+
+## Minimal input
+
+A list of FCFF and one WACC are enough, for example flows read from a business plan or a
+document:
+
+```python
+import fairmark as fm
+
+r = fm.dcf.fcff(flows=[120, 135, 150, 160, 170], wacc="0.09")
+print(r.value_of_operations)  # 563.38243366056148746628356553
+print([d["field"] for d in r.meta["defaults_applied"]])
+```
+
+The same input in JSON, for the CLI, MCP or function calling:
+
+```json
+{"stages": [{"flows": ["120", "135", "150", "160", "170"]}], "wacc": "0.09"}
+```
+
+The engine fills in each field that is not given with its documented default, once, before the
+calculation:
+
+| Field | Default | Why |
+| --- | --- | --- |
+| `stages[].projection` | `given`, for a stage with `flows` or `lines` | a stage with flows is a stage of given flows |
+| `stages[].periods` | the number of `flows` or `lines` of a `given` stage | the flows state the periods; when both are given they must match (`FM-E025`) |
+| `cash_flow_terms`, `discount_rate_terms` | `nominal` | plans and discount rates are commonly stated at current prices |
+| `timing` | `end_of_period` | each flow at the end of its period, as in [`tvm.npv`](tvm-npv.md) |
+| `terminal` | `none`: no terminal value | the value covers the given flows only; give a terminal value to add one |
+
+Each default applied is listed in `meta.defaults_applied` (the field's JSON pointer, the value
+filled in and the reason) and stated first in `explain.conventions`, starting with "default:".
+A field given explicitly always prevails and is not listed. With no terminal value the
+valuation covers the given flows only, a holding period equal to their number: the terminal
+value, its present value and the terminal value weight are zero, and a warning says that no
+terminal value is included. Include an exit value in the last flow, give one as an amount
+(`given`), or compute one with a technique. With these defaults the value of operations is the
+net present value of the flows at the WACC, the same as `tvm.npv` with a first flow of zero at
+t = 0.
+
+`meta.input_hash` is computed on the input with its defaults filled in, so the minimal input
+and the same input with every default written out have the same hash and the same value. When
+the terms take their default and only one of them is given as `real`, the input is refused with
+`FM-E024`, whose message says which field was defaulted.
 
 ## Formula
 
@@ -75,7 +122,23 @@ significant digit at long horizons; the discount factors are reported as compute
 
 ## Terminal techniques
 
-The `terminal` object names exactly one technique by its method id. Each technique is computed
+The `terminal` object names exactly one terminal option: a technique by its method id, a
+terminal value given by the analyst, or none.
+
+| Option | Written | Terminal value at N |
+| --- | --- | --- |
+| A technique | `{"tv.gordon": {...}}` and the others below | computed by the technique |
+| Given by the analyst | `{"given": {"value": "2000"}}` | the amount as given: the value of operations at N, on the enterprise basis, in the terms of the cash flows; any sign, a negative amount (for example a decommissioning cost) is reported as a warning |
+| None | `{"none": {}}`, the default | zero; the value covers the explicit flows only, with a warning |
+
+A given terminal value is discounted like the value of a technique: with the factor $DF_N$, or
+under mid-period timing at N − 0.5 with the half-period shift at the terminal rate when
+`terminal_discount_time` is `mid_period`. The terminal rate is therefore needed only by a
+technique or by that shift: otherwise `terminal_wacc` and `terminal_inflation` are refused and
+the terminal rate is reported as `null`. With no terminal value, `terminal_discount_time` is
+refused too, since nothing is discounted.
+
+Each technique is computed
 by its own method, on the same terms, at the terminal rate $r_{TV}$ (`wacc`, or
 `terminal_wacc` with rates per period), and the result reports the method id, its version and
 its own output in `terminal`. Amounts are in the terms of the cash flows.
@@ -314,21 +377,23 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 
 | Field | Meaning | Default |
 | --- | --- | --- |
-| `stages` | One to three stages, in order: `{"periods", "projection", ...}` with `flows` or `lines` (`given`), `growth` (`constant_growth`) or `from_growth` and `to_growth` (`linear_decline`) | required |
+| `stages` | One to three stages, in order: `{"periods", "projection", ...}` with `flows` or `lines` (`given`), `growth` (`constant_growth`) or `from_growth` and `to_growth` (`linear_decline`); a stage of given flows can be just `{"flows": [...]}` | required |
+| `stages[].projection` | `given`, `constant_growth` or `linear_decline` | `given` for a stage with `flows` or `lines`; required otherwise |
+| `stages[].periods` | Number of periods of the stage, at least 1 | the number of `flows` or `lines` of a `given` stage; required for a generated stage |
 | `base_flow` | FCFF of the base period $CF_0$, when the first stage is generated | required for a generated first stage; refused otherwise |
 | `notional_tax_rate` | Tax rate on EBIT for the stages with `lines`, decimal fraction from 0 to below 1; give this or `operating_taxes` in every line | none; refused without `lines` |
 | `negative_ebit` | `credit` or `zero`, for the stages with `lines` and `notional_tax_rate` | required with `notional_tax_rate`; refused otherwise |
-| `cash_flow_terms` | `nominal` or `real`: terms of every amount and growth rate | required |
-| `discount_rate_terms` | `nominal` or `real`: terms of the discount rates; when different from `cash_flow_terms`, expected inflation is required and the rates are converted to the terms of the cash flows | required |
+| `cash_flow_terms` | `nominal` or `real`: terms of every amount and growth rate | `nominal`, reported |
+| `discount_rate_terms` | `nominal` or `real`: terms of the discount rates; when different from `cash_flow_terms`, expected inflation is required and the rates are converted to the terms of the cash flows | `nominal`, reported |
 | `inflation` | Expected inflation for every period and for the terminal phase, decimal fraction, greater than −1 | none; give this or `inflation_per_period` |
 | `inflation_per_period` | Expected inflation per period of the explicit horizon, decimal fractions | none; requires `terminal_inflation` |
-| `terminal_inflation` | Expected inflation of the terminal phase | required with `inflation_per_period`; refused otherwise |
+| `terminal_inflation` | Expected inflation of the terminal phase | required with `inflation_per_period` when the terminal value uses a terminal rate; refused otherwise |
 | `wacc` | One WACC for every period and for the terminal value, decimal fraction | give this or `wacc_per_period` |
 | `wacc_per_period` | One WACC per period of the explicit horizon, decimal fractions | give this or `wacc` |
-| `terminal_wacc` | WACC of the terminal phase | required with `wacc_per_period`; refused with `wacc` |
-| `timing` | `end_of_period` or `mid_period` | required |
-| `terminal_discount_time` | `horizon` (t = N) or `mid_period` (t = N − 0.5) | required with `mid_period` timing; refused with `end_of_period` |
-| `terminal` | One technique written with its method id, for example `{"tv.gordon": {"growth", "first_flow", "normalised_next_flow", "growth_cap"}}`; see "Terminal techniques" | required |
+| `terminal_wacc` | WACC of the terminal phase | required with `wacc_per_period` when the terminal value uses a terminal rate (a technique, or a given value at N − 0.5); refused with `wacc` and when no terminal rate is used |
+| `timing` | `end_of_period` or `mid_period` | `end_of_period`, reported |
+| `terminal_discount_time` | `horizon` (t = N) or `mid_period` (t = N − 0.5) | required with `mid_period` timing and a terminal value; refused with `end_of_period` and with no terminal value |
+| `terminal` | One technique written with its method id, for example `{"tv.gordon": {"growth", "first_flow", "normalised_next_flow", "growth_cap"}}`, a given amount `{"given": {"value"}}`, or `{"none": {}}`; see "Terminal techniques" | `none`, reported with a warning |
 | `net_financial_position` | `{"gross_debt", "cash", "other_items"}` as in [`ratios.debt_service`](ratios-debt-service.md), positive for net debt | none, reported |
 | `non_operating_assets` | List of `{"label", "value"}`, values zero or more | none, reported |
 | `debt_like_items` | List of `{"label", "value", "measurement_basis", "basis_note"}`, values zero or more, subtracted from enterprise value; `measurement_basis` required, `basis_note` required with `other` | none, reported |
@@ -345,7 +410,7 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | `terminal_value_weight` | Present value of the terminal value divided by the value of operations |
 | `periods` | Per period: stage, projection, growth applied, flow, discount rate given, rate used (in the terms of the cash flows), inflation used to convert it (`null` without conversion), discount factor, present value |
 | `terms` | Terms of the flows and of the rates, the conversion (`none`, `to_real`, `to_nominal`), terminal rate given and used, inflation of the terminal phase, perpetual growth in the terms of the flows and in the other terms |
-| `terminal` | Technique and its method version, terminal rate, value at N, discounting time, factor, present value, the technique's own output (for example the implied growth of an exit multiple) |
+| `terminal` | Technique (`given` or `none` for the other options) and its method version, terminal rate, value at N, discounting time, factor, present value, the technique's own output (for example the implied growth of an exit multiple); the version, the rate and the output are `null` when they do not apply |
 | `bridge` | Every line from value of operations to equity value, with labels and measurement bases, and the total of each list |
 
 ## Conventions (explicit, reported in `explain.conventions`)
@@ -353,16 +418,17 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | Convention | Options | Default |
 | --- | --- | --- |
 | Basis | enterprise: FCFF discounted at the WACC | fixed by the method |
-| Stage projection | `given`, `constant_growth`, `linear_decline` | required per stage |
+| Stage projection | `given`, `constant_growth`, `linear_decline` | `given` for a stage with `flows` or `lines`; required otherwise |
+| Periods of a stage | an integer of at least 1 | the number of flows or lines of a `given` stage; required for a generated stage |
 | Flows of a `given` stage | amounts (`flows`) or line items (`lines`), with the tax conventions of `dcf.free_cash_flows` | one of the two required |
 | Linear decline step | $g_k = g_{from} + (g_{to} - g_{from}) \, k / m$, $g_{to}$ reached in the last period | fixed |
 | Discount rate | one rate (also used for the terminal value), or one per period with a terminal rate | required |
-| Terms of flows and rates | `nominal`, `real` | required, each |
+| Terms of flows and rates | `nominal`, `real` | `nominal`, each |
 | Different terms | refused without expected inflation; with it, every discount rate converted to the terms of the cash flows by the exact Fisher relation; flows and growth rates never converted | fixed |
 | Expected inflation | one rate, or one per period with a terminal inflation | none |
-| Timing | `end_of_period`, `mid_period` | required |
-| Terminal discounting time | `horizon`, `mid_period` (with mid-period timing only; the half period at the terminal rate) | required |
-| Terminal technique | `tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income`, `tv.liquidation`, at the terminal rate, on the enterprise basis | required |
+| Timing | `end_of_period`, `mid_period` | `end_of_period` |
+| Terminal discounting time | `horizon`, `mid_period` (with mid-period timing only; the half period at the terminal rate) | required with a terminal value under mid-period timing |
+| Terminal option | `tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income`, `tv.liquidation`, at the terminal rate, on the enterprise basis; `given`, an amount at N on the enterprise basis; `none` | `none` |
 | First terminal flow (`tv.gordon`, `tv.h_model`) | last flow grown; or a normalised flow at N + 1 (`tv.gordon`), a normalised base flow at N (`tv.h_model`) | required |
 | Bridge items | measured at the valuation date as given; none given means none | none |
 | Bridge signs | non-operating assets added; net financial position (positive for net debt), debt-like items and non-controlling interests subtracted | fixed |
@@ -377,20 +443,21 @@ discounted at the horizon N, where practice commonly discounts it at N − 0.5; 
 timing, an exit multiple, a liquidation or a limited horizon discounted at N − 0.5, although
 it is or includes a price at a date (for the limited horizon, its residual value); with
 nominal flows and expected inflation, a perpetual growth below the inflation of the terminal
-phase (a real decline); a negative equity value, which is reported as computed and never floored at zero. A high `terminal_value_weight` signals that the valuation depends mostly
-on long-term assumptions.
+phase (a real decline); a negative equity value, which is reported as computed and never floored at zero; no terminal value (`none`), the value covering the explicit flows only; a
+negative terminal value given by the analyst, discounted as given. A high
+`terminal_value_weight` signals that the valuation depends mostly on long-term assumptions.
 
 ## Errors
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | A field is missing, unknown or not used by the chosen option; both `inflation` and `inflation_per_period`, `inflation_per_period` without `terminal_inflation`, `terminal_inflation` without `inflation_per_period`, `terminal_inflation` with `inflation`; no stage or more than three; stages adding up to more than 10,000 periods; a growth of −100% or lower; a terminal rate with one rate, or none with rates per period; a terminal discounting time missing under mid-period timing or given at end of period; no terminal technique or more than one; a `normalised_base_flow` of `tv.h_model` missing with `first_flow` = `normalised_base_flow` or given otherwise; a growth cap of an exit multiple without `next_flow`; a liquidation without assets or with an unlabelled line; a negative non-operating asset, or one with an empty label; a negative debt-like item or non-controlling interest, or one with an empty label; a measurement basis missing or not one of the options; `other` without a `basis_note`, or an empty `basis_note` (for example `/non_controlling_interests/0/basis_note`); a `given` stage with both or neither of `flows` and `lines`, `lines` on a generated stage, tax fields without `lines`, interest expense or net borrowing in `lines`, and every refusal of [`dcf.free_cash_flows`](dcf-free-cash-flows.md) for the lines, named by pointer (for example `/stages/0/lines/2/capital_expenditure`) |
+| `FM-E001` | A field is missing, unknown or not used by the chosen option; both `inflation` and `inflation_per_period`, `inflation_per_period` without `terminal_inflation`, `terminal_inflation` without `inflation_per_period`, `terminal_inflation` with `inflation`; no stage or more than three; stages adding up to more than 10,000 periods; a growth of −100% or lower; a terminal rate with one rate, or none with rates per period when the terminal value uses one; a terminal rate or a terminal inflation when the terminal value uses none; a terminal discounting time missing under mid-period timing with a terminal value, or given at end of period or with no terminal value; no terminal option or more than one (for example `given` with a technique); a stage with neither a projection nor `flows` or `lines`; a generated stage without `periods`; a `normalised_base_flow` of `tv.h_model` missing with `first_flow` = `normalised_base_flow` or given otherwise; a growth cap of an exit multiple without `next_flow`; a liquidation without assets or with an unlabelled line; a negative non-operating asset, or one with an empty label; a negative debt-like item or non-controlling interest, or one with an empty label; a measurement basis missing or not one of the options; `other` without a `basis_note`, or an empty `basis_note` (for example `/non_controlling_interests/0/basis_note`); a `given` stage with both or neither of `flows` and `lines`, `lines` on a generated stage, tax fields without `lines`, interest expense or net borrowing in `lines`, and every refusal of [`dcf.free_cash_flows`](dcf-free-cash-flows.md) for the lines, named by pointer (for example `/stages/0/lines/2/capital_expenditure`) |
 | `FM-E003` | A discount rate, given or converted, or an expected inflation is −100% or lower; the message names the field and the period (the same code as [`rates.real_nominal`](rates-real-nominal.md) for the same value) |
 | `FM-E004` | The perpetual growth (`growth`, or `long_term_growth` for `tv.h_model`) is equal to or greater than the terminal rate in the terms of the cash flows (after conversion, when the terms differ) |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 | `FM-E018` | A term of the terminal technique outside its domain: a return on new invested capital, multiple or metric of zero or below, a terminal rate of zero or below with `tv.normalised_income`, a finite horizon outside 1 to 10,000 periods, a negative half-life, a negative liquidation line or tax on gains |
 | `FM-E019` | The terminal technique is on the equity basis: an exit multiple on `earnings` (P/E) or `book_value` (P/BV), or a normalised income or a liquidation with `basis` equity |
-| `FM-E024` | `cash_flow_terms` and `discount_rate_terms` differ and no expected inflation is given; the message states both fixes |
+| `FM-E024` | `cash_flow_terms` and `discount_rate_terms` differ and no expected inflation is given; the message states both fixes and, when one of the terms was not given, that it took its default (`nominal`) and how to state it |
 | `FM-E025` | A `given` stage with more or fewer flows or lines than its periods, rates or expected inflation per period not one per period, a base flow missing for a generated first stage or given for a `given` one |
 
 Every error names the field by its JSON pointer, for example `/stages/1/flows`, and states
@@ -436,3 +503,12 @@ golden cases from the reference are checked to $10^{-20}$.
   tests, every technique, rate form and timing).
 - numpy-financial NPV of the explicit flows plus the Gordon value, in binary floating point
   (agreement of conventions, not of digits).
+- Documented defaults (Decision 24): the minimal input, its explicit equivalent, each default
+  overridden alone (timing, terms of the flows, terms of the rates, terminal technique) and the
+  terminal value given by the analyst at N, at N − 0.5 and negative, against
+  `scripts/reference_dcf.py`, which fills in the defaults with its own code written from the
+  spec (`flows-only-*.yaml`, `defaults-override-*.yaml`, `terminal-given-*.yaml`). The minimal
+  input equals [`tvm.npv`](tvm-npv.md) of the same flows with a first flow of zero, to the last
+  digit at 9% (`tests/golden/tvm.npv/dcf-flows-only-cross-check.yaml`, from
+  `scripts/reference_npv_irr.py`) and within $10^{-25}$ relative at other rates, where each
+  method rounds its own operations.

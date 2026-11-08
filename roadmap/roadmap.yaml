@@ -182,7 +182,7 @@ milestones:
           - { issue: 45, title: "Deterministic WACC × g sensitivity grid", tags: [gfi], spec: "0008", status: done }
           - { issue: 101, title: "Draft specs for terminal value methods and financial ratios with covenants", spec: "0006", status: done }
           - { issue: 115, title: "Terminal value building blocks tv.* (SPEC-0006)", spec: "0006", status: done }
-          - { issue: 197, title: "DCF from a vector of cash flows with documented defaults", spec: "0001", status: open }
+          - { issue: 197, title: "DCF from a vector of cash flows with documented defaults", spec: "0001", status: done }
           - { issue: 199, title: "tv.compare version 2 refuses a repeated technique key", spec: "0006", status: done }
       - title: "Analysis: goal seek, sensitivity, scenarios, tornado"
         labels: ["area:core"]

@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: 7c22cca1efc0
+source_hash: e960c2ca336a
 ---
 # Codici di errore
 
@@ -36,5 +36,5 @@ correzione da apportare. Per un metodo valutato da un'analisi, il pointer è rel
 | `FM-E021` | La rata non rimborsa mai il finanziamento: è pari a 0 o negativa, oppure non supera la quota interessi del primo periodo, qualunque sia il segno del tasso | Aumenta `instalment` oltre 0 e oltre tasso periodico × capitale (per rate anticipate, tasso periodico × capitale / (1 + tasso periodico)) |
 | `FM-E022` | Preammortamento non inferiore al numero delle rate, oppure indicato con un piano `bullet` | Indica meno periodi di preammortamento che rate; omettili per `bullet`, che prevede solo interessi fino all'ultima rata |
 | `FM-E023` | Con l'arrotondamento, il debito residuo diventerebbe negativo prima dell'ultimo periodo, oppure la rettifica dell'ultima rata renderebbe negativa l'ultima quota capitale o l'ultima rata | Arrotonda a più decimali, oppure verifica che il finanziamento sia abbastanza grande per l'arrotondamento scelto |
-| `FM-E024` | I flussi di cassa e i tassi di attualizzazione di un DCF sono dichiarati in termini diversi (`nominal` e `real`) e non è fornita l'inflazione attesa | Fornire l'inflazione attesa (`inflation`, oppure `inflation_per_period` con `terminal_inflation`), in modo che i tassi di attualizzazione siano convertiti nei termini dei flussi di cassa con la relazione di Fisher esatta; oppure esprimere i tassi di attualizzazione o i flussi di cassa negli stessi termini, in modo che `cash_flow_terms` coincida con `discount_rate_terms` |
+| `FM-E024` | I flussi di cassa e i tassi di attualizzazione di un DCF sono dichiarati in termini diversi (`nominal` e `real`) e non è fornita l'inflazione attesa | Fornire l'inflazione attesa (`inflation`, oppure `inflation_per_period` con `terminal_inflation`), in modo che i tassi di attualizzazione siano convertiti nei termini dei flussi di cassa con la relazione di Fisher esatta; oppure esprimere i tassi di attualizzazione o i flussi di cassa negli stessi termini, in modo che `cash_flow_terms` coincida con `discount_rate_terms`. Quando uno dei due non è fornito, assume il valore predefinito `nominal`; il messaggio lo indica insieme al valore da fornire |
 | `FM-E025` | Un conteggio di un DCF non corrisponde agli stage: uno stage `given` con più o meno flussi dei suoi `periods`, tassi o inflazione attesa per periodo non uno per ogni periodo dell'orizzonte esplicito, un base flow (flusso dell'anno base) mancante per un primo stage generato, oppure fornito quando il primo stage è `given` | Fornire esattamente un flusso, un tasso o un'inflazione per periodo, come indica il messaggio; fornire `base_flow` solo quando il primo stage è `constant_growth` o `linear_decline` |
