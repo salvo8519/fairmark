@@ -22,4 +22,4 @@ expect:
   /cash_ratio/value: '0.089743589743589743589743589743589743589743589743590'
   /net_working_capital: '450'
   /treasury_margin: '-425'
-tolerance: '0.000000001'
+tolerance: '0.00000000000000000001'

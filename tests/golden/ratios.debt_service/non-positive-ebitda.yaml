@@ -1,0 +1,48 @@
+method: ratios.debt_service
+description: 'Decision 7: negative EBITDA and EBIT make NFP / EBITDA and both interest covers not meaningful'
+source: 'scripts/reference_ratios.py, debt_service (Python decimal, 50 digits, local context), written
+  from the definitions in specs/0007-ratios-covenants/plan.md. EBITDA -100, EBIT -150: covers and NFP
+  / EBITDA not defined; DSCR and LLCR as in level-cfads.'
+input:
+  balances: closing
+  ebitda_definition: reported EBITDA, no adjustments
+  interest_definition: gross interest expense
+  income_statement:
+    ebitda: '-100'
+    ebit: '-150'
+    interest: '100'
+  closing:
+    net_financial_position:
+      gross_debt: '2200'
+      cash: '300'
+      other_items: []
+  debt_schedule:
+    discount_rate: '0.06'
+    debt_outstanding: '1000'
+    periods:
+    - cfads: '250'
+      debt_service: '200'
+    - cfads: '250'
+      debt_service: '200'
+    - cfads: '250'
+      debt_service: '200'
+    - cfads: '250'
+      debt_service: '200'
+    - cfads: '250'
+      debt_service: '200'
+expect:
+  /net_financial_position: '1900'
+  /interest_cover_ebit/value: 'null'
+  /interest_cover_ebitda/value: 'null'
+  /nfp_to_ebitda/value: 'null'
+  /pv_cfads: '1053.0909463914284700337504593814453184458398742236'
+  /llcr/value: '1.0530909463914284700337504593814453184458398742236'
+  /dscr/0/value: '1.25'
+  /dscr/1/value: '1.25'
+  /dscr/2/value: '1.25'
+  /dscr/3/value: '1.25'
+  /dscr/4/value: '1.25'
+  /interest_cover_ebit/not_defined: EBIT is negative (-150)
+  /interest_cover_ebitda/not_defined: EBITDA is negative (-100)
+  /nfp_to_ebitda/not_defined: EBITDA is negative (-100)
+tolerance: '0.00000000000000000001'

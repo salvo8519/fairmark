@@ -43,4 +43,4 @@ expect:
   /dscr/3/value: '1.25'
   /dscr/4/value: '1.25'
   /llcr/not_defined: debt outstanding is zero
-tolerance: '0.000000001'
+tolerance: '0.00000000000000000001'

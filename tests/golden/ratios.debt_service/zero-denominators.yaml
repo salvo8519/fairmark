@@ -42,4 +42,4 @@ expect:
   /interest_cover_ebitda/not_defined: interest is zero
   /dscr/0/not_defined: debt service is zero
   /dscr/1/not_defined: 'null'
-tolerance: '0.000000001'
+tolerance: '0.00000000000000000001'

@@ -44,6 +44,13 @@ def q(num: D, den: D, *, positive: bool = False) -> Opt:
     return num / den
 
 
+def q_both(num: D, den: D) -> Opt:
+    """num / den; None when either is zero or negative (interest covers)."""
+    if den <= 0 or num <= 0:
+        return None
+    return num / den
+
+
 def avg(opening: D | None, closing: D, average: bool) -> D:
     if not average:
         return closing
@@ -64,7 +71,10 @@ def profitability(
     *,
     average: bool,
     base: str,
+    leverage: dict[str, D] | None = None,
 ) -> dict[str, Opt]:
+    """`leverage`: financial_charges, taxes, pre_tax_income; D is `debt` in the balance sheets."""
+
     def bal(k: str) -> D:
         return avg(opening[k] if opening else None, closing[k], average)
 
@@ -75,9 +85,34 @@ def profitability(
     asset_turnover = q(revenue, assets)
     multiplier = q(assets, equity, positive=True)
     factors = (net_margin, asset_turnover, multiplier)
+    roi = q(ebit, base_value, positive=base == "invested_capital")
+    lev: dict[str, Opt]
+    if leverage is None:
+        lev = dict.fromkeys(
+            ("roi", "cost_of_debt", "debt_to_equity", "leverage_effect", "pre_tax_roe"), None
+        )
+        lev.update(tax_rate=None, roe=None)
+    else:
+        debt = bal("debt")
+        i = q(leverage["financial_charges"], debt)
+        de = q(debt, equity, positive=True)
+        t = q(leverage["taxes"], leverage["pre_tax_income"])
+        effect = None if None in (roi, i, de) else (roi - i) * de  # type: ignore[operator]
+        pre_tax = None if effect is None else roi + effect  # type: ignore[operator]
+        roe_lev = None if None in (pre_tax, t) else pre_tax * (1 - t)  # type: ignore[operator]
+        lev = {
+            "roi": roi,
+            "cost_of_debt": i,
+            "debt_to_equity": de,
+            "leverage_effect": effect,
+            "pre_tax_roe": pre_tax,
+            "tax_rate": t,
+            "roe": roe_lev,
+        }
     return {
         "roe": q(ni, equity, positive=True),
-        "roi": q(ebit, base_value),
+        "roi": roi,
+        "roa": q(ebit, assets),
         "ros": q(ebit, revenue),
         "ebitda_margin": q(ebitda, revenue),
         "ebit_margin": q(ebit, revenue),
@@ -88,6 +123,7 @@ def profitability(
         "roe_three_factor.roe": (
             None if None in factors else net_margin * asset_turnover * multiplier  # type: ignore[operator]
         ),
+        **{f"roe_leverage.{k}": v for k, v in lev.items()},
     }
 
 
@@ -169,30 +205,35 @@ def debt_service(
     income: dict[str, D],
     closing: dict[str, Any],
     opening: dict[str, Any] | None,
-    schedule: dict[str, Any],
+    schedule: dict[str, Any] | None,
     *,
     average: bool,
 ) -> dict[str, Opt]:
+    """Without a schedule, DSCR and LLCR are not defined; `reserve_balance` is optional."""
     position = avg(
         nfp(opening["net_financial_position"]) if opening else None,
         nfp(closing["net_financial_position"]),
         average,
     )
+    out: dict[str, Opt] = {
+        "net_financial_position": position,
+        "interest_cover_ebit": q_both(income["ebit"], income["interest"]),
+        "interest_cover_ebitda": q_both(income["ebitda"], income["interest"]),
+        "nfp_to_ebitda": q(position, income["ebitda"], positive=True),
+    }
+    if schedule is None:
+        out.update(pv_cfads=None, llcr=None)
+        return out
     rate: D = schedule["discount_rate"]
     pv = sum(
         (p["cfads"] / (1 + rate) ** t for t, p in enumerate(schedule["periods"], start=1)),
         D(0),
     )
-    out: dict[str, Opt] = {
-        "net_financial_position": position,
-        "interest_cover_ebit": q(income["ebit"], income["interest"]),
-        "interest_cover_ebitda": q(income["ebitda"], income["interest"]),
-        "nfp_to_ebitda": q(position, income["ebitda"]),
-        "pv_cfads": pv,
-        "llcr": q(pv, schedule["debt_outstanding"]),
-    }
+    reserve = schedule.get("reserve_balance", D(0))
+    out["pv_cfads"] = pv
+    out["llcr"] = q(pv + reserve, schedule["debt_outstanding"], positive=True)
     for i, p in enumerate(schedule["periods"]):
-        out[f"dscr.{i}"] = q(p["cfads"], p["debt_service"])
+        out[f"dscr.{i}"] = q(p["cfads"], p["debt_service"], positive=True)
     return out
 
 
@@ -207,6 +248,8 @@ def level_llcr(cfads: D, rate: D, periods: int, debt: D) -> D:
 PROFIT_INCOME = {"revenue": D(5000), "ebitda": D(800), "ebit": D(500), "net_income": D(260)}
 PROFIT_CLOSING = {"equity": D(2000), "total_assets": D(6000), "invested_capital": D(4000)}
 PROFIT_OPENING = {"equity": D(1800), "total_assets": D(5600), "invested_capital": D(3800)}
+
+LEVERAGE = {"financial_charges": D(100), "taxes": D(140), "pre_tax_income": D(400)}
 
 NFP_CLOSING = {"gross_debt": D(2200), "cash": D(300), "other_items": [D(150)]}
 NFP_OPENING = {"gross_debt": D(2400), "cash": D(250), "other_items": []}
@@ -292,6 +335,37 @@ def cases() -> dict[str, dict[str, Opt]]:
         "ratios.profitability/average-invested-capital": profitability(
             PROFIT_INCOME, PROFIT_CLOSING, PROFIT_OPENING, average=True, base="invested_capital"
         ),
+        "ratios.profitability/negative-invested-capital": profitability(
+            PROFIT_INCOME,
+            {**PROFIT_CLOSING, "invested_capital": D(-500)},
+            None,
+            average=False,
+            base="invested_capital",
+        ),
+        "ratios.profitability/leverage-net-financial-position": profitability(
+            PROFIT_INCOME,
+            {**PROFIT_CLOSING, "debt": D(2000)},
+            None,
+            average=False,
+            base="invested_capital",
+            leverage=LEVERAGE,
+        ),
+        "ratios.profitability/leverage-gross-debt-average": profitability(
+            PROFIT_INCOME,
+            {**PROFIT_CLOSING, "debt": D(2200)},
+            {**PROFIT_OPENING, "debt": D(2000)},
+            average=True,
+            base="invested_capital",
+            leverage=LEVERAGE,
+        ),
+        "ratios.profitability/leverage-zero-pre-tax-income": profitability(
+            PROFIT_INCOME,
+            {**PROFIT_CLOSING, "debt": D(2000)},
+            None,
+            average=False,
+            base="invested_capital",
+            leverage={**LEVERAGE, "pre_tax_income": D(0)},
+        ),
         "ratios.capital_structure/closing-balances": capital_structure(
             CS_CLOSING, None, average=False
         ),
@@ -334,6 +408,40 @@ def cases() -> dict[str, dict[str, Opt]]:
             DS_CLOSING,
             None,
             {**LEVEL_SCHEDULE, "debt_outstanding": D(0)},
+            average=False,
+        ),
+        "ratios.debt_service/non-positive-ebitda": debt_service(
+            {"ebitda": D(-100), "ebit": D(-150), "interest": D(100)},
+            DS_CLOSING,
+            None,
+            LEVEL_SCHEDULE,
+            average=False,
+        ),
+        "ratios.debt_service/negative-interest": debt_service(
+            {**DS_INCOME, "interest": D(-20)}, DS_CLOSING, None, LEVEL_SCHEDULE, average=False
+        ),
+        "ratios.debt_service/negative-debt-service": debt_service(
+            DS_INCOME,
+            DS_CLOSING,
+            None,
+            {
+                **ZERO_SERVICE_SCHEDULE,
+                "debt_outstanding": D(-100),
+                "periods": [
+                    {"cfads": D(120), "debt_service": D(-10)},
+                    {"cfads": D(150), "debt_service": D(100)},
+                ],
+            },
+            average=False,
+        ),
+        "ratios.debt_service/no-debt-schedule": debt_service(
+            DS_INCOME, DS_CLOSING, None, None, average=False
+        ),
+        "ratios.debt_service/reserve-balance": debt_service(
+            DS_INCOME,
+            DS_CLOSING,
+            None,
+            {**LEVEL_SCHEDULE, "reserve_balance": D(100)},
             average=False,
         ),
     }

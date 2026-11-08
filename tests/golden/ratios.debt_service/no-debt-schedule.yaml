@@ -1,0 +1,28 @@
+method: ratios.debt_service
+description: 'Decision 8: without a debt schedule DSCR and LLCR are not defined, the other ratios are
+  computed'
+source: 'scripts/reference_ratios.py, debt_service (Python decimal, 50 digits, local context), written
+  from the definitions in specs/0007-ratios-covenants/plan.md. No debt_schedule: covers 5 and 8, NFP /
+  EBITDA 2.375; LLCR not defined.'
+input:
+  balances: closing
+  ebitda_definition: reported EBITDA, no adjustments
+  interest_definition: gross interest expense
+  income_statement:
+    ebitda: '800'
+    ebit: '500'
+    interest: '100'
+  closing:
+    net_financial_position:
+      gross_debt: '2200'
+      cash: '300'
+      other_items: []
+expect:
+  /net_financial_position: '1900'
+  /interest_cover_ebit/value: '5'
+  /interest_cover_ebitda/value: '8'
+  /nfp_to_ebitda/value: '2.375'
+  /pv_cfads: 'null'
+  /llcr/value: 'null'
+  /llcr/not_defined: no debt schedule given
+tolerance: '0.00000000000000000001'

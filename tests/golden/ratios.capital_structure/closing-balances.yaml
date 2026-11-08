@@ -26,4 +26,4 @@ expect:
   /secondary_structure_margin: '300'
   /primary_fixed_asset_coverage/value: '0.57142857142857142857142857142857142857142857142857'
   /secondary_fixed_asset_coverage/value: '1.0857142857142857142857142857142857142857142857143'
-tolerance: '0.000000001'
+tolerance: '0.00000000000000000001'

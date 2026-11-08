@@ -1,0 +1,50 @@
+method: ratios.profitability
+description: 'Decisions 2 and 6: leverage form on gross financial debt with average balances, D included'
+source: 'scripts/reference_ratios.py, profitability (Python decimal, 50 digits, local context), written
+  from the definitions in specs/0007-ratios-covenants/plan.md. Closed form: average D (2000 + 2200) /
+  2 = 2100, average equity 1900, average invested capital 3900; ROI 500 / 3900; i = 100 / 2100; D/E 2100
+  / 1900; t = 0.35.'
+input:
+  balances: average
+  operating_return_base: invested_capital
+  ebitda_definition: reported EBITDA, no adjustments
+  income_statement:
+    revenue: '5000'
+    ebitda: '800'
+    ebit: '500'
+    net_income: '260'
+  closing:
+    equity: '2000'
+    total_assets: '6000'
+    invested_capital: '4000'
+    debt: '2200'
+  opening:
+    equity: '1800'
+    total_assets: '5600'
+    invested_capital: '3800'
+    debt: '2000'
+  leverage:
+    debt_basis: gross_financial_debt
+    financial_charges: '100'
+    taxes: '140'
+    pre_tax_income: '400'
+expect:
+  /roe/value: '0.13684210526315789473684210526315789473684210526316'
+  /roi/value: '0.12820512820512820512820512820512820512820512820513'
+  /roa/value: '0.086206896551724137931034482758620689655172413793103'
+  /ros/value: '0.1'
+  /ebitda_margin/value: '0.16'
+  /ebit_margin/value: '0.1'
+  /capital_turnover/value: '1.2820512820512820512820512820512820512820512820513'
+  /roe_three_factor/net_margin/value: '0.052'
+  /roe_three_factor/asset_turnover/value: '0.86206896551724137931034482758620689655172413793103'
+  /roe_three_factor/equity_multiplier/value: '3.0526315789473684210526315789473684210526315789474'
+  /roe_three_factor/roe/value: '0.13684210526315789473684210526315789473684210526316'
+  /roe_leverage/roi/value: '0.12820512820512820512820512820512820512820512820513'
+  /roe_leverage/cost_of_debt/value: '0.047619047619047619047619047619047619047619047619048'
+  /roe_leverage/debt_to_equity/value: '1.1052631578947368421052631578947368421052631578947'
+  /roe_leverage/leverage_effect/value: '0.089068825910931174089068825910931174089068825910930'
+  /roe_leverage/pre_tax_roe/value: '0.21727395411605937921727395411605937921727395411606'
+  /roe_leverage/tax_rate/value: '0.35'
+  /roe_leverage/roe/value: '0.14122807017543859649122807017543859649122807017544'
+tolerance: '0.00000000000000000001'

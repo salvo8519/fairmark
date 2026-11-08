@@ -27,4 +27,4 @@ expect:
   /secondary_fixed_asset_coverage/value: '0.45714285714285714285714285714285714285714285714286'
   /debt_to_equity/not_defined: equity is negative (-200)
   /nfp_to_equity/not_defined: equity is negative (-200)
-tolerance: '0.000000001'
+tolerance: '0.00000000000000000001'

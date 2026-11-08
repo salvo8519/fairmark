@@ -19,6 +19,7 @@ input:
 expect:
   /roe/value: '0.13'
   /roi/value: '0.125'
+  /roa/value: '0.083333333333333333333333333333333333333333333333333'
   /ros/value: 'null'
   /ebitda_margin/value: 'null'
   /ebit_margin/value: 'null'
@@ -27,9 +28,16 @@ expect:
   /roe_three_factor/asset_turnover/value: '0'
   /roe_three_factor/equity_multiplier/value: '3'
   /roe_three_factor/roe/value: 'null'
+  /roe_leverage/roi/value: 'null'
+  /roe_leverage/cost_of_debt/value: 'null'
+  /roe_leverage/debt_to_equity/value: 'null'
+  /roe_leverage/leverage_effect/value: 'null'
+  /roe_leverage/pre_tax_roe/value: 'null'
+  /roe_leverage/tax_rate/value: 'null'
+  /roe_leverage/roe/value: 'null'
   /ros/not_defined: revenue is zero
   /ebitda_margin/not_defined: revenue is zero
   /ebit_margin/not_defined: revenue is zero
   /roe_three_factor/net_margin/not_defined: revenue is zero
   /roe_three_factor/roe/not_defined: net margin is not defined
-tolerance: '0.000000001'
+tolerance: '0.00000000000000000001'

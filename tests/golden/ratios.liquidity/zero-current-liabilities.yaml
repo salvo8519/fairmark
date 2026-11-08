@@ -18,4 +18,4 @@ expect:
   /current_ratio/not_defined: current liabilities is zero
   /quick_ratio/not_defined: current liabilities is zero
   /cash_ratio/not_defined: current liabilities is zero
-tolerance: '0.000000001'
+tolerance: '0.00000000000000000001'

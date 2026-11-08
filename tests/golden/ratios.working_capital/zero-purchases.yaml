@@ -20,4 +20,4 @@ expect:
   /cash_conversion_cycle/value: 'null'
   /days_payable_outstanding/not_defined: purchases is zero
   /cash_conversion_cycle/not_defined: days payable outstanding is not defined
-tolerance: '0.000000001'
+tolerance: '0.00000000000000000001'

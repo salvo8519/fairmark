@@ -24,4 +24,4 @@ expect:
   /days_inventory_outstanding/value: '66'
   /days_payable_outstanding/value: '86.785714285714285714285714285714285714285714285714'
   /cash_conversion_cycle/value: '58.414285714285714285714285714285714285714285714286'
-tolerance: '0.000000001'
+tolerance: '0.00000000000000000001'

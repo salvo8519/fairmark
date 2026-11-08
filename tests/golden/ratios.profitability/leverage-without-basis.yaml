@@ -1,0 +1,23 @@
+method: ratios.profitability
+description: The basis of D is a required choice of the leverage form
+source: Constructed. `leverage.debt_basis` has no default (maintainer decision 2026-11-08), so
+  omitting it is a missing field (FM-E001).
+input:
+  balances: closing
+  operating_return_base: invested_capital
+  ebitda_definition: reported EBITDA, no adjustments
+  income_statement:
+    revenue: '5000'
+    ebitda: '800'
+    ebit: '500'
+    net_income: '260'
+  closing:
+    equity: '2000'
+    total_assets: '6000'
+    invested_capital: '4000'
+    debt: '2000'
+  leverage:
+    financial_charges: '100'
+    taxes: '140'
+    pre_tax_income: '400'
+expect_error: FM-E001

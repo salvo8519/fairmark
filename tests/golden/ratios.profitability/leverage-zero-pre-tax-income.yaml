@@ -1,0 +1,46 @@
+method: ratios.profitability
+description: 'Decision 2: zero pre-tax income leaves the tax rate and the leverage ROE not defined'
+source: 'scripts/reference_ratios.py, profitability (Python decimal, 50 digits, local context), written
+  from the definitions in specs/0007-ratios-covenants/plan.md. Pre-tax income 0: t not defined; leverage
+  effect and pre-tax ROE computed as in leverage-net-financial-position.'
+input:
+  balances: closing
+  operating_return_base: invested_capital
+  ebitda_definition: reported EBITDA, no adjustments
+  income_statement:
+    revenue: '5000'
+    ebitda: '800'
+    ebit: '500'
+    net_income: '260'
+  closing:
+    equity: '2000'
+    total_assets: '6000'
+    invested_capital: '4000'
+    debt: '2000'
+  leverage:
+    debt_basis: net_financial_position
+    financial_charges: '100'
+    taxes: '140'
+    pre_tax_income: '0'
+expect:
+  /roe/value: '0.13'
+  /roi/value: '0.125'
+  /roa/value: '0.083333333333333333333333333333333333333333333333333'
+  /ros/value: '0.1'
+  /ebitda_margin/value: '0.16'
+  /ebit_margin/value: '0.1'
+  /capital_turnover/value: '1.25'
+  /roe_three_factor/net_margin/value: '0.052'
+  /roe_three_factor/asset_turnover/value: '0.83333333333333333333333333333333333333333333333333'
+  /roe_three_factor/equity_multiplier/value: '3'
+  /roe_three_factor/roe/value: '0.13000000000000000000000000000000000000000000000000'
+  /roe_leverage/roi/value: '0.125'
+  /roe_leverage/cost_of_debt/value: '0.05'
+  /roe_leverage/debt_to_equity/value: '1'
+  /roe_leverage/leverage_effect/value: '0.075'
+  /roe_leverage/pre_tax_roe/value: '0.200'
+  /roe_leverage/tax_rate/value: 'null'
+  /roe_leverage/roe/value: 'null'
+  /roe_leverage/tax_rate/not_defined: pre-tax income is zero
+  /roe_leverage/roe/not_defined: tax rate is not defined
+tolerance: '0.00000000000000000001'
