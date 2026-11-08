@@ -50,6 +50,7 @@ TASK_KEYS = {"issue", "title", "tags", "status", "spec"}
 EPIC_KEYS = {"title", "issue", "labels", "tasks"}
 MILESTONE_KEYS = {"title", "gate", "release", "epics"}
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
+CLOSES = re.compile(r"(?im)^[ \t]*(?:closes|fixes|resolves)[ \t]+#(\d+)")
 HEADER = """\
 # Source of truth for the plan: milestones, epics (parent issues) and tasks (sub-issues).
 # The state of each issue lives on GitHub; `python scripts/roadmap.py sync --write` copies it
@@ -204,7 +205,7 @@ def problems_of(data: dict[str, Any], pr_body: str | None = None) -> list[str]:
     if PAGE.read_text(encoding="utf-8") != page_with_block(data):
         problems.append("docs/en/project/roadmap.md is not generated from roadmap.yaml")
     if pr_body is not None:
-        for n in re.findall(r"(?im)^[ \t]*(?:closes|fixes|resolves)[ \t]+#(\d+)", pr_body):
+        for n in CLOSES.findall(pr_body):
             if int(n) not in seen:
                 problems.append(f"the pull request closes #{n}, which is not in the roadmap")
             elif int(n) in status_of and status_of[int(n)] == "open":
@@ -308,13 +309,18 @@ def differences(
     return drift, untriaged
 
 
-def open_pull_roadmaps() -> dict[int, dict[str, Any]]:
-    """The roadmap file of every open pull request whose branch lives in this repository.
+def closed_by(body: str) -> set[int]:
+    """Issues that a pull request body closes on merge (`Closes #N`, `Fixes #N`, `Resolves #N`)."""
+    return {int(n) for n in CLOSES.findall(body)}
+
+
+def open_pull_roadmaps() -> dict[int, tuple[dict[str, Any], set[int]]]:
+    """Roadmap file and closed issues of every open pull request from this repository.
 
     Pull requests from forks are ignored: anyone can open one, and a roadmap file in a fork
     must not be able to hide a difference.
     """
-    out: dict[int, dict[str, Any]] = {}
+    out: dict[int, tuple[dict[str, Any], set[int]]] = {}
     for pr in gh(f"repos/{REPO}/pulls?state=open&per_page=100"):
         if (pr.get("head") or {}).get("repo", {}).get("full_name") != REPO:
             continue
@@ -323,25 +329,30 @@ def open_pull_roadmaps() -> dict[int, dict[str, Any]]:
         text = base64.b64decode(content["content"]).decode("utf-8")
         data = yaml.safe_load(text)
         if isinstance(data, dict):
-            out[pr["number"]] = data
+            out[pr["number"]] = (data, closed_by(pr.get("body") or ""))
     return out
 
 
 def pending_in(
     drift: list[tuple[int, str]],
-    pulls: dict[int, dict[str, Any]],
+    pulls: dict[int, tuple[dict[str, Any], set[int]]],
     issues: dict[int, dict[str, Any]],
 ) -> dict[int, int]:
     """Issue -> pull request, for every difference that an open pull request already resolves.
 
-    A difference on an issue is pending when the roadmap file of an open pull request has no
-    difference at all for that issue: merging the pull request brings file and GitHub back in
-    agreement. Such differences are expected while the pull request is under review (an issue
-    created with `new`, or closed by the pull request that marks it done).
+    A difference on an issue is pending when, once the pull request is merged, its roadmap file
+    and GitHub agree on that issue: the roadmap file of the pull request is compared with
+    GitHub as it will be after the merge, that is with the issues the pull request closes
+    marked as closed (completed). Such differences are expected while the pull request is under
+    review: an issue created with `new`, or closed by the pull request that marks it done.
     """
     resolved: dict[int, int] = {}
-    for number, data in sorted(pulls.items()):
-        theirs, _ = differences(copy.deepcopy(data), issues)
+    for number, (data, closes) in sorted(pulls.items()):
+        after = dict(issues)
+        for n in closes:
+            if n in after:
+                after[n] = {**after[n], "state": "closed", "state_reason": "completed"}
+        theirs, _ = differences(copy.deepcopy(data), after)
         unresolved = {n for n, _ in theirs}
         for n, _ in drift:
             if n not in unresolved and n not in resolved:

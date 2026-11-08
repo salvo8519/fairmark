@@ -69,6 +69,7 @@ milestones:
           - { issue: 14, title: "pre-commit configuration", tags: [gfi], status: done }
           - { issue: 117, title: "Deterministic checks: workflows (actionlint, zizmor), YAML validity, unused Rust dependencies, external links", tags: [parallel], status: done }
           - { issue: 134, title: "Roadmap sync tolerates changes pending in open pull requests; Pages deploy waits for slow CDN purges", status: done }
+          - { issue: 152, title: "Roadmap sync treats issues closed by an open pull request as pending", status: done }
       - title: "Community infrastructure"
         issue: 15
         labels: ["area:infra"]
