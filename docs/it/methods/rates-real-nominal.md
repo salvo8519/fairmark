@@ -1,6 +1,6 @@
 ---
 source: methods/rates-real-nominal.md
-source_hash: 3dbce11e43e6
+source_hash: 4732a34495ac
 ---
 # Tassi reali e nominali (`rates.real_nominal`)
 
@@ -75,7 +75,7 @@ con [`rates.convert`](rates-convert.md).
 | Codice | Quando |
 | --- | --- |
 | `FM-E001` | Un campo è mancante o sconosciuto, oppure `direction` non è `to_real` né `to_nominal` |
-| `FM-E003` | Il tasso o l'inflazione è pari o inferiore a −100% |
+| `FM-E003` | `rate` o `inflation` è pari o inferiore a −100%; il messaggio indica il campo (`inflation` è verificato per primo) |
 
 ## Precisione
 

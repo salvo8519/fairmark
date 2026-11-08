@@ -72,8 +72,8 @@ The rate and the growth are per period and must use the same period and compound
 | Code | When |
 | --- | --- |
 | `FM-E001` | `growth` is −100% or lower, a field is missing or unknown, or `timing` is not `ordinary` or `due` |
-| `FM-E003` | The rate is −100% or lower |
-| `FM-E004` | The growth is equal to or greater than the rate |
+| `FM-E003` | `rate` is −100% or lower |
+| `FM-E004` | `growth` is equal to or greater than `rate`; the message names both fields |
 
 ## Accuracy
 

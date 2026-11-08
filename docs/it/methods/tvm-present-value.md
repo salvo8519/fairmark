@@ -1,6 +1,6 @@
 ---
 source: methods/tvm-present-value.md
-source_hash: 9c89e59e8616
+source_hash: 797bb60591af
 ---
 # Valore attuale di flussi periodici (`tvm.present_value`)
 
@@ -101,7 +101,7 @@ metà periodo è il consueto $(1 + r)^{-(k - 0.5)}$.
 | --- | --- |
 | `FM-E001` | Sono forniti entrambi o nessuno tra `rate` e `period_rates`, `period_rates` non contiene esattamente un tasso per flusso, oppure un campo è mancante o sconosciuto |
 | `FM-E002` | `cash_flows` è vuoto |
-| `FM-E003` | Un tasso di periodo è pari o inferiore a −100% |
+| `FM-E003` | `rate`, o un tasso di `period_rates`, è pari o inferiore a −100%; tutti i tassi sono verificati prima di qualsiasi calcolo, e il messaggio indica il campo con il suo JSON Pointer, per esempio `/period_rates/2` |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 
 ## Precisione

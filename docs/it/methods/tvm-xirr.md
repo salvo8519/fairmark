@@ -1,6 +1,6 @@
 ---
 source: methods/tvm-xirr.md
-source_hash: 1f850a2dcd6f
+source_hash: 00d7ecf729a9
 ---
 # Tasso interno di rendimento di flussi datati (`tvm.xirr`)
 
@@ -63,7 +63,9 @@ Lo stesso algoritmo deterministico di [`tvm.irr`](tvm-irr.md#algoritmo), con due
 - **La griglia è definita su tassi annui effettivi** (−0.99, −0.95, da −0.90 a 1.00 passo
   0.05, da 1.25 a 10 passo 0.25) e convertita nella capitalizzazione scelta prima della
   scansione. L'intervallo di tassi economici esplorato, e quindi il giudizio sull'unicità, non
-  dipende da come è espresso il tasso.
+  dipende da come è espresso il tasso. Quando è trovata una sola radice, `explain` mostra dove:
+  il punto della griglia, oppure i due tassi dell'intervallo della griglia con l'XNPV in
+  ciascuno di essi.
 - **I cambi di segno sono contati sui flussi in ordine di data**; i flussi con la stessa data
   sono compensati.
 
@@ -112,11 +114,12 @@ dichiara se l'unicità è dimostrata o non verificata, con il motivo.
 | Codice | Quando |
 | --- | --- |
 | `FM-E001` | Un campo è mancante o sconosciuto, oppure una convenzione non è tra le opzioni elencate |
-| `FM-E005` | Nessuna radice è stata isolata sulla griglia e il metodo di Newton a partire da `guess` non converge |
-| `FM-E006` | Gli importi non sono di entrambi i segni (incluso il caso di lista vuota) |
+| `FM-E002` | `cash_flows` è vuoto |
+| `FM-E005` | Nessuna radice è stata isolata sulla griglia e il metodo di Newton a partire da `guess` non converge; il tasso può trovarsi fuori dall'intervallo dei decimali o lontano da `guess`: indica un `guess` vicino al tasso atteso |
+| `FM-E006` | `cash_flows` non contiene alcun importo positivo o alcun importo negativo, così come è fornito oppure dopo la compensazione dei flussi con la stessa data (il messaggio indica quale dei due casi) |
 | `FM-E008` | Overflow aritmetico durante il raffinamento della radice |
 | `FM-E009` | Una data è malformata, non esiste o è fuori dall'intervallo 1900-01-01 - 2199-12-31 |
-| `FM-E011` | Più di un tasso annulla l'XNPV, oppure è noto che esiste un altro tasso; il messaggio elenca gli intervalli |
+| `FM-E011` | Nessun tasso unico può essere isolato: più tassi annullano l'XNPV, è possibile una radice multipla, oppure è noto che esiste un altro tasso oltre a quello trovato; il messaggio elenca gli intervalli e suggerisce `tvm.npv` al costo del capitale o `tvm.mirr` con tassi espliciti |
 
 ## Precisione
 

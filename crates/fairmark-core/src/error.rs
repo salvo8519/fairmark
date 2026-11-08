@@ -21,11 +21,24 @@ pub enum FairmarkError {
     #[error("terminal growth ({growth}) must be lower than the discount rate ({rate})")]
     GrowthNotBelowRate { growth: Decimal, rate: Decimal },
 
-    #[error("the IRR solver did not converge after {iterations} iterations")]
-    NoConvergence { iterations: u32 },
+    #[error(
+        "the {solver} solver did not converge after {iterations} iterations: the rate may lie \
+         outside the decimal range or far from `guess`; give a `guess` near the expected rate"
+    )]
+    NoConvergence {
+        /// `IRR` or `XIRR`.
+        solver: &'static str,
+        iterations: u32,
+    },
 
-    #[error("cash flows need at least one sign change to have an IRR")]
-    NoSignChange,
+    #[error(
+        "`cash_flows` needs at least one positive and one negative amount{}",
+        if *netted { " after flows on the same date are netted" } else { "" }
+    )]
+    NoSignChange {
+        /// True when the check is made after netting flows at the same time (XIRR).
+        netted: bool,
+    },
 
     #[error("unknown method '{0}'")]
     UnknownMethod(String),
@@ -42,7 +55,10 @@ pub enum FairmarkError {
         valuation_date: String,
     },
 
-    #[error("more than one rate sets the present value to zero, in the intervals {0}; the result is ambiguous")]
+    #[error(
+        "no single rate can be isolated: {0}; use `tvm.npv` at the cost of capital or \
+         `tvm.mirr` with explicit rates"
+    )]
     MultipleRates(String),
 
     #[error(
@@ -92,15 +108,15 @@ pub enum FairmarkError {
     RoundingTooCoarse(String),
 
     #[error(
-        "`{field}` is {rate}: a discount rate must be greater than -1 (-100%); rates are \
-         decimal fractions, 10% is 0.10"
+        "`{field}` is {rate}: a rate must be greater than -1 (-100%); rates are decimal \
+         fractions, 10% is 0.10"
     )]
     DiscountRateOutOfRange { field: String, rate: Decimal },
 
     #[error(
-        "`{growth_field}` ({growth}) must be lower than the terminal discount rate \
-         `{rate_field}` ({rate}): a perpetual growth at or above the rate has no finite \
-         terminal value; lower the growth or check the rate"
+        "`{growth_field}` ({growth}) must be lower than the discount rate `{rate_field}` \
+         ({rate}): a perpetual growth at or above the rate has no finite value; lower the \
+         growth or check the rate"
     )]
     GrowthNotBelowTerminalRate {
         growth_field: String,
@@ -125,7 +141,7 @@ impl FairmarkError {
             Self::RateOutOfRange(_) => "FM-E003",
             Self::GrowthNotBelowRate { .. } => "FM-E004",
             Self::NoConvergence { .. } => "FM-E005",
-            Self::NoSignChange => "FM-E006",
+            Self::NoSignChange { .. } => "FM-E006",
             Self::UnknownMethod(_) => "FM-E007",
             Self::Overflow(_) => "FM-E008",
             Self::InvalidDate(_) => "FM-E009",

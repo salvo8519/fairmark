@@ -69,7 +69,7 @@ If the rate and the inflation do not refer to the same period, convert one of th
 | Code | When |
 | --- | --- |
 | `FM-E001` | A field is missing or unknown, or `direction` is not `to_real` or `to_nominal` |
-| `FM-E003` | The rate or the inflation is −100% or lower |
+| `FM-E003` | `rate` or `inflation` is −100% or lower; the message names the field (`inflation` is checked first) |
 
 ## Accuracy
 

@@ -40,7 +40,7 @@ try:
     fm.tvm.irr([-100, 230, -132])
 except fm.FairmarkError as err:
     assert err.code == "FM-E011"
-    print(err.message)  # ... in the intervals {0.10}, {0.20}; the result is ambiguous
+    print(err.message)  # no single rate can be isolated: the grid finds roots in {0.10}, {0.20}; ...
 
 # Three sign changes, one rate isolated on the grid (50%); a further pair cannot be excluded.
 # Here a pair exists (11% and 12%), so the result is flagged.
@@ -51,10 +51,12 @@ print(flagged.conventions[-1])  # uniqueness not verified: the flows change sign
 
 ## Solver
 
-1. **Grid scan.** NPV is evaluated on a fixed grid of rates: −0.99, −0.95, then −0.90 to 1.00
-   in steps of 0.05, then 1.25 to 10 in steps of 0.25 (ADR 0008). A grid point where the
-   calculation overflows is skipped. Each sign change between consecutive grid points, and
-   each grid point where NPV is exactly zero, is a root found.
+1. **Grid scan.** NPV is evaluated on a fixed grid of rates per period (the period of the cash
+   flows): −0.99, −0.95, then −0.90 to 1.00 in steps of 0.05, then 1.25 to 10 in steps of 0.25
+   (ADR 0008). A grid point where the calculation overflows is skipped. Each sign change
+   between consecutive grid points, and each grid point where NPV is exactly zero, is a root
+   found. When one root is found, `explain` shows where: the grid point, or the two rates of
+   the grid interval with the NPV at each of them.
 2. **Uniqueness check.** The roots found are compared with the number $s$ of sign changes in
    the flows. By Descartes' rule of signs the number of rates above −100% is $s$ minus an even
    number. Hence:
@@ -104,7 +106,7 @@ false` and a convention. When the rate is ambiguous, prefer NPV at the cost of c
 | Convention | Value | Default |
 | --- | --- | --- |
 | Time origin | `cash_flows[0]` at $t = 0$ | fixed |
-| Solver grid | −0.99, −0.95, −0.90 to 1.00 step 0.05, 1.25 to 10 step 0.25 | fixed |
+| Solver grid | rates per period −0.99, −0.95, −0.90 to 1.00 step 0.05, 1.25 to 10 step 0.25 | fixed |
 | Solver order | Newton's method inside the root interval, bisection as fallback | fixed |
 | Stopping rule | step on the rate below $10^{-18}$, at most 200 iterations | fixed |
 | Newton starting point | `guess`, reported as given or default | `0.10` |
@@ -116,10 +118,10 @@ false` and a convention. When the rate is ambiguous, prefer NPV at the cost of c
 | --- | --- |
 | `FM-E001` | A field is missing or unknown |
 | `FM-E002` | `cash_flows` is empty |
-| `FM-E005` | No root was bracketed on the grid and Newton's method from `guess` did not converge |
-| `FM-E006` | The flows have no sign change |
+| `FM-E005` | No root was bracketed on the grid and Newton's method from `guess` did not converge; the rate may lie outside the decimal range or far from `guess`: give a `guess` near the expected rate |
+| `FM-E006` | `cash_flows` has no positive or no negative amount |
 | `FM-E008` | Arithmetic overflow while refining the root |
-| `FM-E011` | More than one rate sets NPV to zero, or another rate is known to exist; the message lists the intervals |
+| `FM-E011` | No single rate can be isolated: several rates set NPV to zero, a repeated root is possible, or another rate is known to exist beside the one found; the message lists the intervals and suggests `tvm.npv` at the cost of capital or `tvm.mirr` with explicit rates |
 
 ## Accuracy
 

@@ -1,0 +1,12 @@
+method: tvm.npv
+description: Negative discount rate of -20%, outflow of 1000 and three inflows of 400
+source: >
+  Exact arithmetic by hand, independent of the engine: 1 / (1 - 0.20) = 1.25, so
+  NPV = -1000 + 400 × 1.25 + 400 × 1.5625 + 400 × 1.953125 = -1000 + 500 + 625 + 781.25 = 906.25;
+  confirmed by the 50-digit formula of scripts/reference_npv_irr.py (npv). Added for issue #176.
+input:
+  rate: "-0.20"
+  cash_flows: [-1000, 400, 400, 400]
+expect:
+  npv: "906.25"
+tolerance: "0.000000000000000000001"

@@ -1,6 +1,6 @@
 ---
 source: methods/tvm-perpetuity.md
-source_hash: 5284d2276a99
+source_hash: 1a18088f4486
 ---
 # Rendita perpetua (`tvm.perpetuity`)
 
@@ -79,8 +79,8 @@ capitalizzazione.
 | Codice | Quando |
 | --- | --- |
 | `FM-E001` | `growth` è pari o inferiore a −100%, un campo è mancante o sconosciuto, oppure `timing` non è `ordinary` né `due` |
-| `FM-E003` | Il tasso è pari o inferiore a −100% |
-| `FM-E004` | La crescita è pari o superiore al tasso |
+| `FM-E003` | `rate` è pari o inferiore a −100% |
+| `FM-E004` | `growth` è pari o superiore a `rate`; il messaggio indica entrambi i campi |
 
 ## Precisione
 

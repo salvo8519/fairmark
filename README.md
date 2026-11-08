@@ -166,17 +166,17 @@ fairmark verify result.json --input company.json  # reproduce a result bit for b
 
 | Method | Status | Description |
 | --- | --- | --- |
-| `dates.year_fraction` | Preview | Year fraction (day count) |
-| `rates.convert` | Preview | Rate conversion between compounding conventions |
-| `rates.real_nominal` | Preview | Real and nominal rates (Fisher) |
-| `tvm.npv` | Preview | Net present value |
-| `tvm.present_value` | Preview | Present value with a constant or time-varying rate |
-| `tvm.xnpv` | Preview | Net present value of dated cash flows (XNPV) |
-| `tvm.irr` | Preview | Internal rate of return |
-| `tvm.xirr` | Preview | Internal rate of return of dated cash flows (XIRR) |
-| `tvm.mirr` | Preview | Modified internal rate of return (MIRR) |
-| `tvm.annuity` | Preview | Annuity (level or growing, ordinary or due) |
-| `tvm.perpetuity` | Preview | Perpetuity (level or growing) |
+| `dates.year_fraction` | Available | Year fraction (day count) |
+| `rates.convert` | Available | Rate conversion between compounding conventions |
+| `rates.real_nominal` | Available | Real and nominal rates (Fisher) |
+| `tvm.npv` | Available | Net present value |
+| `tvm.present_value` | Available | Present value with a constant or time-varying rate |
+| `tvm.xnpv` | Available | Net present value of dated cash flows (XNPV) |
+| `tvm.irr` | Available | Internal rate of return |
+| `tvm.xirr` | Available | Internal rate of return of dated cash flows (XIRR) |
+| `tvm.mirr` | Available | Modified internal rate of return (MIRR) |
+| `tvm.annuity` | Available | Annuity (level or growing, ordinary or due) |
+| `tvm.perpetuity` | Available | Perpetuity (level or growing) |
 | `tvm.future_value` | Available | Future value of a present amount and level payments |
 | `loans.instalment` | Available | Loan instalment (constant instalment, optional balloon) |
 | `loans.number_of_instalments` | Available | Number of instalments of a loan |

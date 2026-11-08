@@ -1,6 +1,6 @@
 ---
 source: methods/tvm-annuity.md
-source_hash: bb3fe78f13e9
+source_hash: decc31eb5c9e
 ---
 # Rendita (`tvm.annuity`)
 
@@ -100,7 +100,7 @@ assert round(limit.present_value, 20) == Decimal("14150.94339622641509433962")
 | --- | --- |
 | `FM-E001` | `periods` è 0 o superiore a 10000, `growth` è pari o inferiore a −100%, oppure un campo è mancante o sconosciuto |
 | `FM-E003` | Il tasso è pari o inferiore a −100% |
-| `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
+| `FM-E008` | Overflow aritmetico: input molto al di fuori di un intervallo realistico, oppure un montante oltre l'intervallo dei decimali su un orizzonte lungo (vedi [Orizzonti lunghi](#orizzonti-lunghi)) |
 
 ## Precisione
 
@@ -112,6 +112,19 @@ Il fattore di rendita (il valore attuale di un flusso pari a 1 per periodo, in c
 tasso $g$) è condiviso con [`tv.limited_horizon`](tv-limited-horizon.md), che lo moltiplica
 per il flusso senza calcolare il montante: il suo intervallo di periodi non è quindi limitato
 dal montante in $t = n$.
+
+### Orizzonti lunghi
+
+Ogni chiamata calcola il montante $PV \,(1 + r)^n$, e il risultato deve rientrare
+nell'intervallo dei decimali (circa $7{,}9 \times 10^{28}$). Su orizzonti lunghi non vi rientra:
+una rata di 100 al 5% per periodo, per esempio, restituisce `FM-E008` oltre 1.208 periodi con
+rendita posticipata e oltre 1.207 periodi con rendita anticipata. Ne risente anche il valore
+attuale: la chiamata non restituisce alcun risultato, quindi neppure il valore attuale, che è
+finito. Per il valore attuale di una rendita posticipata lunga, usa
+[`tv.limited_horizon`](tv-limited-horizon.md), che calcola lo stesso fattore e mai il montante
+(per la rendita anticipata, moltiplica il risultato per $1 + r$). Separare i due valori
+cambierebbe gli output del metodo e richiede una nuova versione del metodo; è registrato come
+attività successiva nel piano della SPEC-0002.
 
 ## Verificato con
 

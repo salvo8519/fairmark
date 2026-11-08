@@ -23,7 +23,7 @@ use std::sync::Mutex;
 
 use fairmark_core::dates::{Date, DayCount};
 use fairmark_core::loans::{self, InstalmentInput, NumberOfInstalmentsInput};
-use fairmark_core::rates::{self, Compounding, ConvertInput};
+use fairmark_core::rates::{self, Compounding, ConvertInput, FisherDirection, RealNominalInput};
 use fairmark_core::tvm::{
     self, AnnuityInput, AnnuityTiming, DatedCashFlow, FutureValueInput, IrrInput, MirrInput,
     NpvInput, XirrInput, XnpvInput,
@@ -181,6 +181,13 @@ const ROOT_RESIDUAL: &str = "1e-16";
 
 /// Round trip of `rates.convert`: acceptance criterion AC3 of SPEC-0002, 1e-20 absolute.
 const CONVERT_ROUND_TRIP: &str = "1e-20";
+
+/// Round trip of `rates.real_nominal` (to real, then to nominal with the same inflation):
+/// acceptance criterion AC3 of SPEC-0002, 1e-20 absolute. The round trip is one division and
+/// one product, each rounded to 28 significant digits: (1 + n) / (1 + i) is at most 2 / 1e-6
+/// here, so its rounding is below 1e-21, and multiplying by 1 + i (at most 2) keeps the error
+/// far below the bound.
+const FISHER_ROUND_TRIP: &str = "1e-20";
 
 /// Stricter guard on the same round trip, so that a loss of precision well inside the AC3 bound
 /// is noticed. The round trip is at most two growth factors ((1 + r/m)^m by squaring, m ≤ 12,
@@ -897,6 +904,46 @@ fn convert_round_trip() {
                 to,
                 back.rate,
                 error
+            );
+            Ok(())
+        },
+    );
+}
+
+/// rates.real_nominal to_real then to_nominal with the same inflation returns the rate within
+/// 1e-20 (AC3), for rate and inflation in (-1, 1] (issue #176).
+#[test]
+fn fisher_round_trip() {
+    let unit = || (-999_999i64..=1_000_000).prop_map(|m| dec(m, 6));
+    check(
+        "fisher_round_trip",
+        256,
+        0x330e,
+        (unit(), unit()),
+        |(rate, inflation)| {
+            let real = rates::real_nominal(&RealNominalInput {
+                rate,
+                inflation,
+                direction: FisherDirection::ToReal,
+            })
+            .unwrap()
+            .0
+            .rate;
+            let back = rates::real_nominal(&RealNominalInput {
+                rate: real,
+                inflation,
+                direction: FisherDirection::ToNominal,
+            })
+            .unwrap()
+            .0
+            .rate;
+            prop_assert!(
+                (back - rate).abs() <= d(FISHER_ROUND_TRIP),
+                "AC3: {} with inflation {} -> real {} -> nominal {}",
+                rate,
+                inflation,
+                real,
+                back
             );
             Ok(())
         },

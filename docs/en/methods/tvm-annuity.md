@@ -94,7 +94,7 @@ assert round(limit.present_value, 20) == Decimal("14150.94339622641509433962")
 | --- | --- |
 | `FM-E001` | `periods` is 0 or above 10000, `growth` is −100% or lower, or a field is missing or unknown |
 | `FM-E003` | The rate is −100% or lower |
-| `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
+| `FM-E008` | Arithmetic overflow: inputs far outside a realistic range, or a future value beyond the decimal range at a long horizon (see [Long horizons](#long-horizons)) |
 
 ## Accuracy
 
@@ -106,6 +106,18 @@ The annuity factor (the present value of a flow of 1 per period, growing at $g$)
 with [`tv.limited_horizon`](tv-limited-horizon.md), which multiplies it by the flow and does
 not compute the future value: its range of periods is therefore not limited by the future
 value at $t = n$.
+
+### Long horizons
+
+Every call computes the future value $PV \,(1 + r)^n$, and the result must fit the decimal range
+(about $7.9 \times 10^{28}$). At long horizons it does not: a payment of 100 at 5% per period,
+for example, returns `FM-E008` above 1,208 periods with ordinary timing and above 1,207 periods
+with due timing. The present value is affected too: the call returns no result, so the present
+value, which is finite, is not returned either. For the present value of a long ordinary
+annuity, use [`tv.limited_horizon`](tv-limited-horizon.md), which computes the same factor and
+never the future value (for the due timing, multiply its result by $1 + r$). Separating the two
+values would change the outputs of the method and needs a new method version; it is recorded as
+a follow-up in the plan of SPEC-0002.
 
 ## Verified against
 

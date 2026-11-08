@@ -39,6 +39,17 @@ pub enum Status {
 /// is preview until it is listed here; `scripts/method_status.py` checks each entry against
 /// the evidence in `specs/method-evidence.yaml`.
 const AVAILABLE: &[&str] = &[
+    "dates.year_fraction",
+    "rates.convert",
+    "rates.real_nominal",
+    "tvm.npv",
+    "tvm.present_value",
+    "tvm.xnpv",
+    "tvm.irr",
+    "tvm.xirr",
+    "tvm.mirr",
+    "tvm.annuity",
+    "tvm.perpetuity",
     "tvm.future_value",
     "loans.instalment",
     "loans.number_of_instalments",
@@ -323,7 +334,7 @@ mod tests {
             assert_eq!(m.status, expected, "{}", m.id);
         }
         assert_eq!(method("dcf.fcff").unwrap().status, Status::Preview);
-        assert_eq!(method("tvm.npv").unwrap().status, Status::Preview);
+        assert_eq!(method("tvm.npv").unwrap().status, Status::Available);
         assert_eq!(method("tv.gordon").unwrap().status, Status::Available);
         let json = serde_json::to_value(method("dcf.fcff").unwrap()).unwrap();
         assert_eq!(json["status"], "preview");
@@ -345,7 +356,7 @@ mod tests {
         assert_eq!(tv["meta"]["method_status"], "available");
         assert!(tv["meta"].get("evaluated_method_status").is_none());
         let npv = run("tvm.npv", r#"{"rate": 0.1, "cash_flows": [-100, 60, 60]}"#).unwrap();
-        assert_eq!(npv["meta"]["method_status"], "preview");
+        assert_eq!(npv["meta"]["method_status"], "available");
         // dcf.fcff version 3 input (SPEC-0001).
         let dcf = run("dcf.fcff", DCF_V3).unwrap();
         assert_eq!(dcf["meta"]["method_status"], "preview");
