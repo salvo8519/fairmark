@@ -480,8 +480,8 @@ pub fn build_up(
     match (taxes, shield) {
         (Taxes::Rate(_, NegativeEbit::Credit), Some(t)) => {
             ex.convention(format!(
-                "interest tax shield at the tax rate on EBIT {t}: interest after taxes = \
-                 interest × (1 − {t}), whatever the sign of EBIT"
+                "interest tax shield at the tax rate on EBIT {t}: shield = {t} × interest, \
+                 interest after taxes = interest − shield, whatever the sign of EBIT"
             ));
         }
         (Taxes::Rate(_, NegativeEbit::Zero), Some(t)) => {
@@ -494,8 +494,9 @@ pub fn build_up(
         }
         (Taxes::Amounts, Some(t)) => {
             ex.convention(format!(
-                "interest tax shield at the separate interest tax rate {t}: interest after taxes \
-                 = interest × (1 − {t})"
+                "interest tax shield at the separate interest tax rate {t}: shield = {t} × \
+                 interest, interest after taxes = interest − shield, whatever the given operating \
+                 taxes; when they are lower than the shield, the shield implies a tax credit"
             ));
         }
         _ => {}

@@ -52,8 +52,18 @@ kept the full shield when EBIT was positive but below the interest.
 
 With `credit` the full shield $\tau \times INT_t$ applies in every period, also when EBIT is
 lower than the interest or negative: the loss gives a tax saving. In the amounts form the shield
-applies at `interest_tax_rate` in every period, whatever the sign of EBIT: the treatment of a
-negative EBIT belongs to the rate form only.
+stays $\tau \times INT_t$ at `interest_tax_rate` in every period, whatever the sign of EBIT and
+whatever the given `operating_taxes`: the treatment of a negative EBIT belongs to the rate form
+only. When the given operating taxes are lower than the shield, the shield implies a tax credit
+(total taxes below zero); if no such credit is available, give a lower `interest_tax_rate`, or
+use the rate form with `zero`.
+
+**Consistency with the discount rate.** An after-tax cost of debt $K_d \times (1 - t)$ in the
+WACC or in the cost of equity assumes that the full interest tax shield is earned every year.
+Under `zero`, the years with a limited or no shield earn less: the tax rate behind the cost of
+debt of those years should be the lower effective rate the limited shield implies, for example
+through rates per period in the DCF, or the report should say why the full shield is assumed.
+Fairmark does not adjust the discount rate.
 
 ## Example
 

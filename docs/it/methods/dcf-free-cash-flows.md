@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-free-cash-flows.md
-source_hash: cb626310f4eb
+source_hash: 21c4bb2349c5
 ---
 # Costruzione dei flussi di cassa disponibili (`dcf.free_cash_flows`)
 
@@ -60,8 +60,20 @@ agli oneri finanziari.
 
 Con `credit` lo scudo pieno $\tau \times INT_t$ si applica in ogni periodo, anche quando l'EBIT
 è inferiore agli oneri finanziari o negativo: la perdita genera un risparmio d'imposta. Nella
-forma a importi lo scudo si applica a `interest_tax_rate` in ogni periodo, qualunque sia il
-segno dell'EBIT: il trattamento di un EBIT negativo appartiene solo alla forma ad aliquota.
+forma a importi lo scudo resta $\tau \times INT_t$ a `interest_tax_rate` in ogni periodo,
+qualunque sia il segno dell'EBIT e qualunque siano le `operating_taxes` fornite: il trattamento
+di un EBIT negativo appartiene solo alla forma ad aliquota. Quando le imposte fornite sono
+inferiori allo scudo, lo scudo implica un credito d'imposta (imposte complessive sotto zero); se
+quel credito non è disponibile, si fornisca un `interest_tax_rate` più basso, o si usi la forma
+ad aliquota con `zero`.
+
+**Coerenza con il tasso di attualizzazione.** Un costo del debito dopo le imposte
+$K_d \times (1 - t)$ nel WACC o nel costo del capitale proprio presuppone che lo scudo fiscale
+pieno sugli oneri finanziari sia ottenuto ogni anno. Con `zero`, negli anni con scudo limitato
+o nullo il beneficio è minore: l'aliquota alla base del costo del debito di quegli anni dovrebbe
+essere quella effettiva più bassa che lo scudo limitato implica, per esempio con tassi per
+periodo nel DCF, oppure la relazione dovrebbe motivare l'ipotesi di scudo pieno. Fairmark non
+rettifica il tasso di attualizzazione.
 
 ## Esempio
 

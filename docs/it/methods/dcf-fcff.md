@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: 60e05e6218b6
+source_hash: 4e3c2d74c62f
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
@@ -58,7 +58,11 @@ finanziari e net borrowing sono rifiutati: il FCFF è prima dei flussi finanziar
 della costruzione è nell'explain, con il prefisso "Build-up:", e le sue convenzioni indicano la
 versione della costruzione (`dcf.free_cash_flows v2`). Con `zero` la versione 2 limita lo scudo
 fiscale sugli oneri finanziari al reddito imponibile disponibile; il FCFF esclude gli oneri
-finanziari, quindi flussi e valori di `dcf.fcff` non cambiano.
+finanziari, quindi flussi e valori di `dcf.fcff` non cambiano. Il beneficio fiscale del debito
+è invece nel WACC: un costo del debito Kd × (1 − t) presuppone lo scudo pieno ogni anno. Negli
+anni con EBIT negativo o basso e trattamento `zero` l'aliquota effettiva sugli oneri finanziari
+è più bassa, quindi si fornisca `wacc_per_period` con un WACC che ne tenga conto in quegli anni,
+oppure si motivi l'ipotesi di scudo pieno; Fairmark non rettifica il tasso.
 
 Con la convenzione di metà periodo il flusso del periodo k è attualizzato mezzo periodo prima,
 $DF_k = DF_{k-1} (1 + r_k)^{-0.5}$. Il valore terminale $TV_N$ è calcolato dalla tecnica
