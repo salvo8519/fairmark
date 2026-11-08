@@ -1,0 +1,70 @@
+"""Financial statements reorganised into an operating and financing view (SPEC-0005).
+
+``reorganise`` takes one or more financial years, oldest first, each in the ``statutory`` form
+(the aggregates of art. 2424 and 2425 of the Italian Civil Code, ordinary or abridged layout)
+or in the ``reclassified`` form (totals already reorganised), and returns per year the
+reorganised balance sheet: invested capital, non-operating assets, equity, quasi-equity, the
+net financial position with its composition and maturities, debt-like items, and current and
+non-current amounts for the ratios.
+
+Every input is optional. An output is computed when its inputs are given; otherwise it is
+``None`` and listed in ``not_computed`` with the JSON pointers of the missing inputs, so an
+agent can ask only for those. Totals given are checked exactly against their components
+(``FM-E026`` when they differ). Amounts are in the currency units of the statements, as
+strings or ``Decimal``.
+
+The outputs feed other methods unchanged: ``sources.net_financial_position.position``,
+``non_operating_assets`` and ``sources.debt_like_items`` go to ``fm.dcf.fcff``;
+``current_non_current`` to ``fm.ratios.liquidity`` and ``fm.ratios.capital_structure``.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from typing import Any
+
+from ._core import Result, run
+
+
+def reorganise(
+    years: Sequence[Mapping[str, Any]],
+    treatments: Mapping[str, Any] | None = None,
+    adjustments: Sequence[Mapping[str, Any]] | None = None,
+) -> Result:
+    """Reorganise one or more financial years (``statements.reorganise``).
+
+    ``years``: oldest first, each ``{"label": ..., "date": ..., "statutory": {...}}`` or
+    ``{"reclassified": {...}}``; label and date are optional. ``treatments`` (stated once):
+    ``financial_fixed_assets`` (``operating``, ``non_operating`` or ``financial_asset``),
+    ``shareholder_loans`` (``financial_debt`` or ``quasi_equity``) and
+    ``derivative_liabilities``, each needed only when its aggregate is given and not zero.
+    ``adjustments``: labelled moves of Appendix C, each with ``kind``, ``label``, ``reason``
+    and one amount per year (``None`` where it does not apply). No value is defaulted here
+    beyond the engine's own defaults, listed in ``result.meta["defaults_applied"]``.
+
+    >>> r = reorganise(
+    ...     [{"label": "2024", "statutory": {"balance_sheet": {
+    ...         "subscribed_capital_unpaid": "0",
+    ...         "intangible_assets": {"total": "100"}, "tangible_assets": {"total": "900"},
+    ...         "financial_fixed_assets": "0", "inventories": "300",
+    ...         "receivables": {"total": "500", "beyond_one_year": "0"},
+    ...         "current_financial_assets": "0", "cash": "200",
+    ...         "prepayments_and_accrued_income": {"total": "0"},
+    ...         "equity": {"total": "800"}, "provisions": {"total": "0"},
+    ...         "employee_severance_indemnity": {"total": "100"},
+    ...         "payables": {"total": "1100", "beyond_one_year": "400",
+    ...             "financial_debt": {"total": "600", "beyond_one_year": "400"},
+    ...             "shareholder_loans": {"total": "0", "beyond_one_year": "0"}},
+    ...         "accruals_and_deferred_income": {"total": "0"}}}}])
+    >>> bs = r.years[0]["balance_sheet"]
+    >>> bs["operating"]["invested_capital"], bs["sources"]["net_financial_position"]["total"]
+    (Decimal('1200'), Decimal('400'))
+    >>> bs["total_funds_invested"] == bs["sources"]["total_sources"]
+    True
+    """
+    payload: dict[str, Any] = {"years": [dict(y) for y in years]}
+    if treatments is not None:
+        payload["treatments"] = dict(treatments)
+    if adjustments is not None:
+        payload["adjustments"] = [dict(a) for a in adjustments]
+    return run("statements.reorganise", payload)
