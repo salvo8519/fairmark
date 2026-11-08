@@ -1,6 +1,6 @@
 method: tvm.future_value
 description: "Rate of -100% (R3)"
 source: >
-  Requirement R10 or R11 of SPEC-0009: the error code is part of the specification.
+  SPEC-0009 R3 (a rate per period of -100% or lower is FM-E003), applied to the rate of R10. The error code is part of the specification.
 input: { payment: "1", rate: "-1", periods: 3, timing: "ordinary" }
 expect_error: FM-E003

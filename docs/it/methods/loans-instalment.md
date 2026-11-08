@@ -1,6 +1,6 @@
 ---
 source: methods/loans-instalment.md
-source_hash: 4c23dbb99426
+source_hash: 51d9061895b0
 ---
 # Rata di un finanziamento (`loans.instalment`)
 
@@ -124,15 +124,16 @@ periodo.
 
 ## Precisione
 
-La rata usa potenze intere, moltiplicazioni e divisioni. Quando la capitalizzazione è diversa
-dalla periodicità della rata, la conversione usa le funzioni in serie della libreria decimale
-(errore relativo vicino a $10^{-27}$). I casi di riferimento sono verificati a $10^{-20}$
-rispetto a un calcolo indipendente a 50 cifre.
+La rata usa potenze intere, moltiplicazioni e divisioni, ed è esatta fino all'ultima delle 28
+cifre significative del motore. Quando la capitalizzazione è diversa dalla periodicità della
+rata, la conversione usa le funzioni in serie della libreria decimale (errore relativo vicino a
+$10^{-27}$). I casi di riferimento sono verificati a $10^{-20}$ rispetto a un riferimento
+indipendente a 50 cifre.
 
 ## Verificato con
 
 - Casi di riferimento in `tests/golden/loans.instalment/`: l'esempio svolto di ECMA-376 della
-  rata di un finanziamento (posticipata e anticipata) e un calcolo indipendente a 50 cifre
+  rata di un finanziamento (posticipata e anticipata) e un riferimento indipendente a 50 cifre
   (`scripts/reference_loans.py`).
-- `numpy_financial.pmt` su finanziamenti casuali, per entrambi i momenti di pagamento, con il
-  balloon come valore futuro.
+- La funzione della rata di un finanziamento di `numpy_financial` su finanziamenti casuali, per
+  entrambi i momenti di pagamento, con il balloon come valore futuro.

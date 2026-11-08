@@ -116,15 +116,15 @@ that final-period adjustment. `total_paid` here uses the rounded instalment for 
 
 ## Accuracy
 
-The instalment uses integer powers, multiplication and division. When the compounding differs
-from the payment frequency, the conversion uses the series functions of the decimal library
-(relative error near $10^{-27}$). The golden cases are checked to $10^{-20}$ against an
-independent 50-digit computation.
+The instalment uses integer powers, multiplication and division, and holds to the last of the
+engine's 28 significant digits. When the compounding differs from the payment frequency, the
+conversion uses the series functions of the decimal library (relative error near $10^{-27}$).
+The golden cases are checked to $10^{-20}$ against an independent 50-digit reference.
 
 ## Verified against
 
 - Golden cases in `tests/golden/loans.instalment/`: the ECMA-376 worked example of the loan
-  instalment (in arrears and in advance) and an independent 50-digit computation
+  instalment (in arrears and in advance) and an independent 50-digit reference
   (`scripts/reference_loans.py`).
-- `numpy_financial.pmt` on random loans, both timings, with the balloon amount as the future
-  value.
+- The loan payment function of `numpy_financial` on random loans, both timings, with the
+  balloon amount as the future value.

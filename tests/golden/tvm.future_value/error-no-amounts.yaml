@@ -1,6 +1,6 @@
 method: tvm.future_value
 description: "Neither present value nor payment (AC4)"
 source: >
-  Requirement R10 or R11 of SPEC-0009: the error code is part of the specification.
+  SPEC-0009 R11 (FM-E001 if both the present value and the payment are omitted); AC4. The error code is part of the specification.
 input: { rate: "0.05", periods: 3, timing: "ordinary" }
 expect_error: FM-E001

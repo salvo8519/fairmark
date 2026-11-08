@@ -8,15 +8,16 @@ with regular withdrawals.
 ## Formula
 
 $$
-FV = PV\,(1 + r)^{n} + PMT\,\frac{(1 + r)^{n} - 1}{r}\,\times
+FV = PV\,(1 + r)^{n} + A\,\frac{(1 + r)^{n} - 1}{r}\,\times
 \begin{cases}
 1 & \text{ordinary} \\
 (1 + r) & \text{due}
 \end{cases}
 \qquad
-FV = PV + n\,PMT \text{ when } r = 0
+FV = PV + n\,A \text{ when } r = 0
 $$
 
+where $PV$ is the present amount and $A$ the level payment of every period.
 The engine accumulates the annuity factor of [`tvm.annuity`](tvm-annuity.md) to $t = n$, so the
 two methods share one implementation.
 
@@ -71,7 +72,7 @@ print(overdrawn.conventions[1])  # sign convention: amounts of the same sign acc
 | Timing | ordinary, due | none: must be chosen |
 | Sign | same sign accumulates, negative is a withdrawal | fixed |
 | Present value, payment | any amount | 0 each, reported as default; not both omitted |
-| Rate zero | limit $PV + n\,PMT$, shown as a separate step | applied when $r = 0$ |
+| Rate zero | limit $PV + n\,A$, shown as a separate step | applied when $r = 0$ |
 | Date of the future value | $t = n$ for both timings | fixed |
 
 ## Errors
@@ -85,11 +86,13 @@ print(overdrawn.conventions[1])  # sign convention: amounts of the same sign acc
 ## Accuracy
 
 Integer powers, multiplication and division only; the annuity factor divides by $1 + r$, so
-values that are terminating decimals come out to about $10^{-24}$ relative. The golden cases
-are checked to $10^{-20}$ against an independent 50-digit computation.
+values that are terminating decimals come out to the last of the engine's 28 significant
+digits rather than exactly. The golden cases are checked to $10^{-20}$ against an independent
+50-digit reference.
 
 ## Verified against
 
 - Golden cases in `tests/golden/tvm.future_value/`: the ECMA-376 worked examples of the future
-  value function and an independent 50-digit computation (`scripts/reference_loans.py`).
-- `numpy_financial.fv` on random inputs, both timings, with the signs reversed.
+  value function and an independent 50-digit reference (`scripts/reference_loans.py`).
+- The future value function of `numpy_financial` on random inputs, both timings, with the
+  signs reversed.

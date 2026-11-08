@@ -1,7 +1,7 @@
 # Number of instalments (`loans.number_of_instalments`)
 
 Returns how many instalments of a given amount repay a loan: the exact number of periods, the
-whole number of instalments and the amount of the last, reduced instalment that brings the
+whole number of instalments and the amount of the last instalment that brings the
 outstanding balance exactly to zero. Use it when the borrower can afford a given instalment
 and the question is how long the loan lasts.
 
@@ -36,7 +36,7 @@ borrowing rate with its compounding and payment frequency, or a periodic rate.
 ## Example
 
 A loan of 3,000 at 2% a quarter repaid by quarterly instalments of 800 needs four
-instalments, the last one reduced:
+instalments, the last one lower than the others:
 
 ```python
 from decimal import Decimal
@@ -82,13 +82,13 @@ A balloon amount is not accepted by this method version.
 | --- | --- | --- |
 | Rate form | (a) annual rate with compounding and payment frequency, or (b) periodic rate | exactly one, required |
 | Timing | `ordinary`, `due` | none: must be chosen |
-| Whole number of periods | an $n^*$ within $10^{-15}$ of an integer is taken as that integer | fixed |
-| Final instalment | amount owed on its payment date, balance exactly zero | fixed |
+| Whole number of periods | an $n^*$ within $10^{-20}$ of an integer is taken as that integer; $N$ is then confirmed by the balance recurrence: the first instalment whose amount owed exceeds $A$ by at most $10^{-20}$ of the principal | fixed |
+| Final instalment | amount owed on its payment date, balance exactly zero: lower than $A$ when $n^*$ is not whole, above $A$ by at most $10^{-20}$ of the principal when $n^*$ is taken as a whole number | fixed |
 | Rate zero | $n^* = P / A$, shown as a separate step | applied when $i = 0$ |
 
-The tolerance on whole numbers exists because the logarithms are series approximations: an
-instalment computed to full precision by [`loans.instalment`](loans-instalment.md) gives back
-its number of instalments instead of one more instalment of a fraction of a cent.
+The tolerance on whole numbers and the recurrence exist so that an instalment computed to full
+precision by [`loans.instalment`](loans-instalment.md) gives back its number of instalments,
+instead of one more instalment of a fraction of a cent.
 
 ## Errors
 
@@ -101,13 +101,18 @@ its number of instalments instead of one more instalment of a fraction of a cent
 
 ## Accuracy
 
-$n^*$ uses the logarithm series of the decimal library (relative error near $10^{-27}$); the
-final instalment uses only multiplication and subtraction. The golden cases are checked to
-$10^{-20}$ against an independent 50-digit computation.
+$n^*$ is computed as $q \times \dfrac{\ln(1 - i q)/(-i q)}{\ln(1 + i)/i}$ with $q = P'/A$: the
+ratios $\ln(1 + x)/x$ are summed from their series when $|x| < 0.01$, so small rates of either
+sign keep every digit; $n^*$ agrees with an independent 50-digit reference to about
+$10^{-24}$, including rates of $\pm 10^{-9}$ and $-10^{-11}$ per period. The number of instalments
+and the final instalment do not depend on that accuracy: $N$ is confirmed by the balance
+recurrence, which uses only multiplication and subtraction and holds to the last of the
+engine's 28 significant digits. The golden cases are checked to $10^{-20}$.
 
 ## Verified against
 
 - Golden cases in `tests/golden/loans.number_of_instalments/`, from an independent 50-digit
-  computation (`scripts/reference_loans.py`), including the instalment of the ECMA-376 worked
-  example, which gives back exactly 10 instalments.
-- `numpy_financial.nper` on random loans, both timings.
+  reference (`scripts/reference_loans.py`), including the instalment of the ECMA-376 worked
+  example, which gives back exactly 10 instalments, and small negative rates over 1200 and
+  10000 periods.
+- The number-of-periods function of `numpy_financial` on random loans, both timings.

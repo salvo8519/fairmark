@@ -1,11 +1,11 @@
 ---
 source: methods/loans-number-of-instalments.md
-source_hash: 0d63ed881f78
+source_hash: 107c574fa17d
 ---
 # Numero delle rate (`loans.number_of_instalments`)
 
 Restituisce quante rate di un importo dato rimborsano un finanziamento: il numero esatto di
-periodi, il numero intero delle rate e l'importo dell'ultima rata, ridotta, che porta il debito
+periodi, il numero intero delle rate e l'importo dell'ultima rata, che porta il debito
 residuo esattamente a zero. Si usa quando il debitore può sostenere una certa rata e la
 domanda è quanto dura il finanziamento.
 
@@ -40,7 +40,7 @@ nominale con capitalizzazione e periodicità della rata, oppure un tasso periodi
 ## Esempio
 
 Un finanziamento di 3.000 al 2% trimestrale rimborsato con rate trimestrali di 800 richiede
-quattro rate, l'ultima ridotta:
+quattro rate, l'ultima inferiore alle altre:
 
 ```python
 from decimal import Decimal
@@ -86,13 +86,13 @@ Questa versione del metodo non accetta un balloon.
 | --- | --- | --- |
 | Forma del tasso | (a) tasso annuo con capitalizzazione e periodicità della rata, oppure (b) tasso periodico | esattamente una, obbligatoria |
 | Momento di pagamento | `ordinary`, `due` | nessuno: va scelto |
-| Numero intero di periodi | un $n^*$ entro $10^{-15}$ da un intero è considerato pari a quell'intero | fissa |
-| Ultima rata | importo dovuto alla sua data di pagamento, debito residuo esattamente zero | fissa |
+| Numero intero di periodi | un $n^*$ entro $10^{-20}$ da un intero è considerato pari a quell'intero; $N$ è poi confermato dalla ricorrenza del debito residuo: la prima rata il cui importo dovuto supera $A$ al massimo di $10^{-20}$ del capitale | fissa |
+| Ultima rata | importo dovuto alla sua data di pagamento, debito residuo esattamente zero: inferiore ad $A$ quando $n^*$ non è intero, superiore ad $A$ al massimo di $10^{-20}$ del capitale quando $n^*$ è considerato intero | fissa |
 | Tasso zero | $n^* = P / A$, mostrato come passaggio separato | applicato quando $i = 0$ |
 
-La tolleranza sui numeri interi esiste perché i logaritmi sono approssimazioni in serie: una
-rata calcolata a piena precisione da [`loans.instalment`](loans-instalment.md) restituisce il
-proprio numero di rate invece di una rata in più pari a una frazione di centesimo.
+La tolleranza sui numeri interi e la ricorrenza esistono perché una rata calcolata a piena
+precisione da [`loans.instalment`](loans-instalment.md) restituisca il proprio numero di rate,
+invece di una rata in più pari a una frazione di centesimo.
 
 ## Errori
 
@@ -105,13 +105,20 @@ proprio numero di rate invece di una rata in più pari a una frazione di centesi
 
 ## Precisione
 
-$n^*$ usa la serie del logaritmo della libreria decimale (errore relativo vicino a
-$10^{-27}$); l'ultima rata usa solo moltiplicazioni e sottrazioni. I casi di riferimento sono
-verificati a $10^{-20}$ rispetto a un calcolo indipendente a 50 cifre.
+$n^*$ si calcola come $q \times \dfrac{\ln(1 - i q)/(-i q)}{\ln(1 + i)/i}$ con $q = P'/A$: i
+rapporti $\ln(1 + x)/x$ si sommano dalla loro serie quando $|x| < 0.01$, quindi anche i tassi
+piccoli, positivi o negativi, conservano tutte le cifre; $n^*$ coincide con un riferimento
+indipendente a 50 cifre entro circa $10^{-24}$, anche con tassi di $\pm 10^{-9}$ e $-10^{-11}$
+per periodo. Il numero delle rate e l'ultima rata non dipendono da questa precisione: $N$ è
+confermato dalla ricorrenza del debito residuo, che usa solo moltiplicazioni e sottrazioni ed è
+esatta fino all'ultima delle 28 cifre significative del motore. I casi di riferimento sono
+verificati a $10^{-20}$.
 
 ## Verificato con
 
-- Casi di riferimento in `tests/golden/loans.number_of_instalments/`, da un calcolo
+- Casi di riferimento in `tests/golden/loans.number_of_instalments/`, da un riferimento
   indipendente a 50 cifre (`scripts/reference_loans.py`), compresa la rata dell'esempio svolto
-  di ECMA-376, che restituisce esattamente 10 rate.
-- `numpy_financial.nper` su finanziamenti casuali, per entrambi i momenti di pagamento.
+  di ECMA-376, che restituisce esattamente 10 rate, e tassi negativi piccoli su 1200 e 10000
+  periodi.
+- La funzione del numero di periodi di `numpy_financial` su finanziamenti casuali, per entrambi
+  i momenti di pagamento.

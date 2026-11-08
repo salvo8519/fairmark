@@ -1,7 +1,6 @@
 method: loans.amortisation_schedule
 description: "Unknown amortisation type"
 source: >
-  Requirement R2, R15, R16, R17, R19 or R21 of SPEC-0009: the error code is part of the
-  specification.
+  SPEC-0009 R3 (an unknown value is an invalid field, FM-E001) and R12 (the three amortisation types); AC12. The error code is part of the specification.
 input: { principal: "1000", periodic_rate: "0.01", number_of_instalments: 12, timing: "ordinary", amortisation_type: "german" }
 expect_error: FM-E001

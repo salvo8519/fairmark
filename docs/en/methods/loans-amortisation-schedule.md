@@ -159,19 +159,31 @@ adjustment, and the totals. The rows carry the numbers of every period.
 
 ## Accuracy
 
-Each period uses one multiplication and two subtractions on 28 significant digits. An error in
-the last digit of the instalment grows by $(1 + i)$ per period, so on realistic loans the rows
-agree with an independent 50-digit computation to about $10^{-22}$ of the principal or better;
-the final balance is exactly zero by construction. The golden cases are checked to $10^{-20}$,
-or exactly where every value is a terminating decimal.
+Each period uses one multiplication and two subtractions, so every row holds to the last of
+the engine's 28 significant digits: instalment = interest portion + principal portion, closing
+balance = opening balance − principal portion, and the principal portions add up to the
+principal. The final outstanding balance is always exactly zero, by construction.
+
+The instalment itself is stored with 28 significant digits. The last period pays the balance
+actually left, so the final adjustment absorbs that storage error, amplified by $(1 + i)$ per
+period. Measured without rounding: about $10^{-21}$ on 360 monthly periods; $1.3 \times 10^{-17}$
+at 10000 periods at 0.1%; $2.9 \times 10^{-13}$ at 25% over 100 periods. It stays below
+$10^{-18}$ of the principal while $(1 + i)^n \le 10^{10}$ (for example 1200 periods at 1.9%, or
+470 periods at 5%); beyond that it grows with $(1 + i)^n$, to about 400 on a principal of
+150,000 at 5% over 1200 periods, which is the consequence of the 28th digit of the instalment,
+not of the recurrence. The present value of the instalments equals the principal within
+$10^{-18}$ relative in every case. With rounding, the adjustment is dominated by the rounding
+itself. The golden cases are checked to $10^{-20}$, or exactly where every value is a
+terminating decimal.
 
 ## Verified against
 
-- Two textbook worked examples, within half a cent (the books round every entry to the cent):
-  Valerie Watts, *Business and Financial Mathematics* (Fanshawe College Pressbooks), section
-  6.1, the 50,000 business loan; Jean-Paul Olivier, *Business Math: A Step-by-Step Handbook*
-  (Lyryx Learning, 2018 Revision A), Example 13.3A.
+- Two textbook worked examples, within half a cent: Valerie Watts, *Business and Financial
+  Mathematics* (Fanshawe College Pressbooks), section 6.1, the 50,000 business loan; Jean-Paul
+  Olivier, *Business Math: A Step-by-Step Handbook* (Lyryx Learning, 2018 Revision A), Example
+  13.3A.
 - Golden cases in `tests/golden/loans.amortisation_schedule/`: the ECMA-376 worked examples of
-  the principal portion and an independent 50-digit computation (`scripts/reference_loans.py`),
+  the principal portion and an independent 50-digit reference (`scripts/reference_loans.py`),
   which is also compared row by row on random loans of the three types.
-- `numpy_financial.ipmt` and `numpy_financial.ppmt` for French schedules without rounding.
+- The interest-portion and principal-portion functions of `numpy_financial` for French
+  schedules without rounding.

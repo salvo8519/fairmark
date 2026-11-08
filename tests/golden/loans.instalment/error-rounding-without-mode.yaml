@@ -1,6 +1,6 @@
 method: loans.instalment
 description: "Rounding without a mode (AC9)"
 source: >
-  Requirement R1a, R3, R7 or R19 of SPEC-0009: the error code is part of the specification.
+  SPEC-0009 R19 (no default mode); AC9 (rounding without a mode returns FM-E001). The error code is part of the specification.
 input: { principal: "1000", periodic_rate: "0.01", number_of_instalments: 12, timing: "ordinary", rounding: { decimal_places: 2 } }
 expect_error: FM-E001

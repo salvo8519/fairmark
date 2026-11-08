@@ -1,6 +1,6 @@
 ---
 source: methods/tvm-future-value.md
-source_hash: fa7cef7d2e87
+source_hash: 62391b501339
 ---
 # Valore futuro (`tvm.future_value`)
 
@@ -12,15 +12,16 @@ ammortamento o il saldo di un deposito con prelievi regolari.
 ## Formula
 
 $$
-FV = PV\,(1 + r)^{n} + PMT\,\frac{(1 + r)^{n} - 1}{r}\,\times
+FV = PV\,(1 + r)^{n} + A\,\frac{(1 + r)^{n} - 1}{r}\,\times
 \begin{cases}
 1 & \text{posticipata} \\
 (1 + r) & \text{anticipata}
 \end{cases}
 \qquad
-FV = PV + n\,PMT \text{ quando } r = 0
+FV = PV + n\,A \text{ quando } r = 0
 $$
 
+dove $PV$ è l'importo attuale e $A$ il pagamento costante di ogni periodo.
 Il motore capitalizza fino a $t = n$ il fattore di rendita di [`tvm.annuity`](tvm-annuity.md):
 i due metodi condividono un'unica implementazione.
 
@@ -75,7 +76,7 @@ print(overdrawn.conventions[1])  # sign convention: amounts of the same sign acc
 | Momento di pagamento | posticipato, anticipato | nessuno: va scelto |
 | Segno | lo stesso segno si accumula, un importo negativo è un prelievo | fissa |
 | Importo attuale, pagamento | qualsiasi importo | 0 ciascuno, riportato come default; non entrambi omessi |
-| Tasso zero | limite $PV + n\,PMT$, mostrato come passaggio separato | applicato quando $r = 0$ |
+| Tasso zero | limite $PV + n\,A$, mostrato come passaggio separato | applicato quando $r = 0$ |
 | Data del valore futuro | $t = n$ per entrambi i momenti di pagamento | fissa |
 
 ## Errori
@@ -89,14 +90,14 @@ print(overdrawn.conventions[1])  # sign convention: amounts of the same sign acc
 ## Precisione
 
 Solo potenze intere, moltiplicazioni e divisioni; il fattore di rendita divide per $1 + r$,
-quindi i valori che sono decimali finiti risultano esatti a circa $10^{-24}$ in termini
-relativi. I casi di riferimento sono verificati a $10^{-20}$ rispetto a un calcolo indipendente
-a 50 cifre.
+quindi i valori che sono decimali finiti risultano esatti fino all'ultima delle 28 cifre
+significative del motore, non esattamente. I casi di riferimento sono verificati a $10^{-20}$
+rispetto a un riferimento indipendente a 50 cifre.
 
 ## Verificato con
 
 - Casi di riferimento in `tests/golden/tvm.future_value/`: gli esempi svolti di ECMA-376 della
-  funzione del valore futuro e un calcolo indipendente a 50 cifre
+  funzione del valore futuro e un riferimento indipendente a 50 cifre
   (`scripts/reference_loans.py`).
-- `numpy_financial.fv` su input casuali, per entrambi i momenti di pagamento, con i segni
-  invertiti.
+- La funzione del valore futuro di `numpy_financial` su input casuali, per entrambi i momenti di
+  pagamento, con i segni invertiti.

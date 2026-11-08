@@ -1,6 +1,6 @@
 method: loans.instalment
 description: "Zero instalments (AC12)"
 source: >
-  Requirement R1a, R3, R7 or R19 of SPEC-0009: the error code is part of the specification.
+  SPEC-0009 R3 (zero instalments are FM-E001); AC12. The error code is part of the specification.
 input: { principal: "1000", periodic_rate: "0.01", number_of_instalments: 0, timing: "ordinary" }
 expect_error: FM-E001

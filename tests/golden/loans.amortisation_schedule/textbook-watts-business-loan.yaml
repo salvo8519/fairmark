@@ -6,11 +6,17 @@ source: >
   eCampusOntario Open Library on 2023-06-01 (no edition number printed; adapted from J.
   Olivier, Business Math: A Step-by-Step Handbook, Lyryx), section 6.1 Amortization Schedules,
   worked example of a 50,000 business loan at 5% compounded quarterly with semi-annual payments
-  for three years, printed pages 543 to 545; schedule read at
+  for three years, printed pages 543 to 545; figures read at
   https://ecampusontario.pressbooks.pub/businessfinancialmath/chapter/6-1-amortization-schedule/
-  (verified 2026-11-08). The book rounds every entry to the cent and adjusts the last payment
-  (9082.26); the engine rounds only the instalment (R19) and keeps the interest exact, so the
-  printed cents agree within half a cent.
+  (verified 2026-11-08). The book prints the payment 9,082.24, the balances 42,175.57,
+  34,154.31, 25,931.27, 17,501.36, 8,859.39 and 0.00, the final payment 9,082.26 (interest
+  222.87 plus principal 8,859.39) and total interest 4,493.46. Although the text says to round
+  the entries to two decimal places, the printed rows are full-precision values displayed to
+  two decimals: for example 34,154.31 - 8,223.05 = 25,931.26, while 25,931.27 is printed. The
+  comparison therefore runs the engine with only the payment rounded to the cent (R19), interest
+  portions and balances unrounded, against the printed figures with a tolerance of 0.005. A
+  strict cent-by-cent schedule would differ by one cent in rows 3 to 6 (25,931.26, 17,501.35,
+  8,859.38, final payment 9,082.25, total interest 4,493.45).
 input: { principal: "50000", rate: "0.05", compounding: "quarterly", payment_frequency: "semi_annual", number_of_instalments: 6, timing: "ordinary", amortisation_type: "french", rounding: { decimal_places: 2, mode: "half_up" } }
 expect:
   /rows/0/instalment: "9082.24"

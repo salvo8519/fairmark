@@ -1,6 +1,6 @@
 method: loans.number_of_instalments
 description: "More than 10000 instalments needed (R9)"
 source: >
-  Requirement R3, R8 or R9 of SPEC-0009: the error code is part of the specification.
+  SPEC-0009 R9 (FM-E001 when the number of instalments exceeds 10000). The error code is part of the specification.
 input: { principal: "1000", periodic_rate: "0.001", timing: "ordinary", instalment: "1.0000001" }
 expect_error: FM-E001

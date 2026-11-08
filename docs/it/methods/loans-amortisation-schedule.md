@@ -1,6 +1,6 @@
 ---
 source: methods/loans-amortisation-schedule.md
-source_hash: 5bc4258b419e
+source_hash: e0c6fae1511b
 ---
 # Piano di ammortamento (`loans.amortisation_schedule`)
 
@@ -166,22 +166,33 @@ periodo.
 
 ## Precisione
 
-Ogni periodo usa una moltiplicazione e due sottrazioni su 28 cifre significative. Un errore
-nell'ultima cifra della rata cresce di $(1 + i)$ a ogni periodo, quindi su finanziamenti
-realistici le righe coincidono con un calcolo indipendente a 50 cifre entro circa $10^{-22}$
-del capitale o meglio; il debito residuo finale è esattamente zero per costruzione. I casi di
-riferimento sono verificati a $10^{-20}$, oppure esattamente quando tutti i valori sono decimali
-finiti.
+Ogni periodo usa una moltiplicazione e due sottrazioni, quindi ogni riga è esatta fino
+all'ultima delle 28 cifre significative del motore: rata = quota interessi + quota capitale,
+debito residuo finale del periodo = debito residuo iniziale − quota capitale, e le quote
+capitale sommano al capitale. Il debito residuo finale è sempre esattamente zero, per
+costruzione.
+
+La rata è memorizzata con 28 cifre significative. L'ultimo periodo paga il debito residuo
+effettivamente rimasto, quindi la rettifica dell'ultima rata assorbe quell'errore di
+memorizzazione, amplificato di $(1 + i)$ a ogni periodo. Misurata senza arrotondamento: circa
+$10^{-21}$ su 360 periodi mensili; $1.3 \times 10^{-17}$ su 10000 periodi allo 0,1%;
+$2.9 \times 10^{-13}$ al 25% su 100 periodi. Resta sotto $10^{-18}$ del capitale finché
+$(1 + i)^n \le 10^{10}$ (ad esempio 1200 periodi all'1,9%, oppure 470 periodi al 5%); oltre
+cresce con $(1 + i)^n$, fino a circa 400 su un capitale di 150.000 al 5% su 1200 periodi, che è
+la conseguenza della ventottesima cifra della rata, non della ricorrenza. Il valore attuale delle
+rate coincide con il capitale entro $10^{-18}$ in termini relativi in ogni caso. Con
+l'arrotondamento, la rettifica è dominata dall'arrotondamento stesso. I casi di riferimento sono
+verificati a $10^{-20}$, oppure esattamente quando tutti i valori sono decimali finiti.
 
 ## Verificato con
 
-- Due esempi svolti da libri di testo, entro mezzo centesimo (i libri arrotondano ogni voce al
-  centesimo): Valerie Watts, *Business and Financial Mathematics* (Fanshawe College
-  Pressbooks), sezione 6.1, il finanziamento alle imprese di 50.000; Jean-Paul Olivier,
-  *Business Math: A Step-by-Step Handbook* (Lyryx Learning, 2018 Revision A), Example 13.3A.
+- Due esempi svolti da libri di testo, entro mezzo centesimo: Valerie Watts, *Business and
+  Financial Mathematics* (Fanshawe College Pressbooks), sezione 6.1, il finanziamento alle
+  imprese di 50.000; Jean-Paul Olivier, *Business Math: A Step-by-Step Handbook* (Lyryx
+  Learning, 2018 Revision A), Example 13.3A.
 - Casi di riferimento in `tests/golden/loans.amortisation_schedule/`: gli esempi svolti di
-  ECMA-376 della quota capitale e un calcolo indipendente a 50 cifre
+  ECMA-376 della quota capitale e un riferimento indipendente a 50 cifre
   (`scripts/reference_loans.py`), confrontato anche riga per riga su finanziamenti casuali dei
   tre tipi.
-- `numpy_financial.ipmt` e `numpy_financial.ppmt` per piani alla francese senza
-  arrotondamento.
+- Le funzioni della quota interessi e della quota capitale di `numpy_financial` per piani alla
+  francese senza arrotondamento.
