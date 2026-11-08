@@ -220,10 +220,16 @@ def current_notes() -> None:
     (GENERATED / "CHANGELOG.md").write_text(changelog, encoding="utf-8")
 
 
+def roadmap_page() -> None:
+    """Tables of the roadmap page, generated from roadmap/roadmap.yaml (never committed)."""
+    subprocess.run([sys.executable, "scripts/roadmap.py", "page"], cwd=ROOT, check=True)
+
+
 def prepare() -> None:
     copy_shared()
     italian_config()
     current_notes()
+    roadmap_page()
 
 
 def main() -> None:
