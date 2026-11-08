@@ -74,6 +74,18 @@ Approved by the maintainer on 2026-11-08.
     associates, parents and sister companies) are not separated from the remainder of D in this
     version; moving their financial part into the net financial position is a separate issue,
     not the first pull request. The limitation is stated on the methodology page.
+- **Approvals of 2026-11-08 (maintainer, after the second review round of the first pull
+  request).** Approved by the maintainer on 2026-11-08:
+  - **M1, R12 clarified.** In the statutory form, when the items given do not balance once the
+    separate-line items taken as zero are counted (item A, D1; the separate lines D and E when
+    assets D or liabilities E are presented within C.II or D), the method raises `FM-E026`
+    naming those items and stating the fix; `FM-E012` stays reserved for the case where every
+    item was given.
+  - **M2, separate lines D and E.** When prepayments and accrued income are presented within
+    C.II, or accruals and deferred income within D, the separate line D or E is taken as zero
+    and listed in `meta.defaults_applied` (row added to the conventions table). A part
+    presented within C.II or D counts as given for the relations of R7: only item A (D1) and
+    the "of which" parts not given (D2) exempt a relation from the check.
 
 ## Analysis
 
@@ -255,7 +267,9 @@ IRAP (SPEC-0003); ratios and margins (SPEC-0007).
   same items and labels returned for the bridge, never part of `invested_capital`), and the
   sources (`equity`, quasi-equity items, `net_financial_position`, `debt_like_items`); and SHALL
   hold `total_funds_invested` = sources exactly (`FM-E026` in the reclassified form when both
-  sides are given; `FM-E012` in the statutory form, where it follows from R7).
+  sides are given; in the statutory form, `FM-E026` naming the separate-line items taken as zero
+  when the items given do not balance once those are counted (M1), and `FM-E012` when every
+  item was given, where it follows from R7).
 - **R13** — THE ENGINE SHALL return the net financial position in the `NetFinancialPosition` type
   of SPEC-0007 R6 (positive for net debt), with its composition by source and its current and
   non-current parts, its total computed by the SPEC-0007 function; C.III and all of C.IV are in
@@ -344,7 +358,7 @@ IRAP (SPEC-0003); ratios and margins (SPEC-0007).
 | Treatments; adjustments | stated once; adjustment amounts per year; overrides for B.III and shareholder loans | fixed | Revision 4 |
 | Provisions B, TFR C | `operating_provision`; `debt_like` by adjustment | default | Decision 5; ESMA32-382-1138 guideline 39 (V15) |
 | Item A not given | zero, listed in `meta.defaults_applied` | default | D1 |
-| "Of which" parts not given (A and D within C.II, E within D, derivatives within B) | none, listed in `meta.defaults_applied` | default | D2 |
+| "Of which" parts not given (A and D within C.II, E within D, derivatives within B) | none, listed in `meta.defaults_applied`; separate lines D and E taken as zero when prepayments or accruals are presented within C.II or D, also listed | default | D2; M2 |
 | Derivatives | liabilities treated as financial: non-current in the NFP; assets follow B.III (non-current) or C.III (current) | fixed, stated | D3 |
 | B.III; shareholder loans; derivatives in B | required treatment when given and not zero | none | Decisions 5, 6, 10 |
 | Net financial position | SPEC-0007 structure; C.III and C.IV inside; operating cash by adjustment | default | Decision 11; ESMA (V15) |

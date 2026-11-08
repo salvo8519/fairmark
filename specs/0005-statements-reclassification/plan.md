@@ -139,7 +139,7 @@ provisions non-current) remain conventions, not defaults.
 | `FM-E001` | `InvalidInput` (reused) | R2, R3, R5, R8, R9, R10, R18 |
 | `FM-E008` | reused (overflow) | R24 |
 | `FM-E009` | `InvalidDate` (reused) | R2 |
-| `FM-E012` | `Internal` (reused): a broken identity of R12 in the statutory form is a defect | R12 |
+| `FM-E012` | `Internal` (reused): a broken identity of R12 in the statutory form with every item given is a defect; with separate-line items taken as zero it is `FM-E026` naming them (M1) | R12 |
 | `FM-E026` | `StatementsDoNotReconcile` (new): both amounts, difference, pointers, fix | R7, R10, R12 |
 
 `FM-E026` is the next free code, on this branch and on main (`FM-E025` is the last used,
