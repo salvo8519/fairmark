@@ -83,18 +83,18 @@ Present value of dated flows at a valuation date, with explicit day count and co
 
 ## `tvm.irr`
 
-**Internal rate of return** · method version 2 · status available · tool `fairmark_tvm_irr`
+**Internal rate of return** · method version 3 · status available · tool `fairmark_tvm_irr`
 
 Rate at which the NPV of a periodic cash flow series is zero, solved deterministically; refuses inputs with more than one IRR.
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `cash_flows` | list of decimal | yes |  | Cash flows; the first one occurs at t = 0. Needs at least one sign change. |
-| `guess` | decimal | no |  | Starting point for Newton's method, decimal fraction per period. Default: 0.10. |
+| `guess` | decimal | no |  | Starting point for Newton's method, decimal fraction per period, greater than -1 (-100%). Default: 0.10. |
 
 ## `tvm.xirr`
 
-**Internal rate of return of dated cash flows (XIRR)** · method version 1 · status available · tool `fairmark_tvm_xirr`
+**Internal rate of return of dated cash flows (XIRR)** · method version 2 · status available · tool `fairmark_tvm_xirr`
 
 Annual rate at which the XNPV of dated flows is zero, solved deterministically; refuses inputs with more than one rate.
 
@@ -103,7 +103,7 @@ Annual rate at which the XNPV of dated flows is zero, solved deterministically; 
 | `cash_flows` | list of object | yes |  | Dated cash flows, in any order; at least one positive and one negative amount. |
 | `day_count` |  | no |  | Day count for the time between dates. Default: `act_365_fixed` (ECMA-376 XIRR). |
 | `compounding` |  | no |  | Compounding of the returned rate. Default: `annual` (ECMA-376 XIRR). |
-| `guess` | decimal | no |  | Starting point for Newton's method, annual decimal fraction. Default: 0.10 (ECMA-376 XIRR). |
+| `guess` | decimal | no |  | Starting point for Newton's method, annual decimal fraction in the compounding of the result: the guess per compounding period must be greater than -1 (-100%), so greater than -1 with annual compounding and no bound with continuous compounding. Default: 0.10 (ECMA-376 XIRR). |
 
 ## `tvm.mirr`
 

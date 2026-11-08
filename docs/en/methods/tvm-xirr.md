@@ -7,6 +7,10 @@ solver is deterministic, refuses inputs for which more than one rate solves the 
 states whether the rate it returns is proven unique. With the defaults, the result is that of
 the spreadsheet `XIRR` function.
 
+Method version: 2. Version 2 refuses a `guess` outside the domain of the rate (the guess per
+compounding period at or below −100%) with `FM-E003` before any iteration; version 1 ignored
+such a guess. Results for any other guess are unchanged.
+
 ## Formula
 
 Finds $r$ such that
@@ -75,7 +79,7 @@ further rates in pairs cannot be excluded. With $s = 1$ the rate is proven uniqu
 | `cash_flows` | Dated flows `{date, amount}`, in any order; at least one positive and one negative amount | required |
 | `day_count` | `act_365_fixed`, `act_360`, `act_act_isda`, `thirty_360` or `thirty_e_360` | `act_365_fixed` |
 | `compounding` | Compounding of the returned rate: `annual`, `semi_annual`, `quarterly`, `monthly` or `continuous` | `annual` |
-| `guess` | Starting point for Newton's method, annual decimal fraction | `0.10` |
+| `guess` | Starting point for Newton's method, annual decimal fraction in the compounding of the result; the guess per compounding period, $guess/m$, must be greater than −1 (no bound with continuous compounding) | `0.10` |
 
 ## Outputs
 
@@ -108,6 +112,7 @@ states whether uniqueness is proven or not verified, with the reason.
 | --- | --- |
 | `FM-E001` | A field is missing or unknown, or a convention is not one of the listed options |
 | `FM-E002` | `cash_flows` is empty |
+| `FM-E003` | The guess per compounding period, $guess/m$, is −100% or lower (with annual compounding, `guess` ≤ −1): Newton's method cannot start there; the message names `/guess`. Checked before any iteration |
 | `FM-E005` | No root was bracketed on the grid and Newton's method from `guess` did not converge; the rate may lie outside the decimal range or far from `guess`: give a `guess` near the expected rate |
 | `FM-E006` | `cash_flows` has no positive or no negative amount, as given or after flows on the same date are netted (the message says which) |
 | `FM-E008` | Arithmetic overflow while refining the root |

@@ -1,6 +1,6 @@
 ---
 source: methods/tvm-irr.md
-source_hash: 3b844ef59050
+source_hash: e4fa4944b73e
 ---
 # Tasso interno di rendimento (`tvm.irr`)
 
@@ -11,7 +11,10 @@ restituito è dimostrata. Per flussi in date di calendario usa [`tvm.xirr`](tvm-
 dichiarare in modo esplicito i tassi di finanziamento e di reinvestimento usa
 [`tvm.mirr`](tvm-mirr.md).
 
-Versione del metodo: 2. La versione 2 aggiunge la scansione su griglia, la verifica di
+Versione del metodo: 3. La versione 3 rifiuta un `guess` pari o inferiore a −100% con
+`FM-E003` prima di ogni iterazione; la versione 2 ignorava un guess di questo tipo (il metodo
+di Newton falliva subito e l'algoritmo ricorreva alla bisezione, oppure restituiva `FM-E005`).
+I risultati per ogni altro guess non cambiano. La versione 2 ha aggiunto la scansione su griglia, la verifica di
 unicità, l'output `uniqueness_verified` e l'errore `FM-E011`. Gli input con un solo cambio di
 segno e un TIR compreso nella griglia danno lo stesso risultato della versione 1; gli input il
 cui unico tasso è fuori dalla griglia mentre i flussi cambiano segno più di una volta ora
@@ -96,7 +99,7 @@ preferisci il VAN al costo del capitale, oppure [`tvm.mirr`](tvm-mirr.md).
 | Campo | Significato | Default |
 | --- | --- | --- |
 | `cash_flows` | Flussi di cassa, il primo in $t = 0$; almeno uno positivo e uno negativo | obbligatorio |
-| `guess` | Punto di partenza del metodo di Newton, frazione decimale per periodo | `0.10` |
+| `guess` | Punto di partenza del metodo di Newton, frazione decimale per periodo, maggiore di −1 (−100%) | `0.10` |
 
 ## Output
 
@@ -126,6 +129,7 @@ preferisci il VAN al costo del capitale, oppure [`tvm.mirr`](tvm-mirr.md).
 | --- | --- |
 | `FM-E001` | Un campo è mancante o sconosciuto |
 | `FM-E002` | `cash_flows` è vuoto |
+| `FM-E003` | `guess` è pari o inferiore a −100%: il metodo di Newton non può partire da lì; il messaggio indica `/guess`. Verificato prima di ogni iterazione |
 | `FM-E005` | Nessuna radice è stata isolata sulla griglia e il metodo di Newton a partire da `guess` non converge; il tasso può trovarsi fuori dall'intervallo dei decimali o lontano da `guess`: indica un `guess` vicino al tasso atteso |
 | `FM-E006` | `cash_flows` non contiene alcun importo positivo o alcun importo negativo |
 | `FM-E008` | Overflow aritmetico durante il raffinamento della radice |
