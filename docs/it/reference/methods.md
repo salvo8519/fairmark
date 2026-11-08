@@ -427,7 +427,7 @@ Value of operations, enterprise value and equity value from FCFF discounted at t
 
 ## `dcf.free_cash_flows`
 
-**Free cash flow build-up (FCFF and FCFE)** · versione del metodo 1 · tool `fairmark_dcf_free_cash_flows`
+**Free cash flow build-up (FCFF and FCFE)** · versione del metodo 1 · stato anteprima · tool `fairmark_dcf_free_cash_flows`
 
 FCFF per period from EBIT, taxes on EBIT (a rate or amounts), depreciation and amortisation, capital expenditure, change in net working capital and labelled adjustments; FCFE when interest expense and net borrowing are given. Not discounted.
 
