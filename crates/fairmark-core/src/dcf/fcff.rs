@@ -241,8 +241,8 @@ pub fn fcff(input: &DcfFcffInput) -> Result<(DcfFcffOutput, Explain)> {
     check_claims(
         &input.non_controlling_interests,
         "non_controlling_interests",
-        "a non-controlling interest is zero or more (a holding in another company belongs in \
-         `non_operating_assets`)",
+        "a non-controlling interest is zero or more (SPEC-0001 R25); give zero or a positive \
+         amount",
     )?;
     let out = engine::run(&engine_input, &mut ex)?;
 
@@ -1249,7 +1249,8 @@ mod tests {
                 "non_controlling_interests",
                 claim("Minority", "-1", "book value"),
                 "`/non_controlling_interests/0/value`",
-                "zero or more",
+                "a non-controlling interest is zero or more (SPEC-0001 R25); give zero or a \
+                 positive amount",
             ),
             (
                 "debt_like_items",
