@@ -78,20 +78,20 @@ golden file is edited; if a task would change one, stop and ask the maintainer.
 - [x] T16 [P] Oracle tests (Python, `oracles` group, CI matrix): random schedules against
       python-dateutil and QuantLib, every named frequency and `period_months` 1 to 36, year
       fractions against the QuantLib day counters (AC2, AC3).
-- [ ] T17 [P] Methodology pages `docs/en/methods/dates-schedule.md` and
+- [x] T17 [P] Methodology pages `docs/en/methods/dates-schedule.md` and
       `docs/en/methods/series-project.md` (docs-writer): [start, end) first with a plain-text
       timeline, the table of names and tenors and `period_months`, the end-of-month examples,
       the growth-basis comparison and the rule for other period lengths, the chained example
       `dates.schedule` → `series.project` → `tvm.xnpv` with the 1 April and 31 March dating,
       "Verified against"; the sources read for the terms marked "to verify".
-- [ ] T18 [P] Navigation and catalogues: `zensical.toml`, `docs/en/methods/index.md`,
+- [x] T18 [P] Navigation and catalogues: `zensical.toml`, `docs/en/methods/index.md`,
       `i18n/method_titles/it.yaml`, `i18n/glossary.yaml`, `skills/fairmark/SKILL.md`
       (docs-writer).
-- [ ] T19 [P] Release-note fragment for #206 in `changes/` (per `changes/README.md`): two new
+- [x] T19 [P] Release-note fragment for #206 in `changes/` (per `changes/README.md`): two new
       preview methods and two new frequencies, in plain language for analysts.
-- [ ] T20 Italian edition with `/translate` (translator), using `i18n/glossary.yaml`;
+- [x] T20 Italian edition with `/translate` (translator), using `i18n/glossary.yaml`;
       `uv run just i18n` clean.
-- [ ] T21 Docs coverage and sync green: `scripts/docs_sync.py coverage` and `impact`,
+- [x] T21 Docs coverage and sync green: `scripts/docs_sync.py coverage` and `impact`,
       `uv run just docs`.
 
 ## Verification
@@ -103,7 +103,7 @@ golden file is edited; if a task would change one, stop and ask the maintainer.
       this spec: decimal-only arithmetic, no adapter logic, schema docs, explain completeness,
       errors with pointers and fixes, a test for every acceptance criterion; fixes in their own
       commits.
-- [ ] T24 Method evidence: entry `"0010"` in `specs/method-evidence.yaml` with methods
+- [x] T24 Method evidence: entry `"0010"` in `specs/method-evidence.yaml` with methods
       `dates.schedule` and `series.project`, `numerical_audit: T22`, `code_review: T23`; both
       methods stay `preview` (not in `AVAILABLE`); `python scripts/method_status.py check`
       green. Promotion is a separate maintainer decision.
