@@ -59,7 +59,8 @@ To change an agent or a skill, edit `.agents/` and run `uv run just generate`; n
 
 ### Hooks (`.claude/settings.json`)
 - Edited `.rs` / `.py` files are formatted automatically after each edit.
-- Edits to **existing** files in `tests/golden/` are blocked: ask the maintainer.
+- Edits to golden cases that already exist on `origin/main` are blocked in every git worktree
+  (`.claude/hooks/protect_golden.py`): ask the maintainer. Cases added on the branch stay editable.
 - Every request is read with the roadmap in mind (`UserPromptSubmit` reminder): propose the
   roadmap change with `/roadmap-update` when a request adds, changes or drops planned work.
 
