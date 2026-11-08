@@ -1,6 +1,6 @@
 ---
 source: methods/tv-normalised-income.md
-source_hash: 46d03c027e7c
+source_hash: d0de776f5067
 ---
 # Valore terminale con la capitalizzazione del reddito normalizzato (`tv.normalised_income`)
 
@@ -38,7 +38,7 @@ assert grown.growth_cap["status"] == "respected"
 | Campo | Significato | Default |
 | --- | --- | --- |
 | `income` | Reddito normalizzato R del periodo N + 1, in unità monetarie | obbligatorio |
-| `capitalisation_rate` | Tasso di capitalizzazione i, frazione decimale per periodo; superiore alla crescita (superiore a 0 senza crescita) | obbligatorio |
+| `capitalisation_rate` | Tasso di capitalizzazione i, frazione decimale per periodo, maggiore di 0 e della crescita | obbligatorio |
 | `growth` | Crescita perpetua del reddito, frazione decimale per periodo, maggiore di −1 e inferiore a i | nessuna (R / i) |
 | `growth_cap` | Limite alla crescita, frazione decimale per periodo | nessuno, riportato come assente |
 
@@ -62,7 +62,8 @@ assert grown.growth_cap["status"] == "respected"
 | Codice | Quando |
 | --- | --- |
 | `FM-E001` | La crescita è pari o inferiore a −100%, oppure un campo manca o è sconosciuto |
-| `FM-E004` | La crescita è pari o superiore al tasso di capitalizzazione, oppure il tasso è zero o negativo senza crescita |
+| `FM-E004` | La crescita è pari o superiore al tasso di capitalizzazione |
+| `FM-E018` | Il tasso di capitalizzazione è pari a zero o negativo (verificato per primo) |
 | `FM-E008` | Overflow aritmetico (input molto lontani da un intervallo realistico) |
 
 ## Precisione

@@ -12,7 +12,8 @@ TV_N = \sum \text{realisable values} - \sum \text{liabilities}
 - \sum \text{liquidation costs} - \text{tax on gains}
 $$
 
-The result is negative when the liabilities and costs exceed the realisable values.
+The result is negative when the liabilities and costs exceed the realisable values; it is
+returned as is, with no floor at zero, and the convention says so.
 
 ## Example
 
@@ -31,6 +32,10 @@ assert r.terminal_value == Decimal("320")
 assert r.total_liabilities == Decimal("850")
 for step in r.steps[:3]:
     print(step.label, step.value)  # Assets: Land 800, Assets: Plant 300, Assets: Receivables 200
+
+# Lists of (label, amount) pairs are accepted too
+pairs = fm.tv.liquidation([("Lot", 500), ("Lot", 300)], [("Suppliers", 100)], [], 0)
+assert pairs.terminal_value == Decimal("700")
 ```
 
 ## Inputs
@@ -42,7 +47,7 @@ for step in r.steps[:3]:
 | `liquidation_costs` | List of `{label, value}`: legal fees, closure, severance, zero or positive | required |
 | `tax_on_gains` | Tax on the gains realised, as an amount, zero or positive | required |
 
-A list may be empty. Labels must not be empty.
+`assets` needs at least one line; the other lists may be empty. Labels must not be empty.
 
 ## Outputs
 
@@ -60,13 +65,14 @@ A list may be empty. Labels must not be empty.
 | --- | --- | --- |
 | Timing | assets realised and liabilities settled at N | fixed |
 | Tax on gains | given as an amount | fixed: not computed from a rate |
+| Negative net value | returned as is | fixed: no floor at zero |
 | Basis | the liabilities listed decide it: with financial debt the value is an equity value | analyst's choice |
 
 ## Errors
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | A label is empty, or a field is missing or unknown |
+| `FM-E001` | `assets` is empty, a label is empty, or a field is missing or unknown |
 | `FM-E018` | An asset value, a liability, a liquidation cost or the tax on gains is negative |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 

@@ -1,6 +1,6 @@
 ---
 source: methods/tv-compare.md
-source_hash: 1994ab9f43c6
+source_hash: ff898f0228aa
 ---
 # Confronto tra tecniche di valore terminale (`tv.compare`)
 
@@ -30,7 +30,17 @@ Ogni tecnica è calcolata dal proprio metodo, quindi una riga del confronto coin
 risultato di quel metodo eseguito da solo. Passaggi e convenzioni di ciascuna tecnica compaiono
 in `explain`, preceduti dalla posizione e dall'id, ad esempio
 `[1] tv.gordon: Terminal value at N`. La prima tecnica che fallisce restituisce il proprio
-errore; non ci sono risultati parziali.
+errore; non ci sono risultati parziali. Una tecnica deve avere esattamente una chiave, l'id
+del metodo; una voce con più chiavi è rifiutata con un messaggio che le elenca.
+
+Ogni riga riporta `method_version`, la versione della tecnica che l'ha prodotta. Una modifica
+numerica in qualsiasi metodo `tv.*` richiede quindi anche una nuova versione di `tv.compare`;
+un test vincola le versioni delle tecniche insieme alla versione di `tv.compare`.
+
+`tv.normalised_income` non ha un controllo sull'approccio: reddito e tasso di capitalizzazione
+devono essere sull'approccio dichiarato. Un multiplo di uscita senza `next_flow` non ha una
+crescita implicita, quindi non è confrontato con il limite alla crescita. Entrambi i fatti sono
+dichiarati in `explain.conventions` quando si applicano.
 
 ## Esempio
 
@@ -51,6 +61,7 @@ r = fm.tv.compare(
     growth_cap="0.03",
 )
 values = [row["terminal_value"] for row in r.results]
+assert r.results[0]["method_version"] == "1"
 assert values[0] == Decimal("1275")
 assert values[2] == Decimal("1350")
 assert round(r.results[2]["output"]["implied_growth"], 6) == Decimal("0.029630")
@@ -77,7 +88,7 @@ except fm.FairmarkError as err:
 | Campo | Significato |
 | --- | --- |
 | `basis` | L'approccio dichiarato |
-| `results` | Una riga per tecnica, nell'ordine richiesto: `method`, `terminal_value` e `output`, l'output della tecnica con le sue ipotesi implicite |
+| `results` | Una riga per tecnica, nell'ordine richiesto: `method`, `method_version`, `terminal_value` e `output`, l'output della tecnica con le sue ipotesi implicite |
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
 
@@ -91,7 +102,7 @@ except fm.FairmarkError as err:
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | L'elenco delle tecniche è vuoto, l'id di una tecnica è sconosciuto, oppure un campo manca o è sconosciuto |
+| `FM-E001` | L'elenco delle tecniche è vuoto, una voce ha più di una chiave, l'id di una tecnica è sconosciuto, oppure un campo manca o è sconosciuto |
 | `FM-E019` | Un multiplo di uscita è sull'approccio diverso da quello dichiarato |
 | Qualsiasi codice di una tecnica | La prima tecnica che fallisce restituisce il proprio errore (ad esempio `FM-E004`, `FM-E018`) |
 

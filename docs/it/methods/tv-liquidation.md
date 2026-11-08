@@ -1,6 +1,6 @@
 ---
 source: methods/tv-liquidation.md
-source_hash: 79a74501c273
+source_hash: 302e97693aff
 ---
 # Valore terminale di liquidazione (`tv.liquidation`)
 
@@ -17,7 +17,8 @@ TV_N = \sum \text{valori di realizzo} - \sum \text{passività}
 - \sum \text{costi di liquidazione} - \text{imposte sulle plusvalenze}
 $$
 
-Il risultato è negativo quando passività e costi superano i valori di realizzo.
+Il risultato è negativo quando passività e costi superano i valori di realizzo; è restituito
+così com'è, senza minimo a zero, e la convenzione lo dichiara.
 
 ## Esempio
 
@@ -36,6 +37,10 @@ assert r.terminal_value == Decimal("320")
 assert r.total_liabilities == Decimal("850")
 for step in r.steps[:3]:
     print(step.label, step.value)  # Assets: Land 800, Assets: Plant 300, Assets: Receivables 200
+
+# Sono accettati anche elenchi di coppie (etichetta, importo)
+pairs = fm.tv.liquidation([("Lot", 500), ("Lot", 300)], [("Suppliers", 100)], [], 0)
+assert pairs.terminal_value == Decimal("700")
 ```
 
 ## Input
@@ -47,7 +52,8 @@ for step in r.steps[:3]:
 | `liquidation_costs` | Elenco di `{label, value}`: spese legali, chiusura, indennità al personale, zero o positivi | obbligatorio |
 | `tax_on_gains` | Imposte sulle plusvalenze realizzate, come importo, zero o positivo | obbligatorio |
 
-Un elenco può essere vuoto. Le etichette non possono essere vuote.
+`assets` richiede almeno una voce; gli altri elenchi possono essere vuoti. Le etichette non
+possono essere vuote.
 
 ## Output
 
@@ -65,13 +71,14 @@ Un elenco può essere vuoto. Le etichette non possono essere vuote.
 | --- | --- | --- |
 | Tempistica | attività realizzate e passività estinte in N | fissa |
 | Imposte sulle plusvalenze | fornite come importo | fissa: non calcolate da un'aliquota |
+| Valore netto negativo | restituito così com'è | fissa: nessun minimo a zero |
 | Approccio | lo determinano le passività elencate: includendo il debito finanziario il valore è un equity value | scelta dell'analista |
 
 ## Errori
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | Un'etichetta è vuota, oppure un campo manca o è sconosciuto |
+| `FM-E001` | `assets` è vuoto, un'etichetta è vuota, oppure un campo manca o è sconosciuto |
 | `FM-E018` | Un valore di realizzo, una passività, un costo di liquidazione o le imposte sulle plusvalenze sono negativi |
 | `FM-E008` | Overflow aritmetico (input molto lontani da un intervallo realistico) |
 

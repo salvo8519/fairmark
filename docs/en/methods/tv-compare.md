@@ -24,7 +24,18 @@ that method without `rate` and `growth_cap`:
 Each technique is computed by its own method, so a row of the comparison equals the result of
 that method run alone. Steps and conventions of each technique appear in `explain`, prefixed
 with its position and id, for example `[1] tv.gordon: Terminal value at N`. The first technique
-that fails returns its error; there are no partial results.
+that fails returns its error; there are no partial results. A technique entry must have
+exactly one key, the method id; an entry with several keys is refused with a message that
+lists them.
+
+Each row records `method_version`, the version of the technique that produced it. A numerical
+change in any `tv.*` method therefore requires a new version of `tv.compare` as well; a test
+pins the technique versions together with the version of `tv.compare`.
+
+`tv.normalised_income` has no basis check: its income and capitalisation rate must be on the
+declared basis. An exit multiple without `next_flow` has no implied growth, so it is not
+checked against the growth cap. Both facts are stated in `explain.conventions` when they
+apply.
 
 ## Example
 
@@ -45,6 +56,7 @@ r = fm.tv.compare(
     growth_cap="0.03",
 )
 values = [row["terminal_value"] for row in r.results]
+assert r.results[0]["method_version"] == "1"
 assert values[0] == Decimal("1275")
 assert values[2] == Decimal("1350")
 assert round(r.results[2]["output"]["implied_growth"], 6) == Decimal("0.029630")
@@ -71,7 +83,7 @@ except fm.FairmarkError as err:
 | Field | Meaning |
 | --- | --- |
 | `basis` | The declared basis |
-| `results` | One row per technique, in the order requested: `method`, `terminal_value` and `output`, the technique's own output with its implied assumptions |
+| `results` | One row per technique, in the order requested: `method`, `method_version`, `terminal_value` and `output`, the technique's own output with its implied assumptions |
 
 ## Conventions (explicit, reported in `explain.conventions`)
 
@@ -85,7 +97,7 @@ except fm.FairmarkError as err:
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | The list of techniques is empty, a technique id is unknown, or a field is missing or unknown |
+| `FM-E001` | The list of techniques is empty, an entry has more than one key, a technique id is unknown, or a field is missing or unknown |
 | `FM-E019` | An exit multiple is on the other basis than the one declared |
 | Any code of a technique | The first technique that fails returns its own error (for example `FM-E004`, `FM-E018`) |
 

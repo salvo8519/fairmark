@@ -16,7 +16,13 @@ g_{\text{implied}} = r - \frac{CF_{N+1}}{TV_N}
 $$
 
 The implied growth is the growth at which [`tv.gordon`](tv-gordon.md) on $CF_{N+1}$ and $r$
-returns the same terminal value.
+returns the same terminal value. When the implied growth is not below the rate (a next flow
+of zero or below), the method still returns the value and states in `explain.conventions`
+that the multiple is inconsistent with a stable-growth value.
+
+The multiple applies to the metric of year N (a trailing multiple), stated in
+`explain.conventions`. A book value metric (P/BV or EV over invested capital) is not
+available: its basis is pending a maintainer decision.
 
 ## Example
 
@@ -65,7 +71,9 @@ assert (pe.terminal_value, pe.basis) == (Decimal("600"), "equity")
 
 | Convention | Options | Default |
 | --- | --- | --- |
-| Metric and basis | ebitda, ebit, revenue (enterprise); earnings (equity) | none: must be chosen |
+| Metric and basis | ebitda, ebit, revenue (enterprise); earnings (equity); book value not available | none: must be chosen |
+| Timing of the metric | metric at N (trailing multiple) | fixed |
+| Implied growth not below the rate | reported in `explain.conventions`, not refused | fixed |
 | Rate and next flow of the implied growth | on the basis of the metric | not computed when absent |
 | Growth cap | value or none | none, reported as absent |
 

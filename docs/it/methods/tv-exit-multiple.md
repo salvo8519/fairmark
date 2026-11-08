@@ -1,6 +1,6 @@
 ---
 source: methods/tv-exit-multiple.md
-source_hash: e8f1d96534fb
+source_hash: 9d0aeb6964a5
 ---
 # Valore terminale con il multiplo di uscita (`tv.exit_multiple`)
 
@@ -20,7 +20,14 @@ g_{\text{implicita}} = r - \frac{CF_{N+1}}{TV_N}
 $$
 
 La crescita implicita è quella con cui [`tv.gordon`](tv-gordon.md), su $CF_{N+1}$ e $r$,
-restituisce lo stesso valore terminale.
+restituisce lo stesso valore terminale. Quando la crescita implicita non è inferiore al tasso
+(un flusso successivo pari a zero o negativo), il metodo restituisce comunque il valore e
+dichiara in `explain.conventions` che il multiplo è incoerente con un valore a crescita
+stabile.
+
+Il multiplo si applica alla grandezza dell'anno N (multiplo trailing), come dichiarato in
+`explain.conventions`. Una grandezza patrimoniale (P/BV o EV sul capitale investito) non è
+disponibile: il suo approccio attende una decisione del maintainer.
 
 ## Esempio
 
@@ -69,7 +76,9 @@ assert (pe.terminal_value, pe.basis) == (Decimal("600"), "equity")
 
 | Convenzione | Opzioni | Default |
 | --- | --- | --- |
-| Grandezza e approccio | ebitda, ebit, revenue (asset side); earnings (equity side) | nessuno: va scelto |
+| Grandezza e approccio | ebitda, ebit, revenue (asset side); earnings (equity side); valore contabile non disponibile | nessuno: va scelto |
+| Tempistica della grandezza | grandezza in N (multiplo trailing) | fissa |
+| Crescita implicita non inferiore al tasso | riportata in `explain.conventions`, non rifiutata | fissa |
 | Tasso e flusso successivo della crescita implicita | sull'approccio della grandezza | non calcolata se assenti |
 | Limite alla crescita | valore oppure nessuno | nessuno, riportato come assente |
 

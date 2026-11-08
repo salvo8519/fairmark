@@ -17,7 +17,9 @@ TV_N = \frac{NOPAT_{N+1}\,\left(1 - \dfrac{g}{RONIC}\right)}{r - g}
 $$
 
 When $RONIC = r$ the formula reduces to $TV_N = NOPAT_{N+1} / r$; the method computes it
-directly in that form, so the result is exactly independent of g.
+directly in that form, so the result is exactly independent of g. When RONIC is below g the
+reinvestment rate exceeds 100% and the free cash flow at N + 1 is negative; the method returns
+the value and states it in `explain.conventions`.
 
 ## Example
 
@@ -68,6 +70,7 @@ assert round(up.reinvestment_rate, 6) == Decimal("0.166667")
 | Convention | Options | Default |
 | --- | --- | --- |
 | Growth from reinvestment | reinvestment rate g / RONIC of NOPAT_{N+1} | fixed |
+| Reinvestment rate above 100% | reported in `explain.conventions`, not refused | fixed |
 | Rate of the terminal phase | given, may differ from the explicit phase | none: must be given |
 | Growth cap | value or none | none, reported as absent |
 

@@ -34,7 +34,7 @@ assert grown.growth_cap["status"] == "respected"
 | Field | Meaning | Default |
 | --- | --- | --- |
 | `income` | Normalised income R of period N + 1, in currency units | required |
-| `capitalisation_rate` | Capitalisation rate i, decimal fraction per period; above the growth (above 0 without growth) | required |
+| `capitalisation_rate` | Capitalisation rate i, decimal fraction per period, above 0 and above the growth | required |
 | `growth` | Perpetual growth of the income, decimal fraction per period, above −1 and below i | none (R / i) |
 | `growth_cap` | Upper bound for the growth, decimal fraction per period | none, reported as absent |
 
@@ -58,7 +58,8 @@ assert grown.growth_cap["status"] == "respected"
 | Code | When |
 | --- | --- |
 | `FM-E001` | The growth is −100% or lower, or a field is missing or unknown |
-| `FM-E004` | The growth is equal to or greater than the capitalisation rate, or the rate is zero or negative without growth |
+| `FM-E004` | The growth is equal to or greater than the capitalisation rate |
+| `FM-E018` | The capitalisation rate is zero or negative (checked first) |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 
 ## Accuracy

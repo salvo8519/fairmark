@@ -53,9 +53,10 @@ Choices that follow from the spec text and the maintainer decisions:
   of g in decimal arithmetic too; the output field `value_of_growth` reports `none`, and
   `creates` (RONIC > r) or `destroys` (RONIC < r) otherwise.
 - **Exit multiples (R4, decision 2).** `ebitda`, `ebit`, `revenue` are enterprise measures,
-  `earnings` (P/E) an equity measure; the output reports `basis`. `book_value` (in the R4
-  list and the conventions table) is not implemented: its basis is not settled by the
-  decision (open question 1).
+  `earnings` (P/E) an equity measure; the output reports `basis`. The metric is the one of
+  year N (trailing multiple), stated as a convention. `book_value` (in the R4 list and the
+  conventions table) is not available pending a maintainer decision on its meaning and basis
+  (open question 1), so R4 is complete except for that metric.
 - **Limited horizon (R5, decision 1).** Constant (or optionally growing) flow for n explicit
   periods (1 to 10,000, one error code for the whole range, a range in the schema) at the end
   of each period N + 1 ... N + n, residual value at N + n; the value at N is the flow times the
@@ -69,15 +70,29 @@ Choices that follow from the spec text and the maintainer decisions:
   cap are given once and passed to every technique that uses them; `basis` is declared once
   and an exit multiple of the other basis is `FM-E019` (decision 2: never mixed). The
   capitalisation rate of `tv.normalised_income` stays a technique term (open question 3).
-  The first technique that fails returns its error; there are no partial results.
+  The first technique that fails returns its error; there are no partial results. Each row
+  records the `method_version` of its technique: a numerical change in any `tv.*` method
+  requires a new version of `tv.compare`, and a unit test pins the technique versions together
+  with `Compare::VERSION`. A technique entry with more than one key is `FM-E001` with a
+  message listing the keys; the list needs at least one entry (`minItems` 1 in the schema).
+- **Reported, not refused.** An exit multiple whose implied growth is not below the rate, and a
+  value driver whose RONIC is below g (reinvestment rate above 100%, negative free cash flow at
+  N + 1), return the value and state the inconsistency in `explain.conventions` (open
+  question 6). `tv.compare` states that `tv.normalised_income` has no basis check and that exit
+  multiples without `next_flow` are not checked against the growth cap.
+- **Other validations.** `tv.normalised_income` checks `capitalisation_rate > 0` first
+  (`FM-E018`, message naming the field); `tv.liquidation` refuses an empty asset list
+  (`FM-E001`) and returns a negative net value as is, with no floor.
+- **H-model source.** Fuller, R. J. and Hsia, C.-C. (1984), "A Simplified Common Stock
+  Valuation Model", Financial Analysts Journal 40(5).
 
 ### Errors (R10)
 | Condition | Code |
 | --- | --- |
 | g ≥ r (Gordon, value driver, H-model on g_l), g ≥ i (normalised income) | `FM-E004` (existing) |
-| RONIC ≤ 0; multiple ≤ 0; metric ≤ 0; n outside 1 to 10,000; H < 0; a negative asset value, liability, cost or tax on gains | `FM-E018` (new) |
+| RONIC ≤ 0; capitalisation rate ≤ 0; multiple ≤ 0; metric ≤ 0; n outside 1 to 10,000; H < 0; a negative asset value, liability, cost or tax on gains | `FM-E018` (new) |
 | Exit multiple of one basis inside a comparison declared on the other | `FM-E019` (new) |
-| Missing or conflicting flow fields, a growth of −100% or lower (as in `tvm.perpetuity`), empty label, empty technique list | `FM-E001` (existing) |
+| Missing or conflicting flow fields, a growth of −100% or lower (as in `tvm.perpetuity`), empty label, empty asset list, empty technique list, a technique entry with several keys | `FM-E001` (existing) |
 | The rate of the limited horizon at or below −100% | `FM-E003` (existing, from the shared annuity factor) |
 
 A multiple or metric of zero is refused with the negative ones: it gives a terminal value of
@@ -129,13 +144,19 @@ documented in the schema (`growth`, `residual_value`, `growth_cap`, `rate`, `nex
   form keeps them.
 
 ## Open questions for the maintainer
-1. `book_value` as an exit-multiple metric: equity basis (P/BV) or enterprise basis (EV over
-   book value of invested capital)? Not implemented until decided.
+1. `book_value` as an exit-multiple metric: what does it mean, P/BV on the equity basis or EV
+   over the book value of invested capital on the enterprise basis? Not available until
+   decided.
 2. Tax on gains in `tv.liquidation`: keep it as a given amount, or compute it from a tax rate
    and the tax basis of each asset (and then: are losses netted against gains)?
 3. In `tv.compare`, should `tv.normalised_income` use the shared terminal-phase rate as its
-   capitalisation rate, or keep its own (current choice)?
+   capitalisation rate, or keep its own (current choice)? And which basis does it carry: it
+   has no basis check today, since a normalised income can be operating (enterprise) or net
+   (equity).
 4. In `tv.compare`, which basis does `tv.liquidation` carry? Currently the analyst declares the
    basis and chooses the liabilities accordingly (financial debt included for equity).
 5. AC1 for `tv.gordon` and `tv.value_driver` uses one published table; a second published
    stable-growth example with more digits would strengthen it.
+6. Should the two inconsistent cases be errors instead of reported conventions: an exit
+   multiple whose implied growth is not below the rate, and a value driver with RONIC below g
+   (reinvestment rate above 100%)?

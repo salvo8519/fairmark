@@ -1,6 +1,6 @@
 ---
 source: methods/tv-h-model.md
-source_hash: 6e59c91326ae
+source_hash: 85cd548f8763
 ---
 # Valore terminale con l'H-model (`tv.h_model`)
 
@@ -90,3 +90,5 @@ una proprietà del modello e non viene corretto.
 - Casi di riferimento in `tests/golden/tv.h_model/`, da un calcolo indipendente a 50 cifre
   (`scripts/reference_tv.py`) e dalla forma chiusa riportata in ciascun file.
 - Un test unitario verifica che crescite uguali diano esattamente il risultato di `tv.gordon`.
+- Fonte del modello: Fuller, R. J. e Hsia, C.-C. (1984), "A Simplified Common Stock Valuation
+  Model", Financial Analysts Journal 40(5).

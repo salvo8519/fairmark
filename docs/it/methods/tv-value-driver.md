@@ -1,6 +1,6 @@
 ---
 source: methods/tv-value-driver.md
-source_hash: 08f213c44c58
+source_hash: 4593f2692a3a
 ---
 # Valore terminale con la formula dei value driver (`tv.value_driver`)
 
@@ -22,7 +22,9 @@ TV_N = \frac{NOPAT_{N+1}\,\left(1 - \dfrac{g}{RONIC}\right)}{r - g}
 $$
 
 Quando $RONIC = r$ la formula si riduce a $TV_N = NOPAT_{N+1} / r$; il metodo la calcola
-direttamente in questa forma, quindi il risultato è esattamente indipendente da g.
+direttamente in questa forma, quindi il risultato è esattamente indipendente da g. Quando il
+RONIC è inferiore a g il tasso di reinvestimento supera il 100% e il flusso di cassa disponibile
+in N + 1 è negativo; il metodo restituisce il valore e lo dichiara in `explain.conventions`.
 
 ## Esempio
 
@@ -74,6 +76,7 @@ assert round(up.reinvestment_rate, 6) == Decimal("0.166667")
 | Convenzione | Opzioni | Default |
 | --- | --- | --- |
 | Crescita da reinvestimento | tasso di reinvestimento g / RONIC del NOPAT_{N+1} | fissa |
+| Tasso di reinvestimento superiore al 100% | riportato in `explain.conventions`, non rifiutato | fisso |
 | Tasso della fase terminale | fornito, può differire da quello della fase esplicita | nessuno: va fornito |
 | Limite alla crescita | valore oppure nessuno | nessuno, riportato come assente |
 

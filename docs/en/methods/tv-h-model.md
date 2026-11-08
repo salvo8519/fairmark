@@ -85,3 +85,5 @@ the model and is not corrected.
 - Golden cases in `tests/golden/tv.h_model/`, from an independent 50-digit computation
   (`scripts/reference_tv.py`) and the closed form written in each file.
 - A unit test checks that equal growths give exactly the result of `tv.gordon`.
+- Source of the model: Fuller, R. J. and Hsia, C.-C. (1984), "A Simplified Common Stock
+  Valuation Model", Financial Analysts Journal 40(5).
