@@ -1,6 +1,6 @@
 method: dcf.fcff
 description: "A debt-like item without a measurement basis (required field)"
-source: SPEC-0001 R25, R27
+source: SPEC-0001 R25
 input:
   stages: [{"periods": 3, "projection": "given", "flows": ["100", "110", "120"]}]
   cash_flow_terms: "nominal"
