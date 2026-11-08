@@ -254,3 +254,37 @@ version 3 unchanged.
   cite the decision; `bridge.pv_explicit_and_terminal` confirmed [R19; AC11]
 - [ ] E11 `numerical-auditor` review, `code-reviewer` review, open questions of plan.md
   (issue #165) answered, the FCFE part of AC13 ticked in spec.md (maintainer)
+
+## Issue #197 — DCF from a vector of cash flows, with documented defaults
+
+Decision 24 (maintainer, 2026-11-08). Additive to `dcf.fcff` version 3 and `dcf.fcfe`
+version 1: required fields become optional; every earlier input gives a byte-identical result.
+
+### Tests (write first, they must fail)
+- [x] F1 [P] Reference `scripts/reference_dcf.py`: `with_defaults`, terminal options `given`
+  and `none` [R6, R14, R19, R21, R31]
+- [x] F2 [P] Golden cases from the reference: minimal input (FCFF and FCFE), its explicit
+  equivalent, each default overridden, terminal value given (end of period, N − 0.5 with rates
+  per period, negative, equity basis); `tvm.npv` cross-check; error cases; the approved
+  replacement of `error-timing-missing.yaml` [R6, R12, R15, R19, R21]
+- [x] F3 [P] `crates/fairmark-core/tests/dcf_defaults.rs`: `meta.defaults_applied`, conventions,
+  warning, hash of the explicit equivalent, explicit fields prevail, `FM-E024` message, schema;
+  `python/tests/test_dcf_defaults.py` [R31; AC14]
+
+### Implementation
+- [x] F4 `Method::apply_defaults` and `Method::compute_with_defaults`; `meta.defaults_applied`,
+  omitted when empty; `meta.input_hash` on the input with its defaults [R31]
+- [x] F5 `dcf_input!` and engine: optional fields with the schema of v3 kept (additive),
+  `apply_defaults` once in the engine, terminal options `given` and `none`, the terminal rate
+  only when used [R6, R12, R14, R19, R21, R29]
+
+### Adapters and docs
+- [x] F6 [P] Python `fm.dcf.fcff(flows=..., wacc=...)`, `fcfe(flows=...)`, `given_terminal`,
+  `no_terminal`
+- [x] F7 [P] Methodology pages ("Minimal input"), audit trail, determinism, errors reference,
+  Italian edition, release note, roadmap #197 done
+
+### Verification
+- [x] F8 Every golden input of main gives a byte-identical result except the approved case;
+  schema snapshots additive against main
+- [ ] F9 `code-reviewer` and `numerical-auditor` reviews (maintainer)
