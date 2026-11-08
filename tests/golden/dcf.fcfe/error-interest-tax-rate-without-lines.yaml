@@ -1,0 +1,12 @@
+method: dcf.fcfe
+description: "interest_tax_rate given when no stage has build-up lines (R3, R7)"
+source: SPEC-0001 R3, R7
+input:
+  stages: [{"periods": 2, "projection": "given", "flows": ["100", "110"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  cost_of_equity: "0.11"
+  timing: "end_of_period"
+  terminal: {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}
+  interest_tax_rate: "0.24"
+expect_error: FM-E001

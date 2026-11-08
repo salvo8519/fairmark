@@ -1,0 +1,41 @@
+method: dcf.fcfe
+description: "Exit multiple on earnings (P/E, equity basis) as the terminal technique of the equity DCF, with the growth implied at the cost of equity (R19, R22, R24; AC11)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R22 and R24, sharing no code with the engine) and SPEC-0006 R4: TV_N = 11 x 260 =
+  2,860; implied growth = 0.11 - 220 / 2,860.
+input:
+  stages: [{"periods": 4, "projection": "given", "flows": ["180", "195", "205", "214"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  cost_of_equity: "0.11"
+  timing: "end_of_period"
+  terminal: {"tv.exit_multiple": {"multiple": "11", "metric": "earnings", "metric_value": "260", "next_flow": "220"}}
+  non_operating_assets: [{"label": "Excess cash", "value": "75"}]
+expect:
+  /periods/0/flow: "180"
+  /periods/0/discount_rate: "0.11"
+  /periods/0/discount_factor: "0.9009009009009009009009009009"
+  /periods/0/present_value: "162.1621621621621621621621622"
+  /periods/1/flow: "195"
+  /periods/1/discount_rate: "0.11"
+  /periods/1/discount_factor: "0.8116224332440548656764872981"
+  /periods/1/present_value: "158.2663744825906988069150231"
+  /periods/2/flow: "205"
+  /periods/2/discount_rate: "0.11"
+  /periods/2/discount_factor: "0.7311913813009503294382768451"
+  /periods/2/present_value: "149.8942331666948175348467533"
+  /periods/3/flow: "214"
+  /periods/3/discount_rate: "0.11"
+  /periods/3/discount_factor: "0.6587309741450002967912404010"
+  /periods/3/present_value: "140.9684284670300635133254458"
+  /pv_explicit_period: "611.2911982784777420172493844"
+  /terminal/terminal_value: "2860"
+  /terminal/output/implied_growth: "0.03307692307692307692307692308"
+  /terminal/present_value: "1883.970586054700848822947547"
+  /bridge/pv_explicit_and_terminal: "2495.261784333178590840196931"
+  /equity_value: "2570.261784333178590840196931"
+  /terminal_value_weight: "0.7550192119654346502519224558"
+  /terminal/technique: "tv.exit_multiple"
+  /terminal/output/basis: "equity"
+tolerance: "0.00000000000000000001"

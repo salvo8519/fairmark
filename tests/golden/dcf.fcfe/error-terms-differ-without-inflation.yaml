@@ -1,0 +1,11 @@
+method: dcf.fcfe
+description: "Real FCFE with a nominal cost of equity and no expected inflation (R15; AC8)"
+source: SPEC-0001 R15, AC8
+input:
+  stages: [{"periods": 2, "projection": "given", "flows": ["100", "110"]}]
+  cash_flow_terms: "real"
+  discount_rate_terms: "nominal"
+  cost_of_equity: "0.11"
+  timing: "end_of_period"
+  terminal: {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}
+expect_error: FM-E024

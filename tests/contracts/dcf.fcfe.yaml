@@ -1,0 +1,111 @@
+# Contract cases for dcf.fcfe: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: dcf.fcfe
+extreme_inputs:
+- stages: [{periods: 2, projection: given, flows: [MAX, MAX]}]
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  cost_of_equity: MAX
+  timing: end_of_period
+  terminal: {tv.gordon: {growth: '0.01', first_flow: last_flow_grown}}
+- stages:
+  - {periods: 1, projection: given, flows: [MAX]}
+  - {periods: 3, projection: constant_growth, growth: MAX}
+  - {periods: 2, projection: linear_decline, from_growth: MIN, to_growth: MAX}
+  cash_flow_terms: real
+  discount_rate_terms: real
+  cost_of_equity_per_period: [MIN, '0.1', MAX, '-0.99', '0', MAX]
+  terminal_cost_of_equity: MAX
+  timing: mid_period
+  terminal_discount_time: mid_period
+  terminal: {tv.gordon: {growth: '0.5', first_flow: normalised_next_flow, normalised_next_flow: MIN, growth_cap: MIN}}
+  non_operating_assets: [{label: Excess cash, value: MAX}]
+- stages: [{periods: 2, projection: given, lines: [{ebit: MAX, depreciation_and_amortisation: MAX, capital_expenditure: '0', change_in_net_working_capital: MIN, interest_expense: MAX, net_borrowing: MAX}, {ebit: MIN, depreciation_and_amortisation: '0', capital_expenditure: MAX, change_in_net_working_capital: MAX, interest_expense: '0', net_borrowing: MIN}]}]
+  notional_tax_rate: '0.24'
+  negative_ebit: zero
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  cost_of_equity: '0.1'
+  timing: end_of_period
+  terminal: {tv.gordon: {growth: '0', first_flow: last_flow_grown}}
+- stages: [{periods: 1, projection: given, flows: [MIN]}]
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  cost_of_equity: '-0.99'
+  timing: mid_period
+  terminal_discount_time: mid_period
+  terminal: {tv.exit_multiple: {multiple: MAX, metric: earnings, metric_value: MAX, next_flow: MIN, growth_cap: MAX}}
+- stages: [{periods: 1, projection: given, flows: [MAX]}]
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  cost_of_equity: '0.10'
+  timing: end_of_period
+  terminal: {tv.gordon: {growth: '0.01', first_flow: last_flow_grown}}
+  non_operating_assets: [{label: a, value: MAX}]
+  debt_like_items: [{label: b, value: MAX, measurement_basis: present_value}, {label: c, value: MAX, measurement_basis: other, basis_note: e}]
+  non_controlling_interests: [{label: d, value: MAX, measurement_basis: fair_value}]
+- stages: [{periods: 1, projection: given, flows: ['1']}]
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  cost_of_equity: '0.1'
+  timing: end_of_period
+  terminal: {tv.liquidation: {assets: [{label: a, value: MAX}], liabilities: [{label: c, value: MAX}], liquidation_costs: [], tax_on_gains: MAX, basis: equity}}
+  net_financial_position: {gross_debt: MAX, cash: MIN}
+conventions:
+- input:
+    stages: [{periods: 3, projection: given, flows: ['100', '110', '120']}]
+    cash_flow_terms: nominal
+    discount_rate_terms: nominal
+    cost_of_equity: '0.11'
+    timing: end_of_period
+    terminal: {tv.gordon: {growth: '0.02', first_flow: last_flow_grown}}
+  expect:
+  - 'basis: equity, free cash flows to equity (FCFE) discounted at the cost of equity'
+  - 'no net financial position is subtracted: debt is already in the flows through interest and net borrowing (R24)'
+  - 'terms: cash flows and growth rates nominal, discount rates nominal; same terms, no conversion'
+  - 'discount rate: one rate, 0.11, for every period and for the terminal value'
+  - 'terminal technique: tv.gordon version 1 on the equity basis'
+  - terminal value discounted at the horizon, t = N
+  - bridge items measured at the valuation date, as given
+  - 'non-operating assets: none given'
+  - 'debt-like items: none given'
+  - 'non-controlling interests: none given'
+- input:
+    stages: [{periods: 2, projection: given, flows: ['40', '42']}]
+    cash_flow_terms: nominal
+    discount_rate_terms: nominal
+    cost_of_equity: '0.14'
+    timing: end_of_period
+    terminal: {tv.gordon: {growth: '0', first_flow: last_flow_grown}}
+    non_operating_assets: [{label: Excess cash, value: '20'}]
+    debt_like_items: [{label: Unfunded pension obligation, value: '250', measurement_basis: present_value, basis_note: net of tax}]
+    non_controlling_interests: [{label: 40% of Subsidiary C, value: '90', measurement_basis: book_value}]
+  expect:
+  - 'bridge signs (equity basis): non-operating assets added to the present value of the explicit flows and the terminal value; debt-like items and non-controlling interests subtracted; every debt-like item and non-controlling interest is zero or more'
+  - 'debt-like item ''Unfunded pension obligation'': measurement basis present_value (present value of the obligation), stated by the analyst; note: net of tax'
+  - 'non-controlling interest ''40% of Subsidiary C'': measurement basis book_value (book value per the accounts), stated by the analyst'
+  - 'warning: the equity value is negative'
+- input:
+    stages: [{periods: 2, projection: given, lines: [{ebit: '100', depreciation_and_amortisation: '10', capital_expenditure: '12', change_in_net_working_capital: '3', interest_expense: '8', net_borrowing: '5'}, {ebit: '-20', depreciation_and_amortisation: '10', capital_expenditure: '12', change_in_net_working_capital: '3', interest_expense: '8', net_borrowing: '0'}]}]
+    notional_tax_rate: '0.24'
+    negative_ebit: zero
+    cash_flow_terms: nominal
+    discount_rate_terms: nominal
+    cost_of_equity: '0.11'
+    timing: end_of_period
+    terminal: {tv.gordon: {growth: '0.02', first_flow: last_flow_grown}}
+  expect:
+  - 'free cash flow build-up (dcf.free_cash_flows v1) for the stages with lines: FCFF_t = EBIT_t − taxes on EBIT_t + D&A_t − capex_t − ΔNWC_t + Σ adjustments_t; FCFE_t = FCFF_t − interest_t × (1 − t) + net borrowing_t'
+  - 'stage 1: periods 1 to 2, given flows built up from line items'
+- input:
+    stages: [{periods: 2, projection: given, flows: ['100', '110']}]
+    cash_flow_terms: nominal
+    discount_rate_terms: nominal
+    cost_of_equity: '0.11'
+    timing: mid_period
+    terminal_discount_time: mid_period
+    terminal: {tv.exit_multiple: {multiple: '11', metric: earnings, metric_value: '150'}}
+  expect:
+  - 'terminal technique: tv.exit_multiple version 1 on the equity basis'
+  - 'warning: tv.exit_multiple is a price at the horizon N'

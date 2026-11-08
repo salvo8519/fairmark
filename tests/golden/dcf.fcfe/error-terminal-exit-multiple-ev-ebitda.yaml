@@ -1,0 +1,11 @@
+method: dcf.fcfe
+description: "An exit multiple on EBITDA (EV/EBITDA, enterprise basis) inside the equity DCF (R19; AC11)"
+source: SPEC-0001 R19, AC11
+input:
+  stages: [{"periods": 2, "projection": "given", "flows": ["100", "110"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  cost_of_equity: "0.11"
+  timing: "end_of_period"
+  terminal: {"tv.exit_multiple": {"multiple": "8", "metric": "ebitda", "metric_value": "150"}}
+expect_error: FM-E019

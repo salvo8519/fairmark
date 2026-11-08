@@ -1,0 +1,12 @@
+method: dcf.fcfe
+description: "A net financial position on the equity basis: debt is already in the FCFE (R24, Decision 9; AC13)"
+source: SPEC-0001 R24, Decision 9, AC13
+input:
+  stages: [{"periods": 2, "projection": "given", "flows": ["100", "110"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  cost_of_equity: "0.11"
+  timing: "end_of_period"
+  terminal: {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}
+  net_financial_position: {"gross_debt": "500", "cash": "80"}
+expect_error: FM-E019

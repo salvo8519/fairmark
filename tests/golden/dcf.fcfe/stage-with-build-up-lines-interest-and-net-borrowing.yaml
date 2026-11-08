@@ -1,0 +1,50 @@
+method: dcf.fcfe
+description: "A given stage of FCFE built up from line items with interest expense and net borrowing (tax rate 24%, zero treatment of a negative EBIT in period 2, so no interest tax shield there), then constant growth, cost of equity, mid-period timing with the terminal value at N - 0.5 (R3, R4, R7, R21, R24)"
+source: >
+  Independent 50-digit references composed: scripts/reference_free_cash_flows.py builds the
+  FCFE of the stages with lines (SPEC-0001 R2 to R4, amendment 14; equity_stages_with_flows),
+  scripts/reference_dcf.py values the resulting flows (dcf_fcfe, R6 to R22, R24); neither
+  shares code with the engine. FCFE_t = FCFF_t - interest_t x (1 - t) + net borrowing_t, with
+  t = 0 in period 2 (amendment 14).
+input:
+  stages: [{"periods": 3, "projection": "given", "lines": [{"ebit": "900", "depreciation_and_amortisation": "210", "capital_expenditure": "260", "change_in_net_working_capital": "35", "interest_expense": "120", "net_borrowing": "50"}, {"ebit": "-60", "depreciation_and_amortisation": "220", "capital_expenditure": "240", "change_in_net_working_capital": "-20", "interest_expense": "125", "net_borrowing": "180"}, {"ebit": "1010.4", "depreciation_and_amortisation": "232.5", "capital_expenditure": "251", "change_in_net_working_capital": "28.75", "interest_expense": "118", "net_borrowing": "-90", "other_adjustments": [{"label": "Disposal of a vehicle fleet", "value": "40"}]}]}, {"periods": 2, "projection": "constant_growth", "growth": "0.025"}]
+  notional_tax_rate: "0.24"
+  negative_ebit: "zero"
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  cost_of_equity: "0.115"
+  timing: "mid_period"
+  terminal_discount_time: "mid_period"
+  terminal: {"tv.gordon": {"growth": "0.025", "first_flow": "last_flow_grown"}}
+expect:
+  /periods/0/flow: "557.80"
+  /periods/0/discount_rate: "0.115"
+  /periods/0/discount_factor: "0.9470274476207567669410868772"
+  /periods/0/present_value: "528.2519102828581245997382601"
+  /periods/1/flow: "-5"
+  /periods/1/discount_rate: "0.115"
+  /periods/1/discount_factor: "0.8493519709603199703507505625"
+  /periods/1/present_value: "-4.246759854801599851753752812"
+  /periods/2/flow: "580.974"
+  /periods/2/discount_rate: "0.115"
+  /periods/2/discount_factor: "0.7617506466011838299109870516"
+  /periods/2/present_value: "442.5573201584761743987057913"
+  /periods/3/flow: "595.498350"
+  /periods/3/growth: "0.025"
+  /periods/3/discount_rate: "0.115"
+  /periods/3/discount_factor: "0.6831844364136177846735309879"
+  /periods/3/present_value: "406.8352046299893083037429920"
+  /periods/4/flow: "610.385808750"
+  /periods/4/growth: "0.025"
+  /periods/4/discount_rate: "0.115"
+  /periods/4/discount_factor: "0.6127214676355316454471129937"
+  /periods/4/present_value: "373.9964885612009336424543200"
+  /pv_explicit_period: "1747.394163777722941092887611"
+  /terminal/terminal_value: "6951.616155208333333333333333"
+  /terminal/discount_time: "4.5"
+  /terminal/discount_factor: "0.6127214676355316454471129937"
+  /terminal/present_value: "4259.404453058121744261285311"
+  /bridge/pv_explicit_and_terminal: "6006.798616835844685354172922"
+  /equity_value: "6006.798616835844685354172922"
+  /terminal_value_weight: "0.7090972620789833661294450770"
+tolerance: "0.00000000000000000001"
