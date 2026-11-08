@@ -208,3 +208,25 @@ def test_dcf_bridge_with_debt_like_items_and_non_controlling_interests() -> None
     assert r.equity_value.quantize(Decimal("0.000001")) == Decimal("1605")
     assert r.bridge["non_controlling_interests"][0]["measurement_basis"] == "book_value"
     assert any("debt-like items: none given" in c for c in r.conventions)
+
+
+def test_bridge_claim_builds_a_claim() -> None:
+    """Decision 21: the helper writes the basis and, when given, the note."""
+    assert fm.dcf.bridge_claim("Pension", 10, measurement_basis="present_value") == {
+        "label": "Pension",
+        "value": 10,
+        "measurement_basis": "present_value",
+    }
+    claim = fm.dcf.bridge_claim(
+        "Provision", 5, measurement_basis="other", basis_note="undiscounted"
+    )
+    r = dcf([100, 110, 120], "0.10", "0.02", debt_like_items=[claim])
+    assert r.bridge["debt_like_items"][0]["basis_note"] == "undiscounted"
+    with pytest.raises(fm.FairmarkError) as info:
+        dcf(
+            [100, 110, 120],
+            "0.10",
+            "0.02",
+            debt_like_items=[fm.dcf.bridge_claim("Provision", 5, measurement_basis="other")],
+        )
+    assert "/debt_like_items/0/basis_note" in str(info.value)

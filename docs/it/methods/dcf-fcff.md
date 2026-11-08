@@ -201,15 +201,25 @@ dal capitale proprio si sottraggono per ottenere l'equity value:
 | --- | --- | --- |
 | Attività non operative | `non_operating_assets`: `{"label", "value"}`, valori pari a zero o positivi | aggiunte |
 | Posizione finanziaria netta | `net_financial_position`: debiti finanziari lordi − liquidità + altre voci con il loro segno, come in SPEC-0007 | sottratta; positiva per un indebitamento netto |
-| Debt-like items | `debt_like_items`: `{"label", "value", "measurement_basis"}`, valori pari a zero o positivi; per esempio obblighi pensionistici non finanziati o fondi per rischi e oneri | sottratti |
-| Partecipazioni di minoranza | `non_controlling_interests`: `{"label", "value", "measurement_basis"}`, valori pari a zero o positivi; la quota delle controllate consolidate che appartiene ad altri soci | sottratte |
+| Debt-like items | `debt_like_items`: `{"label", "value", "measurement_basis", "basis_note"}`, valori pari a zero o positivi; per esempio obblighi pensionistici non finanziati o fondi per rischi e oneri | sottratti |
+| Partecipazioni di minoranza | `non_controlling_interests`: `{"label", "value", "measurement_basis", "basis_note"}`, valori pari a zero o positivi; la quota delle controllate consolidate che appartiene ad altri soci | sottratte |
 
 Ogni importo è misurato alla data di valutazione e preso come fornito: Fairmark non sceglie
-quali voci includere né come misurarle. Come si misura un debt-like item (per esempio al lordo
-o al netto delle imposte) e come si misurano le partecipazioni di minoranza (per esempio al
-valore contabile o al fair value) è una scelta dell'analista, dichiarata in
-`measurement_basis`; il criterio è riportato accanto all'importo in `explain` e non è mai usato
-nel calcolo. Una voce già inclusa tra le `other_items` della posizione finanziaria netta (per
+quali voci includere né come misurarle. Il criterio di valutazione di ogni debt-like item e di
+ogni partecipazione di minoranza è una scelta dell'analista, dichiarata nel campo obbligatorio
+`measurement_basis`:
+
+| `measurement_basis` | Significato |
+| --- | --- |
+| `book_value` | Valore contabile risultante dal bilancio alla data di valutazione |
+| `market_value` | Valore di mercato: prezzo quotato alla data di valutazione |
+| `fair_value` | Fair value come definito dall'IFRS 13 |
+| `present_value` | Valore attuale dell'obbligazione, per esempio obblighi pensionistici non finanziati o fondi per rischi e oneri |
+| `other` | Un altro criterio, descritto in `basis_note` (obbligatorio) |
+
+Il campo facoltativo `basis_note` precisa il criterio, per esempio "net of tax" o "49% of the
+book value of equity of the subsidiary"; con `other` è obbligatorio. Il criterio e la nota sono
+riportati accanto all'importo in `explain` e non sono mai usati nel calcolo. Una voce già inclusa tra le `other_items` della posizione finanziaria netta (per
 esempio i debiti per leasing) non va ripetuta in `debt_like_items`: il motore non controlla i
 doppi conteggi. Le liste non fornite sono riportate come "none given". Ogni voce è un passo di
 `explain` con la sua descrizione, ogni lista ha un passo con il totale e il passo dell'equity
@@ -228,14 +238,15 @@ r = fm.dcf.fcff(
     net_financial_position={"gross_debt": 900, "cash": 150},
     non_operating_assets=[{"label": "Land held for sale", "value": 80}],
     debt_like_items=[
-        {
-            "label": "Unfunded pension obligation",
-            "value": 95,
-            "measurement_basis": "present value net of plan assets, after tax",
-        }
+        fm.dcf.bridge_claim(
+            "Unfunded pension obligation",
+            95,
+            measurement_basis="present_value",
+            basis_note="net of plan assets, after tax",
+        )
     ],
     non_controlling_interests=[
-        {"label": "30% of Subsidiary A", "value": 210, "measurement_basis": "fair value"}
+        fm.dcf.bridge_claim("30% of Subsidiary A", 210, measurement_basis="fair_value")
     ],
 )
 print(r.bridge["debt_like_items_total"], r.bridge["non_controlling_interests_total"])  # 95 210
@@ -327,8 +338,8 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | `terminal` | Una tecnica indicata con l'identificativo del suo metodo, per esempio `{"tv.gordon": {"growth", "first_flow", "normalised_next_flow", "growth_cap"}}`; si veda "Tecniche del valore terminale" | obbligatorio |
 | `net_financial_position` | `{"gross_debt", "cash", "other_items"}` come in [`ratios.debt_service`](ratios-debt-service.md), positiva per indebitamento netto | nessuna, riportato |
 | `non_operating_assets` | Lista di `{"label", "value"}`, valori pari a zero o positivi | nessuna, riportato |
-| `debt_like_items` | Lista di `{"label", "value", "measurement_basis"}`, valori pari a zero o positivi, sottratti dall'enterprise value | nessuno, riportato |
-| `non_controlling_interests` | Partecipazioni di minoranza: lista di `{"label", "value", "measurement_basis"}`, valori pari a zero o positivi, sottratte dall'enterprise value | nessuna, riportato |
+| `debt_like_items` | Lista di `{"label", "value", "measurement_basis", "basis_note"}`, valori pari a zero o positivi, sottratti dall'enterprise value; `measurement_basis` obbligatorio, `basis_note` obbligatorio con `other` | nessuno, riportato |
+| `non_controlling_interests` | Partecipazioni di minoranza: lista di `{"label", "value", "measurement_basis", "basis_note"}`, valori pari a zero o positivi, sottratte dall'enterprise value; `measurement_basis` obbligatorio, `basis_note` obbligatorio con `other` | nessuna, riportato |
 
 ## Output
 
@@ -362,7 +373,7 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | Primo flusso terminale (`tv.gordon`, `tv.h_model`) | ultimo flusso fatto crescere; oppure flusso normalizzato in N + 1 (`tv.gordon`), flusso base normalizzato in N (`tv.h_model`) | obbligatorio |
 | Voci del passaggio all'equity value | misurate alla data di valutazione come fornite; nessuna voce significa nessuna | nessuna |
 | Segni delle voci del passaggio all'equity value | attività non operative aggiunte; posizione finanziaria netta (positiva per un indebitamento netto), debt-like items e partecipazioni di minoranza sottratti | fissi |
-| Criterio di valutazione dei debt-like items e delle partecipazioni di minoranza | dichiarato dall'analista, riportato, non usato nel calcolo | obbligatorio per ogni voce |
+| Criterio di valutazione dei debt-like items e delle partecipazioni di minoranza | `book_value`, `market_value`, `fair_value`, `present_value`, `other` (con `basis_note`); dichiarato dall'analista, riportato, non usato nel calcolo | obbligatorio per ogni voce |
 
 Le avvertenze sono riportate in `explain.conventions` e non comportano mai il rifiuto
 dell'input: una crescita applicata a un flusso negativo; una crescita dell'ultimo periodo
@@ -381,7 +392,7 @@ elevato segnala che la valutazione dipende soprattutto dalle ipotesi di lungo pe
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | Un campo è mancante, sconosciuto o non usato dall'opzione scelta; sia `inflation` sia `inflation_per_period`, `inflation_per_period` senza `terminal_inflation`, `terminal_inflation` senza `inflation_per_period`, `terminal_inflation` insieme a `inflation`; nessuno stage o più di tre; stage che sommano più di 10.000 periodi; una crescita pari o inferiore a −100%; un tasso terminale insieme a un unico tasso, oppure nessuno con tassi per periodo; un momento di attualizzazione del valore terminale mancante con la convenzione di metà periodo o fornito con quella di fine periodo; nessuna tecnica del valore terminale o più di una; un `normalised_base_flow` di `tv.h_model` mancante con `first_flow` = `normalised_base_flow` o fornito negli altri casi; un limite alla crescita di un multiplo di uscita senza `next_flow`; una liquidazione senza attività o con una voce senza descrizione; un'attività non operativa negativa o con descrizione vuota; un debt-like item o una partecipazione di minoranza negativi, o con descrizione o criterio di valutazione vuoti (per esempio `/non_controlling_interests/0/measurement_basis`); uno stage `given` con entrambi o nessuno tra `flows` e `lines`, `lines` in uno stage generato, campi fiscali senza `lines`, oneri finanziari o net borrowing in `lines`, e ogni rifiuto di [`dcf.free_cash_flows`](dcf-free-cash-flows.md) sulle voci, indicato con il suo pointer (ad esempio `/stages/0/lines/2/capital_expenditure`) |
+| `FM-E001` | Un campo è mancante, sconosciuto o non usato dall'opzione scelta; sia `inflation` sia `inflation_per_period`, `inflation_per_period` senza `terminal_inflation`, `terminal_inflation` senza `inflation_per_period`, `terminal_inflation` insieme a `inflation`; nessuno stage o più di tre; stage che sommano più di 10.000 periodi; una crescita pari o inferiore a −100%; un tasso terminale insieme a un unico tasso, oppure nessuno con tassi per periodo; un momento di attualizzazione del valore terminale mancante con la convenzione di metà periodo o fornito con quella di fine periodo; nessuna tecnica del valore terminale o più di una; un `normalised_base_flow` di `tv.h_model` mancante con `first_flow` = `normalised_base_flow` o fornito negli altri casi; un limite alla crescita di un multiplo di uscita senza `next_flow`; una liquidazione senza attività o con una voce senza descrizione; un'attività non operativa negativa o con descrizione vuota; un debt-like item o una partecipazione di minoranza negativi, o con descrizione vuota; un criterio di valutazione mancante o diverso dalle opzioni previste; `other` senza `basis_note`, o un `basis_note` vuoto (per esempio `/non_controlling_interests/0/basis_note`); uno stage `given` con entrambi o nessuno tra `flows` e `lines`, `lines` in uno stage generato, campi fiscali senza `lines`, oneri finanziari o net borrowing in `lines`, e ogni rifiuto di [`dcf.free_cash_flows`](dcf-free-cash-flows.md) sulle voci, indicato con il suo pointer (ad esempio `/stages/0/lines/2/capital_expenditure`) |
 | `FM-E003` | Un tasso di attualizzazione, fornito o convertito, oppure un'inflazione attesa è pari o inferiore a −100%; il messaggio indica il campo e il periodo (lo stesso codice di [`rates.real_nominal`](rates-real-nominal.md) per lo stesso valore) |
 | `FM-E004` | La crescita perpetua (`growth`, oppure `long_term_growth` per `tv.h_model`) è pari o superiore al tasso terminale nei termini dei flussi di cassa (dopo la conversione, se i termini sono diversi) |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
