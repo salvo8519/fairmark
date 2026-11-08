@@ -217,12 +217,15 @@ mod tests {
     fn request() -> Value {
         json!({
             "method": "dcf.fcff",
-            "base_input": {"free_cash_flows": [100, 110], "discount_rate": "0.09",
-                           "terminal_growth": "0.02", "net_debt": 50},
+            "base_input": {"stages": [{"periods": 2, "projection": "given", "flows": [100, 110]}],
+                           "cash_flow_terms": "nominal", "discount_rate_terms": "nominal",
+                           "wacc": "0.09", "timing": "end_of_period",
+                           "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}},
+                           "net_financial_position": {"gross_debt": 50, "cash": 0}},
             "output": "/equity_value",
             "variables": [
-                {"variable": "/net_debt", "low": "40", "high": "60"},
-                {"variable": "/discount_rate", "low": "0.08", "high": "0.10"}
+                {"variable": "/net_financial_position/gross_debt", "low": "40", "high": "60"},
+                {"variable": "/wacc", "low": "0.08", "high": "0.10"}
             ]
         })
     }
@@ -230,8 +233,11 @@ mod tests {
     #[test]
     fn ranked_by_absolute_swing_with_signed_swing_kept() {
         let v = run(&request()).unwrap()["value"].clone();
-        assert_eq!(v["ranking"][0]["variable"], "/discount_rate");
-        assert_eq!(v["ranking"][1]["variable"], "/net_debt");
+        assert_eq!(v["ranking"][0]["variable"], "/wacc");
+        assert_eq!(
+            v["ranking"][1]["variable"],
+            "/net_financial_position/gross_debt"
+        );
         let dec = |x: &Value| {
             x.as_str()
                 .unwrap()
@@ -252,14 +258,18 @@ mod tests {
     #[test]
     fn a_failing_base_case_returns_its_error() {
         let mut r = request();
-        r["base_input"]["terminal_growth"] = json!("0.3");
+        r["base_input"]["terminal"]["tv.gordon"]["growth"] = json!("0.3");
         assert_eq!(run(&r).unwrap_err().code(), "FM-E004");
     }
 
     #[test]
     fn invalid_requests_and_failed_evaluations_are_errors() {
         for (path, value, code) in [
-            ("/variables/1/variable", json!("/net_debt"), "FM-E001"),
+            (
+                "/variables/1/variable",
+                json!("/net_financial_position/gross_debt"),
+                "FM-E001",
+            ),
             ("/variables/0/low", json!("60"), "FM-E001"),
             ("/variables", json!([]), "FM-E001"),
             ("/variables/0/variable", json!("/timing"), "FM-E015"),
@@ -267,7 +277,7 @@ mod tests {
             // R21: growth above the rate at the high end: the ranking is not defined.
             (
                 "/variables/1",
-                json!({"variable": "/terminal_growth", "low": "0.01",
+                json!({"variable": "/terminal/tv.gordon/growth", "low": "0.01",
                                     "high": "0.2"}),
                 "FM-E004",
             ),

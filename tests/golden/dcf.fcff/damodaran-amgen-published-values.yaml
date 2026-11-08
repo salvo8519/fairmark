@@ -1,0 +1,34 @@
+method: dcf.fcff
+description: Damodaran Illustration 15.3 (Amgen, three-stage FCFF), explicit period, value of operations and equity value at the published precision (AC4, Decision 12)
+source: >
+  Damodaran, Investment Valuation, 2nd edition, chapter 15, Illustration 15.3 (Amgen, May 2001),
+  Table 15.6 (pages.stern.nyu.edu/~adamodar/pdfiles/valn2ed/ch15.pdf), $ million. Inputs as
+  printed: FCFF of years 1 to 10 (719 to 2,991), cost of capital 10.76% in years 1 to 5, then
+  10.38%, 10.00%, 9.62%, 9.24%, 8.86% (linear increments), stable growth 5% at 8.86%, FCFF of
+  year 11 of 3,140 as the normalised flow at N + 1, cash and marketable securities 2,029, debt
+  323. Published results: present value of the FCFF of years 1 to 10 of 8,327, value of the
+  operating assets 39,161, equity value 40,867. The printed flows and rates are rounded, so the
+  results agree at the published precision only: from the printed inputs the 50-digit reference
+  (scripts/reference_dcf.py) gives 8,327.71, 39,159.92 and 40,865.92. The tolerance of 2 covers
+  the residual of -1.08 against the published value of the operating assets, which is the sum
+  of three effects of rounded printed inputs (independent numerical audit of 2026-11-08): the
+  rounded FCFF of year 11, 3,140 instead of about 3,140.65 (-6.386; see
+  damodaran-amgen-published-terminal-value.yaml); the costs of capital printed to two decimals
+  of a percent (+4.601); the explicit FCFF printed to units (+0.710). The tolerance was
+  accepted by the maintainer on 2026-11-08 (SPEC-0001, Decision 12). Source check against the published PDF on 2026-11-08.
+input:
+  stages:
+    - { periods: 5, projection: given, flows: ["719", "813", "919", "1040", "1176"] }
+    - { periods: 5, projection: given, flows: ["1498", "1851", "2226", "2611", "2991"] }
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  wacc_per_period: ["0.1076", "0.1076", "0.1076", "0.1076", "0.1076", "0.1038", "0.1000", "0.0962", "0.0924", "0.0886"]
+  terminal_wacc: "0.0886"
+  timing: end_of_period
+  terminal: { "tv.gordon": { growth: "0.05", first_flow: normalised_next_flow, normalised_next_flow: "3140" } }
+  net_financial_position: { gross_debt: "323", cash: "2029" }
+expect:
+  pv_explicit_period: "8327"
+  value_of_operations: "39161"
+  equity_value: "40867"
+tolerance: "2"

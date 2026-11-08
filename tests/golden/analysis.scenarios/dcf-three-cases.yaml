@@ -4,27 +4,32 @@ source: >
   scripts/reference_analysis.py, enterprise_value and equity_value (Python decimal, 50 digits);
   deltas and relative deltas computed from them. The last case has growth above the rate and
   carries FM-E004 (no Gordon value).
+  Inner input re-expressed in dcf.fcff version 3 on 2026-11-08 (SPEC-0001 R30, the
+  maintainer-approved migration of dcf.fcff v2 to v3); every expected number unchanged.
 input:
   method: dcf.fcff
   base_input:
-    free_cash_flows: [100, 110, 120, 130, 140]
-    discount_rate: "0.09"
-    terminal_growth: "0.02"
-    net_debt: 300
+    stages: [{periods: 5, projection: given, flows: [100, 110, 120, 130, 140]}]
+    cash_flow_terms: nominal
+    discount_rate_terms: nominal
+    wacc: "0.09"
+    timing: end_of_period
+    terminal: {"tv.gordon": {growth: "0.02", first_flow: last_flow_grown}}
+    net_financial_position: {gross_debt: 300, cash: 0}
   outputs: [/enterprise_value, /equity_value]
   scenarios:
   - name: downside
     overrides:
-    - {pointer: /discount_rate, value: "0.10"}
-    - {pointer: /terminal_growth, value: "0.01"}
-    - {pointer: /free_cash_flows/0, value: "90"}
+    - {pointer: /wacc, value: "0.10"}
+    - {pointer: /terminal/tv.gordon/growth, value: "0.01"}
+    - {pointer: /stages/0/flows/0, value: "90"}
   - name: upside
     overrides:
-    - {pointer: /discount_rate, value: "0.08"}
-    - {pointer: /terminal_growth, value: "0.025"}
+    - {pointer: /wacc, value: "0.08"}
+    - {pointer: /terminal/tv.gordon/growth, value: "0.025"}
   - name: impossible
     overrides:
-    - {pointer: /terminal_growth, value: "0.12"}
+    - {pointer: /terminal/tv.gordon/growth, value: "0.12"}
 expect:
   /base/0/value: "1785.9356357015730744749501235001212576012519743722"
   /base/1/value: "1485.9356357015730744749501235001212576012519743722"

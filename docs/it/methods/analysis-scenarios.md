@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-scenarios.md
-source_hash: d9ec1ec2c203
+source_hash: a5e2c8141718
 ---
 # Analisi di scenario (`analysis.scenarios`)
 
@@ -43,20 +43,23 @@ from decimal import Decimal
 import fairmark as fm
 
 base = {
-    "free_cash_flows": [100, 110, 120, 130, 140],
-    "discount_rate": "0.09",
-    "terminal_growth": "0.02",
-    "net_debt": 300,
+    "stages": [{"periods": 5, "projection": "given", "flows": [100, 110, 120, 130, 140]}],
+    "cash_flow_terms": "nominal",
+    "discount_rate_terms": "nominal",
+    "wacc": "0.09",
+    "timing": "end_of_period",
+    "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}},
+    "net_financial_position": {"gross_debt": 300, "cash": 0},
 }
 r = fm.analysis.scenarios(
     "dcf.fcff",
     base,
     outputs=["/enterprise_value", "/equity_value"],
     cases={
-        "downside": {"/discount_rate": "0.10", "/terminal_growth": "0.01",
-                     "/free_cash_flows/0": "90"},
-        "upside": {"/discount_rate": "0.08", "/terminal_growth": "0.025"},
-        "impossible": {"/terminal_growth": "0.12"},
+        "downside": {"/wacc": "0.10", "/terminal/tv.gordon/growth": "0.01",
+                     "/stages/0/flows/0": "90"},
+        "upside": {"/wacc": "0.08", "/terminal/tv.gordon/growth": "0.025"},
+        "impossible": {"/terminal/tv.gordon/growth": "0.12"},
     },
 )
 print(r.base[1]["value"])        # 1485.9356357015730744749501235, equity value del caso base
@@ -82,16 +85,16 @@ same = fm.run("analysis.scenarios", {
     "outputs": ["/enterprise_value", "/equity_value"],
     "scenarios": [
         {"name": "downside", "overrides": [
-            {"pointer": "/discount_rate", "value": "0.10"},
-            {"pointer": "/terminal_growth", "value": "0.01"},
-            {"pointer": "/free_cash_flows/0", "value": "90"},
+            {"pointer": "/wacc", "value": "0.10"},
+            {"pointer": "/terminal/tv.gordon/growth", "value": "0.01"},
+            {"pointer": "/stages/0/flows/0", "value": "90"},
         ]},
         {"name": "upside", "overrides": [
-            {"pointer": "/discount_rate", "value": "0.08"},
-            {"pointer": "/terminal_growth", "value": "0.025"},
+            {"pointer": "/wacc", "value": "0.08"},
+            {"pointer": "/terminal/tv.gordon/growth", "value": "0.025"},
         ]},
         {"name": "impossible", "overrides": [
-            {"pointer": "/terminal_growth", "value": "0.12"},
+            {"pointer": "/terminal/tv.gordon/growth", "value": "0.12"},
         ]},
     ],
 })

@@ -3,16 +3,79 @@
 # conventions must appear in explain.conventions.
 method: dcf.fcff
 extreme_inputs:
-- free_cash_flows:
-  - MAX
-  - MAX
-  discount_rate: MAX
-  terminal_growth: '0.01'
+- stages: [{periods: 2, projection: given, flows: [MAX, MAX]}]
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  wacc: MAX
+  timing: end_of_period
+  terminal: {tv.gordon: {growth: '0.01', first_flow: last_flow_grown}}
+- stages:
+  - {periods: 1, projection: given, flows: [MAX]}
+  - {periods: 3, projection: constant_growth, growth: MAX}
+  - {periods: 2, projection: linear_decline, from_growth: MIN, to_growth: MAX}
+  cash_flow_terms: real
+  discount_rate_terms: real
+  wacc_per_period: [MIN, '0.1', MAX, '-0.99', '0', MAX]
+  terminal_wacc: MAX
+  timing: mid_period
+  terminal_discount_time: mid_period
+  terminal: {tv.gordon: {growth: '0.5', first_flow: normalised_next_flow, normalised_next_flow: MIN, growth_cap: MIN}}
+  net_financial_position: {gross_debt: MAX, cash: MIN, other_items: [{name: x, amount: MAX}]}
+  non_operating_assets: [{label: Land, value: MAX}]
+- stages: [{periods: 10000, projection: constant_growth, growth: '0.5'}]
+  base_flow: MAX
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  wacc: '0.0000000000000000000000000001'
+  timing: mid_period
+  terminal_discount_time: horizon
+  terminal: {tv.gordon: {growth: '0', first_flow: last_flow_grown}}
+- stages: [{periods: 4294967295, projection: constant_growth, growth: '0.01'}]
+  base_flow: '1'
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  wacc: '0.1'
+  timing: end_of_period
+  terminal: {tv.gordon: {growth: '0', first_flow: last_flow_grown}}
 conventions:
 - input:
-    free_cash_flows: ['100', '110', '120']
-    discount_rate: '0.10'
-    terminal_growth: '0.02'
-    net_debt: '200'
+    stages: [{periods: 3, projection: given, flows: ['100', '110', '120']}]
+    cash_flow_terms: nominal
+    discount_rate_terms: nominal
+    wacc: '0.10'
+    timing: end_of_period
+    terminal: {tv.gordon: {growth: '0.02', first_flow: last_flow_grown}}
+    net_financial_position: {gross_debt: '200', cash: '0'}
   expect:
-  - end of period
+  - 'basis: enterprise'
+  - 'terms: cash flows and growth rates nominal, discount rates nominal; same terms, no conversion'
+  - 'stage 1: periods 1 to 3, given flows'
+  - 'discount rate: one rate, 0.10, for every period and for the terminal value'
+  - 'timing: end of period'
+  - 'terminal technique: tv.gordon version 1'
+  - 'first terminal flow: the last explicit flow grown'
+  - terminal value discounted at the horizon, t = N
+  - 'non-operating assets: none given'
+  - net financial position = gross debt − cash + other items
+- input:
+    stages:
+    - {periods: 2, projection: constant_growth, growth: '0.08'}
+    - {periods: 3, projection: linear_decline, from_growth: '0.08', to_growth: '0.02'}
+    base_flow: '50'
+    cash_flow_terms: real
+    discount_rate_terms: real
+    wacc_per_period: ['0.07', '0.07', '0.065', '0.06', '0.06']
+    terminal_wacc: '0.06'
+    timing: mid_period
+    terminal_discount_time: horizon
+    terminal: {tv.gordon: {growth: '0.02', first_flow: normalised_next_flow, normalised_next_flow: '70'}}
+  expect:
+  - 'base flow CF_0 = 50'
+  - 'stage 1: periods 1 to 2, constant growth 0.08'
+  - 'stage 2: periods 3 to 5, growth declining in linear increments from 0.08 to 0.02'
+  - 'terms: cash flows and growth rates real, discount rates real'
+  - 'discount rate: one rate per period; terminal rate 0.06 given separately'
+  - 'timing: mid period'
+  - 'first terminal flow: normalised flow at N + 1'
+  - 'terminal discounting time: horizon, t = N'
+  - 'net financial position: none given'

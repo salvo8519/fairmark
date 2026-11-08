@@ -2,7 +2,13 @@
 
     import fairmark as fm
 
-    r = fm.dcf.fcff([100, 110, 120], "0.10", "0.02", net_debt=200)
+    r = fm.dcf.fcff(
+        [fm.dcf.given([100, 110, 120])],
+        cash_flow_terms="nominal", discount_rate_terms="nominal",
+        wacc="0.10", timing="end_of_period",
+        terminal=fm.dcf.gordon("0.02", first_flow="last_flow_grown"),
+        net_financial_position={"gross_debt": 200, "cash": 0},
+    )
     r.equity_value          # Decimal, exact
     r.explain_markdown()    # methodology note for the report
 

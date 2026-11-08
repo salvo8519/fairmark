@@ -13,11 +13,17 @@ fn request() -> String {
     let growths: Vec<String> = (0..21).map(|i| format!("0.{:03}", i)).collect();
     json!({
         "method": "dcf.fcff",
-        "base_input": {"free_cash_flows": [100, 105, 110, 116, 122, 128, 134, 141, 148, 155],
-                       "discount_rate": "0.09", "terminal_growth": "0.02", "net_debt": 300},
-        "output": "/enterprise_value",
-        "rows": {"variable": "/discount_rate", "values": rates},
-        "columns": {"variable": "/terminal_growth", "values": growths}
+        "base_input": {
+            "stages": [{"periods": 10, "projection": "given",
+                        "flows": [100, 105, 110, 116, 122, 128, 134, 141, 148, 155]}],
+            "cash_flow_terms": "nominal", "discount_rate_terms": "nominal",
+            "wacc": "0.09", "timing": "end_of_period",
+            "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}},
+            "net_financial_position": {"gross_debt": 300, "cash": 0}
+        },
+        "output": "/value_of_operations",
+        "rows": {"variable": "/wacc", "values": rates},
+        "columns": {"variable": "/terminal/tv.gordon/growth", "values": growths}
     })
     .to_string()
 }

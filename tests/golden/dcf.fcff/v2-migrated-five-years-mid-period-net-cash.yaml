@@ -1,0 +1,28 @@
+# Golden case: mid-period convention, net cash position and surplus assets.
+method: dcf.fcff
+description: Five years, mid-period, net cash 50, non-operating assets 30 (version 2 case re-expressed in version 3, AC15)
+source: >
+  scripts/reference_values.py (independent Decimal implementation), the expected values of the
+  dcf.fcff version 2 case five-years-mid-period-net-cash.yaml, unchanged. Re-expressed in the
+  version 3 input on 2026-11-08 as the maintainer approved in SPEC-0001 ("Recorded approval of
+  the numerical change", R30, AC15): one given stage, one rate, nominal terms, mid-period timing
+  with the terminal value discounted at the horizon (as version 2 did), tv.gordon on the last
+  flow grown, a net financial position of -50 (net cash) and one non-operating asset of 30; the
+  version 2 enterprise_value is compared with the version 3 value_of_operations.
+input:
+  stages: [{periods: 5, projection: given, flows: [250, 270, 290, 300, 310]}]
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  wacc: "0.085"
+  timing: mid_period
+  terminal_discount_time: horizon
+  terminal: {"tv.gordon": {growth: "0.015", first_flow: last_flow_grown}}
+  net_financial_position: {gross_debt: 0, cash: 50}
+  non_operating_assets: [{label: "Non-operating assets", value: 30}]
+expect:
+  value_of_operations: "4145.016559076593"
+  equity_value: "4225.016559076593"
+  /terminal/terminal_value: "4495"
+  /terminal/present_value: "2989.379177681520"
+  pv_explicit_period: "1155.637381395072"
+tolerance: "0.000000001"

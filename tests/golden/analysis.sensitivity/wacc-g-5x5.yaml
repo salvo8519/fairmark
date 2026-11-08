@@ -5,19 +5,24 @@ source: >
   digits, dcf.fcff restated from its documented formula: end-of-period discounting, Gordon
   terminal value at the end of year n). Cells with growth not below the rate have no Gordon
   value and carry FM-E004. Cross-checked with numpy-financial in python/tests/test_cross_check.py.
+  Inner input re-expressed in dcf.fcff version 3 on 2026-11-08 (SPEC-0001 R30, the
+  maintainer-approved migration of dcf.fcff v2 to v3); every expected number unchanged.
 input:
   method: dcf.fcff
   base_input:
-    free_cash_flows: [100, 110, 120, 130, 140]
-    discount_rate: "0.09"
-    terminal_growth: "0.02"
-    net_debt: 300
+    stages: [{periods: 5, projection: given, flows: [100, 110, 120, 130, 140]}]
+    cash_flow_terms: nominal
+    discount_rate_terms: nominal
+    wacc: "0.09"
+    timing: end_of_period
+    terminal: {"tv.gordon": {growth: "0.02", first_flow: last_flow_grown}}
+    net_financial_position: {gross_debt: 300, cash: 0}
   output: /enterprise_value
   rows:
-    variable: /discount_rate
+    variable: /wacc
     values: ["0.07", "0.08", "0.09", "0.10", "0.11"]
   columns:
-    variable: /terminal_growth
+    variable: /terminal/tv.gordon/growth
     values: ["0", "0.01", "0.02", "0.03", "0.08"]
 expect:
   /base: "1785.9356357015730744749501235001212576012519743722"

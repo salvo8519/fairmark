@@ -1,0 +1,48 @@
+method: dcf.fcff
+description: "Three stages: given flows, linear decline of growth from 12% to 3% over 4 periods, Gordon terminal value (AC4)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R6 to R12 and R19 to R23, sharing no code with the engine). Growth of the
+  linear decline 12% to 3% over 4 periods: 9.75%, 7.5%, 5.25%, 3% (Decision 4).
+input:
+  stages: [{"periods": 3, "projection": "given", "flows": ["100", "112", "125"]}, {"periods": 4, "projection": "linear_decline", "from_growth": "0.12", "to_growth": "0.03"}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.095"
+  timing: "end_of_period"
+  terminal: {"tv.gordon": {"growth": "0.03", "first_flow": "last_flow_grown"}}
+expect:
+  /periods/0/flow: "100"
+  /periods/0/discount_factor: "0.9132420091324200913242009"
+  /periods/0/present_value: "91.3242009132420091324200913"
+  /periods/1/flow: "112"
+  /periods/1/discount_factor: "0.8340109672442192614832885"
+  /periods/1/present_value: "93.4092283313525572861283126"
+  /periods/2/flow: "125"
+  /periods/2/discount_factor: "0.7616538513645838004413594"
+  /periods/2/present_value: "95.2067314205729750551699207"
+  /periods/3/flow: "137.1875"
+  /periods/3/growth: "0.0975"
+  /periods/3/discount_factor: "0.6955742934836381739190496"
+  /periods/3/present_value: "95.4240983872866119845196237"
+  /periods/4/flow: "147.4765625"
+  /periods/4/growth: "0.075"
+  /periods/4/discount_factor: "0.6352276652818613460447942"
+  /periods/4/present_value: "93.6811924806695049163092196"
+  /periods/5/flow: "155.21908203125"
+  /periods/5/growth: "0.0525"
+  /periods/5/discount_factor: "0.5801165892985035123696751"
+  /periods/5/present_value: "90.0451644620133825793748435"
+  /periods/6/flow: "159.8756544921875"
+  /periods/6/growth: "0.03"
+  /periods/6/discount_factor: "0.5297868395420123400636302"
+  /periods/6/present_value: "84.7000177131267434308274784"
+  /pv_explicit_period: "643.7906337082637843847494898"
+  /terminal/terminal_value: "2533.4142173377403846153846154"
+  /terminal/discount_factor: "0.5297868395420123400636302"
+  /terminal/present_value: "1342.1695114541622420577277343"
+  /value_of_operations: "1985.9601451624260264424772241"
+  /enterprise_value: "1985.9601451624260264424772241"
+  /equity_value: "1985.9601451624260264424772241"
+  /terminal_value_weight: "0.6758290264402008020853601"
+tolerance: "0.00000000000000000001"

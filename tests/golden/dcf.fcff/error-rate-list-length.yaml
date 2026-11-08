@@ -1,0 +1,12 @@
+method: dcf.fcff
+description: Rates per period not one per period of the horizon (AC6)
+source: SPEC-0001 R12
+input:
+  stages: [{ periods: 3, projection: given, flows: ["100", "110", "120"] }]
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  wacc_per_period: ["0.10", "0.10"]
+  terminal_wacc: "0.10"
+  timing: end_of_period
+  terminal: { "tv.gordon": { growth: "0.02", first_flow: last_flow_grown } }
+expect_error: FM-E025

@@ -280,12 +280,15 @@ mod tests {
     fn request() -> Value {
         json!({
             "method": "dcf.fcff",
-            "base_input": {"free_cash_flows": [100, 110], "discount_rate": "0.09",
-                           "terminal_growth": "0.02", "net_debt": 50},
+            "base_input": {"stages": [{"periods": 2, "projection": "given", "flows": [100, 110]}],
+                           "cash_flow_terms": "nominal", "discount_rate_terms": "nominal",
+                           "wacc": "0.09", "timing": "end_of_period",
+                           "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}},
+                           "net_financial_position": {"gross_debt": 50, "cash": 0}},
             "outputs": ["/enterprise_value", "/equity_value"],
             "scenarios": [
-                {"name": "low", "overrides": [{"pointer": "/discount_rate", "value": "0.12"}]},
-                {"name": "bad", "overrides": [{"pointer": "/terminal_growth", "value": "0.2"}]}
+                {"name": "low", "overrides": [{"pointer": "/wacc", "value": "0.12"}]},
+                {"name": "bad", "overrides": [{"pointer": "/terminal/tv.gordon/growth", "value": "0.2"}]}
             ]
         })
     }
@@ -306,7 +309,7 @@ mod tests {
     #[test]
     fn a_failing_base_case_returns_its_error() {
         let mut r = request();
-        r["base_input"]["terminal_growth"] = json!("0.3");
+        r["base_input"]["terminal"]["tv.gordon"]["growth"] = json!("0.3");
         assert_eq!(run(&r).unwrap_err().code(), "FM-E004");
     }
 
@@ -347,7 +350,7 @@ mod tests {
                 json!("/nope"),
                 "FM-E015",
             ),
-            ("/outputs", json!(["/discount_factors"]), "FM-E015"),
+            ("/outputs", json!(["/periods"]), "FM-E015"),
             ("/method", json!("analysis.scenarios"), "FM-E017"),
         ] {
             let mut r = request();
@@ -356,8 +359,8 @@ mod tests {
         }
         let mut twice = request();
         twice["scenarios"][0]["overrides"] = json!([
-            {"pointer": "/discount_rate", "value": "0.1"},
-            {"pointer": "/discount_rate", "value": "0.2"}
+            {"pointer": "/wacc", "value": "0.1"},
+            {"pointer": "/wacc", "value": "0.2"}
         ]);
         assert_eq!(run(&twice).unwrap_err().code(), "FM-E001");
     }

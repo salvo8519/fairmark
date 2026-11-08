@@ -37,7 +37,7 @@ method, the conventions and the inputs, and verifying the result, belong to the 
 | [`tv.normalised_income`](tv-normalised-income.md) | available | Terminal value at N as a capitalised normalised income |
 | [`tv.liquidation`](tv-liquidation.md) | available | Net liquidation value at N, every line in the audit trail |
 | [`tv.compare`](tv-compare.md) | available | Several terminal value techniques on one rate, growth cap and basis |
-| [`dcf.fcff`](dcf-fcff.md) | preview | Enterprise and equity value from unlevered free cash flows |
+| [`dcf.fcff`](dcf-fcff.md) | preview | Value of operations, enterprise value and equity value from unlevered free cash flows over explicit stages and a terminal value |
 | [`ratios.profitability`](ratios-profitability.md) | preview | ROE, ROI, ROA, ROS, margins, capital turnover and the ROE decomposition in three factors and in the leverage form |
 | [`ratios.capital_structure`](ratios-capital-structure.md) | preview | Debt to equity, net financial position to equity, equity ratio, structure margins and fixed-asset coverage |
 | [`ratios.liquidity`](ratios-liquidity.md) | preview | Current, quick and cash ratios, net working capital and treasury margin |

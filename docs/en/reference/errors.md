@@ -7,8 +7,8 @@ function calling) reports errors as `{"code": "...", "message": "..."}`.
 | --- | --- | --- |
 | `FM-E001` | Invalid input: wrong type, missing required field, unknown field | Check the input against `fairmark schema <method>` |
 | `FM-E002` | Empty cash flow series | Provide at least one cash flow |
-| `FM-E003` | Rate out of range: the rate per period, or per compounding period, is at or below −100% | Rates are decimal fractions: 10% is `0.10`; a nominal rate with compounding is checked per compounding period ($r/m$) |
-| `FM-E004` | Growth ≥ discount rate (terminal value, perpetuity) | The Gordon model needs g < r |
+| `FM-E003` | Rate out of range: the rate per period, or per compounding period, is at or below −100%; in the DCF the message names the rate by its JSON pointer, for example `/wacc_per_period/3` | Rates are decimal fractions: 10% is `0.10`; a nominal rate with compounding is checked per compounding period ($r/m$) |
+| `FM-E004` | Growth ≥ discount rate (terminal value, perpetuity); in the DCF the message names the growth and the terminal rate by their JSON pointers | The Gordon model needs g < r |
 | `FM-E005` | IRR or XIRR solver did not converge | Check the cash flows; try a different `guess` |
 | `FM-E006` | No sign change in cash flows | IRR, XIRR and MIRR need both outflows and inflows |
 | `FM-E007` | Unknown method or tool | See `fairmark methods` |
@@ -28,3 +28,5 @@ function calling) reports errors as `{"code": "...", "message": "..."}`.
 | `FM-E021` | The instalment never repays the loan: it is 0 or below, or it does not exceed the interest of the first period, whatever the sign of the rate | Raise `instalment` above 0 and above periodic rate × principal (for payments in advance, periodic rate × principal / (1 + periodic rate)) |
 | `FM-E022` | Principal grace period not lower than the number of instalments, or given with a `bullet` schedule | Give fewer grace periods than instalments; omit them for `bullet`, which is interest only until the last instalment |
 | `FM-E023` | With rounding, the outstanding balance would become negative before the last period, or the final-period adjustment would make the last principal portion or instalment negative | Round to more decimal places, or check that the loan is large enough for the rounding chosen |
+| `FM-E024` | The cash flows and the discount rates of a DCF are declared in different terms (`nominal` and `real`) and no expected inflation is given | Restate the discount rates or the cash flows in the same terms, so that `cash_flow_terms` equals `discount_rate_terms` |
+| `FM-E025` | A count of a DCF does not match its stages: a `given` stage with more or fewer flows than its `periods`, rates per period not one per period of the explicit horizon, a base flow missing for a generated first stage, or a base flow given when the first stage is `given` | Give exactly one flow or rate per period, as the message states; give `base_flow` only when the first stage is `constant_growth` or `linear_decline` |

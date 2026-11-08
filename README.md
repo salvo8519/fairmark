@@ -80,25 +80,29 @@ Prebuilt wheels for Linux, macOS and Windows (x86_64 and arm64) — no compiler 
 import fairmark as fm
 
 r = fm.dcf.fcff(
-    free_cash_flows=[100, 110, 120],
-    discount_rate="0.10",          # WACC, as a decimal fraction
-    terminal_growth="0.02",
-    net_debt=200,
+    [fm.dcf.given([100, 110, 120])],   # one stage: FCFF of years 1 to 3
+    cash_flow_terms="nominal",
+    discount_rate_terms="nominal",
+    wacc="0.10",                       # as a decimal fraction
+    timing="end_of_period",
+    terminal=fm.dcf.gordon("0.02", first_flow="last_flow_grown"),
+    net_financial_position={"gross_debt": 200, "cash": 0},
 )
 
-r.enterprise_value       # Decimal('1421.4876033057851239669421487')
+r.value_of_operations    # Decimal('1421.4876033057851239669421487')
 r.equity_value           # Decimal('1221.4876033057851239669421487')
 r.terminal_value_weight  # Decimal('0.8086680761099365750528541226')
 print(r.explain_markdown())
 ```
 
 ```text
-| Step                          | Calculation                        | Value       |
-| ----------------------------- | ---------------------------------- | ----------: |
-| Discount factor, year 1       | 1 / (1 + 0.10)^1                   | 0.909090... |
-| Present value of FCFF, year 1 | 100 × 0.909090...                  | 90.909090...|
-| Terminal value at year n      | 120 × (1 + 0.02) / (0.10 − 0.02)   | 1530        |
-| Enterprise value              | 271.9759... + 1149.5116...         | 1421.4876...|
+| Step                                | Calculation                  | Value        |
+| ----------------------------------- | ---------------------------- | -----------: |
+| Period 1: discount factor           | 1 / (1 + 0.10)               | 0.909090...  |
+| Period 1: present value             | 100 × 0.909090...            | 90.909090... |
+| Terminal value: Terminal value at N | 122.40 / (0.10 − 0.02)       | 1530         |
+| Value of operations                 | 271.9759... + 1149.5116...   | 1421.4876... |
+| Equity value                        | 1421.4876... − 200           | 1221.4876... |
 ```
 
 > **Tip.** Pass amounts and rates as strings or `Decimal` for exactness. Floats are accepted and

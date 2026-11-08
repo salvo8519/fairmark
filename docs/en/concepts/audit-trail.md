@@ -5,13 +5,13 @@ Every result is an envelope with four parts:
 ```json
 {
   "method": "dcf.fcff",
-  "value":   { "enterprise_value": "1421.48…", "equity_value": "1221.48…", "...": "..." },
+  "value":   { "value_of_operations": "1421.48…", "equity_value": "1221.48…", "...": "..." },
   "explain": {
-    "formula": "EV = Σ FCFF_t × DF_t + TV × DF_n; ...",
-    "conventions": ["cash flows discounted at end of period", "..."],
-    "steps": [ { "label": "Discount factor, year 1", "formula": "1 / (1 + 0.10)^1", "value": "0.909…" } ]
+    "formula": "Value of operations = Σ FCFF_k × DF_k + TV_N × DF_TV; ...",
+    "conventions": ["timing: end of period (flow k discounted at t = k)", "..."],
+    "steps": [ { "label": "Period 1: discount factor", "formula": "1 / (1 + 0.10)", "value": "0.909…" } ]
   },
-  "meta": { "engine_version": "…", "method_version": "1", "input_hash": "b963…", "arithmetic": "decimal…" }
+  "meta": { "engine_version": "…", "method_version": "3", "input_hash": "b963…", "arithmetic": "decimal…" }
 }
 ```
 

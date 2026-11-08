@@ -486,6 +486,11 @@ the source verification.
       compared at the published precision) and Illustration 15.7 (Boeing, FCFF build-up,
       starting from the published EBIT (1 − tax rate) and recording the 1,139.45 versus 1,138
       discrepancy in the golden file). The source analysis that supported the choice follows.
+      Tolerances accepted by the maintainer on 2026-11-08: the Amgen case is compared within 2
+      on the published present value of the explicit period, value of the operating assets and
+      equity value (`damodaran-amgen-published-values.yaml`) and within 20 on the published
+      terminal value (`damodaran-amgen-published-terminal-value.yaml`), because the published
+      figures come from rounded printed inputs; the golden files decompose the differences.
 - [x] **13. Terminal rate with one discount rate.** The single discount rate is used for the
       terminal value and no separate terminal rate is accepted; with rates per period, a
       terminal rate is required.
@@ -508,6 +513,23 @@ version 2 to version 3: the version 2 golden cases in `tests/golden/dcf.fcff/` a
 the version 3 input (with identical expected values, the version 2 `enterprise_value` compared
 with the version 3 `value_of_operations`, AC15) or retired, in the implementation pull request.
 Expected values of other golden cases are not changed.
+
+On 2026-11-08 the maintainer also approved the migration of the seven `analysis.*` golden cases
+whose inner method is `dcf.fcff`, with every expected number identical:
+
+| File | What changed |
+| --- | --- |
+| `tests/golden/analysis.goal_seek/dcf-implied-discount-rate.yaml` | inner input in version 3 form; variable `/discount_rate` → `/wacc` |
+| `tests/golden/analysis.goal_seek/no-convergence.yaml` | inner input in version 3 form; variable `/discount_rate` → `/wacc` |
+| `tests/golden/analysis.goal_seek/target-not-bracketed.yaml` | inner input in version 3 form; variable `/discount_rate` → `/wacc` |
+| `tests/golden/analysis.scenarios/dcf-three-cases.yaml` | inner input in version 3 form; override pointers renamed to the version 3 fields |
+| `tests/golden/analysis.sensitivity/wacc-g-5x5.yaml` | inner input in version 3 form; rows `/wacc`, columns `/terminal/tv.gordon/growth` |
+| `tests/golden/analysis.sensitivity/wacc-one-way.yaml` | inner input in version 3 form; rows `/wacc` |
+| `tests/golden/analysis.tornado/dcf-four-drivers.yaml` | inner input in version 3 form; the four variables, and the four expected ranking variables, renamed to `/wacc`, `/terminal/tv.gordon/growth`, `/net_financial_position/gross_debt`, `/stages/0/flows/0` |
+
+In every file the inner input is one given stage, one rate (`wacc`), nominal terms, end-of-period
+timing, `tv.gordon` on the last flow grown and a net financial position equal to the previous
+`net_debt`; the output pointers are unchanged.
 
 ### Source analysis for Decision 12
 Candidates found on 2026-11-08 and approved as recorded in Decision 12:

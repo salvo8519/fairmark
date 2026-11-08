@@ -1,0 +1,35 @@
+method: dcf.fcff
+description: "Mid-period timing with the terminal value discounted at N - 0.5: TV x DF_N x (1 + r_N)^0.5, normalised flow at N + 1 (AC12)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R20 and R21, sharing no code with the engine).
+input:
+  stages: [{"periods": 4, "projection": "given", "flows": ["210", "225", "240", "250"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.09"
+  timing: "mid_period"
+  terminal_discount_time: "mid_period"
+  terminal: {"tv.gordon": {"growth": "0.02", "first_flow": "normalised_next_flow", "normalised_next_flow": "245"}}
+expect:
+  /periods/0/flow: "210"
+  /periods/0/discount_factor: "0.9578262852211513926383261"
+  /periods/0/present_value: "201.143519896441792454048472"
+  /periods/1/flow: "225"
+  /periods/1/discount_factor: "0.8787397112120654978333267"
+  /periods/1/present_value: "197.716435022714737012498498"
+  /periods/2/flow: "240"
+  /periods/2/discount_factor: "0.8061832212954729337920428"
+  /periods/2/present_value: "193.4839731109135041100902733"
+  /periods/3/flow: "250"
+  /periods/3/discount_factor: "0.7396176342160302144881127"
+  /periods/3/present_value: "184.9044085540075536220281664"
+  /pv_explicit_period: "777.2483365840775871986654097"
+  /terminal/terminal_value: "3500"
+  /terminal/discount_factor: "0.7396176342160302144881127"
+  /terminal/present_value: "2588.6617197561057507083943293"
+  /value_of_operations: "3365.910056340183337907059739"
+  /enterprise_value: "3365.910056340183337907059739"
+  /equity_value: "3365.910056340183337907059739"
+  /terminal_value_weight: "0.7690822619814166477247199"
+tolerance: "0.00000000000000000001"

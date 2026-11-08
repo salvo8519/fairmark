@@ -90,6 +90,30 @@ pub enum FairmarkError {
 
     #[error("rounding too coarse for the loan: {0}")]
     RoundingTooCoarse(String),
+
+    #[error(
+        "`{field}` is {rate}: a discount rate must be greater than -1 (-100%); rates are \
+         decimal fractions, 10% is 0.10"
+    )]
+    DiscountRateOutOfRange { field: String, rate: Decimal },
+
+    #[error(
+        "`{growth_field}` ({growth}) must be lower than the terminal discount rate \
+         `{rate_field}` ({rate}): a perpetual growth at or above the rate has no finite \
+         terminal value; lower the growth or check the rate"
+    )]
+    GrowthNotBelowTerminalRate {
+        growth_field: String,
+        growth: Decimal,
+        rate_field: String,
+        rate: Decimal,
+    },
+
+    #[error("terms of cash flows and discount rates differ: {0}")]
+    TermsMismatch(String),
+
+    #[error("count inconsistent with the stages: {0}")]
+    CountMismatch(String),
 }
 
 impl FairmarkError {
@@ -119,6 +143,12 @@ impl FairmarkError {
             Self::LoanNeverRepaid { .. } => "FM-E021",
             Self::GracePeriodOutOfRange(_) => "FM-E022",
             Self::RoundingTooCoarse(_) => "FM-E023",
+            // Same meanings as `RateOutOfRange` and `GrowthNotBelowRate`, with the JSON pointer
+            // of the field in the message (SPEC-0001 R27).
+            Self::DiscountRateOutOfRange { .. } => "FM-E003",
+            Self::GrowthNotBelowTerminalRate { .. } => "FM-E004",
+            Self::TermsMismatch(_) => "FM-E024",
+            Self::CountMismatch(_) => "FM-E025",
         }
     }
 

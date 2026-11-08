@@ -9,9 +9,9 @@ extreme_inputs:
   rows: {variable: /rate, values: [MIN, '-1', '0', MAX]}
   columns: {variable: /cash_flows/0, values: [MIN, MAX]}
 - method: dcf.fcff
-  base_input: {free_cash_flows: [MAX, MAX], discount_rate: '0.1', terminal_growth: '0.02', net_debt: MIN}
+  base_input: {stages: [{periods: 2, projection: given, flows: [MAX, MAX]}], cash_flow_terms: nominal, discount_rate_terms: nominal, wacc: '0.1', timing: end_of_period, terminal: {tv.gordon: {growth: '0.02', first_flow: last_flow_grown}}, net_financial_position: {gross_debt: MIN, cash: '0'}}
   output: /equity_value
-  rows: {variable: /discount_rate, values: ['0.0000000000000000000000000001', MAX]}
+  rows: {variable: /wacc, values: ['0.0000000000000000000000000001', MAX]}
 conventions:
 - input:
     method: tvm.npv

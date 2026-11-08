@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-sensitivity.md
-source_hash: 492990d16930
+source_hash: 50dde6b88a10
 ---
 # Tabella di sensitività (`analysis.sensitivity`)
 
@@ -43,17 +43,20 @@ from decimal import Decimal
 import fairmark as fm
 
 base = {
-    "free_cash_flows": [100, 110, 120, 130, 140],
-    "discount_rate": "0.09",
-    "terminal_growth": "0.02",
-    "net_debt": 300,
+    "stages": [{"periods": 5, "projection": "given", "flows": [100, 110, 120, 130, 140]}],
+    "cash_flow_terms": "nominal",
+    "discount_rate_terms": "nominal",
+    "wacc": "0.09",
+    "timing": "end_of_period",
+    "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}},
+    "net_financial_position": {"gross_debt": 300, "cash": 0},
 }
 table = fm.analysis.sensitivity(
     "dcf.fcff",
     base,
     output="/enterprise_value",
-    rows=("/discount_rate", ["0.08", "0.09", "0.10"]),
-    columns=("/terminal_growth", ["0.01", "0.02", "0.08"]),
+    rows=("/wacc", ["0.08", "0.09", "0.10"]),
+    columns=("/terminal/tv.gordon/growth", ["0.01", "0.02", "0.08"]),
 )
 print(table.base)                    # 1785.9356357015730744749501235
 print(table.cells[0][0]["value"])    # 1847.7733182046548911356105383, tasso 8%, crescita 1%
@@ -76,7 +79,7 @@ one_way = fm.analysis.sensitivity(
     "dcf.fcff",
     base,
     output="/enterprise_value",
-    rows=("/discount_rate", ["0.08", "0.09", "0.10"]),
+    rows=("/wacc", ["0.08", "0.09", "0.10"]),
 )
 assert [row[0] for row in one_way.cells] == [row[1] for row in table.cells]
 
@@ -85,8 +88,8 @@ same = fm.run("analysis.sensitivity", {
     "method": "dcf.fcff",
     "base_input": base,
     "output": "/enterprise_value",
-    "rows": {"variable": "/discount_rate", "values": ["0.08", "0.09", "0.10"]},
-    "columns": {"variable": "/terminal_growth", "values": ["0.01", "0.02", "0.08"]},
+    "rows": {"variable": "/wacc", "values": ["0.08", "0.09", "0.10"]},
+    "columns": {"variable": "/terminal/tv.gordon/growth", "values": ["0.01", "0.02", "0.08"]},
 })
 assert same.cells == table.cells
 ```

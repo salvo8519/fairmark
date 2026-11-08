@@ -102,7 +102,7 @@
       }
     },
     "dcf.fcff": {
-      "current": "2",
+      "current": "3",
       "versions": {
         "1": {
           "file": "dcf.fcff/v1.json",
@@ -113,6 +113,11 @@
           "file": "dcf.fcff/v2.json",
           "introduced_in": "unreleased",
           "sha256": "9568f0e156f5bc4276f3db571f7beaa66dcf3604d080a696ec6c507346e01f42"
+        },
+        "3": {
+          "file": "dcf.fcff/v3.json",
+          "introduced_in": "unreleased",
+          "sha256": "d42050721baf44f23b78298d28439005112a981a7272fb234786b084640d6443"
         }
       }
     },

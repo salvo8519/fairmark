@@ -1,0 +1,19 @@
+method: dcf.fcff
+description: "300 periods of constant growth 19.5% at a WACC of 20%, Gordon at 19%, mid-period timing with the terminal value at N - 0.5 (audit X13, precision at long horizons)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R8, R12, R19 and R21, sharing no code with the engine).
+input:
+  stages: [{"periods": 300, "projection": "constant_growth", "growth": "0.195"}]
+  base_flow: "100"
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.20"
+  timing: "mid_period"
+  terminal_discount_time: "mid_period"
+  terminal: {"tv.gordon": {"growth": "0.19", "first_flow": "last_flow_grown"}}
+expect:
+  /pv_explicit_period: "18699.6793404068910650125780636"
+  /terminal/present_value: "3725.0778664956730118386557697"
+  /value_of_operations: "22424.7572069025640768512338333"
+tolerance: "0.00000000000000000001"

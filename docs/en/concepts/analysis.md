@@ -42,8 +42,9 @@ location in a JSON document:
 
 | Pointer | Refers to |
 | --- | --- |
-| `/discount_rate` | the member `discount_rate` |
-| `/free_cash_flows/0` | the first element of the list `free_cash_flows` |
+| `/wacc` | the member `wacc` |
+| `/stages/0/flows/0` | the first flow of the first stage |
+| `/terminal/tv.gordon/growth` | the member `growth` of the member `tv.gordon` of `terminal` (a `.` needs no escape) |
 | `/a~1b` | the member `a/b` (`~1` stands for `/`, `~0` for `~`) |
 
 A variable pointer resolves in `base_input`; an output pointer resolves in the `value` of the
