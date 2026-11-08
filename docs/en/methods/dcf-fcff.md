@@ -43,7 +43,14 @@ Under mid-period timing the flow of period k is discounted half a period earlier
 $DF_k = DF_{k-1} (1 + r_k)^{-0.5}$. The terminal value
 $TV_N = CF_{N+1} / (r_{TV} - g)$ is computed by [`tv.gordon`](tv-gordon.md) and discounted
 at the horizon, $DF_{TV} = DF_N$, or, under mid-period timing when chosen, half a period
-earlier, $DF_{TV} = DF_N (1 + r_N)^{0.5}$.
+earlier, $DF_{TV} = DF_N (1 + r_N)^{0.5}$; the half-period shift uses the rate of period N,
+$r_N$, not the terminal rate.
+
+Present values are computed by dividing each amount by its compounding factor
+$\prod_{i \le k} (1 + r_i)$ (under mid-period timing, $\prod_{i < k} (1 + r_i) \,
+(1 + r_k)^{0.5}$), which is the same quantity as multiplying by $DF_k$ but keeps every
+significant digit at long horizons; the discount factors are reported as computed by
+[`tvm.present_value`](tvm-present-value.md).
 
 ## Example
 
@@ -139,38 +146,44 @@ print(r.terminal["discount_time"])  # 6
 | Bridge items | measured at the valuation date as given; none given means none | none |
 
 Warnings are reported in `explain.conventions` and never refuse the input: a growth applied to
-a negative flow, and a growth of the last explicit period that differs from the perpetual growth
-of the terminal value. A high `terminal_value_weight` signals that the valuation depends mostly
+a negative flow; a growth of the last explicit period that differs from the perpetual growth
+of the terminal value; under mid-period timing, a Gordon terminal value discounted at the
+horizon N, where practice commonly discounts it at N − 0.5; a negative equity value, which is
+reported as computed and never floored at zero. A high `terminal_value_weight` signals that the valuation depends mostly
 on long-term assumptions.
 
 ## Errors
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | A field is missing, unknown or not used by the chosen option; no stage or more than three; a growth of −100% or lower; a terminal rate with one rate, or none with rates per period; a terminal discounting time missing under mid-period timing or given at end of period; a negative non-operating asset |
+| `FM-E001` | A field is missing, unknown or not used by the chosen option; no stage or more than three; stages adding up to more than 10,000 periods; a growth of −100% or lower; a terminal rate with one rate, or none with rates per period; a terminal discounting time missing under mid-period timing or given at end of period; a negative non-operating asset, or one with an empty label |
 | `FM-E003` | A discount rate is −100% or lower; the message names the field and the period |
 | `FM-E004` | The perpetual growth is equal to or greater than the terminal rate |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 | `FM-E024` | `cash_flow_terms` and `discount_rate_terms` differ |
 | `FM-E025` | A `given` stage with more or fewer flows than its periods, rates per period not one per period, a base flow missing for a generated first stage or given for a `given` one |
 
-Every message names the field by its JSON pointer, for example `/stages/1/flows`, and states
-the fix.
+Validation errors name the field by its JSON pointer, for example `/stages/1/flows`, and state
+the fix; errors raised while reading the input (a missing or unknown field, a wrong type) report
+the line and column of the input instead.
 
 ## Accuracy
 
 Discount factors are computed by `tvm.present_value` (`tvm::period_discount_factors`): at end
-of period by exact divisions, at mid period with a decimal square root. Measured against an
-independent 50-digit computation, results agree to about $10^{-24}$ relative or better at end
-of period and to about $10^{-18}$ relative or better at mid period. The golden cases from the
-reference are checked to $10^{-20}$.
+of period by exact divisions, at mid period with a decimal square root. Present values divide by
+the compounding factor, so they keep their significant digits at long horizons: measured
+against an independent 50-digit computation, the value of operations agrees to about
+$10^{-24}$ relative or better, at end and at mid period, also over 300 to 1,000 periods. The
+golden cases from the reference are checked to $10^{-20}$.
 
 ## Verified against
 
 - Damodaran, *Investment Valuation*, 2nd edition, chapter 15, Illustration 15.3 (Amgen,
-  three-stage FCFF with costs of capital changing every year), at its published precision:
-  present value of the explicit period 8,327, value of the operating assets 39,161, equity
-  value 40,867, terminal value 81,364 (the printed inputs are rounded; see the golden files).
+  three-stage FCFF with costs of capital changing every year): present value of the explicit
+  period 8,327, value of the operating assets 39,161, equity value 40,867 and terminal value
+  81,364 are matched within 2 (terminal value: 20) of the published figures, which come from
+  rounded inputs; the golden files decompose the differences. These tolerances await the
+  maintainer's acceptance.
 - An independent 50-digit implementation, `scripts/reference_dcf.py`, for every golden case in
   `tests/golden/dcf.fcff/`, and properties: a constant growth stage equals the same flows
   given; a linear decline with equal growths equals constant growth; discount factors equal

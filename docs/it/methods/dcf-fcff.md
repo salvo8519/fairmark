@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: 90ca4b71ae7a
+source_hash: 58f9418f017e
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
@@ -49,7 +49,14 @@ Con la convenzione di metà periodo il flusso del periodo k è attualizzato mezz
 $DF_k = DF_{k-1} (1 + r_k)^{-0.5}$. Il valore terminale
 $TV_N = CF_{N+1} / (r_{TV} - g)$ è calcolato da [`tv.gordon`](tv-gordon.md) e attualizzato
 all'orizzonte, $DF_{TV} = DF_N$, oppure, con la convenzione di metà periodo e se scelto, mezzo
-periodo prima, $DF_{TV} = DF_N (1 + r_N)^{0.5}$.
+periodo prima, $DF_{TV} = DF_N (1 + r_N)^{0.5}$; lo spostamento di mezzo periodo usa il tasso
+del periodo N, $r_N$, non il tasso terminale.
+
+I valori attuali si calcolano dividendo ogni importo per il suo fattore di capitalizzazione
+$\prod_{i \le k} (1 + r_i)$ (con la convenzione di metà periodo, $\prod_{i < k} (1 + r_i) \,
+(1 + r_k)^{0.5}$): è la stessa grandezza che si ottiene moltiplicando per $DF_k$, ma conserva
+tutte le cifre significative anche su orizzonti lunghi; i fattori di sconto sono riportati come
+calcolati da [`tvm.present_value`](tvm-present-value.md).
 
 ## Esempio
 
@@ -145,40 +152,47 @@ print(r.terminal["discount_time"])  # 6
 | Voci del passaggio all'equity value | misurate alla data di valutazione come fornite; nessuna voce significa nessuna | nessuna |
 
 Le avvertenze sono riportate in `explain.conventions` e non comportano mai il rifiuto
-dell'input: una crescita applicata a un flusso negativo e una crescita dell'ultimo periodo
-esplicito diversa dalla crescita perpetua del valore terminale. Un `terminal_value_weight`
+dell'input: una crescita applicata a un flusso negativo; una crescita dell'ultimo periodo
+esplicito diversa dalla crescita perpetua del valore terminale; con la convenzione di metà
+periodo, un valore terminale di Gordon attualizzato all'orizzonte N, mentre la prassi lo
+attualizza di solito in N − 0.5; un equity value negativo, riportato come calcolato e mai
+riportato a zero. Un `terminal_value_weight`
 elevato segnala che la valutazione dipende soprattutto dalle ipotesi di lungo periodo.
 
 ## Errori
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | Un campo è mancante, sconosciuto o non usato dall'opzione scelta; nessuno stage o più di tre; una crescita pari o inferiore a −100%; un tasso terminale insieme a un unico tasso, oppure nessuno con tassi per periodo; un momento di attualizzazione del valore terminale mancante con la convenzione di metà periodo o fornito con quella di fine periodo; un'attività non operativa negativa |
+| `FM-E001` | Un campo è mancante, sconosciuto o non usato dall'opzione scelta; nessuno stage o più di tre; stage che sommano più di 10.000 periodi; una crescita pari o inferiore a −100%; un tasso terminale insieme a un unico tasso, oppure nessuno con tassi per periodo; un momento di attualizzazione del valore terminale mancante con la convenzione di metà periodo o fornito con quella di fine periodo; un'attività non operativa negativa o con descrizione vuota |
 | `FM-E003` | Un tasso di attualizzazione è pari o inferiore a −100%; il messaggio indica il campo e il periodo |
 | `FM-E004` | La crescita perpetua è pari o superiore al tasso terminale |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 | `FM-E024` | `cash_flow_terms` e `discount_rate_terms` sono diversi |
 | `FM-E025` | Uno stage `given` con più o meno flussi dei suoi periodi, tassi per periodo non uno per periodo, un base flow mancante per un primo stage generato o fornito per uno `given` |
 
-Ogni messaggio indica il campo con il suo JSON Pointer, per esempio `/stages/1/flows`, e la
-correzione da apportare.
+Gli errori di validazione indicano il campo con il suo JSON Pointer, per esempio
+`/stages/1/flows`, e la correzione da apportare; gli errori rilevati durante la lettura
+dell'input (un campo mancante o sconosciuto, un tipo errato) indicano invece la riga e la
+colonna dell'input.
 
 ## Precisione
 
 I fattori di sconto sono calcolati da `tvm.present_value` (`tvm::period_discount_factors`): a
-fine periodo con divisioni esatte, a metà periodo con una radice quadrata decimale. Rispetto a
-un calcolo indipendente a 50 cifre, i risultati concordano entro circa $10^{-24}$ in termini
-relativi o meglio a fine periodo ed entro circa $10^{-18}$ in termini relativi o meglio a metà
-periodo. I casi di riferimento derivati dal calcolo indipendente sono verificati entro
+fine periodo con divisioni esatte, a metà periodo con una radice quadrata decimale. I valori attuali
+dividono per il fattore di capitalizzazione e conservano quindi le cifre significative anche su
+orizzonti lunghi: rispetto a un calcolo indipendente a 50 cifre, il value of operations concorda
+entro circa $10^{-24}$ in termini relativi o meglio, a fine e a metà periodo, anche su 300-1.000
+periodi. I casi di riferimento derivati dal calcolo indipendente sono verificati entro
 $10^{-20}$.
 
 ## Verificato con
 
 - Damodaran, *Investment Valuation*, 2a edizione, capitolo 15, Illustration 15.3 (Amgen, FCFF
-  in tre fasi con un costo del capitale che cambia ogni anno), alla precisione pubblicata:
-  valore attuale del periodo esplicito 8.327, valore delle attività operative 39.161, equity
-  value 40.867, valore terminale 81.364 (gli input stampati sono arrotondati; si vedano i file
-  dei casi di riferimento).
+  in tre fasi con un costo del capitale che cambia ogni anno): valore attuale del periodo
+  esplicito 8.327, valore delle attività operative 39.161, equity value 40.867 e valore
+  terminale 81.364 sono riprodotti entro 2 (valore terminale: 20) dai valori pubblicati, che
+  derivano da input arrotondati; i file dei casi di riferimento scompongono le differenze.
+  Queste tolleranze sono in attesa di approvazione del maintainer.
 - Un'implementazione indipendente a 50 cifre, `scripts/reference_dcf.py`, per ogni caso di
   riferimento (golden case) in `tests/golden/dcf.fcff/`, e le proprietà: uno stage a crescita
   costante equivale agli stessi flussi forniti; una riduzione lineare con crescite uguali
