@@ -59,10 +59,22 @@ These cannot be set from the code and are listed here so that they are not forgo
 | Setting | Value |
 | --- | --- |
 | General, Pull requests | Allow squash merging only; default commit message "Pull request title"; delete head branches automatically; suggest updating branches |
-| Rules, Rulesets for `main` | Require a pull request; require status checks *CI*, *PR hygiene*, *Docs*, *Security*; block force pushes and deletions; require linear history |
+| Rules, Rulesets for `main` | Ruleset "Protect main", active, no bypass, target the default branch: restrict deletions; require linear history; require a pull request with 0 approvals and squash as the only merge method; require the status checks listed in `.github/required-checks.txt`, without requiring branches to be up to date; block force pushes |
 | Advanced Security | Dependency graph (required by Dependency review), Dependabot alerts and security updates, secret scanning and push protection: all enabled. CodeQL runs from `security.yml`, so leave "default setup" off |
 | Pages | Source: GitHub Actions |
 | Actions, General | Workflow permissions: read repository contents; allow Actions to create pull requests only if needed |
+
+### Required status checks
+
+The ruleset requires checks by job name, and the names are listed in
+`.github/required-checks.txt`. If a job is renamed, the ruleset keeps waiting for the old name
+and every pull request is blocked. `scripts/required_checks.py check` (in the local gate and in
+CI) fails when a listed name is no longer produced on pull requests, and the weekly maintenance
+workflow compares the list with the ruleset on GitHub. When a job is renamed, change the list
+in the same pull request and update the ruleset (Settings, Rules, Rulesets, Protect main) right
+after merging it. Branches are not required to be up to date: with several pull requests open
+in parallel, that setting would force a new rebase and a new run of every check after each
+merge.
 
 ## Working on several projects
 
