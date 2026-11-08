@@ -33,6 +33,13 @@ _AGENT_RULE = (
     " the returned `explain.steps` and never alter the returned values."
 )
 
+PREVIEW_NOTE = (
+    " Status: preview. This method has not yet completed the promotion review (independent"
+    " numerical audit and code review); a later method version may change its inputs or"
+    " results. Results from preview methods should be reported as preview."
+)
+"""Sentences added to the description of every tool whose method is not available (ADR 0012)."""
+
 
 def tool_name(method_id: str) -> str:
     """`dcf.fcff` -> `fairmark_dcf_fcff` (valid for every major provider)."""
@@ -119,14 +126,21 @@ def definitions(portable: bool = False) -> list[dict[str, Any]]:
     Args:
         portable: simplify the schemas for providers or models with limited JSON Schema
             support (decimals as strings, no `pattern`/`additionalProperties`).
+
+    Preview methods are flagged in the description (title suffix and ``PREVIEW_NOTE``), so a
+    model sees the status before it calls the tool; ``fm.methods()`` reports it as data.
     """
     out = []
     for m in methods():
         schema = _inline(input_schema(m["id"]))
+        # Anything other than "available" is treated as preview: fail towards the warning.
+        preview = m.get("status") != "available"
+        title = f"{m['title']} (preview)" if preview else m["title"]
+        note = PREVIEW_NOTE if preview else ""
         out.append(
             {
                 "name": tool_name(m["id"]),
-                "description": f"{m['title']}. {m['description']}{_AGENT_RULE}",
+                "description": f"{title}. {m['description']}{note}{_AGENT_RULE}",
                 "parameters": _portable(schema) if portable else schema,
             }
         )

@@ -217,6 +217,9 @@ pub fn scenarios(input: &ScenariosInput) -> Result<(ScenariosOutput, Explain)> {
         inner.id(),
         inner.info().version
     ));
+    if let Some(note) = inner.status_convention() {
+        ex.convention(note);
+    }
     ex.convention("evaluation order: base case, then the scenarios in the order given");
     ex.convention("inputs a scenario does not change keep their base value");
     ex.convention("relative delta is null when the base output is zero");
@@ -266,6 +269,10 @@ impl Method for Scenarios {
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         scenarios(input)
+    }
+
+    fn evaluated_method(input: &Self::Input) -> Option<&str> {
+        Some(&input.method)
     }
 }
 

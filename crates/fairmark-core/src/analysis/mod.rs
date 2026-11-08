@@ -98,6 +98,7 @@ pub struct InnerMethod {
 pub(crate) struct Inner {
     id: &'static str,
     version: &'static str,
+    status: registry::Status,
     evaluations: u64,
     /// Evaluations reserved by `reserve` before the first one; exceeding it is a defect.
     reserved: u64,
@@ -113,6 +114,7 @@ impl Inner {
         Ok(Self {
             id: info.id,
             version: info.version,
+            status: info.status,
             evaluations: 0,
             reserved: 0,
         })
@@ -127,6 +129,17 @@ impl Inner {
 
     pub(crate) fn id(&self) -> &str {
         self.id
+    }
+
+    /// The convention an analysis reports when its inner method is preview (ADR 0012).
+    pub(crate) fn status_convention(&self) -> Option<String> {
+        (self.status == registry::Status::Preview).then(|| {
+            format!(
+                "Evaluated method {} is preview: its results have not been independently \
+                verified (docs/en/project/releases.md, Method status)",
+                self.id
+            )
+        })
     }
 
     /// Fails with `FM-E016` before any evaluation when the request needs more than

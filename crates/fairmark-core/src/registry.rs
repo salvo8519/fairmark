@@ -3,7 +3,7 @@
 //! Python, the CLI, the MCP server, function-calling tool definitions and the
 //! documentation are all generated from this catalogue and its JSON Schemas.
 
-use schemars::schema_for;
+use schemars::{schema_for, JsonSchema};
 use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -20,6 +20,81 @@ pub struct MethodInfo {
     pub title: &'static str,
     pub description: &'static str,
     pub version: &'static str,
+    /// `available` or `preview`; see [`Status`].
+    pub status: Status,
+}
+
+/// How far a method has been verified (ADR 0012). Defined, with the promotion rule, in
+/// `docs/en/project/releases.md`; both statuses follow the versioning rules of ADR 0009.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum Status {
+    /// Meets the promotion rule: approved spec, independent audit and review recorded.
+    Available,
+    /// Implemented, tested and documented, not yet promoted: tell users so.
+    Preview,
+}
+
+/// Methods promoted to available (ADR 0012). Every other method is preview, so a new method
+/// is preview until it is listed here; `scripts/method_status.py` checks each entry against
+/// the evidence in `specs/method-evidence.yaml`.
+const AVAILABLE: &[&str] = &[
+    "tvm.future_value",
+    "loans.instalment",
+    "loans.number_of_instalments",
+    "loans.amortisation_schedule",
+    "coc.cost_of_equity",
+    "coc.beta_relever",
+    "coc.beta_peers",
+    "coc.cost_of_debt",
+    "coc.wacc",
+    "tv.gordon",
+    "tv.value_driver",
+    "tv.h_model",
+    "tv.exit_multiple",
+    "tv.limited_horizon",
+    "tv.normalised_income",
+    "tv.liquidation",
+    "tv.compare",
+    "analysis.goal_seek",
+    "analysis.sensitivity",
+    "analysis.scenarios",
+    "analysis.tornado",
+];
+
+/// Byte-wise string equality usable in constant evaluation.
+const fn same(a: &str, b: &str) -> bool {
+    let (a, b) = (a.as_bytes(), b.as_bytes());
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut i = 0;
+    while i < a.len() {
+        if a[i] != b[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+
+const fn is_listed(id: &str, list: &[&str]) -> bool {
+    let mut i = 0;
+    while i < list.len() {
+        if same(id, list[i]) {
+            return true;
+        }
+        i += 1;
+    }
+    false
+}
+
+const fn status_of(id: &str) -> Status {
+    if is_listed(id, AVAILABLE) {
+        Status::Available
+    } else {
+        Status::Preview
+    }
 }
 
 /// Builds the catalogue, the schema lookup and the dispatch from one list of [`Method`] types.
@@ -39,8 +114,19 @@ macro_rules! registry {
                 title: <$m as Method>::TITLE,
                 description: <$m as Method>::DESCRIPTION,
                 version: <$m as Method>::VERSION,
+                status: status_of(<$m as Method>::ID),
             },
         )+];
+
+        /// Every id promoted in `AVAILABLE` is a registered method (ADR 0012).
+        const _: () = {
+            let ids: &[&str] = &[$(<$m as Method>::ID),+];
+            let mut i = 0;
+            while i < AVAILABLE.len() {
+                assert!(is_listed(AVAILABLE[i], ids), "AVAILABLE names an unregistered method");
+                i += 1;
+            }
+        };
 
         /// `(id, Rust type path)` of every method, to check that each lives in its theme module.
         /// `type_name` is best-effort by documentation but stable in practice for plain paths;
@@ -163,6 +249,8 @@ fn execute<M: Method>(input_json: &str) -> Result<Value> {
             method_version: M::VERSION.to_owned(),
             input_hash: sha256_hex(canonical.as_bytes()),
             arithmetic: "decimal, 96-bit mantissa (28-29 significant digits)".to_owned(),
+            method_status: status_of(M::ID),
+            evaluated_method_status: M::evaluated_method(&input).map(status_of),
         },
     };
     serde_json::to_value(envelope).map_err(|e| FairmarkError::InvalidInput(e.to_string()))
@@ -219,6 +307,95 @@ mod tests {
                 "{id} is implemented by {path}, outside the module of its theme"
             );
         }
+    }
+
+    /// ADR 0012: methods not promoted in `AVAILABLE` are preview, and the status is part of
+    /// the catalogue every adapter serialises.
+    #[test]
+    fn status_comes_from_the_promotion_list() {
+        for m in METHODS {
+            let expected = if AVAILABLE.contains(&m.id) {
+                Status::Available
+            } else {
+                Status::Preview
+            };
+            assert_eq!(m.status, expected, "{}", m.id);
+        }
+        assert_eq!(method("dcf.fcff").unwrap().status, Status::Preview);
+        assert_eq!(method("tvm.npv").unwrap().status, Status::Preview);
+        assert_eq!(method("tv.gordon").unwrap().status, Status::Available);
+        let json = serde_json::to_value(method("dcf.fcff").unwrap()).unwrap();
+        assert_eq!(json["status"], "preview");
+        let json = serde_json::to_value(method("tv.gordon").unwrap()).unwrap();
+        assert_eq!(json["status"], "available");
+    }
+
+    /// A two-period dcf.fcff version 3 input, valued with a Gordon terminal value.
+    const DCF_V3: &str = r#"{"stages": [{"periods": 2, "projection": "given", "flows": [100, 110]}], "cash_flow_terms": "nominal", "discount_rate_terms": "nominal", "wacc": "0.09", "timing": "end_of_period", "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}, "net_financial_position": {"gross_debt": 0, "cash": 0}}"#;
+
+    /// ADR 0012: every result states the status of the method that produced it.
+    #[test]
+    fn results_report_the_method_status() {
+        let tv = run(
+            "tv.gordon",
+            r#"{"rate": "0.1", "growth": "0.02", "next_flow": "50"}"#,
+        )
+        .unwrap();
+        assert_eq!(tv["meta"]["method_status"], "available");
+        assert!(tv["meta"].get("evaluated_method_status").is_none());
+        let npv = run("tvm.npv", r#"{"rate": 0.1, "cash_flows": [-100, 60, 60]}"#).unwrap();
+        assert_eq!(npv["meta"]["method_status"], "preview");
+        // dcf.fcff version 3 input (SPEC-0001).
+        let dcf = run("dcf.fcff", DCF_V3).unwrap();
+        assert_eq!(dcf["meta"]["method_status"], "preview");
+    }
+
+    /// ADR 0012: an analysis reports the status of the method it evaluates, in `meta` and, when
+    /// that method is preview, as a convention.
+    #[test]
+    fn analysis_reports_the_status_of_the_evaluated_method() {
+        let table = |method: &str, base: &str, variable: &str, output: &str| {
+            run(
+                "analysis.sensitivity",
+                &format!(
+                    r#"{{"method": "{method}", "base_input": {base}, "output": "{output}",
+                        "rows": {{"variable": "{variable}", "values": ["0.08", "0.09"]}}}}"#
+                ),
+            )
+            .unwrap()
+        };
+        let preview = table("dcf.fcff", DCF_V3, "/wacc", "/enterprise_value");
+        assert_eq!(preview["meta"]["method_status"], "available");
+        assert_eq!(preview["meta"]["evaluated_method_status"], "preview");
+        let conventions = preview["explain"]["conventions"].as_array().unwrap();
+        assert!(conventions.iter().any(|c| c
+            .as_str()
+            .unwrap()
+            .starts_with("Evaluated method dcf.fcff is preview")));
+
+        let available = table(
+            "tv.gordon",
+            r#"{"rate": "0.09", "growth": "0.02", "next_flow": "50"}"#,
+            "/rate",
+            "/terminal_value",
+        );
+        assert_eq!(available["meta"]["evaluated_method_status"], "available");
+        let conventions = available["explain"]["conventions"].as_array().unwrap();
+        assert!(!conventions
+            .iter()
+            .any(|c| c.as_str().unwrap().contains("is preview")));
+    }
+
+    #[test]
+    fn promotion_list_names_registered_methods_once() {
+        let mut seen = std::collections::BTreeSet::new();
+        for id in AVAILABLE {
+            assert!(seen.insert(id), "{id} is listed twice");
+            assert!(method(id).is_ok(), "{id} is not registered");
+        }
+        assert!(is_listed("tv.gordon", AVAILABLE));
+        assert!(!is_listed("tv.gordo", AVAILABLE));
+        assert!(!is_listed("tv.gordonx", AVAILABLE));
     }
 
     #[test]

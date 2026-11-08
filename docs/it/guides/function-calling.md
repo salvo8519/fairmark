@@ -1,6 +1,6 @@
 ---
 source: guides/function-calling.md
-source_hash: bd285587d083
+source_hash: 4dcebfd3f7a7
 ---
 # Function calling
 
@@ -27,6 +27,20 @@ result = fm.tools.dispatch(name, arguments)   # arguments: dict o stringa JSON
 `dispatch` non solleva eccezioni su input non validi. Restituisce
 `{"error": {"code", "message"}}`, da rimandare al modello come risultato del tool perché
 corregga i parametri.
+
+## Metodi in anteprima
+
+Ogni metodo ha uno stato, `available` (disponibile) o `preview` (anteprima), riportato da
+`fm.methods()` (vedi lo
+[stato dei metodi](https://salvo8519.github.io/fairmark/project/releases/#method-status), in
+inglese). La definizione di un metodo in anteprima riporta "(preview)" dopo il titolo e la
+frase `fm.tools.PREVIEW_NOTE` ("Status: preview. ...") nella descrizione, così il modello lo
+sa prima di chiamare il tool e può dirlo all'utente. Le definizioni non contengono chiavi
+aggiuntive, quindi ogni provider le accetta.
+
+```python
+[m["id"] for m in fm.methods() if m["status"] == "preview"]
+```
 
 ## Nomi dei tool
 

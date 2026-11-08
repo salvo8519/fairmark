@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-scenarios.md
-source_hash: a5e2c8141718
+source_hash: 5ce282c0f0c4
 ---
 # Analisi di scenario (`analysis.scenarios`)
 
@@ -155,6 +155,7 @@ scostamento relativo sostituiti.
 | Convenzione | Valore | Default |
 | --- | --- | --- |
 | Metodo interno | identificativo e versione, valutato tramite il registro | obbligatorio |
+| Stato del metodo interno | se il metodo interno è in anteprima, "Evaluated method <id> is preview"; lo stato è anche in `meta.evaluated_method_status` | riportato |
 | Ordine di valutazione | caso base, poi gli scenari nell'ordine indicato | fisso |
 | Input non modificati | mantengono il valore del caso base | fisso |
 | Scostamento relativo quando l'output del caso base è zero | `null` | fisso |

@@ -1,6 +1,6 @@
 ---
 source: guides/mcp.md
-source_hash: 1c5556b92434
+source_hash: 38fa65d72d02
 ---
 # Server MCP
 
@@ -44,8 +44,15 @@ finanziari.
 
 - Un tool per metodo (`fairmark_dcf_fcff`, `fairmark_tvm_npv`, ...), con lo schema di input
   completo, marcato come di sola lettura e idempotente.
+- Lo stato di ogni metodo nel campo `_meta` del tool, `{"fairmark/status": "available"}`
+  oppure `"preview"`. La descrizione di un tool in anteprima riporta "(preview)" dopo il
+  titolo e una frase che inizia con "Status: preview", così il modello lo vede prima della
+  chiamata. La pagina sullo
+  [stato dei metodi](https://salvo8519.github.io/fairmark/project/releases/#method-status)
+  (in inglese) definisce i due stati.
 - Istruzioni del server che chiedono al modello di usare i tool per ogni numero, di citare
-  `explain.steps` e di presentare ogni risultato come un calcolo sotto la responsabilità
+  `explain.steps`, di dichiarare all'utente quando un risultato proviene da un metodo in
+  anteprima e di presentare ogni risultato come un calcolo sotto la responsabilità
   dell'utilizzatore, mai come una consulenza (vedi le [avvertenze legali](../disclaimer.md)).
 - Risultati come contenuto strutturato (la busta JSON completa) e come testo.
 - Errori segnalati con `isError` e un codice stabile, così il modello può correggere la

@@ -25,5 +25,11 @@ description: End-to-end checklist for adding a valuation method to the Fairmark 
    changes in one PR share the bump); CI refuses a breaking change to version N.
 6. Python: thin helper in `python/fairmark/<area>.py`, exported in `__init__.py`.
 7. Docs: `docs/en/methods/<id>.md` (via `docs-writer`), nav entry in `zensical.toml`,
-   row in `docs/en/methods/index.md`; `python scripts/docs_sync.py coverage` must pass.
+   row in `docs/en/methods/index.md` (method and what it computes; the status block is
+   generated); `python scripts/docs_sync.py coverage` must pass.
 8. `uv run just check`, then `code-reviewer` and `numerical-auditor`.
+9. Status: a new method is `preview` (ADR 0012). Add its id to the spec's entry in
+   `specs/method-evidence.yaml`. Promotion to `available` is a separate, maintainer-approved
+   change: one line in `AVAILABLE` (`registry.rs`) once the rule in
+   `docs/en/project/releases.md` ("Method status") holds; `python scripts/method_status.py
+   check` verifies it.

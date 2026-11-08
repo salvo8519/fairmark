@@ -1,6 +1,6 @@
 ---
 source: guides/cli.md
-source_hash: b05264e6d6e9
+source_hash: 563724ffc92f
 ---
 # Riga di comando
 
@@ -8,7 +8,7 @@ Il binario `fairmark` legge JSON e scrive JSON. Gli errori vanno su stderr come 
 codice di uscita diverso da zero.
 
 ```bash
-fairmark methods                                   # elenca i metodi
+fairmark methods                                   # elenca i metodi, con versione e stato
 fairmark schema dcf.fcff                           # JSON Schema degli input
 fairmark run dcf.fcff --input company.json         # risultato completo: value, explain, meta
 fairmark run dcf.fcff --input company.json --value-only

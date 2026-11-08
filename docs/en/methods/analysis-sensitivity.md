@@ -123,6 +123,7 @@ currency units for an amount. In Python, `rows` and `columns` are `(pointer, val
 | Convention | Value | Default |
 | --- | --- | --- |
 | Inner method | id and version, evaluated through the registry | required |
+| Inner method status | when the inner method is preview, "Evaluated method <id> is preview"; the status is also in `meta.evaluated_method_status` | reported |
 | Output | the pointer reported in each cell | required |
 | Evaluation order | base case, then the cells row by row (row-major), columns in the order given | fixed |
 | Failed cells | a cell the inner method refuses holds its error code and message and the table goes on; `FM-E012` (a defect in Fairmark) aborts the request | fixed |

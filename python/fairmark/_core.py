@@ -153,7 +153,11 @@ def run(method: str, inputs: Mapping[str, Any] | str) -> Result:
 
 
 def methods() -> list[dict[str, str]]:
-    """Catalogue of available methods (id, title, description, version)."""
+    """Catalogue of every method: id, title, description, version and status.
+
+    ``status`` is ``"available"`` or ``"preview"`` (ADR 0012; definitions and promotion rule
+    in the project's release policy). Tell users when a result comes from a preview method.
+    """
     result: list[dict[str, str]] = json.loads(_engine.methods())
     return result
 

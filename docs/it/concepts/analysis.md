@@ -1,6 +1,6 @@
 ---
 source: concepts/analysis.md
-source_hash: b8e07fcfef10
+source_hash: eb98f21da821
 ---
 # Metodi di analisi
 
@@ -40,6 +40,9 @@ interpreta, convalida e calcola come sempre, quindi si applicano il suo schema e
 - ogni risultato registra in `inner_method` il metodo interno e la versione eseguita da questo
   motore. Per riprodurre un risultato servono quella versione e la versione del motore indicata
   in `meta`;
+- `meta.evaluated_method_status` riporta lo stato del metodo interno, `available` o `preview`.
+  Se è in anteprima, anche `explain.conventions` lo dichiara ("Evaluated method <id> is
+  preview"), così un report costruito sull'analisi riporta l'avvertenza;
 - la composizione ha un solo livello: un metodo di analisi non può valutare un altro metodo di
   analisi (`FM-E017`).
 

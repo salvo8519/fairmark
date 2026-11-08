@@ -9,7 +9,9 @@ Code: `.agents/skills/fairmark/` in your project, or `~/.agents/skills/fairmark/
 
 The skill instructs the agent to:
 
-1. discover methods with `fairmark methods` and inputs with `fairmark schema <method>`;
+1. discover methods with `fairmark methods` (each with its status, `available` or `preview`)
+   and inputs with `fairmark schema <method>`, and say so when a result comes from a preview
+   method;
 2. write the extracted inputs to a JSON file and run `fairmark run`;
 3. report values exactly as returned, citing `explain.steps` and the conventions;
 4. never compute valuation figures itself.

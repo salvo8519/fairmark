@@ -1,0 +1,86 @@
+# Evidence for the promotion of methods from preview to available (ADR 0012).
+# Rule: docs/en/project/releases.md, "Method status". Checked by scripts/method_status.py.
+#
+# specs: one entry per spec folder number, a quoted four-digit string ("0002"):
+#   methods          method ids the spec covers (each id in at most one entry)
+#   numerical_audit  id of the task in the spec's tasks.md that records the independent
+#                    numerical audit; its text must name `numerical-auditor`; or null
+#   code_review      id of the task that records the code review; its text must name
+#                    `code-reviewer`; or null
+# legacy: methods available before the rule (issue #149) that do not yet meet it. Reported on
+#   every run. The list may only shrink (the checker's FROZEN_AT_149 bounds it): remove a
+#   method once it meets the rule or becomes preview. Never add one.
+#
+# Status itself is not stored here: it is the AVAILABLE list in
+# crates/fairmark-core/src/registry.rs. Preview methods may be listed or not.
+specs:
+  "0001":
+    methods: [dcf.fcff]
+    numerical_audit: null
+    code_review: null
+  "0002":
+    methods:
+      - dates.year_fraction
+      - rates.convert
+      - rates.real_nominal
+      - tvm.npv
+      - tvm.present_value
+      - tvm.xnpv
+      - tvm.irr
+      - tvm.xirr
+      - tvm.mirr
+      - tvm.annuity
+      - tvm.perpetuity
+    numerical_audit: T13
+    code_review: null
+  "0003":
+    methods:
+      - coc.cost_of_equity
+      - coc.beta_relever
+      - coc.beta_peers
+      - coc.cost_of_debt
+      - coc.wacc
+    numerical_audit: T6
+    code_review: T6
+  "0006":
+    methods:
+      - tv.gordon
+      - tv.value_driver
+      - tv.h_model
+      - tv.exit_multiple
+      - tv.limited_horizon
+      - tv.normalised_income
+      - tv.liquidation
+      - tv.compare
+    numerical_audit: T17
+    code_review: T17
+  "0007":
+    methods:
+      - ratios.profitability
+      - ratios.capital_structure
+      - ratios.liquidity
+      - ratios.working_capital
+      - ratios.debt_service
+      - ratios.covenants
+    numerical_audit: T20
+    code_review: T20
+  "0008":
+    methods:
+      - analysis.goal_seek
+      - analysis.sensitivity
+      - analysis.scenarios
+      - analysis.tornado
+    numerical_audit: T25
+    code_review: T25
+  "0009":
+    methods:
+      - tvm.future_value
+      - loans.instalment
+      - loans.number_of_instalments
+      - loans.amortisation_schedule
+    numerical_audit: T23
+    code_review: T23
+
+# Empty since the maintainer decision of 2026-11-08 (ADR 0012); scripts/release.py ready fails
+# while it is not.
+legacy: []

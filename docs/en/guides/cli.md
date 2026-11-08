@@ -4,7 +4,7 @@ The `fairmark` binary reads JSON and writes JSON. Errors go to stderr as JSON wi
 non-zero exit code.
 
 ```bash
-fairmark methods                                   # list methods
+fairmark methods                                   # list methods, with version and status
 fairmark schema dcf.fcff                           # JSON Schema of the inputs
 fairmark run dcf.fcff --input company.json         # full result: value, explain, meta
 fairmark run dcf.fcff --input company.json --value-only

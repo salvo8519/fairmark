@@ -149,6 +149,9 @@ pub fn sensitivity(input: &SensitivityInput) -> Result<(SensitivityOutput, Expla
         inner.id(),
         inner.info().version
     ));
+    if let Some(note) = inner.status_convention() {
+        ex.convention(note);
+    }
     ex.convention(format!("each cell reports {}", input.output));
     ex.convention(
         "evaluation order: base case, then the cells row by row (row-major), columns in the \
@@ -195,6 +198,10 @@ impl Method for Sensitivity {
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         sensitivity(input)
+    }
+
+    fn evaluated_method(input: &Self::Input) -> Option<&str> {
+        Some(&input.method)
     }
 }
 

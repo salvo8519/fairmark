@@ -49,6 +49,7 @@ check-generated:
 docs-coverage:
     python scripts/docs_sync.py coverage
     python scripts/docs_sync.py claims
+    python scripts/method_status.py check
 
 # Documentation impact of this branch against main
 docs-impact base="origin/main":

@@ -1,5 +1,9 @@
 method: tvm.npv
 description: Investment of 5000 with four growing inflows at 7%
+source: >
+  scripts/reference_npv_irr.py (Python decimal, 50 digits, NPV = sum CF_t / (1 + r)^t with the
+  first flow at t = 0): 503.0695432159577598958361186955398193499231051215, which rounds to the
+  expected value at 12 decimals. Source added 2026-11-08, maintainer decision on #149.
 input:
   rate: "0.07"
   cash_flows: [-5000, 1200, 1500, 1800, 2100]

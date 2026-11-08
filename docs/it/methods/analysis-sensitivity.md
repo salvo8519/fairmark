@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-sensitivity.md
-source_hash: 50dde6b88a10
+source_hash: afe2333b74fb
 ---
 # Tabella di sensitività (`analysis.sensitivity`)
 
@@ -132,6 +132,7 @@ corrisponde all'8%), unità monetarie per un importo. In Python, `rows` e `colum
 | Convenzione | Valore | Default |
 | --- | --- | --- |
 | Metodo interno | identificativo e versione, valutato tramite il registro | obbligatorio |
+| Stato del metodo interno | se il metodo interno è in anteprima, "Evaluated method <id> is preview"; lo stato è anche in `meta.evaluated_method_status` | riportato |
 | Output | puntatore riportato in ogni cella | obbligatorio |
 | Ordine di valutazione | caso base, poi le celle riga per riga, con le colonne nell'ordine indicato | fisso |
 | Celle in errore | una cella rifiutata dal metodo interno contiene il codice e il messaggio di errore e la tabella prosegue; `FM-E012` (un difetto di Fairmark) interrompe la richiesta | fisso |

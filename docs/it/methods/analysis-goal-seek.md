@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-goal-seek.md
-source_hash: 55d601e9024c
+source_hash: c48f47d98f73
 ---
 # Ricerca obiettivo (`analysis.goal_seek`)
 
@@ -169,6 +169,7 @@ il residuo sostituiti, seguita da un passaggio finale `Solution`.
 | Convenzione | Valore | Default |
 | --- | --- | --- |
 | Metodo interno | identificativo e versione, valutato tramite il registro | obbligatorio |
+| Stato del metodo interno | se il metodo interno è in anteprima, "Evaluated method <id> is preview"; lo stato è anche in `meta.evaluated_method_status` | riportato |
 | Ricerca della radice | metodo di Brent: interpolazione quadratica inversa, metodo delle secanti, bisezione | fisso |
 | Intervallo di ricerca | indicato dal chiamante; nessuna ricerca automatica | obbligatorio |
 | Entrambi gli estremi rispettano la tolleranza | è restituito l'estremo inferiore | fisso |

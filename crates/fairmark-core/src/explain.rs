@@ -6,6 +6,8 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::Serialize;
 
+use crate::registry::Status;
+
 /// One auditable step of a calculation.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct Step {
@@ -64,6 +66,11 @@ pub struct Meta {
     pub input_hash: String,
     /// Arithmetic used for every operation.
     pub arithmetic: String,
+    /// Status of the method that produced the result, `available` or `preview` (ADR 0012).
+    pub method_status: Status,
+    /// Analysis methods only: status of the method they evaluated (ADR 0012).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evaluated_method_status: Option<Status>,
 }
 
 /// The envelope every method returns.

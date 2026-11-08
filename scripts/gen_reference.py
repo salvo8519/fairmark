@@ -1,19 +1,23 @@
 """Generate the methods reference (English and Italian) from the engine registry.
 
-    python scripts/gen_reference.py           # write docs/<lang>/reference/methods.md
+    python scripts/gen_reference.py           # write the generated pages and blocks
     python scripts/gen_reference.py --check   # fail if any is stale (CI)
 
-Field descriptions come from the Rust doc comments (English) in both editions.
+Writes docs/<lang>/reference/methods.md, the status block of docs/<lang>/methods/index.md
+and the methods table of README.md and README.it.md. Field descriptions come from the Rust
+doc comments (English) in both editions; the status of each method comes from the registry
+(ADR 0012).
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 from pathlib import Path
 from typing import Any
+
+import tomllib
 
 import fairmark as fm
 
@@ -29,12 +33,14 @@ TEXT = {
             "Decimals may be passed as JSON numbers or strings and are returned as strings.",
         ],
         "version": "method version",
+        "status": "status",
         "tool": "tool",
         "header": "| Input | Type | Required | Default | Description |",
         "yes": "yes",
         "no": "no",
         "decimal": "decimal",
         "list": "list of",
+        "states": {"available": "available", "preview": "preview"},
     },
     "it": {
         "title": "Riferimento dei metodi",
@@ -46,12 +52,14 @@ TEXT = {
             "sorgente e sono in inglese.",
         ],
         "version": "versione del metodo",
+        "status": "stato",
         "tool": "tool",
         "header": "| Input | Tipo | Obbligatorio | Default | Descrizione |",
         "yes": "sì",
         "no": "no",
         "decimal": "decimale",
         "list": "lista di",
+        "states": {"available": "disponibile", "preview": "anteprima"},
     },
 }
 
@@ -83,8 +91,8 @@ def render(lang: str) -> str:
         lines += [
             f"## `{m['id']}`",
             "",
-            f"**{m['title']}** · {t['version']} {m['version']} · {t['tool']} "
-            f"`{fm.tools.tool_name(m['id'])}`",
+            f"**{m['title']}** · {t['version']} {m['version']} · {t['status']} "
+            f"{t['states'][m['status']]} · {t['tool']} `{fm.tools.tool_name(m['id'])}`",
             "",
             m["description"],
             "",
@@ -100,7 +108,10 @@ def render(lang: str) -> str:
     return "\n".join(lines)
 
 
-ROADMAP_URL = "https://salvo8519.github.io/fairmark/project/roadmap/"
+SITE_URL = tomllib.loads((ROOT / "zensical.toml").read_text(encoding="utf-8"))["project"][
+    "site_url"
+]  # English site: project pages are English only
+ROADMAP_URL = f"{SITE_URL}project/roadmap/"
 README = {
     "en": {
         "file": "README.md",
@@ -121,18 +132,11 @@ README_START = "<!-- generated:methods:start (scripts/gen_reference.py) -->"
 README_END = "<!-- generated:methods:end -->"
 
 
-def statuses() -> dict[str, str]:
-    """Status of each method as declared in the methods index (available, preview)."""
-    index = (ROOT / "docs/en/methods/index.md").read_text(encoding="utf-8")
-    return dict(re.findall(r"^\| \[`([a-z_]+\.[a-z_]+)`\]\([^)]*\) \| ([a-z]+) \|", index, re.M))
-
-
 def readme_block(lang: str) -> str:
     t = README[lang]
-    status = statuses()
     rows = [t["head"], "| --- | --- | --- |"]
     for m in fm.methods():
-        state = t["status"].get(status.get(m["id"], ""), "")
+        state = t["status"][m["status"]]
         rows.append(f"| `{m['id']}` | {state} | {m['title']} |")
     return "\n".join([README_START, "", *rows, "", t["next"], "", README_END])
 
@@ -143,6 +147,46 @@ def readme_with_block(lang: str) -> tuple[Path, str]:
     head, rest = text.split(README_START, 1)
     tail = rest.split(README_END, 1)[1]
     return path, head + readme_block(lang) + tail
+
+
+STATUS_URL = f"{SITE_URL}project/releases/#method-status"
+INDEX = {
+    "en": {
+        "intro": "Status of each method, as the engine registry reports it to `fm.methods()`,"
+        " `fairmark methods`, the MCP server and function-calling tools. Definitions and the"
+        " promotion rule: [method status](../project/releases.md#method-status).",
+        "head": "| Status | Methods |",
+        "status": {"available": "Available", "preview": "Preview"},
+    },
+    "it": {
+        "intro": "Stato di ogni metodo, come lo riporta il registro del motore a `fm.methods()`,"
+        " `fairmark methods`, al server MCP e ai tool di function calling. Definizioni e regola"
+        f" di promozione: [stato dei metodi]({STATUS_URL}) (in inglese).",
+        "head": "| Stato | Metodi |",
+        "status": {"available": "Disponibile", "preview": "Anteprima"},
+    },
+}
+INDEX_START = "<!-- generated:status:start (scripts/gen_reference.py) -->"
+INDEX_END = "<!-- generated:status:end -->"
+
+
+def index_block(lang: str) -> str:
+    """Methods grouped by status, for the methods index of one language."""
+    t = INDEX[lang]
+    rows = [t["head"], "| --- | --- |"]
+    for state in ("available", "preview"):
+        ids = [f"`{m['id']}`" for m in fm.methods() if m["status"] == state]
+        if ids:
+            rows.append(f"| {t['status'][state]} | {', '.join(ids)} |")
+    return "\n".join([INDEX_START, "", t["intro"], "", *rows, "", INDEX_END])
+
+
+def index_with_block(lang: str) -> tuple[Path, str]:
+    path = ROOT / "docs" / lang / "methods" / "index.md"
+    text = path.read_text(encoding="utf-8")
+    head, rest = text.split(INDEX_START, 1)
+    tail = rest.split(INDEX_END, 1)[1]
+    return path, head + index_block(lang) + tail
 
 
 def main() -> None:
@@ -159,8 +203,9 @@ def main() -> None:
         else:
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(content)
-    for lang in README:
-        path, content = readme_with_block(lang)
+    blocks = [readme_with_block(lang) for lang in README]
+    blocks += [index_with_block(lang) for lang in INDEX]
+    for path, content in blocks:
         if args.check:
             if path.read_text(encoding="utf-8") != content:
                 stale.append(str(path.relative_to(ROOT)))

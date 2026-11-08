@@ -23,6 +23,18 @@ result = fm.tools.dispatch(name, arguments)   # arguments: dict or JSON string
 `dispatch` never raises on bad input. It returns `{"error": {"code", "message"}}`, which you
 send back to the model as the tool result so it can fix its parameters.
 
+## Preview methods
+
+Every method has a status, `available` or `preview`, reported by `fm.methods()`
+(see [method status](../project/releases.md#method-status)). The definition of a preview
+method has "(preview)" after its title and the sentence `fm.tools.PREVIEW_NOTE` ("Status:
+preview. ...") in its description, so the model knows before it calls the tool and can tell
+the user. The definitions carry no extra key, so every provider accepts them.
+
+```python
+[m["id"] for m in fm.methods() if m["status"] == "preview"]
+```
+
 ## Tool names
 
 Method `dcf.fcff` becomes tool `fairmark_dcf_fcff`. Use `fm.tools.method_id(name)` to map back.

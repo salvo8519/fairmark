@@ -32,6 +32,9 @@ its own schema and its own errors apply (ADR 0010). Consequences:
   validates it at run time. Analysis schemas do not change when an inner method does.
 - Every result records the inner method and the version this engine ran, in `inner_method`.
   Reproducing a result needs that version and the engine version in `meta`.
+- `meta.evaluated_method_status` reports the status of the inner method, `available` or
+  `preview`. When it is preview, `explain.conventions` also states "Evaluated method <id> is
+  preview", so a report built on the analysis carries the warning.
 - Composition is one level deep: an analysis method cannot evaluate another analysis method
   (`FM-E017`).
 
