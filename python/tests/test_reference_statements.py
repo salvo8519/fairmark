@@ -79,6 +79,8 @@ def statutory_year() -> dict[str, Any]:
         "current_financial_assets": str(c3),
         "cash": str(c4),
         "prepayments_and_accrued_income": {"total": str(d), "beyond_one_year": str(d // 5)},
+        "fixed_assets": str(b1 + b2 + b3),
+        "current_assets": str(c1 + c2 + c3 + c4),
         "total_assets": str(assets),
         "equity": {"total": str(equity)},
         "provisions": {"total": str(prov), "of_which_derivative_liabilities": str(deriv)},
@@ -97,8 +99,12 @@ def statutory_year() -> dict[str, Any]:
     for key in OPTIONAL:
         if RNG.random() < 0.08:
             del bs[key]
-            bs.pop("total_assets", None)
-            bs.pop("total_liabilities_and_equity", None)
+            # The totals stay given half of the time: the R15 amounts read them, and an item
+            # taken as zero (D1, D2) then meets a given total (FM-E026 or not checked).
+            if RNG.random() < 0.5:
+                for total in ("fixed_assets", "current_assets", "total_assets"):
+                    bs.pop(total, None)
+                bs.pop("total_liabilities_and_equity", None)
     for key, sub in (("payables", "shareholder_loans"), ("receivables", "beyond_one_year")):
         if key in bs and RNG.random() < 0.08:
             del bs[key][sub]
@@ -167,10 +173,42 @@ def reclassified_year() -> dict[str, Any]:
         ],
         "total_sources": str(ic + noa),
     }
+    if RNG.random() < 0.2:
+        # Only the parts of the net financial position: its total is their sum (R5).
+        nfp_node = bs["net_financial_position"]
+        bs["net_financial_position"] = {
+            "current": nfp_node["current"],
+            "non_current": nfp_node["non_current"],
+        }
     for key in list(bs):
         if RNG.random() < 0.1:
             del bs[key]
     return {"reclassified": {"balance_sheet": bs}}
+
+
+def loan_split(loans: dict[str, Any]) -> list[dict[str, Any]]:
+    """Two parts of the shareholder loans, with maturities that mostly reconcile with the loans'
+    (review of PR 1, item 4): sometimes a quasi-equity part, sometimes a maturity left out or
+    off by one."""
+    total, beyond = int(loans["total"]), int(loans.get("beyond_one_year", "0"))
+    first = total // 2
+    first_beyond = min(first, beyond)
+    parts: list[dict[str, Any]] = [
+        {
+            "destination": "financial_debt",
+            "amount": str(first),
+            "label": "Loan A",
+            "beyond_one_year": str(first_beyond + RNG.choice([0, 0, 0, 1])),
+        },
+        {
+            "destination": RNG.choice(["financial_debt", "quasi_equity"]),
+            "amount": str(total - first),
+            "label": "Loan B",
+        },
+    ]
+    if parts[1]["destination"] == "financial_debt" and RNG.random() < 0.8:
+        parts[1]["beyond_one_year"] = str(beyond - first_beyond)
+    return parts
 
 
 def call() -> dict[str, Any]:
@@ -178,11 +216,19 @@ def call() -> dict[str, Any]:
     years = [statutory_year() if RNG.random() < 0.75 else reclassified_year() for _ in range(n)]
     for i, y in enumerate(years):
         y["label"] = str(2020 + i)
+        loans = (
+            y["statutory"]["balance_sheet"].get("payables", {}).get("shareholder_loans")
+            if "statutory" in y
+            else None
+        )
+        if loans is not None and RNG.random() < 0.3:
+            y["treatment_overrides"] = {"shareholder_loans": {"split": loan_split(loans)}}
         if "statutory" in y and RNG.random() < 0.2:
             b3 = y["statutory"]["balance_sheet"].get("financial_fixed_assets")
             if b3 is not None:
                 half = int(b3) // 2
-                y["treatment_overrides"] = {
+                y.setdefault("treatment_overrides", {})
+                y["treatment_overrides"] |= {
                     "financial_fixed_assets": {
                         "split": [
                             {"destination": "non_operating", "amount": str(half), "label": "Stake"},
@@ -239,7 +285,7 @@ def normalise(node: Any) -> Any:
     return node
 
 
-@pytest.mark.parametrize("seed", range(150))
+@pytest.mark.parametrize("seed", range(400))
 def test_balance_sheets_match_the_reference(seed: int) -> None:
     RNG.seed(20261108 + seed)
     inp = call()
@@ -258,7 +304,7 @@ def test_balance_sheets_match_the_reference(seed: int) -> None:
 def test_the_random_calls_reach_every_outcome() -> None:
     """The generator is not degenerate: computed, partly computed and refused calls occur."""
     outcomes = set()
-    for seed in range(150):
+    for seed in range(400):
         RNG.seed(20261108 + seed)
         inp = call()
         try:
