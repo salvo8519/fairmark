@@ -511,3 +511,119 @@ Output fields are not part of the schema snapshots.
   schema or change the shared tv::Line type. Approved by the maintainer on 2026-11-08.
   (`scripts/schema_snapshots.py --diff-against` main reported
   `v3 dcf.fcff.non_operating_assets[]: '$ref' changed`.)
+
+## Issue #165 — Equity DCF on the shared engine (`dcf.fcfe`)
+
+Requirements: R1 (the equity method id and version), R3 and R7 for `given` stages with
+build-up lines on the equity basis, R19 (basis check on the equity basis), R22 (terminal value
+weight), R24, R25, R26, R27, R28 and R29 for the fields of the method; acceptance criteria AC11
+(EV/EBITDA with FCFE returns `FM-E019`) and the FCFE part of AC13. Everything the engine does
+for `dcf.fcff` (stages, rates, terms and inflation, timing, terminal techniques) applies
+unchanged: the method is a second caller of the engine, as planned in "Extension points".
+
+### What the spec decides
+- Basis and rate: "an equity DCF (`dcf.fcfe` version 1) that discounts FCFE at the cost of
+  equity and returns equity value" (R1); the basis is reported (R1, R28).
+- Equity value: "`equity_value` = present value of the explicit FCFE + present value of the
+  terminal value + Σ non-operating assets − Σ debt-like items − non-controlling interests, and
+  SHALL NOT return `value_of_operations` or `enterprise_value`; IF a net financial position is
+  given, THEN it SHALL return `FM-E019` (debt is already in the flows)" (R24, Decision 9).
+- Cash: the net financial position, which nets cash against debt, is refused (R24). Cash that
+  the FCFE does not already reflect (cash not needed for operations, whose interest income is
+  not in the flows) is a non-operating asset, as in [S1] ("Non-operating assets, such as
+  excess cash and marketable securities"); the engine does not choose the items (R25). The
+  methodology page says so; the engine reports "non-operating assets: none given" when none is.
+- Terminal value weight: "the present value of the terminal value divided by the present value
+  of the explicit flows plus the present value of the terminal value" (R22).
+- Terminal basis: "IF the technique's basis differs from the basis of the DCF (enterprise for
+  FCFF, equity for FCFE), THEN it SHALL return `FM-E019`" (R19); AC11: "EV/EBITDA with FCFE"
+  returns `FM-E019`. Already implemented by `terminal::check` for the exit multiple, the
+  normalised income and the liquidation; "the flow-based techniques take the basis of the flows
+  they are given" (this plan, issue #43): `tv.gordon`, `tv.h_model` and `tv.limited_horizon`
+  on the FCFE.
+- Lines: "`dcf.fcfe` (#165) adds `interest_tax_rate` and takes the FCFE of the lines; the
+  engine already selects the FCFE on the equity basis" (this plan, issue #38): FCFE_t = FCFF_t −
+  interest_t × (1 − t) + net borrowing_t (R3, amendment 14).
+- Rate fields: `cost_of_equity`, `cost_of_equity_per_period`, `terminal_cost_of_equity`
+  mapped to the engine's `RateInput` with their own `RateFields` (this plan, "Extension
+  points").
+
+### Module layout in `crates/fairmark-core`
+| File | Content |
+| --- | --- |
+| `src/dcf/bridge.rs` (new) | The bridge types and checks shared by both bases, moved from `fcff.rs` without change: `BridgeClaim`, `MeasurementBasis`, the checks of labelled amounts and claims, the claim totals, the non-operating assets total and the negative equity warning (R25, R26). Same type names, so the JSON Schema of `dcf.fcff` version 3 is unchanged |
+| `src/dcf/fcff.rs` | Uses `bridge.rs`; the strings, the order of the steps and conventions and every number stay identical (all `dcf.fcff` golden and contract cases unchanged) |
+| `src/dcf/fcfe.rs` (new) | `DcfFcfeInput`, `DcfFcfeOutput`, `FcfeBridge`, `pub fn fcfe`, unit type `Fcfe` (`dcf.fcfe`, version 1, preview); unit tests |
+| `src/dcf/engine.rs` | On the equity basis only, the build-up convention states the FCFE formula as well and the period step points to the FCFE step of the build-up; the enterprise path is unchanged |
+| `src/dcf.rs`, `src/registry.rs` | One module line and re-exports; one registry line `dcf::Fcfe` |
+| `src/error.rs` | Unchanged: `FM-E019` already covers the bridge on the equity basis (Decision 10) |
+
+### Input (`dcf.fcfe` version 1)
+The fields of `dcf.fcff` version 3 with the same meaning, except:
+
+| Field | Rule |
+| --- | --- |
+| `cost_of_equity` or `cost_of_equity_per_period` + `terminal_cost_of_equity` | Exactly one form, as the WACC fields of `dcf.fcff` (R12, Decision 13) |
+| `base_flow` | FCFE of the base period CF_0 |
+| `interest_tax_rate` | For stages with `lines` and `operating_taxes`: the rate t of the interest tax shield (R3); refused when no stage has lines |
+| `net_financial_position` | Accepted by the schema only to be refused with `FM-E019` naming the field and the fix (R24, AC13) |
+| `non_operating_assets`, `debt_like_items`, `non_controlling_interests` | As in `dcf.fcff` version 3, same types (`tv::Line`, `BridgeClaim`) |
+
+### Output
+`basis` (`equity`), `equity_value`, `pv_explicit_period`, `terminal_value_weight` (`null` when
+the denominator is zero), `periods`, `terms`, `terminal`, and `bridge`:
+`pv_explicit_and_terminal` (present value of the explicit FCFE plus present value of the
+terminal value, the starting line of R24), the non-operating assets with their total, the
+debt-like items and the non-controlling interests with their totals, `equity_value`. No
+`value_of_operations` and no `enterprise_value` (R24).
+
+### Explain (R28)
+Conventions: "basis: equity, free cash flows to equity (FCFE) discounted at the cost of
+equity"; that no net financial position is subtracted because debt is in the flows (R24); the
+bridge signs of the equity basis; "none given" for each empty list; the measurement basis of
+each claim; the R26 warning. Steps: every line of the bridge, the starting line, the equity
+value with every term substituted, the terminal value weight. Every convention of the engine
+(terms, rates, timing, terminal technique, build-up) is reported as for `dcf.fcff`.
+
+### Tests
+- `scripts/reference_dcf.py`: `dcf_fcfe`, written in its own function from R22 and R24 (rates
+  from the cost of equity fields, the explicit and terminal present values by the reference's
+  own discounting, no net financial position).
+- Golden cases `tests/golden/dcf.fcfe/` (new folder): reference cases (three stages with rates
+  per period and an equity bridge; a stage of build-up lines with interest and net borrowing;
+  exit multiple on earnings; terms with inflation under mid-period timing at N − 0.5; negative
+  equity value); error cases (`FM-E019` for a net financial position, EV/EBITDA, a normalised
+  income and a liquidation declared on the enterprise basis; lines without financing lines;
+  `interest_tax_rate` without lines; the WACC field; cost of equity forms and counts).
+  A published Damodaran FCFE illustration re-derived (Investment Valuation, 2nd edition,
+  chapter 14) when its text can be read (see the open questions).
+- Python `python/tests/test_reference_dcf_fcfe.py`: golden values equal the reference;
+  engine against the reference on a grid; the consistency property: with no debt and no net
+  borrowing, `dcf.fcfe` on the FCFE equals the `dcf.fcff` equity value on the same flows at
+  the same rate, bit for bit, with the same bridge items.
+- Rust unit tests: every error with its JSON pointer (AC14), every convention, no boolean in
+  the schema, the R24 identity, the R26 warning.
+- Contract cases `tests/contracts/dcf.fcfe.yaml`.
+
+### Schema changes
+Additive: new method `dcf.fcfe` version 1, snapshot `schemas/dcf.fcfe/v1.json`, entry in
+`schemas/index.json`. `dcf.fcff` version 3 unchanged (`scripts/schema_snapshots.py
+--diff-against` the schemas of main).
+
+### Documentation
+`docs/en/methods/dcf-fcfe.md` and the Italian edition, nav and methods index (status preview),
+`docs/en/reference/errors.md` (`FM-E019` on the equity basis), Python helper `fm.dcf.fcfe`,
+release note `changes/165.feature.md`, `specs/method-evidence.yaml`, Italian method title.
+
+### Open questions for the maintainer (issue #165)
+- **`tv.value_driver` on the equity basis.** The spec does not decide it. Its terms are
+  NOPAT_{N+1} and RONIC, enterprise measures; the equity counterpart is net income and the
+  return on equity, with the equity reinvestment rate g / ROE. Options: (a) refuse it on the
+  equity basis with `FM-E019` and point to `tv.gordon` with a normalised next flow; (b) accept
+  it with the same fields read as net income and return on equity; (c) add equity terms
+  (`net_income_next`, `return_on_equity`) as optional fields, required on the equity basis.
+  Recommendation: (a) in version 1, (c) later as an additive option. Until decided, the engine
+  refuses it on the equity basis (no number is produced, so any option remains open).
+- **Damodaran FCFE illustration.** The source named by the spec (Illustration 14.5) could not
+  be read in the implementation session; the golden case is added when its inputs and
+  published values are checked against the text.
