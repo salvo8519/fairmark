@@ -1,0 +1,17 @@
+method: ratios.profitability
+description: ROI on invested capital without the invested capital is refused
+source: Constructed. The operating return base is invested capital and the closing balance sheet
+  does not give it (FM-E001).
+input:
+  balances: closing
+  operating_return_base: invested_capital
+  ebitda_definition: reported EBITDA, no adjustments
+  income_statement:
+    revenue: '5000'
+    ebitda: '800'
+    ebit: '500'
+    net_income: '260'
+  closing:
+    equity: '2000'
+    total_assets: '6000'
+expect_error: FM-E001

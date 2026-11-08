@@ -1,0 +1,43 @@
+method: ratios.debt_service
+description: 'AC3: zero interest and a period without debt service are not defined; average NFP'
+source: scripts/reference_ratios.py, debt_service (Python decimal, 50 digits, local context), written
+  from the definitions in specs/0007-ratios-covenants/plan.md. Interest 0, debt service 0 in period 1;
+  average NFP (1800 + 1900) / 2 = 1850.
+input:
+  balances: average
+  ebitda_definition: reported EBITDA, no adjustments
+  income_statement:
+    ebitda: '800'
+    ebit: '500'
+    interest: '0'
+  closing:
+    net_financial_position:
+      gross_debt: '2200'
+      cash: '300'
+      other_items: []
+  debt_schedule:
+    discount_rate: '0.05'
+    debt_outstanding: '500'
+    periods:
+    - cfads: '120'
+      debt_service: '0'
+    - cfads: '150'
+      debt_service: '100'
+  opening:
+    net_financial_position:
+      gross_debt: '2000'
+      cash: '200'
+      other_items: []
+expect:
+  /net_financial_position: '1850'
+  /interest_cover_ebit/value: 'null'
+  /interest_cover_ebitda/value: 'null'
+  /nfp_to_ebitda/value: '2.3125'
+  /pv_cfads: '250.34013605442176870748299319727891156462585034013'
+  /llcr/value: '0.50068027210884353741496598639455782312925170068026'
+  /dscr/0/value: 'null'
+  /dscr/1/value: '1.5'
+  /interest_cover_ebit/not_defined: interest is zero
+  /dscr/0/not_defined: debt service is zero
+  /dscr/1/not_defined: 'null'
+tolerance: '0.000000001'

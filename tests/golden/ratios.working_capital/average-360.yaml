@@ -1,0 +1,27 @@
+method: ratios.working_capital
+description: 'AC2: days ratios on average balances, 360-day basis'
+source: 'scripts/reference_ratios.py, working_capital (Python decimal, 50 digits, local context), written
+  from the definitions in specs/0007-ratios-covenants/plan.md. Closed form: average receivables 1100,
+  inventories 550, payables 675; DSO 1100 × 360 / 5000 = 79.2; DIO 550 × 360 / 3000 = 66; DPO 675 × 360
+  / 2800.'
+input:
+  balances: average
+  day_basis: '360'
+  income_statement:
+    revenue: '5000'
+    cost_of_sales: '3000'
+    purchases: '2800'
+  closing:
+    trade_receivables: '1200'
+    inventories: '600'
+    trade_payables: '700'
+  opening:
+    trade_receivables: '1000'
+    inventories: '500'
+    trade_payables: '650'
+expect:
+  /days_sales_outstanding/value: '79.2'
+  /days_inventory_outstanding/value: '66'
+  /days_payable_outstanding/value: '86.785714285714285714285714285714285714285714285714'
+  /cash_conversion_cycle/value: '58.414285714285714285714285714285714285714285714286'
+tolerance: '0.000000001'

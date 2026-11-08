@@ -1,0 +1,19 @@
+method: ratios.liquidity
+description: 'AC1: liquidity ratios and margins on closing balances'
+source: 'scripts/reference_ratios.py, liquidity (Python decimal, 50 digits, local context), written from
+  the definitions in specs/0007-ratios-covenants/plan.md. Closed form: current 2500 / 2000 = 1.25; quick
+  (2500 - 900) / 2000 = 0.8; cash 200 / 2000 = 0.1; NWC 500; treasury margin 2500 - 900 - 2000 = -400.'
+input:
+  balances: closing
+  closing:
+    current_assets: '2500'
+    inventories: '900'
+    cash: '200'
+    current_liabilities: '2000'
+expect:
+  /current_ratio/value: '1.25'
+  /quick_ratio/value: '0.8'
+  /cash_ratio/value: '0.1'
+  /net_working_capital: '500'
+  /treasury_margin: '-400'
+tolerance: '0.000000001'

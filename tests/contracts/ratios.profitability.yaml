@@ -1,0 +1,42 @@
+# Contract cases for ratios.profitability: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: ratios.profitability
+extreme_inputs:
+- balances: average
+  operating_return_base: invested_capital
+  ebitda_definition: extreme
+  income_statement: {revenue: MAX, ebitda: MIN, ebit: MAX, net_income: MAX}
+  closing: {equity: '0.0000000000000000000000000001', total_assets: MAX, invested_capital: MAX}
+  opening: {equity: MAX, total_assets: MAX, invested_capital: MIN}
+- balances: closing
+  operating_return_base: total_assets
+  ebitda_definition: extreme
+  income_statement: {revenue: '0.0000000000000000000000000001', ebitda: MAX, ebit: MIN, net_income: MAX}
+  closing: {equity: '0.0000000000000000000000000001', total_assets: '0.0000000000000000000000000001'}
+conventions:
+- input:
+    balances: closing
+    operating_return_base: invested_capital
+    ebitda_definition: reported EBITDA, no adjustments
+    income_statement: {revenue: '5000', ebitda: '800', ebit: '500', net_income: '260'}
+    closing: {equity: '2000', total_assets: '6000', invested_capital: '4000'}
+    opening: {equity: '1800', total_assets: '5600', invested_capital: '3800'}
+  expect:
+  - balances at closing
+  - opening balances given and not used
+  - 'operating return base: invested capital'
+  - 'EBITDA as given: reported EBITDA, no adjustments'
+  - a ratio with a zero denominator is not defined
+  - a ratio over equity is not defined when equity is zero or negative
+- input:
+    balances: average
+    operating_return_base: total_assets
+    ebitda_definition: adjusted for one-off restructuring costs of 40
+    income_statement: {revenue: '5000', ebitda: '840', ebit: '500', net_income: '260'}
+    closing: {equity: '2000', total_assets: '6000'}
+    opening: {equity: '1800', total_assets: '5600'}
+  expect:
+  - balances as the average of opening and closing
+  - 'operating return base: total assets'
+  - 'EBITDA as given: adjusted for one-off restructuring costs of 40'
