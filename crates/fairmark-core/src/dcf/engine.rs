@@ -22,7 +22,9 @@ use crate::tv::{self, GordonInput, GordonOutput, TerminalBasis};
 use crate::tvm::{period_discount_factors, PeriodTiming};
 use crate::types::Timing;
 
-use super::free_cash_flows::{build_up, FreeCashFlowLines, Location, TaxChoice};
+use super::free_cash_flows::{
+    build_up, FreeCashFlowLines, FreeCashFlows, Location, TaxChoice, FORMULA_FCFF,
+};
 use std::borrow::Cow;
 
 /// Explicit stages accepted (Decision 2). Checked at run time, not in the schema, so that more
@@ -78,7 +80,8 @@ pub struct Stage {
     /// depreciation and amortisation, capital expenditure, change in net working capital,
     /// adjustments), exactly one per period, in currency units in the terms of
     /// `cash_flow_terms`; the flow of each period is built up as in `dcf.free_cash_flows`, with
-    /// the tax fields of the method (SPEC-0001 R7).
+    /// the tax fields of the method (SPEC-0001 R7). `interest_expense` and `net_borrowing` apply
+    /// only where FCFE is discounted: they are refused on the enterprise basis (`dcf.fcff`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lines: Option<Vec<FreeCashFlowLines>>,
     /// For `constant_growth`: growth per period, decimal fraction, greater than -1.
@@ -662,9 +665,9 @@ fn project(
                 (StageKind::Given(flows), _) => {
                     let flow = flows[(j - 1) as usize];
                     let source = if s.built_up {
-                        "built up from line items"
+                        format!("built up from line items (step \"Build-up: FCFF, period {k}\")")
                     } else {
-                        "as given"
+                        "as given".to_owned()
                     };
                     ex.step(format!("Period {k}: flow"), source, flow);
                     flow
@@ -735,7 +738,7 @@ fn build_up_stages(
                 pointer_prefix: &pointer,
                 first_period: first,
             };
-            let mut own = Explain::new("dcf.free_cash_flows", "");
+            let mut own = Explain::new(FreeCashFlows::ID, FORMULA_FCFF);
             let out = build_up(lines, taxes, at, &mut own)?;
             for step in own.steps {
                 ex.step(
@@ -764,10 +767,12 @@ fn build_up_stages(
         first += s.periods;
     }
     if any {
+        let source = format!("{} v{}", FreeCashFlows::ID, FreeCashFlows::VERSION);
+        ex.convention(format!(
+            "free cash flow build-up ({source}) for the stages with lines: {FORMULA_FCFF}"
+        ));
         for c in conventions {
-            ex.convention(format!(
-                "free cash flow build-up (dcf.free_cash_flows v1): {c}"
-            ));
+            ex.convention(format!("free cash flow build-up ({source}): {c}"));
         }
         return Ok(());
     }

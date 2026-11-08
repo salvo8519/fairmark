@@ -150,3 +150,34 @@ def test_fcfe_equals_the_net_income_route() -> None:
                 assert row["interest_tax_rate"] == 0
             checked += 1
     assert checked > 100
+
+
+def test_given_lines_through_fcff_equal_the_built_up_flows() -> None:
+    """SPEC-0001 R7: a stage built with `given_lines` values like the flows the reference
+    builds up from the same lines."""
+    lines = ref.CASES["negative-ebit-zero"]["periods"]
+    lines = [
+        {k: v for k, v in p.items() if k not in ("interest_expense", "net_borrowing")}
+        for p in lines
+    ]
+    common = {
+        "cash_flow_terms": "nominal",
+        "discount_rate_terms": "nominal",
+        "wacc": "0.09",
+        "timing": "end_of_period",
+        "terminal": fm.dcf.gordon("0.02", first_flow="last_flow_grown"),
+    }
+    built = fm.dcf.fcff(
+        [fm.dcf.given_lines(lines)], notional_tax_rate="0.279", negative_ebit="zero", **common
+    )
+    flows = [
+        p.fcff
+        for p in ref.build_up(
+            [ref.lines_from_json(p) for p in lines],
+            notional_tax_rate=D("0.279"),
+            negative_ebit="zero",
+        )
+    ]
+    given = fm.dcf.fcff([fm.dcf.given(flows)], **common)
+    assert built.value_of_operations == given.value_of_operations
+    assert [p["flow"] for p in built.periods] == flows

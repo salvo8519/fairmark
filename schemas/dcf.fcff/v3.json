@@ -312,7 +312,7 @@
           ]
         },
         "lines": {
-          "description": "For `given`, instead of `flows`: the line items of each period (EBIT, taxes on EBIT,\ndepreciation and amortisation, capital expenditure, change in net working capital,\nadjustments), exactly one per period, in currency units in the terms of\n`cash_flow_terms`; the flow of each period is built up as in `dcf.free_cash_flows`, with\nthe tax fields of the method (SPEC-0001 R7).",
+          "description": "For `given`, instead of `flows`: the line items of each period (EBIT, taxes on EBIT,\ndepreciation and amortisation, capital expenditure, change in net working capital,\nadjustments), exactly one per period, in currency units in the terms of\n`cash_flow_terms`; the flow of each period is built up as in `dcf.free_cash_flows`, with\nthe tax fields of the method (SPEC-0001 R7). `interest_expense` and `net_borrowing` apply\nonly where FCFE is discounted: they are refused on the enterprise basis (`dcf.fcff`).",
           "items": {
             "$ref": "#/$defs/FreeCashFlowLines"
           },

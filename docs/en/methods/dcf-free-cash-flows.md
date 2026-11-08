@@ -35,7 +35,9 @@ the `zero` treatment applies (EBIT negative, taxes from a rate) there is no inte
 shield: $\tau = 0$ and the interest is subtracted in full. The FCFE then equals the net-income
 route (net income + D&A − capex − ΔNWC + adjustments + net borrowing, with no tax on a negative
 pre-tax income). With `credit`, and in every period with an EBIT of zero or more, the shield
-applies also when EBIT is lower than the interest.
+applies also when EBIT is lower than the interest. In the amounts form the shield applies at
+`interest_tax_rate` in every period, whatever the sign of EBIT: the treatment of a negative
+EBIT belongs to the rate form only.
 
 ## Example
 
@@ -116,7 +118,7 @@ Give either `notional_tax_rate` or `operating_taxes` in every period, never both
 | `free_cash_flows_to_equity` | FCFE of periods 1..n; `null` without the financing lines |
 | `tax_form` | `rate_on_ebit` or `amounts` |
 | `negative_ebit` | Treatment used in the rate form; `null` in the amounts form |
-| `interest_tax_rate` | Rate of the interest tax shield used; `null` without the financing lines |
+| `interest_tax_rate` | Rate of the interest tax shield of the tax form (the tax rate on EBIT, or the given `interest_tax_rate`); `null` without the financing lines. The rate applied in each period is `periods[].interest_tax_rate`, 0 where the `zero` treatment applies |
 
 ## Conventions (explicit, reported in `explain.conventions`)
 

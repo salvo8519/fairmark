@@ -362,6 +362,56 @@ mod tests {
         );
     }
 
+    /// R7 (#38): lines in a later stage keep the period numbering and the pointers of the
+    /// engine's input.
+    #[test]
+    fn lines_after_a_stage_of_flows_keep_periods_and_pointers() {
+        let line = json!({"ebit": "100", "depreciation_and_amortisation": "10",
+                          "capital_expenditure": "12", "change_in_net_working_capital": "3"});
+        let input = with(base(), |m| {
+            m.insert(
+                "stages".into(),
+                json!([
+                    {"periods": 2, "projection": "given", "flows": ["50", "60"]},
+                    {"periods": 2, "projection": "given", "lines": [line.clone(), line.clone()]}
+                ]),
+            );
+            m.insert("notional_tax_rate".into(), json!("0.24"));
+            m.insert("negative_ebit".into(), json!("credit"));
+        });
+        let out = run("dcf.fcff", &input.to_string()).unwrap();
+        let steps = out["explain"]["steps"].as_array().unwrap();
+        assert!(steps
+            .iter()
+            .any(|s| s["label"] == "Build-up: FCFF, period 3"));
+        assert!(!steps
+            .iter()
+            .any(|s| s["label"] == "Build-up: FCFF, period 1"));
+        assert_eq!(out["value"]["periods"][2]["flow"], "71.00");
+        let mut bad = input.clone();
+        bad["stages"][1]["lines"][0]["depreciation_and_amortisation"] = json!("-1");
+        let e = err(&bad);
+        assert!(
+            e.to_string()
+                .contains("`/stages/1/lines/0/depreciation_and_amortisation` (period 3)"),
+            "{e}"
+        );
+        // The standalone conventions of dcf.free_cash_flows are not reported by the DCF.
+        let conventions = conventions(&input);
+        let build_up: Vec<&String> = conventions
+            .iter()
+            .filter(|c| c.starts_with("free cash flow build-up"))
+            .collect();
+        assert!(!build_up.is_empty());
+        assert!(build_up
+            .iter()
+            .all(|c| !c.contains("not discounted") && !c.contains("FCFE: not computed")));
+        assert!(conventions.iter().any(|c| c.ends_with(
+            "for the stages with lines: FCFF_t = EBIT_t − taxes on EBIT_t + D&A_t − capex_t − \
+             ΔNWC_t + Σ adjustments_t"
+        )));
+    }
+
     /// AC14 (R27): every error raised by the engine names its field by a JSON pointer and
     /// states the fix; the cases cover every check of this issue.
     #[test]
@@ -586,7 +636,72 @@ mod tests {
                 "/non_operating_assets/0/label",
             ),
         ];
-        for (input, code, pointer) in cases {
+        // R7 (#38): the five refusals of a stage with build-up lines.
+        let line = json!({"ebit": "100", "depreciation_and_amortisation": "10",
+                          "capital_expenditure": "12", "change_in_net_working_capital": "3"});
+        let lines_stage = |extra: Value| {
+            let mut stage = json!({"periods": 2, "projection": "given",
+                                   "lines": [line.clone(), line.clone()]});
+            stage
+                .as_object_mut()
+                .unwrap()
+                .extend(extra.as_object().unwrap().clone());
+            stage
+        };
+        let with_lines = |stage: Value, taxes: bool| {
+            with(base(), |m| {
+                m.insert("stages".into(), json!([stage]));
+                if taxes {
+                    m.insert("notional_tax_rate".into(), json!("0.24"));
+                    m.insert("negative_ebit".into(), json!("credit"));
+                }
+            })
+        };
+        let mut financing = line.clone();
+        financing["interest_expense"] = json!("5");
+        financing["net_borrowing"] = json!("0");
+        let r7: Vec<(Value, &str, &str)> = vec![
+            (
+                with_lines(lines_stage(json!({"flows": ["1", "2"]})), true),
+                "FM-E001",
+                "/stages/0/flows",
+            ),
+            (
+                with_lines(
+                    json!({"periods": 3, "projection": "given",
+                           "lines": [line.clone(), line.clone()]}),
+                    true,
+                ),
+                "FM-E025",
+                "/stages/0/lines",
+            ),
+            (
+                with_lines(
+                    json!({"periods": 2, "projection": "constant_growth", "growth": "0.02",
+                           "lines": [line.clone(), line.clone()]}),
+                    true,
+                ),
+                "FM-E001",
+                "/stages/0/lines",
+            ),
+            (
+                with(base(), |m| {
+                    m.insert("notional_tax_rate".into(), json!("0.24"));
+                }),
+                "FM-E001",
+                "/notional_tax_rate",
+            ),
+            (
+                with_lines(
+                    json!({"periods": 2, "projection": "given",
+                           "lines": [line.clone(), financing]}),
+                    true,
+                ),
+                "FM-E001",
+                "/stages/0/lines/1/interest_expense",
+            ),
+        ];
+        for (input, code, pointer) in cases.into_iter().chain(r7) {
             let e = err(&input);
             assert_eq!(e.code(), code, "{e}");
             assert!(

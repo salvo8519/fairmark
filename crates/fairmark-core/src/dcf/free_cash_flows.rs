@@ -161,7 +161,9 @@ pub struct FreeCashFlowsOutput {
     pub tax_form: TaxForm,
     /// Negative EBIT treatment of the rate form; `null` in the amounts form.
     pub negative_ebit: Option<NegativeEbit>,
-    /// Rate t of the interest tax shield used for the FCFE; `null` without financing lines.
+    /// Rate t of the interest tax shield of the tax form: the tax rate on EBIT, or the given
+    /// `interest_tax_rate`; `null` without financing lines. The rate applied in each period is
+    /// `periods[].interest_tax_rate`, 0 where the `zero` treatment applies.
     pub interest_tax_rate: Option<Decimal>,
 }
 
@@ -274,8 +276,10 @@ fn validate(
             if let Some(&i) = with_amounts.first() {
                 return Err(invalid(format!(
                     "give the taxes on EBIT in one form only: `/notional_tax_rate` conflicts with \
-                     {}; remove `notional_tax_rate`, or remove `operating_taxes` from every period",
-                    at.field(i, "operating_taxes")?
+                     {}; remove `notional_tax_rate`, or remove `operating_taxes` from every line \
+                     of `{}`",
+                    at.field(i, "operating_taxes")?,
+                    at.pointer_prefix
                 )));
             }
             check_tax_rate(t, "/notional_tax_rate")?;
@@ -292,15 +296,16 @@ fn validate(
             if with_amounts.is_empty() {
                 return Err(invalid(format!(
                     "no taxes on EBIT: give `/notional_tax_rate` (with `/negative_ebit`), or \
-                     `operating_taxes` in every period of `{}`",
+                     `operating_taxes` in every line of `{}`",
                     at.pointer_prefix
                 )));
             }
             if let Some(i) = (0..p.len()).find(|&i| p[i].operating_taxes.is_none()) {
                 return Err(invalid(format!(
-                    "{} is missing: give the taxes on EBIT as amounts in every period, or remove \
-                     them and give `/notional_tax_rate`",
-                    at.field(i, "operating_taxes")?
+                    "{} is missing: give the taxes on EBIT as amounts in every line of `{}`, or \
+                     remove them and give `/notional_tax_rate`",
+                    at.field(i, "operating_taxes")?,
+                    at.pointer_prefix
                 )));
             }
             if choice.negative_ebit.is_some() {
@@ -385,23 +390,24 @@ fn validate(
                 ))
             }
             (Taxes::Amounts, false, Some(_)) => {
-                return Err(invalid(
+                return Err(invalid(format!(
                     "`/interest_tax_rate` is used only for the FCFE: give `interest_expense` and \
-                 `net_borrowing` in every period, or remove `interest_tax_rate`",
-                ))
+                     `net_borrowing` in every line of `{}`, or remove `interest_tax_rate`",
+                    at.pointer_prefix
+                )))
             }
             (_, false, None) => None,
         };
     Ok((taxes, financing, shield))
 }
 
-const FORMULA_FCFF: &str =
+pub(crate) const FORMULA_FCFF: &str =
     "FCFF_t = EBIT_t − taxes on EBIT_t + D&A_t − capex_t − ΔNWC_t + Σ adjustments_t";
 const FORMULA_FCFE: &str = "FCFE_t = FCFF_t − interest_t × (1 − t) + net borrowing_t";
 
 /// Builds FCFF, and FCFE when the financing lines are given, for every period.
 pub fn free_cash_flows(input: &FreeCashFlowsInput) -> Result<(FreeCashFlowsOutput, Explain)> {
-    let mut ex = Explain::new("dcf.free_cash_flows", FORMULA_FCFF);
+    let mut ex = Explain::new(FreeCashFlows::ID, FORMULA_FCFF);
     let choice = TaxChoice {
         notional_tax_rate: input.notional_tax_rate,
         negative_ebit: input.negative_ebit,
@@ -412,9 +418,14 @@ pub fn free_cash_flows(input: &FreeCashFlowsInput) -> Result<(FreeCashFlowsOutpu
         first_period: 1,
     };
     let out = build_up(&input.periods, &choice, at, &mut ex)?;
+    // Reported by the standalone method only: inside a DCF the flows are discounted, and the
+    // basis decides which flow is used.
     if out.free_cash_flows_to_equity.is_some() {
         ex.formula = format!("{FORMULA_FCFF};  {FORMULA_FCFE}");
+    } else {
+        ex.convention("FCFE: not computed (no interest expense and net borrowing given)");
     }
+    ex.convention("amounts in currency units per period, not discounted");
     Ok((out, ex))
 }
 
@@ -479,10 +490,7 @@ pub fn build_up(
     }
     if financing {
         ex.convention("net borrowing is positive for new borrowing and is added");
-    } else {
-        ex.convention("FCFE: not computed (no interest expense and net borrowing given)");
     }
-    ex.convention("amounts in currency units per period, not discounted");
 
     let mut periods = Vec::with_capacity(lines.len());
     let mut negative = Vec::new();

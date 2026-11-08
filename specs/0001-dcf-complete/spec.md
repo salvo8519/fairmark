@@ -501,8 +501,8 @@ the source verification.
       rate), the interest tax shield is zero: the interest expense is subtracted in full,
       FCFE_t = FCFF_t − interest expense_t + net borrowing_t. This is the net-income route of
       the CFA Institute curriculum and Damodaran (FCFE = net income + D&A − capex − ΔNWC + net
-      borrowing, with no tax on a negative pre-tax income), so the FCFE does not depend on the
-      route. With `credit`, and in periods with a positive or zero EBIT, R3 is unchanged: the
+      borrowing, with no tax on a negative pre-tax income), so in those periods the FCFE does
+      not depend on the route (clarification of wording, 2026-11-08). With `credit`, and in periods with a positive or zero EBIT, R3 is unchanged: the
       shield is interest expense × t, also when EBIT is lower than the interest expense.
       (b) R29 interpretation: the choice between a tax rate (`notional_tax_rate`) and tax
       amounts (`operating_taxes` in every period) is expressed by which fields are present, as

@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-free-cash-flows.md
-source_hash: c8b6e0873be5
+source_hash: d4dd25f9cda6
 ---
 # Costruzione dei flussi di cassa disponibili (`dcf.free_cash_flows`)
 
@@ -42,7 +42,9 @@ per intero. Il FCFE coincide allora con quello calcolato dall'utile netto (utile
 ammortamenti − capex − variazione del capitale circolante netto + rettifiche + net borrowing,
 senza imposte su un risultato ante imposte negativo). Con `credit`, e in ogni periodo con EBIT
 pari a zero o positivo, lo scudo si applica anche quando l'EBIT è inferiore agli oneri
-finanziari.
+finanziari. Nella forma a importi lo scudo si applica a `interest_tax_rate` in ogni periodo,
+qualunque sia il segno dell'EBIT: il trattamento di un EBIT negativo appartiene solo alla forma
+ad aliquota.
 
 ## Esempio
 
@@ -123,7 +125,7 @@ Si fornisce `notional_tax_rate` oppure `operating_taxes` in ogni periodo, mai en
 | `free_cash_flows_to_equity` | FCFE dei periodi 1..n; `null` senza le voci finanziarie |
 | `tax_form` | `rate_on_ebit` o `amounts` |
 | `negative_ebit` | Trattamento usato nella forma ad aliquota; `null` nella forma a importi |
-| `interest_tax_rate` | Aliquota dello scudo fiscale usata; `null` senza le voci finanziarie |
+| `interest_tax_rate` | Aliquota dello scudo fiscale della forma delle imposte (l'aliquota sull'EBIT, o `interest_tax_rate` fornita); `null` senza le voci finanziarie. L'aliquota applicata in ogni periodo è `periods[].interest_tax_rate`, 0 dove si applica il trattamento `zero` |
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
 
