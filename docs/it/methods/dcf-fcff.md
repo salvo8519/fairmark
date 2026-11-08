@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: f2b16cd3b514
+source_hash: 781588a10cee
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
@@ -55,8 +55,9 @@ finanziari e net borrowing sono rifiutati: il FCFF è prima dei flussi finanziar
 della costruzione è nell'explain, con il prefisso "Build-up:".
 
 Con la convenzione di metà periodo il flusso del periodo k è attualizzato mezzo periodo prima,
-$DF_k = DF_{k-1} (1 + r_k)^{-0.5}$. Il valore terminale
-$TV_N = CF_{N+1} / (r_{TV} - g)$ è calcolato da [`tv.gordon`](tv-gordon.md) e attualizzato
+$DF_k = DF_{k-1} (1 + r_k)^{-0.5}$. Il valore terminale $TV_N$ è calcolato dalla tecnica
+scelta (si veda "Tecniche del valore terminale" più avanti), per esempio
+$TV_N = CF_{N+1} / (r_{TV} - g)$ con [`tv.gordon`](tv-gordon.md), e attualizzato
 all'orizzonte, $DF_{TV} = DF_N$, oppure, con la convenzione di metà periodo e se scelto, mezzo
 periodo prima, $DF_{TV} = DF_N (1 + r_N)^{0.5}$; lo spostamento di mezzo periodo usa il tasso
 del periodo N, $r_N$, non il tasso terminale.
@@ -66,6 +67,31 @@ $\prod_{i \le k} (1 + r_i)$ (con la convenzione di metà periodo, $\prod_{i < k}
 (1 + r_k)^{0.5}$): è la stessa grandezza che si ottiene moltiplicando per $DF_k$, ma conserva
 tutte le cifre significative anche su orizzonti lunghi; i fattori di sconto sono riportati come
 calcolati da [`tvm.present_value`](tvm-present-value.md).
+
+## Tecniche del valore terminale
+
+L'oggetto `terminal` indica esattamente una tecnica con l'identificativo del suo metodo. Ogni
+tecnica è calcolata dal proprio metodo, sugli stessi parametri, al tasso terminale $r_{TV}$
+(`wacc`, oppure `terminal_wacc` con tassi per periodo), e il risultato riporta in `terminal`
+l'identificativo del metodo, la sua versione e il suo output. Gli importi sono nei termini dei
+flussi di cassa.
+
+| Tecnica | Parametri all'interno del DCF | Valore terminale in N |
+| --- | --- | --- |
+| [`tv.gordon`](tv-gordon.md) | `growth`, `first_flow`, `normalised_next_flow`, `growth_cap` | $CF_{N+1} / (r_{TV} - g)$, con $CF_{N+1} = CF_N (1 + g)$ oppure un flusso normalizzato |
+| [`tv.h_model`](tv-h-model.md) | `short_term_growth`, `long_term_growth`, `half_life`, `first_flow` (`last_flow_grown`), `growth_cap` | $CF_N [(1 + g_l) + H (g_s - g_l)] / (r_{TV} - g_l)$ sull'ultimo flusso esplicito |
+| [`tv.value_driver`](tv-value-driver.md) | `nopat_next`, `growth`, `ronic`, `growth_cap` | $NOPAT_{N+1} (1 - g / RONIC) / (r_{TV} - g)$ |
+| [`tv.exit_multiple`](tv-exit-multiple.md) | `multiple`, `metric` (`ebitda`, `ebit`, `revenue`), `metric_value`, `next_flow`, `growth_cap` | multiplo × grandezza in N; con `next_flow`, la crescita implicita $r_{TV} - CF_{N+1} / TV_N$ |
+| [`tv.limited_horizon`](tv-limited-horizon.md) | `flow`, `periods`, `growth`, `residual_value`, `growth_cap` | i flussi dei periodi da N + 1 a N + n e il valore residuo in N + n, attualizzati in N al tasso $r_{TV}$ |
+| [`tv.liquidation`](tv-liquidation.md) | `assets`, `liabilities`, `liquidation_costs`, `tax_on_gains`, `basis` (`enterprise`) | valori di realizzo − passività − costi di liquidazione − imposte sulle plusvalenze |
+
+La tecnica deve seguire l'approccio asset side (enterprise value) di `dcf.fcff`: un multiplo di
+uscita (exit multiple) sugli utili (P/E) o sul valore contabile del capitale proprio (P/BV),
+oppure una liquidazione dichiarata con approccio equity side, è rifiutato con `FM-E019`.
+`tv.gordon` e `tv.h_model` fanno crescere l'ultimo flusso esplicito, quindi il primo flusso
+terminale è una scelta obbligatoria; `tv.h_model` accetta solo `last_flow_grown`. All'interno
+del DCF i campi `growth` e `residual_value` di `tv.limited_horizon` sono obbligatori (indicare
+0 se assenti). `tv.normalised_income` non è ancora disponibile all'interno del DCF.
 
 ## Esempio
 
@@ -115,6 +141,22 @@ r = fm.dcf.fcff(
 print(r.terminal["discount_time"])  # 6
 ```
 
+Con un multiplo di uscita il valore terminale è un prezzo all'orizzonte; indicando il flusso in
+N + 1 si ottiene anche la crescita perpetua implicita nel multiplo:
+
+```python
+r = fm.dcf.fcff(
+    [fm.dcf.given([150, 165, 180, 190])],
+    cash_flow_terms="nominal",
+    discount_rate_terms="nominal",
+    wacc="0.10",
+    timing="end_of_period",
+    terminal=fm.dcf.exit_multiple("7.5", "ebitda", 410, next_flow=260),
+)
+print(r.terminal["technique"], r.terminal["terminal_value"])  # tv.exit_multiple 3075.0
+print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544...
+```
+
 ## Input
 
 | Campo | Significato | Default |
@@ -130,7 +172,7 @@ print(r.terminal["discount_time"])  # 6
 | `terminal_wacc` | WACC della fase terminale | obbligatorio con `wacc_per_period`; rifiutato con `wacc` |
 | `timing` | `end_of_period` oppure `mid_period` | obbligatorio |
 | `terminal_discount_time` | `horizon` (t = N) oppure `mid_period` (t = N − 0.5) | obbligatorio con `mid_period`; rifiutato con `end_of_period` |
-| `terminal` | `{"tv.gordon": {"growth", "first_flow", "normalised_next_flow", "growth_cap"}}`; `first_flow` è `last_flow_grown` oppure `normalised_next_flow` | obbligatorio |
+| `terminal` | Una tecnica indicata con l'identificativo del suo metodo, per esempio `{"tv.gordon": {"growth", "first_flow", "normalised_next_flow", "growth_cap"}}`; si veda "Tecniche del valore terminale" | obbligatorio |
 | `net_financial_position` | `{"gross_debt", "cash", "other_items"}` come in [`ratios.debt_service`](ratios-debt-service.md), positiva per indebitamento netto | nessuna, riportato |
 | `non_operating_assets` | Lista di `{"label", "value"}`, valori pari a zero o positivi | nessuna, riportato |
 
@@ -144,7 +186,7 @@ print(r.terminal["discount_time"])  # 6
 | `pv_explicit_period` | Valore attuale dei FCFF espliciti |
 | `terminal_value_weight` | Valore attuale del valore terminale diviso per il value of operations |
 | `periods` | Per periodo: stage, proiezione, crescita applicata, flusso, tasso di attualizzazione fornito, tasso usato, fattore di sconto, valore attuale |
-| `terminal` | Tecnica e sua versione, tasso terminale, valore in N, momento di attualizzazione, fattore, valore attuale, output proprio della tecnica |
+| `terminal` | Tecnica e versione del suo metodo, tasso terminale, valore in N, momento di attualizzazione, fattore, valore attuale, output proprio della tecnica (per esempio la crescita implicita di un multiplo di uscita) |
 | `bridge` | Ogni voce dal value of operations all'equity value, con le descrizioni |
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
@@ -159,26 +201,30 @@ print(r.terminal["discount_time"])  # 6
 | Termini di flussi e tassi | `nominal`, `real`; termini diversi sono rifiutati | obbligatori, entrambi |
 | Collocazione temporale dei flussi | `end_of_period`, `mid_period` | obbligatoria |
 | Terminal discounting time (momento di attualizzazione del valore terminale) | `horizon`, `mid_period` (solo con la convenzione di metà periodo) | obbligatorio |
-| Tecnica del valore terminale | `tv.gordon` al tasso terminale, con approccio asset side | obbligatoria |
-| Primo flusso terminale | ultimo flusso fatto crescere di g, oppure normalised flow (flusso normalizzato) in N + 1 | obbligatorio |
+| Tecnica del valore terminale | `tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.liquidation`, al tasso terminale, con approccio asset side | obbligatoria |
+| Primo flusso terminale (`tv.gordon`, `tv.h_model`) | ultimo flusso fatto crescere, oppure normalised flow (flusso normalizzato) in N + 1 (solo `tv.gordon`) | obbligatorio |
 | Voci del passaggio all'equity value | misurate alla data di valutazione come fornite; nessuna voce significa nessuna | nessuna |
 
 Le avvertenze sono riportate in `explain.conventions` e non comportano mai il rifiuto
 dell'input: una crescita applicata a un flusso negativo; una crescita dell'ultimo periodo
-esplicito diversa dalla crescita perpetua del valore terminale; con la convenzione di metà
-periodo, un valore terminale di Gordon attualizzato all'orizzonte N, mentre la prassi lo
-attualizza di solito in N − 0.5; un equity value negativo, riportato come calcolato e mai
-riportato a zero. Un `terminal_value_weight`
+esplicito diversa dalla crescita perpetua del valore terminale (`growth`, oppure
+`long_term_growth` per `tv.h_model`); con la convenzione di metà periodo, un valore terminale a
+crescita perpetua (`tv.gordon`, `tv.h_model`, `tv.value_driver`) attualizzato all'orizzonte N,
+mentre la prassi lo attualizza di solito in N − 0.5; con la convenzione di metà periodo, un
+multiplo di uscita o una liquidazione attualizzati in N − 0.5, benché siano un prezzo
+all'orizzonte N; un equity value negativo, riportato come calcolato e mai riportato a zero. Un `terminal_value_weight`
 elevato segnala che la valutazione dipende soprattutto dalle ipotesi di lungo periodo.
 
 ## Errori
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | Un campo è mancante, sconosciuto o non usato dall'opzione scelta; nessuno stage o più di tre; stage che sommano più di 10.000 periodi; una crescita pari o inferiore a −100%; un tasso terminale insieme a un unico tasso, oppure nessuno con tassi per periodo; un momento di attualizzazione del valore terminale mancante con la convenzione di metà periodo o fornito con quella di fine periodo; un'attività non operativa negativa o con descrizione vuota; uno stage `given` con entrambi o nessuno tra `flows` e `lines`, `lines` in uno stage generato, campi fiscali senza `lines`, oneri finanziari o net borrowing in `lines`, e ogni rifiuto di [`dcf.free_cash_flows`](dcf-free-cash-flows.md) sulle voci, indicato con il suo pointer (ad esempio `/stages/0/lines/2/capital_expenditure`) |
+| `FM-E001` | Un campo è mancante, sconosciuto o non usato dall'opzione scelta; nessuno stage o più di tre; stage che sommano più di 10.000 periodi; una crescita pari o inferiore a −100%; un tasso terminale insieme a un unico tasso, oppure nessuno con tassi per periodo; un momento di attualizzazione del valore terminale mancante con la convenzione di metà periodo o fornito con quella di fine periodo; nessuna tecnica del valore terminale o più di una; `normalised_next_flow` con `tv.h_model`; un limite alla crescita di un multiplo di uscita senza `next_flow`; una liquidazione senza attività o con una voce senza descrizione; un'attività non operativa negativa o con descrizione vuota; uno stage `given` con entrambi o nessuno tra `flows` e `lines`, `lines` in uno stage generato, campi fiscali senza `lines`, oneri finanziari o net borrowing in `lines`, e ogni rifiuto di [`dcf.free_cash_flows`](dcf-free-cash-flows.md) sulle voci, indicato con il suo pointer (ad esempio `/stages/0/lines/2/capital_expenditure`) |
 | `FM-E003` | Un tasso di attualizzazione è pari o inferiore a −100%; il messaggio indica il campo e il periodo |
-| `FM-E004` | La crescita perpetua è pari o superiore al tasso terminale |
+| `FM-E004` | La crescita perpetua (`growth`, oppure `long_term_growth` per `tv.h_model`) è pari o superiore al tasso terminale |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
+| `FM-E018` | Un parametro della tecnica del valore terminale è fuori dal suo dominio: rendimento del nuovo capitale investito, multiplo o grandezza di riferimento pari a zero o negativi, orizzonte finito fuori dall'intervallo da 1 a 10.000 periodi, H negativo, voce di liquidazione o imposte sulle plusvalenze negative |
+| `FM-E019` | La tecnica del valore terminale segue l'approccio equity side: un multiplo di uscita su `earnings` (P/E) o `book_value` (P/BV), oppure una liquidazione con `basis` equity |
 | `FM-E024` | `cash_flow_terms` e `discount_rate_terms` sono diversi |
 | `FM-E025` | Uno stage `given` con più o meno flussi o voci dei suoi periodi, tassi per periodo non uno per periodo, un base flow mancante per un primo stage generato o fornito per uno `given` |
 
@@ -211,5 +257,10 @@ $10^{-20}$.
   [`tvm.present_value`](tvm-present-value.md).
 - Stage con `lines`: la costruzione a 50 cifre di `scripts/reference_free_cash_flows.py`
   composta con `scripts/reference_dcf.py` (`stage-with-build-up-lines*.yaml`).
+- Ogni tecnica del valore terminale: il valore terminale e l'intero output della tecnica
+  all'interno del DCF coincidono con quelli del metodo `tv.*` eseguito da solo sugli stessi
+  parametri e al tasso terminale, e il suo valore attuale coincide con quel valore attualizzato
+  al momento di attualizzazione del valore terminale (test di proprietà, per ogni tecnica,
+  forma del tasso e collocazione temporale dei flussi).
 - Il VAN di numpy-financial sui flussi espliciti più il valore di Gordon, in virgola mobile
   binaria (concordanza delle convenzioni, non delle cifre).
