@@ -430,3 +430,78 @@ Approved on 2026-11-08 (spec, "Decisions"):
 - **Terminal inflation next to one inflation**: refused with `FM-E001` naming both fields
   (Decision 18).
 - **Inflation at or below -1**: `FM-E003`, the code of `rates.real_nominal` (Decision 19).
+
+## Issue #44 — From value of operations to equity value
+
+Requirements: R23 and R25 for the enterprise basis (`dcf.fcff`), R26 (already on main), R27 and
+R28 for the fields of the bridge; acceptance criterion AC13 for `dcf.fcff` (the FCFE part of
+AC13 and R24 belong to `dcf.fcfe`, #165). Extends version 3 additively through the extension
+point above; edits stay in `src/dcf/fcff.rs` (the engine is not touched).
+
+### Input (additive to version 3)
+| Field | Type | Rule |
+| --- | --- | --- |
+| `debt_like_items` | list of `{label, value, measurement_basis}`, optional | each value zero or more, subtracted; labels and bases not empty |
+| `non_controlling_interests` | list of `{label, value, measurement_basis}`, optional | each value zero or more, subtracted; labels and bases not empty |
+
+One new type, `BridgeClaim`, for both lists: a claim on the value of the company other than the
+net financial position. `measurement_basis` is a required text stated by the analyst (for
+example "book value", "fair value", "present value net of tax"); it is echoed in `explain` and
+never used in the calculation. Reason: the spec does not say how debt-like items (before or
+after tax) or non-controlling interests (book value or fair value) are measured (R25: "measured
+at the valuation date as given"), so the engine does not choose; the analyst states the basis
+and the result shows it next to the amount. A boolean or an enumeration of bases would be a
+methodology choice that the spec does not make (see "Open questions" below). The net financial
+position keeps the SPEC-0007 structure unchanged (R23, SPEC-0007 R6).
+
+### Computation
+equity value = enterprise value − net financial position − Σ debt-like items − Σ
+non-controlling interests, in `Decimal` through `crate::num` (checked). Every line is an
+`explain` step with its amount ("as given", with the label and the basis in the step label),
+each list has a total step with the values substituted, and the equity value step substitutes
+every subtracted total. Empty lists are reported as "none given" (R25).
+
+### Errors (R27)
+`FM-E001`, before any calculation, with the JSON pointer and the fix:
+`/debt_like_items/i/value` or `/non_controlling_interests/i/value` negative ("zero or more;
+an asset belongs in `non_operating_assets`"), `/…/i/label` or `/…/i/measurement_basis` empty.
+No new error code.
+
+### Conventions (R28)
+Bridge items measured at the valuation date, as given (existing); signs: non-operating assets
+added, net financial position (positive for net debt), debt-like items and non-controlling
+interests subtracted, each item zero or more; the stated measurement basis of each debt-like
+item and each non-controlling interest; "debt-like items: none given", "non-controlling
+interests: none given"; the R26 warning unchanged.
+
+### Output
+`bridge` gains `debt_like_items`, `debt_like_items_total`, `non_controlling_interests`,
+`non_controlling_interests_total`; the description of `equity_value` names the four terms.
+Output fields are not part of the schema snapshots.
+
+### Tests
+- `scripts/reference_dcf.py`: the equity value restated with both lists (50 digits).
+- Golden cases (new files only): `bridge-every-line.yaml` (net financial position with other
+  items, two non-operating assets, two debt-like items, one non-controlling interest; reference);
+  `bridge-negative-equity-value.yaml` (claims above the enterprise value, equity value negative
+  and not floored; the warning is checked by a unit test and a contract case, because golden
+  cases check values only); `damodaran-segovia-consolidated.yaml` (Damodaran, *Investment
+  Valuation*, 2nd edition, chapter 16, Illustration 16.6, consolidated approach: 2,205 − 500 −
+  122.5 + 22.5 = 1,605); error cases `error-bridge-*.yaml`.
+- Rust unit tests: every error with its pointer (AC14), conventions reported, the bridge
+  property EV − NFP − Σ DLI − Σ NCI = equity value.
+- Python: reference grid with random bridges against the engine; the property above.
+
+### Open questions for the maintainer
+- **Measurement basis as free text.** The basis of each debt-like item and non-controlling
+  interest is a required text, not an enumeration. If the maintainer wants to fix the options
+  (for example `book_value`, `fair_value` for non-controlling interests; `pre_tax`, `after_tax`
+  for debt-like items), an enumeration can replace or complement the text in a new version or
+  as an additive optional field.
+- **Negative non-controlling interests.** R25 requires zero or more; a subsidiary with negative
+  equity gives a negative book value of the non-controlling interests. Refused today
+  (`FM-E001`), as the spec says.
+- **Double counting with the net financial position.** SPEC-0007 allows debt-like items (for
+  example lease liabilities) among the `other_items` of the net financial position. The engine
+  does not check that an item is not given twice; the methodology page says so. A warning on
+  equal labels could be added if wanted.
