@@ -5,13 +5,15 @@ Random schedules from a fixed seed: start dates from 1900 to 2150, every named f
 must equal the QuantLib day counters to 1e-12 (QuantLib computes in binary floating point and
 its dates start in 1901, so schedules starting in 1900 are compared with dateutil only;
 the exact digits are proven by the golden cases). Installed with the `oracles` dependency
-group (versions pinned in pyproject.toml); skipped when it is absent.
+group (pyproject.toml). Skipped when it is absent, except when FAIRMARK_REQUIRE_ORACLES=1 (set in
+CI): then a missing oracle is an import error, so the test cannot pass by being skipped.
 """
 
 from __future__ import annotations
 
 import calendar
 import itertools
+import os
 import random
 from datetime import date
 
@@ -19,8 +21,12 @@ import pytest
 
 import fairmark as fm
 
-ql = pytest.importorskip("QuantLib")
-relativedelta = pytest.importorskip("dateutil.relativedelta").relativedelta
+if os.environ.get("FAIRMARK_REQUIRE_ORACLES") == "1":
+    import QuantLib as ql
+    from dateutil.relativedelta import relativedelta
+else:
+    ql = pytest.importorskip("QuantLib")
+    relativedelta = pytest.importorskip("dateutil.relativedelta").relativedelta
 
 RNG = random.Random(20261108)
 QL_FIRST_YEAR = 1901  # the first year of a QuantLib date

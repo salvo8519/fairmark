@@ -97,7 +97,7 @@ deps-outdated:
 # Security advisories for Rust and Python dependencies
 deps-audit:
     cargo deny check advisories
-    uv export --frozen --all-extras --no-emit-project --no-hashes -o /tmp/fairmark-requirements.txt
+    uv export --frozen --all-extras --all-groups --no-emit-project --no-hashes -o /tmp/fairmark-requirements.txt
     uvx pip-audit --strict -r /tmp/fairmark-requirements.txt
 
 # Check commit message, or pull request title, branch and body, against the conventions
