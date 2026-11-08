@@ -9,7 +9,7 @@ Decimals may be passed as JSON numbers or strings and are returned as strings.
 
 ## `dates.year_fraction`
 
-**Year fraction (day count)** · method version 1 · status preview · tool `fairmark_dates_year_fraction`
+**Year fraction (day count)** · method version 1 · status available · tool `fairmark_dates_year_fraction`
 
 Fraction of a year between two dates under an ISDA 2006 day-count convention: Actual/365 Fixed, Actual/360, Actual/Actual ISDA, 30/360, 30E/360.
 
@@ -21,7 +21,7 @@ Fraction of a year between two dates under an ISDA 2006 day-count convention: Ac
 
 ## `rates.convert`
 
-**Rate conversion between compounding conventions** · method version 1 · status preview · tool `fairmark_rates_convert`
+**Rate conversion between compounding conventions** · method version 1 · status available · tool `fairmark_rates_convert`
 
 Equivalent annual rate under another compounding (annual, semi-annual, quarterly, monthly, continuous).
 
@@ -33,7 +33,7 @@ Equivalent annual rate under another compounding (annual, semi-annual, quarterly
 
 ## `rates.real_nominal`
 
-**Real and nominal rates (Fisher)** · method version 1 · status preview · tool `fairmark_rates_real_nominal`
+**Real and nominal rates (Fisher)** · method version 1 · status available · tool `fairmark_rates_real_nominal`
 
 Converts a nominal rate to a real rate, or the reverse, with the exact Fisher relation.
 
@@ -45,7 +45,7 @@ Converts a nominal rate to a real rate, or the reverse, with the exact Fisher re
 
 ## `tvm.npv`
 
-**Net present value** · method version 2 · status preview · tool `fairmark_tvm_npv`
+**Net present value** · method version 2 · status available · tool `fairmark_tvm_npv`
 
 Net present value of a cash flow series; the first flow is at t = 0.
 
@@ -56,7 +56,7 @@ Net present value of a cash flow series; the first flow is at t = 0.
 
 ## `tvm.present_value`
 
-**Present value with a constant or time-varying rate** · method version 1 · status preview · tool `fairmark_tvm_present_value`
+**Present value with a constant or time-varying rate** · method version 1 · status available · tool `fairmark_tvm_present_value`
 
 Present value of periodic flows for periods 1..n with one rate or one rate per period, at end, mid or beginning of period. Returns every discount factor.
 
@@ -69,7 +69,7 @@ Present value of periodic flows for periods 1..n with one rate or one rate per p
 
 ## `tvm.xnpv`
 
-**Net present value of dated cash flows (XNPV)** · method version 1 · status preview · tool `fairmark_tvm_xnpv`
+**Net present value of dated cash flows (XNPV)** · method version 1 · status available · tool `fairmark_tvm_xnpv`
 
 Present value of dated flows at a valuation date, with explicit day count and compounding (defaults as in ECMA-376 XNPV).
 
@@ -83,7 +83,7 @@ Present value of dated flows at a valuation date, with explicit day count and co
 
 ## `tvm.irr`
 
-**Internal rate of return** · method version 2 · status preview · tool `fairmark_tvm_irr`
+**Internal rate of return** · method version 2 · status available · tool `fairmark_tvm_irr`
 
 Rate at which the NPV of a periodic cash flow series is zero, solved deterministically; refuses inputs with more than one IRR.
 
@@ -94,7 +94,7 @@ Rate at which the NPV of a periodic cash flow series is zero, solved determinist
 
 ## `tvm.xirr`
 
-**Internal rate of return of dated cash flows (XIRR)** · method version 1 · status preview · tool `fairmark_tvm_xirr`
+**Internal rate of return of dated cash flows (XIRR)** · method version 1 · status available · tool `fairmark_tvm_xirr`
 
 Annual rate at which the XNPV of dated flows is zero, solved deterministically; refuses inputs with more than one rate.
 
@@ -107,7 +107,7 @@ Annual rate at which the XNPV of dated flows is zero, solved deterministically; 
 
 ## `tvm.mirr`
 
-**Modified internal rate of return (MIRR)** · method version 1 · status preview · tool `fairmark_tvm_mirr`
+**Modified internal rate of return (MIRR)** · method version 1 · status available · tool `fairmark_tvm_mirr`
 
 Rate of return with negative flows financed at a finance rate and positive flows reinvested at a reinvestment rate (ECMA-376 MIRR).
 
@@ -119,7 +119,7 @@ Rate of return with negative flows financed at a finance rate and positive flows
 
 ## `tvm.annuity`
 
-**Annuity (level or growing, ordinary or due)** · method version 1 · status preview · tool `fairmark_tvm_annuity`
+**Annuity (level or growing, ordinary or due)** · method version 1 · status available · tool `fairmark_tvm_annuity`
 
 Present and future value of a finite series of level or growing payments.
 
@@ -133,7 +133,7 @@ Present and future value of a finite series of level or growing payments.
 
 ## `tvm.perpetuity`
 
-**Perpetuity (level or growing)** · method version 1 · status preview · tool `fairmark_tvm_perpetuity`
+**Perpetuity (level or growing)** · method version 1 · status available · tool `fairmark_tvm_perpetuity`
 
 Present value of a level or growing perpetuity (Gordon), ordinary or due.
 

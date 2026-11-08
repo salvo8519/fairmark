@@ -111,7 +111,7 @@ milestones:
           - { issue: 136, title: "Loan instalment, number of instalments and future value", spec: "0009", status: done }
           - { issue: 137, title: "Amortisation schedules: French, fixed amortisation schedule, bullet, principal grace period", spec: "0009", status: done }
           - { issue: 175, title: "Full precision of present values at long horizons in tvm", status: open }
-          - { issue: 176, title: "Code review of the time value foundations for promotion to available", spec: "0002", status: open }
+          - { issue: 176, title: "Code review of the time value foundations for promotion to available", spec: "0002", status: done }
       - title: "Explain and audit trail"
         issue: 25
         labels: ["area:core"]

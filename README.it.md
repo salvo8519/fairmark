@@ -168,17 +168,17 @@ fairmark verify result.json --input company.json  # riproduce un risultato bit p
 
 | Metodo | Stato | Descrizione |
 | --- | --- | --- |
-| `dates.year_fraction` | Anteprima | Frazione d'anno (convenzione di calcolo dei giorni) |
-| `rates.convert` | Anteprima | Conversione di un tasso tra convenzioni di capitalizzazione |
-| `rates.real_nominal` | Anteprima | Tassi reali e nominali (Fisher) |
-| `tvm.npv` | Anteprima | Valore attuale netto (VAN, NPV) |
-| `tvm.present_value` | Anteprima | Valore attuale con un tasso costante o variabile per periodo |
-| `tvm.xnpv` | Anteprima | Valore attuale netto di flussi datati (XNPV) |
-| `tvm.irr` | Anteprima | Tasso interno di rendimento (TIR, IRR) |
-| `tvm.xirr` | Anteprima | Tasso interno di rendimento di flussi datati (XIRR) |
-| `tvm.mirr` | Anteprima | Tasso interno di rendimento modificato (TIRM, MIRR) |
-| `tvm.annuity` | Anteprima | Rendita (costante o crescente, posticipata o anticipata) |
-| `tvm.perpetuity` | Anteprima | Rendita perpetua (costante o crescente) |
+| `dates.year_fraction` | Disponibile | Frazione d'anno (convenzione di calcolo dei giorni) |
+| `rates.convert` | Disponibile | Conversione di un tasso tra convenzioni di capitalizzazione |
+| `rates.real_nominal` | Disponibile | Tassi reali e nominali (Fisher) |
+| `tvm.npv` | Disponibile | Valore attuale netto (VAN, NPV) |
+| `tvm.present_value` | Disponibile | Valore attuale con un tasso costante o variabile per periodo |
+| `tvm.xnpv` | Disponibile | Valore attuale netto di flussi datati (XNPV) |
+| `tvm.irr` | Disponibile | Tasso interno di rendimento (TIR, IRR) |
+| `tvm.xirr` | Disponibile | Tasso interno di rendimento di flussi datati (XIRR) |
+| `tvm.mirr` | Disponibile | Tasso interno di rendimento modificato (TIRM, MIRR) |
+| `tvm.annuity` | Disponibile | Rendita (costante o crescente, posticipata o anticipata) |
+| `tvm.perpetuity` | Disponibile | Rendita perpetua (costante o crescente) |
 | `tvm.future_value` | Disponibile | Valore futuro (montante) di un importo attuale e di pagamenti costanti |
 | `loans.instalment` | Disponibile | Rata di un finanziamento (rata costante, balloon facoltativo) |
 | `loans.number_of_instalments` | Disponibile | Numero delle rate di un finanziamento |

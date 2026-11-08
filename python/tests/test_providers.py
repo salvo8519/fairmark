@@ -86,7 +86,7 @@ def test_methods_report_their_status() -> None:
     status = {m["id"]: m["status"] for m in fm.methods()}
     assert set(status.values()) == {"available", "preview"}
     assert status["dcf.fcff"] == "preview"
-    assert status["tvm.npv"] == "preview"
+    assert status["tvm.npv"] == "available"
     assert status["tv.gordon"] == "available"
 
 

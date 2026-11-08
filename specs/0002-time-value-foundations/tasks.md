@@ -10,9 +10,13 @@
 - [x] T8 `tvm.mirr`, `tvm.annuity`, `tvm.perpetuity` (R10, R11, R12)
 - [x] T9 Registry, schemas, generated reference; Python helpers `dates`, `rates`, `tvm`
 - [x] T10 Portable tool schema handles optional values
-- [ ] T11 Methodology pages, methods index, error catalogue (docs-writer)
-- [ ] T12 Italian edition (translator)
+- [x] T11 Methodology pages, methods index, error catalogue (docs-writer)
+- [x] T12 Italian edition (translator)
 - [x] T13 Independent numerical audit (numerical-auditor) and fixes: reciprocal discount factors,
       parity uniqueness rule with `uniqueness_verified`, effective-rate grid for XIRR, stable
       near-equal annuities, perpetuity growth bound, validation order, defaults in conventions
 - [x] T14 Cross-check tests against pyxirr and numpy-financial (`oracles` group, CI matrix)
+- [x] T15 Code review (code-reviewer) and fixes, issue #176: error messages that name the field
+      and the fix, Fisher round-trip property (AC3), MIRR and IRR explain detail, 30/360 day
+      adjustments in explain, checked arithmetic, annuity future-value convention and long-horizon
+      note; no number changes
