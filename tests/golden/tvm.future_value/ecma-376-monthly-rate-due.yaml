@@ -1,0 +1,11 @@
+method: tvm.future_value
+description: "ECMA-376: 35 payments of 2000 at 11% / 12 (28 significant digits), due (AC4)"
+source: >
+  ECMA-376 Part 1, SpreadsheetML formulas, future value function, worked examples, viewed at
+  https://webapp.docx4java.org/OnlineDemo/ecma376/SpreadsheetML/FV.html, converted to the sign
+  convention of R10 (same sign accumulates); published to two decimals, hence the tolerance of
+  half a cent. Confirmed by Independent 50-digit reference, scripts/reference_loans.py.
+input: { payment: "2000", rate: "0.009166666666666666666666666667", periods: 35, timing: "due" }
+expect:
+  future_value: "82846.25"
+tolerance: "0.005"

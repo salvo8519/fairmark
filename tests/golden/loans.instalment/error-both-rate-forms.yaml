@@ -1,0 +1,6 @@
+method: loans.instalment
+description: "Both rate forms given (AC12)"
+source: >
+  Requirement R1a, R3, R7 or R19 of SPEC-0009: the error code is part of the specification.
+input: { principal: "1000", periodic_rate: "0.01", number_of_instalments: 12, timing: "ordinary", rate: "0.12", compounding: "monthly", payment_frequency: "monthly" }
+expect_error: FM-E001

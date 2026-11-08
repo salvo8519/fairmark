@@ -1,0 +1,33 @@
+# Contract cases for tvm.future_value: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions (SPEC-0009 R11).
+method: tvm.future_value
+extreme_inputs:
+- present_value: MAX
+  payment: MIN
+  rate: MAX
+  periods: 10000
+  timing: due
+- present_value: MIN
+  payment: MAX
+  rate: '-0.999999999'
+  periods: 10000
+  timing: ordinary
+conventions:
+- input:
+    payment: '1000'
+    rate: '0.01'
+    periods: 12
+    timing: ordinary
+  expect:
+  - payments at the end of each period
+  - same sign accumulate
+  - 'present value: 0 (default)'
+- input:
+    present_value: '1000'
+    rate: '0.05'
+    periods: 3
+    timing: due
+  expect:
+  - payments at the beginning of each period
+  - 'payment: 0 (default)'

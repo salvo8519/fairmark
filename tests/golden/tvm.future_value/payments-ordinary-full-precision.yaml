@@ -1,0 +1,10 @@
+method: tvm.future_value
+description: "12 payments of 1000 at 1%, ordinary, full precision (AC4)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py; (1.01^12 - 1) / 0.01 x 1000 =
+  12682.5030131969720661201 exactly. The engine reuses the annuity factor of tvm.annuity, which
+  divides by 1.01, so the tolerance is 1e-20 rather than 0.
+input: { payment: "1000", rate: "0.01", periods: 12, timing: "ordinary" }
+expect:
+  future_value: "12682.5030131969720661201"
+tolerance: "0.00000000000000000001"

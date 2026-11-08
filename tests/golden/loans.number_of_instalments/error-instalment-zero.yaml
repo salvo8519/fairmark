@@ -1,0 +1,6 @@
+method: loans.number_of_instalments
+description: "Instalment zero never repays the loan (R9)"
+source: >
+  Requirement R3, R8 or R9 of SPEC-0009: the error code is part of the specification.
+input: { principal: "1000", periodic_rate: "0.01", timing: "ordinary", instalment: "0" }
+expect_error: FM-E021

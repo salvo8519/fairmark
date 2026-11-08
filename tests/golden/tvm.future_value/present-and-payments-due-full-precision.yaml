@@ -1,0 +1,8 @@
+method: tvm.future_value
+description: "500 now and 10 payments of 200 at 0.5%, due, full precision (AC4)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py.
+input: { present_value: "500", payment: "200", rate: "0.005", periods: 10, timing: "due" }
+expect:
+  future_value: "2581.403374060179153725006836"
+tolerance: "0.00000000000000000001"

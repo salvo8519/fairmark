@@ -1,0 +1,10 @@
+method: loans.instalment
+description: "Rate zero: limit form (P - B) / n (AC11)"
+source: >
+  Hand computation of the limit form of R4: (12000 - 2400) / 24 = 400, exact.
+input: { principal: "12000", periodic_rate: "0", number_of_instalments: 24, timing: "ordinary", balloon_amount: "2400" }
+expect:
+  instalment: "400"
+  total_paid: "12000"
+  total_interest: "0"
+tolerance: "0"

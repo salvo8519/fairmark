@@ -1,0 +1,12 @@
+method: loans.instalment
+description: "ECMA-376 worked example, 10 monthly instalments in advance (AC1)"
+source: >
+  ECMA-376 Part 1, SpreadsheetML formulas, loan instalment function, worked example (principal
+  10000, 8% a year, monthly payments, 10 months), viewed at
+  https://webapp.docx4java.org/OnlineDemo/ecma376/SpreadsheetML/PMT.html; published to two
+  decimals, hence the tolerance of half a cent. Confirmed by Independent 50-digit reference,
+  scripts/reference_loans.py.
+input: { principal: "10000", rate: "0.08", compounding: "monthly", payment_frequency: "monthly", number_of_instalments: 10, timing: "due" }
+expect:
+  instalment: "1030.16"
+tolerance: "0.005"

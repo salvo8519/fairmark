@@ -1,0 +1,9 @@
+method: tvm.future_value
+description: "10000 deposited, 24 withdrawals of 500 at 0.4% a period (R10 sign convention)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py; a negative payment is a
+  withdrawal.
+input: { present_value: "10000", payment: "-500", rate: "0.004", periods: 24, timing: "ordinary" }
+expect:
+  future_value: "-1563.054538768837787254952104"
+tolerance: "0.00000000000000000001"

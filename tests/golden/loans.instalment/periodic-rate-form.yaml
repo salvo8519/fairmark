@@ -1,0 +1,9 @@
+method: loans.instalment
+description: "Rate given as a periodic rate of 0.5% a month (form b) (AC12a)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py; the same expected value as
+  annual-rate-form.yaml, the equivalent form (a).
+input: { principal: "20000", periodic_rate: "0.005", number_of_instalments: 36, timing: "ordinary" }
+expect:
+  instalment: "608.438749031102365262410646"
+tolerance: "0.00000000000000000001"
