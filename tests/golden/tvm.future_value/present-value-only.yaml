@@ -1,0 +1,8 @@
+method: tvm.future_value
+description: "Present amount only: 1000 x 1.05^3 (R10)"
+source: >
+  Hand computation: 1000 x 1.157625 = 1157.625, exact.
+input: { present_value: "1000", rate: "0.05", periods: 3, timing: "ordinary" }
+expect:
+  future_value: "1157.625"
+tolerance: "0"

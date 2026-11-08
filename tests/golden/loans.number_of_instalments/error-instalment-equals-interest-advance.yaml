@@ -1,0 +1,6 @@
+method: loans.number_of_instalments
+description: "In advance: instalment equal to i P / (1 + i) (AC3)"
+source: >
+  SPEC-0009 R9 (FM-E021 when A <= i P' with P' = P / (1 + i) in advance); AC3. The error code is part of the specification.
+input: { principal: "1010", periodic_rate: "0.01", timing: "due", instalment: "10" }
+expect_error: FM-E021

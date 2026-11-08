@@ -145,6 +145,74 @@ Present value of a level or growing perpetuity (Gordon), ordinary or due.
 | `growth` | decimale | no |  | Growth of the payment per period, decimal fraction, greater than -1. Default: 0 (level perpetuity). |
 | `timing` | `ordinary` \| `due` | sì |  | `ordinary` (first payment at t = 1) or `due` (first payment at t = 0). |
 
+## `tvm.future_value`
+
+**Future value of a present amount and level payments** · versione del metodo 1 · tool `fairmark_tvm_future_value`
+
+Value at the end of n periods of a present amount and a level series of payments, ordinary or due, at a rate per period.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `present_value` | decimale | no |  | Amount at t = 0, in currency units, accumulated to t = n. Default: 0. Give at least one of `present_value` and `payment`. |
+| `payment` | decimale | no |  | Level payment of every period, in currency units. Default: 0. An amount of the same sign as the present value accumulates in the same direction; a negative amount is a withdrawal. |
+| `rate` | decimale | sì |  | Rate per period, decimal fraction (0.01 = 1% per period). No annual-rate conversion: for an annual rate, convert it first (`rates.convert`) and divide by the periods per year. |
+| `periods` | integer | sì |  | Number of periods, from 1 to 10000. |
+| `timing` | `ordinary` \| `due` | sì |  | `ordinary` (payments at the end of each period) or `due` (at the beginning). |
+
+## `loans.instalment`
+
+**Loan instalment (constant instalment, optional balloon)** · versione del metodo 1 · tool `fairmark_loans_instalment`
+
+Constant instalment of a loan from its principal, rate, number of instalments and timing, with an optional balloon amount and an explicit rounding.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `principal` | decimale | sì |  | Amount borrowed, in currency units, greater than zero. |
+| `rate` | decimale | no |  | Annual borrowing rate, decimal fraction (0.05 = 5% a year), quoted with `compounding`. Rate form (a): give it with `compounding` and `payment_frequency`, or give `periodic_rate` instead. |
+| `compounding` |  | no |  | Compounding of `rate` (form a); required with `rate`, no default. |
+| `payment_frequency` |  | no |  | Instalments per year (form a): `annual`, `semi_annual`, `quarterly` or `monthly`. |
+| `periodic_rate` | decimale | no |  | Rate per payment period, decimal fraction (form b), greater than -1; instead of `rate`, `compounding` and `payment_frequency`. |
+| `number_of_instalments` | integer | sì |  | Number of instalments, from 1 to 10000. |
+| `timing` | `ordinary` \| `due` | sì |  | `ordinary` (in arrears: instalment k at the end of period k) or `due` (in advance: at the beginning of period k). |
+| `balloon_amount` | decimale | no |  | Amount repaid at the end of the last period on top of the last instalment, in currency units, at least 0 and lower than the principal. Default: 0. |
+| `rounding` |  | no |  | Rounding of the instalment. Default: none (no rounding). |
+
+## `loans.number_of_instalments`
+
+**Number of instalments of a loan** · versione del metodo 1 · tool `fairmark_loans_number_of_instalments`
+
+Number of instalments needed to repay a loan with a given instalment, the exact number of periods and the final instalment.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `principal` | decimale | sì |  | Amount borrowed, in currency units, greater than zero. |
+| `rate` | decimale | no |  | Annual borrowing rate, decimal fraction (0.05 = 5% a year), quoted with `compounding`. Rate form (a): give it with `compounding` and `payment_frequency`, or give `periodic_rate` instead. |
+| `compounding` |  | no |  | Compounding of `rate` (form a); required with `rate`, no default. |
+| `payment_frequency` |  | no |  | Instalments per year (form a): `annual`, `semi_annual`, `quarterly` or `monthly`. |
+| `periodic_rate` | decimale | no |  | Rate per payment period, decimal fraction (form b), greater than -1; instead of `rate`, `compounding` and `payment_frequency`. |
+| `instalment` | decimale | sì |  | Constant instalment, in currency units; it must exceed the interest of the first period. |
+| `timing` | `ordinary` \| `due` | sì |  | `ordinary` (in arrears: instalment k at the end of period k) or `due` (in advance: at the beginning of period k). |
+
+## `loans.amortisation_schedule`
+
+**Amortisation schedule (French, constant principal, bullet)** · versione del metodo 1 · tool `fairmark_loans_amortisation_schedule`
+
+Period-by-period schedule of a loan with instalment, interest portion, principal portion and outstanding balance; French, fixed amortisation schedule or bullet, with an optional grace period, balloon amount and rounding.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `principal` | decimale | sì |  | Amount borrowed, in currency units, greater than zero. |
+| `rate` | decimale | no |  | Annual borrowing rate, decimal fraction (0.05 = 5% a year), quoted with `compounding`. Rate form (a): give it with `compounding` and `payment_frequency`, or give `periodic_rate` instead. |
+| `compounding` |  | no |  | Compounding of `rate` (form a); required with `rate`, no default. |
+| `payment_frequency` |  | no |  | Instalments per year (form a): `annual`, `semi_annual`, `quarterly` or `monthly`. |
+| `periodic_rate` | decimale | no |  | Rate per payment period, decimal fraction (form b), greater than -1; instead of `rate`, `compounding` and `payment_frequency`. |
+| `number_of_instalments` | integer | sì |  | Number of instalments over the full term, grace periods included, from 1 to 10000. |
+| `timing` | `ordinary` \| `due` | sì |  | `ordinary` (in arrears: instalment k at the end of period k, time k). Version 1 accepts only `ordinary`; `due` is refused with `FM-E001`. |
+| `amortisation_type` | `french` \| `fixed_amortisation_schedule` \| `bullet` | sì |  | `french` (constant instalment), `fixed_amortisation_schedule` (constant principal portion) or `bullet` (principal repaid with the last instalment). |
+| `principal_grace_periods` | integer \| null | no |  | Number of interest-only periods at the start, lower than `number_of_instalments`. Default: 0. Not accepted with `bullet`. |
+| `balloon_amount` | decimale | no |  | Principal repaid with the last instalment on top of the amortised amount, in currency units, at least 0 and lower than the principal. Default: 0. Not accepted with `bullet`. |
+| `rounding` |  | no |  | Rounding of the amount the schedule type keeps constant: the instalment (`french`) or the principal portion (`fixed_amortisation_schedule`). Interest is never rounded. Default: none (no rounding). |
+
 ## `coc.cost_of_equity`
 
 **Cost of equity (CAPM with explicit premia)** · versione del metodo 1 · tool `fairmark_coc_cost_of_equity`

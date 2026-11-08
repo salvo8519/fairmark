@@ -1,0 +1,11 @@
+method: loans.instalment
+description: "Quarterly instalments in advance, 6% effective annual rate, balloon 20% (AC2)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py; the periodic rate is the fourth
+  root of 1.06 minus one, computed by the engine with the rates.convert series functions
+  (relative error near 1e-27), still within 1e-20 here.
+input: { principal: "80000", rate: "0.06", compounding: "annual", payment_frequency: "quarterly", number_of_instalments: 20, timing: "due", balloon_amount: "16000" }
+expect:
+  instalment: "3893.403151430645149128581961"
+  periodic_rate: "0.014673846168659277510978"
+tolerance: "0.00000000000000000001"

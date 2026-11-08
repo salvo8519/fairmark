@@ -1,0 +1,24 @@
+method: loans.amortisation_schedule
+description: "Textbook: 895.94 at 5.9% compounded monthly, 6 monthly payments rounded to the cent (AC15)"
+source: >
+  Textbook worked example: Jean-Paul Olivier, Business Math: A Step-by-Step Handbook, Lyryx
+  Learning, version 2018 Revision A, section 13.3 Amortization Schedules, Example 13.3A
+  'Payment Plan on a Dishwasher', pages 908 to 912 (PDF in the eCampusOntario Open Library,
+  https://openlibrary-repo.ecampusontario.ca/jspui/bitstream/123456789/340/11/Business-Math-A-Step-by-Step-Handbook-1622204522.pdf,
+  verified 2026-11-08): 895.94 at 5.9% compounded monthly, 6 monthly payments of 151.90, final
+  payment 151.92, total interest 15.48. The book moves a cent between the rounded interest of
+  some middle rows so that its rounded rows add up; those rows are not compared. Compared
+  within half a cent: the regular payment, the first row, the last row and the totals.
+input: { principal: "895.94", rate: "0.059", compounding: "monthly", payment_frequency: "monthly", number_of_instalments: 6, timing: "ordinary", amortisation_type: "french", rounding: { decimal_places: 2, mode: "half_up" } }
+expect:
+  /rows/0/instalment: "151.90"
+  /rows/0/interest_portion: "4.41"
+  /rows/0/principal_portion: "147.49"
+  /rows/0/outstanding_balance: "748.45"
+  /rows/5/instalment: "151.92"
+  /rows/5/principal_portion: "151.18"
+  /rows/5/outstanding_balance: "0"
+  /totals/instalments: "911.42"
+  /totals/interest: "15.48"
+  /totals/principal: "895.94"
+tolerance: "0.005"

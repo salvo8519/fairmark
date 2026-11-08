@@ -1,0 +1,12 @@
+method: loans.number_of_instalments
+description: "3000 at 2% per quarter repaid by 800: four instalments, the last reduced (AC3)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py; n* = -ln(1 - 0.02 x 3000 / 800) /
+  ln(1.02); the final instalment by the period recurrence: (((3000 x 1.02 - 800) x 1.02 - 800)
+  x 1.02 - 800) x 1.02 = 750.01008 exactly.
+input: { principal: "3000", periodic_rate: "0.02", instalment: "800", timing: "ordinary" }
+expect:
+  exact_number_of_periods: "3.936929191448856778307291"
+  number_of_instalments: "4"
+  final_instalment: "750.01008"
+tolerance: "0.00000000000000000001"

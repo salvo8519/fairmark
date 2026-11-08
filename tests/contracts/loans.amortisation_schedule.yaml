@@ -1,0 +1,72 @@
+# Contract cases for loans.amortisation_schedule: extreme inputs must return a result or a typed
+# error, never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions (SPEC-0009 R5, R19, R22).
+method: loans.amortisation_schedule
+extreme_inputs:
+- principal: MAX
+  periodic_rate: MAX
+  number_of_instalments: 10000
+  timing: ordinary
+  amortisation_type: french
+- principal: MAX
+  periodic_rate: '-0.999999999'
+  number_of_instalments: 10000
+  timing: ordinary
+  amortisation_type: fixed_amortisation_schedule
+  principal_grace_periods: 9999
+  balloon_amount: '1'
+  rounding:
+    decimal_places: 6
+    mode: half_up
+- principal: MAX
+  rate: MAX
+  compounding: continuous
+  payment_frequency: monthly
+  number_of_instalments: 10000
+  timing: ordinary
+  amortisation_type: bullet
+conventions:
+- input:
+    principal: '200000'
+    rate: '0.08'
+    compounding: annual
+    payment_frequency: annual
+    number_of_instalments: 10
+    timing: ordinary
+    amortisation_type: french
+  expect:
+  - payments in arrears
+  - 'amortisation type: french'
+  - 'rate form (a)'
+  - 'periodic rate: 0.08'
+  - 'rounding: none (default)'
+  - 'principal grace periods: 0 (default)'
+  - 'balloon amount: 0 (default)'
+  - opening balance
+  - final-period adjustment
+- input:
+    principal: '60000'
+    periodic_rate: '0.01'
+    number_of_instalments: 12
+    timing: ordinary
+    amortisation_type: fixed_amortisation_schedule
+    principal_grace_periods: 3
+    rounding:
+      decimal_places: 2
+      mode: half_even
+  expect:
+  - 'amortisation type: fixed_amortisation_schedule'
+  - 'rounding: 2 decimal places, half_even, applied to the principal portion'
+  - 'principal grace periods: 3 (given)'
+- input:
+    principal: '100000'
+    periodic_rate: '0.025'
+    number_of_instalments: 6
+    timing: ordinary
+    amortisation_type: bullet
+    rounding:
+      decimal_places: 2
+      mode: half_up
+  expect:
+  - 'amortisation type: bullet'
+  - rounding does not change a bullet schedule

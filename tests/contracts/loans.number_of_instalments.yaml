@@ -1,0 +1,32 @@
+# Contract cases for loans.number_of_instalments: extreme inputs must return a result or a typed
+# error, never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions (SPEC-0009 R5).
+method: loans.number_of_instalments
+extreme_inputs:
+- principal: MAX
+  periodic_rate: MAX
+  instalment: MAX
+  timing: due
+- principal: MAX
+  periodic_rate: '-0.999999999'
+  instalment: MAX
+  timing: ordinary
+- principal: '1'
+  rate: MAX
+  compounding: annual
+  payment_frequency: monthly
+  instalment: MIN
+  timing: ordinary
+conventions:
+- input:
+    principal: '3000'
+    periodic_rate: '0.02'
+    instalment: '800'
+    timing: ordinary
+  expect:
+  - payments in arrears
+  - 'rate form (b)'
+  - 'periodic rate: 0.02'
+  - 'rounding: none'
+  - within 1e-20 of an integer
+  - confirmed by the balance recurrence

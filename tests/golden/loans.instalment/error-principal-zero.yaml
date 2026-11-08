@@ -1,0 +1,6 @@
+method: loans.instalment
+description: "Principal zero (AC12)"
+source: >
+  SPEC-0009 R3 (a principal of zero is FM-E001); AC12. The error code is part of the specification.
+input: { principal: "0", periodic_rate: "0.01", number_of_instalments: 12, timing: "ordinary" }
+expect_error: FM-E001

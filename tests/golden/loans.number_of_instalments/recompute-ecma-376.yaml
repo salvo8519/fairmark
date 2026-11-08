@@ -1,0 +1,11 @@
+method: loans.number_of_instalments
+description: "The instalment of the ECMA-376 example (28 digits) gives n* = 10 (AC3)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py; n* equals 10 within 1e-15 because
+  the instalment is given to 28 significant digits.
+input: { principal: "10000", rate: "0.08", compounding: "monthly", payment_frequency: "monthly", instalment: "1037.032089359152175652094829", timing: "ordinary" }
+expect:
+  exact_number_of_periods: "10"
+  number_of_instalments: "10"
+  final_instalment: "1037.032089359152175652094832"
+tolerance: "0.000000000000001"

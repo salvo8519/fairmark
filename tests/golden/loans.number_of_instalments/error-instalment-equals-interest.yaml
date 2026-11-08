@@ -1,0 +1,6 @@
+method: loans.number_of_instalments
+description: "Instalment equal to the interest of the first period (AC3)"
+source: >
+  SPEC-0009 R9 (FM-E021 when A <= i P); AC3 (an instalment equal to i P' returns FM-E021). The error code is part of the specification.
+input: { principal: "1000", periodic_rate: "0.01", timing: "ordinary", instalment: "10" }
+expect_error: FM-E021

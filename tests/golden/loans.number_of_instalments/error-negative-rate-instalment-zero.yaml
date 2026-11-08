@@ -1,0 +1,8 @@
+method: loans.number_of_instalments
+description: "Negative rate and an instalment of 0: the balance never reaches zero (R9, decision 3)"
+source: >
+  Requirement R9 of SPEC-0009 and maintainer decision 3 (2026-11-08): an instalment that never
+  repays the loan is FM-E021 whatever the sign of the rate. Hand check: at -1% a period the
+  balance of 1000 shrinks by 1% a period but stays positive forever.
+input: { principal: "1000", periodic_rate: "-0.01", instalment: "0", timing: "ordinary" }
+expect_error: FM-E021

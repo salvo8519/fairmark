@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 use crate::error::{FairmarkError, Result};
 use crate::explain::{Meta, Valuation};
 use crate::method::Method;
-use crate::{analysis, coc, dates, dcf, rates, ratios, tv, tvm, ENGINE_VERSION};
+use crate::{analysis, coc, dates, dcf, loans, rates, ratios, tv, tvm, ENGINE_VERSION};
 
 /// Public description of a method, used to build agent tools.
 #[derive(Debug, Clone, Serialize)]
@@ -68,7 +68,7 @@ macro_rules! registry {
 
 registry! {
     // Grouped by theme, in the order of the documentation: dates, rates, time value of money,
-    // cost of capital, terminal value, discounted cash flow, ratios, analysis.
+    // loans, cost of capital, terminal value, discounted cash flow, ratios, analysis.
     dates::YearFraction,
     rates::Convert,
     rates::RealNominal,
@@ -80,6 +80,10 @@ registry! {
     tvm::Mirr,
     tvm::Annuity,
     tvm::Perpetuity,
+    tvm::FutureValue,
+    loans::Instalment,
+    loans::NumberOfInstalments,
+    loans::AmortisationSchedule,
     coc::CostOfEquity,
     coc::BetaRelever,
     coc::BetaPeers,

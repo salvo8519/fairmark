@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: 3550c056586e
+source_hash: 69ac8fc7671e
 ---
 # Codici di errore
 
@@ -29,3 +29,7 @@ adattatore (Python, CLI, MCP, function calling) riporta gli errori come
 | `FM-E017` | A un metodo di analisi è stato chiesto di valutare un altro metodo di analisi | Esegui direttamente l'analisi interna; le analisi non si annidano |
 | `FM-E018` | Un input del valore terminale è fuori dal suo dominio economico: rendimento del nuovo capitale investito o tasso di capitalizzazione pari a zero o negativi, multiplo o grandezza di riferimento pari a zero o negativi, orizzonte finito fuori dall'intervallo da 1 a 10.000 periodi, H negativo, oppure valore di realizzo, passività, costo di liquidazione o imposte sulle plusvalenze negativi | Controlla il segno e l'unità del campo indicato nel messaggio; le obbligazioni vanno in `liabilities`, non come attività negative |
 | `FM-E019` | Grandezze enterprise ed equity mescolate: un confronto di valori terminali dichiarato su un approccio contiene un multiplo di uscita, un reddito normalizzato o una liquidazione dell'altro approccio (P/E e P/BV sono equity side; EV/EBITDA, EV/EBIT, EV/Sales sono asset side) | Confronta le tecniche su un solo approccio: un multiplo enterprise in un confronto asset side, il P/E o il P/BV in un confronto equity side, e dichiara un reddito normalizzato o una liquidazione sull'approccio del confronto |
+| `FM-E020` | Balloon fuori intervallo: negativo, non inferiore al capitale, oppure indicato con un piano `bullet` | Indica un balloon di almeno 0 e inferiore al capitale; omettilo per `bullet` |
+| `FM-E021` | La rata non rimborsa mai il finanziamento: è pari a 0 o negativa, oppure non supera la quota interessi del primo periodo, qualunque sia il segno del tasso | Aumenta `instalment` oltre 0 e oltre tasso periodico × capitale (per rate anticipate, tasso periodico × capitale / (1 + tasso periodico)) |
+| `FM-E022` | Preammortamento non inferiore al numero delle rate, oppure indicato con un piano `bullet` | Indica meno periodi di preammortamento che rate; omettili per `bullet`, che prevede solo interessi fino all'ultima rata |
+| `FM-E023` | Con l'arrotondamento, il debito residuo diventerebbe negativo prima dell'ultimo periodo, oppure la rettifica dell'ultima rata renderebbe negativa l'ultima quota capitale o l'ultima rata | Arrotonda a più decimali, oppure verifica che il finanziamento sia abbastanza grande per l'arrotondamento scelto |

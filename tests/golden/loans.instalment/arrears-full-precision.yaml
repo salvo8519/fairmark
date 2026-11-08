@@ -1,0 +1,12 @@
+method: loans.instalment
+description: "The ECMA-376 loan in arrears to full precision, with totals (AC1)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py, closed form of R6; the periodic
+  rate 0.08 / 12 is not a terminating decimal, so the tolerance is 1e-20 rather than 0.
+input: { principal: "10000", rate: "0.08", compounding: "monthly", payment_frequency: "monthly", number_of_instalments: 10, timing: "ordinary" }
+expect:
+  instalment: "1037.032089359152175652094829"
+  total_paid: "10370.320893591521756520948293"
+  total_interest: "370.320893591521756520948293"
+  periodic_rate: "0.006666666666666666666667"
+tolerance: "0.00000000000000000001"

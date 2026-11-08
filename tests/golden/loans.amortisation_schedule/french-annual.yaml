@@ -1,0 +1,31 @@
+method: loans.amortisation_schedule
+description: "French schedule, 200000 at 8% a year, 10 annual instalments, no rounding (AC5, AC8, AC9)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py, period recurrence of R13 and R20;
+  the instalment k is at time k; without rounding the final adjustment is zero up to the
+  arithmetic.
+input: { principal: "200000", rate: "0.08", compounding: "annual", payment_frequency: "annual", number_of_instalments: 10, timing: "ordinary", amortisation_type: "french" }
+expect:
+  /rows/0/period: "1"
+  /rows/0/time: "1"
+  /rows/0/instalment: "29805.897739415085495326389029"
+  /rows/0/interest_portion: "16000"
+  /rows/0/principal_portion: "13805.897739415085495326389029"
+  /rows/0/outstanding_balance: "186194.102260584914504673610971"
+  /rows/4/period: "5"
+  /rows/4/time: "5"
+  /rows/4/instalment: "29805.897739415085495326389029"
+  /rows/4/interest_portion: "11023.126282051904821478705159"
+  /rows/4/principal_portion: "18782.77145736318067384768387"
+  /rows/4/outstanding_balance: "119006.307068285629594636130612"
+  /rows/9/period: "10"
+  /rows/9/time: "10"
+  /rows/9/instalment: "29805.897739415085495326389029"
+  /rows/9/interest_portion: "2207.844276993710036690843632"
+  /rows/9/principal_portion: "27598.053462421375458635545397"
+  /rows/9/outstanding_balance: "0"
+  /totals/instalments: "298058.977394150854953263890285"
+  /totals/interest: "98058.977394150854953263890285"
+  /totals/principal: "200000"
+  final_adjustment: "-0"
+tolerance: "0.00000000000000000001"

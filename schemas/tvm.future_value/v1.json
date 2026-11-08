@@ -1,0 +1,70 @@
+{
+  "$defs": {
+    "AnnuityTiming": {
+      "description": "When the payments of an annuity or perpetuity occur.",
+      "oneOf": [
+        {
+          "const": "ordinary",
+          "description": "Payments at the end of each period (first payment at t = 1).",
+          "type": "string"
+        },
+        {
+          "const": "due",
+          "description": "Payments at the beginning of each period (first payment at t = 0).",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:fairmark:schema:tvm.future_value:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `tvm.future_value`.",
+  "properties": {
+    "payment": {
+      "description": "Level payment of every period, in currency units. Default: 0. An amount of the same sign\nas the present value accumulates in the same direction; a negative amount is a\nwithdrawal.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "periods": {
+      "description": "Number of periods, from 1 to 10000.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "present_value": {
+      "description": "Amount at t = 0, in currency units, accumulated to t = n. Default: 0. Give at least one\nof `present_value` and `payment`.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "rate": {
+      "description": "Rate per period, decimal fraction (0.01 = 1% per period). No annual-rate conversion: for\nan annual rate, convert it first (`rates.convert`) and divide by the periods per year.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "timing": {
+      "$ref": "#/$defs/AnnuityTiming",
+      "description": "`ordinary` (payments at the end of each period) or `due` (at the beginning)."
+    }
+  },
+  "required": [
+    "rate",
+    "periods",
+    "timing"
+  ],
+  "title": "FutureValueInput",
+  "type": "object",
+  "x-fairmark-method": "tvm.future_value",
+  "x-fairmark-method-version": "1"
+}

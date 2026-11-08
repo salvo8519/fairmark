@@ -1,0 +1,6 @@
+method: loans.number_of_instalments
+description: "A balloon amount is an unknown field in version 1 (AC3)"
+source: >
+  SPEC-0009 R8 (no balloon amount in version 1: the field is unknown, FM-E001); AC3. The error code is part of the specification.
+input: { principal: "1000", periodic_rate: "0.01", timing: "ordinary", instalment: "100", balloon_amount: "100" }
+expect_error: FM-E001

@@ -1,0 +1,6 @@
+method: loans.amortisation_schedule
+description: "Negative balloon amount (R17)"
+source: >
+  SPEC-0009 R17 (FM-E020 when the balloon amount is negative). The error code is part of the specification.
+input: { principal: "1000", periodic_rate: "0.01", number_of_instalments: 12, timing: "ordinary", amortisation_type: "fixed_amortisation_schedule", balloon_amount: "-5" }
+expect_error: FM-E020

@@ -1,0 +1,34 @@
+method: loans.amortisation_schedule
+description: "French, 2 interest-only periods and a balloon of 20% of the principal (AC7)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py; interest only in rows 1 and 2,
+  then the instalment of R6 over 58 periods with the balloon, which is repaid with the last
+  instalment.
+input: { principal: "100000", rate: "0.048", compounding: "monthly", payment_frequency: "monthly", number_of_instalments: 60, timing: "ordinary", amortisation_type: "french", principal_grace_periods: 2, balloon_amount: "20000" }
+expect:
+  /rows/0/instalment: "400"
+  /rows/0/interest_portion: "400"
+  /rows/0/principal_portion: "0"
+  /rows/0/outstanding_balance: "100000"
+  /rows/1/instalment: "400"
+  /rows/1/interest_portion: "400"
+  /rows/1/principal_portion: "0"
+  /rows/1/outstanding_balance: "100000"
+  /rows/2/instalment: "1628.235946659998648459536389"
+  /rows/2/interest_portion: "400"
+  /rows/2/principal_portion: "1228.235946659998648459536389"
+  /rows/2/outstanding_balance: "98771.764053340001351540463611"
+  /rows/58/instalment: "1628.235946659998648459536389"
+  /rows/58/interest_portion: "92.311966623968815143858474"
+  /rows/58/principal_portion: "1535.923980036029833315677915"
+  /rows/58/outstanding_balance: "21542.067675956173952648940627"
+  /rows/59/instalment: "21628.235946659998648459536389"
+  /rows/59/interest_portion: "86.168270703824695810595763"
+  /rows/59/principal_portion: "21542.067675956173952648940627"
+  /rows/59/outstanding_balance: "0"
+  /totals/instalments: "115237.68490627992161065311059"
+  /totals/interest: "15237.68490627992161065311059"
+  /totals/principal: "100000"
+  final_adjustment: "-0"
+  /rows/59/balloon_amount: "20000"
+tolerance: "0.00000000000000000001"

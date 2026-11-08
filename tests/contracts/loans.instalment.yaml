@@ -1,0 +1,53 @@
+# Contract cases for loans.instalment: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions (SPEC-0009 R5).
+method: loans.instalment
+extreme_inputs:
+- principal: MAX
+  periodic_rate: MAX
+  number_of_instalments: 10000
+  timing: due
+- principal: MAX
+  rate: MAX
+  compounding: continuous
+  payment_frequency: monthly
+  number_of_instalments: 10000
+  timing: ordinary
+- principal: MAX
+  periodic_rate: '-0.999999999'
+  number_of_instalments: 10000
+  timing: ordinary
+  balloon_amount: '1'
+  rounding:
+    decimal_places: 6
+    mode: half_even
+conventions:
+- input:
+    principal: '10000'
+    rate: '0.08'
+    compounding: monthly
+    payment_frequency: monthly
+    number_of_instalments: 10
+    timing: ordinary
+  expect:
+  - payments in arrears
+  - 'rate form (a)'
+  - monthly compounding
+  - 'payment frequency: monthly'
+  - 'periodic rate: 0.0066666666666666666666666667'
+  - 'rounding: none'
+  - 'balloon amount: 0 (default)'
+- input:
+    principal: '1'
+    periodic_rate: '0'
+    number_of_instalments: 8
+    timing: due
+    balloon_amount: '0.2'
+    rounding:
+      decimal_places: 2
+      mode: half_even
+  expect:
+  - payments in advance
+  - 'rate form (b)'
+  - 'rounding: 2 decimal places, half_even'
+  - 'balloon amount: 0.2 (given)'

@@ -1,0 +1,6 @@
+method: tvm.future_value
+description: "Zero periods"
+source: >
+  SPEC-0009 R10 and R3 (the number of periods is from 1 to 10000; zero is FM-E001). The error code is part of the specification.
+input: { payment: "1", rate: "0.05", periods: 0, timing: "ordinary" }
+expect_error: FM-E001

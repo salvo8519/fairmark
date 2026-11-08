@@ -116,6 +116,36 @@
         }
       }
     },
+    "loans.amortisation_schedule": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "loans.amortisation_schedule/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "50a501b8204439e2ab38985babac314f98ffc1624bb7330e1eab6068ca3dabdf"
+        }
+      }
+    },
+    "loans.instalment": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "loans.instalment/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "b406bc5a1584b6a6e5e6e8ae0238ec5f19e2b2c22992d0bebab65e086395d3e4"
+        }
+      }
+    },
+    "loans.number_of_instalments": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "loans.number_of_instalments/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "cba07faf0ada280eb886cb80938370d37fd0c5f28db164806ab3a20272125655"
+        }
+      }
+    },
     "rates.convert": {
       "current": "1",
       "versions": {
@@ -273,6 +303,16 @@
           "file": "tvm.annuity/v1.json",
           "introduced_in": "unreleased",
           "sha256": "c9f3fd7e0088eb84911526e0b6f75c5513c8e783b7f9f349074e877bb5817272"
+        }
+      }
+    },
+    "tvm.future_value": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "tvm.future_value/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "79207d786e0f87ce667b51333c666947c954fc6bb79ac024a4a95b13c07cd2d1"
         }
       }
     },

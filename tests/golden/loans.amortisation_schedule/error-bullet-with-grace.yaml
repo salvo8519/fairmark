@@ -1,0 +1,6 @@
+method: loans.amortisation_schedule
+description: "Bullet with a grace period (AC6)"
+source: >
+  SPEC-0009 R15 (FM-E022 when a grace period is given with bullet); AC6. The error code is part of the specification.
+input: { principal: "1000", periodic_rate: "0.01", number_of_instalments: 12, timing: "ordinary", amortisation_type: "bullet", principal_grace_periods: 2 }
+expect_error: FM-E022

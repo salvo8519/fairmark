@@ -1,0 +1,9 @@
+method: loans.instalment
+description: "Rounding to 2 decimal places, half_up: 0.125 becomes 0.13 (R19)"
+source: >
+  Hand computation: rate zero, 1 / 8 = 0.125 exactly; half_up rounds the half away from zero.
+input: { principal: "1", periodic_rate: "0", number_of_instalments: 8, timing: "ordinary", rounding: { decimal_places: 2, mode: "half_up" } }
+expect:
+  instalment: "0.13"
+  total_paid: "1.04"
+tolerance: "0"

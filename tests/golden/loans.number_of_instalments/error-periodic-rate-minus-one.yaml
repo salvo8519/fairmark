@@ -1,0 +1,6 @@
+method: loans.number_of_instalments
+description: "Periodic rate of -100% (R3)"
+source: >
+  SPEC-0009 R3 (a periodic rate of -100% or lower is FM-E003). The error code is part of the specification.
+input: { principal: "1000", periodic_rate: "-1", timing: "ordinary", instalment: "100" }
+expect_error: FM-E003

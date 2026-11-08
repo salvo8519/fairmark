@@ -1,0 +1,10 @@
+method: loans.number_of_instalments
+description: "Rate zero: n* = P / A, the last instalment is the remainder (AC11)"
+source: >
+  Hand computation: 1000 / 300 = 3.33..., four instalments, the last 1000 - 3 x 300 = 100.
+input: { principal: "1000", periodic_rate: "0", instalment: "300", timing: "ordinary" }
+expect:
+  exact_number_of_periods: "3.333333333333333333333333333"
+  number_of_instalments: "4"
+  final_instalment: "100"
+tolerance: "0.00000000000000000001"

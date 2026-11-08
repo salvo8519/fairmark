@@ -1,4 +1,5 @@
-"""Time value of money: present values, NPV and XNPV, IRR and XIRR, MIRR, annuities.
+"""Time value of money: present values, NPV and XNPV, IRR and XIRR, MIRR, annuities, perpetuities
+and future value.
 
 In ``npv``, ``irr`` and ``mirr`` the first cash flow occurs at t = 0. In ``present_value``
 the flows are those of periods 1..n. Dated methods take ``datetime.date`` objects or ISO
@@ -149,3 +150,27 @@ def perpetuity(
     if growth is not None:
         payload["growth"] = growth
     return run("tvm.perpetuity", payload)
+
+
+def future_value(
+    rate: Number,
+    periods: int,
+    *,
+    timing: AnnuityTiming,
+    present_value: Number | None = None,
+    payment: Number | None = None,
+) -> Result:
+    """Value at t = n of a present amount and level payments at a rate per period.
+
+    Amounts of the same sign accumulate; a negative amount is a withdrawal. Give at least one
+    of ``present_value`` and ``payment``.
+
+    >>> future_value("0.01", 12, payment=1000, timing="ordinary").future_value
+    Decimal('12682.50301319697206612010...')
+    """
+    payload: dict[str, Any] = {"rate": rate, "periods": periods, "timing": timing}
+    if present_value is not None:
+        payload["present_value"] = present_value
+    if payment is not None:
+        payload["payment"] = payment
+    return run("tvm.future_value", payload)

@@ -173,6 +173,10 @@ fairmark verify result.json --input company.json  # reproduce a result bit for b
 | `tvm.mirr` | Available | Modified internal rate of return (MIRR) |
 | `tvm.annuity` | Available | Annuity (level or growing, ordinary or due) |
 | `tvm.perpetuity` | Available | Perpetuity (level or growing) |
+| `tvm.future_value` | Available | Future value of a present amount and level payments |
+| `loans.instalment` | Available | Loan instalment (constant instalment, optional balloon) |
+| `loans.number_of_instalments` | Available | Number of instalments of a loan |
+| `loans.amortisation_schedule` | Available | Amortisation schedule (French, constant principal, bullet) |
 | `coc.cost_of_equity` | Available | Cost of equity (CAPM with explicit premia) |
 | `coc.beta_relever` | Available | Beta unlevering and relevering |
 | `coc.beta_peers` | Available | Beta from comparable companies |

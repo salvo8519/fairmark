@@ -1,0 +1,8 @@
+method: tvm.future_value
+description: "Rate zero: PV + n x PMT (AC11)"
+source: >
+  Hand computation: 1000 + 12 x 50 = 1600, exact.
+input: { present_value: "1000", payment: "50", rate: "0", periods: 12, timing: "due" }
+expect:
+  future_value: "1600"
+tolerance: "0"

@@ -1,0 +1,6 @@
+method: loans.instalment
+description: "Neither rate form given (AC12)"
+source: >
+  SPEC-0009 R1a (neither rate form is FM-E001); AC12. The error code is part of the specification.
+input: { principal: "1000", number_of_instalments: 12, timing: "ordinary" }
+expect_error: FM-E001

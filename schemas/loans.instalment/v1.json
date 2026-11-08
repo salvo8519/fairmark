@@ -1,0 +1,210 @@
+{
+  "$defs": {
+    "AnnuityTiming": {
+      "description": "When the payments of an annuity or perpetuity occur.",
+      "oneOf": [
+        {
+          "const": "ordinary",
+          "description": "Payments at the end of each period (first payment at t = 1).",
+          "type": "string"
+        },
+        {
+          "const": "due",
+          "description": "Payments at the beginning of each period (first payment at t = 0).",
+          "type": "string"
+        }
+      ]
+    },
+    "Compounding": {
+      "description": "How often interest is compounded within a year.",
+      "oneOf": [
+        {
+          "const": "annual",
+          "description": "Once a year: the rate is an effective annual rate.",
+          "type": "string"
+        },
+        {
+          "const": "semi_annual",
+          "description": "Twice a year (nominal rate / 2 per half year).",
+          "type": "string"
+        },
+        {
+          "const": "quarterly",
+          "description": "Four times a year.",
+          "type": "string"
+        },
+        {
+          "const": "monthly",
+          "description": "Twelve times a year.",
+          "type": "string"
+        },
+        {
+          "const": "continuous",
+          "description": "Continuously: growth factor e^(r t).",
+          "type": "string"
+        }
+      ]
+    },
+    "PaymentFrequency": {
+      "description": "How often instalments are paid.",
+      "oneOf": [
+        {
+          "const": "annual",
+          "description": "One instalment a year.",
+          "type": "string"
+        },
+        {
+          "const": "semi_annual",
+          "description": "Two instalments a year.",
+          "type": "string"
+        },
+        {
+          "const": "quarterly",
+          "description": "Four instalments a year.",
+          "type": "string"
+        },
+        {
+          "const": "monthly",
+          "description": "Twelve instalments a year.",
+          "type": "string"
+        }
+      ]
+    },
+    "Rounding": {
+      "additionalProperties": false,
+      "description": "Rounding of the amount that the schedule type keeps constant (SPEC-0009 R19).",
+      "properties": {
+        "decimal_places": {
+          "description": "Number of decimal places, from 0 to 6 (2 rounds to the cent).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RoundingMode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`half_up` or `half_even`; required, there is no default mode. A missing mode is\nreported as `FM-E001` naming `rounding.mode` and its allowed values."
+        }
+      },
+      "required": [
+        "decimal_places",
+        "mode"
+      ],
+      "type": "object"
+    },
+    "RoundingMode": {
+      "description": "How a half is rounded.",
+      "oneOf": [
+        {
+          "const": "half_up",
+          "description": "A half is rounded away from zero (0.125 to 0.13).",
+          "type": "string"
+        },
+        {
+          "const": "half_even",
+          "description": "A half is rounded to the even digit (0.125 to 0.12, 0.135 to 0.14).",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:fairmark:schema:loans.instalment:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `loans.instalment`.",
+  "properties": {
+    "balloon_amount": {
+      "description": "Amount repaid at the end of the last period on top of the last instalment, in currency\nunits, at least 0 and lower than the principal. Default: 0.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "compounding": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Compounding"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Compounding of `rate` (form a); required with `rate`, no default."
+    },
+    "number_of_instalments": {
+      "description": "Number of instalments, from 1 to 10000.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "payment_frequency": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PaymentFrequency"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Instalments per year (form a): `annual`, `semi_annual`, `quarterly` or `monthly`."
+    },
+    "periodic_rate": {
+      "description": "Rate per payment period, decimal fraction (form b), greater than -1; instead of `rate`,\n`compounding` and `payment_frequency`.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "principal": {
+      "description": "Amount borrowed, in currency units, greater than zero.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "rate": {
+      "description": "Annual borrowing rate, decimal fraction (0.05 = 5% a year), quoted with `compounding`.\nRate form (a): give it with `compounding` and `payment_frequency`, or give\n`periodic_rate` instead.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "rounding": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Rounding"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Rounding of the instalment. Default: none (no rounding)."
+    },
+    "timing": {
+      "$ref": "#/$defs/AnnuityTiming",
+      "description": "`ordinary` (in arrears: instalment k at the end of period k) or `due` (in advance: at the\nbeginning of period k)."
+    }
+  },
+  "required": [
+    "principal",
+    "number_of_instalments",
+    "timing"
+  ],
+  "title": "InstalmentInput",
+  "type": "object",
+  "x-fairmark-method": "loans.instalment",
+  "x-fairmark-method-version": "1"
+}

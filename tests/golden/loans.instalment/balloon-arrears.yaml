@@ -1,0 +1,11 @@
+method: loans.instalment
+description: "Ten-year monthly loan with a balloon of 50000 paid with the last instalment (AC2)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py, closed form of R6 with the
+  balloon discounted over n periods.
+input: { principal: "250000", rate: "0.054", compounding: "monthly", payment_frequency: "monthly", number_of_instalments: 120, timing: "ordinary", balloon_amount: "50000" }
+expect:
+  instalment: "2385.628841161130442705771712"
+  total_paid: "336275.460939335653124692605474"
+  total_interest: "86275.460939335653124692605474"
+tolerance: "0.00000000000000000001"

@@ -216,8 +216,10 @@ able to state which one applies and see it in the audit trail.
   portion except the last equals the rounded constant principal portion, interest portions are
   not rounded, the final balance is
   exactly 0 and `final_adjustment` equals the reference. Rounding without a mode returns
-  `FM-E001`. Without rounding the final
-  balance is exactly 0 and |`final_adjustment`| < 1e-18.
+  `FM-E001`. Without rounding, |`final_adjustment`| < 1e-18 × principal while (1 + i)^n ≤ 1e10
+  (for example 1200 periods at 1.9% or 470 periods at 5%); beyond that range its size is
+  documented in the Accuracy section; the final outstanding balance is exactly 0 in every
+  case.
 - **AC10** (R21) — Principal 10, rate 0, 20 instalments, French, rounding to 0 decimal places
   `half_up` (instalment 0.5 rounds to 1, the balance reaches zero after 10 periods) returns
   `FM-E023`.
@@ -230,10 +232,12 @@ able to state which one applies and see it in the audit trail.
   form (b) gives the same instalment and schedule.
 - **AC13** (R5, R11, R22) — Every new method reports its conventions and the steps listed;
   the schedule explain has a bounded number of steps independent of n (unit test per method).
-- **AC14** (property) — For every schedule: the sum of principal portions equals the principal;
-  the sum of instalments equals the sum of interest and principal portions; balances are
-  non-increasing after the grace period; with no rounding, the present value of the
-  instalments at the periodic rate equals the principal within 1e-18.
+- **AC14** (property) — For every schedule: the row identities (instalment = interest portion +
+  principal portion; closing balance = opening balance − principal portion) and the sum of
+  principal portions equal to the principal hold to the last of the engine's 28 significant
+  digits; the sum of instalments equals the sum of interest and principal portions; balances
+  are non-increasing after the grace period; with no rounding, the present value of the
+  instalments at the periodic rate equals the principal within 1e-18 relative.
 - **AC15** (R6, R13, R14) — At least one golden case reproduces a worked example from a
   published financial mathematics textbook or a regulatory example (French or fixed
   amortisation schedule), with the source, edition and page cited in the golden file.
@@ -347,6 +351,9 @@ bancaditalia.it, and the citations SHALL point to those files, not to copies.
    2026-11-08: "the instalment" means the amount the schedule type keeps constant, which is
    the principal portion in a fixed amortisation schedule, so that its principal portions stay
    equal before the final adjustment.
+
+Amendment approved by the maintainer on 2026-11-08: AC9 and AC14 restated to the engine's
+28-digit precision, after the independent numerical audit.
 
 Further instructions recorded with the approval: error codes renumbered from `FM-E020`
 (provisional, because SPEC-0006 takes `FM-E018` and `FM-E019`); at least one textbook or

@@ -1,0 +1,6 @@
+method: loans.instalment
+description: "Annual rate without its compounding (AC12)"
+source: >
+  SPEC-0009 R1a (form (a) without its compounding is FM-E001); AC12. The error code is part of the specification.
+input: { principal: "1000", rate: "0.12", payment_frequency: "monthly", number_of_instalments: 12, timing: "ordinary" }
+expect_error: FM-E001

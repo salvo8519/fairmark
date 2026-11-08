@@ -1,0 +1,6 @@
+method: loans.amortisation_schedule
+description: "Payments in advance are not part of version 1 (AC8)"
+source: >
+  SPEC-0009 R2 and R18 (schedules accept `ordinary` only in version 1, FM-E001 for `due`); AC8. The error code is part of the specification.
+input: { principal: "1000", periodic_rate: "0.01", number_of_instalments: 12, timing: "due", amortisation_type: "french" }
+expect_error: FM-E001

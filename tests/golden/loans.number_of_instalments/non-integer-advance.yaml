@@ -1,0 +1,11 @@
+method: loans.number_of_instalments
+description: "Monthly instalments of 500 in advance, 7% effective annual rate (AC3)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py; P' = P / (1 + i) for payments in
+  advance; final instalment by the recurrence.
+input: { principal: "15000", rate: "0.07", compounding: "annual", payment_frequency: "monthly", instalment: "500", timing: "due" }
+expect:
+  exact_number_of_periods: "32.763751252803037617465268"
+  number_of_instalments: "33"
+  final_instalment: "382.129833686207456997729139"
+tolerance: "0.00000000000000000001"

@@ -70,6 +70,26 @@ pub enum FairmarkError {
 
     #[error("enterprise and equity measures are mixed: {0}")]
     MixedBasis(String),
+
+    #[error("balloon amount out of range: {0}")]
+    BalloonOutOfRange(String),
+
+    #[error(
+        "`instalment` ({instalment}) never repays the loan: it must be greater than 0 and \
+         than the interest of the first period ({interest}), which is periodic rate × principal \
+         for payments in arrears and periodic rate × principal / (1 + periodic rate) for \
+         payments in advance; raise `instalment`"
+    )]
+    LoanNeverRepaid {
+        instalment: Decimal,
+        interest: Decimal,
+    },
+
+    #[error("principal grace period out of range: {0}")]
+    GracePeriodOutOfRange(String),
+
+    #[error("rounding too coarse for the loan: {0}")]
+    RoundingTooCoarse(String),
 }
 
 impl FairmarkError {
@@ -95,6 +115,10 @@ impl FairmarkError {
             Self::NestedAnalysis(_) => "FM-E017",
             Self::TerminalValueDomain(_) => "FM-E018",
             Self::MixedBasis(_) => "FM-E019",
+            Self::BalloonOutOfRange(_) => "FM-E020",
+            Self::LoanNeverRepaid { .. } => "FM-E021",
+            Self::GracePeriodOutOfRange(_) => "FM-E022",
+            Self::RoundingTooCoarse(_) => "FM-E023",
         }
     }
 
