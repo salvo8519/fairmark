@@ -18,6 +18,7 @@ use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num::{add, div, mul, one_plus, sub};
+use crate::rates::{real_nominal, FisherDirection, RealNominal, RealNominalInput};
 use crate::tv::TerminalBasis;
 use crate::tvm::{period_discount_factors, PeriodTiming};
 use crate::types::Timing;
@@ -25,7 +26,7 @@ use crate::types::Timing;
 use super::free_cash_flows::{
     build_up, FreeCashFlowLines, FreeCashFlows, Location, TaxChoice, FORMULA_FCFF,
 };
-use super::terminal::{self, Terminal, TerminalContext, TerminalOutput};
+use super::terminal::{self, Technique, Terminal, TerminalContext, TerminalOutput};
 use std::borrow::Cow;
 
 /// Explicit stages accepted (Decision 2). Checked at run time, not in the schema, so that more
@@ -115,6 +116,25 @@ impl Terms {
             Self::Real => "real",
         }
     }
+
+    fn other(self) -> Self {
+        match self {
+            Self::Nominal => Self::Real,
+            Self::Real => Self::Nominal,
+        }
+    }
+}
+
+/// The conversion of the discount rates to the terms of the cash flows (R16, Decision 5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RateConversion {
+    /// The terms are equal: the rates are used as given.
+    None,
+    /// Nominal rates converted to real terms for real cash flows.
+    ToReal,
+    /// Real rates converted to nominal terms for nominal cash flows.
+    ToNominal,
 }
 
 /// When the terminal value is discounted under mid-period timing (Decision 6).
@@ -144,12 +164,40 @@ pub struct PeriodRow {
     pub flow: Decimal,
     /// Discount rate given for the period, decimal fraction.
     pub discount_rate: Decimal,
-    /// Discount rate used, in the terms of the cash flows, decimal fraction.
+    /// Discount rate used, in the terms of the cash flows, decimal fraction: the rate given,
+    /// or the rate converted with the expected inflation of the period when the terms differ.
     pub rate_used: Decimal,
+    /// Expected inflation of the period used to convert the discount rate, decimal fraction;
+    /// `null` when no conversion is made.
+    pub inflation: Option<Decimal>,
     /// Discount factor of the flow under the timing chosen.
     pub discount_factor: Decimal,
     /// Present value of the flow, in currency units.
     pub present_value: Decimal,
+}
+
+/// The terms of the flows and of the rates, and what was done with expected inflation
+/// (R14 to R18).
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct TermsOutput {
+    /// Terms of every amount and growth rate of the input, as given.
+    pub cash_flow_terms: Terms,
+    /// Terms of the discount rates, as given.
+    pub discount_rate_terms: Terms,
+    /// `none`, `to_real` or `to_nominal`: the conversion applied to every discount rate.
+    pub conversion: RateConversion,
+    /// Terminal rate as given (the single rate, or the terminal rate), decimal fraction.
+    pub terminal_rate_given: Decimal,
+    /// Terminal rate used, in the terms of the cash flows, decimal fraction.
+    pub terminal_rate_used: Decimal,
+    /// Expected inflation of the terminal phase, decimal fraction; `null` without inflation.
+    pub terminal_inflation: Option<Decimal>,
+    /// Perpetual growth stated by the terminal technique, in the terms of the cash flows,
+    /// decimal fraction; `null` when the technique states none.
+    pub perpetual_growth: Option<Decimal>,
+    /// The perpetual growth restated in the other terms with the terminal inflation (R17),
+    /// decimal fraction; `null` without inflation or without a perpetual growth.
+    pub perpetual_growth_other_terms: Option<Decimal>,
 }
 
 // ---------------------------------------------------------------- engine input and output
@@ -169,12 +217,22 @@ pub(crate) struct RateInput<'a> {
     pub fields: RateFields,
 }
 
+/// Expected inflation as given (R16): one value, or one per period plus a terminal value; all
+/// `None` when not given. The JSON names are the same for every DCF method.
+#[derive(Default)]
+pub(crate) struct InflationInput<'a> {
+    pub single: Option<Decimal>,
+    pub per_period: Option<&'a [Decimal]>,
+    pub terminal: Option<Decimal>,
+}
+
 pub(crate) struct EngineInput<'a> {
     pub basis: TerminalBasis,
     pub stages: &'a [Stage],
     pub base_flow: Option<Decimal>,
     pub cash_flow_terms: Terms,
     pub discount_rate_terms: Terms,
+    pub inflation: InflationInput<'a>,
     pub rates: RateInput<'a>,
     pub timing: Timing,
     pub terminal_discount_time: Option<TerminalDiscountTime>,
@@ -187,6 +245,7 @@ pub(crate) struct EngineOutput {
     pub periods: Vec<PeriodRow>,
     pub pv_explicit: Decimal,
     pub terminal: TerminalOutput,
+    pub terms: TermsOutput,
 }
 
 fn invalid(msg: String) -> FairmarkError {
@@ -442,26 +501,288 @@ fn resolve_rates(r: &RateInput<'_>, n: usize) -> Result<(Vec<Decimal>, Decimal, 
     Ok((rates, terminal, terminal_field))
 }
 
-/// R14, R15: the terms are required on both sides; different terms are refused until expected
-/// inflation is accepted (#166).
-fn check_terms(ex: &mut Explain, flows: Terms, rates: Terms) -> Result<()> {
-    if flows != rates {
+/// Expected inflation after validation: the value of each explicit period, the value of the
+/// terminal phase and the JSON pointers that name them.
+struct Inflation {
+    per_period: Vec<Decimal>,
+    terminal: Decimal,
+    /// True for one inflation (`/inflation`), false for the per-period form.
+    single: bool,
+}
+
+impl Inflation {
+    /// Pointer of the inflation of period k (0-based), or of the terminal phase for `None`.
+    fn field(&self, k: Option<usize>) -> String {
+        match (self.single, k) {
+            (true, _) => "/inflation".to_owned(),
+            (false, Some(k)) => format!("/inflation_per_period/{k}"),
+            (false, None) => "/terminal_inflation".to_owned(),
+        }
+    }
+}
+
+/// R16: one expected inflation for every period and the terminal phase, or one per period with
+/// a terminal inflation, or none; each greater than -1. Checked whenever given (R18 too).
+fn resolve_inflation(i: &InflationInput<'_>, n: usize) -> Result<Option<Inflation>> {
+    let resolved =
+        match (i.single, i.per_period, i.terminal) {
+            (None, None, None) => return Ok(None),
+            (Some(_), Some(_), _) => {
+                return Err(invalid(
+                    "give exactly one of `/inflation` and `/inflation_per_period`, not both: one \
+                 expected inflation for every period, or one per period with \
+                 `/terminal_inflation`"
+                        .to_owned(),
+                ))
+            }
+            (Some(_), None, Some(_)) => return Err(invalid(
+                "`/terminal_inflation` is not accepted with `/inflation`: one expected inflation \
+                 applies to every period and to the terminal phase; remove \
+                 `/terminal_inflation`, or give `/inflation_per_period` instead"
+                    .to_owned(),
+            )),
+            (None, Some(_), None) => {
+                return Err(invalid(
+                    "`/terminal_inflation` is required with `/inflation_per_period`: give the \
+                 expected inflation of the terminal phase"
+                        .to_owned(),
+                ))
+            }
+            (None, None, Some(_)) => {
+                return Err(invalid(
+                    "`/terminal_inflation` is used only with `/inflation_per_period`; give \
+                 `/inflation_per_period` too, or give one expected inflation in `/inflation`"
+                        .to_owned(),
+                ))
+            }
+            (Some(one), None, None) => Inflation {
+                per_period: vec![one; n],
+                terminal: one,
+                single: true,
+            },
+            (None, Some(list), Some(terminal)) => {
+                if list.len() != n {
+                    return Err(count(format!(
+                        "`/inflation_per_period` has {} values for an explicit horizon of {n} \
+                     periods (the sum of `/stages/*/periods`); give exactly {n} values",
+                        list.len()
+                    )));
+                }
+                Inflation {
+                    per_period: list.to_vec(),
+                    terminal,
+                    single: false,
+                }
+            }
+        };
+    let values = resolved
+        .per_period
+        .iter()
+        .enumerate()
+        .map(|(k, v)| (Some(k), *v))
+        .chain(std::iter::once((None, resolved.terminal)));
+    for (k, v) in values {
+        if v <= -Decimal::ONE {
+            return Err(invalid(format!(
+                "`{}` is {v}; expected inflation must be greater than -1 (-100%); rates are \
+                 decimal fractions, 2% is 0.02",
+                resolved.field(k)
+            )));
+        }
+    }
+    Ok(Some(resolved))
+}
+
+/// One rate restated in the terms `to` with the exact Fisher relation, through a typed call to
+/// `rates.real_nominal` (ADR 0009, R16): the converted rate and its formula with the values
+/// substituted.
+fn fisher(rate: Decimal, inflation: Decimal, to: Terms) -> Result<(Decimal, String)> {
+    let direction = match to {
+        Terms::Real => FisherDirection::ToReal,
+        Terms::Nominal => FisherDirection::ToNominal,
+    };
+    let (out, ex) = real_nominal(&RealNominalInput {
+        rate,
+        inflation,
+        direction,
+    })?;
+    let formula = ex
+        .steps
+        .into_iter()
+        .next()
+        .map(|s| s.formula)
+        .ok_or(FairmarkError::Internal("rates.real_nominal without a step"))?;
+    Ok((out.rate, formula))
+}
+
+/// The discount rates in the terms of the cash flows (R14 to R16, R18).
+struct RatesUsed {
+    conversion: RateConversion,
+    /// Rate used in each period, with the inflation and the Fisher formula when converted.
+    per_period: Vec<(Decimal, Option<(Decimal, String)>)>,
+    terminal: Decimal,
+    terminal_formula: Option<String>,
+    /// The terminal rate field as named in errors, "converted" when it was.
+    terminal_field: String,
+}
+
+/// R14 to R16, R18: equal terms use the rates as given; different terms are refused without
+/// inflation (`FM-E024`) and otherwise every rate, the terminal rate included, is converted to
+/// the terms of the cash flows. Flows and growth rates are never converted (Decision 5).
+fn resolve_terms(
+    ex: &mut Explain,
+    input: &EngineInput<'_>,
+    rates: &[Decimal],
+    terminal: (Decimal, &str),
+    inflation: Option<&Inflation>,
+) -> Result<RatesUsed> {
+    let (flows, given) = (input.cash_flow_terms, input.discount_rate_terms);
+    let f = &input.rates.fields;
+    let (terminal_rate, terminal_field) = terminal;
+    match inflation {
+        Some(i) if i.single => ex.convention(format!(
+            "expected inflation: one rate, {}, for every period and for the terminal phase \
+             (`/inflation`)",
+            i.terminal
+        )),
+        Some(i) => ex.convention(format!(
+            "expected inflation: one rate per period (`/inflation_per_period`); terminal \
+             inflation {} (`/terminal_inflation`)",
+            i.terminal
+        )),
+        None => {}
+    }
+    if flows == given {
+        ex.convention(match inflation {
+            None => format!(
+                "terms: cash flows and growth rates {}, discount rates {}; same terms, no \
+                 conversion",
+                flows.label(),
+                given.label()
+            ),
+            Some(_) => format!(
+                "terms: cash flows and growth rates {}, discount rates {}; same terms, no \
+                 conversion: expected inflation is used only to restate the perpetual growth in \
+                 the other terms (R18)",
+                flows.label(),
+                given.label()
+            ),
+        });
+        return Ok(RatesUsed {
+            conversion: RateConversion::None,
+            per_period: rates.iter().map(|r| (*r, None)).collect(),
+            terminal: terminal_rate,
+            terminal_formula: None,
+            terminal_field: terminal_field.to_owned(),
+        });
+    }
+    let Some(inflation) = inflation else {
         return Err(FairmarkError::TermsMismatch(format!(
             "`/cash_flow_terms` is {} and `/discount_rate_terms` is {}, and no expected \
-             inflation is given; discounting {} flows at {} rates misstates the value. Restate \
-             the discount rates or the cash flows in the same terms",
+             inflation is given; discounting {} flows at {} rates misstates the value. Either \
+             give expected inflation in `/inflation` (or `/inflation_per_period` with \
+             `/terminal_inflation`), so that the discount rates are converted to {} terms, or \
+             restate the discount rates or the cash flows in the same terms",
             flows.label(),
-            rates.label(),
+            given.label(),
             flows.label(),
-            rates.label()
+            given.label(),
+            flows.label()
         )));
-    }
+    };
+    let source = format!("{} v{}", RealNominal::ID, RealNominal::VERSION);
     ex.convention(format!(
-        "terms: cash flows and growth rates {}, discount rates {}; same terms, no conversion",
+        "terms: cash flows and growth rates {}, discount rates {}; every discount rate, the \
+         terminal rate included, converted to {} terms with expected inflation by the exact \
+         Fisher relation (1 + nominal) = (1 + real) × (1 + inflation) ({source}); cash flows and \
+         growth rates are never converted (Decision 5)",
         flows.label(),
-        rates.label()
+        given.label(),
+        flows.label()
     ));
-    Ok(())
+    let mut per_period = Vec::with_capacity(rates.len());
+    for (k, (rate, infl)) in rates.iter().zip(&inflation.per_period).enumerate() {
+        let (used, formula) = fisher(*rate, *infl, flows)?;
+        if used <= -Decimal::ONE {
+            let field = match input.rates.single {
+                Some(_) => format!("/{}", f.single),
+                None => format!("/{}/{k}", f.per_period),
+            };
+            return Err(FairmarkError::DiscountRateOutOfRange {
+                field: format!(
+                    "{field}` converted with `{}` (period {})",
+                    inflation.field(Some(k)),
+                    k + 1
+                ),
+                rate: used,
+            });
+        }
+        per_period.push((used, Some((*infl, formula))));
+    }
+    let (used, formula) = fisher(terminal_rate, inflation.terminal, flows)?;
+    let field = format!(
+        "{terminal_field}` converted to {} terms with `{}",
+        flows.label(),
+        inflation.field(None)
+    );
+    if used <= -Decimal::ONE {
+        return Err(FairmarkError::DiscountRateOutOfRange { field, rate: used });
+    }
+    Ok(RatesUsed {
+        conversion: match flows {
+            Terms::Real => RateConversion::ToReal,
+            Terms::Nominal => RateConversion::ToNominal,
+        },
+        per_period,
+        terminal: used,
+        terminal_formula: Some(formula),
+        terminal_field: field,
+    })
+}
+
+/// R17: the perpetual growth of the terminal technique restated in the other terms with the
+/// inflation of the terminal phase, and for nominal flows a warning when it is below that
+/// inflation (a real decline). Returns the growth and its restatement.
+fn restate_growth(
+    ex: &mut Explain,
+    technique: Technique<'_>,
+    flows: Terms,
+    inflation: Option<&Inflation>,
+) -> Result<(Option<Decimal>, Option<Decimal>)> {
+    let growth = technique.perpetual_growth();
+    let Some(inflation) = inflation else {
+        return Ok((growth, None));
+    };
+    let id = technique.id();
+    let Some(g) = growth else {
+        ex.convention(format!(
+            "perpetual growth not restated in {} terms: {id} states no perpetual growth (R17)",
+            flows.other().label()
+        ));
+        return Ok((None, None));
+    };
+    let other = flows.other();
+    let pi = inflation.terminal;
+    let (restated, formula) = fisher(g, pi, other)?;
+    ex.step(
+        format!("Perpetual growth in {} terms", other.label()),
+        formula.clone(),
+        restated,
+    );
+    ex.convention(format!(
+        "perpetual growth of the terminal value ({id}): {g} in {} terms, {formula} = {restated} \
+         in {} terms, with the expected inflation of the terminal phase {pi} (R17)",
+        flows.label(),
+        other.label()
+    ));
+    if flows == Terms::Nominal && g < pi {
+        ex.convention(format!(
+            "warning: the perpetual growth {g} (nominal) is below the expected inflation of the \
+             terminal phase {pi}: the flows decline in real terms after the horizon (real growth \
+             {restated})"
+        ));
+    }
+    Ok((Some(g), Some(restated)))
 }
 
 /// R21: the terminal discounting time is required under mid-period timing and refused at end
@@ -687,10 +1008,24 @@ fn period_timing(t: Timing) -> PeriodTiming {
 pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOutput> {
     let (mut stages, n) = check_stages(input.stages, input.base_flow)?;
     build_up_stages(&mut stages, input.basis, &input.taxes, ex)?;
-    let (rates, terminal_rate, terminal_field) = resolve_rates(&input.rates, n)?;
-    check_terms(ex, input.cash_flow_terms, input.discount_rate_terms)?;
+    let (given_rates, terminal_given, terminal_field) = resolve_rates(&input.rates, n)?;
+    let inflation = resolve_inflation(&input.inflation, n)?;
+    let used = resolve_terms(
+        ex,
+        input,
+        &given_rates,
+        (terminal_given, &terminal_field),
+        inflation.as_ref(),
+    )?;
     check_timing(input.timing, input.terminal_discount_time)?;
-    let technique = terminal::check(input.terminal, terminal_rate, &terminal_field, input.basis)?;
+    let terminal_rate = used.terminal;
+    let technique = terminal::check(
+        input.terminal,
+        terminal_rate,
+        &used.terminal_field,
+        input.basis,
+    )?;
+    let rates: Vec<Decimal> = used.per_period.iter().map(|(r, _)| *r).collect();
 
     ex.convention(format!(
         "explicit horizon N = {n} periods; stages: {}; one period is one year, rates are \
@@ -702,7 +1037,7 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
             format!("discount rate: one rate, {r}, for every period and for the terminal value")
         }
         None => format!(
-            "discount rate: one rate per period; terminal rate {terminal_rate} given separately"
+            "discount rate: one rate per period; terminal rate {terminal_given} given separately"
         ),
     });
     ex.convention(format!(
@@ -735,7 +1070,27 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
             Timing::EndOfPeriod => format!("{start} / (1 + {rate})"),
             Timing::MidPeriod => format!("{start} / (1 + {rate})^0.5"),
         };
-        ex.step(format!("Period {period}: discount rate"), "as given", *rate);
+        ex.step(
+            format!("Period {period}: discount rate"),
+            "as given",
+            given_rates[k],
+        );
+        let conversion = &used.per_period[k].1;
+        if let Some((infl, fisher_formula)) = conversion {
+            ex.step(
+                format!("Period {period}: expected inflation"),
+                "as given",
+                *infl,
+            );
+            ex.step(
+                format!(
+                    "Period {period}: discount rate used ({} terms)",
+                    input.cash_flow_terms.label()
+                ),
+                fisher_formula.clone(),
+                *rate,
+            );
+        }
         ex.step(format!("Period {period}: discount factor"), formula, *df);
         let base = one_plus(*rate)?;
         let previous = growth_factors[k];
@@ -787,8 +1142,9 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
             projection: p.projection,
             growth: p.growth,
             flow: p.flow,
-            discount_rate: *rate,
+            discount_rate: given_rates[k],
             rate_used: *rate,
+            inflation: conversion.as_ref().map(|(i, _)| *i),
             discount_factor: *df,
             present_value: pv,
         });
@@ -809,6 +1165,25 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
         pv_explicit,
     );
 
+    if let (Some(formula), Some(i)) = (&used.terminal_formula, &inflation) {
+        ex.step("Terminal rate: as given", "as given", terminal_given);
+        ex.step(
+            "Terminal rate: expected inflation of the terminal phase",
+            "as given",
+            i.terminal,
+        );
+        ex.step(
+            format!(
+                "Terminal rate used ({} terms)",
+                input.cash_flow_terms.label()
+            ),
+            formula.clone(),
+            terminal_rate,
+        );
+    }
+    let (perpetual_growth, perpetual_growth_other_terms) =
+        restate_growth(ex, technique, input.cash_flow_terms, inflation.as_ref())?;
+
     let last = &projected[n - 1];
     let terminal = terminal::value(
         ex,
@@ -828,5 +1203,328 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
         periods,
         pv_explicit,
         terminal,
+        terms: TermsOutput {
+            cash_flow_terms: input.cash_flow_terms,
+            discount_rate_terms: input.discount_rate_terms,
+            conversion: used.conversion,
+            terminal_rate_given: terminal_given,
+            terminal_rate_used: terminal_rate,
+            terminal_inflation: inflation.as_ref().map(|i| i.terminal),
+            perpetual_growth,
+            perpetual_growth_other_terms,
+        },
     })
+}
+
+#[cfg(test)]
+mod tests {
+    //! Nominal and real terms (#166, R14 to R18), through `dcf.fcff`.
+
+    use serde_json::{json, Value};
+
+    use crate::registry::run;
+
+    fn base() -> Value {
+        json!({
+            "stages": [{"periods": 3, "projection": "given", "flows": ["100", "110", "120"]}],
+            "cash_flow_terms": "real",
+            "discount_rate_terms": "nominal",
+            "wacc": "0.10",
+            "inflation": "0.02",
+            "timing": "end_of_period",
+            "terminal": {"tv.gordon": {"growth": "0.01", "first_flow": "last_flow_grown"}}
+        })
+    }
+
+    fn with(mut v: Value, f: impl FnOnce(&mut serde_json::Map<String, Value>)) -> Value {
+        f(v.as_object_mut().unwrap());
+        v
+    }
+
+    fn out(v: &Value) -> Value {
+        run("dcf.fcff", &v.to_string()).unwrap()
+    }
+
+    fn conventions(v: &Value) -> Vec<String> {
+        serde_json::from_value(out(v)["explain"]["conventions"].clone()).unwrap()
+    }
+
+    fn err(v: &Value) -> crate::FairmarkError {
+        run("dcf.fcff", &v.to_string()).unwrap_err()
+    }
+
+    /// R16: every rate converted with the substituted Fisher formula in the explain, through
+    /// `rates.real_nominal`; the flows are not converted.
+    #[test]
+    fn rates_are_converted_and_flows_are_not() {
+        let o = out(&base());
+        let v = &o["value"];
+        assert_eq!(v["terms"]["conversion"], "to_real");
+        assert_eq!(v["periods"][0]["flow"], "100");
+        assert_eq!(v["periods"][0]["discount_rate"], "0.10");
+        assert_eq!(v["periods"][0]["inflation"], "0.02");
+        assert_eq!(
+            v["periods"][0]["rate_used"],
+            "0.0784313725490196078431372549"
+        );
+        assert_eq!(v["terminal"]["rate"], v["terms"]["terminal_rate_used"]);
+        assert_eq!(v["terms"]["terminal_rate_given"], "0.10");
+        let steps = o["explain"]["steps"].as_array().unwrap();
+        let used = steps
+            .iter()
+            .find(|s| s["label"] == "Period 2: discount rate used (real terms)")
+            .unwrap();
+        assert_eq!(used["formula"], "(1 + 0.10) / (1 + 0.02) − 1");
+        assert!(steps
+            .iter()
+            .any(|s| s["label"] == "Terminal rate used (real terms)"
+                && s["formula"] == "(1 + 0.10) / (1 + 0.02) − 1"));
+        let c = conventions(&base());
+        assert!(c.iter().any(|c| c
+            .contains("every discount rate, the terminal rate included, converted to real terms")
+            && c.contains("(rates.real_nominal v1)")
+            && c.contains("cash flows and growth rates are never converted")));
+        assert!(c
+            .iter()
+            .any(|c| c.starts_with("expected inflation: one rate, 0.02")));
+    }
+
+    /// R16: nominal flows at real rates are converted to nominal terms.
+    #[test]
+    fn real_rates_are_converted_to_nominal() {
+        let input = with(base(), |m| {
+            m.insert("cash_flow_terms".into(), json!("nominal"));
+            m.insert("discount_rate_terms".into(), json!("real"));
+            m.insert("wacc".into(), json!("0.08"));
+        });
+        let v = &out(&input)["value"];
+        assert_eq!(v["terms"]["conversion"], "to_nominal");
+        assert_eq!(v["periods"][2]["rate_used"], "0.1016");
+        assert_eq!(v["terminal"]["rate"], "0.1016");
+    }
+
+    /// R18: equal terms with inflation, no conversion; the periods carry no inflation.
+    #[test]
+    fn equal_terms_are_not_converted() {
+        let input = with(base(), |m| {
+            m.insert("cash_flow_terms".into(), json!("nominal"));
+        });
+        let v = &out(&input)["value"];
+        assert_eq!(v["terms"]["conversion"], "none");
+        assert_eq!(v["periods"][0]["rate_used"], "0.10");
+        assert_eq!(v["periods"][0]["inflation"], Value::Null);
+        assert!(conventions(&input).iter().any(|c| c.contains(
+            "same terms, no conversion: expected inflation is used only to restate the \
+             perpetual growth in the other terms (R18)"
+        )));
+        let none = with(input, |m| {
+            m.remove("inflation");
+        });
+        let v = &out(&none)["value"];
+        assert_eq!(v["terms"]["terminal_inflation"], Value::Null);
+        assert_eq!(v["terms"]["perpetual_growth"], "0.01");
+        assert_eq!(v["terms"]["perpetual_growth_other_terms"], Value::Null);
+        assert!(conventions(&none).iter().any(|c| c
+            == "terms: cash flows and growth rates nominal, discount rates nominal; same \
+                terms, no conversion"));
+    }
+
+    /// R17, AC10: the perpetual growth in the other terms; a nominal growth below inflation is
+    /// a warning, never an error; real flows and growths at or above inflation carry none.
+    #[test]
+    fn growth_below_inflation_is_a_warning() {
+        let nominal = with(base(), |m| {
+            m.insert("cash_flow_terms".into(), json!("nominal"));
+            m.insert("inflation".into(), json!("0.03"));
+        });
+        let o = out(&nominal);
+        assert_eq!(
+            o["value"]["terms"]["perpetual_growth_other_terms"]
+                .as_str()
+                .unwrap()[..5]
+                .to_owned(),
+            "-0.01"
+        );
+        let warning = |c: &Vec<String>| {
+            c.iter()
+                .any(|c| c.starts_with("warning: the perpetual growth 0.01 (nominal) is below"))
+        };
+        assert!(warning(&conventions(&nominal)));
+        assert!(conventions(&nominal).iter().any(|c| c.starts_with(
+            "perpetual growth of the terminal value (tv.gordon): 0.01 in nominal terms, (1 + \
+             0.01) / (1 + 0.03) − 1 ="
+        )));
+        let above = with(nominal.clone(), |m| {
+            m.insert("inflation".into(), json!("0.005"));
+        });
+        assert!(!warning(&conventions(&above)));
+        // Real flows: restated in nominal terms, no warning.
+        let real = with(base(), |m| {
+            m.insert("discount_rate_terms".into(), json!("real"));
+            m.insert("inflation".into(), json!("0.03"));
+        });
+        let v = &out(&real)["value"];
+        assert_eq!(v["terms"]["perpetual_growth_other_terms"], "0.0403");
+        assert!(!conventions(&real)
+            .iter()
+            .any(|c| c.starts_with("warning: the perpetual")));
+    }
+
+    /// R17: a technique with no perpetual growth is not restated, and the conventions say so.
+    #[test]
+    fn techniques_without_perpetual_growth_are_reported() {
+        let input = with(base(), |m| {
+            m.insert(
+                "terminal".into(),
+                json!({"tv.exit_multiple": {"multiple": "8", "metric": "ebitda", "metric_value": "150"}}),
+            );
+        });
+        let v = &out(&input)["value"];
+        assert_eq!(v["terms"]["perpetual_growth"], Value::Null);
+        assert_eq!(v["terms"]["perpetual_growth_other_terms"], Value::Null);
+        assert!(conventions(&input).iter().any(|c| c
+            == "perpetual growth not restated in nominal terms: tv.exit_multiple states no \
+                perpetual growth (R17)"));
+    }
+
+    /// R16: with inflation per period, each rate uses the inflation of its period and the
+    /// terminal rate the terminal inflation.
+    #[test]
+    fn inflation_per_period_converts_each_rate() {
+        let input = with(base(), |m| {
+            m.remove("inflation");
+            m.insert("inflation_per_period".into(), json!(["0.1", "0", "0.25"]));
+            m.insert("terminal_inflation".into(), json!("0.0"));
+        });
+        let v = &out(&input)["value"];
+        assert_eq!(v["periods"][0]["rate_used"], "0.0");
+        assert_eq!(v["periods"][1]["rate_used"], "0.10");
+        assert_eq!(v["periods"][2]["rate_used"], "-0.12");
+        assert_eq!(v["periods"][2]["inflation"], "0.25");
+        assert_eq!(v["terminal"]["rate"], "0.10");
+        assert_eq!(v["terms"]["terminal_inflation"], "0.0");
+    }
+
+    /// R15, R27: `FM-E024` names both fields and states both fixes; every error of the
+    /// inflation fields names its field by a JSON pointer.
+    #[test]
+    fn errors_name_the_fields_and_the_fixes() {
+        let e = err(&with(base(), |m| {
+            m.remove("inflation");
+        }));
+        assert_eq!(e.code(), "FM-E024");
+        let text = e.to_string();
+        for part in [
+            "`/cash_flow_terms` is real",
+            "`/discount_rate_terms` is nominal",
+            "give expected inflation in `/inflation`",
+            "restate the discount rates or the cash flows in the same terms",
+        ] {
+            assert!(text.contains(part), "{part}: {text}");
+        }
+        let cases: Vec<(Value, &str, &str)> = vec![
+            (
+                with(base(), |m| {
+                    m.insert("inflation_per_period".into(), json!(["0", "0", "0"]));
+                }),
+                "FM-E001",
+                "/inflation_per_period",
+            ),
+            (
+                with(base(), |m| {
+                    m.insert("terminal_inflation".into(), json!("0.02"));
+                }),
+                "FM-E001",
+                "/terminal_inflation",
+            ),
+            (
+                with(base(), |m| {
+                    m.remove("inflation");
+                    m.insert("inflation_per_period".into(), json!(["0", "0", "0"]));
+                }),
+                "FM-E001",
+                "/terminal_inflation",
+            ),
+            (
+                with(base(), |m| {
+                    m.remove("inflation");
+                    m.insert("terminal_inflation".into(), json!("0.02"));
+                }),
+                "FM-E001",
+                "/inflation_per_period",
+            ),
+            (
+                with(base(), |m| {
+                    m.remove("inflation");
+                    m.insert("inflation_per_period".into(), json!(["0", "0"]));
+                    m.insert("terminal_inflation".into(), json!("0.02"));
+                }),
+                "FM-E025",
+                "/inflation_per_period",
+            ),
+            (
+                with(base(), |m| {
+                    m.remove("inflation");
+                    m.insert("inflation_per_period".into(), json!(["0", "-1", "0"]));
+                    m.insert("terminal_inflation".into(), json!("0.02"));
+                }),
+                "FM-E001",
+                "/inflation_per_period/1",
+            ),
+            (
+                with(base(), |m| {
+                    m.remove("inflation");
+                    m.insert("inflation_per_period".into(), json!(["0", "0", "0"]));
+                    m.insert("terminal_inflation".into(), json!("-1.5"));
+                }),
+                "FM-E001",
+                "/terminal_inflation",
+            ),
+            (
+                with(base(), |m| {
+                    m.insert("inflation".into(), json!("-1"));
+                }),
+                "FM-E001",
+                "/inflation",
+            ),
+            // The terminal rate converted to real terms (0.0194...) is below the growth.
+            (
+                with(base(), |m| {
+                    m.insert("wacc".into(), json!("0.05"));
+                    m.insert("inflation".into(), json!("0.03"));
+                    m.insert(
+                        "terminal".into(),
+                        json!({"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}),
+                    );
+                }),
+                "FM-E004",
+                "`/wacc` converted to real terms with `/inflation`",
+            ),
+        ];
+        for (input, code, pointer) in cases {
+            let e = err(&input);
+            assert_eq!(e.code(), code, "{e}");
+            assert!(e.to_string().contains(pointer), "{pointer}: {e}");
+        }
+    }
+
+    /// AC9: the conversion gives exactly the valuation at the real rate given directly when
+    /// the conversion is exact.
+    #[test]
+    fn converted_rate_equals_the_rate_given_directly() {
+        let converted = with(base(), |m| {
+            m.insert("wacc".into(), json!("0.1016"));
+        });
+        let direct = with(base(), |m| {
+            m.insert("discount_rate_terms".into(), json!("real"));
+            m.insert("wacc".into(), json!("0.08"));
+            m.remove("inflation");
+        });
+        let (a, b) = (
+            out(&converted)["value"].clone(),
+            out(&direct)["value"].clone(),
+        );
+        assert_eq!(a["value_of_operations"], b["value_of_operations"]);
+        assert_eq!(a["terminal"], b["terminal"]);
+    }
 }

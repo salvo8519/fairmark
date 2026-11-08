@@ -7,7 +7,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::engine::{
-    self, EngineInput, PeriodRow, RateFields, RateInput, Stage, TerminalDiscountTime, Terms,
+    self, EngineInput, InflationInput, PeriodRow, RateFields, RateInput, Stage,
+    TerminalDiscountTime, Terms, TermsOutput,
 };
 use super::free_cash_flows::{NegativeEbit, TaxChoice};
 use super::terminal::{Terminal, TerminalOutput};
@@ -43,9 +44,27 @@ pub struct DcfFcffInput {
     pub negative_ebit: Option<NegativeEbit>,
     /// `nominal` or `real`: the terms of every amount and growth rate of the input.
     pub cash_flow_terms: Terms,
-    /// `nominal` or `real`: the terms of the discount rates. They must equal
-    /// `cash_flow_terms`.
+    /// `nominal` or `real`: the terms of the discount rates. When they differ from
+    /// `cash_flow_terms`, expected inflation is required (`inflation`, or
+    /// `inflation_per_period` with `terminal_inflation`) and every rate is converted to the
+    /// terms of the cash flows; the cash flows are never converted.
     pub discount_rate_terms: Terms,
+    /// Expected inflation, decimal fraction per period (0.02 = 2%), greater than -1, for every
+    /// explicit period and for the terminal phase. Give this or `inflation_per_period`, or
+    /// neither. With different terms it converts the discount rates by the exact Fisher
+    /// relation; with equal terms it only restates the perpetual growth in the other terms.
+    /// Default: none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inflation: Option<Decimal>,
+    /// Expected inflation per period of the explicit horizon, decimal fractions, exactly N of
+    /// them, each greater than -1; requires `terminal_inflation`. Give this or `inflation`,
+    /// not both. Default: none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inflation_per_period: Option<Vec<Decimal>>,
+    /// Expected inflation of the terminal phase, decimal fraction per period, greater than -1;
+    /// required with `inflation_per_period`, refused otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal_inflation: Option<Decimal>,
     /// One WACC for every period and for the terminal value, decimal fraction per period
     /// (0.09 = 9%), greater than -1. Give this or `wacc_per_period`, not both.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -115,6 +134,9 @@ pub struct DcfFcffOutput {
     pub terminal_value_weight: Option<Decimal>,
     /// One row per period of the explicit horizon.
     pub periods: Vec<PeriodRow>,
+    /// The terms of the flows and of the rates, the conversion of the rates and the perpetual
+    /// growth in the other terms (R14 to R18).
+    pub terms: TermsOutput,
     /// The terminal value, its technique and its discounting.
     pub terminal: TerminalOutput,
     /// Every line from value of operations to equity value.
@@ -139,6 +161,11 @@ pub fn fcff(input: &DcfFcffInput) -> Result<(DcfFcffOutput, Explain)> {
         base_flow: input.base_flow,
         cash_flow_terms: input.cash_flow_terms,
         discount_rate_terms: input.discount_rate_terms,
+        inflation: InflationInput {
+            single: input.inflation,
+            per_period: input.inflation_per_period.as_deref(),
+            terminal: input.terminal_inflation,
+        },
         rates: RateInput {
             single: input.wacc,
             per_period: input.wacc_per_period.as_deref(),
@@ -199,6 +226,7 @@ pub fn fcff(input: &DcfFcffInput) -> Result<(DcfFcffOutput, Explain)> {
             pv_explicit_period: out.pv_explicit,
             terminal_value_weight: weight,
             periods: out.periods,
+            terms: out.terms,
             terminal: out.terminal,
             bridge,
         },

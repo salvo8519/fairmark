@@ -315,7 +315,7 @@ pub(crate) enum Technique<'a> {
 }
 
 impl Technique<'_> {
-    fn id(self) -> &'static str {
+    pub(crate) fn id(self) -> &'static str {
         match self {
             Self::Gordon(_) => tv::Gordon::ID,
             Self::HModel(_) => tv::HModel::ID,
@@ -341,7 +341,7 @@ impl Technique<'_> {
 
     /// The perpetual growth the technique assumes after the horizon, for the continuity
     /// warning of R11; `None` for the techniques that state none.
-    fn perpetual_growth(self) -> Option<Decimal> {
+    pub(crate) fn perpetual_growth(self) -> Option<Decimal> {
         match self {
             Self::Gordon(t) => Some(t.growth),
             Self::HModel(t) => Some(t.long_term_growth),
