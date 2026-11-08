@@ -110,6 +110,57 @@ terms:
   payment in advance: rata anticipata
   number of instalments: numero delle rate
   future value: valore futuro (montante)
+  financial ratio: indice di bilancio
+  not defined (ratio): non definito
+  closing balances: saldi di chiusura
+  average balances: saldi medi (media tra apertura e chiusura)
+  opening balance sheet: stato patrimoniale di apertura
+  closing balance sheet: stato patrimoniale di chiusura
+  day basis: base giorni (360 o 365)
+  revenue: ricavi
+  net income: utile netto
+  invested capital: capitale investito
+  total assets: totale attivo
+  fixed assets: immobilizzazioni
+  non-current liabilities: passività consolidate
+  current assets: attivo corrente
+  current liabilities: passività correnti
+  inventories: rimanenze
+  trade receivables: crediti commerciali
+  trade payables: debiti commerciali
+  cost of sales: costo del venduto
+  purchases: acquisti
+  gross debt: debiti finanziari lordi
+  cash: disponibilità liquide
+  net financial position (NFP): posizione finanziaria netta (PFN)
+  return on equity (ROE): ROE (redditività del capitale proprio)
+  return on investment (ROI): ROI (redditività del capitale investito)
+  return on sales (ROS): ROS (redditività delle vendite)
+  operating return base: base del rendimento operativo
+  capital turnover: rotazione del capitale investito
+  asset turnover: rotazione dell'attivo
+  net margin: margine netto
+  equity multiplier: moltiplicatore del capitale proprio (equity multiplier)
+  equity ratio: indice di indipendenza finanziaria (equity ratio)
+  primary structure margin: margine primario di struttura
+  secondary structure margin: margine secondario di struttura
+  fixed-asset coverage: quoziente di struttura (copertura delle immobilizzazioni)
+  current ratio: indice di disponibilità (current ratio)
+  quick ratio: indice di liquidità (quick ratio)
+  cash ratio: indice di liquidità immediata (cash ratio)
+  net working capital: capitale circolante netto (CCN)
+  treasury margin: margine di tesoreria
+  days sales outstanding (DSO): giorni medi di incasso dei crediti (DSO)
+  days inventory outstanding (DIO): giorni medi di giacenza delle scorte (DIO)
+  days payable outstanding (DPO): giorni medi di pagamento dei fornitori (DPO)
+  cash conversion cycle: ciclo monetario (cash conversion cycle)
+  interest cover: copertura degli oneri finanziari (interest cover)
+  debt service: servizio del debito
+  cash flow available for debt service (CFADS): flusso di cassa disponibile per il servizio del debito (CFADS)
+  debt service cover ratio (DSCR): DSCR (indice di copertura del servizio del debito)
+  loan life cover ratio (LLCR): LLCR (indice di copertura sulla durata del finanziamento)
+  debt outstanding: debito residuo
+  covenant: covenant
 keep_in_english:
   - Fairmark
   - explain
