@@ -1,0 +1,97 @@
+# Contract cases for statements.reorganise: extreme inputs must return a result or a typed
+# error, never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: statements.reorganise
+extreme_inputs:
+- years:
+  - statutory:
+      balance_sheet:
+        subscribed_capital_unpaid: '0'
+        intangible_assets: {total: MAX}
+        tangible_assets: {total: MAX}
+        financial_fixed_assets: MAX
+        inventories: MAX
+        receivables: {total: MAX, beyond_one_year: MAX}
+        current_financial_assets: MAX
+        cash: MAX
+        prepayments_and_accrued_income: {total: MAX}
+        equity: {total: MIN}
+        provisions: {total: MAX}
+        employee_severance_indemnity: {total: MAX}
+        payables:
+          total: MAX
+          beyond_one_year: MAX
+          financial_debt: {total: MAX, beyond_one_year: MAX}
+          shareholder_loans: {total: MAX, beyond_one_year: MAX}
+        accruals_and_deferred_income: {total: MAX}
+  treatments: {financial_fixed_assets: operating, shareholder_loans: financial_debt}
+- years:
+  - statutory:
+      balance_sheet:
+        cash: MAX
+        current_financial_assets: MAX
+        payables:
+          total: '0'
+          financial_debt: {total: '0', beyond_one_year: '0'}
+          shareholder_loans: {total: '0', beyond_one_year: '0'}
+        financial_fixed_assets: MAX
+  treatments: {financial_fixed_assets: financial_asset}
+  adjustments:
+  - {kind: operating_cash, label: Minimum cash, reason: Operations, amounts: [MAX]}
+- years:
+  - reclassified:
+      balance_sheet:
+        operating_fixed_assets: MAX
+        operating_working_capital: {trade_receivables: MAX, inventories: MAX, other_operating_assets: MAX, trade_payables: '0', other_operating_liabilities: '0'}
+        operating_provisions: '0'
+        non_operating_assets: [{label: a, value: MAX}, {label: b, value: MAX}]
+        equity: MIN
+        quasi_equity_items: []
+        debt_like_items: [{label: c, value: MAX, measurement_basis: book_value}]
+        net_financial_position: {position: {gross_debt: MAX, cash: '0', other_items: [{name: d, amount: MAX}]}}
+- years:
+  - statutory:
+      income_statement:
+        revenue: MAX
+        change_in_product_inventories: MAX
+        own_work_capitalised: MAX
+        other_revenue_and_income: MAX
+        value_of_production: MIN
+        depreciation_and_write_downs: {depreciation_and_amortisation: MAX, write_downs_of_fixed_assets: MAX, write_downs_of_receivables: MAX}
+        profit_before_tax: MIN
+        income_taxes: MAX
+        profit_or_loss_for_the_year: MIN
+conventions:
+- input:
+    years:
+    - label: '2024'
+      statutory:
+        layout: abridged
+        balance_sheet:
+          subscribed_capital_unpaid: '0'
+          financial_fixed_assets: '0'
+          cash: '100'
+          provisions: {total: '40'}
+          receivables: {total: '300', beyond_one_year: '0'}
+  expect:
+  - 'default: `/years/0/statutory/balance_sheet/cash` assigned to "net_financial_position_cash"'
+  - 'default: `/treatments/write_downs_of_receivables` not given, set to "investing"'
+  - 'year 2024: statutory form'
+  - 'year 2024: no date given: the order of `years` is taken as oldest first'
+  - 'layout `abridged` echoed; no number depends on it'
+  - 'year 2024: financial fixed assets (B.III) are zero: no treatment is needed'
+  - 'missing inputs are never taken as zero'
+  - 'checks are exact, with no tolerance'
+  - 'the income statement is not reorganised in this build'
+  - 'net financial position = gross debt − cash + other items, positive for net debt'
+  - 'current and non-current: receivables (C.II) and payables (D) split by their statutory amounts beyond one year, read as twelve months'
+  - 'year 2024: provisions (B) read as non-current: their part beyond one year is not given'
+- input:
+    years:
+    - label: '2024'
+      reclassified:
+        balance_sheet: {equity: '100'}
+    treatments: {financial_fixed_assets: operating}
+  expect:
+  - 'year 2024: reclassified form'
+  - 'treatments and adjustments do not apply to the reclassified entries: 2024'
