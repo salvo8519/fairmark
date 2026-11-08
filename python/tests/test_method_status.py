@@ -51,12 +51,14 @@ NONE: frozenset[str] = frozenset()
 def make_repo(tmp_path: Path, spec: str = SPEC_OK, tasks: str = TASKS_OK) -> Path:
     folder = tmp_path / "specs/0042-example"
     folder.mkdir(parents=True)
-    (folder / "spec.md").write_text(spec)
-    (folder / "tasks.md").write_text(tasks)
+    (folder / "spec.md").write_text(spec, encoding="utf-8")
+    (folder / "tasks.md").write_text(tasks, encoding="utf-8")
     for mid in ("ex.one", "ex.two"):
         golden = tmp_path / "tests/golden" / mid
         golden.mkdir(parents=True)
-        (golden / "case.yaml").write_text(f"method: {mid}\nsource: textbook, p. 1\n")
+        (golden / "case.yaml").write_text(
+            f"method: {mid}\nsource: textbook, p. 1\n", encoding="utf-8"
+        )
     return tmp_path
 
 
@@ -116,8 +118,8 @@ def test_task_ids_inside_code_blocks_are_ignored(tmp_path: Path) -> None:
 
 def test_golden_cases_need_a_source_and_a_mapping(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
-    (root / "tests/golden/ex.one/old.yaml").write_text("method: ex.one\n")
-    (root / "tests/golden/ex.one/list.yaml").write_text("- not a mapping\n")
+    (root / "tests/golden/ex.one/old.yaml").write_text("method: ex.one\n", encoding="utf-8")
+    (root / "tests/golden/ex.one/list.yaml").write_text("- not a mapping\n", encoding="utf-8")
     errors, _, _ = ms.evaluate(methods(ex_one="available"), EVIDENCE, root, NONE)
     assert any("old.yaml has no source" in e for e in errors)
     assert any("list.yaml is not a YAML mapping" in e for e in errors)
