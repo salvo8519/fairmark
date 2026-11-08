@@ -1,10 +1,14 @@
 //! Property tests (issue #33): identities that must hold for every input of a family, checked
-//! on generated inputs with `proptest`.
+//! on generated inputs with `proptest` (SPEC-0002 time value foundations, SPEC-0009 loans and
+//! future value).
 //!
-//! Determinism of the suite itself: every property runs a fixed number of cases from a fixed
-//! seed with the ChaCha generator, and failure persistence is off, so two runs generate the same
-//! inputs on every platform and the suite never writes files. Environment variables such as
-//! `PROPTEST_CASES` do not change the case counts below.
+//! Determinism of the suite itself. Every property runs through [`check`], which builds a
+//! `TestRunner` directly from [`config`]: a fixed number of cases, a fixed seed, the ChaCha
+//! generator and no failure persistence. The `proptest!` macro is not used, because it passes
+//! its configuration through `contextualize_config`, where environment variables such as
+//! `PROPTEST_CASES` or `PROPTEST_RNG_SEED` override it; `TestRunner::new` reads no environment
+//! variable, and [`config`] sets every field that one could change. So two runs generate the
+//! same inputs and the suite writes no files; `case_count_ignores_environment` checks it.
 //!
 //! Tolerances. The engine computes with `rust_decimal` (96-bit mantissa, 28 to 29 significant
 //! digits), so one operation has a relative rounding error of at most about 1e-28. Each
@@ -12,7 +16,10 @@
 //! rate) or from a documented engine tolerance, with the derivation next to the constant. All
 //! arithmetic in this file is decimal as well: no binary floating point is involved.
 
+use std::fmt::Debug;
 use std::str::FromStr;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Mutex;
 
 use fairmark_core::dates::{Date, DayCount};
 use fairmark_core::loans::{self, InstalmentInput, NumberOfInstalmentsInput};
@@ -23,13 +30,16 @@ use fairmark_core::tvm::{
 };
 use fairmark_core::FairmarkError;
 use proptest::prelude::*;
-use proptest::test_runner::{Config, RngAlgorithm, RngSeed};
+use proptest::test_runner::{Config, RngAlgorithm, RngSeed, TestCaseResult, TestError, TestRunner};
 use rust_decimal::{Decimal, MathematicalOps};
 use serde_json::{Map, Value};
 
-// ---------------------------------------------------------------- configuration
+// ---------------------------------------------------------------- runner
 
-/// Runner configuration: `cases` generated inputs from the fixed `seed`.
+/// Runner configuration: `cases` generated inputs from the fixed `seed`. Every field that a
+/// `PROPTEST_*` environment variable can set is given here, so the environment values that
+/// `Config::default()` picks up are all replaced (the `fork` and `timeout` features, which
+/// have variables of their own, are not enabled).
 fn config(cases: u32, seed: u64) -> Config {
     Config {
         cases,
@@ -38,9 +48,113 @@ fn config(cases: u32, seed: u64) -> Config {
         failure_persistence: None,
         max_local_rejects: 65_536,
         max_global_rejects: 1_024,
+        max_flat_map_regens: 1_000_000,
         max_shrink_iters: 1_024,
+        max_shrink_time: 0,
+        max_default_size_range: 100,
+        verbose: 0,
         ..Config::default()
     }
+}
+
+/// Inputs accepted and rejected (by `prop_assume!`) in one run of a property.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Stats {
+    passed: u32,
+    rejected: u32,
+}
+
+/// Runs `body` on `cases` inputs drawn from `strategy` with the fixed `seed`; panics with the
+/// minimal failing input if the property fails, or if the run is aborted (too many rejects).
+fn check<S>(
+    name: &str,
+    cases: u32,
+    seed: u64,
+    strategy: S,
+    body: impl Fn(S::Value) -> TestCaseResult,
+) -> Stats
+where
+    S: Strategy,
+    S::Value: Debug,
+{
+    let (passed, rejected) = (AtomicU32::new(0), AtomicU32::new(0));
+    let mut runner = TestRunner::new(config(cases, seed));
+    let result = runner.run(&strategy, |value| {
+        let r = body(value);
+        match &r {
+            Ok(()) => passed.fetch_add(1, Ordering::Relaxed),
+            Err(TestCaseError::Reject(_)) => rejected.fetch_add(1, Ordering::Relaxed),
+            Err(TestCaseError::Fail(_)) => 0,
+        };
+        r
+    });
+    match result {
+        Ok(()) => {}
+        Err(TestError::Fail(reason, input)) => {
+            panic!("property {name} failed: {reason}\nminimal failing input: {input:#?}")
+        }
+        Err(TestError::Abort(reason)) => panic!("property {name} aborted: {reason}"),
+    }
+    let stats = Stats {
+        passed: passed.into_inner(),
+        rejected: rejected.into_inner(),
+    };
+    eprintln!(
+        "property {name}: {} cases passed, {} rejected",
+        stats.passed, stats.rejected
+    );
+    stats
+}
+
+/// The values drawn and the stats of a small probe run: 40 cases, a quarter of the draws
+/// rejected.
+fn probe() -> (Vec<u64>, Stats) {
+    let seen = Mutex::new(Vec::new());
+    let stats = check("probe", 40, 0x3300, any::<u64>(), |v| {
+        prop_assume!(v % 4 != 0);
+        seen.lock().unwrap().push(v);
+        Ok(())
+    });
+    (seen.into_inner().unwrap(), stats)
+}
+
+/// The case count, the seed and the reject limits do not come from the environment: the same
+/// probe run in a child process with hostile `PROPTEST_*` variables draws the same values.
+#[test]
+fn case_count_ignores_environment() {
+    let (values, stats) = probe();
+    let line = format!("probe-result {} {:?} {:?}", stats.passed, stats, values);
+    if std::env::var_os("FAIRMARK_PROPERTY_PROBE").is_some() {
+        println!("{line}");
+        return;
+    }
+    assert_eq!(stats.passed, 40);
+    let out = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "case_count_ignores_environment",
+            "--exact",
+            "--nocapture",
+            "--test-threads=1",
+        ])
+        .env("FAIRMARK_PROPERTY_PROBE", "1")
+        .env("PROPTEST_CASES", "3")
+        .env("PROPTEST_RNG_SEED", "7")
+        .env("PROPTEST_RNG_ALGORITHM", "xs")
+        .env("PROPTEST_MAX_GLOBAL_REJECTS", "0")
+        .env("PROPTEST_MAX_LOCAL_REJECTS", "0")
+        .env("PROPTEST_MAX_FLAT_MAP_REGENS", "0")
+        .env("PROPTEST_MAX_SHRINK_ITERS", "0")
+        .env("PROPTEST_MAX_DEFAULT_SIZE_RANGE", "1")
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(out.status.success(), "child run failed:\n{stdout}");
+    // The test harness may print its own text on the same line, before the result.
+    let child = stdout
+        .lines()
+        .find_map(|l| l.find("probe-result ").map(|i| &l[i..]))
+        .unwrap_or_else(|| panic!("no probe result in:\n{stdout}"));
+    assert_eq!(child, line, "the environment changed the probe run");
 }
 
 fn d(s: &str) -> Decimal {
@@ -65,21 +179,26 @@ fn dec(mantissa: i64, scale: u32) -> Decimal {
 /// scale, below 1e-24 × scale. 1e-16 × scale bounds the sum with a margin of about two.
 const ROOT_RESIDUAL: &str = "1e-16";
 
-/// Round trip of `rates.convert`: acceptance criterion AC3 of SPEC-0002 (1e-20 absolute, for
-/// rates of order one). `ln` and `exp` in `rust_decimal` are series approximations good to
-/// about 1e-25 for arguments of order one; the round trip uses two of each, which leaves five
-/// orders of magnitude of margin.
+/// Round trip of `rates.convert`: acceptance criterion AC3 of SPEC-0002, 1e-20 absolute.
 const CONVERT_ROUND_TRIP: &str = "1e-20";
 
-/// Relative tolerance for identities between two closed forms (annuity, future value). Both
-/// sides use g = (1 + r)^n or its reciprocal 1 / g, computed by exponentiation by squaring:
+/// Stricter guard on the same round trip, so that a loss of precision well inside the AC3 bound
+/// is noticed. The round trip is at most two growth factors ((1 + r/m)^m by squaring, m ≤ 12,
+/// or `exp`), two `ln` and two `exp` (`rust_decimal` series, which stop when a term no longer
+/// changes the 28-digit sum, so each is good to a few units of 1e-28 for arguments of order
+/// one) and a few products: a few tens of roundings of 1e-28 on values of order one, amplified
+/// at most by m = 12 in m × (root − 1). 1e-24 leaves a margin of about ten above that.
+const CONVERT_ROUND_TRIP_STRICT: &str = "1e-24";
+
+/// Relative tolerance for identities against an explicit sum (annuity, future value). The
+/// engine uses g = (1 + r)^n or its reciprocal 1 / g, computed by exponentiation by squaring:
 /// a rounding of relative size u in the partial power x^(2^k) reaches the result multiplied
-/// by n / 2^k, so the power carries a relative error up to about n × u (not u), plus a few
-/// roundings for the products and quotients around it. u is 1e-28 for values of order one or
-/// more and 1e-28 / v for a value of order v < 1 (a decimal has at most 28 decimal places), and
-/// both g and 1 / g appear. Hence 2 × (n + 50) × 1e-28 × max(g, 1 / g), see
-/// `closed_form_tolerance`: about 1.3e-25 for growing amounts over 600 periods, at most
-/// 1.3e-19 for the most discounted ones (the generated problems keep g in [1e-6, 1e6]).
+/// by n / 2^k, so the power carries a relative error up to about n × u (not u); the test's own
+/// sum by repeated multiplication has n roundings as well. u is 1e-28 for values of order one
+/// or more and 1e-28 / v for a value of order v < 1 (a decimal has at most 28 decimal places).
+/// Hence 2 × (n + 50) × 1e-28 × max(g, 1 / g), see `closed_form_tolerance`: about 1.3e-25 for
+/// growing amounts over 600 periods, at most 1.3e-19 for the most discounted ones (the
+/// generated problems keep g in [1e-6, 1e6]).
 const ROUNDING: &str = "1e-28";
 
 /// Absolute floor added to the relative tolerances above. A decimal has at most 28 decimal
@@ -89,15 +208,17 @@ const ROUNDING: &str = "1e-28";
 /// of ten.
 const ABSOLUTE_FLOOR: &str = "1e-21";
 
-/// MIRR identities: MIRR is computed as exp(ln(FV / PV) / n) − 1, and `ln` and `exp` in
-/// `rust_decimal` are good to about 1e-25 relative for arguments of order one. Raised back to
-/// the power n ≤ 28 that error grows to at most 28 × 1e-25 ≈ 3e-24. 1e-22 keeps a margin of
-/// about thirty for arguments further from one.
-const MIRR_RELATIVE: &str = "1e-22";
+/// MIRR definition (1 + MIRR)^n × (−PV) = FV, relative. MIRR is computed as
+/// exp(ln(FV / −PV) / n) − 1: one quotient, one `ln` and one `exp` (each good to a few units of
+/// 1e-28 relative for the arguments here, ratios between about 0.003 and 3e7), so 1 + MIRR is
+/// within about 1e-27 relative. Raising it to the power n ≤ 27 multiplies that error by n and
+/// adds n roundings: about 27 × 1e-27 + 27 × 1e-28 ≈ 3e-26. 1e-24 keeps a margin of about
+/// thirty.
+const MIRR_RELATIVE: &str = "1e-24";
 
 /// MIRR at finance rate = reinvestment rate = IRR equals IRR: the IRR is known to about 1e-18
 /// (solver tolerance); this error passes to MIRR with a factor of order one (at most 2 for the
-/// generated flows), and the MIRR identity adds 1e-22. 1e-17 bounds the sum.
+/// generated flows), and the MIRR computation adds 1e-24. 1e-17 bounds the sum.
 const MIRR_AT_IRR: &str = "1e-17";
 
 // ---------------------------------------------------------------- generators
@@ -195,6 +316,38 @@ fn rate_and_periods(cap: u32) -> impl Strategy<Value = (Decimal, u32)> {
         (Just(r), 1..=max)
     })
 }
+
+/// A positive payment, 0.01 to 1,000,000.00.
+fn payment() -> impl Strategy<Value = Decimal> {
+    (1i64..=100_000_000).prop_map(|m| dec(m, 2))
+}
+
+/// Two rates and a number of periods with (1 + r)^n within [1e-6, 1e6] for both rates.
+fn two_rates_and_periods(cap: u32) -> impl Strategy<Value = (Decimal, Decimal, u32)> {
+    (rate(), rate()).prop_flat_map(move |(a, b)| {
+        let max = well_conditioned_periods(a, cap).min(well_conditioned_periods(b, cap));
+        (Just(a), Just(b), 1..=max)
+    })
+}
+
+/// A rate and two numbers of periods n < m ≤ n + `extra`, with (1 + r)^m within [1e-6, 1e6].
+/// Every rate from `rate()` allows at least six periods ((0.1)^6 = 1e-6), so n can be drawn.
+fn rate_and_two_periods(cap: u32, extra: u32) -> impl Strategy<Value = (Decimal, u32, u32)> {
+    rate()
+        .prop_flat_map(move |r| {
+            let max = well_conditioned_periods(r, cap);
+            (Just(r), 1..max, Just(max))
+        })
+        .prop_flat_map(move |(r, n, max)| (Just(r), Just(n), n + 1..=(n + extra).min(max)))
+}
+
+const COMPOUNDINGS: [Compounding; 5] = [
+    Compounding::Annual,
+    Compounding::SemiAnnual,
+    Compounding::Quarterly,
+    Compounding::Monthly,
+    Compounding::Continuous,
+];
 
 fn timing() -> impl Strategy<Value = AnnuityTiming> {
     prop_oneof![Just(AnnuityTiming::Ordinary), Just(AnnuityTiming::Due)]
@@ -310,6 +463,11 @@ fn closed_form_tolerance(r: Decimal, n: u32) -> Decimal {
     Decimal::TWO * Decimal::from(n + 50) * d(ROUNDING) * g.max(Decimal::ONE / g)
 }
 
+/// |a − b| ≤ tol × size + `ABSOLUTE_FLOOR`, `size` the magnitude of the terms summed.
+fn close_scaled(a: Decimal, b: Decimal, tol: Decimal, size: Decimal) -> bool {
+    (a - b).abs() <= tol * size.abs() + d(ABSOLUTE_FLOOR)
+}
+
 /// |a − b| ≤ tol × max(|a|, |b|) + `ABSOLUTE_FLOOR`.
 fn close_relative(a: Decimal, b: Decimal, tol: Decimal) -> bool {
     let size = a.abs().max(b.abs());
@@ -318,81 +476,201 @@ fn close_relative(a: Decimal, b: Decimal, tol: Decimal) -> bool {
 
 // ---------------------------------------------------------------- IRR, XIRR and MIRR
 
-proptest! {
-    #![proptest_config(config(192, 0x3301))]
-
-    /// NPV at the IRR is zero within the residual tolerance, the root is reported as unique,
-    /// NPV changes sign across it, and `npv_at_irr` is NPV evaluated at the IRR.
-    #[test]
-    fn npv_at_irr_is_zero(flows in conventional_flows()) {
-        let (out, _) = tvm::irr(&IrrInput { cash_flows: flows.clone(), guess: None })
+/// NPV at the IRR is zero within the residual tolerance, the root is reported as unique, NPV
+/// changes sign across it, and `npv_at_irr` is NPV evaluated at the IRR.
+#[test]
+fn npv_at_irr_is_zero() {
+    check(
+        "npv_at_irr_is_zero",
+        192,
+        0x3301,
+        conventional_flows(),
+        |flows| {
+            let (out, _) = tvm::irr(&IrrInput {
+                cash_flows: flows.clone(),
+                guess: None,
+            })
             .map_err(|e| TestCaseError::fail(format!("irr failed: {e}")))?;
-        prop_assert!(out.uniqueness_verified, "one sign change must prove uniqueness");
-        prop_assert!(out.irr > d("-0.5") && out.irr < d("10"), "irr {} outside (-0.5, 10)", out.irr);
-        let at = npv(out.irr, &flows);
-        prop_assert_eq!(at, out.npv_at_irr);
-        let tol = discounted_scale(out.irr, &flows) * d(ROOT_RESIDUAL);
-        prop_assert!(at.abs() <= tol, "NPV(IRR) = {} exceeds {}", at, tol);
-        let h = d("0.000000001");
-        prop_assert!(npv(out.irr - h, &flows) > Decimal::ZERO);
-        prop_assert!(npv(out.irr + h, &flows) < Decimal::ZERO);
-    }
-
-    /// MIRR satisfies its definition (1 + MIRR)^n × (−PV of outflows) = FV of inflows, and
-    /// equals the IRR when both the finance and the reinvestment rate are the IRR.
-    #[test]
-    fn mirr_is_consistent(
-        flows in conventional_flows(),
-        finance in (-5_000i64..=10_000).prop_map(|m| dec(m, 4)),
-        reinvest in (-5_000i64..=10_000).prop_map(|m| dec(m, 4)),
-    ) {
-        let n = (flows.len() - 1) as i64;
-        let mirr = |f: Decimal, r: Decimal| tvm::mirr(&MirrInput {
-            cash_flows: flows.clone(),
-            finance_rate: f,
-            reinvest_rate: r,
-        });
-        let (out, _) = mirr(finance, reinvest)
-            .map_err(|e| TestCaseError::fail(format!("mirr failed: {e}")))?;
-        let grown = -out.pv_negative_flows * (Decimal::ONE + out.mirr).powi(n);
-        prop_assert!(
-            close_relative(grown, out.fv_positive_flows, d(MIRR_RELATIVE)),
-            "(1 + MIRR)^n × PV = {} but FV = {}", grown, out.fv_positive_flows
-        );
-
-        let irr = tvm::irr(&IrrInput { cash_flows: flows.clone(), guess: None }).unwrap().0.irr;
-        let (at_irr, _) = mirr(irr, irr).unwrap();
-        prop_assert!(
-            (at_irr.mirr - irr).abs() <= d(MIRR_AT_IRR),
-            "MIRR at IRR = {} but IRR = {}", at_irr.mirr, irr
-        );
-    }
-
-    /// Two distinct roots in the grid range: IRR refuses with FM-E011 and never picks one.
-    /// Flows -1, y1 + y2, -y1 y2 (scaled), with y = 1 + r: NPV × (1 + r)² = -(y - y1)(y - y2),
-    /// exactly, so the roots are r1 and r2 (the AC8 case is r1 = 0.10, r2 = 0.20).
-    #[test]
-    fn two_roots_are_refused(
-        r1 in (-8_000i64..=9_000).prop_map(|m| dec(m, 4)),
-        gap in 1i64..=1_000,
-        scale in 1i64..=1_000_000,
-    ) {
-        let (y1, y2) = (Decimal::ONE + r1, Decimal::ONE + r1 + dec(gap, 4));
-        let s = Decimal::from(scale);
-        let flows = vec![-s, (y1 + y2) * s, -(y1 * y2) * s];
-        let err = tvm::irr(&IrrInput { cash_flows: flows, guess: None }).unwrap_err();
-        prop_assert!(matches!(err, FairmarkError::MultipleRates(_)), "got {err:?}");
-        prop_assert_eq!(err.code(), "FM-E011");
-    }
+            prop_assert!(
+                out.uniqueness_verified,
+                "one sign change must prove uniqueness"
+            );
+            prop_assert!(
+                out.irr > d("-0.5") && out.irr < d("10"),
+                "irr {} outside (-0.5, 10)",
+                out.irr
+            );
+            let at = npv(out.irr, &flows);
+            prop_assert_eq!(at, out.npv_at_irr);
+            let tol = discounted_scale(out.irr, &flows) * d(ROOT_RESIDUAL);
+            prop_assert!(at.abs() <= tol, "NPV(IRR) = {} exceeds {}", at, tol);
+            let h = d("0.000000001");
+            prop_assert!(npv(out.irr - h, &flows) > Decimal::ZERO);
+            prop_assert!(npv(out.irr + h, &flows) < Decimal::ZERO);
+            Ok(())
+        },
+    );
 }
 
-proptest! {
-    #![proptest_config(config(96, 0x3302))]
+/// MIRR satisfies its definition (1 + MIRR)^n × (−PV of outflows) = FV of inflows, and equals
+/// the IRR when both the finance and the reinvestment rate are the IRR.
+#[test]
+fn mirr_is_consistent() {
+    let rates = (-5_000i64..=10_000).prop_map(|m| dec(m, 4));
+    let strategy = (conventional_flows(), rates.clone(), rates);
+    check(
+        "mirr_is_consistent",
+        192,
+        0x3302,
+        strategy,
+        |(flows, finance, reinvest)| {
+            let n = (flows.len() - 1) as i64;
+            let mirr = |f: Decimal, r: Decimal| {
+                tvm::mirr(&MirrInput {
+                    cash_flows: flows.clone(),
+                    finance_rate: f,
+                    reinvest_rate: r,
+                })
+            };
+            let (out, _) = mirr(finance, reinvest)
+                .map_err(|e| TestCaseError::fail(format!("mirr failed: {e}")))?;
+            let grown = -out.pv_negative_flows * (Decimal::ONE + out.mirr).powi(n);
+            prop_assert!(
+                close_relative(grown, out.fv_positive_flows, d(MIRR_RELATIVE)),
+                "(1 + MIRR)^n × PV = {} but FV = {}",
+                grown,
+                out.fv_positive_flows
+            );
 
-    /// XNPV at the XIRR is zero within the residual tolerance, under every day count and
-    /// compounding; the root is reported as unique and `xnpv_at_xirr` is XNPV at the XIRR.
-    #[test]
-    fn xnpv_at_xirr_is_zero(case in dated_case()) {
+            let irr = tvm::irr(&IrrInput {
+                cash_flows: flows.clone(),
+                guess: None,
+            })
+            .unwrap()
+            .0
+            .irr;
+            let (at_irr, _) = mirr(irr, irr).unwrap();
+            prop_assert!(
+                (at_irr.mirr - irr).abs() <= d(MIRR_AT_IRR),
+                "MIRR at IRR = {} but IRR = {}",
+                at_irr.mirr,
+                irr
+            );
+            Ok(())
+        },
+    );
+}
+
+/// Intervals and exact roots named in an FM-E011 message: "[a, b]" and "{x}".
+fn named_roots(message: &str) -> Vec<(Decimal, Decimal)> {
+    let mut out = Vec::new();
+    let mut rest = message;
+    while let Some(i) = rest.find(['[', '{']) {
+        let close = if rest.as_bytes()[i] == b'[' { ']' } else { '}' };
+        let j = i + rest[i..].find(close).expect("closing bracket");
+        let parts: Vec<Decimal> = rest[i + 1..j].split(", ").map(d).collect();
+        out.push((parts[0], *parts.last().unwrap()));
+        rest = &rest[j + 1..];
+    }
+    out
+}
+
+/// Two distinct roots in the grid range: IRR refuses with FM-E011 and never picks one. Flows
+/// -1, y1 + y2, -y1 y2 (scaled), with y = 1 + r: NPV × (1 + r)² = -(y - y1)(y - y2) exactly, so
+/// the roots are r1 and r2 (the AC8 case is r1 = 0.10, r2 = 0.20). When a grid point lies
+/// strictly between the roots, the message names two intervals (or exact grid roots), each
+/// containing one of them.
+#[test]
+fn two_roots_are_refused() {
+    let grid = tvm::solver_grid();
+    let strategy = (
+        (-8_000i64..=9_000).prop_map(|m| dec(m, 4)),
+        1i64..=1_000,
+        1i64..=1_000_000,
+    );
+    check(
+        "two_roots_are_refused",
+        192,
+        0x3303,
+        strategy,
+        |(r1, gap, scale)| {
+            let r2 = r1 + dec(gap, 4);
+            let (y1, y2) = (Decimal::ONE + r1, Decimal::ONE + r2);
+            let s = Decimal::from(scale);
+            let flows = vec![-s, (y1 + y2) * s, -(y1 * y2) * s];
+            let err = tvm::irr(&IrrInput {
+                cash_flows: flows,
+                guess: None,
+            })
+            .unwrap_err();
+            prop_assert_eq!(err.code(), "FM-E011");
+            let FairmarkError::MultipleRates(message) = &err else {
+                return Err(TestCaseError::fail(format!("got {err:?}")));
+            };
+            if grid.iter().any(|g| *g > r1 && *g < r2) {
+                let named = named_roots(message);
+                prop_assert_eq!(named.len(), 2, "message: {}", message);
+                for (root, (lo, hi)) in [r1, r2].iter().zip(&named) {
+                    prop_assert!(
+                        lo <= root && root <= hi,
+                        "root {} not in [{}, {}]: {}",
+                        root,
+                        lo,
+                        hi,
+                        message
+                    );
+                }
+            }
+            Ok(())
+        },
+    );
+}
+
+/// Three roots: flows -1, s1, -s2, s3 with y = 1 + r give NPV × (1 + r)³ =
+/// -(y - y1)(y - y2)(y - y3), three sign changes. Whatever the solver does, it never reports a
+/// unique rate: FM-E011 when it sees more than one root (or an odd number missing), otherwise
+/// one of the three roots with `uniqueness_verified` false.
+#[test]
+fn three_roots_are_never_unique() {
+    let root = (-8_000i64..=60_000).prop_map(|m| dec(m, 4));
+    let strategy = (root.clone(), root.clone(), root);
+    check(
+        "three_roots_are_never_unique",
+        128,
+        0x3304,
+        strategy,
+        |(a, b, c)| {
+            prop_assume!(a != b && b != c && a != c);
+            let ys = [Decimal::ONE + a, Decimal::ONE + b, Decimal::ONE + c];
+            let s1 = ys[0] + ys[1] + ys[2];
+            let s2 = ys[0] * ys[1] + ys[0] * ys[2] + ys[1] * ys[2];
+            let s3 = ys[0] * ys[1] * ys[2];
+            let flows = vec![-Decimal::ONE, s1, -s2, s3];
+            match tvm::irr(&IrrInput {
+                cash_flows: flows,
+                guess: None,
+            }) {
+                Ok((out, _)) => {
+                    prop_assert!(!out.uniqueness_verified, "unique rate {} reported", out.irr);
+                    let nearest = [a, b, c].iter().map(|r| (out.irr - r).abs()).min().unwrap();
+                    prop_assert!(nearest <= d("1e-12"), "irr {} is not a root", out.irr);
+                }
+                Err(e) => prop_assert!(
+                    matches!(e, FairmarkError::MultipleRates(_)),
+                    "unexpected error {:?}",
+                    e
+                ),
+            }
+            Ok(())
+        },
+    );
+}
+
+/// XNPV at the XIRR is zero within the residual tolerance, under every day count and
+/// compounding; the root is reported as unique and `xnpv_at_xirr` is XNPV at the XIRR.
+#[test]
+fn xnpv_at_xirr_is_zero() {
+    check("xnpv_at_xirr_is_zero", 96, 0x3305, dated_case(), |case| {
         let (out, _) = tvm::xirr(&XirrInput {
             cash_flows: case.flows.clone(),
             day_count: Some(case.day_count),
@@ -401,8 +679,6 @@ proptest! {
         })
         .map_err(|e| TestCaseError::fail(format!("xirr failed: {e}")))?;
         prop_assert!(out.uniqueness_verified);
-        let at = xnpv(out.xirr, &case);
-        prop_assert_eq!(at, out.xnpv_at_xirr);
         let (xn, _) = tvm::xnpv(&XnpvInput {
             rate: out.xirr,
             cash_flows: case.flows.clone(),
@@ -411,252 +687,439 @@ proptest! {
             compounding: Some(case.compounding),
         })
         .unwrap();
+        prop_assert_eq!(xn.xnpv, out.xnpv_at_xirr);
         let scale: Decimal = xn.flows.iter().map(|f| f.present_value.abs()).sum();
         let tol = scale * d(ROOT_RESIDUAL);
-        prop_assert!(at.abs() <= tol, "XNPV(XIRR) = {} exceeds {}", at, tol);
+        prop_assert!(
+            xn.xnpv.abs() <= tol,
+            "XNPV(XIRR) = {} exceeds {}",
+            xn.xnpv,
+            tol
+        );
         let h = d("0.000000001");
         prop_assert!(xnpv(out.xirr - h, &case) > Decimal::ZERO);
         prop_assert!(xnpv(out.xirr + h, &case) < Decimal::ZERO);
-    }
+        Ok(())
+    });
 }
 
 // ---------------------------------------------------------------- monotonicity
 
-proptest! {
-    #![proptest_config(config(256, 0x3303))]
-
-    /// NPV is strictly decreasing in the rate for an outflow followed by inflows.
-    #[test]
-    fn npv_decreases_in_rate(
-        flows in outflow_then_inflows(),
-        a in moderate_rate(),
-        b in moderate_rate(),
-    ) {
-        prop_assume!(a != b);
-        let (lo, hi) = (a.min(b), a.max(b));
-        let (v_lo, v_hi) = (npv(lo, &flows), npv(hi, &flows));
-        prop_assert!(v_lo > v_hi, "NPV({}) = {} is not above NPV({}) = {}", lo, v_lo, hi, v_hi);
-    }
-
-    /// The present value of a level annuity with a positive payment is strictly decreasing in
-    /// the rate (except an annuity due of one payment, which is paid at t = 0 and does not
-    /// depend on the rate) and strictly increasing in the number of payments.
-    #[test]
-    fn annuity_monotonic(
-        payment in (1i64..=100_000_000).prop_map(|m| dec(m, 2)),
-        (a, n) in rate_and_periods(360),
-        b in rate(),
-        extra in 1u32..=60,
-        timing in timing(),
-    ) {
-        let pv = |r: Decimal, n: u32| tvm::annuity(&AnnuityInput {
-            payment, rate: r, periods: n, growth: None, timing,
-        }).unwrap().0.present_value;
-        // Rate: compare at the same n, with b inside the well-conditioned range for n.
-        prop_assume!(a != b && n <= well_conditioned_periods(b, 360));
-        let (lo, hi) = (a.min(b), a.max(b));
-        if timing == AnnuityTiming::Due && n == 1 {
-            // The factor is (1 / (1 + r)) × (1 + r): one rounding from 1.
-            let tol = d("1e-27");
-            prop_assert!(close_relative(pv(lo, n), payment, tol), "{}", pv(lo, n));
-            prop_assert!(close_relative(pv(hi, n), payment, tol), "{}", pv(hi, n));
-        } else {
+/// NPV is strictly decreasing in the rate for an outflow followed by inflows.
+#[test]
+fn npv_decreases_in_rate() {
+    let strategy = (outflow_then_inflows(), moderate_rate(), moderate_rate());
+    check(
+        "npv_decreases_in_rate",
+        256,
+        0x3306,
+        strategy,
+        |(flows, a, b)| {
+            prop_assume!(a != b);
+            let (lo, hi) = (a.min(b), a.max(b));
+            let (v_lo, v_hi) = (npv(lo, &flows), npv(hi, &flows));
             prop_assert!(
-                pv(lo, n) > pv(hi, n),
-                "PV not decreasing in rate: r {} and {} at n {}", lo, hi, n
+                v_lo > v_hi,
+                "NPV({}) = {} is not above NPV({}) = {}",
+                lo,
+                v_lo,
+                hi,
+                v_hi
             );
-        }
-        // Periods: the added payments are worth at least payment × 1e-6 × (1 + r)^-60, far
-        // above the precision, so the increase is strict.
-        let m = n + extra;
-        prop_assume!(m <= well_conditioned_periods(a, 420));
-        prop_assert!(pv(a, m) > pv(a, n), "PV not increasing in n: r {} at n {} and {}", a, n, m);
-    }
+            Ok(())
+        },
+    );
+}
 
-    /// For a non-negative rate the discount factor is in (0, 1], equal to 1 at t = 0 or r = 0,
-    /// and non-increasing in t; with a positive rate strictly decreasing. Horizons are kept
-    /// where (1 + r)^t ≤ 2^90 < 1e28: beyond that the factor underflows to 0 by design.
-    #[test]
-    fn discount_factor_bounds(
-        r in positive_rate(),
-        half_periods in 0u32..=180,
-        c in compounding(),
-    ) {
-        let t = Decimal::from(half_periods) / Decimal::TWO;
-        let df = tvm::discount_factor(r, t).unwrap();
-        prop_assert!(df > Decimal::ZERO && df <= Decimal::ONE, "DF({}, {}) = {}", r, t, df);
-        if t.is_zero() || r.is_zero() {
-            prop_assert_eq!(df, Decimal::ONE);
-        }
-        let later = tvm::discount_factor(r, t + d("0.5")).unwrap();
-        if r.is_zero() {
-            prop_assert_eq!(later, df);
-        } else {
-            prop_assert!(later < df, "DF not decreasing in t at r {}: {} then {}", r, df, later);
-        }
-        // The dated discount factor, any compounding: in (0, 1] over up to 45 years.
-        let dated = rates::discount_factor(r, c, t / Decimal::TWO).unwrap();
-        prop_assert!(dated > Decimal::ZERO && dated <= Decimal::ONE);
-    }
+fn annuity_pv(payment: Decimal, rate: Decimal, periods: u32, timing: AnnuityTiming) -> Decimal {
+    tvm::annuity(&AnnuityInput {
+        payment,
+        rate,
+        periods,
+        growth: None,
+        timing,
+    })
+    .unwrap()
+    .0
+    .present_value
+}
+
+/// The present value of a level annuity with a positive payment is strictly decreasing in the
+/// rate, except an annuity due of one payment, which is paid at t = 0 and equals the payment.
+#[test]
+fn annuity_decreases_in_rate() {
+    let strategy = (payment(), two_rates_and_periods(360), timing());
+    check(
+        "annuity_decreases_in_rate",
+        256,
+        0x3307,
+        strategy,
+        |(p, (a, b, n), timing)| {
+            prop_assume!(a != b);
+            let (lo, hi) = (a.min(b), a.max(b));
+            let (v_lo, v_hi) = (annuity_pv(p, lo, n, timing), annuity_pv(p, hi, n, timing));
+            if timing == AnnuityTiming::Due && n == 1 {
+                // The factor is (1 / (1 + r)) × (1 + r): one rounding from 1.
+                prop_assert!(close_relative(v_lo, p, d("1e-27")), "{}", v_lo);
+                prop_assert!(close_relative(v_hi, p, d("1e-27")), "{}", v_hi);
+            } else {
+                prop_assert!(
+                    v_lo > v_hi,
+                    "PV not decreasing: r {} and {} at n {}",
+                    lo,
+                    hi,
+                    n
+                );
+            }
+            Ok(())
+        },
+    );
+}
+
+/// The present value of a level annuity with a positive payment is strictly increasing in the
+/// number of payments: the added payments are worth at least payment × 1e-6, far above the
+/// precision.
+#[test]
+fn annuity_increases_in_periods() {
+    let strategy = (payment(), rate_and_two_periods(420, 60), timing());
+    check(
+        "annuity_increases_in_periods",
+        256,
+        0x3308,
+        strategy,
+        |(p, (r, n, m), timing)| {
+            let (v_n, v_m) = (annuity_pv(p, r, n, timing), annuity_pv(p, r, m, timing));
+            prop_assert!(v_m > v_n, "PV not increasing: r {} at n {} and {}", r, n, m);
+            Ok(())
+        },
+    );
+}
+
+/// For a non-negative rate the discount factor is in (0, 1], equal to 1 at t = 0 or r = 0,
+/// and non-increasing in t; with a positive rate strictly decreasing. Horizons are kept where
+/// (1 + r)^t ≤ 2^90 < 1e28 (t ≤ 89.5, and 90 for the next half period): beyond that the factor
+/// underflows to 0 by design. The dated discount factor is in (0, 1] and non-increasing in t
+/// under every compounding.
+#[test]
+fn discount_factor_bounds() {
+    let strategy = (positive_rate(), 0u32..=179);
+    check(
+        "discount_factor_bounds",
+        256,
+        0x3309,
+        strategy,
+        |(r, half_periods)| {
+            let t = Decimal::from(half_periods) / Decimal::TWO;
+            let next = t + d("0.5");
+            let df = tvm::discount_factor(r, t).unwrap();
+            prop_assert!(
+                df > Decimal::ZERO && df <= Decimal::ONE,
+                "DF({}, {}) = {}",
+                r,
+                t,
+                df
+            );
+            if t.is_zero() || r.is_zero() {
+                prop_assert_eq!(df, Decimal::ONE);
+            }
+            let later = tvm::discount_factor(r, next).unwrap();
+            if r.is_zero() {
+                prop_assert_eq!(later, df);
+            } else {
+                prop_assert!(
+                    later < df,
+                    "DF not decreasing in t at r {}: {} then {}",
+                    r,
+                    df,
+                    later
+                );
+            }
+            // Dated: t / 2 years, so up to 45 years.
+            for c in COMPOUNDINGS {
+                let now = rates::discount_factor(r, c, t / Decimal::TWO).unwrap();
+                let after = rates::discount_factor(r, c, next / Decimal::TWO).unwrap();
+                prop_assert!(
+                    now > Decimal::ZERO && now <= Decimal::ONE,
+                    "{:?}: {}",
+                    c,
+                    now
+                );
+                prop_assert!(after <= now, "{:?} at r {}: {} then {}", c, r, now, after);
+            }
+            Ok(())
+        },
+    );
 }
 
 // ---------------------------------------------------------------- round trips
 
-proptest! {
-    #![proptest_config(config(256, 0x3304))]
+/// rates.convert from any compounding to any other and back returns the rate: within the AC3
+/// bound, and within the stricter guard.
+#[test]
+fn convert_round_trip() {
+    let strategy = (
+        (-5_000i64..=10_000).prop_map(|m| dec(m, 4)),
+        compounding(),
+        compounding(),
+    );
+    check(
+        "convert_round_trip",
+        256,
+        0x330a,
+        strategy,
+        |(r, from, to)| {
+            let there = rates::convert(&ConvertInput { rate: r, from, to })
+                .unwrap()
+                .0;
+            let back = rates::convert(&ConvertInput {
+                rate: there.rate,
+                from: to,
+                to: from,
+            })
+            .unwrap()
+            .0;
+            let error = (back.rate - r).abs();
+            prop_assert!(
+                error <= d(CONVERT_ROUND_TRIP),
+                "AC3: {} {:?} -> {} {:?} -> {}",
+                r,
+                from,
+                there.rate,
+                to,
+                back.rate
+            );
+            prop_assert!(
+                error <= d(CONVERT_ROUND_TRIP_STRICT),
+                "{} {:?} -> {} {:?} -> {} (error {})",
+                r,
+                from,
+                there.rate,
+                to,
+                back.rate,
+                error
+            );
+            Ok(())
+        },
+    );
+}
 
-    /// rates.convert from any compounding to any other and back returns the rate (AC3).
-    #[test]
-    fn convert_round_trip(
-        r in (-5_000i64..=10_000).prop_map(|m| dec(m, 4)),
-        from in compounding(),
-        to in compounding(),
-    ) {
-        let there = rates::convert(&ConvertInput { rate: r, from, to }).unwrap().0;
-        let back = rates::convert(&ConvertInput { rate: there.rate, from: to, to: from }).unwrap().0;
-        prop_assert!(
-            (back.rate - r).abs() <= d(CONVERT_ROUND_TRIP),
-            "{} {:?} -> {} {:?} -> {}", r, from, there.rate, to, back.rate
-        );
+/// loans.instalment then loans.number_of_instalments returns the number of instalments, with a
+/// final instalment equal to the instalment within the engine's balance tolerance (1e-20 ×
+/// principal, documented in the method), at positive, zero, tiny and small negative periodic
+/// rates (SPEC-0009).
+#[test]
+fn instalment_round_trip() {
+    let rate = prop_oneof![
+        4 => (1i64..=500).prop_map(|m| dec(m, 4)),
+        1 => (-50i64..=-1).prop_map(|m| dec(m, 4)),
+        1 => (-1_000i64..=1_000).prop_map(|m| dec(m, 12)),
+    ];
+    let rate_and_n = rate.prop_flat_map(|i| (Just(i), 1..=well_conditioned_periods(i, 600)));
+    let strategy = (
+        (100_000i64..=1_000_000_000).prop_map(|m| dec(m, 2)),
+        rate_and_n,
+        timing(),
+    );
+    check(
+        "instalment_round_trip",
+        256,
+        0x330b,
+        strategy,
+        |(principal, (i, n), timing)| {
+            let (a, _) = loans::instalment(&InstalmentInput {
+                principal,
+                rate: None,
+                compounding: None,
+                payment_frequency: None,
+                periodic_rate: Some(i),
+                number_of_instalments: n,
+                timing,
+                balloon_amount: None,
+                rounding: None,
+            })
+            .unwrap();
+            let (back, _) = loans::number_of_instalments(&NumberOfInstalmentsInput {
+                principal,
+                rate: None,
+                compounding: None,
+                payment_frequency: None,
+                periodic_rate: Some(i),
+                instalment: a.instalment,
+                timing,
+            })
+            .map_err(|e| TestCaseError::fail(format!("number_of_instalments failed: {e}")))?;
+            prop_assert_eq!(
+                back.number_of_instalments,
+                n,
+                "i {} instalment {}",
+                i,
+                a.instalment
+            );
+            let balance_tol = principal * d("1e-20");
+            prop_assert!(
+                (back.final_instalment - a.instalment).abs() <= balance_tol,
+                "final {} vs instalment {}",
+                back.final_instalment,
+                a.instalment
+            );
+            Ok(())
+        },
+    );
+}
+
+/// Value at t = n of `pv` and of n payments, built period by period: ordinary
+/// B_k = B_(k−1) (1 + r) + A, due B_k = (B_(k−1) + A)(1 + r), B_0 = pv. Also returns the sum of
+/// the magnitudes of the accumulated terms, the size against which the rounding is measured.
+fn accumulate(
+    pv: Decimal,
+    a: Decimal,
+    r: Decimal,
+    n: u32,
+    timing: AnnuityTiming,
+) -> (Decimal, Decimal) {
+    let one_r = Decimal::ONE + r;
+    let (mut b, mut size) = (pv, pv.abs());
+    for _ in 0..n {
+        (b, size) = match timing {
+            AnnuityTiming::Ordinary => (b * one_r + a, size * one_r + a.abs()),
+            AnnuityTiming::Due => ((b + a) * one_r, (size + a.abs()) * one_r),
+        };
     }
+    (b, size)
+}
 
-    /// loans.instalment then loans.number_of_instalments returns the number of instalments,
-    /// with a final instalment equal to the instalment within the engine's balance tolerance
-    /// (1e-20 × principal, documented in the method), at positive, zero, tiny and small
-    /// negative periodic rates.
-    #[test]
-    fn instalment_round_trip(
-        principal in (100_000i64..=1_000_000_000).prop_map(|m| dec(m, 2)),
-        i in prop_oneof![
-            4 => (1i64..=500).prop_map(|m| dec(m, 4)),
-            1 => (-50i64..=-1).prop_map(|m| dec(m, 4)),
-            1 => (-1_000i64..=1_000).prop_map(|m| dec(m, 12)),
-        ],
-        n in 1u32..=600,
-        timing in timing(),
-    ) {
-        let n = n.min(well_conditioned_periods(i, 600));
-        let (a, _) = loans::instalment(&InstalmentInput {
-            principal,
-            rate: None,
-            compounding: None,
-            payment_frequency: None,
-            periodic_rate: Some(i),
-            number_of_instalments: n,
-            timing,
-            balloon_amount: None,
-            rounding: None,
-        })
-        .unwrap();
-        let (back, _) = loans::number_of_instalments(&NumberOfInstalmentsInput {
-            principal,
-            rate: None,
-            compounding: None,
-            payment_frequency: None,
-            periodic_rate: Some(i),
-            instalment: a.instalment,
-            timing,
-        })
-        .map_err(|e| TestCaseError::fail(format!("number_of_instalments failed: {e}")))?;
-        prop_assert_eq!(back.number_of_instalments, n, "i {} instalment {}", i, a.instalment);
-        let balance_tol = principal * d("1e-20");
-        prop_assert!(
-            (back.final_instalment - a.instalment).abs() <= balance_tol,
-            "final {} vs instalment {}", back.final_instalment, a.instalment
-        );
+/// Present value at t = 0 of n payments, discounted period by period from the last one:
+/// ordinary S_k = (S_(k+1) + A) / (1 + r), due the same with the first payment undiscounted.
+fn discount_payments(a: Decimal, r: Decimal, n: u32, timing: AnnuityTiming) -> Decimal {
+    let one_r = Decimal::ONE + r;
+    let mut s = Decimal::ZERO;
+    for _ in 0..n {
+        s = (s + a) / one_r;
     }
-
-    /// tvm.future_value, tvm.annuity and the discount factor agree: an amount accumulated over
-    /// n periods and discounted back is unchanged; the future value of the annuity's payments
-    /// equals the annuity's future value; accumulating the annuity's present value gives it too.
-    #[test]
-    fn future_and_present_value_agree(
-        amount in (-100_000_000i64..=100_000_000).prop_map(|m| dec(m, 2)),
-        payment in (1i64..=100_000_000).prop_map(|m| dec(m, 2)),
-        (r, n) in rate_and_periods(600),
-        timing in timing(),
-    ) {
-        let tol = closed_form_tolerance(r, n);
-        let fv = |pv: Option<Decimal>, pmt: Option<Decimal>| tvm::future_value(&FutureValueInput {
-            present_value: pv, payment: pmt, rate: r, periods: n, timing,
-        }).unwrap().0.future_value;
-
-        let back = fv(Some(amount), None) * tvm::discount_factor(r, Decimal::from(n)).unwrap();
-        prop_assert!(close_relative(back, amount, tol), "{} came back as {}", amount, back);
-
-        let ann = tvm::annuity(&AnnuityInput {
-            payment, rate: r, periods: n, growth: None, timing,
-        }).unwrap().0;
-        let of_payments = fv(None, Some(payment));
-        prop_assert!(
-            close_relative(of_payments, ann.future_value, tol),
-            "future_value {} vs annuity future value {}", of_payments, ann.future_value
-        );
-        let of_pv = fv(Some(ann.present_value), None);
-        prop_assert!(
-            close_relative(of_pv, ann.future_value, tol),
-            "accumulated PV {} vs annuity future value {}", of_pv, ann.future_value
-        );
+    match timing {
+        AnnuityTiming::Ordinary => s,
+        AnnuityTiming::Due => s * one_r,
     }
+}
+
+/// tvm.future_value and tvm.annuity against explicit sums built in the test by repeated
+/// multiplication and division, ordinary and due (SPEC-0009 future value, SPEC-0002 R11).
+#[test]
+fn future_and_present_value_match_explicit_sums() {
+    let strategy = (
+        (-100_000_000i64..=100_000_000).prop_map(|m| dec(m, 2)),
+        payment(),
+        rate_and_periods(600),
+        timing(),
+    );
+    check(
+        "future_and_present_value_match_explicit_sums",
+        256,
+        0x330c,
+        strategy,
+        |(amount, pmt, (r, n), timing)| {
+            let tol = closed_form_tolerance(r, n);
+            let fv = tvm::future_value(&FutureValueInput {
+                present_value: Some(amount),
+                payment: Some(pmt),
+                rate: r,
+                periods: n,
+                timing,
+            })
+            .unwrap()
+            .0
+            .future_value;
+            let (expected, size) = accumulate(amount, pmt, r, n, timing);
+            prop_assert!(
+                close_scaled(fv, expected, tol, size),
+                "future_value {} vs explicit {}",
+                fv,
+                expected
+            );
+
+            let ann = tvm::annuity(&AnnuityInput {
+                payment: pmt,
+                rate: r,
+                periods: n,
+                growth: None,
+                timing,
+            })
+            .unwrap()
+            .0;
+            let (fv_payments, size) = accumulate(Decimal::ZERO, pmt, r, n, timing);
+            prop_assert!(
+                close_scaled(ann.future_value, fv_payments, tol, size),
+                "annuity future value {} vs explicit {}",
+                ann.future_value,
+                fv_payments
+            );
+            let pv_payments = discount_payments(pmt, r, n, timing);
+            prop_assert!(
+                close_scaled(ann.present_value, pv_payments, tol, pv_payments),
+                "annuity present value {} vs explicit {}",
+                ann.present_value,
+                pv_payments
+            );
+            Ok(())
+        },
+    );
 }
 
 // ---------------------------------------------------------------- determinism through the registry
 
-/// A decimal written either as a JSON string or as a JSON number: both are parsed exactly.
-fn json_decimal(v: Decimal, as_string: bool) -> Value {
-    if as_string {
-        Value::String(v.to_string())
-    } else {
-        serde_json::from_str(&v.to_string()).unwrap()
-    }
-}
-
 /// A method input as (key, value) pairs, in the order they are written.
 type Pairs = Vec<(String, Value)>;
 
-/// A method id and its input as (key, value) pairs, for a few methods across the themes.
+fn text(v: Decimal) -> Value {
+    Value::String(v.to_string())
+}
+
+fn enum_value<T: serde::Serialize>(v: T) -> Value {
+    serde_json::to_value(v).unwrap()
+}
+
+/// A method id and its input as (key, value) pairs, decimals written as JSON strings, for six
+/// methods across the themes.
 fn registry_case() -> impl Strategy<Value = (&'static str, Pairs)> {
-    let s = any::<bool>;
-    let npv = (rate(), conventional_flows(), s()).prop_map(|(r, f, s)| {
-        let cf: Vec<Value> = f.into_iter().map(|v| json_decimal(v, s)).collect();
+    let npv = (rate(), conventional_flows()).prop_map(|(r, f)| {
+        let cf = f.into_iter().map(text).collect();
         (
             "tvm.npv",
             vec![
-                ("rate".into(), json_decimal(r, s)),
+                ("rate".into(), text(r)),
                 ("cash_flows".into(), Value::Array(cf)),
             ],
         )
     });
-    let irr = (conventional_flows(), s()).prop_map(|(f, s)| {
-        let cf: Vec<Value> = f.into_iter().map(|v| json_decimal(v, s)).collect();
+    let irr = conventional_flows().prop_map(|f| {
+        let cf = f.into_iter().map(text).collect();
         (
             "tvm.irr",
             vec![
                 ("cash_flows".into(), Value::Array(cf)),
-                ("guess".into(), json_decimal(d("0.1"), s)),
+                ("guess".into(), text(d("0.1"))),
             ],
         )
     });
-    let convert =
-        ((-5_000i64..=10_000), compounding(), compounding(), s()).prop_map(|(m, from, to, s)| {
-            (
-                "rates.convert",
-                vec![
-                    ("rate".into(), json_decimal(dec(m, 4), s)),
-                    ("from".into(), serde_json::to_value(from).unwrap()),
-                    ("to".into(), serde_json::to_value(to).unwrap()),
-                ],
-            )
-        });
-    let annuity = (rate_and_periods(360), timing(), s()).prop_map(|((r, n), t, s)| {
+    let convert = ((-5_000i64..=10_000), compounding(), compounding()).prop_map(|(m, from, to)| {
+        (
+            "rates.convert",
+            vec![
+                ("rate".into(), text(dec(m, 4))),
+                ("from".into(), enum_value(from)),
+                ("to".into(), enum_value(to)),
+            ],
+        )
+    });
+    let annuity = (rate_and_periods(360), timing()).prop_map(|((r, n), t)| {
         (
             "tvm.annuity",
             vec![
-                ("payment".into(), json_decimal(d("1000"), s)),
-                ("rate".into(), json_decimal(r, s)),
+                ("payment".into(), text(d("1000"))),
+                ("rate".into(), text(r)),
                 ("periods".into(), Value::from(n)),
-                ("growth".into(), json_decimal(d("0.01"), s)),
-                ("timing".into(), serde_json::to_value(t).unwrap()),
+                ("growth".into(), text(d("0.01"))),
+                ("timing".into(), enum_value(t)),
             ],
         )
     });
@@ -665,47 +1128,53 @@ fn registry_case() -> impl Strategy<Value = (&'static str, Pairs)> {
         (1i64..=500),
         1u32..=240,
         timing(),
-        s(),
     )
-        .prop_map(|(p, i, n, t, s)| {
+        .prop_map(|(p, i, n, t)| {
             (
                 "loans.instalment",
                 vec![
-                    ("principal".into(), json_decimal(dec(p, 2), s)),
-                    ("periodic_rate".into(), json_decimal(dec(i, 4), s)),
+                    ("principal".into(), text(dec(p, 2))),
+                    ("periodic_rate".into(), text(dec(i, 4))),
                     ("number_of_instalments".into(), Value::from(n)),
-                    ("timing".into(), serde_json::to_value(t).unwrap()),
+                    ("timing".into(), enum_value(t)),
                 ],
             )
         });
-    let xnpv = (dated_case(), rate(), s()).prop_map(|(c, r, s)| {
-        let flows: Vec<Value> = c
+    let xnpv = (dated_case(), rate()).prop_map(|(c, r)| {
+        let flows = c
             .flows
             .iter()
             .map(|f| {
                 let mut o = Map::new();
                 o.insert("date".into(), Value::String(f.date.to_string()));
-                o.insert("amount".into(), json_decimal(f.amount, s));
+                o.insert("amount".into(), text(f.amount));
                 Value::Object(o)
             })
             .collect();
         (
             "tvm.xnpv",
             vec![
-                ("rate".into(), json_decimal(r, s)),
+                ("rate".into(), text(r)),
                 ("cash_flows".into(), Value::Array(flows)),
-                (
-                    "day_count".into(),
-                    serde_json::to_value(c.day_count).unwrap(),
-                ),
-                (
-                    "compounding".into(),
-                    serde_json::to_value(c.compounding).unwrap(),
-                ),
+                ("day_count".into(), enum_value(c.day_count)),
+                ("compounding".into(), enum_value(c.compounding)),
             ],
         )
     });
     prop_oneof![npv, irr, convert, annuity, instalment, xnpv]
+}
+
+/// The same value with every decimal string written as a JSON number instead (dates and
+/// enumeration names do not parse as decimals and stay strings).
+fn as_numbers(v: &Value) -> Value {
+    match v {
+        Value::String(s) if Decimal::from_str(s).is_ok() => serde_json::from_str(s).unwrap(),
+        Value::Array(a) => Value::Array(a.iter().map(as_numbers).collect()),
+        Value::Object(o) => {
+            Value::Object(o.iter().map(|(k, v)| (k.clone(), as_numbers(v))).collect())
+        }
+        other => other.clone(),
+    }
 }
 
 fn to_json(pairs: &[(String, Value)]) -> String {
@@ -724,30 +1193,54 @@ fn run_text(id: &str, input: &str) -> String {
     }
 }
 
-/// The same input twice gives byte-identical output, and so does the same input with its keys
-/// in any order; `meta.input_hash` does not depend on the key order either.
-fn determinism_case() -> impl Strategy<Value = (&'static str, Pairs, Pairs)> {
-    registry_case().prop_flat_map(|(id, pairs)| {
-        let shuffled = Just(pairs.clone()).prop_shuffle();
-        (Just(id), Just(pairs), shuffled)
-    })
+/// `meta.input_hash` of an envelope given as text, if the run succeeded.
+fn input_hash(envelope: &str) -> Option<String> {
+    let v: Value = serde_json::from_str(envelope).ok()?;
+    v["meta"]["input_hash"].as_str().map(str::to_owned)
 }
 
-proptest! {
-    #![proptest_config(config(128, 0x3305))]
-
-    #[test]
-    fn registry_is_deterministic((id, pairs, shuffled) in determinism_case()) {
-        let input = to_json(&pairs);
-        let first = run_text(id, &input);
-        let second = run_text(id, &input);
-        prop_assert_eq!(&first, &second, "two runs of {} differ", id);
-        let reordered = run_text(id, &to_json(&shuffled));
-        prop_assert_eq!(&first, &reordered, "key order changed the result of {}", id);
-        if let Ok(v) = fairmark_core::run(id, &input) {
-            let w = fairmark_core::run(id, &to_json(&shuffled)).unwrap();
-            prop_assert_eq!(&v["meta"]["input_hash"], &w["meta"]["input_hash"]);
-            prop_assert_eq!(v["meta"]["input_hash"].as_str().map(str::len), Some(64));
-        }
-    }
+/// Determinism through the registry, in-process: the same input twice gives byte-identical
+/// envelopes (value, explain and meta), and so does the same input with its keys in another
+/// order or with its decimals written as JSON numbers instead of strings; `meta.input_hash`
+/// is a 64-digit hexadecimal SHA-256 that depends on none of these. Bit-identical results
+/// across platforms rest on the golden suite, which runs on every platform in CI.
+#[test]
+fn registry_is_deterministic() {
+    let strategy = registry_case().prop_flat_map(|(id, pairs)| {
+        let shuffled = Just(pairs.clone()).prop_shuffle();
+        (Just(id), Just(pairs), shuffled)
+    });
+    check(
+        "registry_is_deterministic",
+        128,
+        0x330d,
+        strategy,
+        |(id, pairs, shuffled)| {
+            let input = to_json(&pairs);
+            let first = run_text(id, &input);
+            let second = run_text(id, &input);
+            prop_assert_eq!(&first, &second, "two runs of {} differ", id);
+            let reordered = run_text(id, &to_json(&shuffled));
+            prop_assert_eq!(&first, &reordered, "key order changed the result of {}", id);
+            let numbers: Pairs = pairs
+                .iter()
+                .map(|(k, v)| (k.clone(), as_numbers(v)))
+                .collect();
+            prop_assert_ne!(to_json(&numbers), input.clone());
+            let as_numbers = run_text(id, &to_json(&numbers));
+            prop_assert_eq!(
+                &first,
+                &as_numbers,
+                "JSON numbers changed the result of {}",
+                id
+            );
+            if let Some(hash) = input_hash(&first) {
+                prop_assert_eq!(hash.len(), 64);
+                prop_assert!(hash.bytes().all(|b| b.is_ascii_hexdigit()));
+                prop_assert_eq!(input_hash(&reordered), Some(hash.clone()));
+                prop_assert_eq!(input_hash(&as_numbers), Some(hash));
+            }
+            Ok(())
+        },
+    );
 }

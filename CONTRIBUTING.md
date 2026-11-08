@@ -22,10 +22,11 @@ uv run pytest                      # Python tests + the same golden cases
 ```
 
 Property tests (`crates/fairmark-core/tests/properties.rs`, with `proptest`) check identities
-such as NPV at the IRR being zero on generated inputs. Each property runs a fixed number of
-cases from a fixed seed, so every run checks the same inputs; each tolerance is derived in a
-comment from the 28-digit decimal precision. A failing property is investigated and reported,
-never loosened to pass.
+such as NPV at the IRR being zero on generated inputs. Each property runs through a small
+`check` helper with a fixed number of cases and a fixed seed, so every run checks the same
+inputs; `PROPTEST_*` environment variables have no effect (a test verifies it), and no
+regression files are written. Each tolerance is derived in a comment from the 28-digit decimal
+precision. A failing property is investigated and reported, never loosened to pass.
 
 The Rust extension is rebuilt automatically by `uv run` / `uv sync` when Rust sources change.
 `uv.lock` is committed: dependency updates go through PRs.
