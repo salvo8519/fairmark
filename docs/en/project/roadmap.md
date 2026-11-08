@@ -45,6 +45,7 @@ Gate: A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows.
 | CI/CD | Deterministic checks: workflows (actionlint, zizmor), YAML validity, unused Rust dependencies, external links | [#117](https://github.com/salvo8519/fairmark/issues/117) |  | Done |
 | CI/CD | Roadmap sync tolerates changes pending in open pull requests; Pages deploy waits for slow CDN purges | [#134](https://github.com/salvo8519/fairmark/issues/134) |  | Done |
 | CI/CD | Roadmap sync treats issues closed by an open pull request as pending | [#152](https://github.com/salvo8519/fairmark/issues/152) |  | Done |
+| CI/CD | Release preparation runs as a workflow that opens the release pull request | [#142](https://github.com/salvo8519/fairmark/issues/142) |  | Done |
 | Community infrastructure | Issue forms: bug, method request, numerical discrepancy | [#16](https://github.com/salvo8519/fairmark/issues/16) |  | Done |
 | Community infrastructure | Labels, GitHub Project board, Discussions | [#17](https://github.com/salvo8519/fairmark/issues/17) |  | Open |
 

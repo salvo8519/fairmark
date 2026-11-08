@@ -1,0 +1,146 @@
+name: Prepare release
+
+# Runs the first steps of the release skill (.agents/skills/release) on GitHub and opens the
+# release pull request. The maintainer decides to release, reviews the release notes, merges
+# and creates the tag: this workflow never tags and never merges (docs/en/project/releases.md).
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release: X.Y.Z or X.Y.Z-alpha.N, -beta.N, -rc.N"
+        required: true
+        type: string
+      issue:
+        description: "Issue of the release task to link (number, optional)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Readiness check and release pull request
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # push the release/v<version> branch
+      pull-requests: write   # open the release pull request
+      actions: read          # release.py ready reads the CI runs of main
+    env:
+      VERSION: ${{ inputs.version }}
+      ISSUE: ${{ inputs.issue }}
+    steps:
+      # Pull requests opened with the default GITHUB_TOKEN do not start the pull request
+      # workflows. A GitHub App token does: configure the variable RELEASE_APP_ID and the
+      # secret RELEASE_APP_PRIVATE_KEY to use one. Without them, the pull request body says how
+      # to start the checks.
+      - name: GitHub App token (optional)
+        id: app
+        if: vars.RELEASE_APP_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          # Only what pushing the branch and opening the pull request need.
+          permission-contents: write
+          permission-pull-requests: write
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0   # tags for the readiness check, history for the changelog
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          python-version: "3.13"
+          enable-cache: false   # no cache in a job that can push
+      - run: uv sync --locked --all-extras --all-groups
+      - name: Valid inputs
+        run: |
+          # Bash matches the whole string: a trailing newline does not pass.
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$ ]]; then
+            echo "::error::version must be X.Y.Z or X.Y.Z-(alpha|beta|rc).N"
+            exit 1
+          fi
+          if [[ -n "$ISSUE" && ! "$ISSUE" =~ ^[0-9]+$ ]]; then
+            echo "::error::issue must be a number"
+            exit 1
+          fi
+      - name: Release readiness (release.py ready)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          uv run python scripts/release.py ready "$VERSION" | tee "$RUNNER_TEMP/ready.txt"
+      - name: Readiness report in the job summary
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/ready.txt" ]; then
+            { echo '## Release readiness'; echo; echo '```text'; cat "$RUNNER_TEMP/ready.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Branch must not exist yet
+        run: |
+          if git ls-remote --exit-code --heads origin "release/v$VERSION" > /dev/null; then
+            echo "::error::branch release/v$VERSION already exists: close or delete it first"
+            exit 1
+          fi
+      - name: Version, release notes and changelog
+        run: |
+          uv run python scripts/version.py bump "$VERSION"
+          uv run towncrier build --version "$VERSION" --yes
+          uv run git-cliff --tag "v$VERSION" --output CHANGELOG.md
+          uv run python scripts/version.py check
+          git status --short
+      - name: Commit and push release/v${{ inputs.version }}
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          gh auth setup-git
+          git switch -c "release/v$VERSION"
+          git add -A
+          git commit -s -m "chore(release): $VERSION" \
+            -m "Version bump, release notes from changes/ and changelog, prepared by the Prepare release workflow (run $GITHUB_RUN_ID)."
+          git push origin "release/v$VERSION"
+      - name: Open the release pull request
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          APP_TOKEN: ${{ steps.app.outputs.token != '' }}
+        run: |
+          body="$RUNNER_TEMP/body.md"
+          {
+            echo "## Summary"
+            echo "Release $VERSION: version bump, release notes for analysts from \`changes/\` and the technical changelog. Prepared by the Prepare release workflow, run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
+            echo
+            echo "## Linked issue"
+            if [ -n "$ISSUE" ]; then echo "Refs #$ISSUE"; else echo "None."; fi
+            echo
+            echo "## Release notes"
+            echo "Review this text before merging: it is what users read in the GitHub Release."
+            echo
+            uv run python scripts/release_notes.py "$VERSION"
+            echo
+            echo "## Readiness"
+            echo '```text'
+            cat "$RUNNER_TEMP/ready.txt"
+            echo '```'
+            echo
+            echo "## After merging"
+            echo "Create the tag \`v$VERSION\` on the merge commit. The Release workflow builds the wheels, creates the GitHub Release and publishes the packages."
+            if [ "$APP_TOKEN" != "true" ]; then
+              echo
+              echo "## Checks"
+              echo "This pull request was opened with the default workflow token, which does not start the pull request workflows. Close and reopen it to start them."
+            fi
+          } > "$body"
+          labels=(--label no-release-note)
+          if [ -z "$ISSUE" ]; then labels+=(--label no-issue); fi
+          gh pr create --base main --head "release/v$VERSION" \
+            --title "chore(release): $VERSION" --body-file "$body" "${labels[@]}"
