@@ -21,11 +21,14 @@ start date                                                         end date of p
     ^ included                  ^ start of period 2, not part of period 1
 ```
 
-A schedule that starts on 31 December has its end dates on 31 March, 30 June, 30 September
-and 31 December. The day 31 March is the first day of period 2; period 1 covers 31 December to
-30 March inclusive, which is 90 days. A schedule that starts on 1 January has its end dates on
-1 April, 1 July, 1 October and 1 January: the same quarters, each written as the first day of
-the next quarter. Both readings are exact; choose the start date that matches your model.
+A quarterly schedule that starts on 1 January has its end dates on 1 April, 1 July, 1 October
+and 1 January: its periods are the calendar quarters (1 January to 31 March inclusive, 1 April
+to 30 June inclusive, and so on), each end date being the first day of the next quarter. A
+quarterly schedule that starts on 31 December has its end dates on 31 March, 30 June, 30
+September and 31 December: the 31 December schedule covers 31 December to 30 March inclusive
+(90 days), one day earlier than the calendar quarter, and so on for every period. Both are
+exact. Start on 1 January when the periods must be the calendar quarters; start on 31 December
+when end-of-period values must be dated on month ends (31 March, 30 June, ...).
 
 ## Formula
 
@@ -39,7 +42,7 @@ $$
 Every date is generated from the start date, never from the previous date, so a day shortened
 in one month is restored in the next: from 31 January, monthly, the dates are 29 February
 (2024) and then 31 March, not 29 March. The day of each date follows one fixed rule, the
-end-of-month convention of ISDA and ICMA practice:
+end-of-month convention of market practice (the `endOfMonth` rule of QuantLib `Schedule`):
 
 - when the start date is the **last day of its month**, every date is the last day of its
   month (30 June, quarterly: 30 September, 31 December, 31 March, 30 June);
@@ -183,8 +186,7 @@ from the sum of the returned values by up to $n$ half-units of their last digit.
 - 2006 ISDA Definitions: "Calculation Period" (from and including one Period End Date to but
   excluding the next), "Period End Date", "Effective Date"; section numbers to verify. The day
   counts, section 4.16, are verified for [`dates.year_fraction`](dates-year-fraction.md).
-- End-of-month convention of ISDA and ICMA practice (ICMA Primary Market Handbook, Rule 251):
-  to verify against the published text. The rule applied is the one stated above, and it is
-  the behaviour of QuantLib `Schedule` with `endOfMonth` true.
+- End-of-month convention: the rule applied is the one stated above, the behaviour of QuantLib
+  `Schedule` with `endOfMonth` true; its statement in the 2006 ISDA Definitions is to verify.
 - QuantLib `Frequency` values (Monthly 12, Bimonthly 6, Quarterly 4, EveryFourthMonth 3,
   Semiannual 2, Annual 1) and `Period(n, Months)`; python-dateutil `relativedelta`.

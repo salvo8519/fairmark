@@ -1,20 +1,21 @@
 ---
 source: methods/dates-schedule.md
-source_hash: 77ccdd3c7a66
+source_hash: eea753f35245
 ---
-# Piano dei periodi di calcolo (`dates.schedule`)
+# Schedule dei periodi (`dates.schedule`)
 
-Costruisce i periodi di un modello a partire da una data di inizio, una durata del periodo e un
-numero di periodi: la data di inizio e la data di fine di ogni periodo e, con una convenzione di
-calcolo dei giorni, la sua frazione d'anno. Usalo al posto di date scritte a mano, così che fine
+Costruisce lo schedule (il piano dei periodi) di un modello a partire da una data di inizio, una
+lunghezza del periodo (months per period, cioè i mesi per periodo) e un numero di periodi: la
+data di inizio e la data di fine di ogni periodo e, con una convenzione di calcolo dei giorni, la
+sua frazione d'anno. Usalo al posto di date scritte a mano, così che fine
 mese, febbraio e anni bisestili siano trattati una volta sola, con una regola dichiarata, e le
 date alimentino [`tvm.xnpv`](tvm-xnpv.md), [`tvm.xirr`](tvm-xirr.md) e
 [`series.project`](series-project.md) senza essere ribattute.
 
 ## Che cos'è un periodo: [inizio, fine)
 
-Ogni periodo va **dalla data di inizio inclusa alla data di fine esclusa**, come i periodi di
-calcolo (Calculation Period) delle 2006 ISDA Definitions. La data di fine di un periodo è il
+Ogni periodo va **dalla data di inizio inclusa alla data di fine esclusa**, come i calculation
+period (i periodi su cui maturano gli interessi) delle 2006 ISDA Definitions. La data di fine di un periodo è il
 primo giorno del periodo successivo: appartiene al periodo successivo, non a questo. Non esiste
 un campo "ultimo giorno del periodo", quindi una data di fine non viene mai contata due volte.
 
@@ -26,12 +27,15 @@ data di inizio                                                 data di fine del 
     ^ inclusa                   ^ inizio del periodo 2, non fa parte del periodo 1
 ```
 
-Un piano che inizia il 31 dicembre ha le date di fine al 31 marzo, 30 giugno, 30 settembre e
-31 dicembre. Il 31 marzo è il primo giorno del periodo 2; il periodo 1 copre dal 31 dicembre al
-30 marzo inclusi, cioè 90 giorni. Un piano che inizia il 1° gennaio ha le date di fine al
-1° aprile, 1° luglio, 1° ottobre e 1° gennaio: gli stessi trimestri, ciascuno indicato con il
-primo giorno del trimestre successivo. Entrambe le letture sono esatte; scegli la data di
-inizio coerente con il tuo modello.
+Uno schedule trimestrale che inizia il 1° gennaio ha le date di fine al 1° aprile, 1° luglio,
+1° ottobre e 1° gennaio: i suoi periodi sono i trimestri di calendario (dal 1° gennaio al
+31 marzo inclusi, dal 1° aprile al 30 giugno inclusi, e così via), e ogni data di fine è il primo
+giorno del trimestre successivo. Uno schedule trimestrale che inizia il 31 dicembre ha le date
+di fine al 31 marzo, 30 giugno, 30 settembre e 31 dicembre: lo schedule dal 31 dicembre copre
+dal 31 dicembre al 30 marzo inclusi (90 giorni), un giorno prima del trimestre di calendario, e
+così per ogni periodo. Entrambi sono esatti. Inizia il 1° gennaio quando i periodi devono essere
+i trimestri di calendario; inizia il 31 dicembre quando i valori di fine periodo devono essere
+datati a fine mese (31 marzo, 30 giugno, ...).
 
 ## Formula
 
@@ -45,7 +49,8 @@ $$
 Ogni data è generata a partire dalla data di inizio, mai dalla data precedente, così un giorno
 accorciato in un mese viene recuperato nel successivo: dal 31 gennaio, con periodicità mensile,
 le date sono il 29 febbraio (2024) e poi il 31 marzo, non il 29 marzo. Il giorno di ogni data
-segue un'unica regola fissa, la regola di fine mese della prassi ISDA e ICMA:
+segue un'unica regola fissa, la end-of-month rule (regola di fine mese) della prassi di mercato,
+la regola `endOfMonth` di QuantLib `Schedule`:
 
 - se la data di inizio è l'**ultimo giorno del suo mese**, ogni data è l'ultimo giorno del suo
   mese (30 giugno, trimestrale: 30 settembre, 31 dicembre, 31 marzo, 30 giugno);
@@ -56,30 +61,30 @@ Con una convenzione di calcolo dei giorni, la frazione d'anno del periodo $k$ è
 [`dates.year_fraction`](dates-year-fraction.md) da $d_{k-1}$ a $d_k$: la stessa funzione, non
 una seconda implementazione.
 
-## Durata del periodo
+## Lunghezza del periodo
 
-Indica la durata del periodo in esattamente una di due forme. Una periodicità con nome e il
+Indica la lunghezza del periodo in esattamente una di due forme. Una periodicità con nome e il
 numero di mesi equivalente danno risultati identici.
 
 | `frequency` | Mesi per periodo | Periodi all'anno |
 | --- | --- | --- |
 | `monthly` (mensile) | 1 | 12 |
-| `bimonthly` (bimestrale: ogni due mesi, non due volte al mese) | 2 | 6 |
+| `bimonthly` (ogni due mesi, non due volte al mese) | 2 | 6 |
 | `quarterly` (trimestrale) | 3 | 4 |
 | `four_monthly` (quadrimestrale: ogni quattro mesi) | 4 | 3 |
 | `semi_annual` (semestrale) | 6 | 2 |
 | `annual` (annuale) | 12 | 1 |
 
-`period_months` è la durata del periodo in mesi, un numero intero positivo: 1, 2, 3, 4, 6, 12 e
+`period_months` sono i months per period (i mesi per periodo), un numero intero positivo: 1, 2, 3, 4, 6, 12 e
 qualsiasi altro come 5, 18 o 24. Indica i mesi per periodo, non i periodi all'anno, quindi non
 può essere confuso con una frequenza di capitalizzazione. Quando i mesi per periodo dividono 12
 il risultato riporta anche `periods_per_year`; per 5, 18 o 24 mesi è assente.
 
 ## Esempi
 
-Date di fine della regola di fine mese, ciascuna verificata con QuantLib e python-dateutil:
+Date di fine della end-of-month rule, ciascuna verificata con QuantLib e python-dateutil:
 
-| Inizio | Durata del periodo | Date di fine |
+| Inizio | Lunghezza del periodo | Date di fine |
 | --- | --- | --- |
 | 2024-01-31 | `monthly` | 2024-02-29, 2024-03-31, 2024-04-30, 2024-05-31 |
 | 2025-01-30 | `monthly` | 2025-02-28, 2025-03-30, 2025-04-30 (non è un fine mese: il giorno 30 è mantenuto) |
@@ -105,7 +110,7 @@ assert q.steps[-1].value == Decimal(365) / 365  # giorni totali / 365 esatti
 jan = fm.dates.schedule("2026-01-01", 4, frequency="quarterly")
 print(jan.end_dates)     # ['2026-04-01', '2026-07-01', '2026-10-01', '2027-01-01']
 
-# Una durata senza nome, e la periodicità con nome uguale a un numero di mesi.
+# Una lunghezza senza nome, e la periodicità con nome uguale a un numero di mesi.
 assert fm.dates.schedule("2025-03-15", 2, period_months=18).end_dates == [
     "2026-09-15",
     "2028-03-15",
@@ -141,17 +146,17 @@ assert (
 | --- | --- | --- |
 | Definizione del periodo | [inizio, fine): dalla data di inizio inclusa alla data di fine esclusa | fissa |
 | Generazione delle date | dalla data di inizio, $k \times p$ mesi (in avanti, senza deriva) | fissa |
-| Regola di fine mese | un inizio a fine mese mantiene i fine mese; altrimenti il giorno di inizio, ridotto alla lunghezza del mese; `explain` indica se l'inizio è un fine mese e quante date di fine cadono in un altro giorno | fissa |
-| Giorni lavorativi | nessuno: date non rettificate | fissa nella versione 1 |
+| End-of-month rule | un inizio a fine mese mantiene i fine mese; altrimenti il giorno di inizio, ridotto alla lunghezza del mese; `explain` indica se l'inizio è un fine mese e quante date di fine cadono in un altro giorno | fissa |
+| Giorni lavorativi | nessuno: unadjusted dates (date non spostate al giorno lavorativo) | fissa nella versione 1 |
 | Convenzione di calcolo dei giorni | le cinque convenzioni di [`dates.year_fraction`](dates-year-fraction.md) | nessuna: senza di essa non viene calcolata alcuna frazione d'anno |
 
-Una data di fine del piano, una data di termine, un calendario, una convenzione di giorno
+Una data di fine dello schedule, una data di termine, un calendario, una convenzione di giorno
 lavorativo o un periodo irregolare (stub) non fanno parte della versione 1 e sono rifiutati come
 campi sconosciuti.
 
 `explain` riporta il numero di periodi, i mesi per periodo, i periodi all'anno quando definiti,
-i giorni effettivi dell'intero piano e, con una convenzione di calcolo dei giorni, la frazione
-d'anno del periodo 1 con il suo calcolo e la frazione d'anno totale del piano, con i suoi
+i giorni effettivi dell'intero schedule e, con una convenzione di calcolo dei giorni, la frazione
+d'anno del periodo 1 con il suo calcolo e la frazione d'anno totale dello schedule, con i suoi
 termini esatti sostituiti (per esempio `121 / 365`, oppure `a / 365 + b / 366 + w` con
 Actual/Actual (ISDA)). I valori di ogni
 periodo sono nei vettori di output, quindi il numero di passaggi non cresce con il numero di
@@ -168,8 +173,8 @@ periodi.
 
 Le date sono aritmetica intera su mesi e giorni: esatte. Le frazioni d'anno sono quelle di
 [`dates.year_fraction`](dates-year-fraction.md), rapporti tra interi arrotondati una sola volta.
-La frazione d'anno totale del piano in `explain` addiziona i numeratori interi prima di
-dividere, quindi con Actual/365 (Fixed) è uguale esattamente ai giorni totali del piano / 365.
+La frazione d'anno totale dello schedule in `explain` addiziona i numeratori interi prima di
+dividere, quindi con Actual/365 (Fixed) è uguale esattamente ai giorni totali dello schedule / 365.
 Poiché ogni valore restituito in `year_fractions` è arrotondato una volta a 28 cifre
 significative, il totale può differire dalla somma dei valori restituiti fino a $n$ mezze unità
 della loro ultima cifra.
@@ -177,11 +182,11 @@ della loro ultima cifra.
 ## Verificato con
 
 - QuantLib 1.44 `Schedule` (calendario nullo, `Unadjusted`, generazione in avanti, `endOfMonth`
-  vero, durata `Period(p, Months)`) e python-dateutil 3.0.0 (`start + relativedelta(months=k
+  vero, tenor `Period(p, Months)`) e python-dateutil 3.0.0 (`start + relativedelta(months=k
   × p, day=31)` per un inizio a fine mese, `start + relativedelta(months=k × p)` altrimenti):
   ogni caso di riferimento in `tests/golden/dates.schedule/` è costruito con entrambe le
   librerie, che concordano (`scripts/reference_schedule.py`), e i test con gli oracoli
-  confrontano piani casuali con entrambe. La riduzione del giorno di python-dateutil è stata
+  confrontano schedule casuali con entrambe. La riduzione del giorno di python-dateutil è stata
   letta nel suo codice sorgente (`relativedelta.__add__`: il giorno è il minore tra il giorno
   indicato e la lunghezza del mese).
 - Frazioni d'anno: il riferimento ISDA a 50 cifre di `scripts/reference_time.py`, confermato
@@ -194,8 +199,8 @@ della loro ultima cifra.
   esclusa), "Period End Date", "Effective Date"; numeri di sezione da verificare. Le convenzioni
   di calcolo dei giorni, sezione 4.16, sono verificate per
   [`dates.year_fraction`](dates-year-fraction.md).
-- Regola di fine mese della prassi ISDA e ICMA (ICMA Primary Market Handbook, Rule 251): da
-  verificare sul testo pubblicato. La regola applicata è quella descritta sopra, ed è il
-  comportamento di QuantLib `Schedule` con `endOfMonth` vero.
+- End-of-month rule: la regola applicata è quella descritta sopra, il comportamento di QuantLib
+  `Schedule` con `endOfMonth` vero; la sua formulazione nelle 2006 ISDA Definitions è da
+  verificare.
 - Valori di QuantLib `Frequency` (Monthly 12, Bimonthly 6, Quarterly 4, EveryFourthMonth 3,
   Semiannual 2, Annual 1) e `Period(n, Months)`; python-dateutil `relativedelta`.
