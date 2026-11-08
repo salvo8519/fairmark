@@ -319,6 +319,7 @@ Net liquidation value at the horizon N: realisable values of labelled assets les
 | `liabilities` | lista di object | sì |  | Liabilities settled at N, in currency units, each zero or positive. |
 | `liquidation_costs` | lista di object | sì |  | Costs of the liquidation (legal fees, closure, severance), in currency units, each zero or positive. |
 | `tax_on_gains` | decimale | sì |  | Tax on the gains realised, as an amount in currency units, zero or positive. |
+| `basis` | `enterprise` \| `equity` | sì |  | `enterprise` (the liabilities listed exclude financial debt: the value is an enterprise value) or `equity` (financial debt included: the value is an equity value). Required, no default. |
 
 ## `tv.compare`
 

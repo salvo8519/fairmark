@@ -5,6 +5,7 @@ input:
   assets: [{ label: Land, value: "800" }, { label: Plant, value: "300" }, { label: Receivables, value: "200" }]
   liabilities: [{ label: Bank loan, value: "600" }, { label: Suppliers, value: "250" }]
   liquidation_costs: [{ label: Legal fees, value: "40" }, { label: Closure, value: "60" }]
+  basis: equity
   tax_on_gains: "30"
 expect:
   terminal_value: "320"

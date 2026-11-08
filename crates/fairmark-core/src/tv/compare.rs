@@ -92,7 +92,7 @@ pub enum Technique {
     /// Normalised income with its own capitalisation rate and basis (checked).
     #[serde(rename = "tv.normalised_income")]
     NormalisedIncome(NormalisedIncomeTerms),
-    /// Liquidation: the analyst lists the liabilities of the declared basis.
+    /// Liquidation with its declared basis (checked).
     #[serde(rename = "tv.liquidation")]
     Liquidation(LiquidationInput),
 }
@@ -250,6 +250,14 @@ fn run_one(
             )
         }
         Technique::Liquidation(input) => {
+            if input.basis != basis {
+                return Err(FairmarkError::MixedBasis(format!(
+                    "technique [{position}] tv.liquidation is declared on the {} basis in a \
+                    comparison declared on the {} basis",
+                    input.basis.name(),
+                    basis.name()
+                )));
+            }
             let (o, ex) = liquidation(input)?;
             let tv = o.terminal_value;
             (
@@ -280,7 +288,8 @@ pub fn compare(input: &CompareInput) -> Result<(CompareOutput, Explain)> {
     ));
     ex.convention(format!(
         "shared rate {r} per period for every technique that uses a discount rate; \
-        tv.normalised_income keeps its own capitalisation rate"
+        tv.normalised_income keeps its own capitalisation rate, which is not the shared \
+        discount rate"
     ));
     ex.convention(match cap {
         Some(c) => format!("shared growth cap {c} for every growth-based technique"),
@@ -292,18 +301,6 @@ pub fn compare(input: &CompareInput) -> Result<(CompareOutput, Explain)> {
             "tv.exit_multiple without next_flow: no implied growth, so not checked against the \
             growth cap",
         );
-    }
-    if has(|t| matches!(t, Technique::Liquidation(_))) {
-        ex.convention(match basis {
-            TerminalBasis::Enterprise => {
-                "tv.liquidation on the enterprise basis: the liabilities listed exclude \
-                financial debt"
-            }
-            TerminalBasis::Equity => {
-                "tv.liquidation on the equity basis: the liabilities listed include financial \
-                debt"
-            }
-        });
     }
     let mut results = Vec::with_capacity(input.techniques.len());
     for (k, t) in input.techniques.iter().enumerate() {
@@ -480,6 +477,23 @@ mod tests {
             TerminalBasis::Equity,
         ))
         .is_ok());
+    }
+
+    /// Decided under the maintainer's instruction of 2026-11-08: liquidation declares its basis.
+    #[test]
+    fn liquidation_of_the_other_basis_is_refused() {
+        let liq = Technique::Liquidation(LiquidationInput {
+            assets: vec![crate::tv::Line {
+                label: "Land".to_owned(),
+                value: d("800"),
+            }],
+            liabilities: vec![],
+            liquidation_costs: vec![],
+            tax_on_gains: d("0"),
+            basis: TerminalBasis::Equity,
+        });
+        let err = compare(&input(vec![liq], TerminalBasis::Enterprise)).unwrap_err();
+        assert_eq!(err.code(), "FM-E019");
     }
 
     #[test]

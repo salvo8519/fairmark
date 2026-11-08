@@ -11,6 +11,7 @@ extreme_inputs:
   liabilities: []
   liquidation_costs: []
   tax_on_gains: '0'
+  basis: equity
 - assets: []
   liabilities:
   - label: L
@@ -19,6 +20,7 @@ extreme_inputs:
   - label: C
     value: MAX
   tax_on_gains: MAX
+  basis: enterprise
 conventions:
 - input:
     assets:
@@ -27,6 +29,8 @@ conventions:
     liabilities: []
     liquidation_costs: []
     tax_on_gains: '0'
+    basis: equity
   expect:
+  - 'basis: equity (declared)'
   - realisable at the horizon N
   - tax on gains given as an amount

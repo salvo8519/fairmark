@@ -180,16 +180,19 @@ def liquidation(
     liabilities: Lines,
     liquidation_costs: Lines,
     tax_on_gains: Number,
+    basis: Basis,
 ) -> Result:
     """Net liquidation value: realisable assets less liabilities, costs and tax on gains.
 
     Each group is a mapping from a label to an amount, for example ``{"Land": 800}``, or a list
     of ``(label, amount)`` pairs, which allows the same label twice. At least one asset is
-    required; a negative net value is returned as is.
+    required; a negative net value is returned as is. ``basis`` is required: ``"equity"`` when
+    the liabilities include financial debt, ``"enterprise"`` when they exclude it.
 
-    >>> liquidation({"Land": 800}, {"Bank loan": 600}, {"Legal fees": 40}, 30).terminal_value
+    >>> r = liquidation({"Land": 800}, {"Bank loan": 600}, {"Legal fees": 40}, 30, "equity")
+    >>> r.terminal_value
     Decimal('130')
-    >>> liquidation([("Lot", 500), ("Lot", 300)], [], [], 0).terminal_value
+    >>> liquidation([("Lot", 500), ("Lot", 300)], [], [], 0, "enterprise").terminal_value
     Decimal('800')
     """
 
@@ -202,6 +205,7 @@ def liquidation(
         "liabilities": lines(liabilities),
         "liquidation_costs": lines(liquidation_costs),
         "tax_on_gains": tax_on_gains,
+        "basis": basis,
     }
     return run("tv.liquidation", payload)
 

@@ -4,7 +4,7 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::{domain, invalid, Line, NOT_DISCOUNTED};
+use super::{domain, invalid, Line, TerminalBasis, NOT_DISCOUNTED};
 use crate::error::Result;
 use crate::explain::Explain;
 use crate::method::Method;
@@ -24,6 +24,10 @@ pub struct LiquidationInput {
     pub liquidation_costs: Vec<Line>,
     /// Tax on the gains realised, as an amount in currency units, zero or positive.
     pub tax_on_gains: Decimal,
+    /// `enterprise` (the liabilities listed exclude financial debt: the value is an enterprise
+    /// value) or `equity` (financial debt included: the value is an equity value). Required, no
+    /// default.
+    pub basis: TerminalBasis,
 }
 
 /// Output of `tv.liquidation`.
@@ -40,6 +44,8 @@ pub struct LiquidationOutput {
     pub total_liquidation_costs: Decimal,
     /// Tax on gains, in currency units, as given.
     pub tax_on_gains: Decimal,
+    /// `enterprise` or `equity`, as declared.
+    pub basis: TerminalBasis,
 }
 
 /// Adds the lines of one group, one explain step per line, then the total.
@@ -88,6 +94,16 @@ pub fn liquidation(input: &LiquidationInput) -> Result<(LiquidationOutput, Expla
     ex.convention("asset values realisable at the horizon N, liabilities settled at N");
     ex.convention("tax on gains given as an amount (not computed from a rate)");
     ex.convention("a negative net value is returned as is (no floor at zero)");
+    ex.convention(match input.basis {
+        TerminalBasis::Enterprise => {
+            "basis: enterprise (declared): the liabilities listed exclude financial debt, the \
+            value is an enterprise value"
+        }
+        TerminalBasis::Equity => {
+            "basis: equity (declared): the liabilities listed include financial debt, the value \
+            is an equity value"
+        }
+    });
     let a = total(&mut ex, "Assets", "assets", &input.assets)?;
     let l = total(&mut ex, "Liabilities", "liabilities", &input.liabilities)?;
     let c = total(
@@ -110,6 +126,7 @@ pub fn liquidation(input: &LiquidationInput) -> Result<(LiquidationOutput, Expla
             total_liabilities: l,
             total_liquidation_costs: c,
             tax_on_gains: tax,
+            basis: input.basis,
         },
         ex,
     ))
@@ -151,6 +168,7 @@ mod tests {
             liabilities: vec![line("Bank loan", "600")],
             liquidation_costs: vec![],
             tax_on_gains: d("30"),
+            basis: TerminalBasis::Equity,
         }
     }
 

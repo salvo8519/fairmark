@@ -96,6 +96,8 @@ def test_compare_equals_each_technique_run_alone() -> None:
 
 
 def test_liquidation_accepts_label_pairs() -> None:
-    pairs = fm.tv.liquidation([("Lot", 500), ("Lot", 300)], [("Suppliers", 100)], [], 0)
-    mapping = fm.tv.liquidation({"Lot": 800}, {"Suppliers": 100}, {}, 0)
+    pairs = fm.tv.liquidation(
+        [("Lot", 500), ("Lot", 300)], [("Suppliers", 100)], [], 0, "enterprise"
+    )
+    mapping = fm.tv.liquidation({"Lot": 800}, {"Suppliers": 100}, {}, 0, "enterprise")
     assert pairs.terminal_value == mapping.terminal_value == D(700)

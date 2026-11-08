@@ -200,6 +200,10 @@
           },
           "type": "array"
         },
+        "basis": {
+          "$ref": "#/$defs/TerminalBasis",
+          "description": "`enterprise` (the liabilities listed exclude financial debt: the value is an enterprise\nvalue) or `equity` (financial debt included: the value is an equity value). Required, no\ndefault."
+        },
         "liabilities": {
           "description": "Liabilities settled at N, in currency units, each zero or positive.",
           "items": {
@@ -227,7 +231,8 @@
         "assets",
         "liabilities",
         "liquidation_costs",
-        "tax_on_gains"
+        "tax_on_gains",
+        "basis"
       ],
       "type": "object"
     },
@@ -385,7 +390,7 @@
         },
         {
           "additionalProperties": false,
-          "description": "Liquidation: the analyst lists the liabilities of the declared basis.",
+          "description": "Liquidation with its declared basis (checked).",
           "properties": {
             "tv.liquidation": {
               "$ref": "#/$defs/LiquidationInput"

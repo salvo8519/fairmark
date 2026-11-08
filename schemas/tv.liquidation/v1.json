@@ -22,6 +22,21 @@
         "value"
       ],
       "type": "object"
+    },
+    "TerminalBasis": {
+      "description": "Whether a terminal value is a value of the whole business or of its equity.",
+      "oneOf": [
+        {
+          "const": "enterprise",
+          "description": "Enterprise value: flows to all capital providers (FCFF), discounted at the WACC;\nmultiples EV/EBITDA, EV/EBIT, EV/Sales.",
+          "type": "string"
+        },
+        {
+          "const": "equity",
+          "description": "Equity value: flows to shareholders (FCFE, dividends), discounted at the cost of\nequity; multiple P/E.",
+          "type": "string"
+        }
+      ]
     }
   },
   "$id": "urn:fairmark:schema:tv.liquidation:v1",
@@ -35,6 +50,10 @@
         "$ref": "#/$defs/Line"
       },
       "type": "array"
+    },
+    "basis": {
+      "$ref": "#/$defs/TerminalBasis",
+      "description": "`enterprise` (the liabilities listed exclude financial debt: the value is an enterprise\nvalue) or `equity` (financial debt included: the value is an equity value). Required, no\ndefault."
     },
     "liabilities": {
       "description": "Liabilities settled at N, in currency units, each zero or positive.",
@@ -63,7 +82,8 @@
     "assets",
     "liabilities",
     "liquidation_costs",
-    "tax_on_gains"
+    "tax_on_gains",
+    "basis"
   ],
   "title": "LiquidationInput",
   "type": "object",

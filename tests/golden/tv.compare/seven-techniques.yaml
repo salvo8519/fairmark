@@ -18,6 +18,7 @@ input:
         liabilities: [{ label: Suppliers, value: "250" }]
         liquidation_costs: [{ label: Legal fees, value: "40" }, { label: Closure, value: "60" }]
         tax_on_gains: "30"
+        basis: enterprise
 expect:
   /results/0/method: tv.gordon
   /results/0/terminal_value: "1275"
