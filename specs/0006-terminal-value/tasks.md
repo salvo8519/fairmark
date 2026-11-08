@@ -6,28 +6,28 @@ Rules: test first; one task per commit; `[P]` tasks touch disjoint files and can
 parallel; tick a task only when `just check` passes.
 
 ## Tests (write first, they must fail)
-- [ ] T1 [P] Independent reference `scripts/reference_tv.py` (50 digits, local context) and
+- [x] T1 [P] Independent reference `scripts/reference_tv.py` (50 digits, local context) and
   `python/tests/test_reference_tv.py` [R1 to R7, R9]
-- [ ] T2 [P] Golden cases `tests/golden/tv.*/`, including the published Damodaran table cells
+- [x] T2 [P] Golden cases `tests/golden/tv.*/`, including the published Damodaran table cells
   [R1 to R7, R9, R10; AC1, AC2, AC5, AC6]
-- [ ] T3 [P] Contract cases `tests/contracts/tv.*.yaml` [R8, R10]
+- [x] T3 [P] Contract cases `tests/contracts/tv.*.yaml` [R8, R10]
 
 ## Implementation
-- [ ] T4 Error variants `FM-E018`, `FM-E019` with `docs/en/reference/errors.md` [R10; AC6]
-- [ ] T5 `tv/mod.rs`: growth cap check, domain checks, shared types [R8, R10]
-- [ ] T6 `tv.gordon` and `tv.value_driver` with unit tests [R1, R2, R8; AC1, AC2]
-- [ ] T7 `tv.h_model` with unit tests [R3, R8; AC3]
-- [ ] T8 `tv.exit_multiple` with unit tests [R4, R8; AC4]
-- [ ] T9 `tv.limited_horizon` and `tv.normalised_income` with unit tests [R5, R6, R8; AC5]
-- [ ] T10 `tv.liquidation` with unit tests [R7; AC6]
-- [ ] T11 `tv.compare` with unit tests [R9]
-- [ ] T12 Registry entries, `uv run just generate` (schemas v1, index, methods reference)
+- [x] T4 Error variants `FM-E018`, `FM-E019` with `docs/en/reference/errors.md` [R10; AC6]
+- [x] T5 `tv/mod.rs`: growth cap check, domain checks, shared types [R8, R10]
+- [x] T6 `tv.gordon` and `tv.value_driver` with unit tests [R1, R2, R8; AC1, AC2]
+- [x] T7 `tv.h_model` with unit tests [R3, R8; AC3]
+- [x] T8 `tv.exit_multiple` with unit tests [R4, R8; AC4]
+- [x] T9 `tv.limited_horizon` and `tv.normalised_income` with unit tests [R5, R6, R8; AC5]
+- [x] T10 `tv.liquidation` with unit tests [R7; AC6]
+- [x] T11 `tv.compare` with unit tests [R9]
+- [x] T12 Registry entries, `uv run just generate` (schemas v1, index, methods reference)
 
 ## Adapters and docs
-- [ ] T13 [P] Python helpers `python/fairmark/tv.py` with docstrings
-- [ ] T14 [P] Methodology pages `docs/en/methods/tv-*.md`, nav entries, index rows
-- [ ] T15 [P] Release note fragment `changes/115.feature.md`
-- [ ] T16 Italian edition (`docs/it/`), stamped with `scripts/i18n.py`; `uv run just check`
+- [x] T13 [P] Python helpers `python/fairmark/tv.py` with docstrings
+- [x] T14 [P] Methodology pages `docs/en/methods/tv-*.md`, nav entries, index rows
+- [x] T15 [P] Release note fragment `changes/115.feature.md`
+- [x] T16 Italian edition (`docs/it/`), stamped with `scripts/i18n.py`; `uv run just check`
 
 ## Verification
 - [ ] T17 `numerical-auditor` review, `code-reviewer` review, all AC ticked in spec.md

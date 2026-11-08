@@ -104,7 +104,7 @@ documented in the schema (`growth`, `residual_value`, `growth_cap`, `rate`, `nex
 | Golden `tv.gordon/damodaran-fcff-from-roc-table.yaml` | Same table, the g = 3%, ROC = 12% cell restated as a Gordon flow FCFF = 100 × (1 − 0.03 / 0.12) = 75 | AC1 |
 | Golden cases of every method, exact | `scripts/reference_tv.py` (Python `decimal`, 50 digits, local context), written from the spec formulas | R1 to R7, R9 |
 | Golden error cases | spec R10 | AC6 |
-| Rust unit tests in each module | constructed grids | AC2 (RONIC = r, several g), AC3 (g_s = g_l equals Gordon), AC4 (implied growth fed to Gordon), AC5 (n = 10,000 equals the perpetuity) |
+| Rust unit tests in each module | constructed grids | AC2 (RONIC = r, several g), AC3 (g_s = g_l equals Gordon), AC4 (implied growth fed to Gordon), AC5 (the longest horizon within the decimal range is within 1e-20 of the perpetuity; see open question 6) |
 | Contract cases `tests/contracts/tv.*.yaml` | constructed | extreme inputs never panic; conventions reported |
 | `python/tests/test_reference_tv.py` | reference script against the engine on small grids | independence of the golden values |
 
@@ -136,3 +136,8 @@ documented in the schema (`growth`, `residual_value`, `growth_cap`, `rate`, `nex
    basis and chooses the liabilities accordingly (financial debt included for equity).
 5. AC1 for `tv.gordon` and `tv.value_driver` uses one published table; a second published
    stable-growth example with more digits would strengthen it.
+6. `tv.limited_horizon` reuses `tvm.annuity` (R5), which also computes the future value at
+   N + n; for long horizons that value leaves the decimal range and the method returns
+   `FM-E008` (with a flow of 100 at 10%, beyond about 620 periods). AC5 is therefore shown at
+   600 periods, within 2e-22 of the perpetuity. Should `tvm` expose the annuity factor without
+   the future value, so that the finite horizon accepts any n up to 10,000?
