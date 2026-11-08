@@ -29,6 +29,7 @@ expect:
   /roe_three_factor/roe/value: 'null'
   /ros/not_defined: revenue is zero
   /ebitda_margin/not_defined: revenue is zero
+  /ebit_margin/not_defined: revenue is zero
   /roe_three_factor/net_margin/not_defined: revenue is zero
   /roe_three_factor/roe/not_defined: net margin is not defined
 tolerance: '0.000000001'

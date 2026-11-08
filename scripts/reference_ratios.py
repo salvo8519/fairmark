@@ -232,6 +232,13 @@ LIQ_CLOSING = {
     "current_liabilities": D(2000),
 }
 
+LIQ_OPENING = {
+    "current_assets": D(2300),
+    "inventories": D(850),
+    "cash": D(150),
+    "current_liabilities": D(1900),
+}
+
 WC_INCOME = {"revenue": D(5000), "cost_of_sales": D(3000), "purchases": D(2800)}
 WC_CLOSING = {"trade_receivables": D(1200), "inventories": D(600), "trade_payables": D(700)}
 WC_OPENING = {"trade_receivables": D(1000), "inventories": D(500), "trade_payables": D(650)}
@@ -282,6 +289,9 @@ def cases() -> dict[str, dict[str, Opt]]:
             average=False,
             base="invested_capital",
         ),
+        "ratios.profitability/average-invested-capital": profitability(
+            PROFIT_INCOME, PROFIT_CLOSING, PROFIT_OPENING, average=True, base="invested_capital"
+        ),
         "ratios.capital_structure/closing-balances": capital_structure(
             CS_CLOSING, None, average=False
         ),
@@ -292,6 +302,10 @@ def cases() -> dict[str, dict[str, Opt]]:
         "ratios.liquidity/closing-balances": liquidity(LIQ_CLOSING, None, average=False),
         "ratios.liquidity/zero-current-liabilities": liquidity(
             {**LIQ_CLOSING, "current_liabilities": D(0)}, None, average=False
+        ),
+        "ratios.liquidity/average-balances": liquidity(LIQ_CLOSING, LIQ_OPENING, average=True),
+        "ratios.working_capital/closing-360": working_capital(
+            WC_INCOME, WC_CLOSING, None, average=False, days=360
         ),
         "ratios.working_capital/closing-365": working_capital(
             WC_INCOME, WC_CLOSING, None, average=False, days=365
@@ -314,6 +328,13 @@ def cases() -> dict[str, dict[str, Opt]]:
             DS_OPENING,
             ZERO_SERVICE_SCHEDULE,
             average=True,
+        ),
+        "ratios.debt_service/zero-debt-outstanding": debt_service(
+            DS_INCOME,
+            DS_CLOSING,
+            None,
+            {**LEVEL_SCHEDULE, "debt_outstanding": D(0)},
+            average=False,
         ),
     }
 

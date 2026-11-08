@@ -1,0 +1,25 @@
+method: ratios.liquidity
+description: 'AC2: liquidity ratios and margins on average balances'
+source: 'scripts/reference_ratios.py, liquidity (Python decimal, 50 digits, local context), written from
+  the definitions in specs/0007-ratios-covenants/plan.md. Closed form: average current assets 2400, inventories
+  875, cash 175, current liabilities 1950; current ratio 2400 / 1950; quick ratio 1525 / 1950; NWC 450;
+  treasury margin -425.'
+input:
+  balances: average
+  closing:
+    current_assets: '2500'
+    inventories: '900'
+    cash: '200'
+    current_liabilities: '2000'
+  opening:
+    current_assets: '2300'
+    inventories: '850'
+    cash: '150'
+    current_liabilities: '1900'
+expect:
+  /current_ratio/value: '1.2307692307692307692307692307692307692307692307692'
+  /quick_ratio/value: '0.78205128205128205128205128205128205128205128205128'
+  /cash_ratio/value: '0.089743589743589743589743589743589743589743589743590'
+  /net_working_capital: '450'
+  /treasury_margin: '-425'
+tolerance: '0.000000001'

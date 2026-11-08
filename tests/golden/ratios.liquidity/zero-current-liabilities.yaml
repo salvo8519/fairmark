@@ -16,5 +16,6 @@ expect:
   /net_working_capital: '2500'
   /treasury_margin: '1600'
   /current_ratio/not_defined: current liabilities is zero
+  /quick_ratio/not_defined: current liabilities is zero
   /cash_ratio/not_defined: current liabilities is zero
 tolerance: '0.000000001'
