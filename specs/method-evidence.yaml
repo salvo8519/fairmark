@@ -15,7 +15,7 @@
 # crates/fairmark-core/src/registry.rs. Preview methods may be listed or not.
 specs:
   "0001":
-    methods: [dcf.fcff]
+    methods: [dcf.fcff, dcf.fcfe]
     numerical_audit: null
     code_review: null
   "0002":

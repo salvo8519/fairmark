@@ -101,6 +101,16 @@
         }
       }
     },
+    "dcf.fcfe": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "dcf.fcfe/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "68560968b9d5e466380264398e1f8aebaa959cc69045a2509c6ea951c1371099"
+        }
+      }
+    },
     "dcf.fcff": {
       "current": "3",
       "versions": {

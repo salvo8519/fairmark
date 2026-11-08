@@ -430,6 +430,35 @@ Value of operations, enterprise value and equity value from FCFF discounted at t
 | `debt_like_items` | lista di object | no |  | Debt-like items (debt equivalents) at the valuation date, for example unfunded pension obligations or provisions, each a label, a value in currency units (zero or more) and its measurement basis, subtracted from enterprise value. Do not repeat an item already among the `other_items` of the net financial position. Default: none, reported. |
 | `non_controlling_interests` | lista di object | no |  | Non-controlling interests (minority interests) at the valuation date, each a label, a value in currency units (zero or more) and its measurement basis (for example `book_value` or `fair_value`), subtracted from enterprise value. Default: none, reported. |
 
+## `dcf.fcfe`
+
+**DCF — free cash flow to equity** · versione del metodo 1 · stato anteprima · tool `fairmark_dcf_fcfe`
+
+Equity value from FCFE discounted at the cost of equity over one to three explicit stages (given flows or flows built up from line items with interest and net borrowing, constant growth, linear decline of growth) and a terminal value by a tv.* technique on the equity basis, plus non-operating assets, minus debt-like items and non-controlling interests; no net financial position, debt is in the flows. Returns every period and step for audit.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `stages` | lista di object | sì |  | One to three explicit stages of free cash flows to equity (FCFE), in order; the explicit horizon N is the sum of their periods. Each stage is `{"periods", "projection", ...}` with the fields of its projection; a `given` stage takes the FCFE as amounts (`flows`) or builds them up from line items with `interest_expense` and `net_borrowing` in every line (`lines`). |
+| `base_flow` | decimale | no |  | FCFE of the base period CF_0, in currency units: required when the first stage is `constant_growth` or `linear_decline`, refused when it is `given`. |
+| `notional_tax_rate` | decimale | no |  | For stages with `lines`: tax rate applied to EBIT, decimal fraction from 0 to below 1 (0.24 = 24%), also the rate of the interest tax shield. Give this, or `operating_taxes` in every line, not both; refused when no stage has `lines`. Default: none. |
+| `negative_ebit` |  | no |  | For stages with `lines` and `notional_tax_rate`: treatment of a negative EBIT, `credit` (taxes = rate × EBIT) or `zero` (no tax, and no interest tax shield in that period); required with `notional_tax_rate`, no default. |
+| `interest_tax_rate` | decimale | no |  | For stages with `lines` and `operating_taxes`: the tax rate t of the interest tax shield, interest × (1 − t), decimal fraction from 0 to below 1; required in that case, refused otherwise. Default: none. |
+| `cash_flow_terms` | `nominal` \| `real` | sì |  | `nominal` or `real`: the terms of every amount and growth rate of the input. |
+| `discount_rate_terms` | `nominal` \| `real` | sì |  | `nominal` or `real`: the terms of the costs of equity. When they differ from `cash_flow_terms`, expected inflation is required (`inflation`, or `inflation_per_period` with `terminal_inflation`) and every rate is converted to the terms of the cash flows; the cash flows are never converted. |
+| `inflation` | decimale | no |  | Expected inflation, decimal fraction per period (0.02 = 2%), greater than -1, for every explicit period and for the terminal phase. Give this or `inflation_per_period`, or neither. With different terms it converts the costs of equity by the exact Fisher relation; with equal terms it only restates the perpetual growth in the other terms. Default: none. |
+| `inflation_per_period` | array \| null | no |  | Expected inflation per period of the explicit horizon, decimal fractions, exactly N of them, each greater than -1; requires `terminal_inflation`. Give this or `inflation`, not both. Default: none. |
+| `terminal_inflation` | decimale | no |  | Expected inflation of the terminal phase, decimal fraction per period, greater than -1; required with `inflation_per_period`, refused otherwise. |
+| `cost_of_equity` | decimale | no |  | One cost of equity for every period and for the terminal value, decimal fraction per period (0.11 = 11%), greater than -1. Give this or `cost_of_equity_per_period`, not both. |
+| `cost_of_equity_per_period` | array \| null | no |  | One cost of equity per period of the explicit horizon, decimal fractions, exactly N of them; requires `terminal_cost_of_equity`. Give this or `cost_of_equity`, not both. |
+| `terminal_cost_of_equity` | decimale | no |  | Cost of equity of the terminal phase, decimal fraction per period; required with `cost_of_equity_per_period`, refused with `cost_of_equity`. |
+| `timing` | `end_of_period` \| `mid_period` | sì |  | `end_of_period` (flow k at t = k) or `mid_period` (t = k − 0.5); no default. |
+| `terminal_discount_time` |  | no |  | With `mid_period` timing, required: `horizon` (terminal value at t = N) or `mid_period` (t = N − 0.5). Refused with `end_of_period`. |
+| `terminal` | object | sì |  | The terminal technique on the equity basis, an object with exactly one key, the method id, for example `{"tv.gordon": {"growth", "first_flow", ...}}`: `tv.gordon`, `tv.h_model` or `tv.limited_horizon` on the FCFE, `tv.exit_multiple` on `earnings` (P/E) or `book_value` (P/BV), `tv.normalised_income` or `tv.liquidation` declared on the `equity` basis. |
+| `net_financial_position` |  | no |  | Not used on the equity basis and refused (`FM-E019`): debt is already in the FCFE, through interest and net borrowing, so the net financial position is not subtracted. Cash that the FCFE does not reflect goes in `non_operating_assets`. Accepted by the schema only so that the refusal names the fix. |
+| `non_operating_assets` | lista di object | no |  | Non-operating assets at the valuation date, each a label and a value in currency units (zero or more), added to the present value of the FCFE and of the terminal value: for example cash not needed for operations whose interest income is not in the FCFE, or an investment property. Default: none, reported. |
+| `debt_like_items` | lista di object | no |  | Debt-like items (debt equivalents) at the valuation date whose cash flows are not in the FCFE, for example unfunded pension obligations, each a label, a value in currency units (zero or more) and its measurement basis; subtracted. Default: none, reported. |
+| `non_controlling_interests` | lista di object | no |  | Non-controlling interests (minority interests) at the valuation date, when the FCFE are those of the consolidated group, each a label, a value in currency units (zero or more) and its measurement basis; subtracted. Default: none, reported. |
+
 ## `dcf.free_cash_flows`
 
 **Free cash flow build-up (FCFF and FCFE)** · versione del metodo 2 · stato anteprima · tool `fairmark_dcf_free_cash_flows`

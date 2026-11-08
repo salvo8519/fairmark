@@ -651,6 +651,18 @@ pub(crate) fn check<'a>(
             format!("{} (declared)", q.basis.name()),
             basis,
         )?,
+        // Its terms are NOPAT and RONIC, enterprise measures. Its equity form (net income and
+        // return on equity) is an open question for the maintainer (plan.md, issue #165):
+        // refused on the equity basis until decided, so that no number rests on an undecided
+        // reading.
+        Technique::ValueDriver(_) if basis == TerminalBasis::Equity => {
+            return Err(FairmarkError::MixedBasis(format!(
+                "`{at}` states NOPAT and the return on new invested capital (RONIC), measures \
+                 of the enterprise basis, but this DCF values on the equity basis; its equity \
+                 form is not available: use tv.gordon with `first_flow` = \
+                 normalised_next_flow, or tv.exit_multiple on earnings or book_value"
+            )))
+        }
         Technique::ValueDriver(_) | Technique::LimitedHorizon(_) => {}
     }
     // The terms, by the technique's own checks. CF_N is not known yet and no technique checks

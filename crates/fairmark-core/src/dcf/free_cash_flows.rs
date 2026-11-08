@@ -413,7 +413,7 @@ fn validate(
 
 pub(crate) const FORMULA_FCFF: &str =
     "FCFF_t = EBIT_t − taxes on EBIT_t + D&A_t − capex_t − ΔNWC_t + Σ adjustments_t";
-const FORMULA_FCFE: &str =
+pub(crate) const FORMULA_FCFE: &str =
     "FCFE_t = FCFF_t − (interest_t − interest tax shield_t) + net borrowing_t";
 
 /// Builds FCFF, and FCFE when the financing lines are given, for every period.

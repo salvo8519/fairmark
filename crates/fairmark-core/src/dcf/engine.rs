@@ -1,7 +1,7 @@
 //! The shared DCF engine (SPEC-0001): explicit stages, discount rates, terms, timing and the
 //! terminal value, independent of the basis.
 //!
-//! Each DCF method (`dcf.fcff`, later `dcf.fcfe`) maps its own fields to [`EngineInput`],
+//! Each DCF method (`dcf.fcff`, `dcf.fcfe`) maps its own fields to [`EngineInput`],
 //! calls [`run`] through a typed call (ADR 0009) and adds its own bridge to equity value. The
 //! engine never reads the method's field names except to name them in errors (R27), through
 //! [`RateFields`].
@@ -24,7 +24,7 @@ use crate::tvm::{period_discount_factors, PeriodTiming};
 use crate::types::Timing;
 
 use super::free_cash_flows::{
-    build_up, FreeCashFlowLines, FreeCashFlows, Location, TaxChoice, FORMULA_FCFF,
+    build_up, FreeCashFlowLines, FreeCashFlows, Location, TaxChoice, FORMULA_FCFE, FORMULA_FCFF,
 };
 use super::terminal::{self, Technique, Terminal, TerminalContext, TerminalOutput};
 use std::borrow::Cow;
@@ -276,8 +276,8 @@ struct ResolvedStage<'a> {
     periods: u32,
     projection: Projection,
     kind: StageKind<'a>,
-    /// True when the flows were built up from `lines`.
-    built_up: bool,
+    /// The flow built up from `lines` (`FCFF` or `FCFE`), when it was.
+    built_up: Option<&'static str>,
 }
 
 fn check_stages(
@@ -415,7 +415,7 @@ fn check_stages(
             periods: s.periods,
             projection: s.projection,
             kind,
-            built_up: false,
+            built_up: None,
         });
     }
     if horizon > MAX_PERIODS {
@@ -850,7 +850,7 @@ fn project(
         let stage = i as u32 + 1;
         let last = first + s.periods - 1;
         ex.convention(match s.kind {
-            StageKind::Given(_) if s.built_up => format!(
+            StageKind::Given(_) if s.built_up.is_some() => format!(
                 "stage {stage}: periods {first} to {last}, given flows built up from line items"
             ),
             StageKind::Given(_) => {
@@ -888,10 +888,11 @@ fn project(
             let flow = match (&s.kind, growth) {
                 (StageKind::Given(flows), _) => {
                     let flow = flows[(j - 1) as usize];
-                    let source = if s.built_up {
-                        format!("built up from line items (step \"Build-up: FCFF, period {k}\")")
-                    } else {
-                        "as given".to_owned()
+                    let source = match s.built_up {
+                        Some(name) => format!(
+                            "built up from line items (step \"Build-up: {name}, period {k}\")"
+                        ),
+                        None => "as given".to_owned(),
                     };
                     ex.step(format!("Period {k}: flow"), source, flow);
                     flow
@@ -976,25 +977,34 @@ fn build_up_stages(
                     conventions.push(c);
                 }
             }
-            let flows = match basis {
-                TerminalBasis::Enterprise => out.free_cash_flows_to_firm,
-                TerminalBasis::Equity => out.free_cash_flows_to_equity.ok_or_else(|| {
-                    invalid(format!(
-                        "`{pointer}` has no `interest_expense` and `net_borrowing`: the equity \
-                         basis discounts FCFE, which needs them in every period"
-                    ))
-                })?,
+            let (flows, name) = match basis {
+                TerminalBasis::Enterprise => (out.free_cash_flows_to_firm, "FCFF"),
+                TerminalBasis::Equity => (
+                    out.free_cash_flows_to_equity.ok_or_else(|| {
+                        invalid(format!(
+                            "`{pointer}` has no `interest_expense` and `net_borrowing`: the \
+                             equity basis discounts FCFE, which needs them in every period"
+                        ))
+                    })?,
+                    "FCFE",
+                ),
             };
             s.kind = StageKind::Given(Cow::Owned(flows));
-            s.built_up = true;
+            s.built_up = Some(name);
         }
         first += s.periods;
     }
     if any {
         let source = format!("{} v{}", FreeCashFlows::ID, FreeCashFlows::VERSION);
-        ex.convention(format!(
-            "free cash flow build-up ({source}) for the stages with lines: {FORMULA_FCFF}"
-        ));
+        ex.convention(match basis {
+            TerminalBasis::Enterprise => format!(
+                "free cash flow build-up ({source}) for the stages with lines: {FORMULA_FCFF}"
+            ),
+            TerminalBasis::Equity => format!(
+                "free cash flow build-up ({source}) for the stages with lines: {FORMULA_FCFF}; \
+                 {FORMULA_FCFE}"
+            ),
+        });
         for c in conventions {
             ex.convention(format!("free cash flow build-up ({source}): {c}"));
         }

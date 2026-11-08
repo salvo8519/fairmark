@@ -8,10 +8,12 @@
 //!   the engine.
 //! - [`fcff`]: `dcf.fcff`, the enterprise DCF (FCFF at the WACC) with its bridge to equity
 //!   value.
+//! - [`fcfe`]: `dcf.fcfe`, the equity DCF (FCFE at the cost of equity), equity value directly.
 //! - [`free_cash_flows`]: `dcf.free_cash_flows`, the build-up of FCFF and FCFE from line items.
 
 pub mod bridge;
 pub mod engine;
+pub mod fcfe;
 pub mod fcff;
 pub mod free_cash_flows;
 pub mod terminal;
@@ -20,6 +22,7 @@ pub use bridge::{BridgeClaim, MeasurementBasis};
 pub use engine::{
     PeriodRow, Projection, RateConversion, Stage, TerminalDiscountTime, Terms, TermsOutput,
 };
+pub use fcfe::{fcfe, DcfFcfeInput, DcfFcfeOutput, Fcfe, FcfeBridge};
 pub use fcff::{fcff, DcfFcffInput, DcfFcffOutput, Fcff, FcffBridge};
 pub use free_cash_flows::{
     free_cash_flows, FreeCashFlows, FreeCashFlowsInput, FreeCashFlowsOutput,

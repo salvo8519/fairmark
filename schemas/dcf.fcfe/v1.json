@@ -1,0 +1,1088 @@
+{
+  "$defs": {
+    "Adjustment": {
+      "additionalProperties": false,
+      "description": "A signed, labelled amount added to the free cash flow of a period.",
+      "properties": {
+        "label": {
+          "description": "What the amount is, for example \"Disposal of a warehouse\". Not empty.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Amount in currency units: positive for an inflow (for example proceeds from a disposal),\nnegative for an outflow.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    },
+    "BridgeClaim": {
+      "additionalProperties": false,
+      "description": "A claim on the value of the company other than the net financial position, subtracted from\nenterprise value to reach equity value: a debt-like item or a non-controlling interest\n(R25). Fairmark subtracts the amount as given and does not choose how it is measured.",
+      "properties": {
+        "basis_note": {
+          "description": "Free text that qualifies the basis, for example \"net of tax\" or \"49% of the book value\nof equity of the subsidiary\"; required with `other`, optional otherwise, never empty\nwhen given. Reported, never used in the calculation.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "label": {
+          "description": "What the claim is, for example \"Unfunded pension obligation\" or \"30% of Subsidiary A\".\nNot empty.",
+          "type": "string"
+        },
+        "measurement_basis": {
+          "$ref": "#/$defs/MeasurementBasis",
+          "description": "How the amount was measured, stated by the analyst: `book_value`, `market_value`,\n`fair_value`, `present_value` or `other` (then describe it in `basis_note`). Required,\nno default. Reported with the amount, never used in the calculation."
+        },
+        "value": {
+          "description": "Amount at the valuation date, in currency units, zero or more; subtracted.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "value",
+        "measurement_basis"
+      ],
+      "type": "object"
+    },
+    "ExitMultipleTerminal": {
+      "additionalProperties": false,
+      "description": "The terms of `tv.exit_multiple` inside the DCF: the metric must be on the basis of the DCF\n(`ebitda`, `ebit` or `revenue` for the enterprise basis).",
+      "properties": {
+        "growth_cap": {
+          "description": "Upper bound for the implied growth, decimal fraction per period. Default: none,\nreported as absent. Needs `next_flow`. Exceeding it is reported, not refused.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "metric": {
+          "$ref": "#/$defs/MultipleMetric",
+          "description": "`ebitda`, `ebit`, `revenue` (enterprise basis), `earnings` or `book_value` (equity\nbasis); must be on the basis of the DCF."
+        },
+        "metric_value": {
+          "description": "The metric at the horizon N (trailing), in currency units, greater than 0, in the terms\nof the cash flows.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "multiple": {
+          "description": "The multiple, a pure number greater than 0 (for example 8 for 8 × EBITDA).",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "next_flow": {
+          "description": "Flow at N + 1 on the basis of the DCF, in currency units, in the terms of the cash\nflows. Optional: when given, the perpetual growth implied by the multiple is computed\nat the terminal rate.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "multiple",
+        "metric",
+        "metric_value"
+      ],
+      "type": "object"
+    },
+    "FirstTerminalFlow": {
+      "description": "The flow at N + 1 of a technique that grows the last explicit flow (R20).",
+      "oneOf": [
+        {
+          "const": "last_flow_grown",
+          "description": "The technique grows the last explicit flow CF_N (`tv.gordon`: CF_N × (1 + g);\n`tv.h_model`: its own formula).",
+          "type": "string"
+        },
+        {
+          "const": "normalised_next_flow",
+          "description": "CF_{N+1} given in `normalised_next_flow`.",
+          "type": "string"
+        }
+      ]
+    },
+    "FreeCashFlowLines": {
+      "additionalProperties": false,
+      "description": "The line items of one period, after reclassification (SPEC-0005).",
+      "properties": {
+        "capital_expenditure": {
+          "description": "Capital expenditure of the period, in currency units, zero or more; subtracted.\nDisposals go in `other_adjustments` with a positive sign.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "change_in_net_working_capital": {
+          "description": "Change in net working capital of the period, in currency units: positive for an\nincrease, which absorbs cash and is subtracted; negative for a decrease.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "depreciation_and_amortisation": {
+          "description": "Depreciation and amortisation of the period, in currency units, zero or more; added back.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "ebit": {
+          "description": "EBIT (earnings before interest and taxes) of the period, in currency units; any sign.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "interest_expense": {
+          "description": "Interest expense of the period, in currency units, zero or more. Give it with\n`net_borrowing`, for every period or for none, to obtain the FCFE. Default: none.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "net_borrowing": {
+          "description": "Net borrowing of the period, in currency units: positive for new borrowing, negative for\nnet repayment. Give it with `interest_expense`. Default: none.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "operating_taxes": {
+          "description": "Taxes on EBIT of the period, in currency units, positive for a tax paid (amounts form).\nGive it for every period and omit `notional_tax_rate`, or omit it everywhere and give\n`notional_tax_rate`. Default: none.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "other_adjustments": {
+          "default": [],
+          "description": "Other labelled adjustments, each positive for an inflow and negative for an outflow.\nDefault: none.",
+          "items": {
+            "$ref": "#/$defs/Adjustment"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "ebit",
+        "depreciation_and_amortisation",
+        "capital_expenditure",
+        "change_in_net_working_capital"
+      ],
+      "type": "object"
+    },
+    "GordonTerminal": {
+      "additionalProperties": false,
+      "description": "The terms of `tv.gordon` inside the DCF: the rate is the terminal rate of the DCF and the\nlast flow is the last explicit flow.",
+      "properties": {
+        "first_flow": {
+          "$ref": "#/$defs/FirstTerminalFlow",
+          "description": "`last_flow_grown` or `normalised_next_flow`; no default."
+        },
+        "growth": {
+          "description": "Perpetual growth after the horizon, decimal fraction per period, greater than -1 and\nbelow the terminal rate, in the terms of the cash flows.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "growth_cap": {
+          "description": "Upper bound for the perpetual growth, decimal fraction per period. Default: none,\nreported as absent. A growth above the cap is reported, not refused.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "normalised_next_flow": {
+          "description": "The flow at N + 1 in currency units, in the terms of the cash flows; required with\n`first_flow` = `normalised_next_flow`, refused otherwise.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "growth",
+        "first_flow"
+      ],
+      "type": "object"
+    },
+    "HModelFirstFlow": {
+      "description": "The flow CF_N on which `tv.h_model` is computed (R20, Decision 15).",
+      "oneOf": [
+        {
+          "const": "last_flow_grown",
+          "description": "The last explicit flow CF_N, grown by the H-model formula.",
+          "type": "string"
+        },
+        {
+          "const": "normalised_base_flow",
+          "description": "A normalised base flow at N, given in `normalised_base_flow`, replaces the last explicit\nflow; the standard formula applies, with no conversion from N + 1.",
+          "type": "string"
+        }
+      ]
+    },
+    "HModelTerminal": {
+      "additionalProperties": false,
+      "description": "The terms of `tv.h_model` inside the DCF: the rate is the terminal rate of the DCF and the\nflow CF_N is the last explicit flow or a normalised base flow at N (Decision 15).",
+      "properties": {
+        "first_flow": {
+          "$ref": "#/$defs/HModelFirstFlow",
+          "description": "`last_flow_grown` (the H-model grows the last explicit flow CF_N) or\n`normalised_base_flow` (a normalised CF_N given in `normalised_base_flow`); no default."
+        },
+        "growth_cap": {
+          "description": "Upper bound for the long-term growth, decimal fraction per period. Default: none,\nreported as absent. A growth above the cap is reported, not refused.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "half_life": {
+          "description": "Half-life H, in periods: the decline from g_s to g_l lasts 2H periods. Zero or\npositive; may be fractional.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "long_term_growth": {
+          "description": "Stable growth reached after 2H periods and kept forever, g_l, decimal fraction per\nperiod, greater than -1 and below the terminal rate, in the terms of the cash flows.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "normalised_base_flow": {
+          "description": "The normalised base flow CF_N at the horizon N, in currency units, in the terms of the\ncash flows; required with `first_flow` = `normalised_base_flow`, refused otherwise.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "short_term_growth": {
+          "description": "Growth at the start of the decline, g_s, decimal fraction per period, greater than -1,\nin the terms of the cash flows.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "short_term_growth",
+        "long_term_growth",
+        "half_life",
+        "first_flow"
+      ],
+      "type": "object"
+    },
+    "LimitedHorizonTerminal": {
+      "additionalProperties": false,
+      "description": "The terms of `tv.limited_horizon` inside the DCF: the rate is the terminal rate of the DCF.\nEvery term is required, with no default (R29).",
+      "properties": {
+        "flow": {
+          "description": "First flow after the horizon, at the end of period N + 1, in currency units, in the\nterms of the cash flows.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "growth": {
+          "description": "Growth of the flow per period, decimal fraction, greater than -1; 0 for a constant flow.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "growth_cap": {
+          "description": "Upper bound for the growth, decimal fraction per period. Default: none, reported as\nabsent. A growth above the cap is reported, not refused.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "periods": {
+          "description": "Number of further periods n during which the flow lasts, from 1 to 10000.",
+          "format": "uint32",
+          "maximum": 10000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "residual_value": {
+          "description": "Residual value at the end of period N + n, in currency units, in the terms of the cash\nflows; 0 for none.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "flow",
+        "periods",
+        "growth",
+        "residual_value"
+      ],
+      "type": "object"
+    },
+    "Line": {
+      "additionalProperties": false,
+      "description": "A labelled amount, for example an asset and its realisable value.",
+      "properties": {
+        "label": {
+          "description": "What the amount is, for example \"Land\" or \"Bank loan\". Not empty.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Amount in currency units, zero or positive.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    },
+    "LiquidationTerminal": {
+      "additionalProperties": false,
+      "description": "The terms of `tv.liquidation` inside the DCF: the declared basis must be the basis of the\nDCF.",
+      "properties": {
+        "assets": {
+          "description": "Assets with their realisable values at N, in currency units, in the terms of the cash\nflows, each zero or positive; at least one.",
+          "items": {
+            "$ref": "#/$defs/Line"
+          },
+          "type": "array"
+        },
+        "basis": {
+          "$ref": "#/$defs/TerminalBasis",
+          "description": "`enterprise` (the liabilities listed exclude financial debt) or `equity` (financial debt\nincluded); must be the basis of the DCF. Required, no default."
+        },
+        "liabilities": {
+          "description": "Liabilities settled at N, in currency units, in the terms of the cash flows, each zero\nor positive.",
+          "items": {
+            "$ref": "#/$defs/Line"
+          },
+          "type": "array"
+        },
+        "liquidation_costs": {
+          "description": "Costs of the liquidation (legal fees, closure, severance), in currency units, in the\nterms of the cash flows, each zero or positive.",
+          "items": {
+            "$ref": "#/$defs/Line"
+          },
+          "type": "array"
+        },
+        "tax_on_gains": {
+          "description": "Tax on the gains realised, as an amount in currency units, in the terms of the cash\nflows, zero or positive.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "assets",
+        "liabilities",
+        "liquidation_costs",
+        "tax_on_gains",
+        "basis"
+      ],
+      "type": "object"
+    },
+    "MeasurementBasis": {
+      "description": "How the amount of a bridge claim was measured (Decision 21). Fairmark does not choose the\nbasis: the analyst states it and the result reports it next to the amount.",
+      "oneOf": [
+        {
+          "const": "book_value",
+          "description": "Book value per the accounts at the valuation date.",
+          "type": "string"
+        },
+        {
+          "const": "market_value",
+          "description": "Quoted market price at the valuation date.",
+          "type": "string"
+        },
+        {
+          "const": "fair_value",
+          "description": "Fair value as defined by IFRS 13.",
+          "type": "string"
+        },
+        {
+          "const": "present_value",
+          "description": "Present value of the obligation, for example unfunded pensions or provisions.",
+          "type": "string"
+        },
+        {
+          "const": "other",
+          "description": "Another basis, described in `basis_note` (required).",
+          "type": "string"
+        }
+      ]
+    },
+    "MultipleMetric": {
+      "description": "The metric a multiple applies to. Enterprise multiples (EV/EBITDA, EV/EBIT, EV/Sales) give\nan enterprise value; P/E and P/BV give an equity value. The two are never mixed.",
+      "oneOf": [
+        {
+          "const": "ebitda",
+          "description": "EBITDA at N; multiple EV/EBITDA, enterprise basis.",
+          "type": "string"
+        },
+        {
+          "const": "ebit",
+          "description": "EBIT at N; multiple EV/EBIT, enterprise basis.",
+          "type": "string"
+        },
+        {
+          "const": "revenue",
+          "description": "Revenue at N; multiple EV/Sales, enterprise basis.",
+          "type": "string"
+        },
+        {
+          "const": "earnings",
+          "description": "Net earnings at N; multiple P/E, equity basis.",
+          "type": "string"
+        },
+        {
+          "const": "book_value",
+          "description": "Book value of equity at N; multiple P/BV (price to book value), equity basis\n(SPEC-0006 decision of 2026-11-08).",
+          "type": "string"
+        }
+      ]
+    },
+    "NegativeEbit": {
+      "description": "Tax on a negative EBIT when the taxes are computed from a rate (SPEC-0001 R4).",
+      "oneOf": [
+        {
+          "const": "credit",
+          "description": "Taxes = rate × EBIT also when EBIT is negative: a tax saving that raises the flow.",
+          "type": "string"
+        },
+        {
+          "const": "zero",
+          "description": "No tax when EBIT is negative.",
+          "type": "string"
+        }
+      ]
+    },
+    "NetFinancialPosition": {
+      "additionalProperties": false,
+      "description": "The net financial position with its composition (SPEC-0007 R6). Fairmark adds what is\ngiven and does not choose which items are included.",
+      "properties": {
+        "cash": {
+          "description": "Cash and cash equivalents, in currency units, subtracted from the gross debt.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "gross_debt": {
+          "description": "Gross financial debt (bank loans, bonds and other borrowings), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "other_items": {
+          "default": [],
+          "description": "Other items included by the analyst, each added with its sign. Default: none.",
+          "items": {
+            "$ref": "#/$defs/NfpItem"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "gross_debt",
+        "cash"
+      ],
+      "type": "object"
+    },
+    "NfpItem": {
+      "additionalProperties": false,
+      "description": "One item of the net financial position other than gross debt and cash.",
+      "properties": {
+        "amount": {
+          "description": "Amount in currency units, added to the net financial position: positive for debt-like\nitems, negative for financial assets.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "name": {
+          "description": "What the item is, for example \"lease liabilities\" or \"derivative assets\".",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "amount"
+      ],
+      "type": "object"
+    },
+    "NormalisedIncomeTerminal": {
+      "additionalProperties": false,
+      "description": "The terms of `tv.normalised_income` inside the DCF: the capitalisation rate is the terminal\nrate of the DCF (R19, Decision 13); no separate capitalisation rate is accepted.",
+      "properties": {
+        "basis": {
+          "$ref": "#/$defs/TerminalBasis",
+          "description": "`enterprise` (an operating income) or `equity` (a net income); must be the basis of the\nDCF. Required, no default."
+        },
+        "growth": {
+          "description": "Perpetual growth of the income, decimal fraction per period, greater than -1 and below\nthe terminal rate, in the terms of the cash flows; 0 for none (R / i).",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "growth_cap": {
+          "description": "Upper bound for the growth, decimal fraction per period. Default: none, reported as\nabsent. A growth above the cap is reported, not refused.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "income": {
+          "description": "Normalised income R of the first period after the horizon, in currency units, in the\nterms of the cash flows.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "income",
+        "basis",
+        "growth"
+      ],
+      "type": "object"
+    },
+    "Projection": {
+      "description": "How the flows of a stage are obtained (Decision 3).",
+      "oneOf": [
+        {
+          "const": "given",
+          "description": "The flows are given, one per period, in `flows`, or built up from line items in\n`lines` (exactly one of the two).",
+          "type": "string"
+        },
+        {
+          "const": "constant_growth",
+          "description": "Each flow is the previous flow × (1 + `growth`).",
+          "type": "string"
+        },
+        {
+          "const": "linear_decline",
+          "description": "The growth moves from `from_growth` to `to_growth` in equal steps,\ng_k = g_from + (g_to − g_from) × k / m, reaching `to_growth` in the last period\n(Decision 4).",
+          "type": "string"
+        }
+      ]
+    },
+    "Stage": {
+      "additionalProperties": false,
+      "description": "One explicit stage: a number of periods and how its flows are obtained. Each projection\ntakes only its own fields: `flows` or `lines` for `given`, `growth` for `constant_growth`,\n`from_growth` and `to_growth` for `linear_decline`.",
+      "properties": {
+        "flows": {
+          "description": "For `given`: the flows of the stage in currency units, exactly one per period, in the\nterms of `cash_flow_terms`.",
+          "items": {
+            "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "from_growth": {
+          "description": "For `linear_decline`: the growth before the stage, decimal fraction per period, greater\nthan -1.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "growth": {
+          "description": "For `constant_growth`: growth per period, decimal fraction, greater than -1.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "lines": {
+          "description": "For `given`, instead of `flows`: the line items of each period (EBIT, taxes on EBIT,\ndepreciation and amortisation, capital expenditure, change in net working capital,\nadjustments), exactly one per period, in currency units in the terms of\n`cash_flow_terms`; the flow of each period is built up as in `dcf.free_cash_flows`, with\nthe tax fields of the method (SPEC-0001 R7). `interest_expense` and `net_borrowing` apply\nonly where FCFE is discounted: they are refused on the enterprise basis (`dcf.fcff`).",
+          "items": {
+            "$ref": "#/$defs/FreeCashFlowLines"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "periods": {
+          "description": "Number of periods of the stage, at least 1; one period is one year.",
+          "format": "uint32",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "projection": {
+          "$ref": "#/$defs/Projection",
+          "description": "`given`, `constant_growth` or `linear_decline`; no default."
+        },
+        "to_growth": {
+          "description": "For `linear_decline`: the growth of the last period of the stage, decimal fraction per\nperiod, greater than -1.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "periods",
+        "projection"
+      ],
+      "type": "object"
+    },
+    "Terminal": {
+      "additionalProperties": false,
+      "description": "The terminal technique, written as an object with exactly one key, the `tv.*` method id,\nas in `tv.compare`: `{\"tv.gordon\": {...}}`.",
+      "maxProperties": 1,
+      "minProperties": 1,
+      "properties": {
+        "tv.exit_multiple": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExitMultipleTerminal"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The business sold at a multiple of a metric at N (`tv.exit_multiple`): `multiple`,\n`metric`, `metric_value`, optional `next_flow` and `growth_cap`."
+        },
+        "tv.gordon": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GordonTerminal"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Stable growth (`tv.gordon`): `growth`, `first_flow`, optional `normalised_next_flow`\nand `growth_cap`."
+        },
+        "tv.h_model": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HModelTerminal"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Growth declining linearly to a stable rate (`tv.h_model`) on the last explicit flow:\n`short_term_growth`, `long_term_growth`, `half_life`, `first_flow`, optional\n`growth_cap`."
+        },
+        "tv.limited_horizon": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LimitedHorizonTerminal"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A flow lasting n more periods, then a residual value (`tv.limited_horizon`): `flow`,\n`periods`, `growth`, `residual_value`, optional `growth_cap`."
+        },
+        "tv.liquidation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LiquidationTerminal"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Assets realised and liabilities settled at N (`tv.liquidation`): `assets`,\n`liabilities`, `liquidation_costs`, `tax_on_gains`, `basis`."
+        },
+        "tv.normalised_income": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NormalisedIncomeTerminal"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A normalised income capitalised at the terminal rate (`tv.normalised_income`): `income`,\n`basis`, `growth`, optional `growth_cap`."
+        },
+        "tv.value_driver": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ValueDriverTerminal"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Stable growth earned by reinvestment (`tv.value_driver`): `nopat_next`, `growth`,\n`ronic`, optional `growth_cap`."
+        }
+      },
+      "type": "object"
+    },
+    "TerminalBasis": {
+      "description": "Whether a terminal value is a value of the whole business or of its equity.",
+      "oneOf": [
+        {
+          "const": "enterprise",
+          "description": "Enterprise value: flows to all capital providers (FCFF), discounted at the WACC;\nmultiples EV/EBITDA, EV/EBIT, EV/Sales.",
+          "type": "string"
+        },
+        {
+          "const": "equity",
+          "description": "Equity value: flows to shareholders (FCFE, dividends), discounted at the cost of\nequity; multiple P/E.",
+          "type": "string"
+        }
+      ]
+    },
+    "TerminalDiscountTime": {
+      "description": "When the terminal value is discounted under mid-period timing (Decision 6).",
+      "oneOf": [
+        {
+          "const": "horizon",
+          "description": "At the horizon, t = N: factor DF_N.",
+          "type": "string"
+        },
+        {
+          "const": "mid_period",
+          "description": "Half a period earlier, t = N − 0.5: factor DF_N × (1 + r_N)^0.5.",
+          "type": "string"
+        }
+      ]
+    },
+    "Terms": {
+      "description": "Whether amounts and growth rates, or discount rates, include expected inflation.",
+      "oneOf": [
+        {
+          "const": "nominal",
+          "description": "At current prices: expected inflation included.",
+          "type": "string"
+        },
+        {
+          "const": "real",
+          "description": "At constant prices: expected inflation excluded.",
+          "type": "string"
+        }
+      ]
+    },
+    "Timing": {
+      "description": "When cash flows arrive within each period.\n\nRates are always decimal fractions per period: `0.10` means 10%.",
+      "oneOf": [
+        {
+          "const": "end_of_period",
+          "description": "Cash flows at the end of each period (t = 1, 2, ..., n).",
+          "type": "string"
+        },
+        {
+          "const": "mid_period",
+          "description": "Cash flows spread evenly, discounted at mid period (t = 0.5, 1.5, ...).",
+          "type": "string"
+        }
+      ]
+    },
+    "ValueDriverTerminal": {
+      "additionalProperties": false,
+      "description": "The terms of `tv.value_driver` inside the DCF: the rate is the terminal rate of the DCF.",
+      "properties": {
+        "growth": {
+          "description": "Perpetual growth, decimal fraction per period, greater than -1 and below the terminal\nrate, in the terms of the cash flows.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "growth_cap": {
+          "description": "Upper bound for the perpetual growth, decimal fraction per period. Default: none,\nreported as absent. A growth above the cap is reported, not refused.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "nopat_next": {
+          "description": "Net operating profit after tax of the first period after the horizon, NOPAT_{N+1}, in\ncurrency units, in the terms of the cash flows.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "ronic": {
+          "description": "Return on new invested capital (RONIC), decimal fraction per period, greater than 0.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "nopat_next",
+        "growth",
+        "ronic"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:dcf.fcfe:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `dcf.fcfe` (version 1). Every choice is required, with no default (R29).",
+  "properties": {
+    "base_flow": {
+      "description": "FCFE of the base period CF_0, in currency units: required when the first stage is\n`constant_growth` or `linear_decline`, refused when it is `given`.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "cash_flow_terms": {
+      "$ref": "#/$defs/Terms",
+      "description": "`nominal` or `real`: the terms of every amount and growth rate of the input."
+    },
+    "cost_of_equity": {
+      "description": "One cost of equity for every period and for the terminal value, decimal fraction per\nperiod (0.11 = 11%), greater than -1. Give this or `cost_of_equity_per_period`, not\nboth.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "cost_of_equity_per_period": {
+      "description": "One cost of equity per period of the explicit horizon, decimal fractions, exactly N of\nthem; requires `terminal_cost_of_equity`. Give this or `cost_of_equity`, not both.",
+      "items": {
+        "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+        "type": [
+          "string",
+          "number"
+        ]
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "debt_like_items": {
+      "description": "Debt-like items (debt equivalents) at the valuation date whose cash flows are not in the\nFCFE, for example unfunded pension obligations, each a label, a value in currency units\n(zero or more) and its measurement basis; subtracted. Default: none, reported.",
+      "items": {
+        "$ref": "#/$defs/BridgeClaim"
+      },
+      "type": "array"
+    },
+    "discount_rate_terms": {
+      "$ref": "#/$defs/Terms",
+      "description": "`nominal` or `real`: the terms of the costs of equity. When they differ from\n`cash_flow_terms`, expected inflation is required (`inflation`, or\n`inflation_per_period` with `terminal_inflation`) and every rate is converted to the\nterms of the cash flows; the cash flows are never converted."
+    },
+    "inflation": {
+      "description": "Expected inflation, decimal fraction per period (0.02 = 2%), greater than -1, for every\nexplicit period and for the terminal phase. Give this or `inflation_per_period`, or\nneither. With different terms it converts the costs of equity by the exact Fisher\nrelation; with equal terms it only restates the perpetual growth in the other terms.\nDefault: none.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "inflation_per_period": {
+      "description": "Expected inflation per period of the explicit horizon, decimal fractions, exactly N of\nthem, each greater than -1; requires `terminal_inflation`. Give this or `inflation`,\nnot both. Default: none.",
+      "items": {
+        "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+        "type": [
+          "string",
+          "number"
+        ]
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "interest_tax_rate": {
+      "description": "For stages with `lines` and `operating_taxes`: the tax rate t of the interest tax\nshield, interest × (1 − t), decimal fraction from 0 to below 1; required in that case,\nrefused otherwise. Default: none.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "negative_ebit": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NegativeEbit"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "For stages with `lines` and `notional_tax_rate`: treatment of a negative EBIT, `credit`\n(taxes = rate × EBIT) or `zero` (no tax, and no interest tax shield in that period);\nrequired with `notional_tax_rate`, no default."
+    },
+    "net_financial_position": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NetFinancialPosition"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Not used on the equity basis and refused (`FM-E019`): debt is already in the FCFE,\nthrough interest and net borrowing, so the net financial position is not subtracted.\nCash that the FCFE does not reflect goes in `non_operating_assets`. Accepted by the\nschema only so that the refusal names the fix."
+    },
+    "non_controlling_interests": {
+      "description": "Non-controlling interests (minority interests) at the valuation date, when the FCFE are\nthose of the consolidated group, each a label, a value in currency units (zero or more)\nand its measurement basis; subtracted. Default: none, reported.",
+      "items": {
+        "$ref": "#/$defs/BridgeClaim"
+      },
+      "type": "array"
+    },
+    "non_operating_assets": {
+      "description": "Non-operating assets at the valuation date, each a label and a value in currency units\n(zero or more), added to the present value of the FCFE and of the terminal value: for\nexample cash not needed for operations whose interest income is not in the FCFE, or an\ninvestment property. Default: none, reported.",
+      "items": {
+        "$ref": "#/$defs/Line"
+      },
+      "type": "array"
+    },
+    "notional_tax_rate": {
+      "description": "For stages with `lines`: tax rate applied to EBIT, decimal fraction from 0 to below 1\n(0.24 = 24%), also the rate of the interest tax shield. Give this, or `operating_taxes`\nin every line, not both; refused when no stage has `lines`. Default: none.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "stages": {
+      "description": "One to three explicit stages of free cash flows to equity (FCFE), in order; the explicit\nhorizon N is the sum of their periods. Each stage is `{\"periods\", \"projection\", ...}`\nwith the fields of its projection; a `given` stage takes the FCFE as amounts (`flows`)\nor builds them up from line items with `interest_expense` and `net_borrowing` in every\nline (`lines`).",
+      "items": {
+        "$ref": "#/$defs/Stage"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "terminal": {
+      "$ref": "#/$defs/Terminal",
+      "description": "The terminal technique on the equity basis, an object with exactly one key, the method\nid, for example `{\"tv.gordon\": {\"growth\", \"first_flow\", ...}}`: `tv.gordon`,\n`tv.h_model` or `tv.limited_horizon` on the FCFE, `tv.exit_multiple` on `earnings`\n(P/E) or `book_value` (P/BV), `tv.normalised_income` or `tv.liquidation` declared on\nthe `equity` basis."
+    },
+    "terminal_cost_of_equity": {
+      "description": "Cost of equity of the terminal phase, decimal fraction per period; required with\n`cost_of_equity_per_period`, refused with `cost_of_equity`.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "terminal_discount_time": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TerminalDiscountTime"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "With `mid_period` timing, required: `horizon` (terminal value at t = N) or\n`mid_period` (t = N − 0.5). Refused with `end_of_period`."
+    },
+    "terminal_inflation": {
+      "description": "Expected inflation of the terminal phase, decimal fraction per period, greater than -1;\nrequired with `inflation_per_period`, refused otherwise.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "timing": {
+      "$ref": "#/$defs/Timing",
+      "description": "`end_of_period` (flow k at t = k) or `mid_period` (t = k − 0.5); no default."
+    }
+  },
+  "required": [
+    "stages",
+    "cash_flow_terms",
+    "discount_rate_terms",
+    "timing",
+    "terminal"
+  ],
+  "title": "DcfFcfeInput",
+  "type": "object",
+  "x-fairmark-method": "dcf.fcfe",
+  "x-fairmark-method-version": "1"
+}
