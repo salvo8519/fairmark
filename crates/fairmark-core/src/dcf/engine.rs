@@ -1609,6 +1609,20 @@ mod tests {
         }
     }
 
+    /// Contract: an expected inflation at the top of the decimal range overflows in the Fisher
+    /// relation and is a typed `FM-E008`, never a panic (also in `tests/contracts`).
+    #[test]
+    fn inflation_at_the_decimal_maximum_is_an_overflow() {
+        for (flows, rates) in [("real", "nominal"), ("nominal", "real")] {
+            let e = err(&with(base(), |m| {
+                m.insert("cash_flow_terms".into(), json!(flows));
+                m.insert("discount_rate_terms".into(), json!(rates));
+                m.insert("inflation".into(), json!("79228162514264337593543950335"));
+            }));
+            assert_eq!(e.code(), "FM-E008", "{e}");
+        }
+    }
+
     /// R18: with equal terms, inflation per period is validated but not used, and the
     /// conventions list its values.
     #[test]
