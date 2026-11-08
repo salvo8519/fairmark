@@ -1,6 +1,6 @@
 ---
 source: methods/loans-amortisation-schedule.md
-source_hash: e0c6fae1511b
+source_hash: 7d1a4c073e67
 ---
 # Piano di ammortamento (`loans.amortisation_schedule`)
 
@@ -179,7 +179,8 @@ $10^{-21}$ su 360 periodi mensili; $1.3 \times 10^{-17}$ su 10000 periodi allo 0
 $2.9 \times 10^{-13}$ al 25% su 100 periodi. Resta sotto $10^{-18}$ del capitale finché
 $(1 + i)^n \le 10^{10}$ (ad esempio 1200 periodi all'1,9%, oppure 470 periodi al 5%); oltre
 cresce con $(1 + i)^n$, fino a circa 400 su un capitale di 150.000 al 5% su 1200 periodi, che è
-la conseguenza della ventottesima cifra della rata, non della ricorrenza. Il valore attuale delle
+la conseguenza della ventottesima cifra della rata, non della ricorrenza. In pratica: un finanziamento trentennale a rate mensili al 15% annuo ha
+$(1 + i)^n$ pari a circa 88, ben dentro l'intervallo. Il valore attuale delle
 rate coincide con il capitale entro $10^{-18}$ in termini relativi in ogni caso. Con
 l'arrotondamento, la rettifica è dominata dall'arrotondamento stesso. I casi di riferimento sono
 verificati a $10^{-20}$, oppure esattamente quando tutti i valori sono decimali finiti.

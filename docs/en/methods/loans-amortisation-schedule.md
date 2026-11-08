@@ -171,7 +171,8 @@ at 10000 periods at 0.1%; $2.9 \times 10^{-13}$ at 25% over 100 periods. It stay
 $10^{-18}$ of the principal while $(1 + i)^n \le 10^{10}$ (for example 1200 periods at 1.9%, or
 470 periods at 5%); beyond that it grows with $(1 + i)^n$, to about 400 on a principal of
 150,000 at 5% over 1200 periods, which is the consequence of the 28th digit of the instalment,
-not of the recurrence. The present value of the instalments equals the principal within
+not of the recurrence. In practice: a 30-year monthly loan at 15% a year has $(1 + i)^n$ of
+about 88, far inside the range. The present value of the instalments equals the principal within
 $10^{-18}$ relative in every case. With rounding, the adjustment is dominated by the rounding
 itself. The golden cases are checked to $10^{-20}$, or exactly where every value is a
 terminating decimal.
