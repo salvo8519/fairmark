@@ -36,6 +36,15 @@ The GitHub number (`#42`) is the code of an issue. It is unique, permanent, and 
 automatically in commits, pull requests and comments; a second, parallel coding scheme would
 drift from it. Pull request numbers share the same sequence.
 
+## Names in code
+
+Code identifiers are always English: method ids, input and output fields, enumeration values,
+types and messages. They use the term of international financial practice (CFA Institute,
+EBA, IVS, IFRS), never a spreadsheet function name and never an invented term. Methods that
+belong to Italian practice keep an English identifier (`asset.adjusted_equity`); an
+internationally recognised acronym may be kept (`mixed.uec`). Their Italian names appear only
+in the Italian documentation and in `i18n/glossary.yaml`.
+
 ## Issues
 
 - **Title**: the outcome, as a short sentence in sentence case, without a type prefix and
