@@ -1,6 +1,6 @@
 ---
 source: methods/loans-instalment.md
-source_hash: 51d9061895b0
+source_hash: 264817232aa1
 ---
 # Rata di un finanziamento (`loans.instalment`)
 
@@ -118,7 +118,7 @@ periodo.
 | Codice | Quando |
 | --- | --- |
 | `FM-E001` | Capitale pari a 0 o negativo, `number_of_instalments` pari a 0 o superiore a 10000, entrambe le forme di tasso, nessuna, forma (a) incompleta, `decimal_places` superiore a 6, arrotondamento senza modalità, oppure un campo mancante o sconosciuto |
-| `FM-E003` | Il tasso periodico è pari o inferiore a −100% |
+| `FM-E003` | `periodic_rate` è pari o inferiore a −100%, oppure `rate` è pari o inferiore a −100% per periodo di capitalizzazione ($r/m$); il messaggio indica il campo, `/periodic_rate` o `/rate` |
 | `FM-E020` | Il balloon è negativo o non inferiore al capitale |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 

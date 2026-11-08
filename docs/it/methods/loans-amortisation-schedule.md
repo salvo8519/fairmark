@@ -1,6 +1,6 @@
 ---
 source: methods/loans-amortisation-schedule.md
-source_hash: 7d1a4c073e67
+source_hash: 659ef2780c63
 ---
 # Piano di ammortamento (`loans.amortisation_schedule`)
 
@@ -158,7 +158,7 @@ periodo.
 | Codice | Quando |
 | --- | --- |
 | `FM-E001` | Momento di pagamento `due`, capitale pari a 0 o negativo, `number_of_instalments` pari a 0 o superiore a 10000, forma di tasso incompleta o doppia, arrotondamento senza modalità o con più di 6 decimali, oppure un campo mancante o sconosciuto |
-| `FM-E003` | Il tasso periodico è pari o inferiore a −100% |
+| `FM-E003` | `periodic_rate` è pari o inferiore a −100%, oppure `rate` è pari o inferiore a −100% per periodo di capitalizzazione ($r/m$); il messaggio indica il campo, `/periodic_rate` o `/rate` |
 | `FM-E020` | Il balloon è negativo, non inferiore al capitale, oppure indicato con `bullet` |
 | `FM-E022` | Il preammortamento non è inferiore al numero delle rate, oppure è indicato con `bullet` |
 | `FM-E023` | Con l'arrotondamento, il debito residuo diventerebbe negativo prima dell'ultimo periodo, oppure l'ultima quota capitale o l'ultima rata sarebbe negativa (arrotondamento troppo grossolano per il finanziamento) |

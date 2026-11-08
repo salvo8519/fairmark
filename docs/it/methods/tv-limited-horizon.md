@@ -1,6 +1,6 @@
 ---
 source: methods/tv-limited-horizon.md
-source_hash: df8bdfe8dc31
+source_hash: f2d0b494bc70
 ---
 # Valore terminale con orizzonte finito (`tv.limited_horizon`)
 
@@ -82,7 +82,7 @@ assert long.terminal_value == Decimal("1000")
 | Codice | Quando |
 | --- | --- |
 | `FM-E001` | La crescita è pari o inferiore a −100%, oppure un campo manca o è sconosciuto |
-| `FM-E003` | Il tasso è pari o inferiore a −100% |
+| `FM-E003` | Il tasso è pari o inferiore a −100%; il messaggio indica `/rate` |
 | `FM-E018` | `periods` è fuori dall'intervallo da 1 a 10.000 (lo stesso codice per entrambi gli estremi) |
 | `FM-E008` | Overflow aritmetico (input molto lontani da un intervallo realistico) |
 

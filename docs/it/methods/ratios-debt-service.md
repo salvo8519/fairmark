@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-debt-service.md
-source_hash: d4fc7e81d522
+source_hash: d6ade3025022
 ---
 # Indici di servizio del debito (`ratios.debt_service`)
 
@@ -113,7 +113,7 @@ Gli indici sono oggetti `{"value": ..., "not_defined": ...}`, come in ogni grupp
 | --- | --- |
 | `FM-E001` | Saldi medi senza `opening`; `ebitda_definition` o `interest_definition` vuoto o composto solo da spazi; un campo mancante o sconosciuto |
 | `FM-E002` | È fornito un piano di rimborso senza periodi |
-| `FM-E003` | Tasso di attualizzazione pari o inferiore a −100% per periodo |
+| `FM-E003` | Tasso di attualizzazione pari o inferiore a −100% per periodo; il messaggio indica `/debt_schedule/discount_rate` |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 
 ## Precisione

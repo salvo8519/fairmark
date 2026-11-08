@@ -1,24 +1,27 @@
 ---
 source: reference/errors.md
-source_hash: 1de67c98d495
+source_hash: 7a6467110789
 ---
 # Codici di errore
 
 I codici sono stabili: una volta rilasciato, un codice non cambia mai significato. Ogni
 adattatore (Python, CLI, MCP, function calling) riporta gli errori come
-`{"code": "...", "message": "..."}`. I messaggi sono in inglese.
+`{"code": "...", "message": "..."}`. I messaggi sono in inglese. I messaggi indicano il campo
+da correggere con il suo JSON Pointer (RFC 6901), per esempio `/stages/0/flows/1`, e la
+correzione da apportare. Per un metodo valutato da un'analisi, il pointer è relativo a
+`base_input`, come i pointer dell'analisi stessa.
 
 | Codice | Significato | Correzione tipica |
 | --- | --- | --- |
-| `FM-E001` | Input non valido: tipo errato, campo obbligatorio mancante, campo sconosciuto | Controlla l'input con `fairmark schema <method>` |
+| `FM-E001` | Input non valido: tipo errato, campo obbligatorio mancante, campo sconosciuto, valore sconosciuto di una scelta; il messaggio indica il campo con il suo JSON Pointer e riporta i valori ammessi, per esempio ``invalid input at `/terminal/tv.gordon/first_flow`: missing required field `first_flow`; add it`` o ``invalid input at `/stages/0/projection`: unknown variant `constant`, expected one of `given`, `constant_growth`, `linear_decline` ``; solo un testo JSON malformato (un errore di sintassi, un input troncato) indica invece la riga e la colonna | Correggi il campo indicato dal pointer: aggiungi un campo mancante, elimina o rinomina un campo sconosciuto, usa uno dei valori elencati; `fairmark schema <method>` fornisce l'input completo |
 | `FM-E002` | Serie di flussi di cassa vuota | Fornisci almeno un flusso di cassa |
-| `FM-E003` | Tasso fuori intervallo: il tasso per periodo, o per periodo di capitalizzazione, è pari o inferiore a −100%; il messaggio indica il tasso con il suo JSON Pointer, per esempio `/wacc_per_period/3` o `/inflation` nel DCF o `/finance_rate` in `tvm.mirr`; nel DCF un tasso convertito con l'inflazione attesa che raggiunge −100% (possibile solo al limite dell'intervallo dei decimali) mantiene il pointer del tasso fornito e aggiunge l'inflazione con cui è stato convertito; `rates.convert`, `tvm.xnpv` e `loans.*` indicano il valore e la regola per cui uno più il tasso per periodo di capitalizzazione ($1 + r/m$) deve essere positivo, senza indicare il campo | I tassi sono frazioni decimali: 10% è `0.10`; un tasso nominale con capitalizzazione è verificato per periodo di capitalizzazione ($r/m$) |
+| `FM-E003` | Tasso fuori intervallo: il tasso per periodo, o per periodo di capitalizzazione, è pari o inferiore a −100%; il messaggio indica il tasso con il suo JSON Pointer, per esempio `/wacc_per_period/3` o `/inflation` nel DCF o `/finance_rate` in `tvm.mirr`; nel DCF un tasso convertito con l'inflazione attesa che raggiunge −100% (possibile solo al limite dell'intervallo dei decimali) mantiene il pointer del tasso fornito e aggiunge l'inflazione con cui è stato convertito; per un tasso nominale con $m$ periodi di capitalizzazione all'anno (`rates.convert`, `tvm.xnpv`, `loans.*`) il messaggio indica il tasso, per esempio `/rate`, e la regola applicabile: il tasso per periodo di capitalizzazione $r/m$ deve essere maggiore di −1, quindi il tasso deve essere maggiore di $-m$ | I tassi sono frazioni decimali: 10% è `0.10`; un tasso nominale con capitalizzazione è verificato per periodo di capitalizzazione ($r/m$) |
 | `FM-E004` | Crescita ≥ tasso di attualizzazione (valore terminale, rendita perpetua); nel DCF e in `tvm.perpetuity` il messaggio indica la crescita e il tasso con i loro JSON Pointer; nel DCF, quando il tasso terminale è stato convertito con l'inflazione attesa, indica anche il campo dell'inflazione | Il modello di Gordon richiede g < r; per un tasso terminale convertito, verificare anche l'inflazione attesa |
 | `FM-E005` | L'algoritmo del TIR o dell'XIRR non converge; il messaggio indica l'algoritmo | Il tasso può trovarsi fuori dall'intervallo dei decimali o lontano da `guess`: indica un `guess` vicino al tasso atteso |
 | `FM-E006` | `cash_flows` non contiene alcun importo positivo o alcun importo negativo | TIR, XIRR e MIRR richiedono sia uscite sia entrate |
 | `FM-E007` | Metodo o tool sconosciuto | Vedi `fairmark methods` |
 | `FM-E008` | Overflow aritmetico | Input fuori da un intervallo realistico |
-| `FM-E009` | Data non valida: malformata, inesistente (`2023-02-29`) o fuori dall'intervallo 1900-01-01 - 2199-12-31 | Scrivi le date in formato ISO 8601 `YYYY-MM-DD` entro l'intervallo supportato |
+| `FM-E009` | Data non valida: malformata, inesistente (`2023-02-29`) o fuori dall'intervallo 1900-01-01 - 2199-12-31; una data letta dall'input è indicata con il suo JSON Pointer, per esempio `/cash_flows/1/date` | Scrivi le date in formato ISO 8601 `YYYY-MM-DD` entro l'intervallo supportato |
 | `FM-E010` | Un flusso ha una data anteriore alla data di valutazione | Sposta la data di valutazione alla data del primo flusso o prima, oppure omettila per usare la data del primo flusso |
 | `FM-E011` | Nessun tasso unico può essere isolato: più tassi annullano il valore attuale, è possibile una radice multipla, oppure i cambi di segno dei flussi indicano che esiste un altro tasso; il messaggio elenca gli intervalli | Il TIR è ambiguo: usa `tvm.npv` al costo del capitale, oppure `tvm.mirr` con tassi espliciti |
 | `FM-E012` | Errore interno: un difetto di Fairmark, non dell'input | Segnalarlo con l'`input_hash`; l'input non serve mai |

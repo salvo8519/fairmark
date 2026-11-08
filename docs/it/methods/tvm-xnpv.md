@@ -1,6 +1,6 @@
 ---
 source: methods/tvm-xnpv.md
-source_hash: 103b4525ea70
+source_hash: d5f0dfe19d9f
 ---
 # Valore attuale netto di flussi datati (`tvm.xnpv`)
 
@@ -99,7 +99,7 @@ primo flusso dà lo stesso valore ogni volta che il foglio di calcolo accetta l'
 | --- | --- |
 | `FM-E001` | Un campo è mancante o sconosciuto, oppure una convenzione non è tra le opzioni elencate |
 | `FM-E002` | `cash_flows` è vuoto |
-| `FM-E003` | Il tasso per periodo di capitalizzazione, $r/m$, è pari o inferiore a −100% |
+| `FM-E003` | Il tasso per periodo di capitalizzazione, $r/m$, è pari o inferiore a −100%; il messaggio indica `/rate` e, con più di un periodo di capitalizzazione all'anno, il limite $-m$ |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 | `FM-E009` | Una data è malformata, non esiste o è fuori dall'intervallo 1900-01-01 - 2199-12-31 |
 | `FM-E010` | Un flusso ha una data anteriore alla data di valutazione |
