@@ -1,11 +1,13 @@
 ---
 source: getting-started/installation.md
-source_hash: b8debfe5f93c
+source_hash: 745939a407f1
 ---
 # Installazione
 
-Fairmark richiede Python 3.10 o successivo. Le wheel precompilate sono pubblicate per Linux,
-macOS e Windows su x86_64 e arm64: non serve il compilatore Rust.
+Fairmark richiede Python 3.10 o successivo. Le wheel precompilate sono pubblicate per Linux
+su x86_64 e arm64 (glibc e musl), macOS su Intel e Apple silicon e Windows su x86_64: non serve
+il compilatore Rust. Sulle altre piattaforme pip compila il pacchetto dai sorgenti, e serve
+quindi il toolchain Rust.
 
 === "uv"
 

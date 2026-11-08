@@ -11,6 +11,14 @@ updates:
     schedule: { interval: weekly }
     commit-message: { prefix: "build", include: scope }
     groups: { python-minor: { update-types: [minor, patch] } }
+  # Hashed requirements of the Release workflow (PyYAML for the smoke test, maturin for the
+  # sdist build). maturin follows uv.lock: update it there and in this file together.
+  - package-ecosystem: pip
+    directory: "/.github/release"
+    schedule: { interval: weekly }
+    commit-message: { prefix: "build", include: scope }
+    ignore:
+      - dependency-name: maturin
   - package-ecosystem: github-actions
     directory: "/"
     schedule: { interval: weekly }

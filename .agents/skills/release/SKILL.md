@@ -1,6 +1,6 @@
 ---
 name: release
-description: Prepare a Fairmark release — version bump, changelog, tag. Use when the maintainer asks to cut a release.
+description: Prepare a Fairmark release — readiness, version bump, release notes, changelog and the release pull request; the maintainer creates the tag. Use when the maintainer asks to cut a release.
 ---
 
 1. Run `uv run python scripts/release.py ready X.Y.Z[-alpha.N]` and stop if it fails: it
@@ -15,6 +15,11 @@ description: Prepare a Fairmark release — version bump, changelog, tag. Use wh
 4. `uv run just check`.
 5. `uv run git-cliff --tag vX.Y.Z --output CHANGELOG.md` (technical changelog), then open a
    `chore(release): x.y.z` PR.
-6. After merge, the maintainer tags `vX.Y.Z`; the Release workflow checks the version, builds
-   wheels for all platforms, creates the GitHub Release with the release notes and publishes
-   to PyPI (trusted publishing) and crates.io.
+6. After merge, the maintainer tags `vX.Y.Z` on the merge commit with their own credentials;
+   the Release workflow checks the version, builds and smoke-tests the wheels for every
+   platform and the sdist, attests their provenance, publishes to PyPI and then crates.io
+   (trusted publishing, each after the maintainer approves its environment) and creates the
+   GitHub Release with the release notes. Agents never create, move or delete a release tag and
+   never approve a publishing environment: the maintainer does both. Before the first release,
+   the maintainer completes the one-time setup and a dry run (Run workflow) described in
+   `docs/en/project/releases.md`.
