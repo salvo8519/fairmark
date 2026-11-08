@@ -276,6 +276,16 @@
         }
       }
     },
+    "tvm.future_value": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "tvm.future_value/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "79207d786e0f87ce667b51333c666947c954fc6bb79ac024a4a95b13c07cd2d1"
+        }
+      }
+    },
     "tvm.irr": {
       "current": "2",
       "versions": {

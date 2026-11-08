@@ -68,7 +68,7 @@ macro_rules! registry {
 
 registry! {
     // Grouped by theme, in the order of the documentation: dates, rates, time value of money,
-    // cost of capital, terminal value, discounted cash flow, ratios, analysis.
+    // loans, cost of capital, terminal value, discounted cash flow, ratios, analysis.
     dates::YearFraction,
     rates::Convert,
     rates::RealNominal,
@@ -80,6 +80,7 @@ registry! {
     tvm::Mirr,
     tvm::Annuity,
     tvm::Perpetuity,
+    tvm::FutureValue,
     coc::CostOfEquity,
     coc::BetaRelever,
     coc::BetaPeers,

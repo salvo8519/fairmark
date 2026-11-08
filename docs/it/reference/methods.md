@@ -145,6 +145,20 @@ Present value of a level or growing perpetuity (Gordon), ordinary or due.
 | `growth` | decimale | no |  | Growth of the payment per period, decimal fraction, greater than -1. Default: 0 (level perpetuity). |
 | `timing` | `ordinary` \| `due` | sì |  | `ordinary` (first payment at t = 1) or `due` (first payment at t = 0). |
 
+## `tvm.future_value`
+
+**Future value of a present amount and level payments** · versione del metodo 1 · tool `fairmark_tvm_future_value`
+
+Value at the end of n periods of a present amount and a level series of payments, ordinary or due, at a rate per period.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `present_value` | decimale | no |  | Amount at t = 0, in currency units, accumulated to t = n. Default: 0. Give at least one of `present_value` and `payment`. |
+| `payment` | decimale | no |  | Level payment of every period, in currency units. Default: 0. An amount of the same sign as the present value accumulates in the same direction; a negative amount is a withdrawal. |
+| `rate` | decimale | sì |  | Rate per period, decimal fraction (0.01 = 1% per period). No annual-rate conversion: for an annual rate, convert it first (`rates.convert`) and divide by the periods per year. |
+| `periods` | integer | sì |  | Number of periods, from 1 to 10000. |
+| `timing` | `ordinary` \| `due` | sì |  | `ordinary` (payments at the end of each period) or `due` (at the beginning). |
+
 ## `coc.cost_of_equity`
 
 **Cost of equity (CAPM with explicit premia)** · versione del metodo 1 · tool `fairmark_coc_cost_of_equity`

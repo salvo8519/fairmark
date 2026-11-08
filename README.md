@@ -173,6 +173,7 @@ fairmark verify result.json --input company.json  # reproduce a result bit for b
 | `tvm.mirr` | Available | Modified internal rate of return (MIRR) |
 | `tvm.annuity` | Available | Annuity (level or growing, ordinary or due) |
 | `tvm.perpetuity` | Available | Perpetuity (level or growing) |
+| `tvm.future_value` |  | Future value of a present amount and level payments |
 | `coc.cost_of_equity` | Available | Cost of equity (CAPM with explicit premia) |
 | `coc.beta_relever` | Available | Beta unlevering and relevering |
 | `coc.beta_peers` | Available | Beta from comparable companies |

@@ -1,5 +1,5 @@
 //! Time value of money: present values, NPV and XNPV, IRR and XIRR, MIRR, annuities and
-//! perpetuities (SPEC-0002).
+//! perpetuities (SPEC-0002), future value (SPEC-0009).
 //!
 //! Conventions:
 //! * rates are decimal fractions (`0.10` = 10%), per period for periodic methods and per year
@@ -1239,6 +1239,114 @@ pub fn perpetuity(input: &PerpetuityInput) -> Result<(PerpetuityOutput, Explain)
     Ok((PerpetuityOutput { present_value: pv }, ex))
 }
 
+// ---------------------------------------------------------------- future value
+
+/// Input of `tvm.future_value`.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FutureValueInput {
+    /// Amount at t = 0, in currency units, accumulated to t = n. Default: 0. Give at least one
+    /// of `present_value` and `payment`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub present_value: Option<Decimal>,
+    /// Level payment of every period, in currency units. Default: 0. An amount of the same sign
+    /// as the present value accumulates in the same direction; a negative amount is a
+    /// withdrawal.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub payment: Option<Decimal>,
+    /// Rate per period, decimal fraction (0.01 = 1% per period). No annual-rate conversion: for
+    /// an annual rate, convert it first (`rates.convert`) and divide by the periods per year.
+    pub rate: Decimal,
+    /// Number of periods, from 1 to 10000.
+    pub periods: u32,
+    /// `ordinary` (payments at the end of each period) or `due` (at the beginning).
+    pub timing: AnnuityTiming,
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct FutureValueOutput {
+    /// Value at t = n of the present amount and of the payments, in currency units.
+    pub future_value: Decimal,
+}
+
+pub fn future_value(input: &FutureValueInput) -> Result<(FutureValueOutput, Explain)> {
+    let (r, n) = (input.rate, input.periods);
+    if input.present_value.is_none() && input.payment.is_none() {
+        return Err(FairmarkError::InvalidInput(
+            "give `present_value`, `payment` or both".to_owned(),
+        ));
+    }
+    if n == 0 || n > MAX_PERIODS {
+        return Err(FairmarkError::InvalidInput(format!(
+            "periods must be between 1 and {MAX_PERIODS} (got {n})"
+        )));
+    }
+    if r <= -Decimal::ONE {
+        return Err(FairmarkError::RateOutOfRange(r));
+    }
+    let pv = input.present_value.unwrap_or_default();
+    let pmt = input.payment.unwrap_or_default();
+    let mut ex = Explain::new(
+        "tvm.future_value",
+        "FV = PV (1 + r)^n + PMT ((1 + r)^n − 1) / r, the payment term × (1 + r) if due; \
+         PV + n PMT when r = 0",
+    );
+    ex.convention(match input.timing {
+        AnnuityTiming::Ordinary => "ordinary: payments at the end of each period",
+        AnnuityTiming::Due => "due: payments at the beginning of each period",
+    });
+    ex.convention(
+        "sign convention: amounts of the same sign accumulate in the same direction, a negative \
+         amount is a withdrawal (not the cash-flow sign convention of spreadsheets)",
+    );
+    ex.convention("rate per period, no annual-rate conversion; value at t = n for both timings");
+    ex.convention(match input.present_value {
+        Some(v) => format!("present value: {v} (given)"),
+        None => "present value: 0 (default)".to_owned(),
+    });
+    ex.convention(match input.payment {
+        Some(v) => format!("payment: {v} (given)"),
+        None => "payment: 0 (default)".to_owned(),
+    });
+    let periods = Decimal::from(n);
+    let fv = if r.is_zero() {
+        let fv = num::add(pv, num::mul(periods, pmt)?)?;
+        ex.step(
+            "Future value (rate zero, limit form)",
+            format!("{pv} + {n} × {pmt}"),
+            fv,
+        );
+        fv
+    } else {
+        let growth = rates::pow(num::one_plus(r)?, periods)?;
+        ex.step("Growth factor", format!("(1 + {r})^{n}"), growth);
+        let fv_pv = num::mul(pv, growth)?;
+        ex.step(
+            "Present value accumulated to t = n",
+            format!("{pv} × {growth}"),
+            fv_pv,
+        );
+        let (factor, steps) = annuity_factor(r, Decimal::ZERO, n, input.timing)?;
+        ex.steps.extend(steps);
+        let accumulation = num::mul(factor, growth)?;
+        ex.step(
+            "Accumulation factor of the payments",
+            format!("{factor} × {growth} (= ((1 + {r})^{n} − 1) / {r}, × (1 + {r}) if due)"),
+            accumulation,
+        );
+        let fv_pmt = num::mul(pmt, accumulation)?;
+        ex.step(
+            "Payments accumulated to t = n",
+            format!("{pmt} × {accumulation}"),
+            fv_pmt,
+        );
+        let fv = num::add(fv_pv, fv_pmt)?;
+        ex.step("Future value", format!("{fv_pv} + {fv_pmt}"), fv);
+        fv
+    };
+    Ok((FutureValueOutput { future_value: fv }, ex))
+}
+
 // ---------------------------------------------------------------- method registrations
 
 /// `tvm.npv`: see the methodology page.
@@ -1362,6 +1470,24 @@ impl Method for Annuity {
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         annuity(input)
+    }
+}
+
+/// `tvm.future_value`: see the methodology page.
+pub struct FutureValue;
+
+impl Method for FutureValue {
+    const ID: &'static str = "tvm.future_value";
+    const TITLE: &'static str = "Future value of a present amount and level payments";
+    const DESCRIPTION: &'static str =
+        "Value at the end of n periods of a present amount and a level series of payments, \
+        ordinary or due, at a rate per period.";
+    const VERSION: &'static str = "1";
+    type Input = FutureValueInput;
+    type Output = FutureValueOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        future_value(input)
     }
 }
 
@@ -1552,6 +1678,60 @@ mod tests {
         })
         .unwrap();
         assert!(npv_raw(out.irr, &cfs).unwrap().abs() < d("1e-9"));
+    }
+
+    /// SPEC-0009 R10: the payment term of the future value equals the future value of
+    /// `tvm.annuity`, and the present amount grows by (1 + r)^n.
+    #[test]
+    fn future_value_agrees_with_the_annuity() {
+        for timing in [AnnuityTiming::Ordinary, AnnuityTiming::Due] {
+            let (fv, _) = future_value(&FutureValueInput {
+                present_value: Some(d("-300")),
+                payment: Some(d("125")),
+                rate: d("0.0125"),
+                periods: 40,
+                timing,
+            })
+            .unwrap();
+            let (a, _) = annuity(&AnnuityInput {
+                payment: d("125"),
+                rate: d("0.0125"),
+                periods: 40,
+                growth: None,
+                timing,
+            })
+            .unwrap();
+            let expected = a.future_value - d("300") * d("1.0125").powi(40);
+            assert!(
+                (fv.future_value - expected).abs() < d("1e-20"),
+                "{timing:?}"
+            );
+        }
+    }
+
+    /// SPEC-0009 R4, R11: rate zero is a separate step; no amount at all is refused.
+    #[test]
+    fn future_value_limit_and_missing_amounts() {
+        let (fv, ex) = future_value(&FutureValueInput {
+            present_value: None,
+            payment: Some(d("10")),
+            rate: Decimal::ZERO,
+            periods: 7,
+            timing: AnnuityTiming::Due,
+        })
+        .unwrap();
+        assert_eq!(fv.future_value, d("70"));
+        assert_eq!(ex.steps.len(), 1);
+        assert!(ex.steps[0].label.contains("rate zero"));
+        let err = future_value(&FutureValueInput {
+            present_value: None,
+            payment: None,
+            rate: d("0.01"),
+            periods: 7,
+            timing: AnnuityTiming::Due,
+        })
+        .unwrap_err();
+        assert_eq!(err.code(), "FM-E001");
     }
 
     #[test]
