@@ -1,6 +1,6 @@
 ---
 source: methods/statements-reorganise.md
-source_hash: c53c9eb81ecb
+source_hash: 9b1985ae7345
 ---
 # Bilancio riclassificato (`statements.reorganise`)
 
@@ -39,10 +39,11 @@ con il suo pointer e il valore `"0"`, ed è indicata nelle convenzioni:
   l'aggregato che la contiene non è fornito; nel bilancio in forma ordinaria ciascuna è una
   voce separata;
 - la voce separata D o E, quando la voce D dell'attivo è fornita all'interno di C.II o la voce E
-  del passivo all'interno di D (bilancio in forma abbreviata, art. 2435-bis).
+  del passivo all'interno di D (bilancio in forma abbreviata, art. 2435-bis; approvazione M2 del
+  2026-11-08).
 
-Una relazione non è mai verificata su una voce considerata pari a zero: si veda
-[Verifiche](#verifiche).
+La voce A e le parti "di cui" considerate pari a zero non entrano mai in una verifica; una parte
+esposta all'interno di C.II o di D conta come fornita (M2): si veda [Verifiche](#verifiche).
 
 I debiti finanziari e i debiti verso soci per finanziamenti compresi nei debiti sono necessari
 per la posizione finanziaria netta e per l'operating working capital (Decision 4): senza di essi
@@ -319,10 +320,12 @@ riclassifica.
 
 Ogni relazione è verificata in modo esatto quando entrambi i lati sono forniti, e `FM-E026`
 riporta i due importi, la differenza, i pointer e la correzione quando differiscono. Un lato è
-costruito solo con voci fornite dall'utente: una voce considerata pari a zero non entra mai in
-una verifica, e il messaggio e i `pointers` di una relazione verificata indicano solo voci
-fornite. Senza totale attivo, per esempio, il totale attivo ricostruito come A + B + C + D è
-confrontato solo quando sono fornite la voce A e la voce separata D.
+costruito solo con voci fornite dall'utente: la voce A o una parte "di cui" considerate pari a
+zero non entrano mai in una verifica, e il messaggio e i `pointers` di una relazione verificata
+indicano solo voci fornite. Una parte esposta all'interno di C.II o di D conta come fornita: la
+sua voce separata è allora zero, perché la parte è già compresa in C o in D (M2). Senza totale
+attivo, per esempio, il totale attivo ricostruito come A + B + C + D è confrontato quando la
+voce A è fornita e la voce D è fornita o esposta all'interno di C.II.
 
 Forma civilistica: B.I e B.II nette = lordo − fondo; totale B, totale C, totale del patrimonio
 netto, totale attivo e totale passivo e patrimonio netto rispetto alle loro voci; totale attivo
@@ -336,11 +339,15 @@ composizione e alle sue scadenze) e total sources rispetto alle loro componenti,
 invested = total sources.
 
 Nella forma civilistica total funds invested è uguale alle fonti ogni volta che tutte le voci
-sono fornite, perché l'identità discende dalle relazioni precedenti. Quando differiscono, gli
-input forniti non quadrano una volta considerate pari a zero le voci non fornite: il risultato è
-`FM-E026`, che indica quelle voci e chiede quella che non è zero, oppure il totale attivo e il
-totale passivo e patrimonio netto, così che i totali siano confrontati. Con tutte le voci
-fornite, una differenza è un difetto (`FM-E012`).
+sono fornite, perché l'identità discende dalle relazioni precedenti. Quando differiscono, le
+voci fornite non quadrano una volta contate le voci separate considerate pari a zero (la voce A,
+e le voci D ed E esposte all'interno di C.II o di D): il risultato è `FM-E026` (approvazione M1
+del 2026-11-08), che indica solo quelle voci e la correzione: un importo fornito è diverso,
+oppure una di queste voci considerate pari a zero non è zero. Una parte "di cui" considerata
+assente sposta un importo all'interno di un solo lato e non è indicata. Con tutte le voci
+fornite, una differenza è un difetto (`FM-E012`). Questa relazione non indica pointer in
+`checks`: i suoi lati sono output calcolati, e il suo stato tiene conto delle voci considerate
+pari a zero.
 
 Per i bilanci depositati in unità di euro, fornire la riserva da arrotondamento nelle altre
 riserve (A.VI), in modo che i totali quadrino esattamente.
@@ -353,7 +360,7 @@ riserve (A.VI), in modo che i totali quadrino esattamente.
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 | `FM-E009` | Una data inesistente o fuori dall'intervallo 1900-2199 |
 | `FM-E012` | Difetto: total funds invested diverso dalle fonti di un esercizio civilistico con tutte le voci fornite |
-| `FM-E026` | Una relazione del bilancio non quadra; total funds invested di un esercizio civilistico diverso dalle fonti una volta considerate pari a zero le voci non fornite; oppure una rettifica supera la sua voce di origine |
+| `FM-E026` | Una relazione del bilancio non quadra; total funds invested di un esercizio civilistico diverso dalle fonti una volta contate le voci separate considerate pari a zero (indicate nel messaggio); oppure una rettifica supera la sua voce di origine |
 
 ## Limiti e note di prassi
 
