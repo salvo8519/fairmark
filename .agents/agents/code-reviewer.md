@@ -15,6 +15,8 @@ Check, in this order:
 3. **Correctness**: overflow handled with checked ops; error variants with stable codes;
    edge cases (empty series, zero/negative rates, g ≥ r).
 4. **Explain**: every user-visible number has a step with substituted values; conventions listed.
+   **Computability**: outputs, defaults and checks follow the spec's computability table; an
+   error names only pointers the user can act on, and the fix it states resolves it (try it).
 5. **Schemas**: `deny_unknown_fields`, a unit-explicit doc comment on every field; `schemas/`
    and `docs/en/reference/methods.md` regenerated; breaking changes flagged.
 6. **Golden cases**: no existing expected value changed; new cases cite an independent source.

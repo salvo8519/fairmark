@@ -19,6 +19,13 @@ When drafting `spec.md`:
 - State the formula basis in one line: the commonly adopted formulation, the published worked
   example and the implementations it will be cross-checked against. No bibliographies. Never
   invent a source. Unknowns go to "Open questions".
+- Fill the computability table: for every output, the inputs it needs, what happens when each
+  is missing (not computed, documented default or error) and which checks a default exempts.
+  Best effort is the rule: a partial input gives every output it can, and says which ones it
+  cannot. Ambiguous rows go to "Open questions" for the maintainer, not to the implementer.
+- Name the commit scope. A new scope is added to `scripts/conventions.py` and
+  `docs/en/project/conventions.md` in the same pull request that approves the spec: the
+  title check of later pull requests reads the scope list of main.
 - Keep status `Draft`. Only the maintainer sets `Approved`.
 
 When drafting `plan.md` and `tasks.md` (only for `Approved` specs):
