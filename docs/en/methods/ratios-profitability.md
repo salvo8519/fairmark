@@ -75,7 +75,7 @@ print(n.roe["not_defined"])  # equity is negative (-100)
 | --- | --- | --- |
 | `balances` | `closing`, or `average` of the opening and closing balance sheets | required |
 | `operating_return_base` | `invested_capital` or `total_assets`: the capital of ROI and of the capital turnover | required |
-| `ebitda_definition` | How EBITDA was measured, in words; echoed in the conventions | required |
+| `ebitda_definition` | How EBITDA was measured, in words, not empty; echoed in the conventions | required |
 | `income_statement` | `revenue`, `ebitda`, `ebit`, `net_income` of the period, currency units | required |
 | `closing` | `equity`, `total_assets` and, with an invested capital base, `invested_capital`, currency units | required |
 | `opening` | Same fields at the start of the period | required with average balances, not used otherwise |
@@ -100,8 +100,10 @@ is not defined, and `not_defined` then gives the reason.
 | Convention | Options | Default |
 | --- | --- | --- |
 | Balances | closing, average of opening and closing | required |
-| Operating return base | invested capital, total assets | required |
-| EBITDA definition | as given by the analyst | required |
+| Operating return base | invested capital, total assets; an invested capital given with a total-assets base is reported as not used | required |
+| EBITDA definition | as given by the analyst, non-empty | required |
+| ROS | EBIT / revenue, equal to the EBIT margin | fixed |
+| Three-factor ROE | on total assets (asset turnover and equity multiplier), whatever the operating return base | fixed |
 | Not defined | zero denominator; equity zero or negative for ROE and the equity multiplier | fixed |
 
 ROS is EBIT over revenue, so it equals the EBIT margin; both are returned so that the chain ROI
@@ -111,7 +113,7 @@ ROS is EBIT over revenue, so it equals the EBIT margin; both are returned so tha
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | Average balances without `opening`; `invested_capital` missing with an invested capital base; a field is missing or unknown |
+| `FM-E001` | Average balances without `opening`; `invested_capital` missing with an invested capital base; an empty or blank `ebitda_definition`; a field is missing or unknown |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 
 ## Accuracy
@@ -122,6 +124,6 @@ ROE in the 28th digit.
 
 ## Verified against
 
-- Golden cases in `tests/golden/ratios.profitability/` (closing and average balances, negative
-  equity, zero revenue), whose expected values come from `scripts/reference_ratios.py` (Python
+- Golden cases in `tests/golden/ratios.profitability/` (closing and average balances on both
+  operating return bases, negative equity, zero revenue), whose expected values come from `scripts/reference_ratios.py` (Python
   decimal at 50 digits), with the closed form written in each file.

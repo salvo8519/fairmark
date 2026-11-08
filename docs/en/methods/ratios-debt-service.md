@@ -33,6 +33,7 @@ import fairmark as fm
 r = fm.ratios.debt_service(
     balances="closing",
     ebitda_definition="reported EBITDA, no adjustments",
+    interest_definition="gross interest expense",
     income_statement={"ebitda": 800, "ebit": 500, "interest": 100},
     closing={"net_financial_position": {"gross_debt": 2200, "cash": 300}},
     debt_schedule={
@@ -53,7 +54,8 @@ assert abs(r.llcr["value"] - Decimal("1.05309094639142847003375")) < Decimal("1e
 | Field | Meaning | Default |
 | --- | --- | --- |
 | `balances` | `closing`, or `average` of the opening and closing net financial position | required |
-| `ebitda_definition` | How EBITDA was measured, in words; echoed in the conventions | required |
+| `ebitda_definition` | How EBITDA was measured, in words, not empty; echoed in the conventions | required |
+| `interest_definition` | How interest was measured (gross, or net of interest income), in words, not empty; echoed in the conventions | required |
 | `income_statement` | `ebitda`, `ebit`, `interest` of the period, currency units | required |
 | `closing` | `net_financial_position` with `gross_debt`, `cash` and `other_items` | required |
 | `opening` | Same field at the start of the period | required with average balances, not used otherwise |
@@ -78,8 +80,9 @@ Ratios are objects `{"value": ..., "not_defined": ...}`, as in every ratio group
 | Convention | Options | Default |
 | --- | --- | --- |
 | Balances | closing, average of opening and closing (net financial position) | required |
-| EBITDA definition | as given by the analyst | required |
-| Interest and debt service | as given (gross or net of interest income, as the analyst states) | fixed |
+| EBITDA definition | as given by the analyst, non-empty | required |
+| Interest definition | as given by the analyst (gross, or net of interest income), non-empty | required |
+| Debt service | as given | fixed |
 | LLCR discounting | end of each period, at `discount_rate` per period | fixed |
 | Not defined | zero denominator (interest, EBITDA, debt service of a period, debt outstanding) | fixed |
 
@@ -87,7 +90,7 @@ Ratios are objects `{"value": ..., "not_defined": ...}`, as in every ratio group
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | Average balances without `opening`; a field is missing or unknown |
+| `FM-E001` | Average balances without `opening`; an empty or blank `ebitda_definition` or `interest_definition`; a field is missing or unknown |
 | `FM-E002` | The debt schedule has no periods |
 | `FM-E003` | Discount rate at or below −100% per period |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |

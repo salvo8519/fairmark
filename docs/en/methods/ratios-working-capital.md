@@ -71,6 +71,7 @@ Ratios are objects `{"value": ..., "not_defined": ...}`, as in every ratio group
 | --- | --- | --- |
 | Balances | closing, average of opening and closing | required |
 | Day basis | 360, 365 | required |
+| DSO, DIO, DPO denominators | revenue, cost of sales, purchases | fixed |
 | VAT | amounts used as given | fixed |
 | Not defined | zero denominator | fixed |
 
@@ -88,7 +89,7 @@ the decimal type.
 
 ## Verified against
 
-- Golden cases in `tests/golden/ratios.working_capital/` (closing balances on 365 days, average
-  balances on 360 days, zero purchases), whose expected values come from
+- Golden cases in `tests/golden/ratios.working_capital/` (closing balances on 365 and on 360
+  days, average balances on 360 days, zero purchases), whose expected values come from
   `scripts/reference_ratios.py` (Python decimal at 50 digits), with the closed form written in
   each file.

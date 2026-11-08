@@ -97,6 +97,7 @@ Ratios are objects `{"value": ..., "not_defined": ...}`, as in every ratio group
 | --- | --- | --- |
 | Balances | closing, average of opening and closing (applied to every balance, NFP included) | required |
 | Net financial position | gross debt − cash + other items, positive for net debt | fixed |
+| D/E | gross debt only: cash and the other items of the net financial position are excluded | fixed |
 | Not defined | zero denominator; equity zero or negative for D/E and NFP/E | fixed |
 
 ## Errors

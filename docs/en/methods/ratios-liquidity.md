@@ -83,6 +83,6 @@ the decimal type.
 
 ## Verified against
 
-- Golden cases in `tests/golden/ratios.liquidity/` (closing balances, zero current
-  liabilities), whose expected values come from `scripts/reference_ratios.py` (Python decimal
+- Golden cases in `tests/golden/ratios.liquidity/` (closing and average balances, zero
+  current liabilities), whose expected values come from `scripts/reference_ratios.py` (Python decimal
   at 50 digits), with the closed form written in each file.
