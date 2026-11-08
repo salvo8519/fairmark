@@ -820,7 +820,6 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
             rate: terminal_rate,
             last_flow: last.flow,
             last_growth: last.growth,
-            rates: &rates,
             ends: &ends,
             g_n: growth_factors[n],
         },

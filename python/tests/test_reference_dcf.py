@@ -339,7 +339,8 @@ def standalone_input(technique: str, terms: dict[str, Any], rate: str, last_flow
         t.pop("first_flow")
         return {**t, "rate": rate, "last_flow": last_flow}
     if technique == "tv.h_model":
-        t.pop("first_flow")
+        if t.pop("first_flow") == "normalised_base_flow":
+            last_flow = t.pop("normalised_base_flow")
         return {**t, "rate": rate, "last_flow": last_flow}
     if technique == "tv.exit_multiple":
         return {**t, "rate": rate} if "next_flow" in t else t
@@ -378,9 +379,33 @@ def test_ac11_terminal_value_equals_the_standalone_method(
         compounding *= 1 + D(r)
     tv = D(alone["value"]["terminal_value"])
     if timing[1] == "mid_period":
-        want = tv * (1 + D(period_rates[-1])).sqrt() / compounding
+        # Decision 16: the half-period shift uses the terminal rate.
+        want = tv * (1 + D(rate)).sqrt() / compounding
         assert D(dcf["terminal"]["discount_time"]) == len(period_rates) - D("0.5")
     else:
         want = tv / compounding
         assert D(dcf["terminal"]["discount_time"]) == len(period_rates)
     assert close(dcf["terminal"]["present_value"], want, timing[0])
+
+
+@pytest.mark.parametrize(("rates", "timing"), list(product(RATE_FORMS, TIMINGS)), ids=str)
+def test_ac11_h_model_on_a_normalised_base_flow(
+    rates: dict[str, Any], timing: tuple[str, str | None]
+) -> None:
+    """Decision 15: with a normalised base flow at N the H-model inside the DCF equals
+    tv.h_model run alone on that flow, and the reference."""
+    terms = {
+        **TECHNIQUES["tv.h_model"],
+        "first_flow": "normalised_base_flow",
+        "normalised_base_flow": "88.5",
+    }
+    payload = terminal_payload("tv.h_model", rates, timing)
+    payload["terminal"] = {"tv.h_model": terms}
+    dcf, want = run(payload), ref.dcf_fcff(payload)
+    for key, value in want.items():
+        assert close(pointer(dcf, key), value, timing[0]), key
+    rate = rates.get("wacc", rates.get("terminal_wacc"))
+    alone = fm.run_json(
+        "tv.h_model", standalone_input("tv.h_model", terms, rate, dcf["periods"][-1]["flow"])
+    )
+    assert dcf["terminal"]["output"] == alone["value"]

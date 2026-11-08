@@ -19,7 +19,7 @@ pub use free_cash_flows::{
     free_cash_flows, FreeCashFlows, FreeCashFlowsInput, FreeCashFlowsOutput,
 };
 pub use terminal::{
-    ExitMultipleTerminal, FirstTerminalFlow, GordonTerminal, HModelTerminal,
+    ExitMultipleTerminal, FirstTerminalFlow, GordonTerminal, HModelFirstFlow, HModelTerminal,
     LimitedHorizonTerminal, LiquidationTerminal, TechniqueOutput, Terminal, TerminalOutput,
     ValueDriverTerminal,
 };

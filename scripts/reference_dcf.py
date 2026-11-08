@@ -92,7 +92,9 @@ def terminal_value(
             next_flow = _d(terms["normalised_next_flow"])
         return next_flow / (r - g), {"next_flow": next_flow}
     if technique == "tv.h_model":
-        assert terms["first_flow"] == "last_flow_grown"
+        # Decision 15: a normalised base flow at N replaces the last explicit flow.
+        if terms["first_flow"] == "normalised_base_flow":
+            last_flow = _d(terms["normalised_base_flow"])
         gs, gl = _d(terms["short_term_growth"]), _d(terms["long_term_growth"])
         h = _d(terms["half_life"])
         stable = last_flow * (1 + gl) / (r - gl)
@@ -174,7 +176,8 @@ def dcf_fcff(inp: Mapping[str, Any]) -> dict[str, D]:
     out.update({f"/terminal/output/{k}": v for k, v in technique_out.items()})
     df_n = 1 / growth_factor
     at_mid = mid and inp["terminal_discount_time"] == "mid_period"
-    df_tv = df_n * (1 + rates[-1]).sqrt() if at_mid else df_n
+    # Decision 16: the half-period shift at N - 0.5 uses the terminal rate.
+    df_tv = df_n * (1 + terminal_rate).sqrt() if at_mid else df_n
     pv_tv = tv * df_tv
 
     value_of_operations = pv_explicit + pv_tv

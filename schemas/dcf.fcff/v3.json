@@ -209,13 +209,28 @@
       ],
       "type": "object"
     },
+    "HModelFirstFlow": {
+      "description": "The flow CF_N on which `tv.h_model` is computed (R20, Decision 15).",
+      "oneOf": [
+        {
+          "const": "last_flow_grown",
+          "description": "The last explicit flow CF_N, grown by the H-model formula.",
+          "type": "string"
+        },
+        {
+          "const": "normalised_base_flow",
+          "description": "A normalised base flow at N, given in `normalised_base_flow`, replaces the last explicit\nflow; the standard formula applies, with no conversion from N + 1.",
+          "type": "string"
+        }
+      ]
+    },
     "HModelTerminal": {
       "additionalProperties": false,
-      "description": "The terms of `tv.h_model` inside the DCF: the rate is the terminal rate of the DCF and the\nflow CF_N is the last explicit flow.",
+      "description": "The terms of `tv.h_model` inside the DCF: the rate is the terminal rate of the DCF and the\nflow CF_N is the last explicit flow or a normalised base flow at N (Decision 15).",
       "properties": {
         "first_flow": {
-          "$ref": "#/$defs/FirstTerminalFlow",
-          "description": "`last_flow_grown`: the H-model grows the last explicit flow CF_N; no default. A\nnormalised flow at N + 1 is not accepted for this technique."
+          "$ref": "#/$defs/HModelFirstFlow",
+          "description": "`last_flow_grown` (the H-model grows the last explicit flow CF_N) or\n`normalised_base_flow` (a normalised CF_N given in `normalised_base_flow`); no default."
         },
         "growth_cap": {
           "description": "Upper bound for the long-term growth, decimal fraction per period. Default: none,\nreported as absent. A growth above the cap is reported, not refused.",
@@ -240,6 +255,15 @@
           "type": [
             "string",
             "number"
+          ]
+        },
+        "normalised_base_flow": {
+          "description": "The normalised base flow CF_N at the horizon N, in currency units, in the terms of the\ncash flows; required with `first_flow` = `normalised_base_flow`, refused otherwise.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
           ]
         },
         "short_term_growth": {

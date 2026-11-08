@@ -37,6 +37,17 @@ pub enum FirstTerminalFlow {
     NormalisedNextFlow,
 }
 
+/// The flow CF_N on which `tv.h_model` is computed (R20, Decision 15).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum HModelFirstFlow {
+    /// The last explicit flow CF_N, grown by the H-model formula.
+    LastFlowGrown,
+    /// A normalised base flow at N, given in `normalised_base_flow`, replaces the last explicit
+    /// flow; the standard formula applies, with no conversion from N + 1.
+    NormalisedBaseFlow,
+}
+
 /// The terms of `tv.gordon` inside the DCF: the rate is the terminal rate of the DCF and the
 /// last flow is the last explicit flow.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -58,7 +69,7 @@ pub struct GordonTerminal {
 }
 
 /// The terms of `tv.h_model` inside the DCF: the rate is the terminal rate of the DCF and the
-/// flow CF_N is the last explicit flow.
+/// flow CF_N is the last explicit flow or a normalised base flow at N (Decision 15).
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct HModelTerminal {
@@ -71,9 +82,13 @@ pub struct HModelTerminal {
     /// Half-life H, in periods: the decline from g_s to g_l lasts 2H periods. Zero or
     /// positive; may be fractional.
     pub half_life: Decimal,
-    /// `last_flow_grown`: the H-model grows the last explicit flow CF_N; no default. A
-    /// normalised flow at N + 1 is not accepted for this technique.
-    pub first_flow: FirstTerminalFlow,
+    /// `last_flow_grown` (the H-model grows the last explicit flow CF_N) or
+    /// `normalised_base_flow` (a normalised CF_N given in `normalised_base_flow`); no default.
+    pub first_flow: HModelFirstFlow,
+    /// The normalised base flow CF_N at the horizon N, in currency units, in the terms of the
+    /// cash flows; required with `first_flow` = `normalised_base_flow`, refused otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub normalised_base_flow: Option<Decimal>,
     /// Upper bound for the long-term growth, decimal fraction per period. Default: none,
     /// reported as absent. A growth above the cap is reported, not refused.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -345,10 +360,18 @@ impl Technique<'_> {
         )
     }
 
-    /// A price at the date N (a sale at a multiple, a liquidation): Decision 6 warns when it is
-    /// discounted at N − 0.5.
-    fn is_price_at_date(self) -> bool {
-        matches!(self, Self::ExitMultiple(_) | Self::Liquidation(_))
+    /// A price at a date (a sale at a multiple or a liquidation at N; the residual value of a
+    /// finite horizon at N + n): Decisions 6 and 17 warn when it is discounted at N − 0.5.
+    fn price_at_date(self) -> Option<&'static str> {
+        match self {
+            Self::ExitMultiple(_) | Self::Liquidation(_) => {
+                Some("is a price at the horizon N (a sale or a liquidation at a date)")
+            }
+            Self::LimitedHorizon(_) => {
+                Some("includes a price at a date (the residual value at N + n)")
+            }
+            _ => None,
+        }
     }
 }
 
@@ -414,7 +437,10 @@ fn tv_input(technique: Technique<'_>, rate: Decimal, last_flow: Decimal) -> TvIn
             })
         }
         Technique::HModel(t) => TvInput::HModel(HModelInput {
-            last_flow,
+            last_flow: match t.first_flow {
+                HModelFirstFlow::LastFlowGrown => last_flow,
+                HModelFirstFlow::NormalisedBaseFlow => t.normalised_base_flow.unwrap_or_default(),
+            },
             short_term_growth: t.short_term_growth,
             long_term_growth: t.long_term_growth,
             half_life: t.half_life,
@@ -580,16 +606,22 @@ pub(crate) fn check<'a>(
             }
             _ => {}
         },
-        Technique::HModel(h) => {
-            if h.first_flow != FirstTerminalFlow::LastFlowGrown {
+        Technique::HModel(h) => match (h.first_flow, h.normalised_base_flow) {
+            (HModelFirstFlow::NormalisedBaseFlow, None) => {
                 return Err(invalid(format!(
-                    "`{at}/first_flow` is normalised_next_flow, which tv.h_model does not \
-                     accept: the H-model is defined on the last explicit flow CF_N; set \
-                     `{at}/first_flow` to last_flow_grown, or use tv.gordon with a normalised \
-                     flow"
-                )));
+                    "`{at}/normalised_base_flow` is required with `{at}/first_flow` = \
+                     normalised_base_flow: give the normalised flow CF_N at the horizon N"
+                )))
             }
-        }
+            (HModelFirstFlow::LastFlowGrown, Some(_)) => {
+                return Err(invalid(format!(
+                    "`{at}/normalised_base_flow` is not used with `{at}/first_flow` = \
+                     last_flow_grown; remove it, or set `{at}/first_flow` to \
+                     normalised_base_flow"
+                )))
+            }
+            _ => {}
+        },
         Technique::ExitMultiple(e) => check_basis(
             at,
             "metric",
@@ -651,12 +683,19 @@ fn compute(
                 }
             });
         }
-        Technique::HModel(_) => {
+        Technique::HModel(t) => {
             ex.convention(at_rate);
-            ex.convention(
-                "first terminal flow: the last explicit flow CF_N, grown by the H-model, \
-                 CF_N × [(1 + g_l) + H × (g_s − g_l)]",
-            );
+            ex.convention(match t.first_flow {
+                HModelFirstFlow::LastFlowGrown => {
+                    "first terminal flow: the last explicit flow CF_N, grown by the H-model, \
+                     CF_N × [(1 + g_l) + H × (g_s − g_l)]"
+                }
+                HModelFirstFlow::NormalisedBaseFlow => {
+                    "first terminal flow: normalised base flow CF_N at the horizon N, given in \
+                     the terms of the cash flows, in place of the last explicit flow, grown by \
+                     the H-model, CF_N × [(1 + g_l) + H × (g_s − g_l)] (Decision 15)"
+                }
+            });
         }
         Technique::ValueDriver(_) => {
             ex.convention(at_rate);
@@ -734,7 +773,7 @@ fn compute(
 }
 
 /// What the engine passes to the terminal value: the rate, the last explicit flow and its
-/// growth, the rates and end-of-period factors of the explicit periods, and the compounding
+/// growth, the end-of-period factors of the explicit periods, and the compounding
 /// factor G_N (`None` beyond the decimal range).
 pub(crate) struct TerminalContext<'a> {
     pub technique: Technique<'a>,
@@ -744,7 +783,6 @@ pub(crate) struct TerminalContext<'a> {
     pub rate: Decimal,
     pub last_flow: Decimal,
     pub last_growth: Option<Decimal>,
-    pub rates: &'a [Decimal],
     pub ends: &'a [Decimal],
     pub g_n: Option<Decimal>,
 }
@@ -780,21 +818,19 @@ pub(crate) fn value(ex: &mut Explain, c: &TerminalContext<'_>) -> Result<Termina
     };
     let (time, df, pv) = match (c.timing, c.discount_time) {
         (Timing::MidPeriod, Some(TerminalDiscountTime::MidPeriod)) => {
-            let r_n = c.rates[n - 1];
-            let root = one_plus(r_n)?
+            let r_t = c.rate;
+            let root = one_plus(r_t)?
                 .sqrt()
                 .ok_or(FairmarkError::Overflow("square root"))?;
             let df = mul(df_n, root)?;
             ex.convention(format!(
-                "terminal discounting time: mid_period, t = N − 0.5, factor DF_N × (1 + r_N)^0.5; \
-                 the half-period shift uses the rate of period N, r_{n} = {r_n} (R21), not the \
-                 terminal rate"
+                "terminal discounting time: mid_period, t = N − 0.5, factor DF_N × (1 + r_T)^0.5; \
+                 the half-period shift uses the terminal rate r_T = {r_t} (R21, Decision 16)"
             ));
-            if technique.is_price_at_date() {
+            if let Some(what) = technique.price_at_date() {
                 ex.convention(format!(
-                    "warning: {id} is a price at the horizon N (a sale or a liquidation at a \
-                     date); discounting it at N − 0.5 brings it forward half a period; it is \
-                     discounted at N − 0.5 as chosen"
+                    "warning: {id} {what}; discounting it at N − 0.5 brings it forward half a \
+                     period; it is discounted at N − 0.5 as chosen"
                 ));
             }
             ex.step(at_n, df_n_formula, df_n);
@@ -803,7 +839,7 @@ pub(crate) fn value(ex: &mut Explain, c: &TerminalContext<'_>) -> Result<Termina
                     "Terminal value: discount factor at t = N − 0.5 = {}",
                     horizon - Decimal::new(5, 1)
                 ),
-                format!("DF_{n} × (1 + r_{n})^0.5 = {df_n} × (1 + {r_n})^0.5"),
+                format!("DF_{n} × (1 + r_T)^0.5 = {df_n} × (1 + {r_t})^0.5"),
                 df,
             );
             let pv = match tv_n.checked_mul(root).zip(g_n) {
@@ -811,7 +847,7 @@ pub(crate) fn value(ex: &mut Explain, c: &TerminalContext<'_>) -> Result<Termina
                     let pv = div(v, g)?;
                     ex.step(
                         "Present value of the terminal value",
-                        format!("{tv_n} × (1 + {r_n})^0.5 / {g}"),
+                        format!("{tv_n} × (1 + {r_t})^0.5 / {g}"),
                         pv,
                     );
                     pv
@@ -881,6 +917,8 @@ pub(crate) fn value(ex: &mut Explain, c: &TerminalContext<'_>) -> Result<Termina
 #[cfg(test)]
 mod tests {
     use serde_json::{json, Value};
+
+    use rust_decimal::MathematicalOps;
 
     use crate::registry::run;
 
@@ -984,7 +1022,7 @@ mod tests {
     /// growth value discounted at N under mid-period timing is a warning; neither elsewhere.
     #[test]
     fn discounting_time_warnings_follow_the_technique() {
-        let price = "is a price at the horizon N";
+        let price = "brings it forward half a period";
         let perpetuity = "under mid-period timing a perpetuity-growth terminal value";
         for (id, terms) in techniques() {
             let at_mid = warnings(&with_terminal(
@@ -997,7 +1035,10 @@ mod tests {
             ));
             let end = warnings(&with_terminal(json!({ id: terms }), None));
             let has = |w: &[String], s: &str| w.iter().any(|x| x.contains(s));
-            let is_price = matches!(id, "tv.exit_multiple" | "tv.liquidation");
+            let is_price = matches!(
+                id,
+                "tv.exit_multiple" | "tv.liquidation" | "tv.limited_horizon"
+            );
             let is_perpetuity = matches!(
                 id,
                 "tv.gordon" | "tv.h_model" | "tv.value_driver" | "tv.normalised_income"
@@ -1080,9 +1121,9 @@ mod tests {
             ),
             (
                 json!({"tv.h_model": {"short_term_growth": "0.05", "long_term_growth": "0.02",
-                       "half_life": "2", "first_flow": "normalised_next_flow"}}),
+                       "half_life": "2", "first_flow": "normalised_base_flow"}}),
                 "FM-E001",
-                "/terminal/tv.h_model/first_flow",
+                "/terminal/tv.h_model/normalised_base_flow",
             ),
             (
                 json!({"tv.h_model": {"short_term_growth": "-1", "long_term_growth": "0.02",
@@ -1302,5 +1343,77 @@ mod tests {
         let e = run("dcf.fcff", &zero.to_string()).unwrap_err();
         assert_eq!(e.code(), "FM-E018", "{e}");
         assert!(e.to_string().contains("`/wacc`"), "{e}");
+    }
+
+    /// Decision 15: with a normalised base flow at N, the H-model gives the value it gives when
+    /// that flow is the last explicit flow; the explicit flows are unchanged.
+    #[test]
+    fn h_model_normalised_base_flow_replaces_the_last_explicit_flow() {
+        let terms = |first: &str| {
+            let mut t = json!({"short_term_growth": "0.05", "long_term_growth": "0.02",
+                               "half_life": "2", "first_flow": first});
+            if first == "normalised_base_flow" {
+                t["normalised_base_flow"] = json!("125");
+            }
+            json!({ "tv.h_model": t })
+        };
+        let normalised = run(
+            "dcf.fcff",
+            &with_terminal(terms("normalised_base_flow"), None).to_string(),
+        )
+        .unwrap();
+        let mut as_last = with_terminal(terms("last_flow_grown"), None);
+        as_last["stages"] = json!([{"periods": 3, "projection": "given",
+                                    "flows": ["100", "103", "125"]}]);
+        let as_last = run("dcf.fcff", &as_last.to_string()).unwrap();
+        assert_eq!(
+            normalised["value"]["terminal"]["terminal_value"],
+            as_last["value"]["terminal"]["terminal_value"]
+        );
+        assert_eq!(normalised["value"]["periods"][2]["flow"], "106.0900");
+        let c = normalised["explain"]["conventions"].to_string();
+        assert!(
+            c.contains("normalised base flow CF_N at the horizon N"),
+            "{c}"
+        );
+    }
+
+    /// Decision 16: at N − 0.5 the half-period shift uses the terminal rate r_T, also with rates
+    /// per period: PV = TV × DF_N × (1 + r_T)^0.5.
+    #[test]
+    fn half_period_shift_uses_the_terminal_rate() {
+        let mut v = with_terminal(
+            json!({"tv.gordon": {"growth": "0.03", "first_flow": "last_flow_grown"}}),
+            Some("mid_period"),
+        );
+        let m = v.as_object_mut().unwrap();
+        m.remove("wacc");
+        m.insert("wacc_per_period".into(), json!(["0.12", "0.11", "0.10"]));
+        m.insert("terminal_wacc".into(), json!("0.08"));
+        let out = run("dcf.fcff", &v.to_string()).unwrap();
+        let d = |p: &str| -> rust_decimal::Decimal {
+            out["value"]
+                .pointer(p)
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .parse()
+                .unwrap()
+        };
+        let one = rust_decimal::Decimal::ONE;
+        let df_n = one
+            / (d("/periods/0/discount_rate") + one)
+            / (d("/periods/1/discount_rate") + one)
+            / (d("/periods/2/discount_rate") + one);
+        let root = ("1.08".parse::<rust_decimal::Decimal>().unwrap())
+            .sqrt()
+            .unwrap();
+        let want = df_n * root;
+        assert!((d("/terminal/discount_factor") - want).abs() < "1e-26".parse().unwrap());
+        let c = out["explain"]["conventions"].to_string();
+        assert!(
+            c.contains("terminal rate r_T = 0.08 (R21, Decision 16)"),
+            "{c}"
+        );
     }
 }

@@ -888,7 +888,11 @@ mod tests {
         assert!(!c
             .iter()
             .any(|c| c.starts_with("warning: under mid-period timing")));
-        assert!(c.iter().any(|c| c.contains("r_3 = 0.10 (R21)")), "{c:?}");
+        assert!(
+            c.iter()
+                .any(|c| c.contains("r_T = 0.10 (R21, Decision 16)")),
+            "{c:?}"
+        );
     }
 
     /// R23, R25: enterprise value minus value of operations is the sum of the non-operating
