@@ -140,6 +140,25 @@ pub enum FairmarkError {
         converted_with: Option<Box<str>>,
     },
 
+    /// An input that cannot be read, located by the JSON pointer of the field (issue #174):
+    /// a missing or unknown field, a wrong type or an unknown enumeration value.
+    #[error("invalid input at `{pointer}`: {detail}")]
+    InvalidInputAt {
+        /// JSON pointer (RFC 6901) of the field, never empty.
+        pointer: String,
+        /// What is wrong, the values expected where they are known, and the fix.
+        detail: String,
+    },
+
+    /// A date that cannot be read, located by the JSON pointer of the field (issue #174).
+    #[error("invalid date at `{pointer}`: {detail}")]
+    InvalidDateAt {
+        /// JSON pointer (RFC 6901) of the date, never empty.
+        pointer: String,
+        /// What is wrong with the date.
+        detail: String,
+    },
+
     #[error("terms of cash flows and discount rates differ: {0}")]
     TermsMismatch(String),
 
@@ -194,6 +213,10 @@ impl FairmarkError {
             // of the field in the message (SPEC-0001 R27).
             Self::DiscountRateOutOfRange { .. } => "FM-E003",
             Self::GrowthNotBelowTerminalRate { .. } => "FM-E004",
+            // Same meanings as `InvalidInput` and `InvalidDate`, with the JSON pointer of the
+            // field that could not be read (issue #174).
+            Self::InvalidInputAt { .. } => "FM-E001",
+            Self::InvalidDateAt { .. } => "FM-E009",
             Self::TermsMismatch(_) => "FM-E024",
             Self::CountMismatch(_) => "FM-E025",
         }

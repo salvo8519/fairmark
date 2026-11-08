@@ -31,10 +31,10 @@ use crate::explain::Explain;
 use crate::method::Method;
 
 /// A technique entry as written in the input: an object with exactly one key, the method id.
-/// Deserialised through a JSON value so that an entry with several keys gets a clear message;
-/// numbers keep their exact text (`serde_json` is built with `arbitrary_precision`).
-#[derive(Debug, Clone, Deserialize)]
-#[serde(try_from = "serde_json::Value")]
+/// Read in one pass from the input, so an error inside the terms keeps its JSON pointer
+/// (`/techniques/0/tv.gordon/next_flow`, issue #174), and an entry with several keys gets a
+/// message that lists them.
+#[derive(Debug, Clone)]
 pub struct TechniqueEntry(pub Technique);
 
 impl Serialize for TechniqueEntry {
@@ -43,30 +43,124 @@ impl Serialize for TechniqueEntry {
     }
 }
 
-impl TryFrom<serde_json::Value> for TechniqueEntry {
-    type Error = String;
+/// What a technique entry is, for the messages of the entry.
+const ONE_KEY: &str = "each technique is an object with exactly one key, the method id, for \
+                       example {\"tv.gordon\": {...}}";
 
-    fn try_from(v: serde_json::Value) -> std::result::Result<Self, String> {
-        match &v {
-            serde_json::Value::Object(map) if map.len() == 1 => {}
-            serde_json::Value::Object(map) => {
-                let keys: Vec<&str> = map.keys().map(String::as_str).collect();
-                return Err(format!(
-                    "each technique is an object with exactly one key, the method id, for \
-                    example {{\"tv.gordon\": {{...}}}} (got {} keys: {})",
-                    keys.len(),
-                    keys.join(", ")
-                ));
-            }
-            _ => {
-                return Err(
-                    "each technique is an object with exactly one key, the method id".to_owned(),
-                )
-            }
+impl<'de> Deserialize<'de> for TechniqueEntry {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Self, D::Error> {
+        d.deserialize_map(EntryVisitor)
+    }
+}
+
+struct EntryVisitor;
+
+impl<'de> serde::de::Visitor<'de> for EntryVisitor {
+    type Value = TechniqueEntry;
+
+    fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("an object with exactly one key, the method id")
+    }
+
+    fn visit_map<A: serde::de::MapAccess<'de>>(
+        self,
+        mut map: A,
+    ) -> std::result::Result<TechniqueEntry, A::Error> {
+        use serde::de::{Error, IgnoredAny};
+        let Some(id) = map.next_key::<String>()? else {
+            return Err(A::Error::custom(format!("{ONE_KEY} (got an empty object)")));
+        };
+        let technique = Technique::deserialize(OneKey {
+            id: id.clone(),
+            map: &mut map,
+        })?;
+        let mut keys = vec![id];
+        while let Some(key) = map.next_key::<String>()? {
+            map.next_value::<IgnoredAny>()?;
+            keys.push(key);
         }
-        serde_json::from_value(v)
-            .map(TechniqueEntry)
-            .map_err(|e| e.to_string())
+        if keys.len() > 1 {
+            return Err(A::Error::custom(format!(
+                "{ONE_KEY} (got {} keys: {})",
+                keys.len(),
+                keys.join(", ")
+            )));
+        }
+        Ok(TechniqueEntry(technique))
+    }
+}
+
+/// The key already read from an entry and the map it came from, seen as an externally tagged
+/// enum: the key is the variant, its value the terms. Reading the value through the map keeps
+/// the key in the JSON pointer of any error inside the terms.
+struct OneKey<'a, A> {
+    id: String,
+    map: &'a mut A,
+}
+
+impl<'de, A: serde::de::MapAccess<'de>> serde::Deserializer<'de> for OneKey<'_, A> {
+    type Error = A::Error;
+
+    fn deserialize_any<V: serde::de::Visitor<'de>>(
+        self,
+        visitor: V,
+    ) -> std::result::Result<V::Value, A::Error> {
+        visitor.visit_enum(self)
+    }
+
+    serde::forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string bytes byte_buf
+        option unit unit_struct newtype_struct seq tuple tuple_struct map struct enum
+        identifier ignored_any
+    }
+}
+
+impl<'de, 'a, A: serde::de::MapAccess<'de>> serde::de::EnumAccess<'de> for OneKey<'a, A> {
+    type Error = A::Error;
+    type Variant = Terms<'a, A>;
+
+    fn variant_seed<V: serde::de::DeserializeSeed<'de>>(
+        self,
+        seed: V,
+    ) -> std::result::Result<(V::Value, Terms<'a, A>), A::Error> {
+        use serde::de::IntoDeserializer;
+        let variant = seed.deserialize(self.id.into_deserializer())?;
+        Ok((variant, Terms(self.map)))
+    }
+}
+
+/// The terms of a technique: the value of the entry's only key.
+struct Terms<'a, A>(&'a mut A);
+
+impl<'de, A: serde::de::MapAccess<'de>> serde::de::VariantAccess<'de> for Terms<'_, A> {
+    type Error = A::Error;
+
+    fn unit_variant(self) -> std::result::Result<(), A::Error> {
+        self.0.next_value::<serde::de::IgnoredAny>().map(|_| ())
+    }
+
+    fn newtype_variant_seed<T: serde::de::DeserializeSeed<'de>>(
+        self,
+        seed: T,
+    ) -> std::result::Result<T::Value, A::Error> {
+        self.0.next_value_seed(seed)
+    }
+
+    // Every technique is a newtype variant; these forms are never requested by `Technique`.
+    fn tuple_variant<V: serde::de::Visitor<'de>>(
+        self,
+        _len: usize,
+        _visitor: V,
+    ) -> std::result::Result<V::Value, A::Error> {
+        Err(serde::de::Error::custom(ONE_KEY))
+    }
+
+    fn struct_variant<V: serde::de::Visitor<'de>>(
+        self,
+        _fields: &'static [&'static str],
+        _visitor: V,
+    ) -> std::result::Result<V::Value, A::Error> {
+        Err(serde::de::Error::custom(ONE_KEY))
     }
 }
 

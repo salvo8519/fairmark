@@ -1,11 +1,14 @@
 # Error codes
 
 Codes are stable: once released, a code never changes meaning. Every adapter (Python, CLI, MCP,
-function calling) reports errors as `{"code": "...", "message": "..."}`.
+function calling) reports errors as `{"code": "...", "message": "..."}`. Messages name the field
+to correct by its JSON pointer (RFC 6901), for example `/stages/0/flows/1`, and state the fix.
+For a method evaluated by an analysis, the pointer is relative to `base_input`, like the
+pointers of the analysis itself.
 
 | Code | Meaning | Typical fix |
 | --- | --- | --- |
-| `FM-E001` | Invalid input: wrong type, missing required field, unknown field | Check the input against `fairmark schema <method>` |
+| `FM-E001` | Invalid input: wrong type, missing required field, unknown field, unknown value of a choice; the message names the field by its JSON pointer and keeps the values expected, for example ``invalid input at `/terminal/tv.gordon/first_flow`: missing required field `first_flow`; add it`` or ``invalid input at `/stages/0/projection`: unknown variant `constant`, expected one of `given`, `constant_growth`, `linear_decline` ``; only a malformed JSON text (a syntax error, a truncated input) gives the line and column instead | Correct the field the pointer names: add a missing field, remove or rename an unknown one, use one of the values listed; `fairmark schema <method>` gives the full input |
 | `FM-E002` | Empty cash flow series | Provide at least one cash flow |
 | `FM-E003` | Rate out of range: the rate per period, or per compounding period, is at or below −100%; the message names the rate by its JSON pointer, for example `/wacc_per_period/3` or `/inflation` in the DCF or `/finance_rate` in `tvm.mirr`; in the DCF a rate converted with expected inflation that reaches −100% (possible only at the edge of the decimal range) keeps the pointer of the rate as given and adds the inflation it was converted with; `rates.convert`, `tvm.xnpv` and `loans.*` give the value and the rule that one plus the rate per compounding period ($1 + r/m$) must be positive, without naming the field | Rates are decimal fractions: 10% is `0.10`; a nominal rate with compounding is checked per compounding period ($r/m$) |
 | `FM-E004` | Growth ≥ discount rate (terminal value, perpetuity); in the DCF and in `tvm.perpetuity` the message names the growth and the rate by their JSON pointers; in the DCF, when the terminal rate was converted with expected inflation, it also names the inflation field | The Gordon model needs g < r; for a converted terminal rate, also check the expected inflation |
@@ -13,7 +16,7 @@ function calling) reports errors as `{"code": "...", "message": "..."}`.
 | `FM-E006` | `cash_flows` has no positive or no negative amount | IRR, XIRR and MIRR need both outflows and inflows |
 | `FM-E007` | Unknown method or tool | See `fairmark methods` |
 | `FM-E008` | Arithmetic overflow | Inputs out of a realistic range |
-| `FM-E009` | Invalid date: malformed, impossible (`2023-02-29`) or outside 1900-01-01 to 2199-12-31 | Write dates as ISO 8601 `YYYY-MM-DD` within the supported range |
+| `FM-E009` | Invalid date: malformed, impossible (`2023-02-29`) or outside 1900-01-01 to 2199-12-31; a date read from the input is named by its JSON pointer, for example `/cash_flows/1/date` | Write dates as ISO 8601 `YYYY-MM-DD` within the supported range |
 | `FM-E010` | A cash flow is dated before the valuation date | Move the valuation date to or before the earliest flow, or omit it to use the earliest flow date |
 | `FM-E011` | No single rate can be isolated: more than one rate sets the present value to zero, a repeated root is possible, or the sign changes of the flows show that another rate exists; the message lists the intervals | The IRR is ambiguous: use `tvm.npv` at the cost of capital, or `tvm.mirr` with explicit rates |
 | `FM-E012` | Internal error: a defect in Fairmark, not in the input | Report it with the `input_hash`; the input is never needed |
