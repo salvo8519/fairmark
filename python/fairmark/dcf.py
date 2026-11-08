@@ -120,3 +120,44 @@ def fcff(
     }
     payload.update({k: v for k, v in optional.items() if v is not None})
     return run("dcf.fcff", payload)
+
+
+NegativeEbit = Literal["credit", "zero"]
+
+
+def free_cash_flows(
+    periods: Sequence[Mapping[str, Any]],
+    *,
+    notional_tax_rate: Number | None = None,
+    negative_ebit: NegativeEbit | None = None,
+    interest_tax_rate: Number | None = None,
+) -> Result:
+    """Free cash flow build-up: FCFF per period and, with the financing lines, FCFE.
+
+    Each period is a mapping with ``ebit``, ``depreciation_and_amortisation``,
+    ``capital_expenditure``, ``change_in_net_working_capital`` (positive for an increase) and
+    optionally ``other_adjustments`` (``[{"label": ..., "value": ...}]``, positive for an
+    inflow), ``interest_expense`` and ``net_borrowing`` (positive for new borrowing).
+
+    Taxes on EBIT: give ``notional_tax_rate`` with ``negative_ebit`` (``"credit"`` or
+    ``"zero"``), or ``operating_taxes`` in every period. With ``operating_taxes`` and the
+    financing lines, ``interest_tax_rate`` is required. Amounts are not discounted.
+
+    >>> r = free_cash_flows(
+    ...     [{"ebit": 100, "depreciation_and_amortisation": 10, "capital_expenditure": 12,
+    ...       "change_in_net_working_capital": 3}],
+    ...     notional_tax_rate="0.24",
+    ...     negative_ebit="credit",
+    ... )
+    >>> r.free_cash_flows_to_firm
+    [Decimal('71.00')]
+    """
+    payload: dict[str, Any] = {"periods": [dict(p) for p in periods]}
+    for key, value in (
+        ("notional_tax_rate", notional_tax_rate),
+        ("negative_ebit", negative_ebit),
+        ("interest_tax_rate", interest_tax_rate),
+    ):
+        if value is not None:
+            payload[key] = value
+    return run("dcf.free_cash_flows", payload)

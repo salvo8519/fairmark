@@ -423,6 +423,19 @@ Value of operations, enterprise value and equity value from FCFF discounted at t
 | `net_financial_position` |  | no |  | Net financial position at the valuation date (SPEC-0007): gross debt − cash + signed other items, positive for net debt, subtracted from enterprise value. Default: none, reported. |
 | `non_operating_assets` | lista di object | no |  | Non-operating assets at the valuation date, each a label and a value in currency units (zero or more), added to the value of operations. Default: none, reported. |
 
+## `dcf.free_cash_flows`
+
+**Free cash flow build-up (FCFF and FCFE)** · versione del metodo 1 · tool `fairmark_dcf_free_cash_flows`
+
+FCFF per period from EBIT, taxes on EBIT (a rate or amounts), depreciation and amortisation, capital expenditure, change in net working capital and labelled adjustments; FCFE when interest expense and net borrowing are given. Not discounted.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `periods` | lista di object | sì |  | Line items of periods 1..n, in order; at least one period. |
+| `notional_tax_rate` | decimale | no |  | Tax rate applied to EBIT, decimal fraction from 0 to below 1 (0.24 = 24%) (rate form). Give this or `operating_taxes` in every period, not both. Default: none. |
+| `negative_ebit` |  | no |  | Treatment of a negative EBIT in the rate form: `credit` (taxes = rate × EBIT) or `zero` (no tax). Required with `notional_tax_rate`, there is no default; not accepted with `operating_taxes`. Tax loss carry-forwards are not modelled. |
+| `interest_tax_rate` | decimale | no |  | Tax rate t of the interest tax shield in the FCFE, decimal fraction from 0 to below 1. Required when the taxes are given as `operating_taxes` and the financing lines are given; not accepted otherwise (with `notional_tax_rate` the shield uses that rate). |
+
 ## `ratios.profitability`
 
 **Ratios — profitability** · versione del metodo 1 · stato anteprima · tool `fairmark_ratios_profitability`

@@ -148,7 +148,7 @@ milestones:
         issue: 37
         labels: ["area:core", "method:dcf"]
         tasks:
-          - { issue: 38, title: "Free cash flow build-up from EBIT, taxes, capex and working capital (dcf.free_cash_flows)", spec: "0001", status: open }
+          - { issue: 38, title: "Free cash flow build-up from EBIT, taxes, capex and working capital (dcf.free_cash_flows)", spec: "0001", status: done }
           - { issue: 97, title: "Draft specs for cost of capital, multi-stage DCF and Italian valuation methods", spec: "0001", status: done }
           - { issue: 110, title: "Parametric stages on the shared DCF engine (dcf.fcff v3)", spec: "0001", status: done }
           - { issue: 164, title: "Approve SPEC-0001: free cash flows, stages, terminal value and equity bridge", spec: "0001", status: done }
