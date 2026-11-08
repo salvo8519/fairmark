@@ -1,0 +1,30 @@
+method: dcf.fcff
+description: "Flows-only input with real cash flows and expected inflation: the discount rate keeps its default (nominal) and is converted to real terms by the exact Fisher relation (Decision 24, R14, R16)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 Decision 24 and R19 to R22, sharing no code with the engine; the defaults are
+  filled in by its own with_defaults, written from the spec).
+input:
+  stages: [{"flows": ["120", "135", "150", "160", "170"]}]
+  cash_flow_terms: "real"
+  wacc: "0.09"
+  inflation: "0.02"
+expect:
+  /terms/cash_flow_terms: "real"
+  /terms/discount_rate_terms: "nominal"
+  /terms/conversion: "to_real"
+  /terms/terminal_inflation: "null"
+  /pv_explicit_period: "598.1076001496484955058202311"
+  /terminal/terminal_value: "0"
+  /terminal/present_value: "0"
+  /value_of_operations: "598.1076001496484955058202311"
+  /enterprise_value: "598.1076001496484955058202311"
+  /equity_value: "598.1076001496484955058202311"
+  /terminal_value_weight: "0"
+  /periods/0/present_value: "112.2935779816513761467889908"
+  /periods/1/present_value: "118.2173217742614258059085936"
+  /periods/2/present_value: "122.9170929762962837125655101"
+  /periods/3/present_value: "122.6915570258810611736433716"
+  /periods/4/present_value: "121.9880503915583486669137651"
+  /periods/0/rate_used: "0.06862745098039215686274509804"
+tolerance: "0.00000000000000000001"

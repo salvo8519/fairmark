@@ -1,0 +1,19 @@
+method: dcf.fcfe
+description: "Terminal value given by the analyst on the equity basis, 1500 at N, discounted at the horizon with DF_N (Decision 24, R19)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 Decision 24 and R19 to R22, sharing no code with the engine; the defaults are
+  filled in by its own with_defaults, written from the spec).
+input:
+  stages: [{"flows": ["80", "85", "92", "96", "101"]}]
+  cost_of_equity: "0.11"
+  terminal: {"given": {"value": "1500"}}
+expect:
+  /terminal/technique: "given"
+  /pv_explicit_period: "331.5063436293386358745975366"
+  /terminal/terminal_value: "1500"
+  /terminal/present_value: "890.1769920878382389070816230"
+  /equity_value: "1221.683335717176874781679160"
+  /terminal_value_weight: "0.7286478959502781611351152605"
+  /terminal/discount_factor: "0.5934513280585588259380544153"
+tolerance: "0.00000000000000000001"

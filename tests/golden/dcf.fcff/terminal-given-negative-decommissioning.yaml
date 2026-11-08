@@ -1,0 +1,22 @@
+method: dcf.fcff
+description: "Negative terminal value given by the analyst (a decommissioning cost of 300 at N), discounted as given with a warning; rates per period with no terminal rate, which is not used (Decision 24, R12)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 Decision 24 and R19 to R22, sharing no code with the engine; the defaults are
+  filled in by its own with_defaults, written from the spec).
+input:
+  stages: [{"flows": ["120", "135", "150", "160", "170"]}]
+  wacc_per_period: ["0.10", "0.095", "0.09", "0.09", "0.085"]
+  terminal: {"given": {"value": "-300"}}
+expect:
+  /terminal/technique: "given"
+  /terminal/rate: "null"
+  /pv_explicit_period: "556.7120014935502018466411683"
+  /terminal/terminal_value: "-300"
+  /terminal/present_value: "-193.2109412896477044877836154"
+  /value_of_operations: "363.5010602039024973588575530"
+  /enterprise_value: "363.5010602039024973588575530"
+  /equity_value: "363.5010602039024973588575530"
+  /terminal_value_weight: "-0.5315278617929418033949862398"
+  /terminal/discount_factor: "0.6440364709654923482926120512"
+tolerance: "0.00000000000000000001"

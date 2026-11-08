@@ -1,0 +1,23 @@
+method: dcf.fcff
+description: "Terminal value given by the analyst, 2000 at N on the enterprise basis, discounted at the horizon with DF_N; no terminal rate is used (Decision 24, R19)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 Decision 24 and R19 to R22, sharing no code with the engine; the defaults are
+  filled in by its own with_defaults, written from the spec).
+input:
+  stages: [{"flows": ["120", "135", "150", "160", "170"]}]
+  wacc: "0.09"
+  terminal: {"given": {"value": "2000"}}
+expect:
+  /terminal/technique: "given"
+  /terminal/rate: "null"
+  /terms/terminal_rate_given: "null"
+  /pv_explicit_period: "563.3824336605614874662835655"
+  /terminal/terminal_value: "2000"
+  /terminal/present_value: "1299.862772596690968105763761"
+  /value_of_operations: "1863.245206257252455572047327"
+  /enterprise_value: "1863.245206257252455572047327"
+  /equity_value: "1863.245206257252455572047327"
+  /terminal_value_weight: "0.6976337672741195655514373096"
+  /terminal/discount_factor: "0.6499313862983454840528818807"
+tolerance: "0.00000000000000000001"

@@ -1,0 +1,8 @@
+method: dcf.fcff
+description: "A given terminal value next to a technique: exactly one terminal option (R19, Decision 24)"
+source: SPEC-0001 R19 and Decision 24
+input:
+  stages: [{"flows": ["100", "110"]}]
+  wacc: "0.09"
+  terminal: {"given": {"value": "500"}, "tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}
+expect_error: FM-E001

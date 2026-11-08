@@ -1,0 +1,28 @@
+method: dcf.fcff
+description: "The explicit equivalent of flows-only-single-wacc: every defaulted field given with its default value gives the same values (Decision 24, R31)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 Decision 24 and R19 to R22, sharing no code with the engine; the defaults are
+  filled in by its own with_defaults, written from the spec).
+input:
+  stages: [{"periods": 5, "projection": "given", "flows": ["120", "135", "150", "160", "170"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.09"
+  timing: "end_of_period"
+  terminal: {"none": {}}
+expect:
+  /terminal/technique: "none"
+  /pv_explicit_period: "563.3824336605614874662835655"
+  /terminal/terminal_value: "0"
+  /terminal/present_value: "0"
+  /value_of_operations: "563.3824336605614874662835655"
+  /enterprise_value: "563.3824336605614874662835655"
+  /equity_value: "563.3824336605614874662835655"
+  /terminal_value_weight: "0"
+  /periods/0/present_value: "110.0917431192660550458715596"
+  /periods/1/present_value: "113.6267990909856072721151418"
+  /periods/2/present_value: "115.8275220091596404404843444"
+  /periods/3/present_value: "113.3480337704314524188226000"
+  /periods/4/present_value: "110.4883356707187322889899197"
+tolerance: "0.00000000000000000001"

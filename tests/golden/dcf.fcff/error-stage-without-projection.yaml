@@ -1,0 +1,8 @@
+method: dcf.fcff
+description: "A stage with neither a projection nor flows or lines: the projection is required (R6, Decision 24)"
+source: SPEC-0001 R6 and Decision 24
+input:
+  stages: [{"periods": 3, "growth": "0.02"}]
+  base_flow: "100"
+  wacc: "0.09"
+expect_error: FM-E001

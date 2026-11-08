@@ -1,0 +1,9 @@
+method: dcf.fcff
+description: "A terminal discounting time under mid-period timing with no terminal value: nothing to discount, refused (R21, Decision 24)"
+source: SPEC-0001 R21 and Decision 24
+input:
+  stages: [{"flows": ["100", "110"]}]
+  wacc: "0.09"
+  timing: "mid_period"
+  terminal_discount_time: "horizon"
+expect_error: FM-E001

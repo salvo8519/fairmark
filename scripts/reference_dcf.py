@@ -15,7 +15,11 @@ the Rust engine and computes differently where it can:
 - every terminal technique is restated here from SPEC-0006 (Gordon, H-model, value driver,
   exit multiple, normalised income at the terminal rate, liquidation); the limited horizon is
   summed flow by flow, not computed with the annuity closed form that the engine reuses from
-  `tvm.annuity`.
+  `tvm.annuity`;
+- the documented defaults of Decision 24 (projection `given` and periods from the flows of a
+  stage, nominal terms, end-of-period timing, no terminal value) are filled in by
+  `with_defaults`, written from the spec, not from the engine; the terminal options `given`
+  (an amount at N) and `none` are restated in `terminal_value`.
 
 It takes the version 3 input as a JSON-like dictionary (amounts and rates as strings) and
 returns the outputs that the golden cases check, keyed by their JSON Pointer in the result.
@@ -56,6 +60,27 @@ def at_50_digits(func: T) -> T:
 
 def _d(v: Any) -> D:
     return D(str(v))
+
+
+def with_defaults(inp: Mapping[str, Any]) -> dict[str, Any]:
+    """SPEC-0001 Decision 24: the input with every documented default filled in. A field given
+    is kept as given."""
+    out = dict(inp)
+    stages = []
+    for stage in inp["stages"]:
+        stage = dict(stage)
+        amounts = stage.get("flows", stage.get("lines"))
+        if "projection" not in stage and amounts is not None:
+            stage["projection"] = "given"
+        if "periods" not in stage and stage.get("projection") == "given":
+            stage["periods"] = len(amounts)
+        stages.append(stage)
+    out["stages"] = stages
+    out.setdefault("cash_flow_terms", "nominal")
+    out.setdefault("discount_rate_terms", "nominal")
+    out.setdefault("timing", "end_of_period")
+    out.setdefault("terminal", {"none": {}})
+    return out
 
 
 @at_50_digits
@@ -145,6 +170,10 @@ def terminal_value(
             - _d(terms["tax_on_gains"])
         )
         return tv, {"total_assets": total("assets")}
+    if technique == "none":  # Decision 24: no terminal value, the given flows only
+        return D(0), {}
+    if technique == "given":  # Decision 24: the analyst's amount at N, any sign
+        return _d(terms["value"]), {}
     raise ValueError(f"technique not restated in the reference: {technique}")
 
 
@@ -158,7 +187,7 @@ def perpetual_growth(technique: str, terms: Mapping[str, Any]) -> D | None:
 
 
 @at_50_digits
-def inflation_schedule(inp: Mapping[str, Any], n: int) -> tuple[list[D], D] | None:
+def inflation_schedule(inp: Mapping[str, Any], n: int) -> tuple[list[D], D | None] | None:
     """Expected inflation of each explicit period and of the terminal phase, or None."""
     if "inflation" in inp:
         i = _d(inp["inflation"])
@@ -166,7 +195,8 @@ def inflation_schedule(inp: Mapping[str, Any], n: int) -> tuple[list[D], D] | No
     if "inflation_per_period" in inp:
         per = [_d(i) for i in inp["inflation_per_period"]]
         assert len(per) == n
-        return per, _d(inp["terminal_inflation"])
+        # Decision 24: no terminal inflation when no terminal rate is used.
+        return per, _d(inp["terminal_inflation"]) if "terminal_inflation" in inp else None
     return None
 
 
@@ -185,17 +215,24 @@ def discounted(
     """The part shared by both bases: the explicit periods and the terminal value, discounted
     at the rates named by the method's fields (`wacc`, or `cost_of_equity`). Returns the
     outputs keyed by JSON Pointer, the present value of the explicit flows and the present
-    value of the terminal value."""
+    value of the terminal value. Outputs that are `null` (Decision 24: no terminal rate when
+    none is used) are left out; the golden cases state them."""
+    inp = with_defaults(inp)
     rows = project(inp["stages"], inp.get("base_flow"))
     n = len(rows)
+    mid = inp["timing"] == "mid_period"
+    technique, terms = next(iter(inp["terminal"].items()))
+    at_mid = mid and inp.get("terminal_discount_time") == "mid_period"
+    # Decision 24: the terminal rate is used by a technique, or by the half-period shift of a
+    # given terminal value; never with no terminal value.
+    uses_terminal_rate = technique.startswith("tv.") or (technique == "given" and at_mid)
     if single in inp:
         given = [_d(inp[single])] * n
-        terminal_given = _d(inp[single])
+        terminal_given = _d(inp[single]) if uses_terminal_rate else None
     else:
         given = [_d(r) for r in inp[per_period]]
-        terminal_given = _d(inp[terminal])
+        terminal_given = _d(inp[terminal]) if uses_terminal_rate else None
     assert len(given) == n
-    mid = inp["timing"] == "mid_period"
 
     out: dict[str, D] = {}
     # R16: rates restated in the terms of the flows when the terms differ; flows never.
@@ -206,7 +243,10 @@ def discounted(
         assert schedule is not None, "different terms need inflation (R15)"
         per_period, terminal_inflation = schedule
         rates = [restate(r, i, flow_terms) for r, i in zip(given, per_period, strict=True)]
-        terminal_rate = restate(terminal_given, terminal_inflation, flow_terms)
+        terminal_rate = None
+        if terminal_given is not None:
+            assert terminal_inflation is not None
+            terminal_rate = restate(terminal_given, terminal_inflation, flow_terms)
         for k, i in enumerate(per_period):
             out[f"/periods/{k}/inflation"] = i
     else:
@@ -214,15 +254,15 @@ def discounted(
     for k, r in enumerate(rates):
         out[f"/periods/{k}/discount_rate"] = given[k]
         out[f"/periods/{k}/rate_used"] = r
-    out["/terms/terminal_rate_given"] = terminal_given
-    out["/terms/terminal_rate_used"] = terminal_rate
-    out["/terminal/rate"] = terminal_rate
+    if terminal_given is not None and terminal_rate is not None:
+        out["/terms/terminal_rate_given"] = terminal_given
+        out["/terms/terminal_rate_used"] = terminal_rate
+        out["/terminal/rate"] = terminal_rate
     # R17: the perpetual growth restated in the other terms with the terminal inflation.
-    technique, terms = next(iter(inp["terminal"].items()))
     g = perpetual_growth(technique, terms)
     if g is not None:
         out["/terms/perpetual_growth"] = g
-    if schedule is not None:
+    if schedule is not None and schedule[1] is not None and uses_terminal_rate:
         out["/terms/terminal_inflation"] = schedule[1]
         if g is not None:
             other = "real" if flow_terms == "nominal" else "nominal"
@@ -241,12 +281,17 @@ def discounted(
         out[f"/periods/{k}/discount_factor"] = df
         out[f"/periods/{k}/present_value"] = pv
 
-    tv, technique_out = terminal_value(technique, terms, rows[-1]["flow"], terminal_rate)
+    tv, technique_out = terminal_value(
+        technique, terms, rows[-1]["flow"], terminal_rate if terminal_rate is not None else D(0)
+    )
     out.update({f"/terminal/output/{k}": v for k, v in technique_out.items()})
     df_n = 1 / growth_factor
-    at_mid = mid and inp["terminal_discount_time"] == "mid_period"
     # Decision 16: the half-period shift at N - 0.5 uses the terminal rate.
-    df_tv = df_n * (1 + terminal_rate).sqrt() if at_mid else df_n
+    if at_mid:
+        assert terminal_rate is not None
+        df_tv = df_n * (1 + terminal_rate).sqrt()
+    else:
+        df_tv = df_n
     pv_tv = tv * df_tv
     out.update(
         {

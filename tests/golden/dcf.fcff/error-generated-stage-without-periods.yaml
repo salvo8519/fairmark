@@ -1,0 +1,7 @@
+method: dcf.fcff
+description: "A constant growth stage without its number of periods: required, no default for a generated stage (R6, Decision 24)"
+source: SPEC-0001 R6 and Decision 24
+input:
+  stages: [{"flows": ["100"]}, {"projection": "constant_growth", "growth": "0.02"}]
+  wacc: "0.09"
+expect_error: FM-E001

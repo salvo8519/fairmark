@@ -1,0 +1,8 @@
+method: dcf.fcff
+description: "A terminal WACC with no terminal value: not used, refused (R12, Decision 24)"
+source: SPEC-0001 R12 and Decision 24
+input:
+  stages: [{"flows": ["100", "110"]}]
+  wacc_per_period: ["0.09", "0.09"]
+  terminal_wacc: "0.08"
+expect_error: FM-E001

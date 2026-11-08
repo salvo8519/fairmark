@@ -1,0 +1,11 @@
+method: dcf.fcff
+description: "A terminal discounting time without timing: the default timing end_of_period refuses it (R21, Decision 24); replaces error-timing-missing.yaml, approved by the maintainer on 2026-11-08"
+source: SPEC-0001 R21 and Decision 24
+input:
+  stages: [{"periods": 2, "projection": "given", "flows": ["100", "110"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.10"
+  terminal: {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}
+  terminal_discount_time: "horizon"
+expect_error: FM-E001
