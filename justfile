@@ -24,6 +24,7 @@ lint:
     typos
     python scripts/check_style.py
     python scripts/roadmap.py check
+    python scripts/required_checks.py check
     python scripts/check_yaml.py
     python scripts/pin_actions.py --check
     for f in sprints/S*.yaml; do [ -e "$f" ] && python scripts/sprint.py validate "$f"; done; true

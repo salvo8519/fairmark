@@ -62,6 +62,7 @@ milestones:
           - { issue: 143, title: "Release notes and changelog on the site: undated draft, numerical changes name the method versions", tags: [parallel], status: done }
           - { issue: 157, title: "Commit scope for the loans theme", status: done }
           - { issue: 159, title: "Roadmap page generated at build time instead of committed", status: done }
+          - { issue: 183, title: "Required status checks recorded and kept in step with the ruleset", status: done }
           - { issue: 173, title: "Agents stop when an approved change reaches golden cases outside its scope", status: done }
       - title: "CI/CD"
         issue: 10

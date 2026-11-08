@@ -1,0 +1,21 @@
+# Status checks required by the "Protect main" ruleset (Settings, Rules, Rulesets).
+# One check name per line, exactly as GitHub shows it: the ruleset matches checks by job name.
+# scripts/required_checks.py check: every name is produced by a job that runs on pull requests.
+# scripts/required_checks.py remote: this list equals the checks required by the ruleset.
+# When you rename a job, change this list and the ruleset in the same pull request.
+Rust · fmt, clippy, tests, golden
+Rust · MSRV 1.88
+Python 3.10 · ubuntu-latest
+Python 3.10 · macos-latest
+Python 3.10 · windows-latest
+Python 3.13 · ubuntu-latest
+Python 3.13 · macos-latest
+Python 3.13 · windows-latest
+Quality · lint, types, typos, generated files
+Quality · workflows, YAML, unused dependencies
+Dependencies · licenses, bans, advisories
+Contracts · schema changes and golden cases
+Build (strict) and check generated reference
+Title, branch and linked issue
+Area labels
+Dependency review
