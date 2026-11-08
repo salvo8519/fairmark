@@ -4,34 +4,35 @@ source_hash: dc3a9af350a5
 ---
 # Proiezione di una serie di valori (`series.project`)
 
-Fa crescere un valore base periodo per periodo con una regola di crescita dichiarata e
-restituisce il valore di ogni periodo: ricavi di 1.000 che crescono del 12% annuo su dodici
+Fa crescere un base value (valore di partenza) periodo per periodo con una growth rule (la
+regola con cui cresce) dichiarata e restituisce il valore di ogni periodo: ricavi di 1.000 che crescono del 12% annuo su dodici
 periodi mensili, una voce di costo che cresce di un tasso diverso ogni anno, un flusso la cui
 crescita si riduce in modo lineare fino a un tasso di lungo periodo. Usalo al posto di calcolare
-la riga da solo, così che il periodo base, la conversione di un tasso annuo alla durata del
-periodo e la data di ogni valore siano dichiarati, non presunti. Con una `timeline` datata il
+la riga da solo, così che il base period (il periodo a cui appartiene il base value), la
+conversione di un tasso annuo alla lunghezza del periodo e la data di ogni valore siano
+dichiarati, non presunti. Con una `timeline` datata il
 risultato alimenta direttamente [`tvm.xnpv`](tvm-xnpv.md) e [`tvm.xirr`](tvm-xirr.md).
 
 ## Formula
 
-Con valore base $V_0$ e $g_k$ il tasso di crescita per periodo verso il periodo $k$:
+Con base value $V_0$ e $g_k$ il tasso di crescita per periodo verso il periodo $k$:
 
 $$
 V_k = V_{k-1} \times (1 + g_k)
 $$
 
-calcolato periodo per periodo, mai con una potenza in forma chiusa. Il periodo base indica a
+calcolato periodo per periodo, mai con una potenza in forma chiusa. Il base period indica a
 quale valore corrisponde la base:
 
-| `base_period` | Il valore base è | Periodo 1 | Passi di crescita $s$ |
+| `base_period` | Il base value è | Periodo 1 | Passi di crescita $s$ |
 | --- | --- | --- | --- |
 | `period_0` | il valore precedente al periodo 1, per esempio l'ultimo anno consuntivo | $V_1 = V_0 (1 + g_1)$ | $n$ |
 | `period_1` | il valore del periodo 1 | $V_1 = V_0$ | $n - 1$, verso i periodi da 2 a $n$ |
 
-Il periodo base è obbligatorio: le due letture differiscono di un intero periodo di crescita su
+Il base period è obbligatorio: le due letture differiscono di un intero periodo di crescita su
 ogni valore. `period_0` è la convenzione degli stadi del DCF ([`dcf.fcff`](dcf-fcff.md)).
 
-### Regole di crescita
+### Growth rule
 
 | `growth` | Tasso del passo di crescita $j = 1, \dots, s$ |
 | --- | --- |
@@ -44,15 +45,15 @@ La regola lineare è quella dello stadio `linear_decline` di [`dcf.fcff`](dcf-fc
 una serie e uno stadio del DCF con la stessa base e gli stessi tassi danno gli stessi valori,
 bit per bit.
 
-### Base dei tassi di crescita: tassi annui e durata del periodo
+### Growth basis (come leggere i tassi): tassi annui e lunghezza del periodo
 
 Con $p$ mesi per periodo, i tassi della regola sono letti secondo `growth_basis`:
 
 | `growth_basis` | $p$ divide 12 ($m = 12 / p$ periodi all'anno) | $p$ multiplo di 12 ($k = p / 12$ anni) |
 | --- | --- | --- |
 | `per_period` | il tasso per periodo, come indicato | come indicato |
-| `annual_compound` | $(1 + g)^{1/m} - 1$: capitalizza a $g$ in un anno (il tasso equivalente di [`rates.convert`](rates-convert.md), diviso per $m$) | $(1 + g)^{k} - 1$, una potenza intera esatta |
-| `annual_simple` | $g / m$: $m$ periodi capitalizzano a $(1 + g/m)^m - 1$, più di $g$ | $g \times k$ |
+| `annual_compound` | $(1 + g)^{1/m} - 1$, il tasso equivalente in capitalizzazione composta: capitalizza a $g$ in un anno (il tasso equivalente di [`rates.convert`](rates-convert.md), diviso per $m$) | $(1 + g)^{k} - 1$, una potenza intera esatta |
+| `annual_simple` | $g / m$, il tasso equivalente in regime di interesse semplice: $m$ periodi capitalizzati in regime composto arrivano a $(1 + g/m)^m - 1$, più di $g$ | $g \times k$ |
 
 Dodici periodi mensili al 12% annuo, da 1.000:
 
@@ -62,8 +63,8 @@ Dodici periodi mensili al 12% annuo, da 1.000:
 | `annual_simple` | 1,00% | 12,68% | 1.126,83 |
 
 La base è obbligatoria quando i periodi non durano 12 mesi. Con periodi di 12 mesi (`annual` o
-`period_months` 12) le tre basi coincidono e può essere omessa; senza una durata del periodo i
-tassi sono per definizione per periodo. Per una durata del periodo che non divide 12 e non è
+`period_months` 12) le tre basi coincidono e può essere omessa; senza una lunghezza del periodo
+i tassi sono per definizione per periodo. Per una lunghezza del periodo che non divide 12 e non è
 multipla di 12 (5, 7 o 18 mesi) un tasso annuo richiederebbe una potenza frazionaria dell'anno
 senza una convenzione consolidata, quindi è accettato solo `per_period`: indica i tassi per
 periodo.
@@ -86,7 +87,7 @@ sono datati **1° aprile, 1° luglio, 1° ottobre e 1° gennaio**; con inizio il
 sono datati **31 marzo, 30 giugno, 30 settembre e 31 dicembre**. Entrambe le letture sono
 esatte; la data di inizio decide quale lettura usa il modello.
 
-## Esempio: piano dei periodi, serie, XNPV
+## Esempio: schedule, serie, XNPV
 
 Un esborso di 1.000 il 1° gennaio 2026, poi incassi trimestrali che crescono del 2% al
 trimestre da una base di 300, valutati al 10% annuo:
@@ -142,7 +143,7 @@ print([p["stated_growth"] for p in fade.periods])  # 0.11464, 0.09848, 0.08232, 
 
 | Campo | Significato | Default |
 | --- | --- | --- |
-| `base_value` | Valore base $V_0$, nelle unità della serie; può essere negativo | obbligatorio |
+| `base_value` | Base value $V_0$, nelle unità della serie; può essere negativo | obbligatorio |
 | `base_period` | `period_0` oppure `period_1` | obbligatorio |
 | `growth` | `constant`, `linear` oppure `per_period`, tassi come frazioni decimali maggiori di −1 | obbligatorio |
 | `growth_basis` | `per_period`, `annual_compound` oppure `annual_simple` | obbligatorio salvo periodi di 12 mesi o senza durata |
@@ -156,7 +157,7 @@ print([p["stated_growth"] for p in fade.periods])  # 0.11464, 0.09848, 0.08232, 
 | `periods` | Una riga per periodo: `period`, `start_date`, `end_date` e `year_fraction` (con uno `schedule`), `stated_growth` (il tasso della regola), `growth_per_period` (dopo la conversione), `effective_annual_growth` (quando i mesi per periodo dividono 12), `value` |
 | `values` | I valori dei periodi da 1 a $n$, nella forma di `cash_flows` di [`tvm.present_value`](tvm-present-value.md) |
 | `dated_values` | Con uno `schedule`: un `{date, amount}` per periodo, nella forma di `cash_flows` di [`tvm.xnpv`](tvm-xnpv.md) e [`tvm.xirr`](tvm-xirr.md) |
-| `months_per_period` | Mesi per periodo, quando la `timeline` ha una durata del periodo |
+| `months_per_period` | Mesi per periodo, quando la `timeline` ha una lunghezza del periodo |
 | `periods_per_year` | Periodi all'anno, quando i mesi per periodo dividono 12 |
 
 Con `period_1` i campi di crescita del periodo 1 sono assenti: nessun passo di crescita vi
@@ -166,18 +167,18 @@ conduce.
 
 | Convenzione | Opzioni | Default |
 | --- | --- | --- |
-| Periodo base | `period_0`, `period_1` | nessuno: obbligatorio |
-| Regola di crescita | `constant`, `linear`, `per_period` | nessuno: obbligatoria |
+| Base period | `period_0`, `period_1` | nessuno: obbligatorio |
+| Growth rule | `constant`, `linear`, `per_period` | nessuno: obbligatoria |
 | Passo lineare | $g_j = g_\text{from} + (g_\text{to} - g_\text{from}) \times j / s$ | fisso |
-| Base dei tassi di crescita | `per_period`, `annual_compound`, `annual_simple` | obbligatoria con periodi diversi da 12 mesi |
+| Growth basis | `per_period`, `annual_compound`, `annual_simple` | obbligatoria con periodi diversi da 12 mesi |
 | Data dei valori | `end_of_period`, `beginning_of_period` | obbligatoria con uno `schedule` |
 | Proiezione | $V_k = V_{k-1}(1 + g_k)$, periodo per periodo, senza arrotondamento | fissa |
 
-Un valore base negativo viene proiettato, con un avviso: una crescita positiva rende i valori
-più negativi. `explain` riporta la ricorrenza, il valore base e il periodo base, la regola di
-crescita con i suoi parametri, la base e la crescita annua effettiva che ne deriva, la
+Un base value negativo viene proiettato, con un avviso: una crescita positiva rende i valori
+più negativi. `explain` riporta la ricorrenza, il base value e il base period, la growth rule
+con i suoi parametri, la base e la crescita annua effettiva che ne deriva, la
 conversione del primo tasso con i numeri sostituiti, il primo e l'ultimo valore e, con uno
-`schedule`, le convenzioni del piano dei periodi di [`dates.schedule`](dates-schedule.md). I
+`schedule`, le convenzioni dello schedule di [`dates.schedule`](dates-schedule.md). I
 valori di ogni periodo sono nelle righe, quindi il numero di passaggi non cresce con il numero
 di periodi.
 
@@ -185,7 +186,7 @@ di periodi.
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | Un tasso di crescita pari a −1 o inferiore, come indicato o dopo la conversione, indicato con il suo pointer (`/growth/constant/growth`, `/growth/per_period/growth_rates/1`); una lista `per_period` senza esattamente $s$ tassi, con il numero atteso ed effettivo e il periodo base; `growth_basis` mancante con periodi diversi da 12 mesi, una base annua senza durata del periodo o con una durata che non divide 12 e non è multipla di 12; `timing` indicato con una `timeline` di tipo `periods` o mancante con uno `schedule`; sia `frequency` sia `period_months`; `number_of_periods` fuori dall'intervallo da 1 a 10000 |
+| `FM-E001` | Un tasso di crescita pari a −1 o inferiore, come indicato o dopo la conversione, indicato con il suo pointer (`/growth/constant/growth`, `/growth/per_period/growth_rates/1`); una lista `per_period` senza esattamente $s$ tassi, con il numero atteso ed effettivo e il base period; `growth_basis` mancante con periodi diversi da 12 mesi, una base annua senza lunghezza del periodo o con una durata che non divide 12 e non è multipla di 12; `timing` indicato con una `timeline` di tipo `periods` o mancante con uno `schedule`; sia `frequency` sia `period_months`; `number_of_periods` fuori dall'intervallo da 1 a 10000 |
 | `FM-E008` | Un valore oltre l'intervallo dei decimali |
 | `FM-E009` | Una data della `timeline` di tipo `schedule` fuori intervallo, indicata in `/timeline/schedule/...` come in [`dates.schedule`](dates-schedule.md) |
 
@@ -203,7 +204,7 @@ relativo.
 
 - Casi di riferimento in `tests/golden/series.project/`, da un calcolo indipendente a 50 cifre
   scritto a partire dalla specifica (`scripts/reference_series.py`): la ricorrenza, entrambi i
-  periodi base, la regola lineare, le tre basi per ogni durata del periodo che divide 12 e per
+  base period, la regola lineare, le tre basi per ogni lunghezza del periodo che divide 12 e per
   24 mesi, e lo XNPV completo di una serie datata.
 - I tassi lineari di Damodaran, *Investment Valuation*, 2a edizione, Illustration 15.3
   (Amgen): 11,46%, 9,85%, 8,23%, 6,62%, 5,00%.
@@ -213,8 +214,11 @@ relativo.
 
 ## Fonti
 
-- Tassi periodali equivalenti e proporzionali: il tasso equivalente di
-  [`rates.convert`](rates-convert.md); tasso annuo nominale, tasso periodale e tasso annuo
-  effettivo del curriculum del CFA Institute (da verificare sul testo pubblicato).
+- Tassi equivalenti in capitalizzazione composta, $i_m = (1 + i)^{1/m} - 1$, e in regime di
+  interesse semplice, $i_m = i / m$ (verificati il 2026-11-08): Università di Trieste,
+  A. R. Bacinello, *Matematica finanziaria*, "Tassi equivalenti nel regime dell'interesse
+  semplice e della capitalizzazione composta"; M. Sandri, *Matematica finanziaria*,
+  "Capitalizzazione frazionata", "Tassi equivalenti". Il tasso equivalente composto è quello di
+  [`rates.convert`](rates-convert.md).
 - Damodaran, *Investment Valuation*, 2a edizione, capitolo 15, Illustration 15.3.
 - Definizione del periodo e regola di fine mese: vedi [`dates.schedule`](dates-schedule.md).

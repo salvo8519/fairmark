@@ -86,7 +86,7 @@ qualsiasi ordine.
 | Convenzione | Opzioni | Default |
 | --- | --- | --- |
 | Calcolo dei giorni | cinque convenzioni, vedi [`dates.year_fraction`](dates-year-fraction.md) | Actual/365 (Fixed), il default dei fogli di calcolo ECMA-376 |
-| Capitalizzazione | annuale, semestrale, quadrimestrale, trimestrale, bimestrale, mensile, continua | annuale, il default dei fogli di calcolo ECMA-376 |
+| Capitalizzazione | annuale, semestrale, quadrimestrale, trimestrale, ogni due mesi, mensile, continua | annuale, il default dei fogli di calcolo ECMA-376 |
 | Data di valutazione | qualsiasi data non successiva al primo flusso | data del primo flusso |
 
 Ogni convenzione è riportata indicando se è stata fornita o se è il default. ECMA-376 valuta

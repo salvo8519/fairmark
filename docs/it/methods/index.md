@@ -26,8 +26,8 @@ Stato di ogni metodo, come lo riporta il registro del motore a `fm.methods()`, `
 | Metodo | Che cosa calcola |
 | --- | --- |
 | [`dates.year_fraction`](dates-year-fraction.md) | Frazione d'anno tra due date secondo una convenzione di calcolo dei giorni ISDA |
-| [`dates.schedule`](dates-schedule.md) | Date di inizio e di fine di periodi di calcolo contigui [inizio, fine), con le frazioni d'anno |
-| [`series.project`](series-project.md) | Valori dei periodi da 1 a n ottenuti da un valore base con una crescita costante, lineare o per periodo, datati su un piano dei periodi |
+| [`dates.schedule`](dates-schedule.md) | Date di inizio e di fine di periodi contigui [inizio, fine), con le frazioni d'anno |
+| [`series.project`](series-project.md) | Valori dei periodi da 1 a n ottenuti da un base value con una crescita costante, lineare o per periodo, datati su uno schedule |
 | [`rates.convert`](rates-convert.md) | Tasso annuo equivalente con un'altra convenzione di capitalizzazione |
 | [`rates.real_nominal`](rates-real-nominal.md) | Tasso reale da un tasso nominale, o viceversa (relazione di Fisher) |
 | [`tvm.present_value`](tvm-present-value.md) | Valore attuale di flussi periodici con un unico tasso o un tasso per periodo |

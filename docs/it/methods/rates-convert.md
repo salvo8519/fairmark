@@ -37,7 +37,7 @@ Per una destinazione annuale ($m' = 1$) si ha semplicemente $r' = G - 1$.
 | Semestrale | `semi_annual` | 2 |
 | Quadrimestrale (ogni quattro mesi) | `four_monthly` | 3 |
 | Trimestrale | `quarterly` | 4 |
-| Bimestrale (ogni due mesi, non due volte al mese) | `bimonthly` | 6 |
+| Ogni due mesi (non due volte al mese) | `bimonthly` | 6 |
 | Mensile | `monthly` | 12 |
 | Continua | `continuous` | nessuno, crescita $e^{r}$ |
 
@@ -88,7 +88,7 @@ campo è `from`.
 
 | Convenzione | Opzioni | Default |
 | --- | --- | --- |
-| Capitalizzazione di partenza (`from`) | annuale, semestrale, quadrimestrale, trimestrale, bimestrale, mensile, continua | nessuno: un tasso senza la sua capitalizzazione è ambiguo |
+| Capitalizzazione di partenza (`from`) | annuale, semestrale, quadrimestrale, trimestrale, ogni due mesi, mensile, continua | nessuno: un tasso senza la sua capitalizzazione è ambiguo |
 | Capitalizzazione di destinazione (`to`) | stesse opzioni | nessuno |
 | Espressione del tasso | i tassi sono sempre espressi su base annua: un tasso di 0.12 a capitalizzazione mensile significa 1% al mese | fissa |
 

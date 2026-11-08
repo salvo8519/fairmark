@@ -87,7 +87,7 @@ $s = 1$ l'unicità del tasso è dimostrata.
 | `cash_flows` | Flussi datati `{date, amount}`, in qualsiasi ordine; almeno un importo positivo e uno negativo | obbligatorio |
 | `day_count` | `act_365_fixed`, `act_360`, `act_act_isda`, `thirty_360` oppure `thirty_e_360` | `act_365_fixed` |
 | `compounding` | Capitalizzazione del tasso restituito: `annual`, `semi_annual`, `four_monthly` (3 all'anno), `quarterly`, `bimonthly` (ogni due mesi, 6 all'anno), `monthly` oppure `continuous` | `annual` |
-| `guess` | Punto di partenza del metodo di Newton, frazione decimale annua nella capitalizzazione del risultato, maggiore di $-m$, con $m$ il numero di periodi di capitalizzazione all'anno (−1 annuale, −2 semestrale, −3 quadrimestrale, −4 trimestrale, −6 bimestrale, −12 mensile; nessun limite con la capitalizzazione continua) | `0.10` |
+| `guess` | Punto di partenza del metodo di Newton, frazione decimale annua nella capitalizzazione del risultato, maggiore di $-m$, con $m$ il numero di periodi di capitalizzazione all'anno (−1 annuale, −2 semestrale, −3 quadrimestrale, −4 trimestrale, −6 ogni due mesi, −12 mensile; nessun limite con la capitalizzazione continua) | `0.10` |
 
 ## Output
 
@@ -105,7 +105,7 @@ $s = 1$ l'unicità del tasso è dimostrata.
 | Convenzione | Opzioni | Default |
 | --- | --- | --- |
 | Calcolo dei giorni | cinque convenzioni, vedi [`dates.year_fraction`](dates-year-fraction.md) | Actual/365 (Fixed), il default dei fogli di calcolo ECMA-376 |
-| Capitalizzazione | annuale, semestrale, quadrimestrale, trimestrale, bimestrale, mensile, continua | annuale, il default dei fogli di calcolo ECMA-376 |
+| Capitalizzazione | annuale, semestrale, quadrimestrale, trimestrale, ogni due mesi, mensile, continua | annuale, il default dei fogli di calcolo ECMA-376 |
 | Origine dei tempi | data del primo flusso | fissa |
 | Griglia dell'algoritmo | tassi annui effettivi da −0.99 a 10, convertiti nella capitalizzazione | fissa |
 | Criterio di arresto | passo sul tasso inferiore a $10^{-18}$, al massimo 200 iterazioni | fisso |
