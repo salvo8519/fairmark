@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: c8659b273145
+source_hash: 0534e598416b
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
