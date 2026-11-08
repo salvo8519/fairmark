@@ -869,7 +869,7 @@ fn terminal_value(
                 format!("DF_{n} × (1 + r_{n})^0.5 = {df_n} × (1 + {r_n})^0.5"),
                 df,
             );
-            let pv = match g_n.and_then(|g| tv_n.checked_mul(root).map(|v| (v, g))) {
+            let pv = match tv_n.checked_mul(root).zip(g_n) {
                 Some((v, g)) => {
                     let pv = div(v, g)?;
                     ex.step(
