@@ -35,5 +35,7 @@ parallel; tick a task only when `just check` passes.
 - [x] T16 Italian edition (`docs/it/`), stamped with `scripts/i18n.py`; `uv run just check`
 
 ## Verification
-- [ ] T17 `numerical-auditor` review, `code-reviewer` review, all AC ticked in spec.md
-  (maintainer)
+- [x] T17 `numerical-auditor` review and `code-reviewer` review done, findings applied, all AC
+  ticked in spec.md; recorded in the description of pull request #141
+  (https://github.com/salvo8519/fairmark/pull/141, section Verification); ticked by maintainer
+  decision of 2026-11-08

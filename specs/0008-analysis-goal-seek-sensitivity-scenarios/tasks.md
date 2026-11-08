@@ -48,5 +48,7 @@ parallel; tick a task only when `just check` passes.
 - [ ] T24 `uv run just docs`, docs coverage green, `/translate` for the Italian edition
 
 ## Verification
-- [ ] T25 `numerical-auditor` review (Brent path, golden sources), `code-reviewer` review, all
-  AC ticked in spec.md
+- [x] T25 `numerical-auditor` review (Brent path, golden sources) and `code-reviewer` review
+  done, every blocking and should-fix finding resolved, all AC ticked in spec.md; recorded on
+  pull request #129 (https://github.com/salvo8519/fairmark/pull/129#issuecomment-6714463167);
+  ticked by maintainer decision of 2026-11-08

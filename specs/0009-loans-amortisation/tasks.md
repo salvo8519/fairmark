@@ -62,6 +62,7 @@ parallel; tick a task only when `just check` passes.
 - [x] T22 Roadmap: issues #136 and #137 done, page regenerated with `scripts/roadmap.py render`
 
 ## Verification
-- [ ] T23 `uv run just check` green (done); `numerical-auditor` and `code-reviewer` reviews
-  (pending, to be run by the orchestrating session); all AC ticked in spec.md (by the
-  maintainer: spec.md is not changed on this branch)
+- [x] T23 `uv run just check` green; `numerical-auditor` and `code-reviewer` reviews done,
+  findings applied, all AC ticked in spec.md; recorded in the description of pull request #156
+  (https://github.com/salvo8519/fairmark/pull/156, section Verification); ticked by maintainer
+  decision of 2026-11-08
