@@ -297,6 +297,7 @@ Interest cover on EBIT and EBITDA, net financial position to EBITDA, DSCR per pe
 | --- | --- | --- | --- | --- |
 | `balances` | `closing` \| `average` | yes |  | Balances used by the ratios: `closing`, or `average` of opening and closing. |
 | `ebitda_definition` | string | yes |  | How EBITDA was measured, in words (for example "reported EBITDA, no adjustments"); echoed in the conventions. |
+| `interest_definition` | string | yes |  | How interest was measured, in words (for example "gross interest expense" or "interest expense net of interest income"); echoed in the conventions. |
 | `income_statement` | object | yes |  | Flows of the period. |
 | `closing` | object | yes |  | Balance sheet at the end of the period. |
 | `opening` |  | no |  | Balance sheet at the start of the period. Required with average balances; not used with closing balances. |

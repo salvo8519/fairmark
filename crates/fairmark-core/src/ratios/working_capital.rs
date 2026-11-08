@@ -75,6 +75,9 @@ pub fn working_capital(input: &WorkingCapitalInput) -> Result<(WorkingCapitalOut
     let basis = BalanceBasis::new(input.balances, input.opening.is_some(), &mut ex)?;
     let days = input.day_basis.days();
     ex.convention(format!("day basis: {days} days"));
+    ex.convention("DSO on revenue");
+    ex.convention("DIO on cost of sales");
+    ex.convention("DPO on purchases");
     ex.convention(
         "balances and flows are used as given, so trade receivables and revenue must be stated \
          on the same VAT basis, and trade payables and purchases likewise",
@@ -171,5 +174,52 @@ impl Method for WorkingCapital {
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         working_capital(input)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn d(v: i64) -> Decimal {
+        Decimal::from(v)
+    }
+
+    fn input(purchases: i64) -> WorkingCapitalInput {
+        WorkingCapitalInput {
+            balances: Balances::Closing,
+            day_basis: DayBasis::Days365,
+            income_statement: WorkingCapitalIncome {
+                revenue: d(5000),
+                cost_of_sales: d(3000),
+                purchases: d(purchases),
+            },
+            closing: WorkingCapitalBalances {
+                trade_receivables: d(1200),
+                inventories: d(600),
+                trade_payables: d(700),
+            },
+            opening: None,
+        }
+    }
+
+    #[test]
+    fn cash_conversion_cycle_is_dso_plus_dio_minus_dpo() {
+        let (out, _) = working_capital(&input(2800)).unwrap();
+        assert_eq!(out.cash_conversion_cycle.value, Some(Decimal::new(6935, 2)));
+    }
+
+    #[test]
+    fn one_undefined_part_leaves_the_cycle_not_defined() {
+        let (out, _) = working_capital(&input(0)).unwrap();
+        assert_eq!(
+            out.days_payable_outstanding.not_defined.as_deref(),
+            Some("purchases is zero")
+        );
+        assert_eq!(
+            out.cash_conversion_cycle.not_defined.as_deref(),
+            Some("days payable outstanding is not defined")
+        );
+        assert!(out.days_sales_outstanding.value.is_some());
     }
 }

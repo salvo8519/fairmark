@@ -76,6 +76,10 @@ pub fn capital_structure(
     );
     let basis = BalanceBasis::new(input.balances, input.opening.is_some(), &mut ex)?;
     ex.convention(NFP_CONVENTION);
+    ex.convention(
+        "D/E uses gross debt only: cash and the other items of the net financial position are \
+         excluded",
+    );
     ex.convention("a ratio with a zero denominator is not defined");
     ex.convention("a ratio over equity is not defined when equity is zero or negative");
 
@@ -192,5 +196,68 @@ impl Method for CapitalStructure {
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         capital_structure(input)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ratios::NfpItem;
+
+    fn d(v: i64) -> Decimal {
+        Decimal::from(v)
+    }
+
+    fn balances(equity: i64) -> CapitalStructureBalances {
+        CapitalStructureBalances {
+            equity: d(equity),
+            total_assets: d(6000),
+            fixed_assets: d(3500),
+            non_current_liabilities: d(1800),
+            net_financial_position: NetFinancialPosition {
+                gross_debt: d(2200),
+                cash: d(300),
+                other_items: vec![NfpItem {
+                    name: "lease liabilities".into(),
+                    amount: d(150),
+                }],
+            },
+        }
+    }
+
+    fn input(equity: i64) -> CapitalStructureInput {
+        CapitalStructureInput {
+            balances: Balances::Closing,
+            closing: balances(equity),
+            opening: None,
+        }
+    }
+
+    #[test]
+    fn secondary_margin_is_primary_plus_non_current_liabilities() {
+        let (out, _) = capital_structure(&input(2000)).unwrap();
+        assert_eq!(
+            out.secondary_structure_margin,
+            out.primary_structure_margin + d(1800)
+        );
+    }
+
+    #[test]
+    fn debt_to_equity_uses_gross_debt_only() {
+        let (out, _) = capital_structure(&input(2000)).unwrap();
+        assert_eq!(out.debt_to_equity.value, Some(Decimal::new(11, 1)));
+        assert_eq!(out.net_financial_position, d(2050));
+    }
+
+    #[test]
+    fn non_positive_equity_leaves_equity_ratios_not_defined_only() {
+        for (equity, reason) in [(0, "equity is zero"), (-200, "equity is negative (-200)")] {
+            let (out, _) = capital_structure(&input(equity)).unwrap();
+            assert_eq!(out.debt_to_equity.not_defined.as_deref(), Some(reason));
+            assert_eq!(out.nfp_to_equity.not_defined.as_deref(), Some(reason));
+            assert!(out.secondary_fixed_asset_coverage.value.is_some());
+        }
+        let (out, _) = capital_structure(&input(-200)).unwrap();
+        assert!(out.equity_ratio.value.is_some());
     }
 }

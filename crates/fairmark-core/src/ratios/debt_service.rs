@@ -5,7 +5,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    quotient, term, BalanceBasis, Balances, NetFinancialPosition, Ratio, RatioValue, NFP_CONVENTION,
+    quotient, require_definition, term, BalanceBasis, Balances, NetFinancialPosition, Ratio,
+    RatioValue, NFP_CONVENTION,
 };
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
@@ -21,8 +22,8 @@ pub struct DebtServiceIncome {
     pub ebitda: Decimal,
     /// EBIT (operating result) of the period, in currency units.
     pub ebit: Decimal,
-    /// Interest expense of the period, in currency units, as the analyst measures it (gross, or
-    /// net of interest income).
+    /// Interest expense of the period, in currency units, as defined in `interest_definition`
+    /// (gross, or net of interest income).
     pub interest: Decimal,
 }
 
@@ -66,6 +67,9 @@ pub struct DebtServiceInput {
     /// How EBITDA was measured, in words (for example "reported EBITDA, no adjustments");
     /// echoed in the conventions.
     pub ebitda_definition: String,
+    /// How interest was measured, in words (for example "gross interest expense" or "interest
+    /// expense net of interest income"); echoed in the conventions.
+    pub interest_definition: String,
     /// Flows of the period.
     pub income_statement: DebtServiceIncome,
     /// Balance sheet at the end of the period.
@@ -107,10 +111,13 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
         "interest cover = EBIT (or EBITDA) / interest; NFP / EBITDA; DSCR_t = CFADS_t / debt \
          service_t; LLCR = Σ CFADS_t / (1 + r)^t / debt outstanding",
     );
+    require_definition("ebitda_definition", &input.ebitda_definition)?;
+    require_definition("interest_definition", &input.interest_definition)?;
     let basis = BalanceBasis::new(input.balances, input.opening.is_some(), &mut ex)?;
     ex.convention(format!("EBITDA as given: {}", input.ebitda_definition));
+    ex.convention(format!("interest as given: {}", input.interest_definition));
     ex.convention(NFP_CONVENTION);
-    ex.convention("interest and debt service as given");
+    ex.convention("debt service as given");
     let r = schedule.discount_rate;
     let n = schedule.periods.len();
     ex.convention(format!(
@@ -159,6 +166,7 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
 
     let mut dscr = Vec::with_capacity(n);
     let mut pv = Decimal::ZERO;
+    let mut present_values = Vec::with_capacity(n);
     for (i, p) in schedule.periods.iter().enumerate() {
         let t = i + 1;
         let label = format!("DSCR, period {t}");
@@ -173,12 +181,20 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
         let pv_t = num::mul(p.cfads, df)?;
         ex.step(
             format!("Present value of CFADS, period {t}"),
-            format!("{} / (1 + {r})^{t}", p.cfads),
+            format!(
+                "CFADS × discount factor = {} × {df} (discount factor = 1 / (1 + {r})^{t})",
+                p.cfads
+            ),
             pv_t,
         );
         pv = num::add(pv, pv_t)?;
+        present_values.push(pv_t.to_string());
     }
-    ex.step("Present value of CFADS", "Σ PV CFADS_t", pv);
+    ex.step(
+        "Present value of CFADS",
+        format!("Σ PV CFADS_t = {}", present_values.join(" + ")),
+        pv,
+    );
     let llcr = quotient(
         "LLCR",
         "present value of CFADS / debt outstanding",
@@ -241,5 +257,102 @@ impl Method for DebtService {
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         debt_service(input)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn d(v: i64) -> Decimal {
+        Decimal::from(v)
+    }
+
+    fn input() -> DebtServiceInput {
+        DebtServiceInput {
+            balances: Balances::Closing,
+            ebitda_definition: "reported".into(),
+            interest_definition: "gross interest expense".into(),
+            income_statement: DebtServiceIncome {
+                ebitda: d(800),
+                ebit: d(500),
+                interest: d(100),
+            },
+            closing: DebtServiceBalances {
+                net_financial_position: NetFinancialPosition {
+                    gross_debt: d(2200),
+                    cash: d(300),
+                    other_items: vec![],
+                },
+            },
+            opening: None,
+            debt_schedule: DebtSchedule {
+                discount_rate: Decimal::ZERO,
+                debt_outstanding: d(500),
+                periods: vec![
+                    DebtPeriod {
+                        cfads: d(120),
+                        debt_service: d(0),
+                    },
+                    DebtPeriod {
+                        cfads: d(150),
+                        debt_service: d(100),
+                    },
+                ],
+            },
+        }
+    }
+
+    #[test]
+    fn a_period_without_debt_service_is_not_defined_and_the_others_are_computed() {
+        let (out, _) = debt_service(&input()).unwrap();
+        assert_eq!(
+            out.dscr[0].not_defined.as_deref(),
+            Some("debt service is zero")
+        );
+        assert_eq!(out.dscr[1].value, Some(Decimal::new(15, 1)));
+        // At a zero rate the present value is the plain sum of CFADS.
+        assert_eq!(out.pv_cfads, d(270));
+        assert_eq!(out.llcr.value, Some(Decimal::new(54, 2)));
+    }
+
+    #[test]
+    fn zero_debt_outstanding_leaves_llcr_not_defined() {
+        let mut i = input();
+        i.debt_schedule.debt_outstanding = Decimal::ZERO;
+        let (out, _) = debt_service(&i).unwrap();
+        assert_eq!(
+            out.llcr.not_defined.as_deref(),
+            Some("debt outstanding is zero")
+        );
+    }
+
+    #[test]
+    fn present_value_steps_show_the_numbers() {
+        let mut i = input();
+        i.debt_schedule.discount_rate = Decimal::new(25, 2);
+        let (_, ex) = debt_service(&i).unwrap();
+        let step = ex
+            .steps
+            .iter()
+            .find(|s| s.label == "Present value of CFADS, period 1")
+            .unwrap();
+        assert_eq!(
+            step.formula,
+            "CFADS × discount factor = 120 × 0.8 (discount factor = 1 / (1 + 0.25)^1)"
+        );
+        let sum = ex
+            .steps
+            .iter()
+            .find(|s| s.label == "Present value of CFADS")
+            .unwrap();
+        assert_eq!(sum.formula, "Σ PV CFADS_t = 96.0 + 96.00");
+    }
+
+    #[test]
+    fn blank_interest_definition_is_refused() {
+        let mut i = input();
+        i.interest_definition = String::new();
+        assert_eq!(debt_service(&i).unwrap_err().code(), "FM-E001");
     }
 }

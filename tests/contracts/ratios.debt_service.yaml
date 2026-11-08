@@ -5,6 +5,7 @@ method: ratios.debt_service
 extreme_inputs:
 - balances: average
   ebitda_definition: extreme
+  interest_definition: extreme
   income_statement: {ebitda: '0.0000000000000000000000000001', ebit: MAX, interest: MIN}
   closing:
     net_financial_position: {gross_debt: MAX, cash: MIN, other_items: [{name: a, amount: MAX}]}
@@ -16,6 +17,7 @@ extreme_inputs:
     periods: [{cfads: MAX, debt_service: '0.0000000000000000000000000001'}, {cfads: MAX, debt_service: MIN}]
 - balances: closing
   ebitda_definition: extreme
+  interest_definition: extreme
   income_statement: {ebitda: MIN, ebit: MIN, interest: '0.0000000000000000000000000001'}
   closing:
     net_financial_position: {gross_debt: MIN, cash: MAX, other_items: []}
@@ -25,6 +27,7 @@ extreme_inputs:
     periods: [{cfads: MIN, debt_service: MAX}]
 - balances: closing
   ebitda_definition: extreme
+  interest_definition: extreme
   income_statement: {ebitda: '1', ebit: '1', interest: '1'}
   closing:
     net_financial_position: {gross_debt: '1', cash: '0', other_items: []}
@@ -36,6 +39,7 @@ conventions:
 - input:
     balances: closing
     ebitda_definition: reported EBITDA, no adjustments
+    interest_definition: gross interest expense
     income_statement: {ebitda: '800', ebit: '500', interest: '100'}
     closing:
       net_financial_position: {gross_debt: '2200', cash: '300', other_items: []}
@@ -49,5 +53,6 @@ conventions:
   - net financial position = gross debt − cash + other items, positive for net debt
   - CFADS discounted at the end of each period at 0.06 per period
   - LLCR over the 2 periods of the schedule, debt outstanding at the start of the first period
-  - interest and debt service as given
+  - 'interest as given: gross interest expense'
+  - debt service as given
   - a ratio with a zero denominator is not defined

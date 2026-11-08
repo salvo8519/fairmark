@@ -7,6 +7,7 @@ source: 'scripts/reference_ratios.py, debt_service (Python decimal, 50 digits, l
 input:
   balances: closing
   ebitda_definition: reported EBITDA, no adjustments
+  interest_definition: gross interest expense
   income_statement:
     ebitda: '800'
     ebit: '500'

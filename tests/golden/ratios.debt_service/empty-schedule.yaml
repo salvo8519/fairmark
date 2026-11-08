@@ -5,6 +5,7 @@ source: Constructed. DSCR and LLCR need at least one period of CFADS (FM-E002, e
 input:
   balances: closing
   ebitda_definition: reported EBITDA, no adjustments
+  interest_definition: gross interest expense
   income_statement:
     ebitda: '800'
     ebit: '500'

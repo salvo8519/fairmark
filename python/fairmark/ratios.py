@@ -121,6 +121,7 @@ def debt_service(
     *,
     balances: Balances,
     ebitda_definition: str,
+    interest_definition: str,
     income_statement: Mapping[str, Any],
     closing: Mapping[str, Any],
     debt_schedule: Mapping[str, Any],
@@ -128,7 +129,8 @@ def debt_service(
 ) -> Result:
     """Interest cover, NFP / EBITDA, DSCR per period and LLCR.
 
-    ``income_statement``: ``ebitda``, ``ebit``, ``interest``. Balance sheets:
+    ``income_statement``: ``ebitda``, ``ebit``, ``interest``; ``ebitda_definition`` and
+    ``interest_definition`` state in words how EBITDA and interest were measured. Balance sheets:
     ``net_financial_position``. ``debt_schedule``: ``discount_rate`` (per period),
     ``debt_outstanding`` (at the start of the first period) and ``periods``, a list of
     ``{"cfads": ..., "debt_service": ...}`` up to the final maturity.
@@ -138,6 +140,7 @@ def debt_service(
         _payload(
             balances=balances,
             ebitda_definition=ebitda_definition,
+            interest_definition=interest_definition,
             income_statement=income_statement,
             closing=closing,
             opening=opening,

@@ -39,4 +39,14 @@ conventions:
   expect:
   - balances as the average of opening and closing
   - 'operating return base: total assets'
+  - ROS = EBIT / revenue, equal to the EBIT margin
+  - three-factor ROE on total assets (asset turnover and equity multiplier), whatever the operating return base
   - 'EBITDA as given: adjusted for one-off restructuring costs of 40'
+- input:
+    balances: closing
+    operating_return_base: total_assets
+    ebitda_definition: reported EBITDA, no adjustments
+    income_statement: {revenue: '5000', ebitda: '800', ebit: '500', net_income: '260'}
+    closing: {equity: '2000', total_assets: '6000', invested_capital: '4000'}
+  expect:
+  - invested capital given and not used

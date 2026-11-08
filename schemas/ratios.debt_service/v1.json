@@ -112,7 +112,7 @@
           ]
         },
         "interest": {
-          "description": "Interest expense of the period, in currency units, as the analyst measures it (gross, or\nnet of interest income).",
+          "description": "Interest expense of the period, in currency units, as defined in `interest_definition`\n(gross, or net of interest income).",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -211,6 +211,10 @@
       "$ref": "#/$defs/DebtServiceIncome",
       "description": "Flows of the period."
     },
+    "interest_definition": {
+      "description": "How interest was measured, in words (for example \"gross interest expense\" or \"interest\nexpense net of interest income\"); echoed in the conventions.",
+      "type": "string"
+    },
     "opening": {
       "anyOf": [
         {
@@ -226,6 +230,7 @@
   "required": [
     "balances",
     "ebitda_definition",
+    "interest_definition",
     "income_statement",
     "closing",
     "debt_schedule"

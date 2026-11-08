@@ -41,5 +41,6 @@ conventions:
   expect:
   - balances at closing
   - net financial position = gross debt − cash + other items, positive for net debt
+  - 'D/E uses gross debt only: cash and the other items of the net financial position are excluded'
   - a ratio with a zero denominator is not defined
   - a ratio over equity is not defined when equity is zero or negative

@@ -5,7 +5,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    all_defined, over_equity, quotient, term, BalanceBasis, Balances, Ratio, RatioValue, Term,
+    all_defined, over_equity, quotient, require_definition, term, BalanceBasis, Balances, Ratio,
+    RatioValue, Term,
 };
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
@@ -110,13 +111,27 @@ pub fn profitability(input: &ProfitabilityInput) -> Result<(ProfitabilityOutput,
          capital turnover = revenue / operating return base; ROE = net margin × asset turnover × \
          equity multiplier",
     );
+    require_definition("ebitda_definition", &input.ebitda_definition)?;
     let basis = BalanceBasis::new(input.balances, input.opening.is_some(), &mut ex)?;
     let base_name = match input.operating_return_base {
         OperatingReturnBase::InvestedCapital => "invested capital",
         OperatingReturnBase::TotalAssets => "total assets",
     };
     ex.convention(format!("operating return base: {base_name}"));
+    let invested_capital_given = input.closing.invested_capital.is_some()
+        || input
+            .opening
+            .as_ref()
+            .is_some_and(|o| o.invested_capital.is_some());
+    if input.operating_return_base == OperatingReturnBase::TotalAssets && invested_capital_given {
+        ex.convention("invested capital given and not used");
+    }
     ex.convention(format!("EBITDA as given: {}", input.ebitda_definition));
+    ex.convention("ROS = EBIT / revenue, equal to the EBIT margin");
+    ex.convention(
+        "three-factor ROE on total assets (asset turnover and equity multiplier), whatever the \
+         operating return base",
+    );
     ex.convention("a ratio with a zero denominator is not defined");
     ex.convention("a ratio over equity is not defined when equity is zero or negative");
 
@@ -289,6 +304,24 @@ mod tests {
         let (out, _) = profitability(&i).unwrap();
         assert_eq!(out.roe.not_defined.as_deref(), Some("equity is zero"));
         assert!(out.roi.value.is_some());
+    }
+
+    #[test]
+    fn blank_ebitda_definition_is_refused() {
+        let mut i = input();
+        i.ebitda_definition = " ".into();
+        assert_eq!(profitability(&i).unwrap_err().code(), "FM-E001");
+    }
+
+    #[test]
+    fn unused_invested_capital_is_reported() {
+        let mut i = input();
+        i.operating_return_base = OperatingReturnBase::TotalAssets;
+        let (_, ex) = profitability(&i).unwrap();
+        assert!(ex
+            .conventions
+            .iter()
+            .any(|c| c == "invested capital given and not used"));
     }
 
     #[test]

@@ -21,5 +21,8 @@ conventions:
   expect:
   - balances at closing
   - 'day basis: 365 days'
+  - DSO on revenue
+  - DIO on cost of sales
+  - DPO on purchases
   - balances and flows are used as given, so trade receivables and revenue must be stated on the same VAT basis
   - a ratio with a zero denominator is not defined

@@ -6,6 +6,7 @@ source: scripts/reference_ratios.py, debt_service (Python decimal, 50 digits, lo
 input:
   balances: average
   ebitda_definition: reported EBITDA, no adjustments
+  interest_definition: gross interest expense
   income_statement:
     ebitda: '800'
     ebit: '500'
@@ -38,6 +39,7 @@ expect:
   /dscr/0/value: 'null'
   /dscr/1/value: '1.5'
   /interest_cover_ebit/not_defined: interest is zero
+  /interest_cover_ebitda/not_defined: interest is zero
   /dscr/0/not_defined: debt service is zero
   /dscr/1/not_defined: 'null'
 tolerance: '0.000000001'

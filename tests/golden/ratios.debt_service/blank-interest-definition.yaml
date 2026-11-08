@@ -1,0 +1,24 @@
+method: ratios.debt_service
+description: An empty interest definition is refused
+source: Constructed. The analyst must state how interest was measured (gross, or net of interest
+  income); an empty text states nothing (FM-E001).
+input:
+  balances: closing
+  ebitda_definition: reported EBITDA, no adjustments
+  interest_definition: ''
+  income_statement:
+    ebitda: '800'
+    ebit: '500'
+    interest: '100'
+  closing:
+    net_financial_position:
+      gross_debt: '2200'
+      cash: '300'
+      other_items: []
+  debt_schedule:
+    discount_rate: '0.06'
+    debt_outstanding: '1000'
+    periods:
+    - cfads: '250'
+      debt_service: '200'
+expect_error: FM-E001

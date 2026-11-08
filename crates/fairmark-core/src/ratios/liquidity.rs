@@ -160,3 +160,45 @@ impl Method for Liquidity {
         liquidity(input)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn d(v: i64) -> Decimal {
+        Decimal::from(v)
+    }
+
+    fn input(current_liabilities: i64) -> LiquidityInput {
+        LiquidityInput {
+            balances: Balances::Closing,
+            closing: LiquidityBalances {
+                current_assets: d(2500),
+                inventories: d(900),
+                cash: d(200),
+                current_liabilities: d(current_liabilities),
+            },
+            opening: None,
+        }
+    }
+
+    #[test]
+    fn zero_current_liabilities_leave_margins_defined() {
+        let (out, _) = liquidity(&input(0)).unwrap();
+        for r in [&out.current_ratio, &out.quick_ratio, &out.cash_ratio] {
+            assert_eq!(r.value, None);
+            assert_eq!(
+                r.not_defined.as_deref(),
+                Some("current liabilities is zero")
+            );
+        }
+        assert_eq!(out.net_working_capital, d(2500));
+        assert_eq!(out.treasury_margin, d(1600));
+    }
+
+    #[test]
+    fn treasury_margin_is_working_capital_less_inventories() {
+        let (out, _) = liquidity(&input(2000)).unwrap();
+        assert_eq!(out.treasury_margin, out.net_working_capital - d(900));
+    }
+}

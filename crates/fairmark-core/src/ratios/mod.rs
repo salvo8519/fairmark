@@ -293,6 +293,17 @@ impl BalanceBasis {
     }
 }
 
+/// A definition stated in words by the analyst (`ebitda_definition`, `interest_definition`):
+/// it must say something, so an empty or blank text is `FM-E001`.
+pub(crate) fn require_definition(field: &str, text: &str) -> Result<()> {
+    if text.trim().is_empty() {
+        return Err(FairmarkError::InvalidInput(format!(
+            "`{field}` must state the definition used; it is empty"
+        )));
+    }
+    Ok(())
+}
+
 /// One item of the net financial position other than gross debt and cash.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -335,7 +346,11 @@ impl NetFinancialPosition {
                 item.amount,
             );
             total = num::add(total, item.amount)?;
-            formula.push_str(&format!(" + {}", item.amount));
+            if item.amount.is_sign_negative() && !item.amount.is_zero() {
+                formula.push_str(&format!(" − {}", item.amount.abs()));
+            } else {
+                formula.push_str(&format!(" + {}", item.amount));
+            }
         }
         ex.step(format!("Net financial position ({when})"), formula, total);
         Ok(total)
@@ -438,9 +453,15 @@ mod tests {
                 },
             ],
         };
-        assert_eq!(
-            nfp.total(&mut ex(), "closing").unwrap(),
-            Decimal::from(2000)
-        );
+        let mut e = ex();
+        assert_eq!(nfp.total(&mut e, "closing").unwrap(), Decimal::from(2000));
+        assert_eq!(e.steps.last().unwrap().formula, "2200 − 300 + 150 − 50");
+    }
+
+    #[test]
+    fn blank_definitions_are_refused() {
+        let err = require_definition("ebitda_definition", "  \t ").unwrap_err();
+        assert_eq!(err.code(), "FM-E001");
+        assert!(require_definition("ebitda_definition", "reported").is_ok());
     }
 }
