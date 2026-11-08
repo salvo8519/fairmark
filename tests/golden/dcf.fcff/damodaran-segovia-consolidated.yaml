@@ -7,8 +7,9 @@ source: >
   the published PDF on 2026-11-08. Published inputs: consolidated EBIT 300, tax rate 40%,
   capital invested 1,500 (return on capital 12%), stable growth 5% forever, cost of capital
   10%, consolidated debt 500; minority interests in Seville Television "computed as 49% of the
-  book value of equity at Seville" (49% of 400 - 150 = 122.5); the 15% holding in LatinWorks at
-  15% of its book value of equity (15% of 250 - 100 = 22.5). Published result: value of
+  book value of equity at Seville": book equity 250 = capital invested 400 - debt 150, and
+  0.49 x 250 = 122.5; the 15% holding in LatinWorks at 15% of its book value of equity (see
+  the note on LatinWorks below), 22.5. Published result: value of
   operating assets 2,205, value of equity "= 2205 - 500 - 122.5 + 22.5 = $1,605 million".
   Mapping to dcf.fcff: the value of operating assets is EBIT(1 - t)(1 + g)(1 - g / ROC) /
   (cost of capital - g) = 300 x 0.6 x 1.05 x (1 - 0.05 / 0.12) / 0.05 = 110.25 / 0.05 = 2,205,
@@ -17,9 +18,12 @@ source: >
   reinvestment rate is taken as g / ROC = 5/12 exactly; the printed 41.67% would give
   2,204.87, which the source rounds to 2,205. The LatinWorks holding is a non-operating asset
   (investment in a nonconsolidated company), Seville's minority interests a non-controlling
-  interest, the consolidated debt the net financial position (no cash is stated). The text of
-  the illustration states LatinWorks' book equity as "$250 million (Capital invested - Debt
-  outstanding)"; the published 22.5 equals 15% of 150 = 250 - 100, which is used here.
+  interest, the consolidated debt the net financial position (no cash is stated). Note on
+  LatinWorks: its inputs are capital invested 250 and debt outstanding 100, so capital invested
+  - debt outstanding = 250 - 100 = 150. The text labels LatinWorks' book equity "$250 million
+  (Capital invested - Debt outstanding)": the printed 250 is inconsistent with its own formula,
+  which gives 150. The published 22.5 is consistent with 150 (0.15 x 150 = 22.5), not with 250
+  (0.15 x 250 = 37.5); 22.5 is used here.
   Published figures are reproduced exactly; the 50-digit reference (scripts/reference_dcf.py)
   gives the same values.
 input:
