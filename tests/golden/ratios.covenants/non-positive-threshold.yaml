@@ -2,7 +2,7 @@ method: ratios.covenants
 description: A zero or negative threshold leaves the relative headroom not defined; outcome and headroom
   are reported
 source: 'scripts/reference_ratios.py, covenants (Python decimal, 50 digits, local context), written from
-  the covenant rules in specs/0007-ratios-covenants/plan.md. Exact: -200 / 800 = -0.25, at most 0, headroom
+  the covenant rules in specs/0007-ratios-covenants/plan.md. Exact values, at the golden tolerance of decision 10 (1e-20); the outcomes prove the exact comparison. -200 / 800 = -0.25, at most 0, headroom
   0.25; -400 / 800 = -0.5, at most -0.25, headroom -0.25 + 0.5 = 0.25. Relative headroom: threshold zero,
   and a negative threshold is an open question of plan.md.'
 input:
@@ -42,4 +42,4 @@ expect:
   /covenants/0/headroom_relative/not_defined: threshold is zero
   /covenants/1/headroom_relative/not_defined: threshold is negative (-0.25); the relative headroom on
     a negative threshold is not specified
-tolerance: '0'
+tolerance: '0.00000000000000000001'

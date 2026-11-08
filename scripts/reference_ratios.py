@@ -246,9 +246,11 @@ def covenants(items: list[dict[str, Any]]) -> dict[str, Any]:
     """Covenant tests on contractual definitions (SPEC-0007 R5, decision 1 of 2026-11-08).
 
     Each item: numerator, denominator (amounts), operator (at_most, less_than, at_least,
-    greater_than), threshold. Tested value = numerator / denominator, not rounded. Zero
-    denominator: not tested. Negative denominator: refused. Headroom is positive on the
-    compliant side; relative headroom = headroom / threshold, None for a threshold <= 0.
+    greater_than), threshold. Tested value = numerator / denominator, not rounded; the
+    outcome compares numerator with threshold x denominator in exact decimal arithmetic. Zero
+    denominator: not tested (code zero_denominator). Negative denominator: refused. Headroom is
+    positive on the compliant side; relative headroom = headroom / threshold, None for a
+    threshold <= 0.
     """
     out: dict[str, Any] = {}
     counts = {"passed": 0, "breached": 0, "not_tested": 0}
@@ -258,20 +260,25 @@ def covenants(items: list[dict[str, Any]]) -> dict[str, Any]:
             raise NegativeDenominator(i)
         if den == 0:
             outcome, value, headroom, relative = "not_tested", None, None, None
+            code = "zero_denominator"
         else:
             value = num / den
             is_max = op in ("at_most", "less_than")
             headroom = limit - value if is_max else value - limit
+            # Exact: at 50 digits, numerator and threshold x denominator of the inputs are exact.
+            lhs, rhs = num, limit * den
             passed = {
-                "at_most": value <= limit,
-                "less_than": value < limit,
-                "at_least": value >= limit,
-                "greater_than": value > limit,
+                "at_most": lhs <= rhs,
+                "less_than": lhs < rhs,
+                "at_least": lhs >= rhs,
+                "greater_than": lhs > rhs,
             }[op]
             outcome = "passed" if passed else "breached"
             relative = headroom / limit if limit > 0 else None
+            code = None
         counts[outcome] += 1
         out[f"covenants.{i}.outcome"] = outcome
+        out[f"covenants.{i}.not_tested_code"] = code
         out[f"covenants.{i}.value"] = value
         out[f"covenants.{i}.headroom"] = headroom
         out[f"covenants.{i}.headroom_relative.value"] = relative

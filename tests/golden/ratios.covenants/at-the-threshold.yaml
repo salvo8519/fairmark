@@ -2,7 +2,7 @@ method: ratios.covenants
 description: A tested value equal to the threshold passes an inclusive operator and breaches a strict
   one, with zero headroom
 source: 'scripts/reference_ratios.py, covenants (Python decimal, 50 digits, local context), written from
-  the covenant rules in specs/0007-ratios-covenants/plan.md. Exact: 1750 / 500 = 3.5 and 1200 / 300 =
+  the covenant rules in specs/0007-ratios-covenants/plan.md. Exact values, at the golden tolerance of decision 10 (1e-20); the outcomes prove the exact comparison. 1750 / 500 = 3.5 and 1200 / 300 =
   4; headroom 0 in every covenant.'
 input:
   covenants:
@@ -66,4 +66,4 @@ expect:
   /summary/passed: '2'
   /summary/breached: '2'
   /summary/not_tested: '0'
-tolerance: '0'
+tolerance: '0.00000000000000000001'

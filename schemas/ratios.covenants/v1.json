@@ -14,6 +14,7 @@
         },
         "definition": {
           "description": "The definition in the words of the loan agreement, for example \"consolidated EBITDA\nfor the 12 months ending on the test date\"; not blank. Echoed in the audit trail.",
+          "minLength": 1,
           "type": "string"
         }
       },
@@ -33,6 +34,7 @@
         },
         "name": {
           "description": "Name of the covenant as in the loan agreement, for example \"net leverage\"; not blank.",
+          "minLength": 1,
           "type": "string"
         },
         "numerator": {
@@ -108,6 +110,7 @@
       "items": {
         "$ref": "#/$defs/Covenant"
       },
+      "minItems": 1,
       "type": "array"
     }
   },

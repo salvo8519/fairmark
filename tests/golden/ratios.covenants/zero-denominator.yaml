@@ -42,4 +42,6 @@ expect:
   /covenants/0/not_tested_reason: 'denominator is zero: consolidated EBITDA for the 12 months ending on
     the test date'
   /covenants/0/headroom_relative/not_defined: covenant not tested
+  /covenants/0/not_tested_code: zero_denominator
+  /covenants/1/not_tested_code: 'null'
 tolerance: '0.00000000000000000001'

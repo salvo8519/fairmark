@@ -61,12 +61,15 @@ conventions:
   expect:
   - tested value = numerator / denominator, each as defined by the loan agreement and given as an amount; no standard ratio is substituted
   - the amounts of each covenant refer to the period ending on its test date
-  - tested value compared with the threshold exactly, without rounding
+  - the outcome is decided exactly; value and headroom are shown to the 28 significant digits of the decimal type, not rounded to the decimals of the agreement
+  - 'exact decision: the sign of numerator − threshold × denominator, computed in integer arithmetic on the decimal mantissas, with a positive denominator'
+  - a negative numerator is compared as computed
+  - covenants are numbered from 1 in the audit trail; error messages name the zero-based position, covenants[i]
   - 'headroom positive on the compliant side and negative on the breach side: threshold − tested value for a maximum, tested value − threshold for a minimum'
   - relative headroom = headroom / threshold, a decimal fraction; not defined when the threshold is zero or negative
-  - a covenant whose tested value cannot be computed (zero denominator) is not tested, never breached
-  - 'net leverage (2026-12-31): passes when the tested value ≤ 3.5 (maximum, inclusive)'
-  - 'interest cover (2026-12-31): passes when the tested value > 4 (minimum, strict)'
+  - a covenant whose tested value cannot be computed (zero denominator, or a value or headroom beyond the range of the decimal type) is not tested, never breached
+  - 'covenant 1, net leverage (2026-12-31): passes when the tested value ≤ 3.5 (maximum, inclusive)'
+  - 'covenant 2, interest cover (2026-12-31): passes when the tested value > 4 (minimum, strict)'
 - input:
     covenants:
     - name: net leverage
@@ -76,8 +79,8 @@ conventions:
       operator: less_than
       threshold: '0'
   expect:
-  - 'net leverage (2026-12-31): passes when the tested value < 0 (maximum, strict)'
-  - 'net leverage (2026-12-31) not tested: denominator is zero: consolidated EBITDA for the 12 months ending on the test date'
+  - 'covenant 1, net leverage (2026-12-31): passes when the tested value < 0 (maximum, strict)'
+  - 'covenant 1, net leverage (2026-12-31): not tested (denominator is zero: consolidated EBITDA for the 12 months ending on the test date)'
 - input:
     covenants:
     - name: equity ratio
@@ -87,5 +90,15 @@ conventions:
       operator: at_least
       threshold: '0'
   expect:
-  - 'equity ratio (2026-06-30): passes when the tested value ≥ 0 (minimum, inclusive)'
-  - 'equity ratio (2026-06-30) relative headroom not defined: threshold is zero'
+  - 'covenant 1, equity ratio (2026-06-30): passes when the tested value ≥ 0 (minimum, inclusive)'
+  - 'covenant 1, equity ratio (2026-06-30): relative headroom not defined: threshold is zero'
+- input:
+    covenants:
+    - name: extreme leverage
+      test_date: '2026-12-31'
+      numerator: {definition: consolidated net financial debt at the test date, amount: '79228162514264337593543950335'}
+      denominator: {definition: consolidated EBITDA for the 12 months ending on the test date, amount: '0.0000000000000000000000000001'}
+      operator: at_most
+      threshold: '3.5'
+  expect:
+  - 'covenant 1, extreme leverage (2026-12-31): not tested (the tested value exceeds the range of the decimal type (28-29 significant digits))'
