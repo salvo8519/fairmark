@@ -86,7 +86,7 @@ milestones:
       - title: "Documentation"
         labels: []
         tasks:
-          - { issue: 185, title: "README explains method status and shows Italian method titles", status: open }
+          - { issue: 185, title: "README explains method status and shows Italian method titles", status: done }
 
   - title: "M1 · Numerical core"
     gate: "Golden harness green; NPV and IRR validated; property tests running."
