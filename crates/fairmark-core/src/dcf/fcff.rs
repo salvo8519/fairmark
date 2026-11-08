@@ -99,13 +99,13 @@ pub struct DcfFcffInput {
     pub non_operating_assets: Vec<Line>,
     /// Debt-like items (debt equivalents) at the valuation date, for example unfunded pension
     /// obligations or provisions, each a label, a value in currency units (zero or more) and
-    /// its stated measurement basis, subtracted from enterprise value. Do not repeat an item
+    /// its measurement basis, subtracted from enterprise value. Do not repeat an item
     /// already among the `other_items` of the net financial position. Default: none, reported.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub debt_like_items: Vec<BridgeClaim>,
     /// Non-controlling interests (minority interests) at the valuation date, each a label, a
-    /// value in currency units (zero or more) and its stated measurement basis (for example
-    /// book value or fair value), subtracted from enterprise value. Default: none, reported.
+    /// value in currency units (zero or more) and its measurement basis (for example
+    /// `book_value` or `fair_value`), subtracted from enterprise value. Default: none, reported.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub non_controlling_interests: Vec<BridgeClaim>,
 }
@@ -121,10 +121,45 @@ pub struct BridgeClaim {
     pub label: String,
     /// Amount at the valuation date, in currency units, zero or more; subtracted.
     pub value: Decimal,
-    /// How the amount was measured, stated by the analyst, for example "book value", "fair
-    /// value" or "present value net of tax". Not empty. Reported with the amount, never used
-    /// in the calculation.
-    pub measurement_basis: String,
+    /// How the amount was measured, stated by the analyst: `book_value`, `market_value`,
+    /// `fair_value`, `present_value` or `other` (then describe it in `basis_note`). Required,
+    /// no default. Reported with the amount, never used in the calculation.
+    pub measurement_basis: MeasurementBasis,
+    /// Free text that qualifies the basis, for example "net of tax" or "49% of the book value
+    /// of equity of the subsidiary"; required with `other`, optional otherwise, never empty
+    /// when given. Reported, never used in the calculation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub basis_note: Option<String>,
+}
+
+/// How the amount of a bridge claim was measured (Decision 21). Fairmark does not choose the
+/// basis: the analyst states it and the result reports it next to the amount.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum MeasurementBasis {
+    /// Book value per the accounts at the valuation date.
+    BookValue,
+    /// Quoted market price at the valuation date.
+    MarketValue,
+    /// Fair value as defined by IFRS 13.
+    FairValue,
+    /// Present value of the obligation, for example unfunded pensions or provisions.
+    PresentValue,
+    /// Another basis, described in `basis_note` (required).
+    Other,
+}
+
+impl MeasurementBasis {
+    /// The JSON value and its meaning, as reported in `explain`.
+    fn describe(self) -> (&'static str, &'static str) {
+        match self {
+            Self::BookValue => ("book_value", "book value per the accounts"),
+            Self::MarketValue => ("market_value", "quoted market price"),
+            Self::FairValue => ("fair_value", "fair value as defined by IFRS 13"),
+            Self::PresentValue => ("present_value", "present value of the obligation"),
+            Self::Other => ("other", "described in the note"),
+        }
+    }
 }
 
 /// From value of operations to equity value, every line as given (R23, R25).
@@ -302,7 +337,8 @@ fn check_labelled_amount(
     Ok(())
 }
 
-/// R25, R27: every claim has a label, a stated measurement basis and a value of zero or more;
+/// R25, R27, Decision 21: every claim has a label, a value of zero or more and a note when the
+/// basis is `other`;
 /// each refusal names the field by its JSON pointer and states the fix.
 fn check_claims(claims: &[BridgeClaim], field: &str, sign_rule: &str) -> Result<()> {
     for (i, c) in claims.iter().enumerate() {
@@ -313,11 +349,22 @@ fn check_claims(claims: &[BridgeClaim], field: &str, sign_rule: &str) -> Result<
             "name the item",
             sign_rule,
         )?;
-        if c.measurement_basis.trim().is_empty() {
-            return Err(FairmarkError::InvalidInput(format!(
-                "`/{field}/{i}/measurement_basis` is empty; state how the amount was measured, \
-                 for example book value or fair value"
-            )));
+        let blank = c.basis_note.as_deref().map(|n| n.trim().is_empty());
+        match (blank, c.measurement_basis) {
+            (None | Some(true), MeasurementBasis::Other) => {
+                return Err(FairmarkError::InvalidInput(format!(
+                    "`/{field}/{i}/basis_note` is missing or empty; with `measurement_basis` `other`, \
+                     describe in `basis_note` how the amount was measured, for example \
+                     \"settlement amount, undiscounted\", or choose `book_value`, \
+                     `market_value`, `fair_value` or `present_value`"
+                )));
+            }
+            (Some(true), _) => {
+                return Err(FairmarkError::InvalidInput(format!(
+                    "`/{field}/{i}/basis_note` is empty; write the note or remove the field"
+                )));
+            }
+            _ => {}
         }
     }
     Ok(())
@@ -338,16 +385,20 @@ fn claims_total(
     let mut total = Decimal::ZERO;
     let mut terms = Vec::with_capacity(claims.len());
     for c in claims {
+        let (basis, meaning) = c.measurement_basis.describe();
+        let (in_label, note) = match &c.basis_note {
+            Some(n) => (format!("{basis}: {n}"), format!("; note: {n}")),
+            None => (basis.to_owned(), String::new()),
+        };
         ex.step(
-            format!("{singular}: {} ({})", c.label, c.measurement_basis),
+            format!("{singular}: {} ({in_label})", c.label),
             "as given",
             c.value,
         );
         ex.convention(format!(
-            "{} '{}': measurement basis stated by the analyst: {}",
+            "{} '{}': measurement basis {basis} ({meaning}), stated by the analyst{note}",
             singular.to_lowercase(),
             c.label,
-            c.measurement_basis
         ));
         total = add(total, c.value)?;
         terms.push(c.value.to_string());
