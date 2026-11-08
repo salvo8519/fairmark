@@ -245,12 +245,15 @@ present, as the rate forms of `loans.*` and the flow choice of `tv.gordon`; no b
 - Rate form: taxes_t = t × EBIT_t; when EBIT_t < 0, `credit` keeps t × EBIT_t (a saving) and
   `zero` sets taxes_t = 0. No tax loss carry-forward (R4). Amounts form: taxes_t as given.
 - FCFF_t = EBIT_t − taxes_t + D&A_t − capex_t − ΔNWC_t + Σ adjustments_t (R2).
-- FCFE_t = FCFF_t − interest_t × (1 − t) + net borrowing_t, with t = `notional_tax_rate` in
-  the rate form and `interest_tax_rate` in the amounts form (R3). In a period where the `zero`
-  treatment applies, t = 0: no interest tax shield, the interest is subtracted in full and
-  the FCFE equals the net-income route (amendment 14 of the spec, approved by the maintainer
-  on 2026-11-08). The rate applied in each period is in the output (`interest_tax_rate`) and in
-  `explain.conventions`.
+- FCFE_t = FCFF_t − (interest_t − shield_t) + net borrowing_t, with shield_t = t ×
+  interest_t, t = `notional_tax_rate` in the rate form and `interest_tax_rate` in the amounts
+  form (R3). In a period where the `zero` treatment applies, t = 0: no interest tax shield, the
+  interest is subtracted in full and the FCFE equals the net-income route (amendment 14 of the
+  spec, approved by the maintainer on 2026-11-08). Since Decision 22 (version 2), under `zero`
+  shield_t = t × min(interest_t, max(EBIT_t, 0)) in every period, so the total taxes never
+  fall below zero. The rate applied in each period (`interest_tax_rate`) and the shield
+  (`interest_tax_shield`) are in the output; the shield is an explain step and a binding limit
+  is reported in `explain.conventions`.
 - All arithmetic through `crate::num` (checked; overflow is `FM-E008`).
 
 ### Output and reuse by the shared engine (#110, #165)
@@ -291,8 +294,8 @@ plan assigns this to #38 ("a `given` stage accepts build-up lines through a new 
   with `Location { "/stages/i/lines", first period of the stage }` and replaces it with
   `StageKind::Given` of the built-up flows before projection. The steps of the build-up are in
   the explain with the prefix "Build-up:"; its conventions are reported once, prefixed
-  "free cash flow build-up (dcf.free_cash_flows v1):"; the period table says the flows were
-  built up from line items.
+  "free cash flow build-up (dcf.free_cash_flows v<N>):", N the version of the build-up; the
+  period table says the flows were built up from line items.
 - Schema: additive to `dcf.fcff` version 3 (`scripts/schema_snapshots.py --diff-against` the
   schemas of main: "Schema changes are additive, new versions, or none"); version 3 is not
   released, no version bump.
