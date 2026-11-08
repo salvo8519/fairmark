@@ -72,7 +72,8 @@ uv add fairmark              # or: pip install fairmark
 uv add "fairmark[mcp]"       # + MCP server
 ```
 
-Prebuilt wheels for Linux, macOS and Windows (x86_64 and arm64) — no compiler needed.
+Prebuilt wheels for Linux (x86_64 and arm64, glibc and musl), macOS (Intel and Apple silicon)
+and Windows (x86_64): no compiler needed.
 
 ## Quickstart
 

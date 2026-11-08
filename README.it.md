@@ -1,4 +1,4 @@
-<!-- i18n source: README.md source_hash: 687554ac41cb -->
+<!-- i18n source: README.md source_hash: 93772a09f7a8 -->
 <div align="center">
 
 <a href="https://salvo8519.github.io/fairmark/it/">
@@ -73,7 +73,8 @@ uv add fairmark              # oppure: pip install fairmark
 uv add "fairmark[mcp]"       # più il server MCP
 ```
 
-Wheel precompilate per Linux, macOS e Windows (x86_64 e arm64): non serve un compilatore.
+Wheel precompilate per Linux (x86_64 e arm64, glibc e musl), macOS (Intel e Apple silicon)
+e Windows (x86_64): non serve un compilatore.
 
 ## Guida rapida
 

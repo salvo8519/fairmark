@@ -73,7 +73,7 @@ milestones:
         tasks:
           - { issue: 11, title: "Rust pipeline: fmt, clippy, test, cargo-deny", tags: [parallel], status: done }
           - { issue: 12, title: "Python pipeline: ruff, mypy, pytest on 3 OS", tags: [parallel], status: done }
-          - { issue: 13, title: "Wheel matrix with maturin-action, trusted publishing to PyPI and crates.io", tags: [parallel], status: open }
+          - { issue: 13, title: "Wheel matrix with maturin-action, trusted publishing to PyPI and crates.io", tags: [parallel], status: done }
           - { issue: 14, title: "pre-commit configuration", tags: [gfi], status: done }
           - { issue: 117, title: "Deterministic checks: workflows (actionlint, zizmor), YAML validity, unused Rust dependencies, external links", tags: [parallel], status: done }
           - { issue: 134, title: "Roadmap sync tolerates changes pending in open pull requests; Pages deploy waits for slow CDN purges", status: done }
@@ -83,6 +83,7 @@ milestones:
           - { issue: 181, title: "Dependency check resilient to GitHub download errors", status: done }
           - { issue: 192, title: "Golden case protection hook applies in every git worktree", status: done }
           - { issue: 210, title: "Rule for external analysis failures before merge", status: open }
+          - { issue: 239, title: "Pin release build and smoke images by digest", status: open }
       - title: "Community infrastructure"
         issue: 15
         labels: ["area:infra"]
