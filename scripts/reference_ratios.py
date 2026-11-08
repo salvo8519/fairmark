@@ -456,6 +456,19 @@ COVENANTS_ROUNDING_MODES = [
         rounding={"decimal_places": 0, "mode": "half_up"},
     ),
 ]
+# Second audit: the 28-digit display shows the threshold, the exact comparison decides.
+COVENANTS_DISPLAY_AT_THRESHOLD = [
+    cov(
+        "net leverage, half above the threshold",
+        "79228162514264337593543950333",
+        2,
+        "at_most",
+        "39614081257132168796771975166",
+    ),
+]
+COVENANTS_DISPLAY_ZERO = [
+    cov("interest cover, tiny positive", 1, "79228162514264337593543950335", "greater_than", "0"),
+]
 COVENANTS_AT_THRESHOLD = [
     cov("leverage, inclusive maximum", 1750, 500, "at_most", "3.5"),
     cov("leverage, strict maximum", 1750, 500, "less_than", "3.5"),
@@ -608,6 +621,8 @@ def cases() -> dict[str, dict[str, Opt]]:
         "ratios.covenants/zero-denominator": covenants(COVENANTS_ZERO_DENOMINATOR),
         "ratios.covenants/negative-denominator": covenants(COVENANTS_NEGATIVE_DENOMINATOR),
         "ratios.covenants/rounding": covenants(COVENANTS_ROUNDING),
+        "ratios.covenants/display-at-threshold": covenants(COVENANTS_DISPLAY_AT_THRESHOLD),
+        "ratios.covenants/display-zero": covenants(COVENANTS_DISPLAY_ZERO),
         "ratios.covenants/rounding-modes": covenants(COVENANTS_ROUNDING_MODES),
         "ratios.covenants/at-the-threshold": covenants(COVENANTS_AT_THRESHOLD),
         "ratios.covenants/negative-numerator": covenants(COVENANTS_NEGATIVE_NUMERATOR),

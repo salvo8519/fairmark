@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-covenants.md
-source_hash: 6fe20d7e95ed
+source_hash: 1d78f9a84890
 ---
 # Verifica dei covenant (`ratios.covenants`)
 
@@ -63,7 +63,10 @@ significative del tipo decimale, non arrotondati ai decimali del contratto. Con 
 valore verificato è arrotondato come stabilisce il contratto, a partire dal quoziente esatto
 (senza arrotondamenti intermedi), e l'esito è il confronto esatto di quel valore arrotondato
 con la soglia; `value` è il valore arrotondato e `value_unrounded` il valore prima
-dell'arrotondamento.
+dell'arrotondamento. Quando l'headroom mostrato si arrotonda a 0 con 28 cifre significative (o
+mostra il segno opposto) mentre il confronto esatto decide diversamente, una convenzione e una
+nota nella tracciabilità del calcolo lo segnalano: "displayed headroom rounds to 0 at 28
+significant digits; the exact comparison decides breached".
 
 **Denominatore nullo o negativo.** Il valore verificato non è calcolato: valore e headroom sono
 null e l'esito è quello indicato da `if_denominator_not_positive` (`breached`, `passed` o

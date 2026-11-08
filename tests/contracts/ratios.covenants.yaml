@@ -163,3 +163,14 @@ conventions:
   expect:
   - 'covenant 1, net leverage (2026-12-31): tested value rounded to 2 decimal places, half_up (halves away from zero), before the comparison (input rounding)'
   - 'covenant 1, net leverage (2026-12-31): a zero or negative denominator gives the outcome breached (input if_denominator_not_positive)'
+- input:
+    covenants:
+    - name: interest cover
+      test_date: '2026-12-31'
+      numerator: {definition: consolidated EBITDA for the 12 months ending on the test date, amount: '1'}
+      denominator: {definition: net finance charges for the 12 months ending on the test date, amount: '79228162514264337593543950335'}
+      operator: greater_than
+      threshold: '0'
+      if_denominator_not_positive: not_tested
+  expect:
+  - 'covenant 1, interest cover (2026-12-31): displayed headroom rounds to 0 at 28 significant digits; the exact comparison decides passed'

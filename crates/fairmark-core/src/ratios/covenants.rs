@@ -468,14 +468,33 @@ pub(crate) fn round_exact(
     } else {
         quotient
     };
+    // The rounded value is quotient / 10^places. Trailing zeros carry no value: drop them,
+    // lowering the scale, until the mantissa fits the 96 bits of the decimal type. Only a
+    // rounded value that still does not fit exceeds the decimal range.
+    let ten = Wide::from_u128(10);
+    let (mut quotient, mut scale) = (quotient, places);
+    while quotient.cmp(&Wide::from_u128(MAX_MANTISSA)) == Ordering::Greater && scale > 0 {
+        let (q, r) = quotient.div_rem(&ten);
+        if !r.0.is_empty() {
+            return None;
+        }
+        quotient = q;
+        scale -= 1;
+    }
     let mantissa = i128::try_from(quotient.to_u128()?).ok()?;
+    if mantissa > MAX_MANTISSA as i128 {
+        return None;
+    }
     let signed = if numerator.is_sign_negative() {
         -mantissa
     } else {
         mantissa
     };
-    Decimal::try_from_i128_with_scale(signed, places).ok()
+    Decimal::try_from_i128_with_scale(signed, scale).ok()
 }
+
+/// Largest mantissa of the decimal type, 2^96 − 1.
+const MAX_MANTISSA: u128 = (1 << 96) - 1;
 
 // ------------------------------------------------------------------ method
 
@@ -620,6 +639,11 @@ fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
             outcome_basis: Some(OutcomeBasis::IfDenominatorNotPositive),
             ..result
         };
+        ex.step(
+            format!("{label}: outcome"),
+            format!("{rule_name} ({reason}; outcome set by input if_denominator_not_positive)"),
+            d,
+        );
         let outcome = match rule {
             IfDenominatorNotPositive::NotTested => {
                 return not_tested(
@@ -636,11 +660,6 @@ fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
             IfDenominatorNotPositive::Breached => Outcome::Breached,
             IfDenominatorNotPositive::Passed => Outcome::Passed,
         };
-        ex.step(
-            format!("{label}: outcome"),
-            format!("{rule_name} ({reason}; outcome set by input if_denominator_not_positive)"),
-            d,
-        );
         return CovenantResult {
             outcome,
             headroom_relative: relative,
@@ -744,6 +763,27 @@ fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
         ),
         value,
     );
+    // The headroom shown has 28 significant digits; its sign can disagree with the exact
+    // position of the tested value (for example 0 shown for a value just past the threshold).
+    let exact_side = if op.is_maximum() {
+        order.reverse()
+    } else {
+        order
+    };
+    let shown_side = sign(headroom);
+    if shown_side != exact_side {
+        let shown = if shown_side == Ordering::Equal {
+            "rounds to 0".to_owned()
+        } else {
+            format!("({headroom}) has the other sign")
+        };
+        let note = format!(
+            "displayed headroom {shown} at 28 significant digits; the exact comparison decides \
+             {verdict}"
+        );
+        ex.convention(format!("{label}: {note}"));
+        ex.step(format!("{label}: display note"), note, headroom);
+    }
     CovenantResult {
         outcome,
         outcome_basis: Some(OutcomeBasis::TestedValue),
@@ -1009,11 +1049,12 @@ mod tests {
             r("0.0149999999999999999999999999", "3", 2, HalfUp),
             dec("0.00")
         );
-        // Beyond the decimal type: MAX rounded to 6 places has too many digits.
+        // Beyond the decimal type: 90000000000000000000000.333333 needs a mantissa above
+        // 2^96 − 1 and has no trailing zero to drop.
         assert_eq!(
             round_exact(
-                Decimal::MAX,
-                d(1),
+                dec("270000000000000000000001"),
+                d(3),
                 Rounding {
                     decimal_places: 6,
                     mode: HalfUp
@@ -1170,7 +1211,12 @@ mod tests {
             cov(Decimal::MAX, tiny, Operator::AtMost, d(3)),
             cov(Decimal::MAX, d(1), Operator::AtMost, Decimal::MIN),
             rounded(
-                cov(Decimal::MAX, d(1), Operator::AtMost, d(3)),
+                cov(
+                    dec("270000000000000000000001"),
+                    d(3),
+                    Operator::AtMost,
+                    d(3),
+                ),
                 6,
                 RoundingMode::HalfUp,
             ),
@@ -1311,5 +1357,94 @@ mod tests {
         assert_eq!(step("Covenants passed").value, d(2));
         assert_eq!(step("Covenants breached").value, d(2));
         assert_eq!(step("Covenants not tested").value, d(0));
+    }
+
+    #[test]
+    fn rounding_at_the_decimal_boundary_lowers_the_scale_instead_of_overflowing() {
+        use RoundingMode::HalfUp;
+        let max = Decimal::MAX;
+        for places in [0, 6] {
+            let r = one(rounded(
+                cov(max, d(1), Operator::AtMost, max),
+                places,
+                HalfUp,
+            ));
+            assert_eq!(r.outcome, Outcome::Passed, "{places} places");
+            assert_eq!(r.value, Some(max));
+            assert_eq!(r.not_tested_code, None);
+        }
+        let big = dec("79228162514264337593544");
+        let r = one(rounded(cov(big, d(1), Operator::AtMost, big), 6, HalfUp));
+        assert_eq!(r.outcome, Outcome::Passed);
+        assert_eq!(r.value, Some(big));
+        // A rounded value whose own digits exceed 96 bits still overflows:
+        // 90000000000000000000000.333333 needs 29 significant digits above 2^96.
+        let r = one(rounded(
+            cov(
+                dec("270000000000000000000001"),
+                d(3),
+                Operator::AtMost,
+                d(1),
+            ),
+            6,
+            HalfUp,
+        ));
+        assert_eq!(r.not_tested_code, Some(NotTestedCode::Overflow));
+    }
+
+    #[test]
+    fn a_displayed_zero_headroom_is_explained_when_the_exact_comparison_differs() {
+        // (2^96 − 3) / 2 = 39614081257132168796771975166.5: shown as the threshold.
+        let t = dec("39614081257132168796771975166");
+        let (out, ex) = run(vec![cov(
+            dec("79228162514264337593543950333"),
+            d(2),
+            Operator::AtMost,
+            t,
+        )])
+        .unwrap();
+        let r = &out.covenants[0];
+        assert_eq!(r.outcome, Outcome::Breached);
+        assert_eq!(r.headroom, Some(Decimal::ZERO));
+        let note = "covenant 1, net leverage (2026-12-31): displayed headroom rounds to 0 at 28 \
+                    significant digits; the exact comparison decides breached";
+        assert!(
+            ex.conventions.iter().any(|c| c == note),
+            "{:?}",
+            ex.conventions
+        );
+        assert!(ex
+            .steps
+            .iter()
+            .any(|s| s.label == "covenant 1, net leverage (2026-12-31): display note"));
+        // 1 / MAX > 0: shown as 0, passed.
+        let (out, ex) = run(vec![cov(d(1), Decimal::MAX, Operator::GreaterThan, d(0))]).unwrap();
+        assert_eq!(out.covenants[0].outcome, Outcome::Passed);
+        assert_eq!(out.covenants[0].value, Some(Decimal::ZERO));
+        assert!(ex.conventions.iter().any(|c| c.ends_with(
+            "displayed headroom rounds to 0 at 28 significant digits; the exact comparison \
+             decides passed"
+        )));
+        // No note when the display agrees.
+        let (_, ex) = run(vec![covenant(300, 100, Operator::AtMost, d(3))]).unwrap();
+        assert!(!ex
+            .conventions
+            .iter()
+            .any(|c| c.contains("displayed headroom")));
+    }
+
+    #[test]
+    fn not_tested_by_the_rule_has_a_verdict_step() {
+        let (_, ex) = run(vec![covenant(300, 0, Operator::AtMost, d(3))]).unwrap();
+        let step = ex
+            .steps
+            .iter()
+            .find(|s| s.label == "covenant 1, net leverage (2026-12-31): outcome")
+            .unwrap();
+        assert_eq!(
+            step.formula,
+            "not tested (denominator is zero: EBITDA; outcome set by input \
+             if_denominator_not_positive)"
+        );
     }
 }

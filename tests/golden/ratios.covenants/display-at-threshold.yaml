@@ -1,0 +1,30 @@
+method: ratios.covenants
+description: 'Second audit: a tested value half a unit above the threshold is displayed as the threshold
+  at 28 significant digits; the exact comparison decides breached'
+source: 'scripts/reference_ratios.py, covenants (Python fractions for the outcome). Exact: (2^96 - 3) / 2
+  = 39614081257132168796771975166.5 > 39614081257132168796771975166, breached, headroom -0.5. The
+  engine shows value and headroom with 28-29 significant digits (39614081257132168796771975166 and
+  0, see the unit test and the display note in explain), so only the exact fields are expected here,
+  at the golden tolerance of decision 10.'
+input:
+  covenants:
+  - name: net leverage, half above the threshold
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '79228162514264337593543950333'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '2'
+    operator: at_most
+    threshold: '39614081257132168796771975166'
+    if_denominator_not_positive: not_tested
+expect:
+  /covenants/0/outcome: breached
+  /covenants/0/outcome_basis: tested_value
+  /covenants/0/not_tested_code: 'null'
+  /covenants/0/value_unrounded: 'null'
+  /summary/passed: '0'
+  /summary/breached: '1'
+  /summary/not_tested: '0'
+tolerance: '0.00000000000000000001'

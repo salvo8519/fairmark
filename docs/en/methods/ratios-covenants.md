@@ -56,7 +56,10 @@ classified on its exact value; value and headroom are shown to the 28 significan
 decimal type, not rounded to the decimals of the agreement. With `rounding`, the tested value is
 rounded as the agreement states, computed from the exact quotient (no intermediate rounding),
 and the outcome is the exact comparison of that rounded value with the threshold; `value` is
-the rounded value and `value_unrounded` the value before rounding.
+the rounded value and `value_unrounded` the value before rounding. When the displayed headroom
+rounds to 0 at 28 significant digits (or shows the other sign) while the exact comparison
+decides otherwise, a convention and an explain note say so: "displayed headroom rounds to 0 at
+28 significant digits; the exact comparison decides breached".
 
 **Zero or negative denominator.** The tested value is not computed: value and headroom are null
 and the outcome is the one stated by `if_denominator_not_positive` (`breached`, `passed` or

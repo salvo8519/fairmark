@@ -222,7 +222,9 @@ limbs in `covenants.rs`), so a quotient that rounds to the threshold at 28 digit
 the outcome (numerical audit, finding 1). With `rounding`, the rounded value is computed
 exactly from the rational numerator / denominator (wide-integer division of the mantissas,
 then the rounding rule on the remainder), and the outcome is the exact comparison of the
-rounded value with the threshold.
+rounded value with the threshold. The rounded value keeps `decimal_places` decimals; when that
+mantissa exceeds 96 bits, trailing zeros are dropped to lower the scale, and it overflows only
+when the rounded value itself does not fit the decimal type (second audit).
 
 ### Rules
 - Zero or negative denominator (including `-0`): the outcome is `if_denominator_not_positive`;
@@ -246,7 +248,8 @@ headroom and the relative headroom; a verdict step ("breached
 Conventions: the definitions come from the agreement, the period ending on the test date, the
 precision rule above, the headroom sign convention, "a negative numerator is compared as
 computed", the not-tested rule, and for each covenant its test rule ("passes when the tested
-value ≤ 3.5"), its rule for a denominator that is not positive (from the input), its rounding
+value ≤ 3.5"), a display note when the headroom shown at 28 significant digits rounds to 0 or
+shows the other sign while the exact comparison decides otherwise, its rule for a denominator that is not positive (from the input), its rounding
 rule (or that the value is not rounded) and, when not tested, the reason.
 
 ### Tests

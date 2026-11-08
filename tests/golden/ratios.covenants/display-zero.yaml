@@ -1,0 +1,32 @@
+method: ratios.covenants
+description: 'Second audit: a tiny positive tested value is displayed as 0 at 28 significant digits; the
+  exact comparison decides passed against greater than 0'
+source: 'scripts/reference_ratios.py, covenants (Python fractions for the outcome, decimal at 50 digits for
+  the printed values). Exact: 1 / 79228162514264337593543950335 = 1.262...e-29 > 0, passed; value and
+  headroom 1.262...e-29, which the engine displays as 0 (within the 1e-20 tolerance of decision 10);
+  relative headroom not defined, threshold zero.'
+input:
+  covenants:
+  - name: interest cover, tiny positive
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '1'
+    denominator:
+      definition: net finance charges for the 12 months ending on the test date
+      amount: '79228162514264337593543950335'
+    operator: greater_than
+    threshold: '0'
+    if_denominator_not_positive: not_tested
+expect:
+  /covenants/0/outcome: passed
+  /covenants/0/outcome_basis: tested_value
+  /covenants/0/not_tested_code: 'null'
+  /covenants/0/value: '0.000000000000000000000000000012621774483536188886587657044683888865884548189447'
+  /covenants/0/headroom: '0.000000000000000000000000000012621774483536188886587657044683888865884548189447'
+  /covenants/0/headroom_relative/value: 'null'
+  /covenants/0/headroom_relative/not_defined: threshold is zero
+  /summary/passed: '1'
+  /summary/breached: '0'
+  /summary/not_tested: '0'
+tolerance: '0.00000000000000000001'
