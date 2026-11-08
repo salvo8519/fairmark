@@ -1,0 +1,20 @@
+method: dcf.fcff
+description: "400 periods of constant growth 9.5% at a WACC of 10%, Gordon at the same growth: the value of operations is the growing perpetuity 100 x 1.095 / 0.005 = 21900 (audit X12, precision at long horizons)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R8, R12 and R19, sharing no code with the engine). Closed form: with
+  growth equal in the explicit and terminal phases, the value is CF_1 / (r - g) = 109.5 / 0.005 =
+  21900 exactly.
+input:
+  stages: [{"periods": 400, "projection": "constant_growth", "growth": "0.095"}]
+  base_flow: "100"
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.10"
+  timing: "end_of_period"
+  terminal: {"tv.gordon": {"growth": "0.095", "first_flow": "last_flow_grown"}}
+expect:
+  /pv_explicit_period: "18359.8821325607953180332497022"
+  /terminal/present_value: "3540.1178674392046819667502978"
+  /value_of_operations: "21900"
+tolerance: "0.00000000000000000001"

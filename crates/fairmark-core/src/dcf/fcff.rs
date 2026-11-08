@@ -226,6 +226,13 @@ fn bridge(
         }
     };
     let equity_value = sub(enterprise_value, nfp.unwrap_or_default())?;
+    if equity_value.is_sign_negative() && !equity_value.is_zero() {
+        // R26: reported, never floored at zero and never refused.
+        ex.convention(format!(
+            "warning: the equity value is negative ({equity_value}): the claims subtracted \
+             exceed the enterprise value; it is reported as computed, not floored at zero"
+        ));
+    }
     ex.step(
         "Equity value",
         format!("{enterprise_value} − {}", nfp.unwrap_or_default()),
@@ -571,7 +578,10 @@ mod tests {
         });
         let c = conventions(&v);
         let warnings: Vec<&String> = c.iter().filter(|c| c.starts_with("warning: ")).collect();
-        assert_eq!(warnings.len(), 3, "{c:?}");
+        // Two negative-flow warnings, the growth discontinuity, and (R26) the negative
+        // equity value that these flows produce.
+        assert_eq!(warnings.len(), 4, "{c:?}");
+        assert!(warnings[3].contains("equity value is negative"));
         assert!(warnings[0].contains("period 2") && warnings[0].contains("negative flow"));
         assert!(warnings[2].contains("differs from the perpetual growth"));
     }
@@ -653,6 +663,49 @@ mod tests {
             }
         }
         walk(&input_schema("dcf.fcff").unwrap(), "");
+    }
+
+    /// R26: a negative equity value is a warning, reported and never floored at zero.
+    #[test]
+    fn negative_equity_value_is_a_warning() {
+        let v = with(base(), |m| {
+            m.insert(
+                "net_financial_position".into(),
+                json!({"gross_debt": "5000", "cash": "0"}),
+            );
+        });
+        let out = run("dcf.fcff", &v.to_string()).unwrap();
+        let equity: rust_decimal::Decimal = out["value"]["equity_value"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert!(equity.is_sign_negative());
+        let c = out["explain"]["conventions"].to_string();
+        assert!(c.contains("warning: the equity value is negative"), "{c}");
+        assert!(!conventions(&base())
+            .join("\n")
+            .contains("equity value is negative"));
+    }
+
+    /// Under mid-period timing, a Gordon value discounted at the horizon carries a warning.
+    #[test]
+    fn mid_period_gordon_at_the_horizon_is_a_warning() {
+        let v = with(base(), |m| {
+            m.insert("timing".into(), json!("mid_period"));
+            m.insert("terminal_discount_time".into(), json!("horizon"));
+        });
+        assert!(conventions(&v)
+            .iter()
+            .any(|c| c.starts_with("warning: under mid-period timing")));
+        let m = with(v, |m| {
+            m.insert("terminal_discount_time".into(), json!("mid_period"));
+        });
+        let c = conventions(&m);
+        assert!(!c
+            .iter()
+            .any(|c| c.starts_with("warning: under mid-period timing")));
+        assert!(c.iter().any(|c| c.contains("r_3 = 0.10 (R21)")), "{c:?}");
     }
 
     /// R23, R25: enterprise value minus value of operations is the sum of the non-operating

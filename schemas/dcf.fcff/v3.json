@@ -222,6 +222,8 @@
     "Terminal": {
       "additionalProperties": false,
       "description": "The terminal technique, written as an object with exactly one key, the `tv.*` method id,\nas in `tv.compare`: `{\"tv.gordon\": {...}}`.",
+      "maxProperties": 1,
+      "minProperties": 1,
       "properties": {
         "tv.gordon": {
           "anyOf": [

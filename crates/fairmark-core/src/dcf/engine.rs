@@ -146,6 +146,7 @@ pub struct GordonTerminal {
 /// as in `tv.compare`: `{"tv.gordon": {...}}`.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(extend("minProperties" = 1, "maxProperties" = 1))]
 pub struct Terminal {
     /// Stable growth (`tv.gordon`): `growth`, `first_flow`, optional `normalised_next_flow`
     /// and `growth_cap`.
@@ -253,7 +254,23 @@ fn count(msg: String) -> FairmarkError {
 // ---------------------------------------------------------------- checks
 
 /// R6, R7, R8, R11, R29: stage count, horizon, the fields of each projection, base flow.
-fn check_stages(stages: &[Stage], base_flow: Option<Decimal>) -> Result<usize> {
+/// A stage after validation: the projection with its own, present, fields (R7 to R9).
+enum StageKind<'a> {
+    Given(&'a [Decimal]),
+    ConstantGrowth(Decimal),
+    LinearDecline { from: Decimal, to: Decimal },
+}
+
+struct ResolvedStage<'a> {
+    periods: u32,
+    projection: Projection,
+    kind: StageKind<'a>,
+}
+
+fn check_stages(
+    stages: &[Stage],
+    base_flow: Option<Decimal>,
+) -> Result<(Vec<ResolvedStage<'_>>, usize)> {
     if stages.is_empty() || stages.len() > MAX_STAGES {
         return Err(invalid(format!(
             "`/stages` has {} stages; give one to {MAX_STAGES} explicit stages, each followed \
@@ -262,6 +279,7 @@ fn check_stages(stages: &[Stage], base_flow: Option<Decimal>) -> Result<usize> {
         )));
     }
     let mut horizon: u64 = 0;
+    let mut resolved = Vec::with_capacity(stages.len());
     for (i, s) in stages.iter().enumerate() {
         let at = format!("/stages/{i}");
         if s.periods == 0 {
@@ -325,6 +343,25 @@ fn check_stages(stages: &[Stage], base_flow: Option<Decimal>) -> Result<usize> {
                 }
             }
         }
+        let kind = match (
+            s.projection,
+            s.flows.as_deref(),
+            s.growth,
+            s.from_growth,
+            s.to_growth,
+        ) {
+            (Projection::Given, Some(flows), ..) => StageKind::Given(flows),
+            (Projection::ConstantGrowth, _, Some(g), ..) => StageKind::ConstantGrowth(g),
+            (Projection::LinearDecline, _, _, Some(from), Some(to)) => {
+                StageKind::LinearDecline { from, to }
+            }
+            _ => return Err(FairmarkError::Internal("stage fields not checked")),
+        };
+        resolved.push(ResolvedStage {
+            periods: s.periods,
+            projection: s.projection,
+            kind,
+        });
     }
     if horizon > MAX_PERIODS {
         return Err(invalid(format!(
@@ -344,7 +381,7 @@ fn check_stages(stages: &[Stage], base_flow: Option<Decimal>) -> Result<usize> {
              `/base_flow`, or make the first stage a generated one"
                 .to_owned(),
         )),
-        _ => Ok(horizon as usize),
+        _ => Ok((resolved, horizon as usize)),
     }
 }
 
@@ -507,7 +544,7 @@ struct Projected {
 /// R7 to R11: the flows of every period, with their explain steps and warnings.
 fn project(
     ex: &mut Explain,
-    stages: &[Stage],
+    stages: &[ResolvedStage<'_>],
     base_flow: Option<Decimal>,
 ) -> Result<Vec<Projected>> {
     let mut out: Vec<Projected> = Vec::new();
@@ -522,52 +559,45 @@ fn project(
     for (i, s) in stages.iter().enumerate() {
         let stage = i as u32 + 1;
         let last = first + s.periods - 1;
-        ex.convention(match s.projection {
-            Projection::Given => {
+        ex.convention(match s.kind {
+            StageKind::Given(_) => {
                 format!("stage {stage}: periods {first} to {last}, given flows")
             }
-            Projection::ConstantGrowth => format!(
-                "stage {stage}: periods {first} to {last}, constant growth {} per period: \
-                 CF_k = CF_(k-1) × (1 + g)",
-                s.growth.unwrap_or_default()
+            StageKind::ConstantGrowth(g) => format!(
+                "stage {stage}: periods {first} to {last}, constant growth {g} per period: \
+                 CF_k = CF_(k-1) × (1 + g)"
             ),
-            Projection::LinearDecline => format!(
+            StageKind::LinearDecline { from, to } => format!(
                 "stage {stage}: periods {first} to {last}, growth declining in linear \
-                 increments from {} to {}: g_j = g_from + (g_to − g_from) × j / {}, reaching \
-                 g_to in the last period",
-                s.from_growth.unwrap_or_default(),
-                s.to_growth.unwrap_or_default(),
+                 increments from {from} to {to}: g_j = g_from + (g_to − g_from) × j / {}, \
+                 reaching g_to in the last period",
                 s.periods
             ),
         });
         for j in 1..=s.periods {
             let k = first + j - 1;
-            let (growth, flow) = match s.projection {
-                Projection::Given => {
-                    let flows = s.flows.as_deref().unwrap_or_default();
+            let growth = match s.kind {
+                StageKind::Given(_) => None,
+                StageKind::ConstantGrowth(g) => Some(g),
+                StageKind::LinearDecline { from, to } => {
+                    let m = Decimal::from(s.periods);
+                    let step = div(mul(sub(to, from)?, Decimal::from(j))?, m)?;
+                    let g = add(from, step)?;
+                    ex.step(
+                        format!("Period {k}: growth"),
+                        format!("{from} + ({to} − {from}) × {j} / {m}"),
+                        g,
+                    );
+                    Some(g)
+                }
+            };
+            let flow = match (&s.kind, growth) {
+                (StageKind::Given(flows), _) => {
                     let flow = flows[(j - 1) as usize];
                     ex.step(format!("Period {k}: flow"), "as given", flow);
-                    (None, flow)
+                    flow
                 }
-                Projection::ConstantGrowth | Projection::LinearDecline => {
-                    let g = match s.projection {
-                        Projection::ConstantGrowth => s.growth.unwrap_or_default(),
-                        _ => {
-                            let (from, to) = (
-                                s.from_growth.unwrap_or_default(),
-                                s.to_growth.unwrap_or_default(),
-                            );
-                            let m = Decimal::from(s.periods);
-                            let step = div(mul(sub(to, from)?, Decimal::from(j))?, m)?;
-                            let g = add(from, step)?;
-                            ex.step(
-                                format!("Period {k}: growth"),
-                                format!("{from} + ({to} − {from}) × {j} / {m}"),
-                                g,
-                            );
-                            g
-                        }
-                    };
+                (_, Some(g)) => {
                     let prev = previous.ok_or(FairmarkError::Internal(
                         "generated stage without a previous flow",
                     ))?;
@@ -583,8 +613,9 @@ fn project(
                         format!("{prev} × (1 + {g})"),
                         flow,
                     );
-                    (Some(g), flow)
+                    flow
                 }
+                (_, None) => return Err(FairmarkError::Internal("generated flow without growth")),
             };
             out.push(Projected {
                 stage,
@@ -609,7 +640,7 @@ fn period_timing(t: Timing) -> PeriodTiming {
 /// Runs the engine: validates every choice, projects the flows, discounts them, computes and
 /// discounts the terminal value. The caller adds its basis convention and its bridge.
 pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOutput> {
-    let n = check_stages(input.stages, input.base_flow)?;
+    let (stages, n) = check_stages(input.stages, input.base_flow)?;
     let (rates, terminal_rate, terminal_field) = resolve_rates(&input.rates, n)?;
     check_terms(ex, input.cash_flow_terms, input.discount_rate_terms)?;
     check_timing(input.timing, input.terminal_discount_time)?;
@@ -638,10 +669,17 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
     ));
 
     // Flows, then discount factors through the tvm building block (SPEC-0002 R5).
-    let projected = project(ex, input.stages, input.base_flow)?;
+    let projected = project(ex, &stages, input.base_flow)?;
     let dfs = period_discount_factors(&rates, period_timing(input.timing))?;
     let ends = period_discount_factors(&rates, PeriodTiming::EndOfPeriod)?;
 
+    // Present values divide each amount by its compounding factor G_k = Π_(i ≤ k) (1 + r_i)
+    // (mid period: G_(k−1) × (1 + r_k)^0.5) rather than multiplying by the discount factor:
+    // at long horizons the factor is small and would carry few significant digits, while the
+    // compounding factor keeps all of them. The factors of `tvm` are reported unchanged.
+    let mut growth_factors = Vec::with_capacity(n + 1); // G_0 .. G_N; None beyond the range
+    growth_factors.push(Some(Decimal::ONE));
+    let mut fallback_from: Option<u32> = None;
     let mut periods = Vec::with_capacity(n);
     let mut pv_explicit = Decimal::ZERO;
     for (k, (p, (rate, df))) in projected.iter().zip(rates.iter().zip(&dfs)).enumerate() {
@@ -653,12 +691,49 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
         };
         ex.step(format!("Period {period}: discount rate"), "as given", *rate);
         ex.step(format!("Period {period}: discount factor"), formula, *df);
-        let pv = mul(p.flow, *df)?;
-        ex.step(
-            format!("Period {period}: present value"),
-            format!("{} × {df}", p.flow),
-            pv,
-        );
+        let base = one_plus(*rate)?;
+        let previous = growth_factors[k];
+        let current = previous.and_then(|g| g.checked_mul(base));
+        growth_factors.push(current);
+        let denominator = match input.timing {
+            Timing::EndOfPeriod => current.map(|g| (g, format!("{g}"))),
+            Timing::MidPeriod => match previous {
+                Some(g) => {
+                    let root = base.sqrt().ok_or(FairmarkError::Overflow("square root"))?;
+                    g.checked_mul(root)
+                        .map(|d| (d, format!("({g} × (1 + {rate})^0.5)")))
+                }
+                None => None,
+            },
+        };
+        let pv = match denominator {
+            Some((d, text)) => {
+                if let Some(g) = current {
+                    ex.step(
+                        format!("Period {period}: compounding factor"),
+                        format!("{} × (1 + {rate})", previous.unwrap_or(Decimal::ONE)),
+                        g,
+                    );
+                }
+                let pv = div(p.flow, d)?;
+                ex.step(
+                    format!("Period {period}: present value"),
+                    format!("{} / {text}", p.flow),
+                    pv,
+                );
+                pv
+            }
+            None => {
+                fallback_from.get_or_insert(period);
+                let pv = mul(p.flow, *df)?;
+                ex.step(
+                    format!("Period {period}: present value"),
+                    format!("{} × {df}", p.flow),
+                    pv,
+                );
+                pv
+            }
+        };
         pv_explicit = add(pv_explicit, pv)?;
         periods.push(PeriodRow {
             period,
@@ -672,6 +747,16 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
             present_value: pv,
         });
     }
+    ex.convention(match fallback_from {
+        None => "present values: each flow divided by its compounding factor Π (1 + r_i), \
+                 which keeps every significant digit at long horizons"
+            .to_owned(),
+        Some(k) => format!(
+            "present values: each flow divided by its compounding factor Π (1 + r_i); from \
+             period {k} the factor exceeds the decimal range and the flow is multiplied by its \
+             discount factor instead"
+        ),
+    });
     ex.step(
         "Present value of the explicit flows",
         "Σ present values",
@@ -679,7 +764,17 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
     );
 
     let last = &projected[n - 1];
-    let terminal = terminal_value(ex, input, gordon_terms, terminal_rate, last, &rates, &ends)?;
+    let g_n = growth_factors[n];
+    let terminal = terminal_value(
+        ex,
+        input,
+        gordon_terms,
+        terminal_rate,
+        last,
+        &rates,
+        &ends,
+        g_n,
+    )?;
     Ok(EngineOutput {
         periods,
         pv_explicit,
@@ -688,6 +783,7 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
 }
 
 /// R19 to R22: the terminal value through the typed `tv` function, and its discounting.
+#[allow(clippy::too_many_arguments)]
 fn terminal_value(
     ex: &mut Explain,
     input: &EngineInput<'_>,
@@ -696,6 +792,7 @@ fn terminal_value(
     last: &Projected,
     rates: &[Decimal],
     ends: &[Decimal],
+    g_n: Option<Decimal>,
 ) -> Result<TerminalOutput> {
     let n = ends.len();
     let g = terms.growth;
@@ -745,40 +842,93 @@ fn terminal_value(
 
     let df_n = ends[n - 1];
     let horizon = Decimal::from(n as u64);
-    let (time, df) = match (input.timing, input.terminal_discount_time) {
+    let tv_n = out.terminal_value;
+    let at_n = format!("Terminal value: discount factor at t = N = {n}, end of period {n}");
+    let df_n_formula = match g_n {
+        Some(g) => format!("DF_{n} = 1 / Π_(i ≤ {n}) (1 + r_i) = 1 / {g}"),
+        None => format!("DF_{n}, the discount factor at the end of period {n}"),
+    };
+    let (time, df, pv) = match (input.timing, input.terminal_discount_time) {
         (Timing::MidPeriod, Some(TerminalDiscountTime::MidPeriod)) => {
             let r_n = rates[n - 1];
             let root = one_plus(r_n)?
                 .sqrt()
                 .ok_or(FairmarkError::Overflow("square root"))?;
             let df = mul(df_n, root)?;
-            ex.convention(
-                "terminal discounting time: mid_period, t = N − 0.5, factor DF_N × (1 + r_N)^0.5",
-            );
+            ex.convention(format!(
+                "terminal discounting time: mid_period, t = N − 0.5, factor DF_N × (1 + r_N)^0.5; \
+                 the half-period shift uses the rate of period N, r_{n} = {r_n} (R21), not the \
+                 terminal rate"
+            ));
+            ex.step(at_n, df_n_formula, df_n);
             ex.step(
-                "Terminal value: discount factor at t = N − 0.5",
-                format!("{df_n} × (1 + {r_n})^0.5"),
+                format!(
+                    "Terminal value: discount factor at t = N − 0.5 = {}",
+                    horizon - Decimal::new(5, 1)
+                ),
+                format!("DF_{n} × (1 + r_{n})^0.5 = {df_n} × (1 + {r_n})^0.5"),
                 df,
             );
-            (sub(horizon, Decimal::new(5, 1))?, df)
+            let pv = match g_n.and_then(|g| tv_n.checked_mul(root).map(|v| (v, g))) {
+                Some((v, g)) => {
+                    let pv = div(v, g)?;
+                    ex.step(
+                        "Present value of the terminal value",
+                        format!("{tv_n} × (1 + {r_n})^0.5 / {g}"),
+                        pv,
+                    );
+                    pv
+                }
+                None => {
+                    let pv = mul(tv_n, df)?;
+                    ex.step(
+                        "Present value of the terminal value",
+                        format!("{tv_n} × {df}"),
+                        pv,
+                    );
+                    pv
+                }
+            };
+            (sub(horizon, Decimal::new(5, 1))?, df, pv)
         }
-        (Timing::MidPeriod, _) => {
-            ex.convention("terminal discounting time: horizon, t = N, factor DF_N");
-            ex.step("Terminal value: discount factor at t = N", "DF_N", df_n);
-            (horizon, df_n)
-        }
-        (Timing::EndOfPeriod, _) => {
-            ex.convention("terminal value discounted at the horizon, t = N, factor DF_N");
-            ex.step("Terminal value: discount factor at t = N", "DF_N", df_n);
-            (horizon, df_n)
+        (timing, _) => {
+            ex.convention(match timing {
+                Timing::MidPeriod => "terminal discounting time: horizon, t = N, factor DF_N",
+                Timing::EndOfPeriod => {
+                    "terminal value discounted at the horizon, t = N, factor DF_N"
+                }
+            });
+            if timing == Timing::MidPeriod {
+                ex.convention(
+                    "warning: under mid-period timing a perpetuity-growth terminal value is \
+                     commonly discounted at N − 0.5, consistent with the flows it capitalises; \
+                     it is discounted at the horizon N as chosen",
+                );
+            }
+            ex.step(at_n, df_n_formula, df_n);
+            let pv = match g_n {
+                Some(g) => {
+                    let pv = div(tv_n, g)?;
+                    ex.step(
+                        "Present value of the terminal value",
+                        format!("{tv_n} / {g}"),
+                        pv,
+                    );
+                    pv
+                }
+                None => {
+                    let pv = mul(tv_n, df_n)?;
+                    ex.step(
+                        "Present value of the terminal value",
+                        format!("{tv_n} × {df_n}"),
+                        pv,
+                    );
+                    pv
+                }
+            };
+            (horizon, df_n, pv)
         }
     };
-    let pv = mul(out.terminal_value, df)?;
-    ex.step(
-        "Present value of the terminal value",
-        format!("{} × {df}", out.terminal_value),
-        pv,
-    );
     Ok(TerminalOutput {
         technique: id.to_owned(),
         technique_version: version.to_owned(),

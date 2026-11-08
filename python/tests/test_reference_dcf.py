@@ -203,5 +203,39 @@ def test_ac7_discount_factors_equal_those_of_tvm_present_value(timing: str) -> N
         "tvm.present_value", {"cash_flows": flows, "period_rates": rates, "timing": timing}
     )["value"]
     assert [r["discount_factor"] for r in dcf["periods"]] == pv["discount_factors"]
-    assert [r["present_value"] for r in dcf["periods"]] == pv["present_values"]
-    assert dcf["pv_explicit_period"] == pv["present_value"]
+    # Present values divide by the compounding factor instead of multiplying by the discount
+    # factor (precision at long horizons): equal to the last digits, not bit for bit.
+    for ours, theirs in zip(dcf["periods"], pv["present_values"], strict=True):
+        assert abs(D(ours["present_value"]) - D(theirs)) <= D("1e-26")
+
+
+@pytest.mark.parametrize(
+    ("periods", "rate", "growth", "terminal_growth", "timing"),
+    [
+        (400, "0.10", "0.095", "0.095", ("end_of_period", None)),
+        (300, "0.20", "0.195", "0.19", ("mid_period", "mid_period")),
+        (300, "0.20", "0.195", "0.19", ("mid_period", "horizon")),
+        (1000, "0.05", "0.045", "0.04", ("end_of_period", None)),
+        (250, "0.12", "0.11", "0.11", ("mid_period", "horizon")),
+    ],
+    ids=str,
+)
+def test_long_horizons_keep_full_precision(
+    periods: int, rate: str, growth: str, terminal_growth: str, timing: tuple[str, str | None]
+) -> None:
+    """Audit finding 1: at long horizons the value of operations matches the 50-digit
+    reference to 1e-24 relative, because present values divide by the compounding factor."""
+    payload: dict[str, Any] = {
+        "stages": [{"periods": periods, "projection": "constant_growth", "growth": growth}],
+        "base_flow": "100",
+        "cash_flow_terms": "nominal",
+        "discount_rate_terms": "nominal",
+        "wacc": rate,
+        "timing": timing[0],
+        "terminal": {"tv.gordon": {"growth": terminal_growth, "first_flow": "last_flow_grown"}},
+    }
+    if timing[1]:
+        payload["terminal_discount_time"] = timing[1]
+    got = D(run(payload)["value_of_operations"])
+    want = ref.dcf_fcff(payload)["/value_of_operations"]
+    assert abs(got - want) <= D("1e-24") * abs(want)
