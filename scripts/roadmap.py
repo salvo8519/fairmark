@@ -40,6 +40,10 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 ROADMAP = ROOT / "roadmap" / "roadmap.yaml"
 PAGE = ROOT / "docs" / "en" / "project" / "roadmap.md"
+# The tables of the page are generated at build time (scripts/docs.py), never committed: the
+# page includes them, as changelog.md and release-notes.md include theirs.
+GENERATED_PAGE = ROOT / ".generated" / "ROADMAP.md"
+INCLUDE = '--8<-- ".generated/ROADMAP.md"'
 SPECS = ROOT / "specs"
 REPO = os.environ.get("GITHUB_REPOSITORY", "salvo8519/fairmark")
 ISSUES_URL = f"https://github.com/{REPO}/issues"
@@ -55,7 +59,7 @@ HEADER = """\
 # Source of truth for the plan: milestones, epics (parent issues) and tasks (sub-issues).
 # The state of each issue lives on GitHub; `python scripts/roadmap.py sync --write` copies it
 # here. Edit by hand or with `python scripts/roadmap.py new`; then `python scripts/roadmap.py
-# render` rewrites this file canonically and regenerates docs/en/project/roadmap.md.
+# render` rewrites this file canonically; the roadmap page of the site is generated from it.
 # Task tags: parallel = can be done independently; gfi = good first issue; maintainer =
 # maintainer decision; needs-methodology = methodology to agree first.
 """
@@ -140,18 +144,15 @@ def page_block(data: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def page_with_block(data: dict[str, Any]) -> str:
-    text = PAGE.read_text(encoding="utf-8")
-    if START not in text or END not in text:
-        sys.exit(f"{PAGE.relative_to(ROOT)}: generated block markers missing")
-    head, rest = text.split(START, 1)
-    tail = rest.split(END, 1)[1]
-    return head + page_block(data) + tail
+def write_page(data: dict[str, Any]) -> None:
+    """Write the generated tables of the roadmap page (.generated/ROADMAP.md, not committed)."""
+    GENERATED_PAGE.parent.mkdir(exist_ok=True)
+    GENERATED_PAGE.write_text(page_block(data) + "\n", encoding="utf-8", newline="\n")
 
 
 def render(data: dict[str, Any]) -> None:
     ROADMAP.write_text(dump(data), encoding="utf-8", newline="\n")
-    PAGE.write_text(page_with_block(data), encoding="utf-8", newline="\n")
+    write_page(data)
 
 
 # ---- offline checks
@@ -202,8 +203,8 @@ def problems_of(data: dict[str, Any], pr_body: str | None = None) -> list[str]:
         problems.append(f"spec {spec} is not referenced by any roadmap task")
     if ROADMAP.read_text(encoding="utf-8") != dump(data):
         problems.append("roadmap/roadmap.yaml is not in canonical form")
-    if PAGE.read_text(encoding="utf-8") != page_with_block(data):
-        problems.append("docs/en/project/roadmap.md is not generated from roadmap.yaml")
+    if INCLUDE not in PAGE.read_text(encoding="utf-8"):
+        problems.append(f"docs/en/project/roadmap.md must include the generated tables: {INCLUDE}")
     if pr_body is not None:
         for n in CLOSES.findall(pr_body):
             if int(n) not in seen:
@@ -462,6 +463,7 @@ def main() -> None:
     c = sub.add_parser("check")
     c.add_argument("--pr-body", type=Path)
     sub.add_parser("render")
+    sub.add_parser("page")
     li = sub.add_parser("list")
     li.add_argument("--open", action="store_true")
     li.add_argument("--milestone")
@@ -482,6 +484,9 @@ def main() -> None:
         sys.exit(list_tasks(args.open, args.milestone))
     if args.cmd == "render":
         render(load())
+        return
+    if args.cmd == "page":
+        write_page(load())
         return
     if args.cmd == "sync":
         sys.exit(sync(args.write, args.apply_milestones))

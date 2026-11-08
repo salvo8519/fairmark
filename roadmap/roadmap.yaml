@@ -1,7 +1,7 @@
 # Source of truth for the plan: milestones, epics (parent issues) and tasks (sub-issues).
 # The state of each issue lives on GitHub; `python scripts/roadmap.py sync --write` copies it
 # here. Edit by hand or with `python scripts/roadmap.py new`; then `python scripts/roadmap.py
-# render` rewrites this file canonically and regenerates docs/en/project/roadmap.md.
+# render` rewrites this file canonically; the roadmap page of the site is generated from it.
 # Task tags: parallel = can be done independently; gfi = good first issue; maintainer =
 # maintainer decision; needs-methodology = methodology to agree first.
 
@@ -61,6 +61,7 @@ milestones:
           - { issue: 132, title: "Session journal for 2026-11-07", status: done }
           - { issue: 143, title: "Release notes and changelog on the site: undated draft, numerical changes name the method versions", tags: [parallel], status: done }
           - { issue: 157, title: "Commit scope for the loans theme", status: done }
+          - { issue: 159, title: "Roadmap page generated at build time instead of committed", status: done }
       - title: "CI/CD"
         issue: 10
         labels: ["area:infra"]

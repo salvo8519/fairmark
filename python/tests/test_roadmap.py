@@ -75,10 +75,27 @@ def test_dropped_work_stays_visible_and_is_not_counted() -> None:
     assert not [p for p in roadmap.problems_of(d) if "status" in p]
 
 
-def test_the_page_is_generated_from_the_file() -> None:
+def test_the_page_includes_the_generated_tables() -> None:
+    """The tables are generated at build time; a change to the plan needs no page change."""
     d = data()
     d["milestones"][0]["gate"] = "A different gate."
-    assert any("roadmap.md is not generated" in p for p in roadmap.problems_of(d))
+    assert not [p for p in roadmap.problems_of(d) if "roadmap.md" in p]
+    assert roadmap.INCLUDE in roadmap.PAGE.read_text(encoding="utf-8")
+
+
+def test_a_page_without_the_include_is_refused(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    page = tmp_path / "roadmap.md"
+    page.write_text("# Roadmap\n\nTables pasted by hand.\n", encoding="utf-8")
+    monkeypatch.setattr(roadmap, "PAGE", page)
+    assert any("must include the generated tables" in p for p in roadmap.problems_of(data()))
+
+
+def test_write_page_produces_the_tables(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    target = tmp_path / ".generated" / "ROADMAP.md"
+    monkeypatch.setattr(roadmap, "GENERATED_PAGE", target)
+    d = data()
+    roadmap.write_page(d)
+    assert target.read_text(encoding="utf-8") == roadmap.page_block(d) + "\n"
 
 
 # ---- sync, offline: GitHub issues are given as data
