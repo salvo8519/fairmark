@@ -13,6 +13,14 @@ metodo, delle convenzioni e degli input, e la verifica del risultato, spettano
 all'utilizzatore. Vedi le [avvertenze legali](../disclaimer.md).
 
 <!-- generated:status:start (scripts/gen_reference.py) -->
+
+Stato di ogni metodo, come lo riporta il registro del motore a `fm.methods()`, `fairmark methods`, al server MCP e ai tool di function calling. Definizioni e regola di promozione: [stato dei metodi](https://salvo8519.github.io/fairmark/project/releases/#method-status) (in inglese).
+
+| Stato | Metodi |
+| --- | --- |
+| Disponibile | `tvm.future_value`, `loans.instalment`, `loans.number_of_instalments`, `loans.amortisation_schedule`, `coc.cost_of_equity`, `coc.beta_relever`, `coc.beta_peers`, `coc.cost_of_debt`, `coc.wacc`, `tv.gordon`, `tv.value_driver`, `tv.h_model`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income`, `tv.liquidation`, `tv.compare`, `analysis.goal_seek`, `analysis.sensitivity`, `analysis.scenarios`, `analysis.tornado` |
+| Anteprima | `dates.year_fraction`, `rates.convert`, `rates.real_nominal`, `tvm.npv`, `tvm.present_value`, `tvm.xnpv`, `tvm.irr`, `tvm.xirr`, `tvm.mirr`, `tvm.annuity`, `tvm.perpetuity`, `dcf.fcff`, `ratios.profitability`, `ratios.capital_structure`, `ratios.liquidity`, `ratios.working_capital`, `ratios.debt_service`, `ratios.covenants` |
+
 <!-- generated:status:end -->
 
 | Metodo | Che cosa calcola |

@@ -24,7 +24,7 @@ pub struct MethodInfo {
     pub status: Status,
 }
 
-/// How far a method has been verified (ADR 0011). Defined, with the promotion rule, in
+/// How far a method has been verified (ADR 0012). Defined, with the promotion rule, in
 /// `docs/en/project/releases.md`; both statuses follow the versioning rules of ADR 0009.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
@@ -35,21 +35,10 @@ pub enum Status {
     Preview,
 }
 
-/// Methods promoted to available (ADR 0011). Every other method is preview, so a new method
+/// Methods promoted to available (ADR 0012). Every other method is preview, so a new method
 /// is preview until it is listed here; `scripts/method_status.py` checks each entry against
 /// the evidence in `specs/method-evidence.yaml`.
 const AVAILABLE: &[&str] = &[
-    "dates.year_fraction",
-    "rates.convert",
-    "rates.real_nominal",
-    "tvm.npv",
-    "tvm.present_value",
-    "tvm.xnpv",
-    "tvm.irr",
-    "tvm.xirr",
-    "tvm.mirr",
-    "tvm.annuity",
-    "tvm.perpetuity",
     "tvm.future_value",
     "loans.instalment",
     "loans.number_of_instalments",
@@ -129,7 +118,7 @@ macro_rules! registry {
             },
         )+];
 
-        /// Every id promoted in `AVAILABLE` is a registered method (ADR 0011).
+        /// Every id promoted in `AVAILABLE` is a registered method (ADR 0012).
         const _: () = {
             let ids: &[&str] = &[$(<$m as Method>::ID),+];
             let mut i = 0;
@@ -320,7 +309,7 @@ mod tests {
         }
     }
 
-    /// ADR 0011: methods not promoted in `AVAILABLE` are preview, and the status is part of
+    /// ADR 0012: methods not promoted in `AVAILABLE` are preview, and the status is part of
     /// the catalogue every adapter serialises.
     #[test]
     fn status_comes_from_the_promotion_list() {
@@ -333,19 +322,26 @@ mod tests {
             assert_eq!(m.status, expected, "{}", m.id);
         }
         assert_eq!(method("dcf.fcff").unwrap().status, Status::Preview);
-        assert_eq!(method("tvm.npv").unwrap().status, Status::Available);
+        assert_eq!(method("tvm.npv").unwrap().status, Status::Preview);
+        assert_eq!(method("tv.gordon").unwrap().status, Status::Available);
         let json = serde_json::to_value(method("dcf.fcff").unwrap()).unwrap();
         assert_eq!(json["status"], "preview");
-        let json = serde_json::to_value(method("tvm.npv").unwrap()).unwrap();
+        let json = serde_json::to_value(method("tv.gordon").unwrap()).unwrap();
         assert_eq!(json["status"], "available");
     }
 
-    /// ADR 0011: every result states the status of the method that produced it.
+    /// ADR 0012: every result states the status of the method that produced it.
     #[test]
     fn results_report_the_method_status() {
+        let tv = run(
+            "tv.gordon",
+            r#"{"rate": "0.1", "growth": "0.02", "next_flow": "50"}"#,
+        )
+        .unwrap();
+        assert_eq!(tv["meta"]["method_status"], "available");
+        assert!(tv["meta"].get("evaluated_method_status").is_none());
         let npv = run("tvm.npv", r#"{"rate": 0.1, "cash_flows": [-100, 60, 60]}"#).unwrap();
-        assert_eq!(npv["meta"]["method_status"], "available");
-        assert!(npv["meta"].get("evaluated_method_status").is_none());
+        assert_eq!(npv["meta"]["method_status"], "preview");
         let dcf = run(
             "dcf.fcff",
             r#"{"free_cash_flows": [100], "discount_rate": "0.1", "terminal_growth": "0.02"}"#,
@@ -354,7 +350,7 @@ mod tests {
         assert_eq!(dcf["meta"]["method_status"], "preview");
     }
 
-    /// ADR 0011: an analysis reports the status of the method it evaluates, in `meta` and, when
+    /// ADR 0012: an analysis reports the status of the method it evaluates, in `meta` and, when
     /// that method is preview, as a convention.
     #[test]
     fn analysis_reports_the_status_of_the_evaluated_method() {
@@ -383,10 +379,10 @@ mod tests {
             .starts_with("Evaluated method dcf.fcff is preview")));
 
         let available = table(
-            "tvm.npv",
-            r#"{"rate": "0.09", "cash_flows": [-100, 60, 60]}"#,
+            "tv.gordon",
+            r#"{"rate": "0.09", "growth": "0.02", "next_flow": "50"}"#,
             "/rate",
-            "/npv",
+            "/terminal_value",
         );
         assert_eq!(available["meta"]["evaluated_method_status"], "available");
         let conventions = available["explain"]["conventions"].as_array().unwrap();
@@ -402,9 +398,9 @@ mod tests {
             assert!(seen.insert(id), "{id} is listed twice");
             assert!(method(id).is_ok(), "{id} is not registered");
         }
-        assert!(is_listed("tvm.npv", AVAILABLE));
-        assert!(!is_listed("tvm.np", AVAILABLE));
-        assert!(!is_listed("tvm.npvx", AVAILABLE));
+        assert!(is_listed("tv.gordon", AVAILABLE));
+        assert!(!is_listed("tv.gordo", AVAILABLE));
+        assert!(!is_listed("tv.gordonx", AVAILABLE));
     }
 
     #[test]

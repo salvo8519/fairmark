@@ -168,17 +168,17 @@ fairmark verify result.json --input company.json  # riproduce un risultato bit p
 
 | Metodo | Stato | Descrizione |
 | --- | --- | --- |
-| `dates.year_fraction` | Disponibile | Year fraction (day count) |
-| `rates.convert` | Disponibile | Rate conversion between compounding conventions |
-| `rates.real_nominal` | Disponibile | Real and nominal rates (Fisher) |
-| `tvm.npv` | Disponibile | Net present value |
-| `tvm.present_value` | Disponibile | Present value with a constant or time-varying rate |
-| `tvm.xnpv` | Disponibile | Net present value of dated cash flows (XNPV) |
-| `tvm.irr` | Disponibile | Internal rate of return |
-| `tvm.xirr` | Disponibile | Internal rate of return of dated cash flows (XIRR) |
-| `tvm.mirr` | Disponibile | Modified internal rate of return (MIRR) |
-| `tvm.annuity` | Disponibile | Annuity (level or growing, ordinary or due) |
-| `tvm.perpetuity` | Disponibile | Perpetuity (level or growing) |
+| `dates.year_fraction` | Anteprima | Year fraction (day count) |
+| `rates.convert` | Anteprima | Rate conversion between compounding conventions |
+| `rates.real_nominal` | Anteprima | Real and nominal rates (Fisher) |
+| `tvm.npv` | Anteprima | Net present value |
+| `tvm.present_value` | Anteprima | Present value with a constant or time-varying rate |
+| `tvm.xnpv` | Anteprima | Net present value of dated cash flows (XNPV) |
+| `tvm.irr` | Anteprima | Internal rate of return |
+| `tvm.xirr` | Anteprima | Internal rate of return of dated cash flows (XIRR) |
+| `tvm.mirr` | Anteprima | Modified internal rate of return (MIRR) |
+| `tvm.annuity` | Anteprima | Annuity (level or growing, ordinary or due) |
+| `tvm.perpetuity` | Anteprima | Perpetuity (level or growing) |
 | `tvm.future_value` | Disponibile | Future value of a present amount and level payments |
 | `loans.instalment` | Disponibile | Loan instalment (constant instalment, optional balloon) |
 | `loans.number_of_instalments` | Disponibile | Number of instalments of a loan |

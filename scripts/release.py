@@ -9,8 +9,9 @@ open work instead of requiring it.
 
 Checks: the version is valid and newer than the last tag; the required milestones are
 complete; there are release notes to publish (fragments in changes/); the roadmap, the
-translations and the generated files are current; online: main is green, no open pull request
-carries `numerical-change`, and the roadmap agrees with GitHub. Exit 1 when any check fails.
+translations and the generated files are current; every available method meets the promotion
+rule and none is available on legacy grounds (ADR 0012); online: main is green, no open pull
+request carries `numerical-change`, and the roadmap agrees with GitHub. Exit 1 when any check fails.
 """
 
 from __future__ import annotations
@@ -49,6 +50,12 @@ def gh(path: str) -> object:
     if out.returncode != 0:
         raise RuntimeError(out.stderr.strip())
     return json.loads(out.stdout)
+
+
+def legacy_methods(path: Path = ROOT / "specs/method-evidence.yaml") -> list[str]:
+    """Methods available on legacy grounds (ADR 0012); a release requires none."""
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return list(data.get("legacy") or [])
 
 
 def ready(version: str, offline: bool) -> int:
@@ -96,9 +103,17 @@ def ready(version: str, offline: bool) -> int:
         ("translations current", ["python", "scripts/i18n.py", "check"]),
         ("schemas current", ["python", "scripts/schema_snapshots.py", "--check"]),
         ("version files consistent", ["python", "scripts/version.py", "check"]),
+        ("method status meets the promotion rule", ["python", "scripts/method_status.py", "check"]),
     ]:
         ok, last_line = run(sys.executable, *cmd[1:])
         record(ok, f"{label}" + ("" if ok else f": {last_line}"))
+
+    legacy = legacy_methods()
+    record(
+        not legacy,
+        "no method available on legacy grounds"
+        + (f": {', '.join(legacy)} (specs/method-evidence.yaml)" if legacy else ""),
+    )
 
     if offline:
         record(True, "online checks skipped (--offline)")

@@ -20,7 +20,7 @@ documented.
 
 ## Method status
 
-Every method has one of two statuses. The engine registry holds it (ADR 0011) and reports it
+Every method has one of two statuses. The engine registry holds it (ADR 0012) and reports it
 to every adapter: `fm.methods()` and `fairmark methods` return a `status` field, the MCP server
 puts it in each tool's `_meta` (`fairmark/status`), and the description of every MCP and
 function-calling tool of a preview method says "Status: preview". The methods index, the
@@ -65,7 +65,9 @@ A method may be available only when all of the following hold:
 - Methods that were available before this rule was introduced and do not yet meet it are
   listed under `legacy:` in the evidence file and reported on every run. The list may only
   shrink: it must stay within the set frozen in the checker (`FROZEN_AT_149`), and the check
-  fails when one of them meets the rule (remove it from the list) or becomes preview.
+  fails when one of them meets the rule (remove it from the list) or becomes preview. The list
+  has been empty since the maintainer decision of 2026-11-08, and `release.py ready` fails
+  while it is not.
 - Results carry the status too: `meta.method_status` in every result, and
   `meta.evaluated_method_status` in the result of an analysis method, which also states
   "Evaluated method <id> is preview" in `explain.conventions` when the method it evaluates is
@@ -84,6 +86,8 @@ A method may be available only when all of the following hold:
   pre-release lists the open tasks instead);
 - there are release notes to publish in `changes/`;
 - the roadmap, the translations, the schema snapshots and the version files are current;
+- every available method meets the promotion rule and none is available on legacy grounds
+  (see [Method status](#method-status));
 - `main` is green, no open pull request carries `numerical-change`, and the roadmap agrees with
   GitHub.
 

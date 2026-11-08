@@ -78,11 +78,12 @@ def test_json_log_lines_are_parseable() -> None:
 
 
 def test_methods_report_their_status() -> None:
-    """ADR 0011: the registry reports the status; `fm.methods()` passes it through."""
+    """ADR 0012: the registry reports the status; `fm.methods()` passes it through."""
     status = {m["id"]: m["status"] for m in fm.methods()}
     assert set(status.values()) == {"available", "preview"}
     assert status["dcf.fcff"] == "preview"
-    assert status["tvm.npv"] == "available"
+    assert status["tvm.npv"] == "preview"
+    assert status["tv.gordon"] == "available"
 
 
 @pytest.mark.parametrize("provider", sorted(fm.tools.PROVIDERS))
@@ -111,7 +112,7 @@ def test_mcp_tools_carry_the_status() -> None:
 
 
 def test_available_descriptions_are_unchanged_and_preview_titles_are_marked() -> None:
-    """Available tools keep the exact description they had before ADR 0011."""
+    """Available tools keep the exact description they had before ADR 0012."""
     by_name = {fm.tools.tool_name(m["id"]): m for m in fm.methods()}
     for d in fm.tools.definitions():
         m = by_name[d["name"]]
@@ -125,15 +126,17 @@ def test_available_descriptions_are_unchanged_and_preview_titles_are_marked() ->
 
 def test_unknown_status_is_treated_as_preview(monkeypatch: pytest.MonkeyPatch) -> None:
     real = fm.tools.methods()
-    odd = [{**m, "status": "experimental"} if m["id"] == "tvm.npv" else m for m in real]
+    odd = [{**m, "status": "experimental"} if m["id"] == "tv.gordon" else m for m in real]
     monkeypatch.setattr(fm.tools, "methods", lambda: odd)
-    npv = next(d for d in fm.tools.definitions() if d["name"] == "fairmark_tvm_npv")
-    assert fm.tools.PREVIEW_NOTE in npv["description"]
+    tv = next(d for d in fm.tools.definitions() if d["name"] == "fairmark_tv_gordon")
+    assert fm.tools.PREVIEW_NOTE in tv["description"]
 
 
 def test_results_report_the_method_status() -> None:
     assert (
-        fm.run("tvm.npv", {"rate": "0.1", "cash_flows": [-100, 60, 60]}).meta["method_status"]
+        fm.run("tv.gordon", {"rate": "0.1", "growth": "0.02", "next_flow": "50"}).meta[
+            "method_status"
+        ]
         == "available"
     )
     out = fm.tools.dispatch(

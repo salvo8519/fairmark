@@ -1,6 +1,6 @@
 ---
 source: guides/mcp.md
-source_hash: 1c5556b92434
+source_hash: 38fa65d72d02
 ---
 # Server MCP
 

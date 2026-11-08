@@ -1,4 +1,4 @@
-# Evidence for the promotion of methods from preview to available (ADR 0011).
+# Evidence for the promotion of methods from preview to available (ADR 0012).
 # Rule: docs/en/project/releases.md, "Method status". Checked by scripts/method_status.py.
 #
 # specs: one entry per spec folder number, a quoted four-digit string ("0002"):
@@ -61,6 +61,7 @@ specs:
       - ratios.liquidity
       - ratios.working_capital
       - ratios.debt_service
+      - ratios.covenants
     numerical_audit: T20
     code_review: T20
   "0008":
@@ -80,36 +81,6 @@ specs:
     numerical_audit: T23
     code_review: T23
 
-legacy:
-  # SPEC-0002: no code review recorded; tvm.npv and tvm.irr also have golden cases without a
-  # source.
-  - dates.year_fraction
-  - rates.convert
-  - rates.real_nominal
-  - tvm.npv
-  - tvm.present_value
-  - tvm.xnpv
-  - tvm.irr
-  - tvm.xirr
-  - tvm.mirr
-  - tvm.annuity
-  - tvm.perpetuity
-  # SPEC-0009 T23: audit and review not yet ticked.
-  - tvm.future_value
-  - loans.instalment
-  - loans.number_of_instalments
-  - loans.amortisation_schedule
-  # SPEC-0006 T17: audit and review not yet ticked.
-  - tv.gordon
-  - tv.value_driver
-  - tv.h_model
-  - tv.exit_multiple
-  - tv.limited_horizon
-  - tv.normalised_income
-  - tv.liquidation
-  - tv.compare
-  # SPEC-0008 T25: audit and review not yet ticked.
-  - analysis.goal_seek
-  - analysis.sensitivity
-  - analysis.scenarios
-  - analysis.tornado
+# Empty since the maintainer decision of 2026-11-08 (ADR 0012); scripts/release.py ready fails
+# while it is not.
+legacy: []

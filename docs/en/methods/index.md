@@ -8,6 +8,14 @@ method, the conventions and the inputs, and verifying the result, belong to the 
 [disclaimer](../disclaimer.md).
 
 <!-- generated:status:start (scripts/gen_reference.py) -->
+
+Status of each method, as the engine registry reports it to `fm.methods()`, `fairmark methods`, the MCP server and function-calling tools. Definitions and the promotion rule: [method status](../project/releases.md#method-status).
+
+| Status | Methods |
+| --- | --- |
+| Available | `tvm.future_value`, `loans.instalment`, `loans.number_of_instalments`, `loans.amortisation_schedule`, `coc.cost_of_equity`, `coc.beta_relever`, `coc.beta_peers`, `coc.cost_of_debt`, `coc.wacc`, `tv.gordon`, `tv.value_driver`, `tv.h_model`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income`, `tv.liquidation`, `tv.compare`, `analysis.goal_seek`, `analysis.sensitivity`, `analysis.scenarios`, `analysis.tornado` |
+| Preview | `dates.year_fraction`, `rates.convert`, `rates.real_nominal`, `tvm.npv`, `tvm.present_value`, `tvm.xnpv`, `tvm.irr`, `tvm.xirr`, `tvm.mirr`, `tvm.annuity`, `tvm.perpetuity`, `dcf.fcff`, `ratios.profitability`, `ratios.capital_structure`, `ratios.liquidity`, `ratios.working_capital`, `ratios.debt_service`, `ratios.covenants` |
+
 <!-- generated:status:end -->
 
 | Method | What it computes |
