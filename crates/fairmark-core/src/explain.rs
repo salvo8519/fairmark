@@ -55,6 +55,36 @@ impl Explain {
     }
 }
 
+/// A documented default filled in because the field was not given (SPEC-0001 R31). Listed in
+/// `meta.defaults_applied` and reported as a convention starting with "default:".
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+pub struct DefaultApplied {
+    /// JSON pointer of the field filled in, for example `/timing` or `/stages/0/periods`.
+    pub field: String,
+    /// The value filled in, as it would be written in the input.
+    pub value: serde_json::Value,
+    /// Why this value: one line, citing the practice or the rule it follows.
+    pub reason: String,
+}
+
+impl DefaultApplied {
+    pub fn new(field: impl Into<String>, value: serde_json::Value, reason: &str) -> Self {
+        Self {
+            field: field.into(),
+            value,
+            reason: reason.to_owned(),
+        }
+    }
+
+    /// The text reported in `explain.conventions`.
+    pub fn convention(&self) -> String {
+        format!(
+            "default: `{}` not given, set to {}: {}",
+            self.field, self.value, self.reason
+        )
+    }
+}
+
 /// Reproducibility metadata attached to every result.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct Meta {
@@ -62,7 +92,8 @@ pub struct Meta {
     pub engine_version: String,
     /// Version of the method implementation. Bumped on any numerical change.
     pub method_version: String,
-    /// SHA-256 of the canonical input: same hash + same versions = same result.
+    /// SHA-256 of the canonical input, with the documented defaults filled in: same hash +
+    /// same versions = same result.
     pub input_hash: String,
     /// Arithmetic used for every operation.
     pub arithmetic: String,
@@ -71,6 +102,10 @@ pub struct Meta {
     /// Analysis methods only: status of the method they evaluated (ADR 0012).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub evaluated_method_status: Option<Status>,
+    /// Documented defaults filled in because their fields were not given, in input order;
+    /// omitted when none applies.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub defaults_applied: Vec<DefaultApplied>,
 }
 
 /// The envelope every method returns.

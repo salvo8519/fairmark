@@ -249,10 +249,16 @@ fn dispatch(id: &str, input_json: &str) -> Result<Value> {
 }
 
 fn execute<M: Method>(input_json: &str) -> Result<Value> {
-    let input: M::Input = parse(input_json)?;
+    let mut input: M::Input = parse(input_json)?;
+    // SPEC-0001 R31: defaults are filled in once, before the hash, so that a minimal input and
+    // its explicit equivalent hash identically.
+    let defaults = M::apply_defaults(&mut input);
     let canonical =
         serde_json::to_string(&input).map_err(|e| FairmarkError::InvalidInput(e.to_string()))?;
-    let (value, explain) = M::compute(&input)?;
+    let (value, mut explain) = M::compute_with_defaults(&input, &defaults)?;
+    explain
+        .conventions
+        .splice(0..0, defaults.iter().map(|d| d.convention()));
     let envelope = Valuation {
         method: M::ID.to_owned(),
         value,
@@ -264,6 +270,7 @@ fn execute<M: Method>(input_json: &str) -> Result<Value> {
             arithmetic: "decimal, 96-bit mantissa (28-29 significant digits)".to_owned(),
             method_status: status_of(M::ID),
             evaluated_method_status: M::evaluated_method(&input).map(status_of),
+            defaults_applied: defaults,
         },
     };
     serde_json::to_value(envelope).map_err(|e| FairmarkError::InvalidInput(e.to_string()))

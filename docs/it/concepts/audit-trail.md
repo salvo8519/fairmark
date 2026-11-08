@@ -1,6 +1,6 @@
 ---
 source: concepts/audit-trail.md
-source_hash: a17757206014
+source_hash: be5fa11534c3
 ---
 # La tracciabilità del calcolo (audit trail)
 
@@ -29,6 +29,15 @@ Ogni risultato è una busta in quattro parti:
   (disponibile) o `preview` (anteprima) al momento dell'esecuzione (vedi lo
   [stato dei metodi](https://salvo8519.github.io/fairmark/project/releases/#method-status), in
   inglese); un risultato in anteprima va presentato come tale.
+- **`meta.defaults_applied`** elenca i valori predefiniti documentati che il motore ha
+  assegnato perché i relativi campi non erano forniti, nell'ordine dell'input: per ciascuno,
+  `field` (il suo JSON pointer, per esempio `/timing`), `value` (il valore assegnato, come
+  sarebbe scritto nell'input) e `reason` (una riga). Ciascuno compare anche tra le prime voci di
+  `explain.conventions`, con il prefisso "default:". La chiave è omessa quando non si applica
+  alcun valore predefinito, come per ogni metodo senza valori predefiniti documentati; un campo
+  fornito esplicitamente prevale sempre e non è mai elencato. I metodi DCF la usano per il loro
+  input minimo (Decision 24 di SPEC-0001, si veda
+  [`dcf.fcff`](../methods/dcf-fcff.md#input-minimo)).
 
 Le etichette dei passaggi sono in inglese, perché fanno parte dell'output del motore. In
 Python, `result.explain_markdown()` produce una nota metodologica per la relazione.

@@ -10,7 +10,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use crate::error::Result;
-use crate::explain::Explain;
+use crate::explain::{DefaultApplied, Explain};
 
 /// A deterministic valuation method.
 pub trait Method {
@@ -34,6 +34,27 @@ pub trait Method {
 
     /// The calculation, with its audit trail.
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)>;
+
+    /// Fills in the documented defaults of the fields not given, in place, and returns one
+    /// entry per default, in input order (SPEC-0001 R31). The registry calls it once, before
+    /// `meta.input_hash` and [`Method::compute`]: the hash covers the input with its defaults,
+    /// the defaults are reported first in `explain.conventions` and listed in
+    /// `meta.defaults_applied`. A field given explicitly is never changed. Methods without
+    /// defaults keep this implementation, which changes nothing.
+    fn apply_defaults(_input: &mut Self::Input) -> Vec<DefaultApplied> {
+        Vec::new()
+    }
+
+    /// [`Method::compute`] on an input whose defaults were filled in by
+    /// [`Method::apply_defaults`], with the list of those defaults, for a method whose messages
+    /// say when a value came from a default (SPEC-0001 Decision 24). The registry calls this
+    /// one; the default implementation ignores the list.
+    fn compute_with_defaults(
+        input: &Self::Input,
+        _defaults: &[DefaultApplied],
+    ) -> Result<(Self::Output, Explain)> {
+        Self::compute(input)
+    }
 
     /// Id of the method this one evaluates through the registry (analysis methods, ADR 0010),
     /// so that the result reports its status in `meta.evaluated_method_status` (ADR 0012).
