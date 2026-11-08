@@ -6,6 +6,9 @@ closing balance sheet in ``closing`` and, for average balances, the opening bala
 13%), multiples or days, as each field states. A ratio that cannot be computed has ``value``
 ``None`` and the reason in ``not_defined``; the other ratios of the group are still computed.
 
+``covenants`` tests covenants on the definitions of the loan agreement, with an explicit
+outcome per covenant.
+
 The net financial position is given with its composition::
 
     {"gross_debt": "2200", "cash": "300",
@@ -14,7 +17,7 @@ The net financial position is given with its composition::
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
 from ._core import Result, run
@@ -155,3 +158,31 @@ def debt_service(
             debt_schedule=debt_schedule,
         ),
     )
+
+
+CovenantOperator = Literal["at_most", "less_than", "at_least", "greater_than"]
+
+
+def covenants(*, covenants: Sequence[Mapping[str, Any]]) -> Result:
+    """Test covenants on the numerator and denominator defined by the loan agreement.
+
+    Each covenant: ``name``; ``test_date`` (``"YYYY-MM-DD"``, the amounts refer to the period
+    ending on it); ``numerator`` and ``denominator``, each ``{"definition": <the words of the
+    agreement>, "amount": ...}``; ``operator``, required: ``"at_most"`` (<=), ``"less_than"``
+    (<), ``"at_least"`` (>=) or ``"greater_than"`` (>); ``threshold`` in the unit of the ratio
+    (a multiple, or a decimal fraction such as ``"0.30"`` for 30%).
+
+    Each result has ``outcome`` (``"passed"``, ``"breached"`` or ``"not_tested"``), ``value``,
+    ``headroom`` (positive on the compliant side, negative on the breach side),
+    ``headroom_relative`` (headroom / threshold) and ``not_tested_reason``. A zero denominator
+    is not tested, never a breach; a negative denominator is refused (``FM-E001``).
+
+    >>> r = covenants(covenants=[{"name": "net leverage", "test_date": "2026-12-31",
+    ...     "numerator": {"definition": "net debt", "amount": 1750},
+    ...     "denominator": {"definition": "EBITDA, last 12 months", "amount": 500},
+    ...     "operator": "at_most", "threshold": 4}])
+    >>> from decimal import Decimal
+    >>> r.covenants[0]["outcome"], r.covenants[0]["headroom"] == Decimal("0.5")
+    ('passed', True)
+    """
+    return run("ratios.covenants", {"covenants": [dict(c) for c in covenants]})
