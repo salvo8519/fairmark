@@ -161,6 +161,17 @@ terms:
   loan life cover ratio (LLCR): LLCR (indice di copertura sulla durata del finanziamento)
   debt outstanding: debito residuo
   covenant: covenant
+  return on assets (ROA): ROA (redditività dell'attivo)
+  leverage form (ROE decomposition): forma con leva finanziaria
+  leverage effect: effetto leva
+  financial charges: oneri finanziari
+  taxes: imposte
+  pre-tax income: risultato ante imposte
+  effective tax rate: aliquota fiscale effettiva
+  gross financial debt: debiti finanziari lordi
+  debt service reserve account (DSRA): riserva per il servizio del debito (DSRA)
+  reserve balance: saldo della riserva per il servizio del debito
+  not meaningful: non significativo
 keep_in_english:
   - Fairmark
   - explain

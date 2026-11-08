@@ -1,6 +1,6 @@
 ---
 source: methods/index.md
-source_hash: 2e4b12915671
+source_hash: f303ba2ed84e
 ---
 # Metodi
 
@@ -27,7 +27,7 @@ elenca tutti gli input.
 | [`coc.cost_of_debt`](coc-cost-of-debt.md) | Disponibile | Costo del debito prima e dopo le imposte |
 | [`coc.wacc`](coc-wacc.md) | Disponibile | Costo medio ponderato del capitale alla struttura finanziaria obiettivo |
 | [`dcf.fcff`](dcf-fcff.md) | Anteprima | Enterprise value ed equity value dai flussi di cassa operativi |
-| [`ratios.profitability`](ratios-profitability.md) | Anteprima | ROE, ROI, ROS, margini, rotazione del capitale investito e scomposizione del ROE in tre fattori |
+| [`ratios.profitability`](ratios-profitability.md) | Anteprima | ROE, ROI, ROA, ROS, margini, rotazione del capitale investito e scomposizione del ROE in tre fattori e nella forma con leva finanziaria |
 | [`ratios.capital_structure`](ratios-capital-structure.md) | Anteprima | Rapporto tra debito e capitale proprio, PFN su capitale proprio, indice di indipendenza finanziaria, margini e quozienti di struttura |
 | [`ratios.liquidity`](ratios-liquidity.md) | Anteprima | Indice di disponibilità, indice di liquidità primaria, cash ratio, capitale circolante netto e margine di tesoreria |
 | [`ratios.working_capital`](ratios-working-capital.md) | Anteprima | Giorni medi di incasso, di giacenza e di pagamento e ciclo monetario |
