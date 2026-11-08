@@ -5,9 +5,21 @@ import pytest
 import fairmark as fm
 
 
+def dcf(flows: list[int], wacc: str, growth: str, **kw: object) -> fm.Result:
+    return fm.dcf.fcff(
+        [fm.dcf.given(flows)],
+        cash_flow_terms="nominal",
+        discount_rate_terms="nominal",
+        wacc=wacc,
+        timing="end_of_period",
+        terminal=fm.dcf.gordon(growth, first_flow="last_flow_grown"),
+        **kw,  # type: ignore[arg-type]
+    )
+
+
 def test_dcf_returns_exact_decimals() -> None:
-    r = fm.dcf.fcff([100, 110, 120], "0.10", "0.02", net_debt=200)
-    assert r.terminal_value == Decimal("1530")
+    r = dcf([100, 110, 120], "0.10", "0.02", net_financial_position={"gross_debt": 200, "cash": 0})
+    assert r.terminal["terminal_value"] == Decimal("1530")
     assert isinstance(r.equity_value, Decimal)
     assert r.meta["input_hash"] and len(r.meta["input_hash"]) == 64
 
@@ -24,7 +36,7 @@ def test_floats_go_through_shortest_repr() -> None:
 
 def test_errors_carry_stable_codes() -> None:
     with pytest.raises(fm.FairmarkError) as info:
-        fm.dcf.fcff([100], "0.05", "0.06")
+        dcf([100], "0.05", "0.06")
     assert info.value.code == "FM-E004"
 
 
@@ -35,7 +47,7 @@ def test_unknown_method() -> None:
 
 
 def test_explain_markdown_is_report_ready() -> None:
-    md = fm.dcf.fcff([100, 110, 120], "0.10", "0.02").explain_markdown()
+    md = dcf([100, 110, 120], "0.10", "0.02").explain_markdown()
     assert "| Step | Calculation | Value |" in md
     assert "Terminal value" in md
 

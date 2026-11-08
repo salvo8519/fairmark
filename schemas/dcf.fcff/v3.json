@@ -1,0 +1,397 @@
+{
+  "$defs": {
+    "FirstTerminalFlow": {
+      "description": "The flow at N + 1 of a technique that grows the last explicit flow (R20).",
+      "oneOf": [
+        {
+          "const": "last_flow_grown",
+          "description": "CF_{N+1} = CF_N × (1 + g), the last explicit flow grown by the perpetual growth.",
+          "type": "string"
+        },
+        {
+          "const": "normalised_next_flow",
+          "description": "CF_{N+1} given in `normalised_next_flow`.",
+          "type": "string"
+        }
+      ]
+    },
+    "GordonTerminal": {
+      "additionalProperties": false,
+      "description": "The terms of `tv.gordon` inside the DCF: the rate is the terminal rate of the DCF and the\nlast flow is the last explicit flow.",
+      "properties": {
+        "first_flow": {
+          "$ref": "#/$defs/FirstTerminalFlow",
+          "description": "`last_flow_grown` or `normalised_next_flow`; no default."
+        },
+        "growth": {
+          "description": "Perpetual growth after the horizon, decimal fraction per period, greater than -1 and\nbelow the terminal rate, in the terms of the cash flows.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "growth_cap": {
+          "description": "Upper bound for the perpetual growth, decimal fraction per period. Default: none,\nreported as absent. A growth above the cap is reported, not refused.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "normalised_next_flow": {
+          "description": "The flow at N + 1 in currency units, in the terms of the cash flows; required with\n`first_flow` = `normalised_next_flow`, refused otherwise.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "growth",
+        "first_flow"
+      ],
+      "type": "object"
+    },
+    "Line": {
+      "additionalProperties": false,
+      "description": "A labelled amount, for example an asset and its realisable value.",
+      "properties": {
+        "label": {
+          "description": "What the amount is, for example \"Land\" or \"Bank loan\". Not empty.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Amount in currency units, zero or positive.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    },
+    "NetFinancialPosition": {
+      "additionalProperties": false,
+      "description": "The net financial position with its composition (SPEC-0007 R6). Fairmark adds what is\ngiven and does not choose which items are included.",
+      "properties": {
+        "cash": {
+          "description": "Cash and cash equivalents, in currency units, subtracted from the gross debt.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "gross_debt": {
+          "description": "Gross financial debt (bank loans, bonds and other borrowings), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "other_items": {
+          "default": [],
+          "description": "Other items included by the analyst, each added with its sign. Default: none.",
+          "items": {
+            "$ref": "#/$defs/NfpItem"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "gross_debt",
+        "cash"
+      ],
+      "type": "object"
+    },
+    "NfpItem": {
+      "additionalProperties": false,
+      "description": "One item of the net financial position other than gross debt and cash.",
+      "properties": {
+        "amount": {
+          "description": "Amount in currency units, added to the net financial position: positive for debt-like\nitems, negative for financial assets.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "name": {
+          "description": "What the item is, for example \"lease liabilities\" or \"derivative assets\".",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "amount"
+      ],
+      "type": "object"
+    },
+    "Projection": {
+      "description": "How the flows of a stage are obtained (Decision 3).",
+      "oneOf": [
+        {
+          "const": "given",
+          "description": "The flows are given, one per period, in `flows`.",
+          "type": "string"
+        },
+        {
+          "const": "constant_growth",
+          "description": "Each flow is the previous flow × (1 + `growth`).",
+          "type": "string"
+        },
+        {
+          "const": "linear_decline",
+          "description": "The growth moves from `from_growth` to `to_growth` in equal steps,\ng_k = g_from + (g_to − g_from) × k / m, reaching `to_growth` in the last period\n(Decision 4).",
+          "type": "string"
+        }
+      ]
+    },
+    "Stage": {
+      "additionalProperties": false,
+      "description": "One explicit stage: a number of periods and how its flows are obtained. Each projection\ntakes only its own fields: `flows` for `given`, `growth` for `constant_growth`,\n`from_growth` and `to_growth` for `linear_decline`.",
+      "properties": {
+        "flows": {
+          "description": "For `given`: the flows of the stage in currency units, exactly one per period, in the\nterms of `cash_flow_terms`.",
+          "items": {
+            "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "from_growth": {
+          "description": "For `linear_decline`: the growth before the stage, decimal fraction per period, greater\nthan -1.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "growth": {
+          "description": "For `constant_growth`: growth per period, decimal fraction, greater than -1.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "periods": {
+          "description": "Number of periods of the stage, at least 1; one period is one year.",
+          "format": "uint32",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "projection": {
+          "$ref": "#/$defs/Projection",
+          "description": "`given`, `constant_growth` or `linear_decline`; no default."
+        },
+        "to_growth": {
+          "description": "For `linear_decline`: the growth of the last period of the stage, decimal fraction per\nperiod, greater than -1.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "periods",
+        "projection"
+      ],
+      "type": "object"
+    },
+    "Terminal": {
+      "additionalProperties": false,
+      "description": "The terminal technique, written as an object with exactly one key, the `tv.*` method id,\nas in `tv.compare`: `{\"tv.gordon\": {...}}`.",
+      "properties": {
+        "tv.gordon": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GordonTerminal"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Stable growth (`tv.gordon`): `growth`, `first_flow`, optional `normalised_next_flow`\nand `growth_cap`."
+        }
+      },
+      "type": "object"
+    },
+    "TerminalDiscountTime": {
+      "description": "When the terminal value is discounted under mid-period timing (Decision 6).",
+      "oneOf": [
+        {
+          "const": "horizon",
+          "description": "At the horizon, t = N: factor DF_N.",
+          "type": "string"
+        },
+        {
+          "const": "mid_period",
+          "description": "Half a period earlier, t = N − 0.5: factor DF_N × (1 + r_N)^0.5.",
+          "type": "string"
+        }
+      ]
+    },
+    "Terms": {
+      "description": "Whether amounts and growth rates, or discount rates, include expected inflation.",
+      "oneOf": [
+        {
+          "const": "nominal",
+          "description": "At current prices: expected inflation included.",
+          "type": "string"
+        },
+        {
+          "const": "real",
+          "description": "At constant prices: expected inflation excluded.",
+          "type": "string"
+        }
+      ]
+    },
+    "Timing": {
+      "description": "When cash flows arrive within each period.\n\nRates are always decimal fractions per period: `0.10` means 10%.",
+      "oneOf": [
+        {
+          "const": "end_of_period",
+          "description": "Cash flows at the end of each period (t = 1, 2, ..., n).",
+          "type": "string"
+        },
+        {
+          "const": "mid_period",
+          "description": "Cash flows spread evenly, discounted at mid period (t = 0.5, 1.5, ...).",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:fairmark:schema:dcf.fcff:v3",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `dcf.fcff` (version 3). Every choice is required, with no default (R29).",
+  "properties": {
+    "base_flow": {
+      "description": "FCFF of the base period CF_0, in currency units: required when the first stage is\n`constant_growth` or `linear_decline`, refused when it is `given`.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "cash_flow_terms": {
+      "$ref": "#/$defs/Terms",
+      "description": "`nominal` or `real`: the terms of every amount and growth rate of the input."
+    },
+    "discount_rate_terms": {
+      "$ref": "#/$defs/Terms",
+      "description": "`nominal` or `real`: the terms of the discount rates. They must equal\n`cash_flow_terms`."
+    },
+    "net_financial_position": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NetFinancialPosition"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Net financial position at the valuation date (SPEC-0007): gross debt − cash + signed\nother items, positive for net debt, subtracted from enterprise value. Default: none,\nreported."
+    },
+    "non_operating_assets": {
+      "description": "Non-operating assets at the valuation date, each a label and a value in currency units\n(zero or more), added to the value of operations. Default: none, reported.",
+      "items": {
+        "$ref": "#/$defs/Line"
+      },
+      "type": "array"
+    },
+    "stages": {
+      "description": "One to three explicit stages, in order; the explicit horizon N is the sum of their\nperiods. Each stage is `{\"periods\", \"projection\", ...}` with the fields of its\nprojection.",
+      "items": {
+        "$ref": "#/$defs/Stage"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "terminal": {
+      "$ref": "#/$defs/Terminal",
+      "description": "The terminal technique, an object with exactly one key, the method id:\n`{\"tv.gordon\": {\"growth\", \"first_flow\", ...}}`, on the enterprise basis."
+    },
+    "terminal_discount_time": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TerminalDiscountTime"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "With `mid_period` timing, required: `horizon` (terminal value at t = N) or\n`mid_period` (t = N − 0.5). Refused with `end_of_period`."
+    },
+    "terminal_wacc": {
+      "description": "WACC of the terminal phase, decimal fraction per period; required with\n`wacc_per_period`, refused with `wacc`.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "timing": {
+      "$ref": "#/$defs/Timing",
+      "description": "`end_of_period` (flow k at t = k) or `mid_period` (t = k − 0.5); no default."
+    },
+    "wacc": {
+      "description": "One WACC for every period and for the terminal value, decimal fraction per period\n(0.09 = 9%), greater than -1. Give this or `wacc_per_period`, not both.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "wacc_per_period": {
+      "description": "One WACC per period of the explicit horizon, decimal fractions, exactly N of them;\nrequires `terminal_wacc`. Give this or `wacc`, not both.",
+      "items": {
+        "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+        "type": [
+          "string",
+          "number"
+        ]
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "stages",
+    "cash_flow_terms",
+    "discount_rate_terms",
+    "timing",
+    "terminal"
+  ],
+  "title": "DcfFcffInput",
+  "type": "object",
+  "x-fairmark-method": "dcf.fcff",
+  "x-fairmark-method-version": "3"
+}

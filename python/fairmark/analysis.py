@@ -33,13 +33,11 @@ def goal_seek(
     otherwise ``FairmarkError`` with code ``FM-E013`` is raised. The tolerance is absolute, in
     the output's units (default 0.000000001); ``max_iterations`` defaults to 100.
 
-    Example: the discount rate at which the DCF enterprise value equals an offer of 1300::
+    Example: the WACC at which the DCF value of operations equals an offer of 1300::
 
         fm.analysis.goal_seek(
-            "dcf.fcff",
-            {"free_cash_flows": [100, 110, 120], "discount_rate": "0.10",
-             "terminal_growth": "0.02", "net_debt": 200},
-            variable="/discount_rate", output="/enterprise_value",
+            "dcf.fcff", dcf_input,
+            variable="/wacc", output="/value_of_operations",
             target="1300", bracket=("0.05", "0.5"),
         )
     """
@@ -73,9 +71,9 @@ def sensitivity(
     goes on. Example, the table of a DCF by WACC and growth::
 
         fm.analysis.sensitivity(
-            "dcf.fcff", dcf_input, output="/enterprise_value",
-            rows=("/discount_rate", ["0.08", "0.09", "0.10"]),
-            columns=("/terminal_growth", ["0.01", "0.02", "0.03"]),
+            "dcf.fcff", dcf_input, output="/value_of_operations",
+            rows=("/wacc", ["0.08", "0.09", "0.10"]),
+            columns=("/terminal/tv.gordon/growth", ["0.01", "0.02", "0.03"]),
         )
     """
     payload: dict[str, Any] = {
@@ -105,9 +103,9 @@ def scenarios(
     refuses holds its error; the others are returned. Example::
 
         fm.analysis.scenarios(
-            "dcf.fcff", dcf_input, outputs=["/enterprise_value", "/equity_value"],
-            cases={"downside": {"/discount_rate": "0.10", "/terminal_growth": "0.01"},
-                   "upside": {"/discount_rate": "0.08"}},
+            "dcf.fcff", dcf_input, outputs=["/value_of_operations", "/equity_value"],
+            cases={"downside": {"/wacc": "0.10", "/terminal/tv.gordon/growth": "0.01"},
+                   "upside": {"/wacc": "0.08"}},
         )
     """
     payload = {
@@ -138,7 +136,7 @@ def tornado(
 
         fm.analysis.tornado(
             "dcf.fcff", dcf_input, output="/equity_value",
-            variables={"/discount_rate": ("0.08", "0.10"), "/terminal_growth": ("0.01", "0.03")},
+            variables={"/wacc": ("0.08", "0.10"), "/terminal/tv.gordon/growth": ("0.01", "0.03")},
         )
     """
     payload = {

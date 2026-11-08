@@ -18,9 +18,9 @@ extreme_inputs:
   tolerance: '0.0000000000000000000000000001'
   max_iterations: 1000
 - method: dcf.fcff
-  base_input: {free_cash_flows: ['100'], discount_rate: '0.1', terminal_growth: '0.02', net_debt: '0'}
-  variable: /discount_rate
-  output: /enterprise_value
+  base_input: {stages: [{periods: 1, projection: given, flows: ['100']}], cash_flow_terms: nominal, discount_rate_terms: nominal, wacc: '0.1', timing: end_of_period, terminal: {tv.gordon: {growth: '0.02', first_flow: last_flow_grown}}, net_financial_position: {gross_debt: '0', cash: '0'}}
+  variable: /wacc
+  output: /value_of_operations
   target: '1000'
   bracket: ['-0.99', MAX]
 conventions:

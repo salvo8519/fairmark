@@ -207,15 +207,18 @@ mod tests {
     }
 
     fn dcf() -> Value {
-        json!({"free_cash_flows": [100, 110, 120, 130, 140], "discount_rate": "0.09",
-               "terminal_growth": "0.02", "net_debt": 300})
+        json!({"stages": [{"periods": 5, "projection": "given", "flows": [100, 110, 120, 130, 140]}],
+               "cash_flow_terms": "nominal", "discount_rate_terms": "nominal", "wacc": "0.09",
+               "timing": "end_of_period",
+               "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}},
+               "net_financial_position": {"gross_debt": 300, "cash": 0}})
     }
 
     fn table() -> Value {
         json!({
-            "method": "dcf.fcff", "base_input": dcf(), "output": "/enterprise_value",
-            "rows": {"variable": "/discount_rate", "values": ["0.07", "0.09", "0.11"]},
-            "columns": {"variable": "/terminal_growth", "values": ["0.01", "0.08"]}
+            "method": "dcf.fcff", "base_input": dcf(), "output": "/value_of_operations",
+            "rows": {"variable": "/wacc", "values": ["0.07", "0.09", "0.11"]},
+            "columns": {"variable": "/terminal/tv.gordon/growth", "values": ["0.01", "0.08"]}
         })
     }
 
@@ -227,12 +230,12 @@ mod tests {
         for (i, r) in ["0.07", "0.09", "0.11"].iter().enumerate() {
             for (j, g) in ["0.01", "0.08"].iter().enumerate() {
                 let mut input = dcf();
-                input["discount_rate"] = json!(r);
-                input["terminal_growth"] = json!(g);
+                input["wacc"] = json!(r);
+                input["terminal"]["tv.gordon"]["growth"] = json!(g);
                 match crate::run("dcf.fcff", &input.to_string()) {
                     Ok(direct) => assert_eq!(
                         out["cells"][i][j]["value"],
-                        direct["value"]["enterprise_value"]
+                        direct["value"]["value_of_operations"]
                     ),
                     Err(e) => assert_eq!(out["cells"][i][j]["error"]["code"], e.code()),
                 }
@@ -240,7 +243,7 @@ mod tests {
         }
         let mut one_way = table();
         one_way.as_object_mut().unwrap().remove("columns");
-        one_way["base_input"]["terminal_growth"] = json!("0.01");
+        one_way["base_input"]["terminal"]["tv.gordon"]["growth"] = json!("0.01");
         let col = run("analysis.sensitivity", &one_way).unwrap()["value"].clone();
         for i in 0..3 {
             assert_eq!(col["cells"][i][0], out["cells"][i][0]);
@@ -252,7 +255,7 @@ mod tests {
     #[test]
     fn invalid_tables_are_refused_before_any_evaluation() {
         let mut same = table();
-        same["columns"]["variable"] = json!("/discount_rate");
+        same["columns"]["variable"] = json!("/wacc");
         assert_eq!(
             run("analysis.sensitivity", &same).unwrap_err().code(),
             "FM-E001"
@@ -292,7 +295,7 @@ mod tests {
     #[test]
     fn work_is_bounded_by_evaluations_times_input_size() {
         let mut t = table();
-        t["base_input"]["free_cash_flows"] = json!(vec![100; 300]);
+        t["base_input"]["stages"][0]["flows"] = json!(vec![100; 300]);
         t["base_input"]["unknown"] = json!(1); // any evaluation would return FM-E001
         t["rows"]["values"] = json!(vec!["0.09"; 60]);
         t["columns"]["values"] = json!(vec!["0.01"; 60]);
@@ -305,7 +308,7 @@ mod tests {
     #[test]
     fn a_failing_base_case_returns_its_error() {
         let mut t = table();
-        t["base_input"]["terminal_growth"] = json!("0.2");
+        t["base_input"]["terminal"]["tv.gordon"]["growth"] = json!("0.2");
         assert_eq!(
             run("analysis.sensitivity", &t).unwrap_err().code(),
             "FM-E004"
@@ -321,9 +324,13 @@ mod tests {
             run("analysis.sensitivity", &table()).unwrap().to_string()
         );
         let mut b = table();
-        b["base_input"] = json!({"net_debt": 300, "terminal_growth": "0.02",
-                                 "discount_rate": "0.09",
-                                 "free_cash_flows": [100, 110, 120, 130, 140]});
+        b["base_input"] = json!({"net_financial_position": {"cash": 0, "gross_debt": 300},
+                                 "terminal": {"tv.gordon": {"first_flow": "last_flow_grown",
+                                                            "growth": "0.02"}},
+                                 "timing": "end_of_period", "wacc": "0.09",
+                                 "discount_rate_terms": "nominal", "cash_flow_terms": "nominal",
+                                 "stages": [{"flows": [100, 110, 120, 130, 140],
+                                             "projection": "given", "periods": 5}]});
         let b = run("analysis.sensitivity", &b).unwrap();
         assert_eq!(a["value"].to_string(), b["value"].to_string());
         assert_eq!(a["meta"]["input_hash"], b["meta"]["input_hash"]);
@@ -334,7 +341,7 @@ mod tests {
     fn number_spelling_does_not_change_the_values() {
         let a = run("analysis.sensitivity", &table()).unwrap();
         let mut numeric = table();
-        numeric["base_input"]["discount_rate"] = serde_json::from_str("0.09").unwrap();
+        numeric["base_input"]["wacc"] = serde_json::from_str("0.09").unwrap();
         let b = run("analysis.sensitivity", &numeric).unwrap();
         assert_eq!(a["value"].to_string(), b["value"].to_string());
     }

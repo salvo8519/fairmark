@@ -9,11 +9,14 @@
 //! ```
 //! let out = fairmark_core::run(
 //!     "dcf.fcff",
-//!     r#"{"free_cash_flows": [100, 110, 120], "discount_rate": 0.10,
-//!         "terminal_growth": 0.02, "net_debt": 200}"#,
+//!     r#"{"stages": [{"periods": 3, "projection": "given", "flows": [100, 110, 120]}],
+//!         "cash_flow_terms": "nominal", "discount_rate_terms": "nominal",
+//!         "wacc": 0.10, "timing": "end_of_period",
+//!         "terminal": {"tv.gordon": {"growth": 0.02, "first_flow": "last_flow_grown"}},
+//!         "net_financial_position": {"gross_debt": 200, "cash": 0}}"#,
 //! ).unwrap();
 //! // Decimals are serialized as strings so that no consumer loses precision.
-//! assert_eq!(out["value"]["terminal_value"], "1530");
+//! assert_eq!(out["value"]["terminal"]["terminal_value"], "1530");
 //! ```
 
 #![forbid(unsafe_code)]

@@ -404,18 +404,24 @@ Runs several terminal value techniques on one rate, growth cap and basis and ret
 
 ## `dcf.fcff`
 
-**DCF — unlevered free cash flow** · versione del metodo 2 · tool `fairmark_dcf_fcff`
+**DCF — unlevered free cash flow** · versione del metodo 3 · tool `fairmark_dcf_fcff`
 
-Enterprise and equity value from explicit FCFF forecasts discounted at WACC, with a Gordon growth terminal value. Returns every step for audit.
+Value of operations, enterprise value and equity value from FCFF discounted at the WACC over one to three explicit stages (given flows, constant growth, linear decline of growth) and a terminal value. Returns every period and step for audit.
 
 | Input | Tipo | Obbligatorio | Default | Descrizione |
 | --- | --- | --- | --- | --- |
-| `free_cash_flows` | lista di decimale | sì |  | Free cash flows to the firm for explicit forecast years 1..n. |
-| `discount_rate` | decimale | sì |  | Discount rate (WACC) per year as a decimal fraction (0.09 = 9%). |
-| `terminal_growth` | decimale | sì |  | Perpetual growth rate after year n as a decimal fraction. Must be below the discount rate. |
-| `timing` | `end_of_period` \| `mid_period` | no | `"end_of_period"` | When cash flows arrive within each year. Default: end of period. |
-| `net_debt` | decimale | no | `"0"` | Net financial position: debt minus cash. Negative if net cash. Default 0. |
-| `non_operating_assets` | decimale | no | `"0"` | Non-operating (surplus) assets added to equity value. Default 0. |
+| `stages` | lista di object | sì |  | One to three explicit stages, in order; the explicit horizon N is the sum of their periods. Each stage is `{"periods", "projection", ...}` with the fields of its projection. |
+| `base_flow` | decimale | no |  | FCFF of the base period CF_0, in currency units: required when the first stage is `constant_growth` or `linear_decline`, refused when it is `given`. |
+| `cash_flow_terms` | `nominal` \| `real` | sì |  | `nominal` or `real`: the terms of every amount and growth rate of the input. |
+| `discount_rate_terms` | `nominal` \| `real` | sì |  | `nominal` or `real`: the terms of the discount rates. They must equal `cash_flow_terms`. |
+| `wacc` | decimale | no |  | One WACC for every period and for the terminal value, decimal fraction per period (0.09 = 9%), greater than -1. Give this or `wacc_per_period`, not both. |
+| `wacc_per_period` | array \| null | no |  | One WACC per period of the explicit horizon, decimal fractions, exactly N of them; requires `terminal_wacc`. Give this or `wacc`, not both. |
+| `terminal_wacc` | decimale | no |  | WACC of the terminal phase, decimal fraction per period; required with `wacc_per_period`, refused with `wacc`. |
+| `timing` | `end_of_period` \| `mid_period` | sì |  | `end_of_period` (flow k at t = k) or `mid_period` (t = k − 0.5); no default. |
+| `terminal_discount_time` |  | no |  | With `mid_period` timing, required: `horizon` (terminal value at t = N) or `mid_period` (t = N − 0.5). Refused with `end_of_period`. |
+| `terminal` | object | sì |  | The terminal technique, an object with exactly one key, the method id: `{"tv.gordon": {"growth", "first_flow", ...}}`, on the enterprise basis. |
+| `net_financial_position` |  | no |  | Net financial position at the valuation date (SPEC-0007): gross debt − cash + signed other items, positive for net debt, subtracted from enterprise value. Default: none, reported. |
+| `non_operating_assets` | lista di object | no |  | Non-operating assets at the valuation date, each a label and a value in currency units (zero or more), added to the value of operations. Default: none, reported. |
 
 ## `ratios.profitability`
 
