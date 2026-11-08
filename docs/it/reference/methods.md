@@ -501,6 +501,18 @@ FCFF per period from EBIT, taxes on EBIT (a rate or amounts), depreciation and a
 | `negative_ebit` |  | no |  | Treatment of a negative EBIT in the rate form: `credit` (taxes = rate × EBIT) or `zero` (no tax; with the financing lines the interest tax shield is limited to the taxable income available, rate × min(interest, max(EBIT, 0)), so the taxes never fall below zero). Required with `notional_tax_rate`, there is no default; not accepted with `operating_taxes`. Tax loss carry-forwards are not modelled. |
 | `interest_tax_rate` | decimale | no |  | Tax rate t of the interest tax shield in the FCFE, decimal fraction from 0 to below 1. Required when the taxes are given as `operating_taxes` and the financing lines are given; not accepted otherwise (with `notional_tax_rate` the shield uses that rate). |
 
+## `statements.reorganise`
+
+**Financial statements — operating and financing reorganisation** · versione del metodo 1 · stato anteprima · tool `fairmark_statements_reorganise`
+
+Reorganises statutory aggregates (art. 2424, 2425, abridged art. 2435-bis) or totals already reclassified, for one or more financial years, into invested capital, non-operating assets, equity, quasi-equity, the net financial position (SPEC-0007 type) and debt-like items, plus current and non-current amounts for the ratios; best effort: each output is computed when its inputs are given, otherwise null and listed in `not_computed` with the missing input pointers; totals are checked exactly (FM-E026). This build returns the balance sheet.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `years` | lista di object | sì |  | One or more financial years, oldest first (R2), each in the `statutory` or the `reclassified` form. When two consecutive entries both have a `date`, the later must be one financial year after the earlier. |
+| `treatments` | object | no | `{"financial_fixed_assets": null, "shareholder_loans": null, "derivative_liabilities": null, "write_downs_of_receivables": null}` | Treatments stated once for the call, applied to every statutory year (R8, R9, R17). A treatment is needed only for an aggregate given and not zero. Default: none, except `write_downs_of_receivables`, which defaults to `investing`. |
+| `adjustments` | lista di  | no | `[]` | Labelled adjustments of Appendix C, stated once for the call, each with one amount per year (R10). They apply to statutory entries only. Default: none. |
+
 ## `ratios.profitability`
 
 **Ratios — profitability** · versione del metodo 1 · stato anteprima · tool `fairmark_ratios_profitability`

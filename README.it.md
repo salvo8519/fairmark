@@ -202,6 +202,7 @@ fairmark verify result.json --input company.json  # riproduce un risultato bit p
 | `dcf.fcff` | Anteprima | DCF, flusso di cassa operativo disponibile (FCFF) |
 | `dcf.fcfe` | Anteprima | DCF, flusso di cassa disponibile per gli azionisti (FCFE) |
 | `dcf.free_cash_flows` | Anteprima | Flussi di cassa disponibili (FCFF e FCFE) da EBIT, imposte, investimenti e capitale circolante |
+| `statements.reorganise` | Anteprima | Bilancio — riclassificazione in area operativa e finanziaria |
 | `ratios.profitability` | Anteprima | Indici di bilancio, redditività |
 | `ratios.capital_structure` | Anteprima | Indici di bilancio, struttura finanziaria |
 | `ratios.liquidity` | Anteprima | Indici di bilancio, liquidità |

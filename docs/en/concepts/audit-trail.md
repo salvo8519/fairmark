@@ -31,6 +31,10 @@ Every result is an envelope with four parts:
   "default:". The key is omitted when no default applies, as for every method without
   documented defaults; a field given explicitly always prevails and is never listed. The DCF
   methods use it for their minimal input (SPEC-0001 Decision 24, see
-  [`dcf.fcff`](../methods/dcf-fcff.md#minimal-input)).
+  [`dcf.fcff`](../methods/dcf-fcff.md#minimal-input)). A method that maps input items to
+  destinations also lists there each item given whose destination is a documented default:
+  `field` is the pointer of the item, `value` the destination, and the convention says
+  "assigned to" instead of "not given, set to" (SPEC-0005 R8, see
+  [`statements.reorganise`](../methods/statements-reorganise.md#defaults)).
 
 In Python, `result.explain_markdown()` renders a methodology note for reports.

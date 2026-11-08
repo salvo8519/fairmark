@@ -42,6 +42,10 @@ specs:
       - coc.wacc
     numerical_audit: T6
     code_review: T6
+  "0005":
+    methods: [statements.reorganise]
+    numerical_audit: T41
+    code_review: T41
   "0006":
     methods:
       - tv.gordon

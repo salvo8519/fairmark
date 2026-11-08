@@ -192,6 +192,34 @@ pub enum FairmarkError {
 
     #[error("count inconsistent with the stages: {0}")]
     CountMismatch(String),
+
+    /// Two sides of a relation of the financial statements differ (SPEC-0005 R7, R10, R12): a
+    /// total and its components, a split and its aggregate, an adjustment and what remains in
+    /// its source. Each side is named with its JSON pointers; the comparison is exact. Boxed,
+    /// so that every `Result` of the engine stays small.
+    #[error(
+        "statements do not reconcile: {} is {}, while {} is {} (difference {}); {}",
+        .0.left_name, .0.left, .0.right_name, .0.right, .0.difference, .0.fix
+    )]
+    StatementsDoNotReconcile(Box<Reconciliation>),
+}
+
+/// The two sides of a relation of the financial statements that differ (`FM-E026`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Reconciliation {
+    /// The first side, with its JSON pointers and the year, for example "total B, fixed
+    /// assets (`/years/0/statutory/balance_sheet/fixed_assets`, 2024)".
+    pub left_name: String,
+    /// The amount of the first side, in the currency units of the statements.
+    pub left: Decimal,
+    /// The second side, with the pointers of its components.
+    pub right_name: String,
+    /// The amount of the second side, in the currency units of the statements.
+    pub right: Decimal,
+    /// `left − right`, in the currency units of the statements.
+    pub difference: Decimal,
+    /// How to correct the input.
+    pub fix: String,
 }
 
 /// " (converted with `/inflation`)" when the rate was converted with expected inflation.
@@ -280,6 +308,7 @@ impl FairmarkError {
             Self::InvalidDateAt { .. } => "FM-E009",
             Self::TermsMismatch(_) => "FM-E024",
             Self::CountMismatch(_) => "FM-E025",
+            Self::StatementsDoNotReconcile(_) => "FM-E026",
         }
     }
 
@@ -299,3 +328,28 @@ pub struct ErrorReport {
 }
 
 pub type Result<T> = std::result::Result<T, FairmarkError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// SPEC-0005 R24: `FM-E026` names both sides, both amounts, the difference and the fix.
+    #[test]
+    fn statements_do_not_reconcile_is_fm_e026_with_both_sides() {
+        let e = FairmarkError::StatementsDoNotReconcile(Box::new(Reconciliation {
+            left_name: "`/years/0/statutory/balance_sheet/fixed_assets` (total B, 2024)".into(),
+            left: Decimal::from(1_170_001),
+            right_name: "B.I + B.II + B.III".into(),
+            right: Decimal::from(1_170_000),
+            difference: Decimal::ONE,
+            fix: "correct the total or the items".into(),
+        }));
+        assert_eq!(e.code(), "FM-E026");
+        assert_eq!(
+            e.to_string(),
+            "statements do not reconcile: `/years/0/statutory/balance_sheet/fixed_assets` \
+             (total B, 2024) is 1170001, while B.I + B.II + B.III is 1170000 (difference 1); \
+             correct the total or the items"
+        );
+    }
+}

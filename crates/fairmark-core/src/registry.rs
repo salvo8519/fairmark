@@ -11,7 +11,9 @@ use sha2::{Digest, Sha256};
 use crate::error::{FairmarkError, Result};
 use crate::explain::{Meta, Valuation};
 use crate::method::Method;
-use crate::{analysis, coc, dates, dcf, loans, rates, ratios, series, tv, tvm, ENGINE_VERSION};
+use crate::{
+    analysis, coc, dates, dcf, loans, rates, ratios, series, statements, tv, tvm, ENGINE_VERSION,
+};
 
 /// Public description of a method, used to build agent tools.
 #[derive(Debug, Clone, Serialize)]
@@ -165,7 +167,8 @@ macro_rules! registry {
 
 registry! {
     // Grouped by theme, in the order of the documentation: dates, series, rates, time value of
-    // money, loans, cost of capital, terminal value, discounted cash flow, ratios, analysis.
+    // money, loans, cost of capital, terminal value, discounted cash flow, financial statements,
+    // ratios, analysis.
     dates::YearFraction,
     dates::Schedule,
     series::Project,
@@ -199,6 +202,7 @@ registry! {
     dcf::Fcff,
     dcf::Fcfe,
     dcf::FreeCashFlows,
+    statements::Reorganise,
     ratios::profitability::Profitability,
     ratios::capital_structure::CapitalStructure,
     ratios::liquidity::Liquidity,
@@ -319,6 +323,16 @@ pub(crate) fn nested_error(
         "{NESTED}{}{NESTED}{}",
         pointer(&tokens).unwrap_or_default(),
         e.into_inner()
+    )
+}
+
+/// The text of a custom error raised by a type that reads a buffered value itself, located at
+/// `relative` within that value (for example the `kind` of an adjustment of
+/// `statements.reorganise`): read by [`input_error`] like [`nested_error`].
+pub(crate) fn nested_error_text(relative: &[String], message: &str) -> String {
+    format!(
+        "{NESTED}{}{NESTED}{message}",
+        pointer(relative).unwrap_or_default()
     )
 }
 

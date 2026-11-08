@@ -1,0 +1,160 @@
+method: statements.reorganise
+description: 'AC7, R10, R11, Appendix C: one adjustment of kind accrued_interest, stated once with its
+  label and reason; the amount leaves its source and reaches its target, and the identity of R12 holds'
+source: scripts/reference_statements.py (Python decimal, 50 digits, local context), written from Appendices
+  A.1, B.1 and C of specs/0005-statements-reclassification/spec.md and R2 to R15, R22, without reading
+  the Rust code.
+input:
+  years:
+  - label: '2024'
+    date: '2024-12-31'
+    statutory:
+      layout: ordinary
+      balance_sheet:
+        subscribed_capital_unpaid: '0'
+        intangible_assets:
+          total: '120000'
+          gross: '200000'
+          accumulated: '80000'
+        tangible_assets:
+          total: '900000'
+          gross: '1500000'
+          accumulated: '600000'
+        financial_fixed_assets: '150000'
+        fixed_assets: '1170000'
+        inventories: '400000'
+        receivables:
+          total: '950000'
+          beyond_one_year: '50000'
+          trade: '800000'
+        current_financial_assets: '60000'
+        cash: '240000'
+        current_assets: '1650000'
+        prepayments_and_accrued_income:
+          total: '30000'
+        total_assets: '2850000'
+        equity:
+          total: '900000'
+          share_capital: '100000'
+          share_premium: '0'
+          revaluation_reserves: '0'
+          legal_reserve: '20000'
+          statutory_reserves: '0'
+          other_reserves: '380000'
+          cash_flow_hedge_reserve: '0'
+          retained_earnings: '250000'
+          profit_or_loss_for_the_year: '150000'
+          negative_reserve_for_own_shares: '0'
+        provisions:
+          total: '70000'
+          of_which_derivative_liabilities: '10000'
+        employee_severance_indemnity:
+          total: '180000'
+        payables:
+          total: '1650000'
+          beyond_one_year: '600000'
+          financial_debt:
+            total: '900000'
+            beyond_one_year: '550000'
+          shareholder_loans:
+            total: '100000'
+            beyond_one_year: '50000'
+          trade: '500000'
+        accruals_and_deferred_income:
+          total: '50000'
+        total_liabilities_and_equity: '2850000'
+      income_statement:
+        profit_or_loss_for_the_year: '150000'
+  treatments:
+    financial_fixed_assets: non_operating
+    shareholder_loans: financial_debt
+    derivative_liabilities: financial_liability
+  adjustments:
+  - kind: accrued_interest
+    label: Accrued interest on bank loans
+    reason: Interest accrued on the bank loans of payables D, part of the cost of debt
+    amounts:
+    - '8000'
+expect:
+  /years/0/balance_sheet/operating/operating_fixed_assets: '1020000'
+  /years/0/balance_sheet/operating/operating_working_capital: '688000'
+  /years/0/balance_sheet/operating/trade_working_capital: '700000'
+  /years/0/balance_sheet/operating/operating_provisions: '240000'
+  /years/0/balance_sheet/operating/invested_capital: '1468000'
+  /years/0/balance_sheet/non_operating_assets_total: '150000'
+  /years/0/balance_sheet/total_funds_invested: '1618000'
+  /years/0/balance_sheet/sources/equity: '900000'
+  /years/0/balance_sheet/sources/quasi_equity_items_total: '0'
+  /years/0/balance_sheet/sources/net_financial_position/total: '718000'
+  /years/0/balance_sheet/sources/net_financial_position/current: '108000'
+  /years/0/balance_sheet/sources/net_financial_position/non_current: '610000'
+  /years/0/balance_sheet/sources/debt_like_items_total: '0'
+  /years/0/balance_sheet/sources/total_sources: '1618000'
+  /years/0/balance_sheet/excess_cash: '240000'
+  /years/0/form: statutory
+  /years/0/balance_sheet/sources/net_financial_position/position/other_items/0/name: Current financial
+    assets (C.III)
+  /years/0/balance_sheet/sources/net_financial_position/position/other_items/0/amount: '-60000'
+  /years/0/balance_sheet/sources/net_financial_position/position/other_items/1/name: Derivative liabilities
+    (B)
+  /years/0/balance_sheet/sources/net_financial_position/position/other_items/1/amount: '10000'
+  /years/0/balance_sheet/sources/net_financial_position/position/other_items/2/name: Accrued interest
+    on bank loans
+  /years/0/balance_sheet/sources/net_financial_position/position/other_items/2/amount: '8000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/0/label: Financial debt (D)
+  /years/0/balance_sheet/sources/net_financial_position/composition/0/source: /years/0/statutory/balance_sheet/payables/financial_debt
+  /years/0/balance_sheet/sources/net_financial_position/composition/0/amount: '900000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/0/current: '350000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/0/non_current: '550000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/1/label: Shareholder loans (D)
+  /years/0/balance_sheet/sources/net_financial_position/composition/1/source: /years/0/statutory/balance_sheet/payables/shareholder_loans
+  /years/0/balance_sheet/sources/net_financial_position/composition/1/amount: '100000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/1/current: '50000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/1/non_current: '50000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/2/label: Cash (C.IV)
+  /years/0/balance_sheet/sources/net_financial_position/composition/2/source: /years/0/statutory/balance_sheet/cash
+  /years/0/balance_sheet/sources/net_financial_position/composition/2/amount: '-240000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/2/current: '-240000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/2/non_current: '0'
+  /years/0/balance_sheet/sources/net_financial_position/composition/3/label: Current financial assets
+    (C.III)
+  /years/0/balance_sheet/sources/net_financial_position/composition/3/source: /years/0/statutory/balance_sheet/current_financial_assets
+  /years/0/balance_sheet/sources/net_financial_position/composition/3/amount: '-60000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/3/current: '-60000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/3/non_current: '0'
+  /years/0/balance_sheet/sources/net_financial_position/composition/4/label: Derivative liabilities (B)
+  /years/0/balance_sheet/sources/net_financial_position/composition/4/source: /years/0/statutory/balance_sheet/provisions/of_which_derivative_liabilities
+  /years/0/balance_sheet/sources/net_financial_position/composition/4/amount: '10000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/4/current: '0'
+  /years/0/balance_sheet/sources/net_financial_position/composition/4/non_current: '10000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/5/label: Accrued interest on bank
+    loans
+  /years/0/balance_sheet/sources/net_financial_position/composition/5/source: /adjustments/0
+  /years/0/balance_sheet/sources/net_financial_position/composition/5/amount: '8000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/5/current: '8000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/5/non_current: '0'
+  /years/0/checks/funds_invested_equals_sources/status: reconciled
+expect_meta:
+  /defaults_applied/0/field: /years/0/statutory/balance_sheet/intangible_assets
+  /defaults_applied/0/value: operating_fixed_assets
+  /defaults_applied/1/field: /years/0/statutory/balance_sheet/tangible_assets
+  /defaults_applied/1/value: operating_fixed_assets
+  /defaults_applied/2/field: /years/0/statutory/balance_sheet/receivables
+  /defaults_applied/2/value: operating_working_capital
+  /defaults_applied/3/field: /years/0/statutory/balance_sheet/current_financial_assets
+  /defaults_applied/3/value: net_financial_position_other_financial_asset
+  /defaults_applied/4/field: /years/0/statutory/balance_sheet/cash
+  /defaults_applied/4/value: net_financial_position_cash
+  /defaults_applied/5/field: /years/0/statutory/balance_sheet/prepayments_and_accrued_income
+  /defaults_applied/5/value: operating_working_capital
+  /defaults_applied/6/field: /years/0/statutory/balance_sheet/provisions
+  /defaults_applied/6/value: operating_provisions
+  /defaults_applied/7/field: /years/0/statutory/balance_sheet/employee_severance_indemnity
+  /defaults_applied/7/value: operating_provisions
+  /defaults_applied/8/field: /years/0/statutory/balance_sheet/payables
+  /defaults_applied/8/value: operating_working_capital
+  /defaults_applied/9/field: /years/0/statutory/balance_sheet/accruals_and_deferred_income
+  /defaults_applied/9/value: operating_working_capital
+  /defaults_applied/10/field: /treatments/write_downs_of_receivables
+  /defaults_applied/10/value: investing
+tolerance: '0'
