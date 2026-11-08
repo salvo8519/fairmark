@@ -302,7 +302,7 @@ Terminal value at the horizon N as a normalised income capitalised at a rate i, 
 | Input | Tipo | Obbligatorio | Default | Descrizione |
 | --- | --- | --- | --- | --- |
 | `income` | decimale | sì |  | Normalised income R of the first period after the horizon, in currency units. |
-| `capitalisation_rate` | decimale | sì |  | Capitalisation rate i, decimal fraction per period; must exceed `growth` (or 0 when no growth is given). |
+| `capitalisation_rate` | decimale | sì |  | Capitalisation rate i, decimal fraction per period, greater than 0; must exceed `growth`. |
 | `growth` | decimale | no |  | Perpetual growth of the income, decimal fraction per period, greater than -1 and below the capitalisation rate. Default: none (R / i). |
 | `growth_cap` | decimale | no |  | Upper bound for the growth, decimal fraction per period. Default: none, reported as absent. A growth above the cap is reported, not refused. |
 
@@ -314,7 +314,7 @@ Net liquidation value at the horizon N: realisable values of labelled assets les
 
 | Input | Tipo | Obbligatorio | Default | Descrizione |
 | --- | --- | --- | --- | --- |
-| `assets` | lista di object | sì |  | Assets with their realisable values at N, in currency units, each zero or positive. |
+| `assets` | lista di object | sì |  | Assets with their realisable values at N, in currency units, each zero or positive; at least one. |
 | `liabilities` | lista di object | sì |  | Liabilities settled at N, in currency units, each zero or positive. |
 | `liquidation_costs` | lista di object | sì |  | Costs of the liquidation (legal fees, closure, severance), in currency units, each zero or positive. |
 | `tax_on_gains` | decimale | sì |  | Tax on the gains realised, as an amount in currency units, zero or positive. |

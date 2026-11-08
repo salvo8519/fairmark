@@ -1,6 +1,6 @@
 method: tv.compare
 description: Seven techniques on one rate (10%), enterprise basis and growth cap (3%) (R9)
-source: Independent 50-digit reference, scripts/reference_tv.py, each technique computed on its own
+source: Independent 50-digit reference, scripts/reference_tv.py, each technique computed on its own; liquidation 800 + 300 + 200 - 250 - 40 - 60 - 30 = 920
 input:
   rate: "0.10"
   basis: enterprise
@@ -14,7 +14,8 @@ input:
     - tv.normalised_income: { income: "95", capitalisation_rate: "0.11", growth: "0.015" }
     - tv.liquidation:
         assets: [{ label: Land, value: "800" }, { label: Plant, value: "300" }, { label: Receivables, value: "200" }]
-        liabilities: [{ label: Bank loan, value: "600" }, { label: Suppliers, value: "250" }]
+        # Enterprise basis: operating liabilities only, financial debt excluded.
+        liabilities: [{ label: Suppliers, value: "250" }]
         liquidation_costs: [{ label: Legal fees, value: "40" }, { label: Closure, value: "60" }]
         tax_on_gains: "30"
 expect:
@@ -28,5 +29,6 @@ expect:
   /results/4/terminal_value: "703.5265201706291795766558419383"
   /results/5/terminal_value: "1000"
   /results/6/method: tv.liquidation
-  /results/6/terminal_value: "320"
+  /results/6/terminal_value: "920"
+  /results/0/method_version: "1"
 tolerance: "0.0000000000000000000001"

@@ -30,7 +30,7 @@
   "description": "Input of `tv.liquidation`.",
   "properties": {
     "assets": {
-      "description": "Assets with their realisable values at N, in currency units, each zero or positive.",
+      "description": "Assets with their realisable values at N, in currency units, each zero or positive; at\nleast one.",
       "items": {
         "$ref": "#/$defs/Line"
       },

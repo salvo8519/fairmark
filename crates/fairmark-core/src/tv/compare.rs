@@ -5,6 +5,10 @@
 //! once and passed to every technique that uses them, and the basis is declared once; an exit
 //! multiple of the other basis is refused (`FM-E019`). The techniques are called through typed
 //! functions (ADR 0009), not through the registry.
+//!
+//! Every row records the version of the technique that produced it. A numerical change in any
+//! `tv.*` method therefore requires a new version of `tv.compare` too; a test pins the versions
+//! together.
 
 use rust_decimal::Decimal;
 use schemars::JsonSchema;
@@ -25,6 +29,46 @@ use super::{
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
 use crate::method::Method;
+
+/// A technique entry as written in the input: an object with exactly one key, the method id.
+/// Deserialised through a JSON value so that an entry with several keys gets a clear message;
+/// numbers keep their exact text (`serde_json` is built with `arbitrary_precision`).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(try_from = "serde_json::Value")]
+pub struct TechniqueEntry(pub Technique);
+
+impl Serialize for TechniqueEntry {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> std::result::Result<S::Ok, S::Error> {
+        self.0.serialize(s)
+    }
+}
+
+impl TryFrom<serde_json::Value> for TechniqueEntry {
+    type Error = String;
+
+    fn try_from(v: serde_json::Value) -> std::result::Result<Self, String> {
+        match &v {
+            serde_json::Value::Object(map) if map.len() == 1 => {}
+            serde_json::Value::Object(map) => {
+                let keys: Vec<&str> = map.keys().map(String::as_str).collect();
+                return Err(format!(
+                    "each technique is an object with exactly one key, the method id, for \
+                    example {{\"tv.gordon\": {{...}}}} (got {} keys: {})",
+                    keys.len(),
+                    keys.join(", ")
+                ));
+            }
+            _ => {
+                return Err(
+                    "each technique is an object with exactly one key, the method id".to_owned(),
+                )
+            }
+        }
+        serde_json::from_value(v)
+            .map(TechniqueEntry)
+            .map_err(|e| e.to_string())
+    }
+}
 
 /// One technique to compare, named by its method id, with its own terms. The shared rate and
 /// growth cap are not repeated here.
@@ -69,7 +113,8 @@ pub struct CompareInput {
     pub growth_cap: Option<Decimal>,
     /// Techniques to run, at least one, each written `{"tv.<name>": {terms}}`; the same
     /// technique may appear more than once.
-    pub techniques: Vec<Technique>,
+    #[schemars(with = "Vec<Technique>", length(min = 1))]
+    pub techniques: Vec<TechniqueEntry>,
 }
 
 /// The full output of one technique, as its own method returns it.
@@ -90,6 +135,8 @@ pub enum TechniqueOutput {
 pub struct ComparedTechnique {
     /// Method id of the technique, for example `tv.gordon`.
     pub method: String,
+    /// Version of the technique's method that produced this row.
+    pub method_version: String,
     /// Terminal value at N, not discounted, in currency units.
     pub terminal_value: Decimal,
     /// The technique's own output, with its implied assumptions.
@@ -112,20 +159,44 @@ fn run_one(
     cap: Option<Decimal>,
     basis: TerminalBasis,
     position: usize,
-) -> Result<(&'static str, Decimal, TechniqueOutput, Explain)> {
+) -> Result<(
+    &'static str,
+    &'static str,
+    Decimal,
+    TechniqueOutput,
+    Explain,
+)> {
     Ok(match t {
         Technique::Gordon(terms) => {
             let (o, ex) = gordon(&terms.with(rate, cap))?;
-            (Gordon::ID, o.terminal_value, TechniqueOutput::Gordon(o), ex)
+            (
+                Gordon::ID,
+                Gordon::VERSION,
+                o.terminal_value,
+                TechniqueOutput::Gordon(o),
+                ex,
+            )
         }
         Technique::ValueDriver(terms) => {
             let (o, ex) = value_driver(&terms.with(rate, cap))?;
             let tv = o.terminal_value;
-            (ValueDriver::ID, tv, TechniqueOutput::ValueDriver(o), ex)
+            (
+                ValueDriver::ID,
+                ValueDriver::VERSION,
+                tv,
+                TechniqueOutput::ValueDriver(o),
+                ex,
+            )
         }
         Technique::HModel(terms) => {
             let (o, ex) = h_model(&terms.with(rate, cap))?;
-            (HModel::ID, o.terminal_value, TechniqueOutput::HModel(o), ex)
+            (
+                HModel::ID,
+                HModel::VERSION,
+                o.terminal_value,
+                TechniqueOutput::HModel(o),
+                ex,
+            )
         }
         Technique::ExitMultiple(terms) => {
             if terms.metric.basis() != basis {
@@ -140,13 +211,20 @@ fn run_one(
             }
             let (o, ex) = exit_multiple(&terms.with(rate, cap))?;
             let tv = o.terminal_value;
-            (ExitMultiple::ID, tv, TechniqueOutput::ExitMultiple(o), ex)
+            (
+                ExitMultiple::ID,
+                ExitMultiple::VERSION,
+                tv,
+                TechniqueOutput::ExitMultiple(o),
+                ex,
+            )
         }
         Technique::LimitedHorizon(terms) => {
             let (o, ex) = limited_horizon(&terms.with(rate, cap))?;
             let tv = o.terminal_value;
             (
                 LimitedHorizon::ID,
+                LimitedHorizon::VERSION,
                 tv,
                 TechniqueOutput::LimitedHorizon(o),
                 ex,
@@ -157,6 +235,7 @@ fn run_one(
             let tv = o.terminal_value;
             (
                 NormalisedIncome::ID,
+                NormalisedIncome::VERSION,
                 tv,
                 TechniqueOutput::NormalisedIncome(o),
                 ex,
@@ -165,7 +244,13 @@ fn run_one(
         Technique::Liquidation(input) => {
             let (o, ex) = liquidation(input)?;
             let tv = o.terminal_value;
-            (Liquidation::ID, tv, TechniqueOutput::Liquidation(o), ex)
+            (
+                Liquidation::ID,
+                Liquidation::VERSION,
+                tv,
+                TechniqueOutput::Liquidation(o),
+                ex,
+            )
         }
     })
 }
@@ -193,11 +278,20 @@ pub fn compare(input: &CompareInput) -> Result<(CompareOutput, Explain)> {
         Some(c) => format!("shared growth cap {c} for every growth-based technique"),
         None => "growth cap: none given (not checked)".to_owned(),
     });
-    if input
-        .techniques
-        .iter()
-        .any(|t| matches!(t, Technique::Liquidation(_)))
-    {
+    let has = |f: fn(&Technique) -> bool| input.techniques.iter().any(|t| f(&t.0));
+    if has(|t| matches!(t, Technique::NormalisedIncome(_))) {
+        ex.convention(
+            "tv.normalised_income: no basis check; the income and the capitalisation rate must \
+            be on the declared basis",
+        );
+    }
+    if cap.is_some() && has(|t| matches!(t, Technique::ExitMultiple(e) if e.next_flow.is_none())) {
+        ex.convention(
+            "tv.exit_multiple without next_flow: no implied growth, so not checked against the \
+            growth cap",
+        );
+    }
+    if has(|t| matches!(t, Technique::Liquidation(_))) {
         ex.convention(match basis {
             TerminalBasis::Enterprise => {
                 "tv.liquidation on the enterprise basis: the liabilities listed exclude \
@@ -212,7 +306,7 @@ pub fn compare(input: &CompareInput) -> Result<(CompareOutput, Explain)> {
     let mut results = Vec::with_capacity(input.techniques.len());
     for (k, t) in input.techniques.iter().enumerate() {
         let position = k + 1;
-        let (id, tv, output, inner) = run_one(t, r, cap, basis, position)?;
+        let (id, version, tv, output, inner) = run_one(&t.0, r, cap, basis, position)?;
         for c in inner.conventions {
             if c != NOT_DISCOUNTED {
                 ex.convention(format!("[{position}] {id}: {c}"));
@@ -227,6 +321,7 @@ pub fn compare(input: &CompareInput) -> Result<(CompareOutput, Explain)> {
         }
         results.push(ComparedTechnique {
             method: id.to_owned(),
+            method_version: version.to_owned(),
             terminal_value: tv,
             output,
         });
@@ -280,8 +375,52 @@ mod tests {
             rate: d("0.1"),
             basis,
             growth_cap: Some(d("0.03")),
-            techniques,
+            techniques: techniques.into_iter().map(TechniqueEntry).collect(),
         }
+    }
+
+    /// A numerical change in any technique requires a new version of `tv.compare`: when one
+    /// of these versions changes, bump `Compare::VERSION` and update this list.
+    #[test]
+    fn technique_versions_are_pinned_with_the_compare_version() {
+        let versions = [
+            (Gordon::ID, Gordon::VERSION),
+            (ValueDriver::ID, ValueDriver::VERSION),
+            (HModel::ID, HModel::VERSION),
+            (ExitMultiple::ID, ExitMultiple::VERSION),
+            (LimitedHorizon::ID, LimitedHorizon::VERSION),
+            (NormalisedIncome::ID, NormalisedIncome::VERSION),
+            (Liquidation::ID, Liquidation::VERSION),
+            (Compare::ID, Compare::VERSION),
+        ];
+        assert_eq!(
+            versions,
+            [
+                ("tv.gordon", "1"),
+                ("tv.value_driver", "1"),
+                ("tv.h_model", "1"),
+                ("tv.exit_multiple", "1"),
+                ("tv.limited_horizon", "1"),
+                ("tv.normalised_income", "1"),
+                ("tv.liquidation", "1"),
+                ("tv.compare", "1"),
+            ]
+        );
+    }
+
+    #[test]
+    fn an_entry_with_two_keys_gets_a_clear_message() {
+        let json = r#"{"rate": "0.1", "basis": "enterprise", "techniques": [
+            {"tv.gordon": {"growth": "0", "next_flow": 1}, "tv.h_model": {}}]}"#;
+        let err = crate::run("tv.compare", json).unwrap_err();
+        assert_eq!(err.code(), "FM-E001");
+        assert!(err.to_string().contains("exactly one key"), "{err}");
+    }
+
+    #[test]
+    fn rows_record_the_technique_version() {
+        let (out, _) = compare(&input(vec![gordon_terms()], TerminalBasis::Enterprise)).unwrap();
+        assert_eq!(out.results[0].method_version, Gordon::VERSION);
     }
 
     #[test]

@@ -5,7 +5,9 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::{check_below_rate, check_growth, check_growth_cap, GrowthCapCheck, NOT_DISCOUNTED};
+use super::{
+    check_below_rate, check_growth, check_growth_cap, domain, GrowthCapCheck, NOT_DISCOUNTED,
+};
 use crate::error::Result;
 use crate::explain::Explain;
 use crate::method::Method;
@@ -17,8 +19,8 @@ use crate::num::{div, sub};
 pub struct NormalisedIncomeInput {
     /// Normalised income R of the first period after the horizon, in currency units.
     pub income: Decimal,
-    /// Capitalisation rate i, decimal fraction per period; must exceed `growth` (or 0 when no
-    /// growth is given).
+    /// Capitalisation rate i, decimal fraction per period, greater than 0; must exceed
+    /// `growth`.
     pub capitalisation_rate: Decimal,
     /// Perpetual growth of the income, decimal fraction per period, greater than -1 and below
     /// the capitalisation rate. Default: none (R / i).
@@ -69,6 +71,11 @@ pub fn normalised_income(
     input: &NormalisedIncomeInput,
 ) -> Result<(NormalisedIncomeOutput, Explain)> {
     let (income, i) = (input.income, input.capitalisation_rate);
+    if i <= Decimal::ZERO {
+        return Err(domain(format!(
+            "the capitalisation_rate must be greater than 0 (got {i})"
+        )));
+    }
     let g = input.growth.unwrap_or_default();
     check_growth(g, "growth")?;
     check_below_rate(g, i)?;
@@ -146,11 +153,21 @@ mod tests {
 
     #[test]
     fn rate_not_above_growth_is_refused() {
-        for (i, g) in [("0.05", Some("0.05")), ("0", None), ("-0.01", None)] {
-            assert_eq!(
-                normalised_income(&input(i, g)).unwrap_err().code(),
-                "FM-E004"
-            );
+        assert_eq!(
+            normalised_income(&input("0.05", Some("0.05")))
+                .unwrap_err()
+                .code(),
+            "FM-E004"
+        );
+    }
+
+    /// The capitalisation rate is checked first, with a message naming it.
+    #[test]
+    fn capitalisation_rate_not_positive_is_refused_first() {
+        for (i, g) in [("0", None), ("-0.01", Some("-0.03"))] {
+            let err = normalised_income(&input(i, g)).unwrap_err();
+            assert_eq!(err.code(), "FM-E018");
+            assert!(err.to_string().contains("capitalisation_rate"));
         }
     }
 }

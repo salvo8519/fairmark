@@ -5,7 +5,7 @@
   "description": "Input of `tv.normalised_income`.",
   "properties": {
     "capitalisation_rate": {
-      "description": "Capitalisation rate i, decimal fraction per period; must exceed `growth` (or 0 when no\ngrowth is given).",
+      "description": "Capitalisation rate i, decimal fraction per period, greater than 0; must exceed\n`growth`.",
       "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
       "type": [
         "string",

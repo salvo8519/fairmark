@@ -14,7 +14,8 @@ use crate::num::{add, sub};
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct LiquidationInput {
-    /// Assets with their realisable values at N, in currency units, each zero or positive.
+    /// Assets with their realisable values at N, in currency units, each zero or positive; at
+    /// least one.
     pub assets: Vec<Line>,
     /// Liabilities settled at N, in currency units, each zero or positive.
     pub liabilities: Vec<Line>,
@@ -70,6 +71,9 @@ fn total(ex: &mut Explain, group: &str, field: &str, lines: &[Line]) -> Result<D
 
 /// Net liquidation value = Σ assets − Σ liabilities − Σ liquidation costs − tax on gains.
 pub fn liquidation(input: &LiquidationInput) -> Result<(LiquidationOutput, Explain)> {
+    if input.assets.is_empty() {
+        return Err(invalid("give at least one asset to liquidate"));
+    }
     let tax = input.tax_on_gains;
     if tax < Decimal::ZERO {
         return Err(domain(format!(
@@ -83,6 +87,7 @@ pub fn liquidation(input: &LiquidationInput) -> Result<(LiquidationOutput, Expla
     ex.convention(NOT_DISCOUNTED);
     ex.convention("asset values realisable at the horizon N, liabilities settled at N");
     ex.convention("tax on gains given as an amount (not computed from a rate)");
+    ex.convention("a negative net value is returned as is (no floor at zero)");
     let a = total(&mut ex, "Assets", "assets", &input.assets)?;
     let l = total(&mut ex, "Liabilities", "liabilities", &input.liabilities)?;
     let c = total(
@@ -180,5 +185,16 @@ mod tests {
         let mut i = input();
         i.assets[1].label = " ".to_owned();
         assert_eq!(liquidation(&i).unwrap_err().code(), "FM-E001");
+        let mut i = input();
+        i.assets.clear();
+        assert_eq!(liquidation(&i).unwrap_err().code(), "FM-E001");
+    }
+
+    #[test]
+    fn a_negative_value_is_returned_as_is() {
+        let mut i = input();
+        i.liabilities[0].value = d("2000");
+        let (out, _) = liquidation(&i).unwrap();
+        assert_eq!(out.terminal_value, d("-930"));
     }
 }

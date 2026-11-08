@@ -192,7 +192,7 @@
         "1": {
           "file": "tv.compare/v1.json",
           "introduced_in": "unreleased",
-          "sha256": "ba6ab4bdd4e5ecada215953cec4d61e695852edeaad0f3c4f336ce7bd81b571b"
+          "sha256": "fe32cc1867e606331a1d4eececbb10e8de779713b76c522752a0cce3ca9c8c7e"
         }
       }
     },
@@ -242,7 +242,7 @@
         "1": {
           "file": "tv.liquidation/v1.json",
           "introduced_in": "unreleased",
-          "sha256": "1b60d9a2614fc62c0caca77f1895c840e78bd2c30015f6f1a1c6fd9acbbb2c53"
+          "sha256": "6689b95ef51c4bbdebecb2aee5e14124eae11e3e98015539238d0310cf121e52"
         }
       }
     },
@@ -252,7 +252,7 @@
         "1": {
           "file": "tv.normalised_income/v1.json",
           "introduced_in": "unreleased",
-          "sha256": "90696fca8d055ac5c8cca69f0844d1e4aad01e77844f482cfd10bd2747cfee5a"
+          "sha256": "ea006652c495b2a55206a0b51e9a7f338d00133a41bc16ecfd0a5d6328aabb9c"
         }
       }
     },

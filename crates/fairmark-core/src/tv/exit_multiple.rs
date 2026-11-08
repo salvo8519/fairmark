@@ -166,6 +166,11 @@ pub fn exit_multiple(input: &ExitMultipleInput) -> Result<(ExitMultipleOutput, E
             metric.multiple_name()
         ),
     });
+    ex.convention(format!(
+        "metric at N (trailing multiple): {} × {} of period N",
+        metric.multiple_name(),
+        metric.name()
+    ));
     let tv = mul(m, x)?;
     ex.step(
         format!("Terminal value at N ({})", metric.multiple_name()),
@@ -188,6 +193,13 @@ pub fn exit_multiple(input: &ExitMultipleInput) -> Result<(ExitMultipleOutput, E
             ex.step("Flow yield at N + 1", format!("{cf} / {tv}"), yield_next);
             let g = sub(r, yield_next)?;
             ex.step("Implied perpetual growth", format!("{r} − {yield_next}"), g);
+            if g >= r {
+                // Reported, not refused (open question in plan.md).
+                ex.convention(format!(
+                    "implied growth {g} is not below the rate {r}: the multiple is inconsistent \
+                    with a stable-growth value"
+                ));
+            }
             let cap = check_growth_cap(&mut ex, "implied growth", g, input.growth_cap);
             (Some(g), cap)
         }
@@ -266,6 +278,20 @@ mod tests {
             let diff = (g.terminal_value - exit.terminal_value).abs();
             assert!(diff <= d("0.000000000000000001"), "{m} × {x}: {diff}");
         }
+    }
+
+    #[test]
+    fn implied_growth_not_below_the_rate_is_reported() {
+        let (out, ex) = exit_multiple(&input("8", "125", Some("0.10"), Some("-5"))).unwrap();
+        assert!(out.implied_growth.unwrap() >= d("0.10"));
+        assert!(ex
+            .conventions
+            .iter()
+            .any(|c| c.ends_with("inconsistent with a stable-growth value")));
+        assert!(ex
+            .conventions
+            .iter()
+            .any(|c| c.contains("trailing multiple")));
     }
 
     #[test]

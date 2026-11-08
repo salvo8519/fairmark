@@ -1,4 +1,7 @@
 //! `tv.h_model`: growth declining linearly to a stable rate (SPEC-0006 R3).
+//!
+//! Source: Fuller, R. J. and Hsia, C.-C. (1984), "A Simplified Common Stock Valuation Model",
+//! Financial Analysts Journal 40(5).
 
 use rust_decimal::Decimal;
 use schemars::JsonSchema;

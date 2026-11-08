@@ -103,6 +103,13 @@ pub fn value_driver(input: &ValueDriverInput) -> Result<(ValueDriverOutput, Expl
     rate_convention(&mut ex, r);
     let rr = div(g, ronic)?;
     ex.step("Reinvestment rate", format!("{g} / {ronic}"), rr);
+    if rr > Decimal::ONE {
+        // Reported, not refused (open question in plan.md).
+        ex.convention(
+            "reinvestment rate above 100%: free cash flow at N + 1 is negative \
+            (RONIC below the growth)",
+        );
+    }
     let fcf = mul(nopat, sub(Decimal::ONE, rr)?)?;
     ex.step(
         "Free cash flow at N + 1",
@@ -202,6 +209,16 @@ mod tests {
         assert_eq!(up.value_of_growth, ValueOfGrowth::Creates);
         assert_eq!(down.value_of_growth, ValueOfGrowth::Destroys);
         assert!(up.terminal_value > d("1000") && down.terminal_value < d("1000"));
+    }
+
+    #[test]
+    fn reinvestment_above_one_hundred_percent_is_reported() {
+        let (out, ex) = value_driver(&input("0.05", "0.04")).unwrap();
+        assert!(out.next_free_cash_flow < Decimal::ZERO);
+        assert!(ex
+            .conventions
+            .iter()
+            .any(|c| c.starts_with("reinvestment rate above 100%")));
     }
 
     #[test]
