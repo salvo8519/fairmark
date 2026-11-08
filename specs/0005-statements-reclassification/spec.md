@@ -2,11 +2,32 @@
 
 | | |
 | --- | --- |
-| Status | Draft — revision 2 (2026-11-08), after the maintainer's review of the scope of revision 1 (commit 910cf39) |
+| Status | Draft — revision 3 (2026-11-08): core and non-operating areas of the income statement, write-down rule, authoritative sources |
 | Milestone | M2 (release 0.1.0); epic #34; issues #35 and #36 |
 | Owner | @salvo8519 |
-| Formula basis | The corporate-finance reorganisation of the financial statements into operating and financing items (Koller, Goedhart, Wessels, *Valuation*, "Reorganizing the financial statements"; Damodaran; CFA Institute curriculum), applied to the aggregates of the Italian statutory layouts (art. 2424, 2425, abridged art. 2435-bis), with the net financial position in the SPEC-0007 structure and the ESMA32-382-1138 table as reference, and the income statement presented in the value added layout; verified against an exact decimal reference script and against published worked examples and practitioner cases still to be named (Open question 16) |
+| Formula basis | The corporate-finance reorganisation of the financial statements into operating and financing items (Koller, Goedhart, Wessels, *Valuation*, "Reorganizing the financial statements"; Damodaran; CFA Institute curriculum), applied to the aggregates of the Italian statutory layouts (art. 2424, 2425, abridged art. 2435-bis), with the net financial position in the SPEC-0007 structure and the ESMA32-382-1138 table as reference, and the income statement presented in the value added layout with the core (characteristic) management separated from the non-operating (accessory), non-recurring and financial areas, as in Italian credit analysis (OIC 12; art. 2427 n. 13; Banca d'Italia; EBA/GL/2020/06); verified against an exact decimal reference script and against published worked examples and practitioner cases still to be named (Open question 16) |
 | Related | SPEC-0001 (owns the free cash flow build-up and NOPAT taxes; its bridge types receive the non-operating assets and debt-like items), SPEC-0003 (owns tax rates; no IRAP logic), SPEC-0007 (owns `NetFinancialPosition`, every ratio and margin); ADR 0001, ADR 0009, ADR 0012 |
+
+## Revision 3 (2026-11-08)
+After the maintainer's answers to Open questions 1 to 16 (commits a7b30ca, d65c45a):
+- The income statement is presented in named layers that separate the core (characteristic)
+  management from the non-operating (accessory) management, the non-recurring items and the
+  financial management (R17, R17a, Appendix B.2). `core_ebit` (reddito operativo della gestione
+  caratteristica) and `ebit` (reddito operativo aziendale) are distinct outputs.
+- Write-downs follow an explicit rule (R18a): D19 always financial area; B10 c non-recurring by
+  default; B10 d core, below EBITDA. New Open question 17 asks the maintainer to confirm it.
+- Which EBIT feeds the free cash flows and ROI is Open question 18.
+- The balance sheet shows non-operating (accessory) assets as a separate block, consistent with
+  the bridge (R12).
+- Decision 5 applied to R9, the conventions table and Appendix A: provisions B and the employee
+  severance indemnity C take the documented default `operating_provision`; only the derivative
+  part of B stays required.
+- Items 15, 16, 17 and 17-bis are now required separately (R6), because C15 and part of C16
+  belong to the non-operating area.
+- Sources: authoritative sources verified on 2026-11-08 added (EBA, Banca d'Italia, OIC 12,
+  art. 2427 n. 13, ESMA and Consob, D.Lgs. 125/2024, decree of the Ministry of Justice of
+  23 April 2026). New future extensions: a debt sustainability method and the Banca d'Italia
+  indicators missing from `ratios.*`.
 
 ## Revision 2 (2026-11-08)
 The maintainer narrowed the scope to capital-budgeting use. Changes from revision 1:
@@ -61,6 +82,24 @@ The maintainer narrowed the scope to capital-budgeting use. Changes from revisio
   `purchases` (B6) and `materials_consumed` (B6 + B11) under their own names and never under
   the name `cost_of_sales` (Open question 13).
 
+### Banca d'Italia and EBA indicators against `ratios.*` on main
+Checked on the code of `crates/fairmark-core/src/ratios/` in this worktree.
+
+| Indicator | Source | On main | Note |
+| --- | --- | --- | --- |
+| Leverage = financial debt / (financial debt + equity) | Banca d'Italia (V30) | No | `ratios.capital_structure` has `debt_to_equity` (gross debt / equity), `nfp_to_equity` and `equity_ratio` (equity / total assets); D / (D + E) is not returned |
+| Financial charges / MOL (EBITDA) | Banca d'Italia (V30) | Inverse only | `ratios.debt_service` has `interest_cover_ebitda` = EBITDA / interest; the Banca d'Italia form and its not-defined rule are not returned |
+| Financial debt / MOL (EBITDA) | Banca d'Italia (V30) | Net form only | `nfp_to_ebitda` uses the net financial position; gross financial debt / EBITDA is not returned |
+| EBITDA | EBA/GL/2020/06 Annex 3 (V23) | Input | Taken as input with `ebitda_definition`; this spec produces it (R18) |
+| Debt to equity | EBA/GL/2020/06 Annex 3 | Yes | `debt_to_equity` |
+| Debt service coverage | EBA/GL/2020/06 Annex 3 | Yes | `dscr`, and `llcr` |
+| Interest coverage, net debt / EBITDA | Credit practice | Yes | `interest_cover_ebit`, `interest_cover_ebitda`, `nfp_to_ebitda` |
+| Debt to be restructured / annual free flows serving the debt (test pratico) | Ministry of Justice decree of 23 April 2026 (V31) | No | Future extension 8 |
+
+The three missing Banca d'Italia forms are future extension 9 (a SPEC-0007 change). This
+method returns every input they need: `ebitda`, `equity`, the gross debt of the net financial
+position, and `interest_and_other_financial_charges`.
+
 ### Revision 1 and the previous draft
 | Earlier content | Owner now |
 | --- | --- |
@@ -92,8 +131,10 @@ they are.
 - Reorganised balance sheet: operating fixed assets, operating working capital, operating
   provisions, invested capital, non-operating assets, equity, quasi-equity, net financial
   position, debt-like items.
-- Reorganised income statement in the value added layout: revenue, value added, EBITDA, EBIT,
-  non-operating and non-recurring results, financial result, taxes as given, net income.
+- Reorganised income statement in the value added layout, by layers: value of production, value
+  added, EBITDA, EBIT of core management, non-operating (accessory) result, EBIT of the company,
+  non-recurring result, financial management, value adjustments of financial assets, profit
+  before tax, taxes as given, net income.
 - Labelled adjustments of corporate-finance practice: employee severance indemnity,
   provisions, shareholder loans, leases (financial method, optional), non-recurring items,
   prepayments and accruals, operating and excess cash, and the others of Appendix C.
@@ -112,6 +153,15 @@ IRAP (SPEC-0003); ratios and margins (SPEC-0007).
    SPEC-0001 build-up, as a SPEC-0001 task.
 6. A standalone statutory check method, if agents need it before classification.
 7. IFRS layouts (IAS 1, IFRS 18) as statutory input; consolidated accounts.
+8. A debt sustainability method computing the ratio of the practical test (test pratico) of
+   the negotiated settlement of the business crisis: debt to be restructured over the annual free
+   flows serving the debt, as defined by the decree of the Ministry of Justice of 23 April 2026
+   (V31). It needs its own spec, with the definitions of the decree as inputs; it belongs with
+   the deferred `ratios.crisis_indicators` of SPEC-0007 (decision of 2026-11-07, CNDCEC
+   indicators).
+9. Banca d'Italia indicators in SPEC-0007: leverage as financial debt / (financial debt +
+   equity), financial charges / EBITDA, gross financial debt / EBITDA (see "Analysis"; the
+   other EBA and credit indicators already exist).
 
 **Not planned:** XBRL or PDF parsing (adapters or agents); layouts of banks and insurers;
 credit scoring.
@@ -155,14 +205,18 @@ credit scoring.
 - **R5** — Amounts SHALL be entered as presented in the statutory layouts: zero or more for
   assets, liabilities, provisions, revenue and cost aggregates (`FM-E001` naming the field
   otherwise); signed for A2 and A3 (positive for an increase in inventories), B11 (positive for a
-  decrease, which is a cost), C (net financial income and expense, and item 17-bis), D (net value
-  adjustments), 20 (positive for a tax charge), 21, and the equity aggregates that can be
+  decrease, which is a cost), 17-bis (positive for a net gain; items 15, 16, 17, 18 and 19 are
+  zero or more), 20 (positive for a tax charge), 21, and the equity aggregates that can be
   negative (A.VI, A.VII, A.VIII, A.IX; A.X zero or negative). The schema SHALL state each sign
   (Open question 3).
 - **R6** — Every aggregate that has components in Appendix A (equity A.I to A.X; B.I and B.II
   gross and accumulated amortisation and depreciation; A1 to A5; B6 to B14; items 15 to 17-bis)
   SHALL accept a total, its components or both; WHEN both are given and they differ, THE ENGINE
   SHALL return `FM-E026` naming the node and stating the total, the sum and the difference.
+  Items 15, 16, 17 and 17-bis SHALL be required separately (zero allowed; the abridged layout
+  shows them), because C15 and part of C16 belong to the non-operating area (R17a); a total of C
+  alone SHALL be refused with `FM-E001` naming the missing items. Item B10 c SHALL be accepted
+  separately or as an "of which" of B10 a to c when they are grouped.
 - **R7** — THE ENGINE SHALL check, before any classification check, that total assets equal
   total liabilities and equity exactly, with no tolerance, and that the profit or loss for the
   year of the balance sheet (A.IX) equals item 21 when both statements are given; IF a check
@@ -177,15 +231,20 @@ credit scoring.
   a destination and an amount each, summing exactly to the aggregate (`FM-E026` otherwise). IF a
   required treatment is missing or names a destination not permitted for that aggregate, THEN
   THE ENGINE SHALL return `FM-E001` naming the aggregate and listing the permitted destinations.
-- **R9** — The aggregates with a required treatment SHALL be: provisions for risks and charges
-  (B), employee severance indemnity (C), financial fixed assets (B.III) and the shareholder loans
-  part of D (Open questions 5, 6, 10). No other aggregate SHALL require a treatment in version 1.
+- **R9** — The aggregates with a required treatment SHALL be: financial fixed assets (B.III), the
+  shareholder loans part of D and the derivative liabilities part of provisions B (an optional
+  "of which" of B) (Open questions 5, 6, 10). Provisions B (other than derivatives) and the
+  employee severance indemnity C SHALL take the documented default `operating_provision`,
+  reported, never inside the net financial position; an adjustment SHALL move all or part to
+  debt-like items with a reason (Decision of Open question 5). No other aggregate SHALL require a
+  treatment in version 1.
 - **R10** — THE ENGINE SHALL accept a list of labelled adjustments, each with a kind from
   Appendix C, an amount of zero or more, a reason (not blank; `FM-E001` otherwise) and the fields
   of its kind. An adjustment SHALL move its amount from the source destination to the target
-  destination of its kind; IF the amount exceeds what remains in the source after earlier
-  adjustments, THEN THE ENGINE SHALL return `FM-E026` naming the adjustment. None given SHALL
-  mean none, reported.
+  destination of its kind; IF its source is not one permitted for its kind in Appendix C (for
+  example a non-recurring adjustment of D19), THEN THE ENGINE SHALL return `FM-E001`; IF the
+  amount exceeds what remains in the source after earlier adjustments, THEN it SHALL return
+  `FM-E026` naming the adjustment. None given SHALL mean none, reported.
 - **R11** — THE ENGINE SHALL report in `explain` one step per aggregate (reference, JSON pointer,
   amount, destination, origin `mapping` or `analyst`) and one step per adjustment (kind, label,
   amount, reason, source, target), so that every reorganised amount traces back to the filed
@@ -193,11 +252,16 @@ credit scoring.
 
 ### Reorganised balance sheet
 - **R12** — WHEN a balance sheet is given, THE ENGINE SHALL return the structure of Appendix
-  B.1: operating fixed assets, operating working capital (with trade working capital when trade
-  receivables and trade payables are given), operating provisions, `invested_capital`,
-  `non_operating_assets`, `total_funds_invested`, `equity`, quasi-equity items,
-  `net_financial_position`, `debt_like_items` and total sources, each total in `explain` with its
-  components substituted.
+  B.1 in two separate blocks of uses and one block of sources: the operating (core) block,
+  operating fixed assets, operating working capital (with trade working capital when trade
+  receivables and trade payables are given), operating provisions and `invested_capital`; the
+  non-operating (accessory) block, `non_operating_assets` listed one by one with their source
+  (for example property not used in the business, equity investments that are not strategic,
+  surplus securities), with their total; `total_funds_invested`; and the sources, `equity`,
+  quasi-equity items, `net_financial_position`, `debt_like_items` and total sources. Each total
+  SHALL be in `explain` with its components substituted. The non-operating assets of this block
+  SHALL be the same items, with the same labels, as those returned for the bridge (R15), and
+  SHALL NOT be part of `invested_capital`.
 - **R13** — THE ENGINE SHALL hold total funds invested = equity + Σ quasi-equity items + net
   financial position + Σ debt-like items exactly; since the inputs reconcile (R7) and every
   adjustment moves amounts between destinations or applies a documented double entry (R23,
@@ -227,33 +291,67 @@ credit scoring.
 
 ### Reorganised income statement
 - **R17** — WHEN an income statement is given, THE ENGINE SHALL return the value added layout of
-  Appendix B.2: `revenue`, value of production, external costs, value added, personnel costs,
-  `ebitda`, `depreciation_and_amortisation`, write-downs, provisions, `ebit`, non-operating
-  result, non-recurring result, net financial income and expense, value adjustments of financial
-  assets, profit before tax, income taxes and `net_income`, each in `explain` with its components
-  substituted.
-- **R18** — THE ENGINE SHALL compute EBITDA as value added − personnel costs, with B10 d
-  (write-downs of receivables) and B12, B13 (provisions) below EBITDA; WHEN B10 a, b and c are
-  given grouped, the group SHALL be `depreciation_and_amortisation` and an impairment SHALL be
-  entered as a non-recurring adjustment. The definition SHALL be reported in words usable as
+  Appendix B.2 as named layers, in this order, each in `explain` with its components
+  substituted:
+  1. `value_of_production` (core): A1 + A2 + A3 + A4 + the core part of A5;
+  2. `value_added`: value of production − external costs (B6 + B11, B7, B8, the core part of
+     B14);
+  3. `ebitda` (margine operativo lordo, MOL): value added − personnel costs (B9);
+  4. `core_ebit` (reddito operativo della gestione caratteristica): EBITDA − depreciation and
+     amortisation (B10 a, b) − write-downs of current receivables (B10 d) − provisions (B12,
+     B13);
+  5. `non_operating_result` (gestione accessoria, extra-characteristic): the non-operating parts
+     of A5 and B14 (for example rents of property not used in the business, royalties, gains and
+     losses on disposals of non-operating assets), income from equity investments (C15) and the
+     income from non-operating financial assets moved out of C16;
+  6. `ebit` (reddito operativo aziendale): `core_ebit` + `non_operating_result`;
+  7. `non_recurring_result`: the labelled non-recurring adjustments (OIC 12; art. 2427 n. 13),
+     including B10 c by default (R18a);
+  8. `financial_result` (gestione finanziaria): C16 (financial part) − C17 + C17-bis, with item
+     17 also returned as `interest_and_other_financial_charges`;
+  9. `value_adjustments_of_financial_assets`: D18 − D19, always outside operating income;
+  10. `profit_before_tax` = `ebit` + `non_recurring_result` + `financial_result` +
+      `value_adjustments_of_financial_assets`;
+  11. `income_taxes` (item 20, as given) and `net_income` = profit before tax − income taxes.
+- **R17a** — Item C15 SHALL be non-operating by default and item C16 financial by default, both
+  reported; an adjustment SHALL move the part of C16 earned on non-operating financial assets to
+  the non-operating result, and MAY name the non-operating asset it relates to, so that the
+  income of each accessory asset of R12 can be traced (Open question 18).
+- **R18** — THE ENGINE SHALL compute EBITDA as value added − personnel costs, with B10 d and B12,
+  B13 below EBITDA and above `core_ebit`; WHEN B10 a, b and c are given grouped with no "of
+  which" for B10 c, the group SHALL be `depreciation_and_amortisation` and an impairment SHALL
+  be entered as a non-recurring adjustment. The definition SHALL be reported in words usable as
   `ebitda_definition` in SPEC-0007 (Open question 8).
-- **R19** — Other revenue and income (A5) and other operating expenses (B14) SHALL be operating
-  by default, reported; THE ENGINE SHALL accept adjustments that move labelled parts of A5, B14
-  or of any other income statement aggregate to the non-operating or non-recurring result, both
-  below EBIT, so that EBITDA and EBIT exclude them (Open question 7).
-- **R20** — THE ENGINE SHALL present C as net financial income and expense with item 17
-  returned as `interest_and_other_financial_charges` when given, D as value adjustments of
-  financial assets, and item 20 as income taxes as given. It SHALL NOT compute IRES, IRAP,
-  deferred taxes, taxes on EBIT or NOPAT. Profit before tax SHALL equal the statutory
+- **R18a** — Write-downs (svalutazioni) SHALL follow this rule, reported in
+  `explain.conventions` (Open question 17): (a) write-downs of financial assets (D19) SHALL be
+  in the value adjustments of financial assets, always in the financial area and never in
+  operating income, with no adjustment able to move them; (b) write-downs of fixed assets
+  (B10 c), when given, SHALL be classified by nature, by default in the non-recurring result
+  below `core_ebit` and `ebit`, and the analyst MAY move them into the core management, below
+  EBITDA, with an adjustment of kind `core_write_down` and a reason; (c) write-downs of current
+  receivables and cash (B10 d) SHALL be in the core management, below EBITDA, because customer
+  credit risk is part of core trade.
+- **R19** — Other revenue and income (A5) and other operating expenses (B14) SHALL be core by
+  default, reported; THE ENGINE SHALL accept adjustments that move labelled parts of A5, B14 or
+  of any other income statement aggregate to the non-operating result (A5, B14, C16 only) or to
+  the non-recurring result (any aggregate except D), so that EBITDA and `core_ebit` exclude them,
+  and the non-recurring result SHALL be below `ebit`, so that `ebit` excludes it as well (Open
+  question 7).
+- **R20** — THE ENGINE SHALL present item 20 as income taxes as given and SHALL NOT compute IRES,
+  IRAP, deferred taxes, taxes on EBIT or NOPAT. Profit before tax SHALL equal the statutory
   A − B ± C ± D and net income SHALL equal item 21, exactly.
-- **R21** — THE ENGINE SHALL return a reconciliation of EBIT with the statutory difference
-  A − B, listing every adjustment that moved an amount out of A or B, and the lease restatement
-  effect when R23 applies.
+- **R21** — THE ENGINE SHALL return a reconciliation of `core_ebit` and of `ebit` with the
+  statutory difference A − B, listing every adjustment that moved an amount out of A or B, the
+  amounts of C15 and C16 moved into the non-operating result, and the lease restatement effect
+  when R23 applies.
 - **R22** — Output fields that are inputs of other methods SHALL carry the same name and
-  meaning: `ebit` and `depreciation_and_amortisation` (SPEC-0001 build-up lines, so that NOPAT is
-  computed there with the analyst's tax choice); `revenue`, `ebitda`, `ebit`, `net_income`,
-  `purchases` (B6) and `invested_capital` (SPEC-0007). `cost_of_sales` SHALL NOT be returned
-  (Open question 13).
+  meaning: `depreciation_and_amortisation`, and an EBIT, for the SPEC-0001 build-up lines (NOPAT
+  is computed there with the analyst's tax choice); `revenue`, `ebitda`, an EBIT, `net_income`,
+  `purchases` (B6) and `invested_capital` for SPEC-0007. Both `core_ebit` and `ebit` SHALL be
+  returned, and the methodology page SHALL state which of the two each consumer should receive
+  as its `ebit` field (Open question 18; recommendation: `core_ebit` for the free cash flows
+  and for ROI on invested capital, `ebit` for interest cover and ROA). `cost_of_sales` SHALL NOT
+  be returned (Open question 13).
 
 ### Adjustments that change both statements or equity
 - **R23** — WHEN a lease adjustment is given (per lease or in total: carrying amount of the
@@ -271,8 +369,9 @@ credit scoring.
 ### Explain, errors and stability
 - **R25** — THE ENGINE SHALL report in `explain.conventions`: the layout; the sign conventions;
   the exact balance check; every default destination used; every treatment and adjustment; the
-  twelve-month reading of the statutory maturity split; the EBITDA definition; the treatment of
-  financial income, taxes and leases; the measurement basis of bridge items; and "none given"
+  twelve-month reading of the statutory maturity split; the EBITDA definition; the layers of the
+  income statement and the area of each aggregate; the write-down rule of R18a; the default areas
+  of C15 and C16; the treatment of financial income, taxes and leases; the measurement basis of bridge items; and "none given"
   for each adjustment kind not used.
 - **R26** — Every error SHALL name the field by its JSON pointer and state the fix. Errors SHALL
   reuse `FM-E001`, `FM-E008`, `FM-E009` and `FM-E012`; one new code, `FM-E026` "statements do
@@ -292,16 +391,21 @@ credit scoring.
 | Balance check | exact equality | fixed | Art. 2423, euro units (V1); Open question 2 |
 | Maturity | statutory split of C.II and D, read as twelve months | fixed, reported | Art. 2424, 2435-bis (V3, V7) |
 | Payables D by nature | financial debt and shareholder loans stated; remainder operating | required parts | Open question 4 |
-| Provisions B | `operating_provision`, `debt_like`, or a split | required when not zero | Practice varies; Koller (V25); Open question 5 |
-| Employee severance indemnity C | `operating_provision`, `debt_like`, or a split | required when not zero | Practice varies; Open question 5 |
+| Provisions B (other than derivatives) | `operating_provision`; `debt_like` by adjustment | default `operating_provision`, reported | Italian functional layout (V27, V28); ESMA32-382-1138 guideline 39 (V15); Decision of Open question 5 |
+| Derivative liabilities in B | NFP other financial liability, or operating | required when not zero | Decision of Open question 5 |
+| Employee severance indemnity C | `operating_provision`; `debt_like` by adjustment | default `operating_provision`, reported | As provisions B; Decision of Open question 5 |
 | Financial fixed assets B.III | `operating`, `non_operating`, `financial_asset`, or a split | required when not zero | Open question 10 |
 | Shareholder loans (part of D) | `financial_debt`, `quasi_equity`, or a split | required when not zero | Art. 2427 n. 19-bis, art. 2467 (V9, V10); Open question 6 |
 | Receivables C.II | operating working capital; financial parts by adjustment | default, reported | Practice |
 | Current financial assets C.III | net financial position (other financial asset) | default, reported | ESMA32-382-1138 (V15) |
 | Cash C.IV | net financial position; operating cash by adjustment | default, reported | ESMA32-382-1138 (V15); Koller (V25); Open question 11 |
 | Prepayments and accruals (assets D, liabilities E) | operating working capital, current; accrued interest by adjustment | default, reported | Practice |
-| A5 and B14 | operating; non-operating and non-recurring parts by adjustment | default, reported | D.Lgs. 139/2015 (V11); art. 2427 n. 13 (V9); Open question 7 |
-| EBITDA | value added − personnel costs; B10 d, B12, B13 below EBITDA | fixed, reported | Italian practice (V27, V28); Open question 8 |
+| A5 and B14 | core; non-operating and non-recurring parts by adjustment | default, reported | OIC 12 (V12); art. 2427 n. 13 (V9); Open question 7 |
+| C15 | non-operating result | default, reported | Italian credit analysis (V28, V30); Open question 18 |
+| C16 | financial result; non-operating part by adjustment | default, reported | Italian credit analysis; Open question 18 |
+| EBITDA | value added − personnel costs; B10 d, B12, B13 below EBITDA | fixed, reported | Italian practice (V27, V28); Banca d'Italia MOL (V30); Open question 8 |
+| Write-downs | D19 financial area, fixed; B10 c non-recurring, core by adjustment; B10 d core below EBITDA | as stated, reported | OIC 12 (V12); Open question 17 |
+| `core_ebit` and `ebit` | core management; core + non-operating | both returned | Italian credit analysis; Open question 18 |
 | Leases | as reported; financial method by adjustment | as reported, stated | Art. 2427 n. 22 (V9); IFRS 16 (V21); Open question 9 |
 | Taxes | item 20 as given | fixed; no IRES, IRAP or NOPAT | SPEC-0003 decision of 2026-11-07; SPEC-0001 |
 | Bridge items measurement | carrying amount | fixed, reported | SPEC-0001 Decision 21; Open question 15 |
@@ -319,7 +423,9 @@ Every golden case compares exactly (tolerance 0).
 - **AC3** (R2, R3, R5, R26) — `FM-E001` for: no statement, a negative unsigned amount, a missing
   or excessive beyond-one-year amount, a missing financial debt or shareholder loans part of D,
   two years with the same date; `FM-E009` for an invalid date. Every message has a JSON pointer.
-- **AC4** (R8, R9) — For each required treatment: missing with a non-zero amount returns
+- **AC4** (R8, R9, R12) — Property: no non-operating asset is part of `invested_capital`, and the
+  non-operating assets of the balance sheet block equal those returned for the bridge, label by
+  label. For each required treatment: missing with a non-zero amount returns
   `FM-E001` listing the destinations; a zero amount passes without it; a split that differs from
   the aggregate returns `FM-E026`; one golden case per destination.
 - **AC5** (R10, R11) — One golden case per adjustment kind of Appendix C; an adjustment larger
@@ -330,17 +436,24 @@ Every golden case compares exactly (tolerance 0).
   + net financial position + Σ debt-like items, exactly; the net financial position total equals
   the SPEC-0007 total of the returned object.
 - **AC7** (R14, R15, R22) — Contract tests: `net_financial_position`, `non_operating_assets` and
-  `debt_like_items` are accepted by `dcf.fcff` version 3 unchanged; `ebit` and
+  `debt_like_items` are accepted by `dcf.fcff` version 3 unchanged; `core_ebit` (as `ebit`) and
   `depreciation_and_amortisation` are accepted as `FreeCashFlowLines` fields; the SPEC-0007
   fields are accepted by the groups that take them.
 - **AC8** (R16) — Property: `total_assets` = `fixed_assets` + `current_assets` =
   `equity` + `non_current_liabilities` + `current_liabilities` (equity after the deductions of
   R24); passing the block to `ratios.liquidity` and `ratios.capital_structure` gives the values
   of the reference applied to the same totals.
-- **AC9** (R17, R18, R19, R20, R21) — Golden value added cases match the reference. Properties:
-  net income = item 21; profit before tax = A − B ± C ± D; the EBIT reconciliation adds up to
-  A − B; moving an income to the non-recurring result lowers EBITDA and EBIT by its amount, and
-  moving a cost raises both by its amount.
+- **AC9** (R17, R17a, R18, R19, R20, R21) — Golden value added cases match the reference for
+  every layer. Properties: `ebit` = `core_ebit` + `non_operating_result`; net income = item 21;
+  profit before tax = A − B ± C ± D; the reconciliations of `core_ebit` and `ebit` add up to
+  A − B and to A − B plus the C15 and C16 amounts moved; moving an income to the non-recurring
+  result lowers EBITDA and `core_ebit` by its amount, and moving a cost raises both by its amount;
+  C15 never enters `core_ebit`.
+- **AC9a** (R18a) — Golden `write-downs.yaml` with D19, B10 c and B10 d all non-zero: D19 is in
+  `value_adjustments_of_financial_assets` and in neither EBIT; B10 c is in the non-recurring
+  result; B10 d lowers `core_ebit` and not EBITDA. With a `core_write_down` adjustment and a
+  reason, B10 c lowers `core_ebit` and not EBITDA. An adjustment whose source is D returns
+  `FM-E001`. Item C given only as a total returns `FM-E001`.
 - **AC10** (R23) — Golden `lease-restatement.yaml` (constructed case): asset, liability,
   prepayment and equity adjustment; EBITDA rises by the lease payments moved out of B8; the
   identity of R13 holds.
@@ -362,7 +475,8 @@ Every golden case compares exactly (tolerance 0).
 - **Output per year:** `reorganised_balance_sheet` (Appendix B.1), `net_financial_position`
   (SPEC-0007 type) with `composition`, `current` and `non_current`; `non_operating_assets`,
   `debt_like_items`, `quasi_equity_items`; `current_non_current` (R16);
-  `reorganised_income_statement` (Appendix B.2) with `ebit_reconciliation`; `assignments` and
+  `reorganised_income_statement` (Appendix B.2, the layers of R17 including `core_ebit` and
+  `ebit`) with `ebit_reconciliation`; `assignments` and
   `adjustments` as applied (R11).
 - **Schema changes:** additive: one new method, `schemas/statements.reorganise/v1.json`, one
   entry in `schemas/index.json`. No existing method, golden case or number changes.
@@ -403,13 +517,44 @@ Every golden case compares exactly (tolerance 0).
 | Shareholder loans | `shareholder_loans` | finanziamenti dei soci | Art. 2424 D.3; art. 2467 | to verify (V10) |
 | Prepayments and accrued income; accruals and deferred income | as named | ratei e risconti attivi; passivi | Directive 2013/34/EU Annex III | to verify (V19) |
 | Value of production; value added | `value_of_production`, `value_added` | valore della produzione; valore aggiunto | Art. 2425 A; Eurostat SBS | to verify (V24) |
-| EBITDA; EBIT | `ebitda`, `ebit` | margine operativo lordo (MOL); reddito operativo | CFA Institute; SPEC-0001 | to verify (V17, V26) |
+| EBITDA | `ebitda` | margine operativo lordo (MOL) | CFA Institute; Banca d'Italia; EBA/GL/2020/06 Annex 3 | Italian "MOL" verified in the Banca d'Italia indicators (V30); English verified in EBA Annex 3 (V23) |
+| EBIT of core management | `core_ebit` | reddito operativo della gestione caratteristica | Italian credit analysis; "core operations" in Koller et al. | to verify (V25, V27) |
+| EBIT (operating income of the company) | `ebit` | reddito operativo aziendale | CFA Institute; SPEC-0001 | to verify (V26, V27) |
+| Non-operating (accessory) management | `non_operating_result` | gestione accessoria (extra-caratteristica) | Italian textbooks; Koller et al. (non-operating) | to verify (V25, V27) |
+| Financial management | `financial_result` | gestione finanziaria | Italian textbooks | to verify (V27) |
+| Write-downs | `write_downs` (B10 c, B10 d, D19) | svalutazioni | Art. 2425 B10, D19; OIC 12 | verified in OIC 12 (V12) for D18 and D19 |
 | Non-recurring items | `non_recurring` | componenti non ricorrenti | ESMA APM guidelines; Consob | to verify (V17, V18) |
 | Materials consumed; purchases | `materials_consumed`, `purchases` | consumi; acquisti | Art. 2425 B6, B11 | glossary (purchases) |
 
+## Sources verified (2026-11-08)
+Recorded as verified by the coordinator on 2026-11-08. Paragraph and page numbers not stated
+below are still to verify.
+
+- **V7** Civil Code art. 2435-bis (abridged layout) and **V29** D.Lgs. 125/2024: the current
+  thresholds of the abridged layout and of micro-entities.
+- **V8** Civil Code art. 2435-ter (micro-entities).
+- **V9** (part) Civil Code art. 2427, paragraph 1, n. 13: amount and nature of items of income
+  and expense of exceptional size or incidence; basis of the non-recurring adjustments (R17).
+- **V12** OIC 12, revised December 2016 after D.Lgs. 139/2015: former extraordinary items are
+  classified by nature in A5 and B14; gains from debt restructuring in C16 d; D18 and D19 for the
+  value adjustments of financial assets. Paragraph numbers to verify.
+- **V15** ESMA32-382-1138 (guideline 39, net financial indebtedness) and Consob, Richiamo di
+  attenzione n. 5/21.
+- **V23** EBA/GL/2020/06, Guidelines on loan origination and monitoring, Annex 3: metrics for
+  credit granting and monitoring; for firms they include EBITDA, debt to equity and debt service
+  coverage. Page numbers to verify.
+- **V30** Banca d'Italia, definitions used in its financial stability analysis of firms:
+  leverage = financial debt / (financial debt + equity); financial charges / MOL; financial
+  debt / MOL. Publication and page to verify.
+- **V31** Ministry of Justice, decreto dirigenziale of 23 April 2026, practical test (test
+  pratico) of the negotiated settlement of the business crisis: debt to be restructured over
+  the annual free flows serving the debt; it replaces the decree of 21 March 2023. Article and
+  annex numbers to verify.
+
 ## Sources to verify
-V7, V8 and V15 were verified by the coordinator on 2026-11-08. Revision 1's V16 (CESR) and the
-Annex VI part of V19 are no longer cited.
+Revision 1's V16 (CESR) and the Annex VI part of V19 are no longer cited. CNDCEC documents on
+crisis indicators are not cited in version 1; they belong to future extension 8 and to the
+deferred `ratios.crisis_indicators` of SPEC-0007.
 
 1. **V1** Art. 2423: statements in euro units without decimals; where rounding differences go.
 2. **V2** Art. 2423-ter: further subdivision, grouping, additional items, comparatives.
@@ -418,46 +563,46 @@ Annex VI part of V19 are no longer cited.
 4. **V4** Art. 2424-bis, paragraph 1 (assets for durable use are fixed assets).
 5. **V5** Art. 2425: aggregates of Appendix A.2, item 17-bis, and the sign presentation of A2,
    A3 and B11.
-6. **V7** Art. 2435-bis — verified (coordinator, 2026-11-08): thresholds, abridged content,
-   groupings.
-7. **V8** Art. 2435-ter — verified (coordinator, 2026-11-08).
-8. **V9** Art. 2427, paragraph 1, n. 13 (exceptional items), n. 19-bis (shareholder loans), n. 22
-   (financial leases), and which of them abridged filers must disclose.
-9. **V10** Art. 2467 (postponement of shareholder loans).
-10. **V11** D.Lgs. 139/2015: removal of area E, first application.
-11. **V12** OIC 12: content of the aggregates, signs, classification of former extraordinary
-    items.
-12. **V13** OIC 10: definition of cash used for `cash`.
-13. **V14** OIC 18, 19, 31: prepayments and accruals, payables, provisions and TFR.
-14. **V15** ESMA32-382-1138 and Consob Richiamo di attenzione n. 5/21 — verified (coordinator,
-    2026-11-08). Still to settle in Open question 11: treatment of non-current trade payables
-    and of operating cash.
-15. **V17** ESMA Guidelines on Alternative Performance Measures (ESMA/2015/1415): EBITDA,
+6. **V7** and **V8**: verified, see above.
+7. **V9** Art. 2427, paragraph 1, n. 19-bis (shareholder loans) and n. 22 (financial leases), and
+   which disclosures abridged filers must give (n. 13 verified, see above).
+8. **V10** Art. 2467 (postponement of shareholder loans).
+9. **V11** D.Lgs. 139/2015: removal of area E, first application (its effect on the layout is
+   verified through OIC 12, V12).
+10. **V12** OIC 12: the paragraph numbers of the verified content, and the signs of A2, A3, B11.
+11. **V13** OIC 10: definition of cash used for `cash`.
+12. **V14** OIC 18, 19, 31: prepayments and accruals, payables, provisions and TFR.
+13. **V15**: verified, see above.
+14. **V17** ESMA Guidelines on Alternative Performance Measures (ESMA/2015/1415): EBITDA,
     non-recurring labels.
-16. **V18** Consob Comunicazione DEM/6064293 of 28 July 2006: non-recurring events.
-17. **V19** Directive 2013/34/EU, Annex III: English names of the balance sheet aggregates.
-18. **V20** IAS 1 paragraphs 66 to 76 (current and non-current); IFRS 18.
-19. **V21** IFRS 16 (lessee accounting).
-20. **V22** IAS 19 and the TFR in IFRS statements of Italian companies.
-21. **V23** EBA/GL/2020/06, Annex 3: bank practice terms.
-22. **V24** Eurostat structural business statistics: production value, value added at factor
+15. **V18** Consob Comunicazione DEM/6064293 of 28 July 2006: non-recurring events.
+16. **V19** Directive 2013/34/EU, Annex III: English names of the balance sheet aggregates.
+17. **V20** IAS 1 paragraphs 66 to 76 (current and non-current); IFRS 18.
+18. **V21** IFRS 16 (lessee accounting).
+19. **V22** IAS 19 and the TFR in IFRS statements of Italian companies.
+20. **V23**: verified, see above (page numbers to verify).
+21. **V24** Eurostat structural business statistics: production value, value added at factor
     cost, personnel costs, gross operating surplus.
-23. **V25** Koller, Goedhart, Wessels, *Valuation*, 7th edition, chapter "Reorganizing the
+22. **V25** Koller, Goedhart, Wessels, *Valuation*, 7th edition, chapter "Reorganizing the
     financial statements": invested capital, operating working capital, operating provisions,
-    total funds invested, excess cash, debt equivalents (behind a paywall in the SPEC-0001
-    review).
-24. **V26** CFA Institute curriculum: EBITDA, working capital.
-25. **V27** Italian textbooks with worked examples (edition and page to be named by the
-    maintainer). Candidates: Ferrero, Dezzani, Pisoni, Puddu, *Le analisi di bilancio. Indici e
-    flussi* (Giuffrè); Caramiello, Di Lazzaro, Fiori, *Indici di bilancio* (Giuffrè); Teodori,
-    *L'analisi di bilancio* (Giappichelli).
-26. **V28** Bank reclassification schemes (for example Centrale dei Bilanci, now Cerved): TFR,
-    shareholder loans, leases, tax debts in instalments, quasi-equity.
+    total funds invested, excess cash, debt equivalents, core and non-operating income (behind
+    a paywall in the SPEC-0001 review).
+23. **V26** CFA Institute curriculum: EBITDA, working capital.
+24. **V27** Italian textbooks with worked examples and the layers of R17 (gestione
+    caratteristica, accessoria, finanziaria; reddito operativo caratteristico and aziendale),
+    edition and page to be named by the maintainer. Candidates: Ferrero, Dezzani, Pisoni, Puddu,
+    *Le analisi di bilancio. Indici e flussi* (Giuffrè); Caramiello, Di Lazzaro, Fiori, *Indici
+    di bilancio* (Giuffrè); Teodori, *L'analisi di bilancio* (Giappichelli).
+25. **V28** Bank reclassification schemes (for example Centrale dei Bilanci, now Cerved): TFR,
+    shareholder loans, leases, tax debts in instalments, quasi-equity, and where they place C15
+    and the write-downs of B10 c and B10 d.
+26. **V30** (part) The Banca d'Italia publication in which the three indicator definitions
+    appear, and whether its MOL deducts B10 d and provisions.
 
 ## Open questions
 Questions 1 to 3 and 12 to 16 are resolved with the recommendation stated, under the delegation the maintainer gave on 2026-11-08 (decide as a bank credit analyst and an asset management analyst would, aligned with CFA, IFRS and EBA practice); they are listed for his confirmation when the spec is submitted for approval.
 Each lists options and a recommendation. **[bank]** marks questions that need the maintainer's
-bank-practice judgement.
+bank-practice judgement. Questions 17 and 18 are new in revision 3 and open.
 
 - [x] **1. Method ids.** (a) One method `statements.reorganise` with optional balance sheet and
       income statement; (b) two methods, `statements.reorganise_balance_sheet` and
@@ -531,6 +676,26 @@ bank-practice judgement.
       written from Appendix A to C; (b) published worked examples named by the maintainer (V27);
       (c) two or three anonymised practitioner cases, at least one abridged. Recommendation: all
       three; (b) and (c) are needed for AC13 and for promotion to available.
+- [ ] **17. Write-downs (svalutazioni). [bank]** The maintainer's guidance (2026-11-08) was that
+      write-downs are extra-characteristic. Options: (a) the rule of R18a: D19 always in the
+      financial area; B10 c non-recurring by default below `core_ebit`, movable into the core
+      management by an adjustment with a reason; B10 d in the core management, below EBITDA;
+      (b) every write-down outside the core management, B10 d included; (c) B10 c core by
+      default as well. Recommendation: (a). It keeps the guidance for D19 and B10 c, and keeps
+      B10 d in the core for prudence: losses on trade receivables recur with sales on credit, so
+      leaving them out would overstate the core result that a lender relies on. B10 d stays
+      below EBITDA, as Open question 8 decided.
+- [ ] **18. Which EBIT feeds the free cash flows and the operating return.** `core_ebit`
+      excludes the non-operating result; `ebit` includes C15, the non-operating parts of A5 and
+      B14 and the income moved out of C16. Options: (a) document that `dcf.free_cash_flows` and
+      ROI on invested capital (`ratios.profitability` with `operating_return_base` =
+      `invested_capital`) should receive `core_ebit`, and that interest cover and ROA on total
+      assets should receive `ebit`; (b) feed `ebit` everywhere. Recommendation: (a). The
+      non-operating assets are added in the `dcf.fcff` bridge at their value, so their income
+      inside the free cash flows would be counted twice; and invested capital excludes those
+      assets, so the numerator of ROI should exclude their income. The engine returns both; the
+      methodology page and the concept page say which goes where. This needs no change in
+      SPEC-0001 or SPEC-0007, whose `ebit` fields are documented as the operating result.
 
 ## Appendix A — Statutory aggregates and their destinations (proposed)
 Choice: **F** fixed; **D** default, reported, changed only by an adjustment; **R** required
@@ -550,8 +715,9 @@ treatment when the amount is not zero. "NFP" is a component of the net financial
 | C.IV | `cash` | NFP cash | D | `operating_cash` | current |
 | Assets D | `prepayments_and_accrued_income` (or "of which" of C.II; non-current part optional) | operating working capital | D | `lease` (prepayment) | current, or the part given |
 | Liabilities A.I to A.X | `equity` (total or Roman numerals; A.IX profit or loss) | equity | F | `dividends_declared`, `lease` (equity effect) | equity |
-| B | `provisions` (non-current part optional) | operating provision, or debt-like | R | none | non-current, or the part given |
-| C | `employee_severance_indemnity` (non-current part optional) | operating provision, or debt-like | R | none | non-current, or the part given |
+| B, other than derivatives | `provisions` (non-current part optional) | operating provision | D | `debt_like_provision` | non-current, or the part given |
+| B, derivative liabilities | `provisions.of_which_derivative_liabilities` (optional) | NFP other financial liability, or operating provision | R | none | non-current, or the part given |
+| C | `employee_severance_indemnity` (non-current part optional) | operating provision | D | `debt_like_provision` | non-current, or the part given |
 | D, financial debt part | `payables.financial_debt` (with beyond) | NFP gross debt | F | none | by its split |
 | D, shareholder loans part | `payables.shareholder_loans` (with beyond) | NFP gross debt, or quasi-equity | R | none | by its split |
 | D, remainder | `payables` total less the parts above (trade optional) | operating working capital | D | `tax_instalments`, `non_current_trade_payables` | by statutory split |
@@ -559,29 +725,35 @@ treatment when the amount is not zero. "NFP" is a component of the net financial
 
 ### A.2 Income statement (art. 2425; groupings of art. 2435-bis)
 
-| Reference | Proposed identifier | Destination (value added layout) | Choice | Adjustments |
+| Reference | Proposed identifier | Area and layer (R17) | Choice | Adjustments |
 | --- | --- | --- | --- | --- |
-| A1 | `revenue` | value of production | F | `non_recurring` |
-| A2, A3 (may be grouped) | `change_in_product_inventories` (signed) | value of production | F | none |
-| A4 | `own_work_capitalised` | value of production | F | none |
-| A5 | `other_revenue_and_income` | value of production (operating) | D | `non_operating`, `non_recurring` |
-| B6 | `purchases` | external costs (materials consumed) | F | `non_recurring` |
-| B7 | `services` | external costs | F | `non_recurring` |
-| B8 | `use_of_third_party_assets` | external costs | F | `lease`, `non_recurring` |
-| B9 (c, d, e may be grouped) | `personnel_costs` | personnel costs | F | `non_recurring` |
-| B10 a, b, c (may be grouped) | `depreciation_and_amortisation` | below EBITDA | D | `non_recurring` (impairment) |
-| B10 d | `write_downs_of_receivables` | below EBITDA (write-downs) | F | `non_recurring` |
-| B11 | `change_in_raw_material_inventories` (signed) | external costs (materials consumed) | F | none |
-| B12, B13 | `provisions_for_risks`, `other_provisions` | below EBITDA (provisions) | F | `non_recurring` |
-| B14 | `other_operating_expenses` | external costs (operating) | D | `non_operating`, `non_recurring` |
-| C (15, 16, 17, 17-bis; total accepted) | `financial_income_and_expense` (signed); `interest_and_other_financial_charges` (17) optional | net financial income and expense | F | `lease` (interest) |
-| D | `value_adjustments_of_financial_assets` (signed) | value adjustments of financial assets | F | none |
+| A1 | `revenue` | core: value of production | F | `non_recurring` |
+| A2, A3 (may be grouped) | `change_in_product_inventories` (signed) | core: value of production | F | none |
+| A4 | `own_work_capitalised` | core: value of production | F | none |
+| A5 | `other_revenue_and_income` | core: value of production | D | `non_operating`, `non_recurring` |
+| B6 | `purchases` | core: external costs (materials consumed) | F | `non_recurring` |
+| B7 | `services` | core: external costs | F | `non_recurring` |
+| B8 | `use_of_third_party_assets` | core: external costs | F | `lease`, `non_recurring` |
+| B9 (c, d, e may be grouped) | `personnel_costs` | core: below value added, above EBITDA | F | `non_recurring` |
+| B10 a, b (with c when grouped and no "of which") | `depreciation_and_amortisation` | core: below EBITDA | F | `non_recurring` (impairment in a grouped B10) |
+| B10 c (separate or "of which") | `write_downs_of_fixed_assets` | non-recurring result | D (R18a) | `core_write_down` |
+| B10 d | `write_downs_of_receivables` | core: below EBITDA | F (R18a) | `non_recurring` |
+| B11 | `change_in_raw_material_inventories` (signed) | core: external costs (materials consumed) | F | none |
+| B12, B13 | `provisions_for_risks`, `other_provisions` | core: below EBITDA | F | `non_recurring` |
+| B14 | `other_operating_expenses` | core: external costs | D | `non_operating`, `non_recurring` |
+| C15 | `income_from_equity_investments` | non-operating result | D | `non_recurring` |
+| C16 (b, c may be grouped) | `other_financial_income` | financial result | D | `non_operating`, `non_recurring` |
+| C17 | `interest_and_other_financial_charges` | financial result | F | `lease` (interest), `non_recurring` |
+| C17-bis | `exchange_gains_and_losses` (signed) | financial result | F | `non_recurring` |
+| D18, D19 (a to d may be grouped) | `revaluations_of_financial_assets`, `write_downs_of_financial_assets` | value adjustments of financial assets (financial area) | F (R18a) | none |
 | 20 | `income_taxes` | income taxes as given | F | none |
 | 21 | `profit_or_loss_for_the_year` | check of net income | F | none |
 
 ## Appendix B — Reorganised structures (proposed)
 
 ### B.1 Balance sheet
+Uses are presented in two blocks: the operating (core) block, up to `invested_capital`, and the
+non-operating (accessory) block, `non_operating_assets`; their sum is `total_funds_invested`.
 - Operating fixed assets = B.I + B.II + B.III (operating part) − non-operating adjustments +
   lease assets.
 - `trade_working_capital` (when trade parts are given) = trade receivables + inventories − trade
@@ -591,6 +763,9 @@ treatment when the amount is not zero. "NFP" is a component of the net financial
 - Operating provisions = B and C treated as operating provisions.
 - `invested_capital` = operating fixed assets + `operating_working_capital` − operating
   provisions.
+- `non_operating_assets` = B.III (non-operating part) + the parts of B.I, B.II, C.II and C.III
+  moved by `non_operating_asset` adjustments, each listed with its label and source (the same
+  list as for the bridge, R15).
 - `total_funds_invested` = `invested_capital` + Σ `non_operating_assets`.
 - `equity` = A − subscribed capital unpaid − dividends declared ± lease equity effect.
 - `net_financial_position` = gross debt − cash + Σ other items (SPEC-0007), with `excess_cash` =
@@ -598,18 +773,34 @@ treatment when the amount is not zero. "NFP" is a component of the net financial
 - Sources = `equity` + Σ quasi-equity items + `net_financial_position` + Σ `debt_like_items`.
 - Identity: `total_funds_invested` = sources.
 
-### B.2 Value added income statement
-- `value_of_production` = A1 + A2 + A3 + A4 + A5 (operating).
-- External costs = B6 + B11 (`materials_consumed`) + B7 + B8 + B14 (operating).
+### B.2 Value added income statement, by area
+Core (characteristic) management:
+- `value_of_production` = A1 + A2 + A3 + A4 + A5 (core part).
+- External costs = B6 + B11 (`materials_consumed`) + B7 + B8 + B14 (core part).
 - `value_added` = `value_of_production` − external costs.
-- `ebitda` = `value_added` − B9.
-- `ebit` = `ebitda` − B10 (a to c) − B10 d − B12 − B13.
-- Non-operating result and non-recurring result = Σ income parts − Σ expense parts moved by
-  adjustment.
-- Profit before tax = `ebit` + non-operating result + non-recurring result + C + D.
-- `net_income` = profit before tax − item 20; equals item 21.
-- With a lease adjustment: B8 less the lease payments; depreciation added to B10; interest added
-  to C.
+- `ebitda` (MOL) = `value_added` − B9.
+- `core_ebit` = `ebitda` − B10 a, b (and c when grouped) − B10 d − B12 − B13 (core parts), and
+  − B10 c moved into the core by `core_write_down`.
+
+Non-operating (accessory) management:
+- `non_operating_result` = A5 (non-operating part) − B14 (non-operating part) + C15 (unless moved
+  to non-recurring) + C16 (non-operating part).
+- `ebit` = `core_ebit` + `non_operating_result`.
+
+Non-recurring items:
+- `non_recurring_result` = Σ non-recurring income parts − Σ non-recurring expense parts − B10 c
+  (default, R18a).
+
+Financial management:
+- `financial_result` = C16 (financial part) − C17 + C17-bis.
+- `value_adjustments_of_financial_assets` = D18 − D19.
+
+Result:
+- `profit_before_tax` = `ebit` + `non_recurring_result` + `financial_result` +
+  `value_adjustments_of_financial_assets`; equals A − B ± C ± D.
+- `net_income` = `profit_before_tax` − item 20; equals item 21.
+- With a lease adjustment: B8 less the lease payments; depreciation added to B10 a, b; interest
+  added to C17.
 
 ## Appendix C — Adjustment kinds (proposed)
 Each adjustment has `kind`, `label`, `amount` (zero or more), `reason` and the fields listed.
@@ -624,5 +815,7 @@ Each adjustment has `kind`, `label`, `amount` (zero or more), `reason` and the f
 | `non_current_trade_payables` | D remainder (operating) | NFP other financial liability | none |
 | `dividends_declared` | equity | debt-like items | none |
 | `lease` | double entry (R23) | operating fixed assets, NFP, equity; B8, B10, C | asset, liability with current part, prepayment, payments, depreciation, interest |
-| `non_recurring` | any income statement aggregate | non-recurring result | aggregate pointer |
-| `non_operating` | A5, B14 | non-operating result | aggregate pointer |
+| `debt_like_provision` | provisions B or employee severance indemnity C (operating provision) | debt-like items | aggregate pointer |
+| `non_recurring` | any income statement aggregate except D18 and D19 | non-recurring result | aggregate pointer |
+| `non_operating` | A5, B14, C16 | non-operating result | aggregate pointer; optional related non-operating asset label |
+| `core_write_down` | B10 c (non-recurring result) | core management, below EBITDA | none |
