@@ -121,6 +121,7 @@ milestones:
           - { issue: 189, title: "Overflow of tvm.annuity growth factors at extreme inputs", status: open }
           - { issue: 190, title: "IRR and XIRR refuse a guess at or below -1", spec: "0002", status: done }
           - { issue: 217, title: "Rate domain checks without rounding in rates and the rate solver", status: open }
+          - { issue: 222, title: "Capital budgeting indicators: payback, profitability index, XMIRR, EAA", tags: [needs-methodology, parallel], status: open }
       - title: "Explain and audit trail"
         issue: 25
         labels: ["area:core"]
@@ -221,6 +222,7 @@ milestones:
           - { issue: 53, title: "MCP server (stdio) generated from the registry", status: done }
           - { issue: 54, title: "Function-calling tools for Anthropic and OpenAI with dispatcher", status: done }
           - { issue: 55, title: "Gemini and LangChain adapters", tags: [parallel, gfi], status: done }
+          - { issue: 219, title: "Agent evaluation suite with success rates per release", status: open }
       - title: "Agent skills and docs"
         issue: 56
         labels: ["area:docs"]
@@ -248,6 +250,12 @@ milestones:
           - { issue: 125, title: "Release readiness check and version policy", status: done }
           - { issue: 171, title: "Disclaimer: a calculation tool, decisions belong to the user", status: done }
           - { issue: 144, title: "Documentation site meets WCAG AA contrast for the active navigation item", tags: [parallel], status: done }
+      - title: "Distribution to analysts"
+        labels: []
+        tasks:
+          - { issue: 229, title: "Claude Desktop extension with the local MCP server", status: open }
+          - { issue: 230, title: "Fairmark skill and plugin for Claude and Claude Code", status: open }
+          - { issue: 231, title: "Quickstart for analysts without code", status: open }
 
   - title: "M4 · Traditional European methods"
     gate: "Golden cases green for every method."
@@ -290,6 +298,14 @@ milestones:
           - { issue: 213, title: "Debt sustainability ratio of the negotiated settlement test", tags: [needs-methodology], status: open }
           - { issue: 214, title: "Lender-practice profiles for ratios and covenants", tags: [needs-methodology], status: open }
           - { issue: 215, title: "Italian tax profile: interest deductibility limit and loss carry-forward", tags: [needs-methodology], status: open }
+      - title: "Corporate finance methods"
+        labels: []
+        tasks:
+          - { issue: 223, title: "Dividend discount model on the shared DCF engine", status: open }
+          - { issue: 224, title: "Adjusted present value (APV)", tags: [needs-methodology], status: open }
+          - { issue: 225, title: "Country risk and size premiums in the cost of equity", tags: [needs-methodology], status: open }
+          - { issue: 226, title: "Operating, financial and total leverage and break-even", status: open }
+          - { issue: 227, title: "Implied multiples of a DCF result as a market cross-check", tags: [parallel], status: open }
 
   - title: "M5 · Opt-in usage statistics"
     gate: "CI proves the payload carries no financial data; privacy notice reviewed by counsel."
@@ -316,6 +332,7 @@ milestones:
           - { issue: 85, title: "Debt schedule, levered returns and equity waterfall", tags: [parallel], status: open }
           - { issue: 86, title: "Market comparison approach with explicit adjustments", tags: [parallel, needs-methodology], status: open }
           - { issue: 207, title: "Lease-based income: passing rent, ERV, reversion and lease expiries", tags: [needs-methodology], status: open }
+          - { issue: 228, title: "Build-up approach for property discount rates", tags: [needs-methodology], status: open }
       - title: "Platform"
         issue: 87
         labels: ["area:core"]
@@ -326,3 +343,4 @@ milestones:
           - { issue: 91, title: "External methodological review", tags: [maintainer], status: open }
           - { issue: 92, title: "Jurisdiction profiles and translated manuals", tags: [parallel], status: open }
           - { issue: 167, title: "Dated periods and a stub first period in the DCF", spec: "0001", status: open }
+          - { issue: 232, title: "Integrations with ChatGPT, Gemini and Copilot through the hosted MCP", status: open }
