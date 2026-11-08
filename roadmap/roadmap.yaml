@@ -160,7 +160,7 @@ milestones:
       - title: "Financial ratios and covenants"
         labels: []
         tasks:
-          - { issue: 114, title: "Ratios and covenants: profitability, capital structure, liquidity, working capital, debt service (SPEC-0007)", tags: [parallel], spec: "0007", status: open }
+          - { issue: 114, title: "Ratios: profitability, capital structure, liquidity, working capital, debt service (SPEC-0007)", tags: [parallel], spec: "0007", status: done }
           - { issue: 147, title: "Covenant tests on contractual definitions", spec: "0007", status: open }
 
   - title: "M3 · Agent layer and v0.1 release"
