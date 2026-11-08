@@ -219,7 +219,7 @@ deterministic (AC13).
   "Terminology and sources" added to `i18n/glossary.yaml`.
 - Python helper `python/fairmark/statements.py`: `reorganise(years, treatments=None,
   adjustments=None)`, passing amounts as strings; no default values beyond the engine's.
-- Release note fragments: `changes/35.feature.md` (PR 1), one for #TBD (income statement), and
+- Release note fragments: `changes/35.feature.md` (PR 1), one for #236, and
   `changes/36.feature.md` (PR 3).
 - Commit scope `statements` in `scripts/conventions.py` and `docs/en/project/conventions.md`.
 
@@ -231,7 +231,7 @@ checks the evidence of `specs/method-evidence.yaml`).
 | Pull request | Content | Requirements | Closes | Tasks |
 | --- | --- | --- | --- | --- |
 | PR 1: input schema and balance sheet | Complete input schema; validation; best effort; checks; balance sheet in both forms; net financial position; bridge items; `current_non_current`; balance sheet adjustments; registry; Python helper; page and glossary for the balance sheet | R1 to R15, R22, R24 | #35 | T1 to T19 |
-| PR 2: income statement | Layers of B.2; write-downs and the `operating` option; A5 and B14; non-recurring and investing adjustments; `lease` (both statements); reclassified income statement; reconciliations | R16 to R21 | #TBD (income statement) | T20 to T31 |
+| PR 2: income statement | Layers of B.2; write-downs and the `operating` option; A5 and B14; non-recurring and investing adjustments; `lease` (both statements); reclassified income statement; reconciliations | R16 to R21 | #236 | T20 to T31 |
 | PR 3: years, changes and independent sources | Changes between years; mixed forms; published and practitioner golden cases; concept page; final audit and review | R23; AC3, AC6, AC14 | #36 | T32 to T41 |
 
 **Behaviour between pull requests (unreleased).** After PR 1 the income statement inputs are
@@ -268,4 +268,4 @@ on main between merges and never in a release.
    29 February 2024 (R2 clarified; AC6 `end-of-month-dates.yaml`).
 3. `FM-E026` is free on main and kept.
 4. Roadmap: the coordinator adds the task for PR 2 and retitles #35 and #36; `tasks.md` refers
-   to the new task as "#TBD (income statement)" until it is replaced.
+   to the new task as "#236" until it is replaced.

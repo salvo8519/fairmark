@@ -9,7 +9,7 @@ request where every output they assert exists (`plan.md`, "Test strategy").
 
 ## Project (before PR 1)
 - [ ] T1 Roadmap: the coordinator adds the task for PR 2 under epic #34 (referred to here as
-  "#TBD (income statement)", to be replaced with its number), retitles #35 and #36 and removes
+  "#236", to be replaced with its number), retitles #35 and #36 and removes
   `needs-methodology` from #35; check that `python scripts/roadmap.py` passes
 - [ ] T2 Spec status `Implementing` when PR 1 opens
 
@@ -87,7 +87,7 @@ request where every output they assert exists (`plan.md`, "Test strategy").
 - [ ] T19 `code-reviewer` review of the PR 1 diff and `numerical-auditor` recomputation of the
   PR 1 golden cases from T3 and of determinism; findings applied
 
-## PR 2: income statement (closes #TBD (income statement); part of #36)
+## PR 2: income statement (closes #236; part of #36)
 
 ### Tests (write first, they must fail)
 - [ ] T20 Reference: A.2, B.2, income statement adjustments, the `lease` double entry (R21),
@@ -119,7 +119,7 @@ request where every output they assert exists (`plan.md`, "Test strategy").
 - [ ] T29 [P] Methodology page: A.2, B.2, write-down rule, R20 table "which output feeds which
   method"
 - [ ] T30 [P] Glossary terms of the income statement; Italian edition by `translator`; release
-  note for #TBD (income statement)
+  note for #236
 
 ### Verification
 - [ ] T31 `code-reviewer` review of the PR 2 diff and `numerical-auditor` recomputation of the
@@ -150,7 +150,7 @@ request where every output they assert exists (`plan.md`, "Test strategy").
 - [ ] T39 [P] Concept page `docs/en/concepts/financial-statements.md`; methodology page completed
   (example from a filed abridged statement, "Verified against", sources of "Sources to verify"
   resolved or marked); Italian edition by `translator`; release note `changes/36.feature.md`
-- [ ] T40 Roadmap: #35, #36 and #TBD (income statement) done; `python scripts/roadmap.py render`
+- [ ] T40 Roadmap: #35, #36 and #236 done; `python scripts/roadmap.py render`
 
 ### Verification
 - [ ] T41 `uv run just check` green; independent `numerical-auditor` audit of every golden case
