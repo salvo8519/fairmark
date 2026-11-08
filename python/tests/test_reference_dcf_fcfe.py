@@ -382,3 +382,94 @@ def test_python_helper_matches_the_registry() -> None:
         non_operating_assets=[{"label": "Excess cash", "value": "30"}],
     )
     assert helper.equity_value == D(run("dcf.fcfe", payload)["equity_value"])
+
+
+# Every technique accepted on the equity basis, with its terms inside the DCF.
+EQUITY_TECHNIQUES: dict[str, dict[str, Any]] = {
+    "tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"},
+    "tv.h_model": {
+        "short_term_growth": "0.06",
+        "long_term_growth": "0.02",
+        "half_life": "2.5",
+        "first_flow": "last_flow_grown",
+    },
+    "tv.limited_horizon": {
+        "flow": "95",
+        "periods": 12,
+        "growth": "0.01",
+        "residual_value": "400",
+    },
+    "tv.liquidation": {
+        "assets": [{"label": "Plant", "value": "900"}, {"label": "Receivables", "value": "210"}],
+        "liabilities": [{"label": "Bank loans", "value": "350"}],
+        "liquidation_costs": [{"label": "Closure", "value": "45"}],
+        "tax_on_gains": "30",
+        "basis": "equity",
+    },
+    "tv.exit_multiple": {
+        "multiple": "11.5",
+        "metric": "earnings",
+        "metric_value": "120",
+        "next_flow": "98",
+    },
+    "tv.normalised_income": {"income": "105", "basis": "equity", "growth": "0.015"},
+}
+EQUITY_RATE_FORMS: list[dict[str, Any]] = [
+    {"cost_of_equity": "0.115"},
+    {
+        "cost_of_equity_per_period": ["0.13", "0.125", "0.12", "0.115"],
+        "terminal_cost_of_equity": "0.11",
+    },
+]
+
+
+def standalone_input(technique: str, terms: dict[str, Any], rate: str, last_flow: str) -> Any:
+    """The input of the `tv.*` method run alone with the same terms, at the terminal cost of
+    equity."""
+    t = dict(terms)
+    if technique in ("tv.gordon", "tv.h_model"):
+        t.pop("first_flow")
+        return {**t, "rate": rate, "last_flow": last_flow}
+    if technique == "tv.exit_multiple":
+        return {**t, "rate": rate} if "next_flow" in t else t
+    if technique == "tv.liquidation":
+        return t
+    if technique == "tv.normalised_income":
+        return {**t, "capitalisation_rate": rate}
+    return {**t, "rate": rate}
+
+
+@pytest.mark.parametrize(
+    ("technique", "rates", "timing"),
+    list(product(EQUITY_TECHNIQUES, EQUITY_RATE_FORMS, TIMINGS)),
+    ids=str,
+)
+def test_ac11_terminal_value_on_the_equity_basis_equals_the_standalone_method(
+    technique: str, rates: dict[str, Any], timing: tuple[str, str | None]
+) -> None:
+    """AC11 on the equity basis (R19): each technique accepted by dcf.fcfe gives, inside the
+    DCF, the terminal value and the whole output of the `tv.*` method run alone on the same
+    terms at the terminal cost of equity."""
+    payload: dict[str, Any] = {
+        "stages": [
+            {"periods": 2, "projection": "given", "flows": ["80", "86"]},
+            {"periods": 2, "projection": "constant_growth", "growth": "0.03"},
+        ],
+        "cash_flow_terms": "nominal",
+        "discount_rate_terms": "nominal",
+        **rates,
+        "timing": timing[0],
+        "terminal": {technique: EQUITY_TECHNIQUES[technique]},
+    }
+    if timing[1]:
+        payload["terminal_discount_time"] = timing[1]
+    dcf = run("dcf.fcfe", payload)
+    rate = rates.get("cost_of_equity", rates.get("terminal_cost_of_equity"))
+    alone = fm.run_json(
+        technique,
+        standalone_input(technique, EQUITY_TECHNIQUES[technique], rate, dcf["periods"][-1]["flow"]),
+    )
+    assert dcf["terminal"]["technique"] == technique
+    assert alone["meta"]["method_version"] == dcf["terminal"]["technique_version"]
+    assert dcf["terminal"]["terminal_value"] == alone["value"]["terminal_value"]
+    assert dcf["terminal"]["output"] == alone["value"]
