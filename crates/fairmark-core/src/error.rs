@@ -210,11 +210,13 @@ pub struct Reconciliation {
     /// The first side, with its JSON pointers and the year, for example "total B, fixed
     /// assets (`/years/0/statutory/balance_sheet/fixed_assets`, 2024)".
     pub left_name: String,
+    /// The amount of the first side, in the currency units of the statements.
     pub left: Decimal,
     /// The second side, with the pointers of its components.
     pub right_name: String,
+    /// The amount of the second side, in the currency units of the statements.
     pub right: Decimal,
-    /// `left − right`.
+    /// `left − right`, in the currency units of the statements.
     pub difference: Decimal,
     /// How to correct the input.
     pub fix: String,

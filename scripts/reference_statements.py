@@ -145,6 +145,10 @@ RECLASSIFIED_SIGNED_IS = {
 
 
 def dec(x: Any) -> D:
+    """An exact decimal from a string or an integer; a float is refused, because its binary
+    value is not the decimal the user wrote (constitution I)."""
+    if isinstance(x, float):
+        raise TypeError(f"{x!r} is a float: give amounts as strings, for example '0.1'")
     return D(str(x))
 
 
@@ -158,7 +162,9 @@ def walk_signs(node: Any, pointer: str, path: tuple[str, ...], signed: Callable[
         for i, v in enumerate(node):
             walk_signs(v, f"{pointer}/{i}", (*path, str(i)), signed)
         return
-    if isinstance(node, (int, float, str)) and not isinstance(node, bool):
+    if isinstance(node, float):
+        raise TypeError(f"{pointer} is a float: give amounts as strings")
+    if isinstance(node, (int, str)) and not isinstance(node, bool):
         try:
             v = dec(node)
         except Exception:
@@ -1468,6 +1474,12 @@ def _self_test() -> None:
     a = plus(known(D(1)), lacking("/x"), lacking("/y"))
     assert a.missing == {"/x", "/y"}
     assert plus(known(D("0.1")), known(D("0.2"))).value == D("0.3")
+    try:
+        dec(0.1)
+    except TypeError:
+        pass
+    else:
+        raise AssertionError("a float must be refused")
 
 
 if __name__ == "__main__":

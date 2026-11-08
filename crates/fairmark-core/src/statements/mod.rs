@@ -39,7 +39,9 @@ use crate::tv::Line;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Form {
+    /// Aggregates of art. 2424 and 2425 (Appendix A).
     Statutory,
+    /// Totals already reclassified (Appendix B).
     Reclassified,
 }
 
@@ -47,17 +49,29 @@ pub enum Form {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Destination {
+    /// Operating fixed assets, in invested capital.
     OperatingFixedAssets,
+    /// Operating working capital, in invested capital.
     OperatingWorkingCapital,
+    /// Operating provisions, deducted in invested capital.
     OperatingProvisions,
+    /// Non-operating assets, outside invested capital, for the bridge.
     NonOperatingAssets,
+    /// Gross debt of the net financial position.
     NetFinancialPositionGrossDebt,
+    /// Cash of the net financial position.
     NetFinancialPositionCash,
+    /// An other item of the net financial position, an asset (negative in it).
     NetFinancialPositionOtherFinancialAsset,
+    /// An other item of the net financial position, a liability (positive in it).
     NetFinancialPositionOtherFinancialLiability,
+    /// Quasi-equity items, among the sources next to equity.
     QuasiEquityItems,
+    /// Debt-like items, for the bridge.
     DebtLikeItems,
+    /// Equity.
     Equity,
+    /// Deducted from equity (subscribed capital unpaid).
     DeductedFromEquity,
 }
 
@@ -112,6 +126,7 @@ pub struct Assignment {
     pub aggregate: String,
     /// Amount assigned, in currency units.
     pub amount: Decimal,
+    /// Where the amount goes.
     pub destination: Destination,
     /// `mapping` (Appendix A) or `analyst` (treatment or override).
     pub origin: Origin,
@@ -122,13 +137,17 @@ pub struct Assignment {
 pub struct AppliedAdjustment {
     /// Position of the adjustment in `adjustments`.
     pub index: usize,
+    /// The kind of Appendix C, for example `operating_cash`.
     pub kind: &'static str,
+    /// The adjustment's label, as given.
     pub label: String,
     /// Amount moved, in currency units.
     pub amount: Decimal,
+    /// The adjustment's reason, as given.
     pub reason: String,
     /// JSON pointer of the source aggregate.
     pub source: String,
+    /// Where the amount goes.
     pub target: Destination,
 }
 
@@ -137,27 +156,32 @@ pub struct AppliedAdjustment {
 pub struct OperatingBlock {
     /// Operating fixed assets, in currency units.
     pub operating_fixed_assets: Option<Decimal>,
-    /// Operating working capital, in currency units.
+    /// Operating working capital, in currency units, signed.
     pub operating_working_capital: Option<Decimal>,
-    /// Trade receivables + inventories − trade payables, in currency units.
+    /// Trade receivables + inventories − trade payables, in currency units, signed.
     pub trade_working_capital: Option<Decimal>,
     /// Provisions and employee severance indemnity treated as operating, in currency units.
     pub operating_provisions: Option<Decimal>,
-    /// Operating fixed assets + operating working capital − operating provisions.
+    /// Operating fixed assets + operating working capital − operating provisions, in currency
+    /// units, signed.
     pub invested_capital: Option<Decimal>,
 }
 
 /// One component of the net financial position, with its source and maturities (R13).
 #[derive(Debug, Clone, Serialize)]
 pub struct NfpComponent {
+    /// What the component is, for example "Cash (C.IV)".
     pub label: String,
     /// JSON pointer of the input it comes from (an aggregate or an adjustment).
     pub source: String,
-    /// Amount added to the net financial position, signed (negative for an asset).
+    /// Amount added to the net financial position, in currency units, signed (negative for an
+    /// asset).
     pub amount: Decimal,
-    /// Part due within one year, signed; null when its maturity split is not given.
+    /// Part due within one year, in currency units, signed; null when its maturity split is not
+    /// given.
     pub current: Option<Decimal>,
-    /// Part due beyond one year, signed; null when its maturity split is not given.
+    /// Part due beyond one year, in currency units, signed; null when its maturity split is not
+    /// given.
     pub non_current: Option<Decimal>,
 }
 
@@ -167,11 +191,11 @@ pub struct NfpComponent {
 pub struct NetFinancialPositionBlock {
     /// The SPEC-0007 object, accepted unchanged by `ratios.*` and `dcf.fcff`.
     pub position: Option<NetFinancialPosition>,
-    /// Gross debt − cash + other items, positive for net debt, in currency units.
+    /// Gross debt − cash + other items, positive for net debt, in currency units, signed.
     pub total: Option<Decimal>,
-    /// Part due within one year, in currency units.
+    /// Part due within one year, in currency units, signed.
     pub current: Option<Decimal>,
-    /// Part due beyond one year, in currency units.
+    /// Part due beyond one year, in currency units, signed.
     pub non_current: Option<Decimal>,
     /// Every component by source (statutory form).
     pub composition: Option<Vec<NfpComponent>>,
@@ -180,50 +204,70 @@ pub struct NetFinancialPositionBlock {
 /// The sources (Appendix B.1).
 #[derive(Debug, Clone, Serialize)]
 pub struct Sources {
-    /// Equity after subscribed capital unpaid and dividends declared, in currency units.
+    /// Equity after subscribed capital unpaid and dividends declared, in currency units,
+    /// signed.
     pub equity: Option<Decimal>,
+    /// Quasi-equity items, each a label and an amount in currency units.
     pub quasi_equity_items: Option<Vec<Line>>,
+    /// Σ quasi-equity items, in currency units.
     pub quasi_equity_items_total: Option<Decimal>,
+    /// The net financial position (SPEC-0007 type) with its total, parts and composition.
     pub net_financial_position: NetFinancialPositionBlock,
-    /// In the type of the `dcf.fcff` bridge, at carrying amount (`book_value`).
+    /// In the type of the `dcf.fcff` bridge, at carrying amount (`book_value`), amounts in
+    /// currency units.
     pub debt_like_items: Option<Vec<BridgeClaim>>,
+    /// Σ debt-like items, in currency units.
     pub debt_like_items_total: Option<Decimal>,
-    /// Equity + quasi-equity + net financial position + debt-like items.
+    /// Equity + quasi-equity + net financial position + debt-like items, in currency units,
+    /// signed.
     pub total_sources: Option<Decimal>,
 }
 
 /// The reorganised balance sheet (R12).
 #[derive(Debug, Clone, Serialize)]
 pub struct BalanceSheet {
+    /// The operating block, up to invested capital.
     pub operating: OperatingBlock,
-    /// In the type `dcf.fcff` takes, never part of invested capital.
+    /// In the type `dcf.fcff` takes, never part of invested capital; amounts in currency
+    /// units.
     pub non_operating_assets: Option<Vec<Line>>,
+    /// Σ non-operating assets, in currency units.
     pub non_operating_assets_total: Option<Decimal>,
-    /// Invested capital + Σ non-operating assets; equals `total_sources`.
+    /// Invested capital + Σ non-operating assets, in currency units, signed; equals
+    /// `total_sources`.
     pub total_funds_invested: Option<Decimal>,
+    /// Equity, quasi-equity, net financial position and debt-like items.
     pub sources: Sources,
-    /// Cash of the net financial position: C.IV less operating cash.
+    /// Cash of the net financial position: C.IV less operating cash, in currency units.
     pub excess_cash: Option<Decimal>,
 }
 
 /// Current and non-current amounts with the field names of the SPEC-0007 inputs (R15).
 #[derive(Debug, Clone, Serialize)]
 pub struct CurrentNonCurrent {
-    /// Non-current assets, in currency units.
+    /// Non-current assets (B, C.II and assets D beyond one year), in currency units.
     pub fixed_assets: Option<Decimal>,
+    /// Current assets (C less C.II beyond one year and item A within it, plus assets D within
+    /// one year), in currency units.
     pub current_assets: Option<Decimal>,
+    /// Inventories C.I, in currency units.
     pub inventories: Option<Decimal>,
+    /// Cash C.IV, in currency units.
     pub cash: Option<Decimal>,
-    /// Fixed + current assets: total assets less subscribed capital unpaid.
+    /// Fixed + current assets: total assets less subscribed capital unpaid, in currency units.
     pub total_assets: Option<Decimal>,
+    /// Liabilities due within one year (B, C, D, E), in currency units.
     pub current_liabilities: Option<Decimal>,
+    /// Liabilities due beyond one year (B, C, D, E), in currency units.
     pub non_current_liabilities: Option<Decimal>,
 }
 
 /// A missing treatment and the destinations it permits (R8).
 #[derive(Debug, Clone, Serialize)]
 pub struct Permitted {
+    /// JSON pointer of the treatment to give.
     pub treatment: String,
+    /// Its permitted values.
     pub destinations: Vec<&'static str>,
 }
 
@@ -234,6 +278,7 @@ pub struct NotComputedEntry {
     pub output: String,
     /// JSON pointers of the inputs it needs and lacks.
     pub missing: Vec<String>,
+    /// For a missing treatment, its permitted destinations; omitted otherwise.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub permitted: Vec<Permitted>,
 }
@@ -241,24 +286,34 @@ pub struct NotComputedEntry {
 /// The outputs not computed, one list per block, sorted by output pointer.
 #[derive(Debug, Clone, Serialize)]
 pub struct NotComputed {
+    /// Outputs of the balance sheet block.
     pub balance_sheet: Vec<NotComputedEntry>,
+    /// Outputs of the current and non-current block.
     pub current_non_current: Vec<NotComputedEntry>,
 }
 
 /// One financial year reorganised.
 #[derive(Debug, Clone, Serialize)]
 pub struct YearOutput {
+    /// The year's label, as given.
     pub label: Option<String>,
+    /// The balance sheet date, as given.
     pub date: Option<Date>,
     /// `statutory`, `reclassified`, or null when the entry gives neither.
     pub form: Option<Form>,
+    /// The statutory layout, echoed.
     pub layout: Option<Layout>,
+    /// The reorganised balance sheet (R12).
     pub balance_sheet: BalanceSheet,
+    /// Current and non-current amounts for SPEC-0007 (R15).
     pub current_non_current: CurrentNonCurrent,
+    /// Every aggregate given, with its destination (R11).
     pub assignments: Vec<Assignment>,
+    /// Every adjustment applied to the year (R11).
     pub adjustments_applied: Vec<AppliedAdjustment>,
     /// Every relation of R7 and R12, by id.
     pub checks: BTreeMap<&'static str, Check>,
+    /// The outputs not computed, with the inputs they lack (R6).
     pub not_computed: NotComputed,
 }
 
