@@ -250,6 +250,12 @@ milestones:
           - { issue: 125, title: "Release readiness check and version policy", status: done }
           - { issue: 171, title: "Disclaimer: a calculation tool, decisions belong to the user", status: done }
           - { issue: 144, title: "Documentation site meets WCAG AA contrast for the active navigation item", tags: [parallel], status: done }
+      - title: "Distribution to analysts"
+        labels: []
+        tasks:
+          - { issue: 229, title: "Claude Desktop extension with the local MCP server", status: open }
+          - { issue: 230, title: "Fairmark skill and plugin for Claude and Claude Code", status: open }
+          - { issue: 231, title: "Quickstart for analysts without code", status: open }
 
   - title: "M4 · Traditional European methods"
     gate: "Golden cases green for every method."
@@ -337,3 +343,4 @@ milestones:
           - { issue: 91, title: "External methodological review", tags: [maintainer], status: open }
           - { issue: 92, title: "Jurisdiction profiles and translated manuals", tags: [parallel], status: open }
           - { issue: 167, title: "Dated periods and a stub first period in the DCF", spec: "0001", status: open }
+          - { issue: 232, title: "Integrations with ChatGPT, Gemini and Copilot through the hosted MCP", status: open }
