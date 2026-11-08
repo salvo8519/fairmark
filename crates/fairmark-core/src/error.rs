@@ -70,6 +70,18 @@ pub enum FairmarkError {
 
     #[error("enterprise and equity measures are mixed: {0}")]
     MixedBasis(String),
+
+    #[error("balloon amount out of range: {0}")]
+    BalloonOutOfRange(String),
+
+    #[error(
+        "the instalment ({instalment}) does not exceed the interest of the first period \
+         ({interest}): the outstanding balance never decreases and the loan is never repaid"
+    )]
+    LoanNeverRepaid {
+        instalment: Decimal,
+        interest: Decimal,
+    },
 }
 
 impl FairmarkError {
@@ -95,6 +107,8 @@ impl FairmarkError {
             Self::NestedAnalysis(_) => "FM-E017",
             Self::TerminalValueDomain(_) => "FM-E018",
             Self::MixedBasis(_) => "FM-E019",
+            Self::BalloonOutOfRange(_) => "FM-E020",
+            Self::LoanNeverRepaid { .. } => "FM-E021",
         }
     }
 
