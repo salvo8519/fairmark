@@ -231,12 +231,15 @@ nominal before taxes; a leading exit multiple.
   on the enterprise basis and SHALL return `FM-E019` with FCFE (Decision 23). (Amended
   2026-11-08, Decision 23.) WHEN the option is `none`, THE ENGINE SHALL value the explicit
   flows only (a holding period of N periods), return a terminal value and its present value of
-  zero and a terminal value weight of zero, and report as a warning that no terminal value is
-  included (an exit value can be included in the last flow, or given as a terminal value).
+  zero, a terminal value weight of zero (or `null` when the value of operations, or on the
+  equity basis the present value of the flows, is zero) and a discounting time and factor of
+  `null`, and report as a warning that no terminal value is included (an exit value can be
+  included in the last flow, or given as a terminal value).
   WHEN the option is `given`, THE ENGINE SHALL take the amount at the horizon N as given, on
   the basis of the DCF (enterprise for FCFF, equity for FCFE) and in the terms of the cash
   flows, of any sign, discount it as a technique's terminal value (R21), report that the amount
-  and its basis are the analyst's, and report a negative amount as a warning (Decision 24).
+  and its basis are the analyst's, and report a negative amount as a warning, with a second
+  warning that the terminal value weight is then not meaningful (Decision 24).
 - **R20** — WHEN the technique uses the last explicit flow (`tv.gordon`, `tv.h_model`), THE
   ENGINE SHALL require an explicit choice of the first terminal flow: for `tv.gordon`, the last
   explicit flow grown by the perpetual growth, or a given normalised flow at N + 1; for
@@ -249,10 +252,12 @@ nominal before taxes; a leading exit multiple.
   it SHALL require the terminal discounting time, `horizon`
   (t = N, factor DF_N) or `mid_period` (t = N − 0.5, factor DF_N × (1 + r_T)^0.5, with r_T the
   terminal rate; identical to (1 + r_N)^0.5 when one rate is given, Decision 16), and report it;
-  WHEN `mid_period` is chosen for `tv.exit_multiple`, `tv.liquidation` or `tv.limited_horizon`
-  (a price at a date; for the limited horizon, its residual value, Decision 17), it SHALL report
+  WHEN `mid_period` is chosen for `tv.exit_multiple`, `tv.liquidation`, `tv.limited_horizon`
+  (a price at a date; for the limited horizon, its residual value, Decision 17) or a `given`
+  terminal value (the analyst's terminal value at the horizon N, Decision 24), it SHALL report
   a warning. WHEN the timing is `end_of_period`, the terminal discounting time SHALL NOT be given
-  (`FM-E001`); with no terminal value (`none`) it SHALL NOT be given either (`FM-E001`).
+  (`FM-E001`; when the timing took its default, the message SHALL say so and give both fixes);
+  with no terminal value (`none`) it SHALL NOT be given either (`FM-E001`).
   (Amended 2026-11-08, Decisions 16, 17 and 24.)
 - **R22** — THE ENGINE SHALL return the terminal value at N, its present value and, in every
   result, the terminal value weight: the present value of the terminal value divided by the
@@ -321,7 +326,7 @@ nominal before taxes; a leading exit multiple.
 | Stage projection | `given`, `constant_growth`, `linear_decline` | `given` when the stage has `flows` or `lines`; otherwise required (Decision 24) | Damodaran, three-stage models (Terminology [S2], [S3]) |
 | Periods of a stage | integer of at least 1 | the number of flows or lines of a `given` stage; required for a generated stage (Decision 24) | Spec |
 | Linear decline step | g_k = g_from + (g_to − g_from) × k / m, g_to reached in the last period | fixed (Decision 4) | Damodaran [S3] Illustration 15.3 (growth 11.46% to 5.00% "in linear increments") |
-| Discount rate | one rate, or one per period with an explicit terminal rate | required | SPEC-0002 R5 |
+| Discount rate | one rate, or one per period with an explicit terminal rate when the terminal value uses one (a technique, or the half-period shift of a given value; Decision 24) | required | SPEC-0002 R5 |
 | Terms of flows and rates | `nominal`, `real` | `nominal`, each (Decision 24) | Fisher relation, SPEC-0002 R4; plans and discount rates are commonly stated at current prices |
 | Conversion when terms differ | rates converted to the terms of the flows; flows never converted | fixed (Decision 5) | Fisher relation |
 | Timing | `end_of_period`, `mid_period` | `end_of_period` (Decision 24; also the default of version 2) | Practice varies; end of period is the convention of `tvm.npv` |
@@ -383,6 +388,22 @@ nominal before taxes; a leading exit multiple.
 - **AC15** (R30) — Every `dcf.fcff` version 2 golden case, re-expressed in the new input, gives
   identical expected values (version 2 `enterprise_value` compared with version 3
   `value_of_operations`).
+- **AC16** (R31, R19 options, R21; Decision 24) — Golden cases from the 50-digit reference,
+  which fills in the defaults with its own code: the minimal input of `dcf.fcff` and `dcf.fcfe`
+  matches the reference; its explicit equivalent gives the same value and the same
+  `meta.input_hash`; each default overridden alone (timing, terms of the flows, terms of the
+  rates, terminal technique) matches the reference and removes only its own entry from
+  `meta.defaults_applied`; the minimal input of `dcf.fcff` equals `tvm.npv` of the same flows
+  with a first flow of zero (to the last digit at the rate of the golden case); a `given`
+  terminal value at N, at N − 0.5 with rates per period, negative, and on the equity basis
+  matches the reference. Unit tests: every default is reported first in
+  `explain.conventions` and in `meta.defaults_applied`, through the registry and through the
+  typed Rust call alike; `meta.defaults_applied` is omitted when empty; the warning for no
+  terminal value, for a negative given value and for a given value at N − 0.5 is reported; an
+  explicit `null` for a defaulted field, a terminal rate or inflation not used, a terminal
+  discounting time with no terminal value or with the default timing, and two terminal options
+  return `FM-E001` with the pointer and, where a default is involved, a message that says so;
+  the schema keeps the version 3 constraints, with the defaults in the descriptions.
 
 ## Interfaces (Revised 2026-11-08)
 - Method ids (Decision 1): `dcf.fcff` version 3 (enterprise basis, breaking input change),
@@ -393,7 +414,12 @@ nominal before taxes; a leading exit multiple.
   `analysis.sensitivity`.
 - Input schema changes: `dcf.fcff` version 3 is **breaking** (`timing` becomes required;
   `net_debt` becomes the net financial position structure; `non_operating_assets` becomes a
-  list of labelled amounts; new required stages, terms and terminal technique). Output change:
+  list of labelled amounts; new required stages, terms and terminal technique). Amended by
+  Decision 24, an additive change of `dcf.fcff` version 3 and `dcf.fcfe` version 1: only
+  `stages` (and a discount rate) is required; `stages[].projection`, `stages[].periods`,
+  `cash_flow_terms`, `discount_rate_terms`, `timing` and `terminal` have documented defaults,
+  an explicit `null` for them is refused; `terminal` takes the new options `given` and
+  `none`. Output change:
   the version 2 `enterprise_value` (present values only) is the version 3
   `value_of_operations`; the version 3 `enterprise_value` includes the non-operating assets.
   The two new methods are **additive**. Within version 3, new projection kinds, terminal
@@ -418,6 +444,12 @@ nominal before taxes; a leading exit multiple.
   version (R19 to R22), `bridge` block with every line (R23 to R25), `value_of_operations` and
   `enterprise_value` (FCFF only, R23), `equity_value` (both bases), `terminal_value_weight`
   (R22), converted rates (R16). Each output field has the single meaning stated in R22 to R24.
+  Since Decision 24 some output fields are `null` when they do not apply: `terminal.rate`,
+  `terminal.technique_version`, `terminal.output`, `terminal.discount_time` and
+  `terminal.discount_factor` (`none`; the rate also for a `given` value discounted at N), and
+  `terms.terminal_rate_given`, `terms.terminal_rate_used` and `terms.terminal_inflation` when
+  no terminal rate is used; `terminal.technique` is `given` or `none` for those options.
+  `meta.defaults_applied` is new for every method, omitted when no default applies (R31).
 
 ## Terminology and sources (Revised 2026-11-08)
 The terms below were checked on 2026-11-08 against the sources listed after the table (keys
@@ -521,7 +553,8 @@ the source verification.
       terminal value; a finite last phase uses `tv.limited_horizon`. Amended by Decision 24:
       the terminal value may be given as an amount (`given`) or omitted (`none`, the default).
 - [x] **3. Growth choice.** A required `projection` per stage (`given`, `constant_growth`,
-      `linear_decline`), no default, never a boolean.
+      `linear_decline`), no default, never a boolean. Amended by Decision 24: `given` is the
+      default for a stage with `flows` or `lines`.
 - [x] **4. Linear decline step.** g_k = g_from + (g_to − g_from) × k / m: g_from is the growth
       before the stage and g_to is reached in the last period ("from 10% to 3% over 5 years":
       8.6, 7.2, 5.8, 4.4, 3.0), as in [S3] Illustration 15.3.
@@ -530,7 +563,9 @@ the source verification.
       Fisher relation; flows are never converted.
 - [x] **6. Timing.** `timing` is required; under mid-period the terminal discounting time
       (`horizon` or `mid_period`) is required, with a warning for an exit multiple or a
-      liquidation discounted at N − 0.5.
+      liquidation discounted at N − 0.5. Amended by Decision 24: `timing` defaults to
+      `end_of_period`; the terminal discounting time is required only when a terminal value
+      is discounted.
 - [x] **7. Taxes on EBIT.** Exactly one of a tax rate on EBIT or per-period tax amounts.
 - [x] **8. Negative EBIT.** Required choice: `credit` (taxes = rate × EBIT) or `zero` (no tax);
       no default; tax loss carry-forwards out of scope.
@@ -674,9 +709,16 @@ the source verification.
       results have equal hashes; `meta.defaults_applied` is omitted when no default applies,
       for every method. The change is additive to `dcf.fcff` version 3 and `dcf.fcfe`
       version 1 (required fields become optional; existing inputs give byte-identical
-      results). Amends R6, R12, R14, R15, R19, R21, R29, Decision 2 and the conventions table;
-      adds R31. The approval extends to exactly one existing golden case (see "Recorded
-      approval of the numerical change").
+      results). Amends R6, R12, R14, R15, R19, R21, R29, Decisions 2, 3 and 6, "Interfaces" and
+      the conventions table; adds R31 and AC16. The approval extends to exactly one existing
+      golden case (see "Recorded approval of the numerical change").
+      Recorded with the code review and the numerical audit of #197 (2026-11-08), within the
+      decision: an explicit `null` for a field with a default is refused (`FM-E001`, leave the
+      field out to use the default, or give a value); a terminal discounting time with the
+      default timing names the default in the message; a `given` terminal value discounted at
+      N − 0.5 carries the warning of an amount stated at a date ("given: the analyst's
+      terminal value at the horizon N"), as an exit multiple, a liquidation and a limited
+      horizon do; with `none` the discounting time and factor are `null`.
 
 Terminology decisions from the source verification:
 - [x] **a.** The projection option `linear_fade` is renamed `linear_decline` everywhere

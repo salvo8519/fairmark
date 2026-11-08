@@ -266,10 +266,12 @@ version 1: required fields become optional; every earlier input gives a byte-ide
 - [x] F2 [P] Golden cases from the reference: minimal input (FCFF and FCFE), its explicit
   equivalent, each default overridden, terminal value given (end of period, N − 0.5 with rates
   per period, negative, equity basis); `tvm.npv` cross-check; error cases; the approved
-  replacement of `error-timing-missing.yaml` [R6, R12, R15, R19, R21]
+  replacement of `error-timing-missing.yaml`; `error-explicit-null-timing.yaml` [R6, R12,
+  R15, R19, R21; AC16]
 - [x] F3 [P] `crates/fairmark-core/tests/dcf_defaults.rs`: `meta.defaults_applied`, conventions,
   warning, hash of the explicit equivalent, explicit fields prevail, `FM-E024` message, schema;
-  `python/tests/test_dcf_defaults.py` [R31; AC14]
+  `python/tests/test_dcf_defaults.py`; the typed call, explicit `null`, the messages of the
+  review [R31; AC14, AC16]
 
 ### Implementation
 - [x] F4 `Method::apply_defaults` and `Method::compute_with_defaults`; `meta.defaults_applied`,
@@ -287,4 +289,7 @@ version 1: required fields become optional; every earlier input gives a byte-ide
 ### Verification
 - [x] F8 Every golden input of main gives a byte-identical result except the approved case;
   schema snapshots additive against main
-- [ ] F9 `code-reviewer` and `numerical-auditor` reviews (maintainer)
+- [x] F9 `code-reviewer` review (no blocking items) and `numerical-auditor` audit
+  (numerically sound), 2026-11-08; their fixes applied
+- [ ] F10 Follow-up issue: refuse an explicit `null` for the other optional fields of the DCF
+  inputs (listed in the pull request)
