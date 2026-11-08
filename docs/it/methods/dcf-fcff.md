@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: 8422b7de0bbd
+source_hash: 76ea7bfef5f5
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
@@ -51,7 +51,9 @@ volta, prima del calcolo:
 
 Ogni valore predefinito applicato è elencato in `meta.defaults_applied` (il JSON pointer del
 campo, il valore assegnato e il motivo) e indicato per primo in `explain.conventions`, con il
-prefisso "default:". Un campo fornito esplicitamente prevale sempre e non è elencato. Senza
+prefisso "default:". Un campo fornito esplicitamente prevale sempre e non è elencato. Il valore
+predefinito si ottiene omettendo il campo: un `null` esplicito per uno di questi campi è
+rifiutato con `FM-E001`. Senza
 valore terminale la valutazione copre soltanto i flussi forniti, un periodo di detenzione pari
 al loro numero: il valore terminale, il suo valore attuale e il `terminal_value_weight` sono
 zero, e un'avvertenza segnala che il valore terminale non è incluso. Includere un valore di
@@ -136,15 +138,17 @@ l'identificativo del suo metodo, un valore terminale fornito dall'analista, oppu
 | Opzione | Forma | Valore terminale in N |
 | --- | --- | --- |
 | Una tecnica | `{"tv.gordon": {...}}` e le altre indicate sotto | calcolato dalla tecnica |
-| Fornito dall'analista | `{"given": {"value": "2000"}}` | l'importo come fornito: il value of operations in N, con approccio asset side, nei termini dei flussi di cassa; di qualunque segno, un importo negativo (per esempio un costo di smantellamento) è riportato come avvertenza |
-| Nessuno | `{"none": {}}`, il valore predefinito | zero; il valore copre soltanto i flussi espliciti, con un'avvertenza |
+| Fornito dall'analista | `{"given": {"value": "2000"}}` | l'importo come fornito: il value of operations in N, con approccio asset side, nei termini dei flussi di cassa; di qualunque segno, un importo negativo (per esempio un costo di smantellamento) è riportato come avvertenza, con una seconda avvertenza che il `terminal_value_weight` non è allora significativo |
+| Nessuno | `{"none": {}}`, il valore predefinito | zero; il valore copre soltanto i flussi espliciti, con un'avvertenza; nulla è attualizzato, quindi momento e fattore di attualizzazione sono `null` |
 
 Un valore terminale fornito è attualizzato come quello di una tecnica: con il fattore $DF_N$,
 oppure, con la convenzione di metà periodo, in N − 0.5 con lo spostamento di mezzo periodo al
 tasso terminale quando `terminal_discount_time` è `mid_period`. Il tasso terminale serve quindi
 soltanto a una tecnica o a quello spostamento: negli altri casi `terminal_wacc` e
 `terminal_inflation` sono rifiutati e il tasso terminale è riportato come `null`. Senza valore
-terminale è rifiutato anche `terminal_discount_time`, perché non c'è nulla da attualizzare.
+terminale è rifiutato anche `terminal_discount_time`, perché non c'è nulla da attualizzare. Un
+valore terminale fornito attualizzato in N − 0.5 riceve la stessa avvertenza di un multiplo di
+uscita: è il valore terminale dell'analista all'orizzonte N, anticipato di mezzo periodo.
 
 Ogni tecnica è calcolata dal proprio metodo, sugli stessi parametri, al tasso terminale $r_{TV}$
 (`wacc`, oppure `terminal_wacc` con tassi per periodo), e il risultato riporta in `terminal`
@@ -426,7 +430,7 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | `terminal_value_weight` | Valore attuale del valore terminale diviso per il value of operations |
 | `periods` | Per periodo: stage, proiezione, crescita applicata, flusso, tasso di attualizzazione fornito, tasso usato (nei termini dei flussi di cassa), inflazione usata per convertirlo (`null` senza conversione), fattore di sconto, valore attuale |
 | `terms` | Termini dei flussi e dei tassi, conversione (`none`, `to_real`, `to_nominal`), tasso terminale fornito e usato, inflazione della fase terminale, crescita perpetua nei termini dei flussi e negli altri termini |
-| `terminal` | Tecnica (`given` o `none` per le altre opzioni) e versione del suo metodo, tasso terminale, valore in N, momento di attualizzazione, fattore, valore attuale, output proprio della tecnica (per esempio la crescita implicita di un multiplo di uscita); versione, tasso e output sono `null` quando non si applicano |
+| `terminal` | Tecnica (`given` o `none` per le altre opzioni; con `none` momento e fattore di attualizzazione sono `null`) e versione del suo metodo, tasso terminale, valore in N, momento di attualizzazione, fattore, valore attuale, output proprio della tecnica (per esempio la crescita implicita di un multiplo di uscita); versione, tasso e output sono `null` quando non si applicano |
 | `bridge` | Ogni voce dal value of operations all'equity value, con le descrizioni e i criteri di valutazione, e il totale di ciascuna lista |
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
@@ -457,8 +461,10 @@ esplicito diversa dalla crescita perpetua del valore terminale (`growth`, oppure
 non confrontata); con la convenzione di metà periodo, un valore terminale a crescita perpetua
 (`tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.normalised_income`) attualizzato all'orizzonte N,
 mentre la prassi lo attualizza di solito in N − 0.5; con la convenzione di metà periodo, un
-multiplo di uscita, una liquidazione o un orizzonte finito attualizzati in N − 0.5, benché
-siano o includano un prezzo a una data (per l'orizzonte finito, il valore residuo); con flussi
+multiplo di uscita, una liquidazione, un orizzonte finito o un valore terminale fornito
+attualizzati in N − 0.5, benché siano o includano un importo riferito a una data (per
+l'orizzonte finito, il valore residuo; per `given`, il valore terminale dell'analista
+all'orizzonte N); con flussi
 nominali e inflazione attesa, una crescita perpetua inferiore all'inflazione della fase
 terminale (una diminuzione in termini reali); un equity value negativo, riportato come calcolato e mai riportato a zero; l'assenza del valore terminale (`none`), con il
 valore che copre soltanto i flussi espliciti; un valore terminale negativo fornito
@@ -469,7 +475,7 @@ valutazione dipende soprattutto dalle ipotesi di lungo periodo.
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | Un campo è mancante, sconosciuto o non usato dall'opzione scelta; sia `inflation` sia `inflation_per_period`, `inflation_per_period` senza `terminal_inflation`, `terminal_inflation` senza `inflation_per_period`, `terminal_inflation` insieme a `inflation`; nessuno stage o più di tre; stage che sommano più di 10.000 periodi; una crescita pari o inferiore a −100%; un tasso terminale insieme a un unico tasso, oppure nessuno con tassi per periodo quando il valore terminale lo usa; un tasso terminale o un'inflazione terminale quando il valore terminale non usa alcun tasso terminale; un momento di attualizzazione del valore terminale mancante con la convenzione di metà periodo e un valore terminale, oppure fornito con quella di fine periodo o senza valore terminale; nessuna opzione del valore terminale o più di una (per esempio `given` insieme a una tecnica); uno stage senza proiezione e senza `flows` o `lines`; uno stage generato senza `periods`; un `normalised_base_flow` di `tv.h_model` mancante con `first_flow` = `normalised_base_flow` o fornito negli altri casi; un limite alla crescita di un multiplo di uscita senza `next_flow`; una liquidazione senza attività o con una voce senza descrizione; un'attività non operativa negativa o con descrizione vuota; un debt-like item o una partecipazione di minoranza negativi, o con descrizione vuota; un criterio di valutazione mancante o diverso dalle opzioni previste; `other` senza `basis_note`, o un `basis_note` vuoto (per esempio `/non_controlling_interests/0/basis_note`); uno stage `given` con entrambi o nessuno tra `flows` e `lines`, `lines` in uno stage generato, campi fiscali senza `lines`, oneri finanziari o net borrowing in `lines`, e ogni rifiuto di [`dcf.free_cash_flows`](dcf-free-cash-flows.md) sulle voci, indicato con il suo pointer (ad esempio `/stages/0/lines/2/capital_expenditure`) |
+| `FM-E001` | Un campo è mancante, sconosciuto o non usato dall'opzione scelta; un `null` esplicito per un campo con valore predefinito (`stages[].projection`, `stages[].periods`, `cash_flow_terms`, `discount_rate_terms`, `timing`, `terminal`): omettere il campo per usare il valore predefinito; sia `inflation` sia `inflation_per_period`, `inflation_per_period` senza `terminal_inflation`, `terminal_inflation` senza `inflation_per_period`, `terminal_inflation` insieme a `inflation`; nessuno stage o più di tre; stage che sommano più di 10.000 periodi; una crescita pari o inferiore a −100%; un tasso terminale insieme a un unico tasso, oppure nessuno con tassi per periodo quando il valore terminale lo usa; un tasso terminale o un'inflazione terminale quando il valore terminale non usa alcun tasso terminale; un momento di attualizzazione del valore terminale mancante con la convenzione di metà periodo e un valore terminale, oppure fornito con quella di fine periodo o senza valore terminale; nessuna opzione del valore terminale o più di una (per esempio `given` insieme a una tecnica); uno stage senza proiezione e senza `flows` o `lines`; uno stage generato senza `periods`; un `normalised_base_flow` di `tv.h_model` mancante con `first_flow` = `normalised_base_flow` o fornito negli altri casi; un limite alla crescita di un multiplo di uscita senza `next_flow`; una liquidazione senza attività o con una voce senza descrizione; un'attività non operativa negativa o con descrizione vuota; un debt-like item o una partecipazione di minoranza negativi, o con descrizione vuota; un criterio di valutazione mancante o diverso dalle opzioni previste; `other` senza `basis_note`, o un `basis_note` vuoto (per esempio `/non_controlling_interests/0/basis_note`); uno stage `given` con entrambi o nessuno tra `flows` e `lines`, `lines` in uno stage generato, campi fiscali senza `lines`, oneri finanziari o net borrowing in `lines`, e ogni rifiuto di [`dcf.free_cash_flows`](dcf-free-cash-flows.md) sulle voci, indicato con il suo pointer (ad esempio `/stages/0/lines/2/capital_expenditure`) |
 | `FM-E003` | Un tasso di attualizzazione, fornito o convertito, oppure un'inflazione attesa è pari o inferiore a −100%; il messaggio indica il campo e il periodo (lo stesso codice di [`rates.real_nominal`](rates-real-nominal.md) per lo stesso valore) |
 | `FM-E004` | La crescita perpetua (`growth`, oppure `long_term_growth` per `tv.h_model`) è pari o superiore al tasso terminale nei termini dei flussi di cassa (dopo la conversione, se i termini sono diversi) |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
