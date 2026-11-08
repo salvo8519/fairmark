@@ -1,0 +1,13 @@
+method: dcf.fcff
+description: "A terminal inflation next to one expected inflation, which already applies to the terminal phase"
+source: SPEC-0001 R16, R27
+input:
+  stages: [{ periods: 2, projection: given, flows: ["100", "110"] }]
+  cash_flow_terms: real
+  discount_rate_terms: nominal
+  wacc: "0.10"
+  inflation: "0.02"
+  terminal_inflation: "0.03"
+  timing: end_of_period
+  terminal: { "tv.gordon": { growth: "0.01", first_flow: last_flow_grown } }
+expect_error: FM-E001

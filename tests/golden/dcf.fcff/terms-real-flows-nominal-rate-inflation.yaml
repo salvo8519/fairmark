@@ -1,0 +1,58 @@
+method: dcf.fcff
+description: "Real flows, nominal WACC and one expected inflation: every rate, the terminal rate included, converted to real terms by the exact Fisher relation; flows and growth not converted (R16, AC9)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R16 and R17, sharing no code with the engine: rates restated by the exact Fisher
+  relation written in the script, not through rates.real_nominal).
+input:
+  stages: [{"periods": 4, "projection": "given", "flows": ["100", "104", "108", "112"]}]
+  cash_flow_terms: "real"
+  discount_rate_terms: "nominal"
+  wacc: "0.10"
+  inflation: "0.02"
+  timing: "end_of_period"
+  terminal: {"tv.gordon": {"growth": "0.01", "first_flow": "last_flow_grown"}}
+  net_financial_position: {"gross_debt": "300", "cash": "50"}
+expect:
+  /periods/0/flow: "100"
+  /periods/0/discount_rate: "0.10"
+  /periods/0/inflation: "0.02"
+  /periods/0/rate_used: "0.07843137254901960784313725490"
+  /periods/0/discount_factor: "0.9272727272727272727272727273"
+  /periods/0/present_value: "92.72727272727272727272727273"
+  /periods/1/flow: "104"
+  /periods/1/discount_rate: "0.10"
+  /periods/1/inflation: "0.02"
+  /periods/1/rate_used: "0.07843137254901960784313725490"
+  /periods/1/discount_factor: "0.8598347107438016528925619835"
+  /periods/1/present_value: "89.42280991735537190082644628"
+  /periods/2/flow: "108"
+  /periods/2/discount_rate: "0.10"
+  /periods/2/inflation: "0.02"
+  /periods/2/rate_used: "0.07843137254901960784313725490"
+  /periods/2/discount_factor: "0.7973012772351615326821938392"
+  /periods/2/present_value: "86.10853794139744552967693464"
+  /periods/3/flow: "112"
+  /periods/3/discount_rate: "0.10"
+  /periods/3/inflation: "0.02"
+  /periods/3/rate_used: "0.07843137254901960784313725490"
+  /periods/3/discount_factor: "0.7393157297998770575780342873"
+  /periods/3/present_value: "82.80336173758623044873984017"
+  /pv_explicit_period: "351.0619823236117751519704938"
+  /terminal/rate: "0.07843137254901960784313725490"
+  /terminal/terminal_value: "1653.042979942693409742120344"
+  /terminal/discount_factor: "0.7393157297998770575780342873"
+  /terminal/present_value: "1222.120677106895911293578558"
+  /value_of_operations: "1573.182659430507686445549052"
+  /enterprise_value: "1573.182659430507686445549052"
+  /equity_value: "1323.182659430507686445549052"
+  /terminal_value_weight: "0.7768460132590730085087765476"
+  /terms/terminal_rate_given: "0.10"
+  /terms/terminal_rate_used: "0.07843137254901960784313725490"
+  /terms/terminal_inflation: "0.02"
+  /terms/perpetual_growth: "0.01"
+  /terms/perpetual_growth_other_terms: "0.0302"
+  /terms/conversion: "to_real"
+  /terms/cash_flow_terms: "real"
+  /terms/discount_rate_terms: "nominal"
+tolerance: "0.00000000000000000001"

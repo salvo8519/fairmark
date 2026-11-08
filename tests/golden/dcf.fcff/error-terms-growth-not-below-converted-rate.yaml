@@ -1,0 +1,12 @@
+method: dcf.fcff
+description: "Real flows, nominal WACC 0.05 and inflation 0.03: the real terminal rate (1.05 / 1.03 - 1 = 0.0194...) is below the perpetual growth 0.02, which is refused although 0.02 is below the nominal WACC"
+source: SPEC-0001 R16, R19 (the terminal technique at the terminal rate in the terms of the cash flows)
+input:
+  stages: [{ periods: 2, projection: given, flows: ["100", "110"] }]
+  cash_flow_terms: real
+  discount_rate_terms: nominal
+  wacc: "0.05"
+  inflation: "0.03"
+  timing: end_of_period
+  terminal: { "tv.gordon": { growth: "0.02", first_flow: last_flow_grown } }
+expect_error: FM-E004
