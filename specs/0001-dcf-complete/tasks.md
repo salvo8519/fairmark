@@ -83,6 +83,13 @@ parallel; tick a task only when `just check` passes.
   `notional_tax_rate` and `negative_ebit` on `dcf.fcff` (additive to version 3), golden and
   error cases from the composed references, unit test, Python `given_lines`, `dcf-fcff`
   pages in English and Italian [R7, AC6]
+- [x] F12 Decision 22 (maintainer, 2026-11-08, issue #198): under `zero` the interest tax
+  shield is t × min(interest, max(EBIT, 0)); `dcf.free_cash_flows` version 2 with its schema
+  snapshot; reference (build-up and net-income route), new golden cases under both treatments
+  (EBIT negative, below, equal to and above the interest, EBIT zero, interest zero), the one
+  approved golden case updated, unit and property tests, explain step "Interest tax shield"
+  and output `interest_tax_shield`, conventions, docs in English and Italian, release note
+  `changes/198.numerical.md` [R3, AC1, AC3]
 
 ### Verification
 - [ ] F9 `uv run just check` green (done); `numerical-auditor` and `code-reviewer` reviews

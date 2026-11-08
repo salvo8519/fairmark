@@ -1,6 +1,6 @@
 method: dcf.free_cash_flows
-description: "EBIT 30 below interest 50 with the zero treatment: EBIT is positive, so the shield stays at 24%, interest after taxes 38 (R3, amendment 14)"
-source: "Independent 50-digit reference, scripts/reference_free_cash_flows.py"
+description: "EBIT 30 below interest 50 with the zero treatment: the interest tax shield is limited to the taxable income available, 0.24 x min(50, max(30, 0)) = 7.20, so total taxes are zero; interest after taxes 42.80 (R3, Decision 22)"
+source: "Independent 50-digit reference, scripts/reference_free_cash_flows.py (build-up); FCFE cross-checked by the net-income route of the CFA Institute curriculum and Damodaran, Investment Valuation, chapter 14 (net_income_route: -17, no tax on the pre-tax loss of -20); rule from SPEC-0001 Decision 22. Numerical change approved by the maintainer on 2026-11-08 (issue #198) for this file only: before Decision 22 the expected values were interest_after_taxes 38.00 and free_cash_flow_to_equity -12.20 (full shield 0.24 x 50 = 12, an implicit tax credit of 4.80)"
 input: {"notional_tax_rate": "0.24", "negative_ebit": "zero", "periods": [{"ebit": "30", "depreciation_and_amortisation": "15", "capital_expenditure": "10", "change_in_net_working_capital": "2", "interest_expense": "50", "net_borrowing": "0"}]}
 expect:
   /periods/0/interest_tax_rate: "0.24"
@@ -8,7 +8,8 @@ expect:
   /periods/0/ebit_after_taxes: "22.80"
   /periods/0/free_cash_flow_to_firm: "25.80"
   /free_cash_flows_to_firm/0: "25.80"
-  /periods/0/interest_after_taxes: "38.00"
-  /periods/0/free_cash_flow_to_equity: "-12.20"
-  /free_cash_flows_to_equity/0: "-12.20"
+  /periods/0/interest_tax_shield: "7.20"
+  /periods/0/interest_after_taxes: "42.80"
+  /periods/0/free_cash_flow_to_equity: "-17.00"
+  /free_cash_flows_to_equity/0: "-17.00"
 tolerance: "0"

@@ -6,11 +6,17 @@ the Rust engine.
 
     taxes_t = t x EBIT_t                      (rate form; `zero`: 0 when EBIT_t < 0)
     FCFF_t  = EBIT_t - taxes_t + D&A_t - capex_t - change in NWC_t + sum adjustments_t
-    FCFE_t  = FCFF_t - interest_t x (1 - t) + net borrowing_t
-              (t = 0 in a period where the `zero` treatment applies, SPEC-0001 amendment 14)
+    FCFE_t  = FCFF_t - interest_t + shield_t + net borrowing_t
+    shield_t = t x interest_t                          (`credit`, and the amounts form)
+    shield_t = t x min(interest_t, max(EBIT_t, 0))     (`zero`, SPEC-0001 Decision 22)
+
+Under `zero` the deduction of interest is limited to the taxable income available, so the
+total taxes, t x max(EBIT_t, 0) - shield_t, are never below zero (Decision 22 amends
+amendment 14, which removed the shield only when EBIT was negative).
 
 `net_income_route` computes the FCFE by the other route (net income + D&A - capex - change in
-NWC + adjustments + net borrowing) as an independent check of amendment 14.
+NWC + adjustments + net borrowing, with taxes on the pre-tax income EBIT - interest) as an
+independent check of Decision 22: under `zero` there is no tax on a pre-tax loss.
 
 Usage:
 
@@ -61,6 +67,7 @@ class Period:
     taxes: D
     ebit_after_taxes: D
     fcff: D
+    interest_tax_shield: D | None
     interest_after_taxes: D | None
     fcfe: D | None
 
@@ -72,6 +79,16 @@ def taxes_on_ebit(ebit: D, rate: D, negative_ebit: str) -> D:
     if ebit < 0 and negative_ebit == "zero":
         return D(0)
     return rate * ebit
+
+
+@at_50_digits
+def interest_tax_shield(ebit: D, interest: D, rate: D, limited: bool) -> D:
+    """R3 and Decision 22: t x interest; under `zero` the deductible interest is limited to the
+    taxable income available, max(EBIT, 0)."""
+    if not limited:
+        return rate * interest
+    deductible = min(interest, max(ebit, D(0)))
+    return rate * deductible
 
 
 @at_50_digits
@@ -101,30 +118,28 @@ def build_up(
             - p.change_in_net_working_capital
             + sum(p.adjustments, D(0))
         )
-        interest_after = fcfe = None
+        interest_after = fcfe = tax_shield = None
         if p.interest_expense is not None:
             assert p.net_borrowing is not None and shield is not None
-            # Amendment 14: no interest tax shield where the `zero` treatment applies.
-            no_shield = rate_form and negative_ebit == "zero" and p.ebit < 0
-            rate = D(0) if no_shield else shield
-            interest_after = p.interest_expense * (1 - rate)
+            tax_shield = interest_tax_shield(
+                p.ebit, p.interest_expense, shield, rate_form and negative_ebit == "zero"
+            )
+            interest_after = p.interest_expense - tax_shield
             fcfe = fcff - interest_after + p.net_borrowing
-        out.append(Period(taxes, after, fcff, interest_after, fcfe))
+        out.append(Period(taxes, after, fcff, tax_shield, interest_after, fcfe))
     return out
 
 
 @at_50_digits
 def net_income_route(p: Lines, rate: D, negative_ebit: str) -> D:
-    """FCFE from net income: taxes on pre-tax income EBIT - interest at `rate`, with no tax on a
-    negative pre-tax income under `zero` (CFA Institute; Damodaran). Valid where it agrees with
-    the treatments: `credit` in any period, `zero` in periods with a negative EBIT."""
+    """FCFE from net income: taxes on the pre-tax income EBIT - interest at `rate`; under `zero`
+    no tax on a pre-tax loss (no tax credit arises), under `credit` a loss gives a tax saving
+    (CFA Institute; Damodaran, Investment Valuation, chapter 14). Agrees with the build-up of
+    both treatments in every period (Decision 22)."""
     assert p.interest_expense is not None and p.net_borrowing is not None
     pre_tax = p.ebit - p.interest_expense
-    if negative_ebit == "zero":
-        assert p.ebit < 0
-        tax = D(0)
-    else:
-        tax = rate * pre_tax
+    no_tax_on_a_loss = negative_ebit == "zero" and pre_tax <= 0
+    tax = D(0) if no_tax_on_a_loss else rate * pre_tax
     net_income = pre_tax - tax
     return (
         net_income
@@ -334,6 +349,163 @@ CASES: dict[str, dict[str, Any]] = {
             }
         ],
     },
+    # Decision 22: the interest tax shield under both treatments.
+    "shield-ebit-below-interest-zero": {
+        "notional_tax_rate": "0.279",
+        "negative_ebit": "zero",
+        "periods": [
+            {
+                "ebit": "42.5",
+                "depreciation_and_amortisation": "18",
+                "capital_expenditure": "25.4",
+                "change_in_net_working_capital": "3.1",
+                "interest_expense": "61.75",
+                "net_borrowing": "12",
+            },
+        ],
+    },
+    "shield-ebit-below-interest-credit": {
+        "notional_tax_rate": "0.279",
+        "negative_ebit": "credit",
+        "periods": [
+            {
+                "ebit": "42.5",
+                "depreciation_and_amortisation": "18",
+                "capital_expenditure": "25.4",
+                "change_in_net_working_capital": "3.1",
+                "interest_expense": "61.75",
+                "net_borrowing": "12",
+            },
+        ],
+    },
+    "shield-negative-ebit-zero": {
+        "notional_tax_rate": "0.279",
+        "negative_ebit": "zero",
+        "periods": [
+            {
+                "ebit": "-37.6",
+                "depreciation_and_amortisation": "14.2",
+                "capital_expenditure": "9.5",
+                "change_in_net_working_capital": "-4.05",
+                "interest_expense": "22.4",
+                "net_borrowing": "30",
+            },
+        ],
+    },
+    "shield-negative-ebit-credit": {
+        "notional_tax_rate": "0.279",
+        "negative_ebit": "credit",
+        "periods": [
+            {
+                "ebit": "-37.6",
+                "depreciation_and_amortisation": "14.2",
+                "capital_expenditure": "9.5",
+                "change_in_net_working_capital": "-4.05",
+                "interest_expense": "22.4",
+                "net_borrowing": "30",
+            },
+        ],
+    },
+    "shield-ebit-above-interest-zero": {
+        "notional_tax_rate": "0.279",
+        "negative_ebit": "zero",
+        "periods": [
+            {
+                "ebit": "310.8",
+                "depreciation_and_amortisation": "64.3",
+                "capital_expenditure": "88.9",
+                "change_in_net_working_capital": "11.6",
+                "interest_expense": "47.25",
+                "net_borrowing": "-25",
+            },
+        ],
+    },
+    "shield-ebit-above-interest-credit": {
+        "notional_tax_rate": "0.279",
+        "negative_ebit": "credit",
+        "periods": [
+            {
+                "ebit": "310.8",
+                "depreciation_and_amortisation": "64.3",
+                "capital_expenditure": "88.9",
+                "change_in_net_working_capital": "11.6",
+                "interest_expense": "47.25",
+                "net_borrowing": "-25",
+            },
+        ],
+    },
+    "shield-zero-interest-zero": {
+        "notional_tax_rate": "0.279",
+        "negative_ebit": "zero",
+        "periods": [
+            {
+                "ebit": "55",
+                "depreciation_and_amortisation": "21",
+                "capital_expenditure": "30.5",
+                "change_in_net_working_capital": "2.4",
+                "interest_expense": "0",
+                "net_borrowing": "-15",
+            },
+            {
+                "ebit": "-20",
+                "depreciation_and_amortisation": "19.5",
+                "capital_expenditure": "12",
+                "change_in_net_working_capital": "-1.6",
+                "interest_expense": "0",
+                "net_borrowing": "10",
+            },
+        ],
+    },
+    "shield-zero-interest-credit": {
+        "notional_tax_rate": "0.279",
+        "negative_ebit": "credit",
+        "periods": [
+            {
+                "ebit": "55",
+                "depreciation_and_amortisation": "21",
+                "capital_expenditure": "30.5",
+                "change_in_net_working_capital": "2.4",
+                "interest_expense": "0",
+                "net_borrowing": "-15",
+            },
+            {
+                "ebit": "-20",
+                "depreciation_and_amortisation": "19.5",
+                "capital_expenditure": "12",
+                "change_in_net_working_capital": "-1.6",
+                "interest_expense": "0",
+                "net_borrowing": "10",
+            },
+        ],
+    },
+    "shield-ebit-equal-interest-zero": {
+        "notional_tax_rate": "0.279",
+        "negative_ebit": "zero",
+        "periods": [
+            {
+                "ebit": "80",
+                "depreciation_and_amortisation": "26",
+                "capital_expenditure": "31",
+                "change_in_net_working_capital": "5",
+                "interest_expense": "80",
+                "net_borrowing": "0",
+            },
+        ],
+    },
+    "shield-ebit-zero-zero": {
+        "notional_tax_rate": "0.279",
+        "negative_ebit": "zero",
+        "periods": [
+            {
+                "ebit": "0",
+                "depreciation_and_amortisation": "12",
+                "capital_expenditure": "8",
+                "change_in_net_working_capital": "1.5",
+                "interest_expense": "35",
+                "net_borrowing": "20",
+            },
+        ],
+    },
     "full-precision-rate-form": {
         "notional_tax_rate": "0.2793456789123",
         "negative_ebit": "credit",
@@ -357,10 +529,16 @@ def main() -> None:
             print(f"  period {k + 1}: taxes {p.taxes}, after taxes {p.ebit_after_taxes}")
             print(f"    FCFF {p.fcff}")
             if p.fcfe is not None:
-                print(f"    interest after taxes {p.interest_after_taxes}, FCFE {p.fcfe}")
-    case = CASES["negative-ebit-zero-net-income-route"]
-    p = lines_from_json(case["periods"][0])
-    print("net-income route:", net_income_route(p, D(case["notional_tax_rate"]), "zero"))
+                print(
+                    f"    interest tax shield {p.interest_tax_shield}, interest after taxes "
+                    f"{p.interest_after_taxes}, FCFE {p.fcfe}"
+                )
+                if case.get("negative_ebit") is not None:
+                    lines = lines_from_json(case["periods"][k])
+                    route = net_income_route(
+                        lines, D(case["notional_tax_rate"]), case["negative_ebit"]
+                    )
+                    print(f"    net-income route {route}")
     with localcontext(CONTEXT):
         boeing = D(1753) * (1 - D("0.35"))
     print(f"Boeing: 1,753 x (1 - 0.35) = {boeing}; published EBIT (1 - t) 1,138")

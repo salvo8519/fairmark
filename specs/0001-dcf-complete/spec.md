@@ -122,8 +122,9 @@ nominal before taxes; a leading exit multiple.
 - **R1** — THE ENGINE SHALL provide an enterprise DCF (`dcf.fcff` version 3) that discounts
   FCFF at the WACC and returns value of operations, enterprise value and equity value, an
   equity DCF (`dcf.fcfe` version 1) that discounts FCFE at the cost of equity and returns
-  equity value, and the build-up method `dcf.free_cash_flows` version 1, all computed by one
-  shared engine; the basis SHALL be reported in `explain.conventions` (Decision 1).
+  equity value, and the build-up method `dcf.free_cash_flows` version 1 (version 2 since
+  Decision 22), all computed by one shared engine; the basis SHALL be reported in
+  `explain.conventions` (Decision 1).
 
 ### Free cash flow build-up (#38)
 - **R2** — WHEN given, for each period, EBIT, depreciation and amortisation, capital
@@ -139,6 +140,10 @@ nominal before taxes; a leading exit multiple.
   be a required separate input. WHEN the `zero` treatment of R4 applies in a period (EBIT
   negative, taxes from a rate), the interest tax shield of that period SHALL be zero
   (FCFE_t = FCFF_t − interest expense_t + net borrowing_t) and SHALL be reported (amendment 14).
+  WHEN the taxes are computed from a rate with the `zero` treatment, the interest tax shield of
+  every period SHALL be t × min(interest expense_t, max(EBIT_t, 0)), so that the total taxes
+  never fall below zero, and a period where the limit binds SHALL be reported with its values
+  (Decision 22).
 - **R4** — WHEN EBIT is negative and the taxes are computed from a rate, THE ENGINE SHALL apply
   the required treatment chosen in the input, `credit` (taxes = rate × EBIT, a saving) or
   `zero` (no tax), with no default, and report it; it SHALL NOT model tax loss carry-forwards
@@ -295,8 +300,11 @@ nominal before taxes; a leading exit multiple.
   EBIT (1 − tax rate) of 1,138 and recording in the golden file that 1,753 × 0.65 = 1,139.45
   differs from the printed 1,138 (Decision 12).
 - **AC2** (R3) — Property: with zero interest and zero net borrowing, FCFE equals FCFF.
-- **AC3** (R4, R5) — Negative EBIT under each treatment matches the reference; each negative
+- **AC3** (R3, R4, R5) — Negative EBIT under each treatment matches the reference; each negative
   D&A, capex or interest returns `FM-E001` with the field and the period in the message.
+  Under both treatments, golden cases with EBIT negative, EBIT positive below the interest,
+  EBIT above the interest and interest zero match the reference, and every FCFE equals the
+  net-income route (Decision 22).
 - **AC4** (R6, R7, R8, R9, R10, R12) — A three-stage case (given, linear decline, Gordon
   terminal) and a two-stage case generated from a base flow match the reference: every
   projected flow, growth, discount factor and present value. Damodaran, *Investment Valuation*,
@@ -339,11 +347,12 @@ nominal before taxes; a leading exit multiple.
   `value_of_operations`).
 
 ## Interfaces (Revised 2026-11-08)
-- Method ids (Decision 1): `dcf.fcff` version 3 (enterprise basis, breaking
-  input change), `dcf.fcfe` version 1 (equity basis, new), `dcf.free_cash_flows` version 1
-  (build-up, new). The ids `dcf.value`, `dcf.gordon`, `dcf.terminal_value` and
-  `dcf.sensitivity` of the previous draft are withdrawn: they duplicate `dcf.fcff` / `dcf.fcfe`,
-  `tv.gordon`, `tv.*` and `analysis.sensitivity`.
+- Method ids (Decision 1): `dcf.fcff` version 3 (enterprise basis, breaking input change),
+  `dcf.fcfe` version 1 (equity basis, new), `dcf.free_cash_flows` version 1 (build-up, new;
+  version 2 since Decision 22, a numerical change of the `zero` treatment). The ids
+  `dcf.value`, `dcf.gordon`, `dcf.terminal_value` and `dcf.sensitivity` of the previous draft
+  are withdrawn: they duplicate `dcf.fcff` / `dcf.fcfe`, `tv.gordon`, `tv.*` and
+  `analysis.sensitivity`.
 - Input schema changes: `dcf.fcff` version 3 is **breaking** (`timing` becomes required;
   `net_debt` becomes the net financial position structure; `non_operating_assets` becomes a
   list of labelled amounts; new required stages, terms and terminal technique). Output change:
@@ -567,6 +576,25 @@ the source verification.
       interests stay refused (R25, "zero or more"); no duplicate-label warning between the
       bridge claims and the net financial position: double counting is covered in the
       documentation only (R25, SPEC-0007 R6, the engine does not choose the items). Amends R25 and "Interfaces".
+- [x] **22. Interest tax shield limited to the taxable income under `zero`** (approved by the
+      maintainer on 2026-11-08, issue #198; amends Decision 14). Under the `zero` treatment the
+      interest tax shield is limited to the taxable income available:
+      shield_t = t × min(interest expense_t, max(EBIT_t, 0)), so the total taxes,
+      t × max(EBIT_t, 0) − shield_t, never fall below zero. Rationale: under `zero` no tax credit
+      arises on a pre-tax loss; when EBIT is positive but below the interest, the deduction is
+      limited to EBIT, which is the net-income route with no tax on a negative pre-tax income
+      (Damodaran, *Investment Valuation*, 2nd edition, chapter 14), consistent with the meaning
+      of the `zero` treatment. Under `zero` the FCFE therefore equals the net-income route in
+      every period, not only in the periods with a negative EBIT. The `credit` treatment and
+      the amounts form are unchanged (shield = t × interest expense). The sentence of Decision 14
+      "in periods with a positive or zero EBIT, R3 is unchanged: the shield is interest expense
+      × t, also when EBIT is lower than the interest expense" now holds for `credit` only. This
+      is a numerical change of `dcf.free_cash_flows`, version 1 to version 2; `dcf.fcff` is
+      unaffected because the FCFF excludes the interest. The maintainer approved changing the
+      expected values of exactly one existing golden case,
+      `tests/golden/dcf.free_cash_flows/positive-ebit-below-interest.yaml` (EBIT 30, interest
+      50: interest after taxes 38.00 to 42.80, FCFE −12.20 to −17.00). `dcf.fcfe` applies the
+      rule from its first version. Found by the numerical audit of #165.
 
 Terminology decisions from the source verification:
 - [x] **a.** The projection option `linear_fade` is renamed `linear_decline` everywhere
@@ -603,6 +631,16 @@ whose inner method is `dcf.fcff`, with every expected number identical:
 In every file the inner input is one given stage, one rate (`wacc`), nominal terms, end-of-period
 timing, `tv.gordon` on the last flow grown and a net financial position equal to the previous
 `net_debt`; the output pointers are unchanged.
+
+On 2026-11-08 the maintainer approved the `numerical-change` of `dcf.free_cash_flows` version 1
+to version 2 (Decision 22, issue #198) and the change of the expected values of exactly one
+existing golden case:
+
+| File | What changed |
+| --- | --- |
+| `tests/golden/dcf.free_cash_flows/positive-ebit-below-interest.yaml` | `interest_after_taxes` 38.00 → 42.80, `free_cash_flow_to_equity` and `free_cash_flows_to_equity/0` −12.20 → −17.00; new expected `interest_tax_shield` 7.20; description and source updated |
+
+Every other golden case keeps its input and expected values.
 
 ### Source analysis for Decision 12
 Candidates found on 2026-11-08 and approved as recorded in Decision 12:

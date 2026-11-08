@@ -122,12 +122,17 @@
       }
     },
     "dcf.free_cash_flows": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "dcf.free_cash_flows/v1.json",
           "introduced_in": "unreleased",
           "sha256": "0617268786f8a6f1bcffbf2f2952fa02c4fa666a7f907f1ca397a254431b1a06"
+        },
+        "2": {
+          "file": "dcf.free_cash_flows/v2.json",
+          "introduced_in": "unreleased",
+          "sha256": "98b068de36ea309471af0e4cdb8dce28deb5b952ccdd71a9d81688b428a1341b"
         }
       }
     },

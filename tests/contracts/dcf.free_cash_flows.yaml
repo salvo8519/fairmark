@@ -67,6 +67,7 @@ conventions:
   expect:
   - 'tax form: amounts given per period'
   - interest tax shield at the separate interest tax rate 0.279
+  - when they are lower than the shield, the shield implies a tax credit
 - input:
     notional_tax_rate: '0.24'
     negative_ebit: zero
