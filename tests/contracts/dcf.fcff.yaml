@@ -37,6 +37,38 @@ extreme_inputs:
   wacc: '0.1'
   timing: end_of_period
   terminal: {tv.gordon: {growth: '0', first_flow: last_flow_grown}}
+- stages: [{periods: 2, projection: given, flows: [MAX, MIN]}]
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  wacc: MAX
+  timing: mid_period
+  terminal_discount_time: mid_period
+  terminal: {tv.h_model: {short_term_growth: MAX, long_term_growth: '0.01', half_life: MAX, first_flow: last_flow_grown, growth_cap: MIN}}
+- stages: [{periods: 1, projection: given, flows: [MAX]}]
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  wacc: MAX
+  timing: end_of_period
+  terminal: {tv.value_driver: {nopat_next: MAX, growth: MIN, ronic: '0.0000000000000000000000000001'}}
+- stages: [{periods: 1, projection: given, flows: [MIN]}]
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  wacc: '-0.99'
+  timing: mid_period
+  terminal_discount_time: mid_period
+  terminal: {tv.exit_multiple: {multiple: MAX, metric: revenue, metric_value: MAX, next_flow: MIN, growth_cap: MAX}}
+- stages: [{periods: 3, projection: given, flows: ['1', '2', '3']}]
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  wacc: '-0.99'
+  timing: end_of_period
+  terminal: {tv.limited_horizon: {flow: MAX, periods: 10000, growth: MAX, residual_value: MAX}}
+- stages: [{periods: 1, projection: given, flows: ['1']}]
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  wacc: '0.1'
+  timing: end_of_period
+  terminal: {tv.liquidation: {assets: [{label: a, value: MAX}, {label: b, value: MAX}], liabilities: [{label: c, value: MAX}], liquidation_costs: [], tax_on_gains: MAX, basis: enterprise}}
 conventions:
 - input:
     stages: [{periods: 3, projection: given, flows: ['100', '110', '120']}]
@@ -79,3 +111,28 @@ conventions:
   - 'first terminal flow: normalised flow at N + 1'
   - 'terminal discounting time: horizon, t = N'
   - 'net financial position: none given'
+- input:
+    stages: [{periods: 3, projection: given, flows: ['100', '110', '120']}]
+    cash_flow_terms: nominal
+    discount_rate_terms: nominal
+    wacc: '0.10'
+    timing: mid_period
+    terminal_discount_time: mid_period
+    terminal: {tv.exit_multiple: {multiple: '8', metric: ebitda, metric_value: '180'}}
+  expect:
+  - 'terminal technique: tv.exit_multiple version 1 on the enterprise basis'
+  - 'no next flow given: the terminal rate is not used'
+  - 'terminal value from the metric at N; no terminal flow is projected'
+  - 'terminal discounting time: mid_period, t = N − 0.5'
+  - 'warning: tv.exit_multiple is a price at the horizon N'
+- input:
+    stages: [{periods: 2, projection: given, flows: ['100', '110']}]
+    cash_flow_terms: nominal
+    discount_rate_terms: nominal
+    wacc: '0.10'
+    timing: end_of_period
+    terminal: {tv.liquidation: {assets: [{label: Plant, value: '500'}], liabilities: [], liquidation_costs: [], tax_on_gains: '0', basis: enterprise}}
+  expect:
+  - 'terminal technique: tv.liquidation version 1 on the enterprise basis'
+  - 'the technique takes no discount rate'
+  - 'terminal value (tv.liquidation v1): basis: enterprise (declared)'

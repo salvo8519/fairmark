@@ -406,7 +406,7 @@ Runs several terminal value techniques on one rate, growth cap and basis and ret
 
 **DCF — unlevered free cash flow** · versione del metodo 3 · stato anteprima · tool `fairmark_dcf_fcff`
 
-Value of operations, enterprise value and equity value from FCFF discounted at the WACC over one to three explicit stages (given flows, constant growth, linear decline of growth) and a terminal value. Returns every period and step for audit.
+Value of operations, enterprise value and equity value from FCFF discounted at the WACC over one to three explicit stages (given flows, constant growth, linear decline of growth) and a terminal value by a tv.* technique on the enterprise basis (stable growth, H-model, value driver, exit multiple, finite horizon, liquidation). Returns every period and step for audit.
 
 | Input | Tipo | Obbligatorio | Default | Descrizione |
 | --- | --- | --- | --- | --- |
@@ -421,7 +421,7 @@ Value of operations, enterprise value and equity value from FCFF discounted at t
 | `terminal_wacc` | decimale | no |  | WACC of the terminal phase, decimal fraction per period; required with `wacc_per_period`, refused with `wacc`. |
 | `timing` | `end_of_period` \| `mid_period` | sì |  | `end_of_period` (flow k at t = k) or `mid_period` (t = k − 0.5); no default. |
 | `terminal_discount_time` |  | no |  | With `mid_period` timing, required: `horizon` (terminal value at t = N) or `mid_period` (t = N − 0.5). Refused with `end_of_period`. |
-| `terminal` | object | sì |  | The terminal technique, an object with exactly one key, the method id: `{"tv.gordon": {"growth", "first_flow", ...}}`, on the enterprise basis. |
+| `terminal` | object | sì |  | The terminal technique, an object with exactly one key, the method id, for example `{"tv.gordon": {"growth", "first_flow", ...}}`: `tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon` or `tv.liquidation`, on the enterprise basis. |
 | `net_financial_position` |  | no |  | Net financial position at the valuation date (SPEC-0007): gross debt − cash + signed other items, positive for net debt, subtracted from enterprise value. Default: none, reported. |
 | `non_operating_assets` | lista di object | no |  | Non-operating assets at the valuation date, each a label and a value in currency units (zero or more), added to the value of operations. Default: none, reported. |
 
