@@ -1420,10 +1420,11 @@ pub(crate) fn statutory(
     })
 }
 
-/// R12 in the statutory form: total funds invested differ from the sources. With every item
-/// given, the identity follows from the relations of R7, so a difference is a defect
-/// (`FM-E012`). Otherwise the inputs given do not balance once the items not given are taken
-/// as zero: `FM-E026` naming those items, the only inputs that were not compared.
+/// R12 in the statutory form (M1): total funds invested differ from the sources. With every
+/// item given, the identity follows from the relations of R7, so a difference is a defect
+/// (`FM-E012`). Otherwise the items given do not balance once the separate lines taken as zero
+/// are counted: `FM-E026` naming those lines. An "of which" part taken as none moves an amount
+/// within one side and cannot cause the difference, so it is not named.
 fn identity_error(
     bs: &StatutoryBalanceSheet,
     base: &str,
@@ -1433,7 +1434,7 @@ fn identity_error(
 ) -> Result<FairmarkError> {
     let zero: Vec<String> = TAKEN_AS_ZERO
         .iter()
-        .filter(|row| (row.applies)(bs))
+        .filter(|row| row.separate_line && (row.applies)(bs))
         .map(|row| format!("`{base}/{}`", row.key))
         .collect();
     if zero.is_empty() {
@@ -1452,10 +1453,9 @@ fn identity_error(
             right: sources,
             difference: crate::num::sub(uses, sources)?,
             fix: format!(
-                "the assets and the liabilities and equity given do not balance once the items \
-                 not given are taken as zero: {}; give the item that is not zero, or give \
-                 `{base}/total_assets` and `{base}/total_liabilities_and_equity` to have the \
-                 totals compared (R7, R12)",
+                "the assets and the liabilities and equity given do not balance with these items \
+                 taken as zero: {}; an amount given differs, or one of these items taken as zero \
+                 is not zero: correct the amount or give the item (R12, M1)",
                 zero.join(", ")
             ),
         },

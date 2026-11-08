@@ -321,20 +321,35 @@ pub(crate) fn balance_sheet(
         eq_parts.side("A.I + … + A.X"),
         FIX_TOTAL,
     )?;
-    // Item A, assets D and liabilities E as separate lines: only as given. A line presented
-    // within another aggregate, or taken as zero by default (D1, D2), never enters a check.
+    // Item A as given only: taken as zero by default (D1) it never enters a check. Assets D
+    // and liabilities E as separate lines: as given, or zero when their part is presented
+    // within C.II or D, which the user gave (M2): that part is inside C or D already.
     let a = item("subscribed_capital_unpaid", bs.subscribed_capital_unpaid);
-    let d = item(
-        "prepayments_and_accrued_income/total",
+    let within = |separate: Option<Decimal>, key: &str, within: Option<Decimal>, at: &str| match (
+        separate, within,
+    ) {
+        (None, Some(_)) => Read::item(p(at), Some(Decimal::ZERO)),
+        _ => item(key, separate),
+    };
+    let d = within(
         bs.prepayments_and_accrued_income
             .as_ref()
             .and_then(|n| n.total),
+        "prepayments_and_accrued_income/total",
+        bs.receivables
+            .as_ref()
+            .and_then(|n| n.prepayments_and_accrued_income),
+        "receivables/prepayments_and_accrued_income",
     );
-    let e = item(
-        "accruals_and_deferred_income/total",
+    let e = within(
         bs.accruals_and_deferred_income
             .as_ref()
             .and_then(|n| n.total),
+        "accruals_and_deferred_income/total",
+        bs.payables
+            .as_ref()
+            .and_then(|n| n.accruals_and_deferred_income),
+        "payables/accruals_and_deferred_income",
     );
     let assets = Read::sum(&[(1, &a), (1, &b_given.or(b)), (1, &c_given.or(cc)), (1, &d)])?;
     let ta_given = item("total_assets", bs.total_assets);

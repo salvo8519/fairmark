@@ -806,9 +806,9 @@ fn item_a_not_given_is_zero_everywhere() {
 
 // ---------------------------------------------------------------- R7: only items given
 
-/// Review of PR 1: a relation is compared only on items the user gave. Without total assets
-/// and without a separate line D (assets D given within C.II), total assets rebuilt from
-/// A + B + C + D would rest on a line taken as zero: the relation is not checked.
+/// Review of PR 1 and M2: a part presented within C.II or D counts as given, so total assets
+/// rebuilt as A + B + C + D are compared; item A taken as zero (D1) is never compared, so
+/// without it the same relations are not checked.
 #[test]
 fn a_total_rebuilt_from_an_item_not_given_is_not_checked() {
     let mut input = golden_input("balance-sheet-ordinary");
@@ -821,20 +821,27 @@ fn a_total_rebuilt_from_an_item_not_given_is_not_checked() {
     bs["current_assets"] = json!("1680000");
     let out = run(&input);
     let checks = &out["value"]["years"][0]["checks"];
-    for relation in [
-        "total_assets_total",
-        "total_assets_equals_total_liabilities_and_equity",
-    ] {
-        assert_eq!(checks[relation]["status"], "not_checked", "{relation}");
-    }
+    assert_eq!(checks["total_assets_total"]["status"], "not_checked");
+    let relation = "total_assets_equals_total_liabilities_and_equity";
+    assert_eq!(checks[relation]["status"], "reconciled");
+    assert!(checks[relation]["pointers"]
+        .to_string()
+        .contains("receivables/prepayments_and_accrued_income"));
+    input["years"][0]["statutory"]["balance_sheet"]
+        .as_object_mut()
+        .unwrap()
+        .remove("subscribed_capital_unpaid");
+    let out = run(&input);
+    let checks = &out["value"]["years"][0]["checks"];
+    assert_eq!(checks[relation]["status"], "not_checked");
     assert_eq!(
         out["value"]["years"][0]["balance_sheet"]["total_funds_invested"],
         "1610000"
     );
 }
 
-/// With the same presentation but a receivables total that leaves out assets D, the inputs
-/// given do not balance: `FM-E026` names the line taken as zero, never a total not given.
+/// With assets D presented within C.II but a receivables total that leaves them out, the items
+/// given do not balance: `FM-E026` names the items read, never a total not given.
 #[test]
 fn a_difference_names_the_items_taken_as_zero_never_a_total_not_given() {
     let mut input = golden_input("balance-sheet-ordinary");
@@ -847,12 +854,40 @@ fn a_difference_names_the_items_taken_as_zero_never_a_total_not_given() {
     assert_eq!(e.code(), "FM-E026");
     let msg = e.to_string();
     let b = "/years/0/statutory/balance_sheet";
+    assert!(!msg.contains(&format!("`{b}/total_assets`")), "{msg}");
     assert!(
-        !msg.contains(&format!("total assets (`{b}/total_assets`")),
+        msg.contains(&format!("`{b}/receivables/prepayments_and_accrued_income`")),
         "{msg}"
     );
+    assert!(msg.contains("difference -30000"), "{msg}");
+}
+
+/// Review round 2 (blocking 2), M1: when funds invested differ from the sources because a
+/// separate line taken as zero is not zero, the message names only such lines, never an "of
+/// which" part, and its fix resolves the error.
+#[test]
+fn the_identity_names_only_separate_lines_taken_as_zero() {
+    let e = err(&golden_input(
+        "reconcile-funds-invested-equals-sources-statutory",
+    ));
+    assert_eq!(e.code(), "FM-E026");
+    let msg = e.to_string();
+    let b = "/years/0/statutory/balance_sheet";
     assert!(
-        msg.contains(&format!("`{b}/prepayments_and_accrued_income/total`")),
+        msg.contains(&format!("`{b}/subscribed_capital_unpaid`")),
+        "{msg}"
+    );
+    for part in [
+        "receivables/subscribed_capital_unpaid",
+        "receivables/prepayments_and_accrued_income",
+        "of_which_derivative_liabilities",
+        "payables/accruals_and_deferred_income",
+        "total_assets`",
+    ] {
+        assert!(!msg.contains(part), "'{part}' in {msg}");
+    }
+    assert!(
+        msg.contains("an amount given differs, or one of these items taken as zero is not zero"),
         "{msg}"
     );
     assert!(msg.contains("difference -30000"), "{msg}");

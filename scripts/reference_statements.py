@@ -421,6 +421,13 @@ def defaults_applied(inp: dict[str, Any]) -> list[tuple[str, str]]:
     return out
 
 
+SEPARATE_LINES = {
+    "subscribed_capital_unpaid",
+    "prepayments_and_accrued_income/total",
+    "accruals_and_deferred_income/total",
+}
+
+
 def taken_as_zero(bs: dict[str, Any]) -> list[str]:
     """Items of a statutory balance sheet taken as zero because they are not given (D1, D2,
     D3), and separate lines D and E presented within C.II and D, in the order of art. 2424."""
@@ -606,11 +613,26 @@ def balance_sheet_checks(bs: dict[str, Any], inc: dict[str, Any], base: str) -> 
     check(c, "current_assets_total", opt(bs, "current_assets"), plus(c1, c2, c3, c4))
     eq = get(bs, "equity") or {}
     check(c, "equity_total", opt(eq, "total"), plus(*(opt(eq, p) for p in EQUITY_PARTS)))
-    # A relation compares items given only: item A, assets D and liabilities E enter as given,
-    # never as a zero taken by default or for a line presented within another aggregate.
+    # A relation compares items given only: item A as given, never as the zero of D1; the
+    # separate lines D and E as given, or zero when their part is given within C.II or D (M2),
+    # since that part is then inside C or D.
     a_sep = leaf(bs, base, "subscribed_capital_unpaid")
-    d_sep = opt(bs, "prepayments_and_accrued_income", "total")
-    e_sep = opt(bs, "accruals_and_deferred_income", "total")
+    d_sep = separate(
+        bs,
+        base,
+        "prepayments_and_accrued_income",
+        "receivables",
+        "prepayments_and_accrued_income",
+        node_total,
+    )
+    e_sep = separate(
+        bs,
+        base,
+        "accruals_and_deferred_income",
+        "payables",
+        "accruals_and_deferred_income",
+        node_total,
+    )
     b_tot = opt(bs, "fixed_assets") if "fixed_assets" in bs else plus(b1, b2, b3)
     c_tot = opt(bs, "current_assets") if "current_assets" in bs else plus(c1, c2, c3, c4)
     assets = plus(a_sep, b_tot, c_tot, d_sep)
@@ -1098,7 +1120,10 @@ def statutory_balance_sheet(inp: dict[str, Any], i: int) -> dict[str, Any]:
         if tfi.value != total_sources.value:
             # With every item given the identity follows from R7 (a defect otherwise); with
             # items taken as zero, the inputs given do not balance.
-            raise RefError("FM-E026" if taken_as_zero(bs) else "FM-E012", "identity")
+            # Only a separate line taken as zero (item A, line D, line E) can unbalance the
+            # sides; an "of which" part moves an amount within one side (M1).
+            separate_lines = SEPARATE_LINES & set(taken_as_zero(bs))
+            raise RefError("FM-E026" if separate_lines else "FM-E012", "identity")
         checks["funds_invested_equals_sources"] = "reconciled"
     else:
         checks["funds_invested_equals_sources"] = "not_checked"

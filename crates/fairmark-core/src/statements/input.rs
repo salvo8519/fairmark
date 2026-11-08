@@ -1065,6 +1065,10 @@ pub(crate) struct TakenAsZero {
     pub applies: fn(&StatutoryBalanceSheet) -> bool,
     /// Why, citing the rule.
     pub reason: &'static str,
+    /// A separate line of the balance sheet (item A, line D, line E), not an "of which" part:
+    /// only such an item can make the funds invested differ from the sources (M1), because an
+    /// "of which" part moves an amount within one side.
+    pub separate_line: bool,
 }
 
 /// Every item taken as zero when not given, in the order of art. 2424.
@@ -1074,6 +1078,7 @@ pub(crate) const TAKEN_AS_ZERO: &[TakenAsZero] = &[
         applies: |bs| bs.subscribed_capital_unpaid.is_none(),
         reason: "assets A, subscribed capital unpaid, not given: zero (SPEC-0005 D1); the same \
                  zero is deducted from equity and from total assets",
+        separate_line: true,
     },
     TakenAsZero {
         key: "receivables/subscribed_capital_unpaid",
@@ -1085,6 +1090,7 @@ pub(crate) const TAKEN_AS_ZERO: &[TakenAsZero] = &[
         },
         reason: "\"of which\" part not given: none of item A is presented within receivables \
                  C.II (SPEC-0005 D2)",
+        separate_line: false,
     },
     TakenAsZero {
         key: "receivables/prepayments_and_accrued_income",
@@ -1096,6 +1102,7 @@ pub(crate) const TAKEN_AS_ZERO: &[TakenAsZero] = &[
         },
         reason: "\"of which\" part not given: none of assets D is presented within receivables \
                  C.II (SPEC-0005 D2)",
+        separate_line: false,
     },
     TakenAsZero {
         key: "prepayments_and_accrued_income/total",
@@ -1108,6 +1115,7 @@ pub(crate) const TAKEN_AS_ZERO: &[TakenAsZero] = &[
         },
         reason: "assets D presented within receivables C.II (art. 2435-bis), as given in \
                  `receivables/prepayments_and_accrued_income`: no separate line D",
+        separate_line: true,
     },
     TakenAsZero {
         key: "provisions/of_which_derivative_liabilities",
@@ -1119,6 +1127,7 @@ pub(crate) const TAKEN_AS_ZERO: &[TakenAsZero] = &[
         },
         reason: "\"of which\" part not given: no derivative liabilities within provisions B \
                  (SPEC-0005 D2, D3)",
+        separate_line: false,
     },
     TakenAsZero {
         key: "payables/accruals_and_deferred_income",
@@ -1130,6 +1139,7 @@ pub(crate) const TAKEN_AS_ZERO: &[TakenAsZero] = &[
         },
         reason: "\"of which\" part not given: none of liabilities E is presented within \
                  payables D (SPEC-0005 D2)",
+        separate_line: false,
     },
     TakenAsZero {
         key: "accruals_and_deferred_income/total",
@@ -1142,5 +1152,6 @@ pub(crate) const TAKEN_AS_ZERO: &[TakenAsZero] = &[
         },
         reason: "liabilities E presented within payables D (art. 2435-bis), as given in \
                  `payables/accruals_and_deferred_income`: no separate line E",
+        separate_line: true,
     },
 ];
