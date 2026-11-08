@@ -154,8 +154,9 @@ milestones:
         issue: 34
         labels: ["area:core", "method:dcf"]
         tasks:
-          - { issue: 35, title: "Statutory income statement and balance sheet schema", tags: [parallel, needs-methodology], spec: "0005", status: open }
-          - { issue: 36, title: "Reclassifications: functional / financial balance sheet, value-added P&L, net financial position", tags: [parallel], spec: "0005", status: open }
+          - { issue: 35, title: "Filed statutory totals and the reorganised balance sheet", tags: [parallel], spec: "0005", status: open }
+          - { issue: 36, title: "Several financial years and exact changes in the statements reorganisation", tags: [parallel], spec: "0005", status: open }
+          - { issue: 236, title: "Reorganised income statement with IFRS 18 aligned subtotals", spec: "0005", status: open }
       - title: "Free cash flows"
         issue: 37
         labels: ["area:core", "method:dcf"]
