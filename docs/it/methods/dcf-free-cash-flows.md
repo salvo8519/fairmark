@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-free-cash-flows.md
-source_hash: 21c4bb2349c5
+source_hash: 8d8a91d9cc04
 ---
 # Costruzione dei flussi di cassa disponibili (`dcf.free_cash_flows`)
 
@@ -10,7 +10,9 @@ investimenti in immobilizzazioni (capex), variazione del capitale circolante net
 con etichetta. Se sono forniti anche gli oneri finanziari e il net borrowing (nuovi
 finanziamenti al netto dei rimborsi), costruisce il flusso di cassa disponibile per gli
 azionisti (FCFE). I flussi sono importi per periodo, non attualizzati: attualizzarli è compito
-del DCF. La riclassificazione dei bilanci civilistici in queste voci è un passaggio distinto.
+del DCF, [`dcf.fcff`](dcf-fcff.md) per il FCFF e [`dcf.fcfe`](dcf-fcfe.md) per il FCFE, che
+accettano entrambi le stesse voci in uno stage `given`. La riclassificazione dei bilanci
+civilistici in queste voci è un passaggio distinto.
 
 Versione del metodo: 2. Stato: anteprima.
 

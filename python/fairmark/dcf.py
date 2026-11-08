@@ -1,9 +1,10 @@
 """Discounted cash flow on the shared engine (SPEC-0001).
 
 ``fcff`` values the operating business from free cash flows to the firm discounted at the
-WACC, over one to three explicit stages followed by a terminal value. Every choice is explicit:
-the stages and their projection, the terms of the flows and of the rates, the timing, and the
-terminal technique. The helpers ``given``, ``constant_growth``, ``linear_decline`` and the
+WACC, and ``fcfe`` values the equity from free cash flows to equity discounted at the cost of
+equity, each over one to three explicit stages followed by a terminal value. Every choice is
+explicit: the stages and their projection, the terms of the flows and of the rates, the timing,
+and the terminal technique. The helpers ``given``, ``constant_growth``, ``linear_decline`` and the
 terminal techniques ``gordon``, ``h_model``, ``value_driver``, ``exit_multiple``,
 ``limited_horizon``, ``normalised_income`` and ``liquidation`` only build the input objects;
 the engine computes everything.
@@ -39,7 +40,8 @@ def given_lines(lines: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     """A stage of given flows built up from line items, one mapping per period, as in
     :func:`free_cash_flows` (``ebit``, ``depreciation_and_amortisation``,
     ``capital_expenditure``, ``change_in_net_working_capital``, optional
-    ``other_adjustments`` and ``operating_taxes``). The tax fields go to :func:`fcff`."""
+    ``other_adjustments`` and ``operating_taxes``; for :func:`fcfe` also ``interest_expense``
+    and ``net_borrowing``). The tax fields go to :func:`fcff` or :func:`fcfe`."""
     return {"periods": len(lines), "projection": "given", "lines": [dict(x) for x in lines]}
 
 
@@ -216,9 +218,9 @@ def bridge_claim(
     measurement_basis: MeasurementBasis,
     basis_note: str | None = None,
 ) -> dict[str, Any]:
-    """A debt-like item or a non-controlling interest for :func:`fcff`: the amount at the
-    valuation date (zero or more), how it was measured, and an optional note that qualifies
-    the basis (required with ``measurement_basis="other"``)."""
+    """A debt-like item or a non-controlling interest for :func:`fcff` or :func:`fcfe`: the
+    amount at the valuation date (zero or more), how it was measured, and an optional note that
+    qualifies the basis (required with ``measurement_basis="other"``)."""
     claim: dict[str, Any] = {
         "label": label,
         "value": value,
@@ -227,6 +229,25 @@ def bridge_claim(
     if basis_note is not None:
         claim["basis_note"] = basis_note
     return claim
+
+
+def _plain(value: Any) -> Any:
+    """Copies mappings to dicts and other iterables (not strings) to lists, at every level, so
+    that the payload is plain JSON-like data whatever the caller passed."""
+    if isinstance(value, Mapping):
+        return {k: _plain(v) for k, v in value.items()}
+    if isinstance(value, Iterable) and not isinstance(value, str | bytes):
+        return [_plain(v) for v in value]
+    return value
+
+
+def _dcf_payload(required: Mapping[str, Any], optional: Mapping[str, Any]) -> dict[str, Any]:
+    """The input of a DCF method: every required field, and the optional fields that were
+    given. An optional field left at None is omitted, so the engine applies its documented
+    rule; the helper never fills in a value."""
+    payload = {k: _plain(v) for k, v in required.items()}
+    payload.update({k: _plain(v) for k, v in optional.items() if v is not None})
+    return payload
 
 
 def fcff(
@@ -285,43 +306,119 @@ def fcff(
     >>> r.value_of_operations
     Decimal('1421.4876033057851239669421487')
     """
-    payload: dict[str, Any] = {
-        "stages": [dict(s) for s in stages],
-        "cash_flow_terms": cash_flow_terms,
-        "discount_rate_terms": discount_rate_terms,
-        "timing": timing,
-        "terminal": dict(terminal),
-    }
-    optional: dict[str, Any] = {
-        "wacc": wacc,
-        "wacc_per_period": None if wacc_per_period is None else list(wacc_per_period),
-        "terminal_wacc": terminal_wacc,
-        "inflation": inflation,
-        "inflation_per_period": (
-            None if inflation_per_period is None else list(inflation_per_period)
+    return run(
+        "dcf.fcff",
+        _dcf_payload(
+            {
+                "stages": stages,
+                "cash_flow_terms": cash_flow_terms,
+                "discount_rate_terms": discount_rate_terms,
+                "timing": timing,
+                "terminal": terminal,
+            },
+            {
+                "wacc": wacc,
+                "wacc_per_period": wacc_per_period,
+                "terminal_wacc": terminal_wacc,
+                "inflation": inflation,
+                "inflation_per_period": inflation_per_period,
+                "terminal_inflation": terminal_inflation,
+                "terminal_discount_time": terminal_discount_time,
+                "base_flow": base_flow,
+                "net_financial_position": net_financial_position,
+                "non_operating_assets": non_operating_assets,
+                "debt_like_items": debt_like_items,
+                "non_controlling_interests": non_controlling_interests,
+                "notional_tax_rate": notional_tax_rate,
+                "negative_ebit": negative_ebit,
+            },
         ),
-        "terminal_inflation": terminal_inflation,
-        "terminal_discount_time": terminal_discount_time,
-        "base_flow": base_flow,
-        "net_financial_position": (
-            None if net_financial_position is None else dict(net_financial_position)
+    )
+
+
+def fcfe(
+    stages: Iterable[Mapping[str, Any]],
+    *,
+    cash_flow_terms: Terms,
+    discount_rate_terms: Terms,
+    timing: Timing,
+    terminal: Mapping[str, Any],
+    cost_of_equity: Number | None = None,
+    cost_of_equity_per_period: Sequence[Number] | None = None,
+    terminal_cost_of_equity: Number | None = None,
+    inflation: Number | None = None,
+    inflation_per_period: Sequence[Number] | None = None,
+    terminal_inflation: Number | None = None,
+    terminal_discount_time: TerminalDiscountTime | None = None,
+    base_flow: Number | None = None,
+    net_financial_position: Mapping[str, Any] | None = None,
+    non_operating_assets: Iterable[Mapping[str, Any]] | None = None,
+    debt_like_items: Iterable[Mapping[str, Any]] | None = None,
+    non_controlling_interests: Iterable[Mapping[str, Any]] | None = None,
+    notional_tax_rate: Number | None = None,
+    negative_ebit: NegativeEbit | None = None,
+    interest_tax_rate: Number | None = None,
+) -> Result:
+    """Equity DCF (``dcf.fcfe`` version 1): equity value from FCFE discounted at the cost of
+    equity.
+
+    Give ``cost_of_equity`` (one rate, also used for the terminal value) or
+    ``cost_of_equity_per_period`` with ``terminal_cost_of_equity``. Stages, terms, inflation,
+    timing and ``terminal`` work as in :func:`fcff`; the terminal technique must be on the
+    equity basis (``exit_multiple`` on ``earnings`` or ``book_value``, ``normalised_income``
+    or ``liquidation`` with ``basis="equity"``); ``value_driver`` is refused, its NOPAT and
+    RONIC being firm-level quantities (SPEC-0001 Decision 23). Stages built with
+    :func:`given_lines` need ``interest_expense`` and ``net_borrowing`` in every line, and take
+    ``notional_tax_rate`` with ``negative_ebit``, or ``operating_taxes`` in every line with
+    ``interest_tax_rate``.
+
+    Equity value = present value of the FCFE and of the terminal value +
+    ``non_operating_assets`` (for example cash not reflected in the FCFE) -
+    ``debt_like_items`` - ``non_controlling_interests``. Debt is already in the FCFE, so a
+    ``net_financial_position`` is refused (``FM-E019``); the parameter exists only so that the
+    error names the fix. The result has no value of operations and no enterprise value.
+
+    >>> r = fcfe(
+    ...     [given([100, 110, 120])],
+    ...     cash_flow_terms="nominal",
+    ...     discount_rate_terms="nominal",
+    ...     cost_of_equity="0.11",
+    ...     timing="end_of_period",
+    ...     terminal=gordon("0.02", first_flow="last_flow_grown"),
+    ...     non_operating_assets=[{"label": "Excess cash", "value": 30}],
+    ... )
+    >>> r.equity_value
+    Decimal('1291.5318020723426128831534237')
+    """
+    return run(
+        "dcf.fcfe",
+        _dcf_payload(
+            {
+                "stages": stages,
+                "cash_flow_terms": cash_flow_terms,
+                "discount_rate_terms": discount_rate_terms,
+                "timing": timing,
+                "terminal": terminal,
+            },
+            {
+                "cost_of_equity": cost_of_equity,
+                "cost_of_equity_per_period": cost_of_equity_per_period,
+                "terminal_cost_of_equity": terminal_cost_of_equity,
+                "inflation": inflation,
+                "inflation_per_period": inflation_per_period,
+                "terminal_inflation": terminal_inflation,
+                "terminal_discount_time": terminal_discount_time,
+                "base_flow": base_flow,
+                "net_financial_position": net_financial_position,
+                "non_operating_assets": non_operating_assets,
+                "debt_like_items": debt_like_items,
+                "non_controlling_interests": non_controlling_interests,
+                "notional_tax_rate": notional_tax_rate,
+                "negative_ebit": negative_ebit,
+                "interest_tax_rate": interest_tax_rate,
+            },
         ),
-        "non_operating_assets": (
-            None if non_operating_assets is None else [dict(a) for a in non_operating_assets]
-        ),
-        "debt_like_items": (
-            None if debt_like_items is None else [dict(c) for c in debt_like_items]
-        ),
-        "non_controlling_interests": (
-            None
-            if non_controlling_interests is None
-            else [dict(c) for c in non_controlling_interests]
-        ),
-        "notional_tax_rate": notional_tax_rate,
-        "negative_ebit": negative_ebit,
-    }
-    payload.update({k: v for k, v in optional.items() if v is not None})
-    return run("dcf.fcff", payload)
+    )
 
 
 def free_cash_flows(

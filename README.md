@@ -195,6 +195,7 @@ fairmark verify result.json --input company.json  # reproduce a result bit for b
 | `tv.liquidation` | Available | Terminal value, liquidation |
 | `tv.compare` | Available | Terminal value, comparison of techniques |
 | `dcf.fcff` | Preview | DCF — unlevered free cash flow |
+| `dcf.fcfe` | Preview | DCF — free cash flow to equity |
 | `dcf.free_cash_flows` | Preview | Free cash flow build-up (FCFF and FCFE) |
 | `ratios.profitability` | Preview | Ratios — profitability |
 | `ratios.capital_structure` | Preview | Ratios — capital structure |

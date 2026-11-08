@@ -1,0 +1,12 @@
+method: dcf.fcfe
+description: "A negative debt-like item on the equity basis (R25)"
+source: SPEC-0001 R25
+input:
+  stages: [{"periods": 2, "projection": "given", "flows": ["100", "110"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  cost_of_equity: "0.11"
+  timing: "end_of_period"
+  terminal: {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}
+  debt_like_items: [{"label": "Pension", "value": "-5", "measurement_basis": "book_value"}]
+expect_error: FM-E001

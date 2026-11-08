@@ -157,7 +157,7 @@ milestones:
           - { issue: 97, title: "Draft specs for cost of capital, multi-stage DCF and Italian valuation methods", spec: "0001", status: done }
           - { issue: 110, title: "Parametric stages on the shared DCF engine (dcf.fcff v3)", spec: "0001", status: done }
           - { issue: 164, title: "Approve SPEC-0001: free cash flows, stages, terminal value and equity bridge", spec: "0001", status: done }
-          - { issue: 165, title: "Free cash flow to equity on the shared DCF engine (dcf.fcfe)", spec: "0001", status: open }
+          - { issue: 165, title: "Free cash flow to equity on the shared DCF engine (dcf.fcfe)", spec: "0001", status: done }
           - { issue: 166, title: "Nominal and real terms in the DCF: basis check and rate conversion", spec: "0001", status: done }
           - { issue: 198, title: "Interest tax shield limited to positive EBIT under the zero treatment", spec: "0001", status: done }
       - title: "Cost of capital"

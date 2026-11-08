@@ -1,0 +1,69 @@
+method: dcf.fcfe
+description: "Three stages of FCFE (given, then growth declining in linear increments) at a cost of equity per period with a terminal cost of equity, Gordon terminal value, and the equity bridge with non-operating assets, a debt-like item and a non-controlling interest (R1, R6 to R12, R22, R24, R25; AC13)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R22 and R24, sharing no code with the engine). Equity value = present value of the
+  explicit FCFE + present value of the terminal value + non-operating assets 310 + 95.5 -
+  debt-like items 140 - non-controlling interests 260; no net financial position, debt is in
+  the flows (R24). Excess cash whose interest income is not in the FCFE is a non-operating
+  asset ([S1] in the spec).
+input:
+  stages: [{"periods": 3, "projection": "given", "flows": ["420", "455", "490"]}, {"periods": 3, "projection": "linear_decline", "from_growth": "0.08", "to_growth": "0.03"}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  cost_of_equity_per_period: ["0.125", "0.125", "0.12", "0.115", "0.11", "0.105"]
+  terminal_cost_of_equity: "0.10"
+  timing: "end_of_period"
+  terminal: {"tv.gordon": {"growth": "0.03", "first_flow": "last_flow_grown"}}
+  non_operating_assets: [{"label": "Excess cash not needed for operations, interest income not in the FCFE", "value": "310"}, {"label": "Investment property", "value": "95.5"}]
+  debt_like_items: [{"label": "Unfunded pension obligation", "value": "140", "measurement_basis": "present_value", "basis_note": "net of plan assets, after tax"}]
+  non_controlling_interests: [{"label": "25% of Subsidiary B", "value": "260", "measurement_basis": "fair_value"}]
+expect:
+  /periods/0/flow: "420"
+  /periods/0/discount_rate: "0.125"
+  /periods/0/discount_factor: "0.8888888888888888888888888889"
+  /periods/0/present_value: "373.3333333333333333333333333"
+  /periods/1/flow: "455"
+  /periods/1/discount_rate: "0.125"
+  /periods/1/discount_factor: "0.7901234567901234567901234568"
+  /periods/1/present_value: "359.5061728395061728395061728"
+  /periods/2/flow: "490"
+  /periods/2/discount_rate: "0.12"
+  /periods/2/discount_factor: "0.7054673721340388007054673721"
+  /periods/2/present_value: "345.6790123456790123456790123"
+  /periods/3/flow: "521.0333333333333333333333333"
+  /periods/3/growth: "0.06333333333333333333333333333"
+  /periods/3/discount_rate: "0.115"
+  /periods/3/discount_factor: "0.6327061633489137226058003338"
+  /periods/3/present_value: "329.6610013102290132683755006"
+  /periods/4/flow: "545.3482222222222222222222222"
+  /periods/4/growth: "0.04666666666666666666666666667"
+  /periods/4/discount_rate: "0.11"
+  /periods/4/discount_factor: "0.5700055525665889392845048052"
+  /periods/4/present_value: "310.8515147489847152140237453"
+  /periods/5/flow: "561.7086688888888888888888889"
+  /periods/5/growth: "0.03"
+  /periods/5/discount_rate: "0.105"
+  /periods/5/discount_factor: "0.5158421290195375016149364753"
+  /periods/5/present_value: "289.7529956483748929144293734"
+  /pv_explicit_period: "2008.784030226107139915347138"
+  /terminal/terminal_value: "8265.141842222222222222222222"
+  /terminal/discount_factor: "0.5158421290195375016149364753"
+  /terminal/present_value: "4263.508364540373424312317923"
+  /bridge/pv_explicit_and_terminal: "6272.292394766480564227665061"
+  /bridge/non_operating_assets_total: "405.5"
+  /bridge/debt_like_items_total: "140"
+  /bridge/non_controlling_interests_total: "260"
+  /bridge/equity_value: "6277.792394766480564227665061"
+  /equity_value: "6277.792394766480564227665061"
+  /terminal_value_weight: "0.6797368643237661424970702405"
+  /bridge/non_operating_assets/0/value: "310"
+  /bridge/debt_like_items/0/value: "140"
+  /bridge/non_controlling_interests/0/value: "260"
+  /basis: "equity"
+  /terminal/technique: "tv.gordon"
+  /bridge/non_operating_assets/0/label: "Excess cash not needed for operations, interest income not in the FCFE"
+  /bridge/debt_like_items/0/measurement_basis: "present_value"
+  /bridge/debt_like_items/0/basis_note: "net of plan assets, after tax"
+  /bridge/non_controlling_interests/0/label: "25% of Subsidiary B"
+tolerance: "0.00000000000000000001"

@@ -213,3 +213,44 @@ Plan: `plan.md`, section "Issue #44". Additive to `dcf.fcff` version 3; edits in
 ### Verification
 - [x] B9 `numerical-auditor` review, `code-reviewer` review, AC13 (enterprise part) ticked in
   spec.md (maintainer)
+
+## Issue #165 — Equity DCF on the shared engine (`dcf.fcfe`)
+
+Plan: `plan.md`, section "Issue #165". New method `dcf.fcfe` version 1 (preview); `dcf.fcff`
+version 3 unchanged.
+
+### Tests (write first, they must fail)
+- [x] E1 [P] Reference `scripts/reference_dcf.py`: `dcf_fcfe` [R22, R24, R25; AC13]
+- [x] E2 [P] Golden cases `tests/golden/dcf.fcfe/` from the reference, and error cases
+  (`FM-E019` for a net financial position and for enterprise-basis terminal techniques, rate
+  forms, lines) [R19, R24, R25, R27; AC11, AC13]
+- [x] E3 [P] Python: golden values equal the reference, engine against the reference, the
+  consistency property with `dcf.fcff` without debt [R24; AC13]
+- [x] E4 [P] Contract cases `tests/contracts/dcf.fcfe.yaml` [R28]
+
+### Implementation
+- [x] E5 `dcf/bridge.rs`: bridge types and checks moved from `fcff.rs`, `dcf.fcff` results
+  and schema identical [R25, R26]
+- [x] E6 `dcf/fcfe.rs`: input, output, equity bridge, `FM-E019` for a net financial position,
+  conventions; engine build-up text on the equity basis; unit tests; registry line,
+  `uv run just generate` [R1, R3, R7, R19, R22, R24 to R29; AC13, AC14]
+
+### Adapters and docs
+- [x] E7 [P] Python helper `fm.dcf.fcfe`
+- [x] E8 [P] Methodology page `docs/en/methods/dcf-fcfe.md`, nav, index, errors reference,
+  release note `changes/165.feature.md`, method evidence, Italian method title
+- [x] E9 Italian edition; `uv run just check`; roadmap #165 done after Decision 23 (value
+  driver on the equity basis) was recorded
+
+### Verification
+- [ ] E10 Damodaran FCFE illustration re-derived as a golden case (pending the source text,
+  plan.md open questions)
+- [x] E12 Findings of the code review and the numerical audit applied: shared input
+  declaration (`dcf_input!`), terminal value weight and output fields, Python payload builder,
+  equity-basis AC11 test, pointers and documentation nits; `dcf.fcff` v3 changed in
+  descriptions only, its output byte-identical [R19, R21, R27, R29; AC11]
+- [x] E13 Decision 23 (maintainer, 2026-11-08): `tv.value_driver` refused on the equity basis
+  with `FM-E019`, R19 and AC11 amended; code comments, schema description and documentation
+  cite the decision; `bridge.pv_explicit_and_terminal` confirmed [R19; AC11]
+- [ ] E11 `numerical-auditor` review, `code-reviewer` review, open questions of plan.md
+  (issue #165) answered, the FCFE part of AC13 ticked in spec.md (maintainer)

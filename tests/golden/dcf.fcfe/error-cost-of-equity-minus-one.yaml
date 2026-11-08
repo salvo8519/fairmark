@@ -1,0 +1,11 @@
+method: dcf.fcfe
+description: "A cost of equity of -1 (R13; AC7)"
+source: SPEC-0001 R13, AC7
+input:
+  stages: [{"periods": 2, "projection": "given", "flows": ["100", "110"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  cost_of_equity: "-1"
+  timing: "end_of_period"
+  terminal: {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}
+expect_error: FM-E003

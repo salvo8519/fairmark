@@ -204,6 +204,33 @@ def stages_with_flows(dcf_input: Mapping[str, Any]) -> dict[str, Any]:
     return out
 
 
+def equity_stages_with_flows(dcf_input: Mapping[str, Any]) -> dict[str, Any]:
+    """SPEC-0001 R3, R7 on the equity basis: a `dcf.fcfe` input whose `given` stages carry
+    `lines` with interest expense and net borrowing, with the lines replaced by the FCFE built
+    up here, so that `scripts/reference_dcf.py` values it."""
+    tax_fields = ("notional_tax_rate", "negative_ebit", "interest_tax_rate")
+    out = {k: v for k, v in dcf_input.items() if k not in tax_fields}
+
+    def opt(key: str) -> D | None:
+        return D(str(dcf_input[key])) if key in dcf_input else None
+
+    stages = []
+    for stage in dcf_input["stages"]:
+        stage = dict(stage)
+        if "lines" in stage:
+            built = build_up(
+                [lines_from_json(p) for p in stage.pop("lines")],
+                notional_tax_rate=opt("notional_tax_rate"),
+                negative_ebit=dcf_input.get("negative_ebit"),
+                interest_tax_rate=opt("interest_tax_rate"),
+            )
+            assert all(p.fcfe is not None for p in built), "FCFE needs the financing lines"
+            stage["flows"] = [str(p.fcfe) for p in built]
+        stages.append(stage)
+    out["stages"] = stages
+    return out
+
+
 # Inputs of the golden cases computed by this reference (the files repeat them).
 CASES: dict[str, dict[str, Any]] = {
     "rate-form-fcff-and-fcfe": {

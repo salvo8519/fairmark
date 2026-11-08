@@ -195,6 +195,7 @@ registry! {
     tv::Liquidation,
     tv::Compare,
     dcf::Fcff,
+    dcf::Fcfe,
     dcf::FreeCashFlows,
     ratios::profitability::Profitability,
     ratios::capital_structure::CapitalStructure,

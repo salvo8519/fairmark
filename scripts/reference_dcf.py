@@ -1,4 +1,5 @@
-"""Independent reference for SPEC-0001 (shared DCF engine, `dcf.fcff` version 3).
+"""Independent reference for SPEC-0001 (shared DCF engine, `dcf.fcff` version 3 and
+`dcf.fcfe` version 1).
 
 Written from the formulas of the spec, in Python's `decimal` module at 50 digits in a local
 context (importing this module never changes the caller's precision). It shares no code with
@@ -23,7 +24,8 @@ Usage:
 
     uv run python scripts/reference_dcf.py
 
-prints the expected values of the reference-sourced golden cases in `tests/golden/dcf.fcff/`.
+prints the expected values of the reference-sourced golden cases in `tests/golden/dcf.fcff/`
+and `tests/golden/dcf.fcfe/`.
 """
 
 from __future__ import annotations
@@ -177,16 +179,21 @@ def restate(rate: D, inflation: D, to: str) -> D:
 
 
 @at_50_digits
-def dcf_fcff(inp: Mapping[str, Any]) -> dict[str, D]:
-    """Expected outputs of `dcf.fcff` version 3, keyed by JSON Pointer into `value`."""
+def discounted(
+    inp: Mapping[str, Any], single: str, per_period: str, terminal: str
+) -> tuple[dict[str, D], D, D]:
+    """The part shared by both bases: the explicit periods and the terminal value, discounted
+    at the rates named by the method's fields (`wacc`, or `cost_of_equity`). Returns the
+    outputs keyed by JSON Pointer, the present value of the explicit flows and the present
+    value of the terminal value."""
     rows = project(inp["stages"], inp.get("base_flow"))
     n = len(rows)
-    if "wacc" in inp:
-        given = [_d(inp["wacc"])] * n
-        terminal_given = _d(inp["wacc"])
+    if single in inp:
+        given = [_d(inp[single])] * n
+        terminal_given = _d(inp[single])
     else:
-        given = [_d(r) for r in inp["wacc_per_period"]]
-        terminal_given = _d(inp["terminal_wacc"])
+        given = [_d(r) for r in inp[per_period]]
+        terminal_given = _d(inp[terminal])
     assert len(given) == n
     mid = inp["timing"] == "mid_period"
 
@@ -241,7 +248,22 @@ def dcf_fcff(inp: Mapping[str, Any]) -> dict[str, D]:
     # Decision 16: the half-period shift at N - 0.5 uses the terminal rate.
     df_tv = df_n * (1 + terminal_rate).sqrt() if at_mid else df_n
     pv_tv = tv * df_tv
+    out.update(
+        {
+            "/pv_explicit_period": pv_explicit,
+            "/terminal/terminal_value": tv,
+            "/terminal/discount_time": D(n) - (D("0.5") if at_mid else 0),
+            "/terminal/discount_factor": df_tv,
+            "/terminal/present_value": pv_tv,
+        }
+    )
+    return out, pv_explicit, pv_tv
 
+
+@at_50_digits
+def dcf_fcff(inp: Mapping[str, Any]) -> dict[str, D]:
+    """Expected outputs of `dcf.fcff` version 3, keyed by JSON Pointer into `value`."""
+    out, pv_explicit, pv_tv = discounted(inp, "wacc", "wacc_per_period", "terminal_wacc")
     value_of_operations = pv_explicit + pv_tv
     non_operating = sum((_d(a["value"]) for a in inp.get("non_operating_assets", [])), D(0))
     enterprise_value = value_of_operations + non_operating
@@ -261,11 +283,6 @@ def dcf_fcff(inp: Mapping[str, Any]) -> dict[str, D]:
             out[f"/bridge/{kind}/{i}/value"] = _d(item["value"])
     out.update(
         {
-            "/pv_explicit_period": pv_explicit,
-            "/terminal/terminal_value": tv,
-            "/terminal/discount_time": D(n) - (D("0.5") if at_mid else 0),
-            "/terminal/discount_factor": df_tv,
-            "/terminal/present_value": pv_tv,
             "/value_of_operations": value_of_operations,
             "/enterprise_value": enterprise_value,
             "/equity_value": enterprise_value - nfp - debt_like - non_controlling,
@@ -275,6 +292,44 @@ def dcf_fcff(inp: Mapping[str, Any]) -> dict[str, D]:
             "/terminal_value_weight": pv_tv / value_of_operations,
         }
     )
+    return out
+
+
+@at_50_digits
+def dcf_fcfe(inp: Mapping[str, Any]) -> dict[str, D]:
+    """Expected outputs of `dcf.fcfe` version 1, keyed by JSON Pointer into `value` (SPEC-0001
+    R22, R24, R25): FCFE discounted at the cost of equity; equity value = present value of the
+    explicit FCFE + present value of the terminal value + non-operating assets - debt-like
+    items - non-controlling interests. No net financial position: debt is in the flows."""
+    assert "net_financial_position" not in inp, "refused on the equity basis (R24)"
+    out, pv_explicit, pv_tv = discounted(
+        inp, "cost_of_equity", "cost_of_equity_per_period", "terminal_cost_of_equity"
+    )
+    start = pv_explicit + pv_tv
+
+    def total(kind: str) -> D:
+        return sum((_d(item["value"]) for item in inp.get(kind, [])), D(0))
+
+    non_operating = total("non_operating_assets")
+    debt_like = total("debt_like_items")
+    non_controlling = total("non_controlling_interests")
+    for kind in ("non_operating_assets", "debt_like_items", "non_controlling_interests"):
+        for i, item in enumerate(inp.get(kind, [])):
+            out[f"/bridge/{kind}/{i}/value"] = _d(item["value"])
+    equity_value = start + non_operating - debt_like - non_controlling
+    out.update(
+        {
+            "/bridge/pv_explicit_and_terminal": start,
+            "/bridge/non_operating_assets_total": non_operating,
+            "/bridge/debt_like_items_total": debt_like,
+            "/bridge/non_controlling_interests_total": non_controlling,
+            "/bridge/equity_value": equity_value,
+            "/equity_value": equity_value,
+        }
+    )
+    if start != 0:
+        # R22: the weight is taken on the present value of the flows and the terminal value.
+        out["/terminal_value_weight"] = pv_tv / start
     return out
 
 
@@ -319,15 +374,16 @@ def inflated_input(inp: Mapping[str, Any]) -> dict[str, Any]:
 def main() -> None:
     import yaml
 
-    root = Path(__file__).resolve().parents[1] / "tests" / "golden" / "dcf.fcff"
-    for path in sorted(root.glob("*.yaml")):
-        case = yaml.safe_load(path.read_text(encoding="utf-8"))
-        if "expect" not in case or not str(case.get("source", "")).startswith(REFERENCE):
-            continue
-        print(path.name)
-        for pointer, value in dcf_fcff(case["input"]).items():
-            if pointer in case["expect"]:
-                print(f"  {pointer}: {value}")
+    golden = Path(__file__).resolve().parents[1] / "tests" / "golden"
+    for method, valuation in (("dcf.fcff", dcf_fcff), ("dcf.fcfe", dcf_fcfe)):
+        for path in sorted((golden / method).glob("*.yaml")):
+            case = yaml.safe_load(path.read_text(encoding="utf-8"))
+            if "expect" not in case or not str(case.get("source", "")).startswith(REFERENCE):
+                continue
+            print(f"{method}/{path.name}")
+            for pointer, value in valuation(case["input"]).items():
+                if pointer in case["expect"]:
+                    print(f"  {pointer}: {value}")
 
 
 if __name__ == "__main__":

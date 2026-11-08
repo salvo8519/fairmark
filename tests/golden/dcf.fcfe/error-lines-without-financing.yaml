@@ -1,0 +1,13 @@
+method: dcf.fcfe
+description: "Build-up lines without interest expense and net borrowing on the equity basis: FCFE cannot be built up (R3, R7)"
+source: SPEC-0001 R3, R7
+input:
+  stages: [{"periods": 2, "projection": "given", "lines": [{"ebit": "100", "depreciation_and_amortisation": "10", "capital_expenditure": "12", "change_in_net_working_capital": "3"}, {"ebit": "110", "depreciation_and_amortisation": "10", "capital_expenditure": "12", "change_in_net_working_capital": "3"}]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  cost_of_equity: "0.11"
+  timing: "end_of_period"
+  terminal: {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}
+  notional_tax_rate: "0.24"
+  negative_ebit: "credit"
+expect_error: FM-E001

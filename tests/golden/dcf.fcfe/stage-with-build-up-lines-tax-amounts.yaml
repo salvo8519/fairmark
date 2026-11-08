@@ -1,0 +1,31 @@
+method: dcf.fcfe
+description: "FCFE built up from line items with taxes on EBIT given as amounts and the interest tax shield at the separate interest_tax_rate, Gordon terminal value on a normalised flow at N + 1 (R3, R7, R20, R24)"
+source: >
+  Independent 50-digit references composed: scripts/reference_free_cash_flows.py builds the
+  FCFE of the stages with lines (SPEC-0001 R2 to R4, amendment 14; equity_stages_with_flows),
+  scripts/reference_dcf.py values the resulting flows (dcf_fcfe, R6 to R22, R24); neither
+  shares code with the engine. Interest after tax = interest x (1 - 0.27) in both periods (R3:
+  with tax amounts the rate of the interest tax shield is a required separate input).
+input:
+  stages: [{"periods": 2, "projection": "given", "lines": [{"ebit": "500", "operating_taxes": "130", "depreciation_and_amortisation": "80", "capital_expenditure": "95", "change_in_net_working_capital": "12", "interest_expense": "40", "net_borrowing": "-25"}, {"ebit": "540", "operating_taxes": "141.3", "depreciation_and_amortisation": "84", "capital_expenditure": "99", "change_in_net_working_capital": "13.5", "interest_expense": "38", "net_borrowing": "-30"}]}]
+  interest_tax_rate: "0.27"
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  cost_of_equity: "0.105"
+  timing: "end_of_period"
+  terminal: {"tv.gordon": {"growth": "0.02", "first_flow": "normalised_next_flow", "normalised_next_flow": "290"}}
+expect:
+  /periods/0/flow: "288.80"
+  /periods/0/discount_rate: "0.105"
+  /periods/0/discount_factor: "0.9049773755656108597285067873"
+  /periods/0/present_value: "261.3574660633484162895927602"
+  /periods/1/flow: "312.46"
+  /periods/1/discount_rate: "0.105"
+  /periods/1/discount_factor: "0.8189840502856206875371102148"
+  /periods/1/present_value: "255.8997563522450400278454577"
+  /pv_explicit_period: "517.2572224155934563174382179"
+  /terminal/terminal_value: "3411.764705882352941176470588"
+  /terminal/present_value: "2794.180877445058816303081909"
+  /equity_value: "3311.438099860652272620520127"
+  /terminal_value_weight: "0.8437968016260488103279797433"
+tolerance: "0.00000000000000000001"

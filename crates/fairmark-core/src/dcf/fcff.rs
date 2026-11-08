@@ -4,160 +4,72 @@
 
 use rust_decimal::Decimal;
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-use super::engine::{
-    self, EngineInput, InflationInput, PeriodRow, RateFields, RateInput, Stage,
-    TerminalDiscountTime, Terms, TermsOutput,
-};
-use super::free_cash_flows::{NegativeEbit, TaxChoice};
-use super::terminal::{Terminal, TerminalOutput};
-use crate::error::{FairmarkError, Result};
+use super::bridge::{self, BridgeClaim};
+use super::engine::{self, dcf_input, DiscountedValue};
+use crate::error::Result;
 use crate::explain::Explain;
 use crate::method::Method;
-use crate::num::{add, div, sub};
+use crate::num::{add, sub};
 use crate::ratios::{NetFinancialPosition, NFP_CONVENTION};
 use crate::tv::{Line, TerminalBasis};
-use crate::types::Timing;
 
-/// Input of `dcf.fcff` (version 3). Every choice is required, with no default (R29).
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct DcfFcffInput {
-    /// One to three explicit stages, in order; the explicit horizon N is the sum of their
-    /// periods. Each stage is `{"periods", "projection", ...}` with the fields of its
-    /// projection.
-    #[schemars(length(min = 1))]
-    pub stages: Vec<Stage>,
-    /// FCFF of the base period CF_0, in currency units: required when the first stage is
-    /// `constant_growth` or `linear_decline`, refused when it is `given`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub base_flow: Option<Decimal>,
-    /// For stages with `lines`: tax rate applied to EBIT, decimal fraction from 0 to below 1
-    /// (0.24 = 24%). Give this, or `operating_taxes` in every line, not both; refused when no
-    /// stage has `lines`. Default: none.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub notional_tax_rate: Option<Decimal>,
-    /// For stages with `lines` and `notional_tax_rate`: treatment of a negative EBIT, `credit`
-    /// (taxes = rate × EBIT) or `zero` (no tax); required with `notional_tax_rate`, no default.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub negative_ebit: Option<NegativeEbit>,
-    /// `nominal` or `real`: the terms of every amount and growth rate of the input.
-    pub cash_flow_terms: Terms,
-    /// `nominal` or `real`: the terms of the discount rates. When they differ from
-    /// `cash_flow_terms`, expected inflation is required (`inflation`, or
-    /// `inflation_per_period` with `terminal_inflation`) and every rate is converted to the
-    /// terms of the cash flows; the cash flows are never converted.
-    pub discount_rate_terms: Terms,
-    /// Expected inflation, decimal fraction per period (0.02 = 2%), greater than -1, for every
-    /// explicit period and for the terminal phase. Give this or `inflation_per_period`, or
-    /// neither. With different terms it converts the discount rates by the exact Fisher
-    /// relation; with equal terms it only restates the perpetual growth in the other terms.
-    /// Default: none.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub inflation: Option<Decimal>,
-    /// Expected inflation per period of the explicit horizon, decimal fractions, exactly N of
-    /// them, each greater than -1; requires `terminal_inflation`. Give this or `inflation`,
-    /// not both. Default: none.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub inflation_per_period: Option<Vec<Decimal>>,
-    /// Expected inflation of the terminal phase, decimal fraction per period, greater than -1;
-    /// required with `inflation_per_period`, refused otherwise.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub terminal_inflation: Option<Decimal>,
-    /// One WACC for every period and for the terminal value, decimal fraction per period
-    /// (0.09 = 9%), greater than -1. Give this or `wacc_per_period`, not both.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub wacc: Option<Decimal>,
-    /// One WACC per period of the explicit horizon, decimal fractions, exactly N of them;
-    /// requires `terminal_wacc`. Give this or `wacc`, not both.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub wacc_per_period: Option<Vec<Decimal>>,
-    /// WACC of the terminal phase, decimal fraction per period; required with
-    /// `wacc_per_period`, refused with `wacc`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub terminal_wacc: Option<Decimal>,
-    /// `end_of_period` (flow k at t = k) or `mid_period` (t = k − 0.5); no default.
-    pub timing: Timing,
-    /// With `mid_period` timing, required: `horizon` (terminal value at t = N) or
-    /// `mid_period` (t = N − 0.5). Refused with `end_of_period`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub terminal_discount_time: Option<TerminalDiscountTime>,
-    /// The terminal technique, an object with exactly one key, the method id, for example
-    /// `{"tv.gordon": {"growth", "first_flow", ...}}`: `tv.gordon`, `tv.h_model`,
-    /// `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income` or
-    /// `tv.liquidation`, on the enterprise basis.
-    pub terminal: Terminal,
-    /// Net financial position at the valuation date (SPEC-0007): gross debt − cash + signed
-    /// other items, positive for net debt, subtracted from enterprise value. Default: none,
-    /// reported.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub net_financial_position: Option<NetFinancialPosition>,
-    /// Non-operating assets at the valuation date, each a label and a value in currency units
-    /// (zero or more), added to the value of operations. Default: none, reported.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub non_operating_assets: Vec<Line>,
-    /// Debt-like items (debt equivalents) at the valuation date, for example unfunded pension
-    /// obligations or provisions, each a label, a value in currency units (zero or more) and
-    /// its measurement basis, subtracted from enterprise value. Do not repeat an item
-    /// already among the `other_items` of the net financial position. Default: none, reported.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub debt_like_items: Vec<BridgeClaim>,
-    /// Non-controlling interests (minority interests) at the valuation date, each a label, a
-    /// value in currency units (zero or more) and its measurement basis (for example
-    /// `book_value` or `fair_value`), subtracted from enterprise value. Default: none, reported.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub non_controlling_interests: Vec<BridgeClaim>,
-}
-
-/// A claim on the value of the company other than the net financial position, subtracted from
-/// enterprise value to reach equity value: a debt-like item or a non-controlling interest
-/// (R25). Fairmark subtracts the amount as given and does not choose how it is measured.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct BridgeClaim {
-    /// What the claim is, for example "Unfunded pension obligation" or "30% of Subsidiary A".
-    /// Not empty.
-    pub label: String,
-    /// Amount at the valuation date, in currency units, zero or more; subtracted.
-    pub value: Decimal,
-    /// How the amount was measured, stated by the analyst: `book_value`, `market_value`,
-    /// `fair_value`, `present_value` or `other` (then describe it in `basis_note`). Required,
-    /// no default. Reported with the amount, never used in the calculation.
-    pub measurement_basis: MeasurementBasis,
-    /// Free text that qualifies the basis, for example "net of tax" or "49% of the book value
-    /// of equity of the subsidiary"; required with `other`, optional otherwise, never empty
-    /// when given. Reported, never used in the calculation.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub basis_note: Option<String>,
-}
-
-/// How the amount of a bridge claim was measured (Decision 21). Fairmark does not choose the
-/// basis: the analyst states it and the result reports it next to the amount.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum MeasurementBasis {
-    /// Book value per the accounts at the valuation date.
-    BookValue,
-    /// Quoted market price at the valuation date.
-    MarketValue,
-    /// Fair value as defined by IFRS 13.
-    FairValue,
-    /// Present value of the obligation, for example unfunded pensions or provisions.
-    PresentValue,
-    /// Another basis, described in `basis_note` (required).
-    Other,
-}
-
-impl MeasurementBasis {
-    /// The JSON value and its meaning, as reported in `explain`.
-    fn describe(self) -> (&'static str, &'static str) {
-        match self {
-            Self::BookValue => ("book_value", "book value per the accounts"),
-            Self::MarketValue => ("market_value", "quoted market price"),
-            Self::FairValue => ("fair_value", "fair value as defined by IFRS 13"),
-            Self::PresentValue => ("present_value", "present value of the obligation"),
-            Self::Other => ("other", "described in the note"),
+dcf_input! {
+    /// Input of `dcf.fcff` (version 3). Every choice is required, with no default (R29).
+    pub struct DcfFcffInput {
+        basis: TerminalBasis::Enterprise,
+        /// One to three explicit stages, in order; the explicit horizon N is the sum of their
+        /// periods. Each stage is `{"periods", "projection", ...}` with the fields of its
+        /// projection.
+        stages,
+        /// FCFF of the base period CF_0, in currency units: required when the first stage is
+        /// `constant_growth` or `linear_decline`, refused when it is `given`.
+        base_flow,
+        /// For stages with `lines`: tax rate applied to EBIT, decimal fraction from 0 to below 1
+        /// (0.24 = 24%). Give this, or `operating_taxes` in every line, not both; refused when no
+        /// stage has `lines`. Default: none.
+        notional_tax_rate,
+        /// For stages with `lines` and `notional_tax_rate`: treatment of a negative EBIT, `credit`
+        /// (taxes = rate × EBIT) or `zero` (no tax); required with `notional_tax_rate`, no default.
+        negative_ebit,
+        rates {
+            /// One WACC for every period and for the terminal value, decimal fraction per period
+            /// (0.09 = 9%), greater than -1. Give this or `wacc_per_period`, not both.
+            wacc,
+            /// One WACC per period of the explicit horizon, decimal fractions, exactly N of them,
+            /// each greater than -1; requires `terminal_wacc`. Give this or `wacc`, not both.
+            wacc_per_period,
+            /// WACC of the terminal phase, decimal fraction per period, greater than -1; required
+            /// with `wacc_per_period`, refused with `wacc`.
+            terminal_wacc,
+        },
+        /// The terminal technique, an object with exactly one key, the method id, for example
+        /// `{"tv.gordon": {"growth", "first_flow", ...}}`: `tv.gordon`, `tv.h_model`,
+        /// `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income` or
+        /// `tv.liquidation`, on the enterprise basis.
+        terminal,
+        bridge {
+            /// Net financial position at the valuation date (SPEC-0007): gross debt − cash + signed
+            /// other items, positive for net debt, subtracted from enterprise value. Default: none,
+            /// reported.
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            pub net_financial_position: Option<NetFinancialPosition>,
+            /// Non-operating assets at the valuation date, each a label and a value in currency units
+            /// (zero or more), added to the value of operations. Default: none, reported.
+            #[serde(default, skip_serializing_if = "Vec::is_empty")]
+            pub non_operating_assets: Vec<Line>,
+            /// Debt-like items (debt equivalents) at the valuation date, for example unfunded pension
+            /// obligations or provisions, each a label, a value in currency units (zero or more) and
+            /// its measurement basis, subtracted from enterprise value. Do not repeat an item
+            /// already among the `other_items` of the net financial position. Default: none, reported.
+            #[serde(default, skip_serializing_if = "Vec::is_empty")]
+            pub debt_like_items: Vec<BridgeClaim>,
+            /// Non-controlling interests (minority interests) at the valuation date, each a label, a
+            /// value in currency units (zero or more) and its measurement basis (for example
+            /// `book_value` or `fair_value`), subtracted from enterprise value. Default: none, reported.
+            #[serde(default, skip_serializing_if = "Vec::is_empty")]
+            pub non_controlling_interests: Vec<BridgeClaim>,
         }
     }
 }
@@ -200,18 +112,10 @@ pub struct DcfFcffOutput {
     /// Enterprise value minus the net financial position, the debt-like items and the
     /// non-controlling interests.
     pub equity_value: Decimal,
-    /// Present value of the explicit FCFF, in currency units.
-    pub pv_explicit_period: Decimal,
-    /// Present value of the terminal value divided by the value of operations; `null` when
-    /// the value of operations is zero.
-    pub terminal_value_weight: Option<Decimal>,
-    /// One row per period of the explicit horizon.
-    pub periods: Vec<PeriodRow>,
-    /// The terms of the flows and of the rates, the conversion of the rates and the perpetual
-    /// growth in the other terms (R14 to R18).
-    pub terms: TermsOutput,
-    /// The terminal value, its technique and its discounting.
-    pub terminal: TerminalOutput,
+    /// Present value of the explicit FCFF, the terminal value weight, the periods, the terms
+    /// and the terminal value, as JSON keys of this object.
+    #[serde(flatten)]
+    pub discounted: DiscountedValue,
     /// Every line from value of operations to equity value.
     pub bridge: FcffBridge,
 }
@@ -223,57 +127,14 @@ const FORMULA: &str = "Value of operations = Σ FCFF_k × DF_k + TV_N × DF_TV; 
 pub fn fcff(input: &DcfFcffInput) -> Result<(DcfFcffOutput, Explain)> {
     let mut ex = Explain::new("dcf.fcff", FORMULA);
     ex.convention("basis: enterprise, free cash flows to the firm (FCFF) discounted at the WACC");
-    let engine_input = EngineInput {
-        taxes: TaxChoice {
-            notional_tax_rate: input.notional_tax_rate,
-            negative_ebit: input.negative_ebit,
-            interest_tax_rate: None,
-        },
-        basis: TerminalBasis::Enterprise,
-        stages: &input.stages,
-        base_flow: input.base_flow,
-        cash_flow_terms: input.cash_flow_terms,
-        discount_rate_terms: input.discount_rate_terms,
-        inflation: InflationInput {
-            single: input.inflation,
-            per_period: input.inflation_per_period.as_deref(),
-            terminal: input.terminal_inflation,
-        },
-        rates: RateInput {
-            single: input.wacc,
-            per_period: input.wacc_per_period.as_deref(),
-            terminal: input.terminal_wacc,
-            fields: RateFields {
-                single: "wacc",
-                per_period: "wacc_per_period",
-                terminal: "terminal_wacc",
-            },
-        },
-        timing: input.timing,
-        terminal_discount_time: input.terminal_discount_time,
-        terminal: &input.terminal,
-    };
+    let engine_input = input.engine_input();
     // Bridge items are checked before any calculation, like every other input.
-    for (i, a) in input.non_operating_assets.iter().enumerate() {
-        check_labelled_amount(
-            &format!("/non_operating_assets/{i}"),
-            &a.label,
-            a.value,
-            "name the asset",
-            "a non-operating asset is zero or more (obligations belong in the net financial \
-             position)",
-        )?;
-    }
-    check_claims(
+    bridge::check_lines(
+        &input.non_operating_assets,
         &input.debt_like_items,
-        "debt_like_items",
-        "a debt-like item is zero or more (an asset belongs in `non_operating_assets`)",
-    )?;
-    check_claims(
         &input.non_controlling_interests,
-        "non_controlling_interests",
-        "a non-controlling interest is zero or more (SPEC-0001 R25); give zero or a positive \
-         amount",
+        "a non-operating asset is zero or more (obligations belong in the net financial \
+         position)",
     )?;
     let out = engine::run(&engine_input, &mut ex)?;
 
@@ -285,126 +146,23 @@ pub fn fcff(input: &DcfFcffInput) -> Result<(DcfFcffOutput, Explain)> {
         value_of_operations,
     );
     let bridge = bridge(&mut ex, input, value_of_operations)?;
-    let weight = if value_of_operations.is_zero() {
-        ex.convention("terminal value weight not defined: the value of operations is zero");
-        None
-    } else {
-        let w = div(pv_tv, value_of_operations)?;
-        ex.step(
-            "Terminal value weight",
-            format!("{pv_tv} / {value_of_operations}"),
-            w,
-        );
-        Some(w)
-    };
+    let weight = engine::terminal_weight(
+        &mut ex,
+        pv_tv,
+        value_of_operations,
+        "the value of operations is zero",
+    )?;
     Ok((
         DcfFcffOutput {
             basis: TerminalBasis::Enterprise,
             value_of_operations,
             enterprise_value: bridge.enterprise_value,
             equity_value: bridge.equity_value,
-            pv_explicit_period: out.pv_explicit,
-            terminal_value_weight: weight,
-            periods: out.periods,
-            terms: out.terms,
-            terminal: out.terminal,
+            discounted: out.discounted(weight),
             bridge,
         },
         ex,
     ))
-}
-
-/// R25, R27: a bridge line at `pointer` has a value of zero or more and a label that is not
-/// empty; each refusal names the field by its JSON pointer and states the fix. Shared by the
-/// non-operating assets, the debt-like items and the non-controlling interests.
-fn check_labelled_amount(
-    pointer: &str,
-    label: &str,
-    value: Decimal,
-    label_fix: &str,
-    sign_rule: &str,
-) -> Result<()> {
-    if value.is_sign_negative() && !value.is_zero() {
-        return Err(FairmarkError::InvalidInput(format!(
-            "`{pointer}/value` is {value}; {sign_rule}"
-        )));
-    }
-    if label.trim().is_empty() {
-        return Err(FairmarkError::InvalidInput(format!(
-            "`{pointer}/label` is empty; {label_fix}"
-        )));
-    }
-    Ok(())
-}
-
-/// R25, R27, Decision 21: every claim has a label, a value of zero or more and a note when the
-/// basis is `other`;
-/// each refusal names the field by its JSON pointer and states the fix.
-fn check_claims(claims: &[BridgeClaim], field: &str, sign_rule: &str) -> Result<()> {
-    for (i, c) in claims.iter().enumerate() {
-        check_labelled_amount(
-            &format!("/{field}/{i}"),
-            &c.label,
-            c.value,
-            "name the item",
-            sign_rule,
-        )?;
-        let blank = c.basis_note.as_deref().map(|n| n.trim().is_empty());
-        match (blank, c.measurement_basis) {
-            (None | Some(true), MeasurementBasis::Other) => {
-                return Err(FairmarkError::InvalidInput(format!(
-                    "`/{field}/{i}/basis_note` is missing or empty; with `measurement_basis` `other`, \
-                     describe in `basis_note` how the amount was measured, for example \
-                     \"settlement amount, undiscounted\", or choose `book_value`, \
-                     `market_value`, `fair_value` or `present_value`"
-                )));
-            }
-            (Some(true), _) => {
-                return Err(FairmarkError::InvalidInput(format!(
-                    "`/{field}/{i}/basis_note` is empty; write the note or remove the field"
-                )));
-            }
-            _ => {}
-        }
-    }
-    Ok(())
-}
-
-/// R25: each claim as an explain step labelled with its basis, its stated basis as a
-/// convention, and the total with the values substituted.
-fn claims_total(
-    ex: &mut Explain,
-    claims: &[BridgeClaim],
-    singular: &str,
-    plural: &str,
-) -> Result<Decimal> {
-    if claims.is_empty() {
-        ex.convention(format!("{}: none given", plural.to_lowercase()));
-        return Ok(Decimal::ZERO);
-    }
-    let mut total = Decimal::ZERO;
-    let mut terms = Vec::with_capacity(claims.len());
-    for c in claims {
-        let (basis, meaning) = c.measurement_basis.describe();
-        let (in_label, note) = match &c.basis_note {
-            Some(n) => (format!("{basis}: {n}"), format!("; note: {n}")),
-            None => (basis.to_owned(), String::new()),
-        };
-        ex.step(
-            format!("{singular}: {} ({in_label})", c.label),
-            "as given",
-            c.value,
-        );
-        ex.convention(format!(
-            "{} '{}': measurement basis {basis} ({meaning}), stated by the analyst{note}",
-            singular.to_lowercase(),
-            c.label,
-        ));
-        total = add(total, c.value)?;
-        terms.push(c.value.to_string());
-    }
-    ex.step(format!("{plural}, total"), terms.join(" + "), total);
-    Ok(total)
 }
 
 /// R23, R25: value of operations + non-operating assets = enterprise value; enterprise value −
@@ -422,18 +180,7 @@ fn bridge(
          subtracted from enterprise value; every debt-like item and non-controlling interest \
          is zero or more",
     );
-    let mut total = Decimal::ZERO;
-    if input.non_operating_assets.is_empty() {
-        ex.convention("non-operating assets: none given");
-    }
-    for a in &input.non_operating_assets {
-        ex.step(
-            format!("Non-operating asset: {}", a.label),
-            "as given",
-            a.value,
-        );
-        total = add(total, a.value)?;
-    }
+    let total = bridge::non_operating_assets_total(ex, &input.non_operating_assets)?;
     let enterprise_value = add(value_of_operations, total)?;
     ex.step(
         "Enterprise value",
@@ -450,13 +197,13 @@ fn bridge(
             None
         }
     };
-    let debt_like = claims_total(
+    let debt_like = bridge::claims_total(
         ex,
         &input.debt_like_items,
         "Debt-like item",
         "Debt-like items",
     )?;
-    let non_controlling = claims_total(
+    let non_controlling = bridge::claims_total(
         ex,
         &input.non_controlling_interests,
         "Non-controlling interest",
@@ -466,13 +213,11 @@ fn bridge(
         sub(sub(enterprise_value, nfp.unwrap_or_default())?, debt_like)?,
         non_controlling,
     )?;
-    if equity_value.is_sign_negative() && !equity_value.is_zero() {
-        // R26: reported, never floored at zero and never refused.
-        ex.convention(format!(
-            "warning: the equity value is negative ({equity_value}): the claims subtracted \
-             exceed the enterprise value; it is reported as computed, not floored at zero"
-        ));
-    }
+    bridge::warn_if_negative(
+        ex,
+        equity_value,
+        "the claims subtracted exceed the enterprise value",
+    );
     ex.step(
         "Equity value",
         format!(
@@ -1032,7 +777,7 @@ mod tests {
         assert!(c.contains("terminal value discounted at the horizon, t = N"));
     }
 
-    /// AC12 (R21): mid-period terminal discounting at N − 0.5 is DF_N × (1 + r_N)^0.5, and the
+    /// AC12 (R21): mid-period terminal discounting at N − 0.5 is DF_N × (1 + r_T)^0.5, and the
     /// discounting time is reported.
     #[test]
     fn mid_period_terminal_discounting_time() {

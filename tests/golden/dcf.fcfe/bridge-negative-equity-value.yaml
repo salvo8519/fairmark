@@ -1,0 +1,23 @@
+method: dcf.fcfe
+description: "Debt-like items and non-controlling interests above the present value of the FCFE and the terminal value: the equity value is negative, reported as computed and not floored at zero (R24, R26)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R22 and R24, sharing no code with the engine). The warning of R26 is checked by a
+  unit test and a contract case (golden cases check values only).
+input:
+  stages: [{"periods": 2, "projection": "given", "flows": ["40", "42"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  cost_of_equity: "0.14"
+  timing: "end_of_period"
+  terminal: {"tv.gordon": {"growth": "0.0", "first_flow": "last_flow_grown"}}
+  debt_like_items: [{"label": "Environmental remediation provision", "value": "250", "measurement_basis": "other", "basis_note": "best estimate of the settlement amount, undiscounted"}]
+  non_controlling_interests: [{"label": "40% of Subsidiary C", "value": "90", "measurement_basis": "book_value"}]
+expect:
+  /pv_explicit_period: "67.40535549399815327793167128"
+  /terminal/present_value: "230.8402585410895660203139428"
+  /bridge/pv_explicit_and_terminal: "298.2456140350877192982456140"
+  /bridge/debt_like_items_total: "250"
+  /bridge/non_controlling_interests_total: "90"
+  /equity_value: "-41.75438596491228070175438596"
+tolerance: "0.00000000000000000001"

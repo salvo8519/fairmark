@@ -101,6 +101,16 @@
         }
       }
     },
+    "dcf.fcfe": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "dcf.fcfe/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "e7a0e747c26310e9786da9d537c17d129c7b2f8401d1d276c34492e2f4b3a364"
+        }
+      }
+    },
     "dcf.fcff": {
       "current": "3",
       "versions": {
@@ -117,7 +127,7 @@
         "3": {
           "file": "dcf.fcff/v3.json",
           "introduced_in": "unreleased",
-          "sha256": "bcdc7d21310138c7dadb6af20e07397e89efa5ab14360663808427eed141c30e"
+          "sha256": "b23d750ac7b3456ed7cd79569ab0d2f457e901351a21fcdf9009b6ff564e021d"
         }
       }
     },

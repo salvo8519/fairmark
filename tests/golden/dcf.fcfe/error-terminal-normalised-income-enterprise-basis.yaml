@@ -1,0 +1,11 @@
+method: dcf.fcfe
+description: "A normalised income declared on the enterprise basis inside the equity DCF (R19)"
+source: SPEC-0001 R19; SPEC-0006 decision on the declared basis of tv.normalised_income
+input:
+  stages: [{"periods": 2, "projection": "given", "flows": ["100", "110"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  cost_of_equity: "0.11"
+  timing: "end_of_period"
+  terminal: {"tv.normalised_income": {"income": "120", "basis": "enterprise", "growth": "0.01"}}
+expect_error: FM-E019

@@ -1,0 +1,21 @@
+method: dcf.fcfe
+description: "A normalised net income (declared on the equity basis) capitalised at the cost of equity as the terminal value (R19, Decision 13, R24)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R22 and R24, sharing no code with the engine) and SPEC-0006 R6: TV_N = 170 / (0.10
+  - 0.01).
+input:
+  stages: [{"periods": 2, "projection": "given", "flows": ["150", "160"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  cost_of_equity: "0.10"
+  timing: "end_of_period"
+  terminal: {"tv.normalised_income": {"income": "170", "basis": "equity", "growth": "0.01"}}
+expect:
+  /pv_explicit_period: "268.5950413223140495867768595"
+  /terminal/terminal_value: "1888.888888888888888888888889"
+  /terminal/present_value: "1561.065197428833792470156107"
+  /equity_value: "1829.660238751147842056932966"
+  /terminal_value_weight: "0.8531994981179422835633626098"
+  /terminal/technique: "tv.normalised_income"
+tolerance: "0.00000000000000000001"

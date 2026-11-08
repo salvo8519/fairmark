@@ -212,7 +212,9 @@ nominal before taxes; a leading exit multiple.
   id with its terms, compute it through the typed `tv` function (ADR 0009) at the terminal rate
   in the terms of the cash flows, and record the technique's method version. IF the technique's
   basis differs from the basis of the DCF (enterprise for FCFF, equity for FCFE), THEN it SHALL
-  return `FM-E019`.
+  return `FM-E019`; `tv.value_driver`, whose terms NOPAT and RONIC are firm-level quantities, is
+  on the enterprise basis and SHALL return `FM-E019` with FCFE (Decision 23). (Amended
+  2026-11-08, Decision 23.)
 - **R20** — WHEN the technique uses the last explicit flow (`tv.gordon`, `tv.h_model`), THE
   ENGINE SHALL require an explicit choice of the first terminal flow: for `tv.gordon`, the last
   explicit flow grown by the perpetual growth, or a given normalised flow at N + 1; for
@@ -325,8 +327,8 @@ nominal before taxes; a leading exit multiple.
 - **AC10** (R17, R18, R11, R26) — Warnings are reported, never errors: growth below inflation,
   growth on a negative flow, growth discontinuity, negative equity value.
 - **AC11** (R19, R20) — For each `tv.*` technique, the terminal value equals the standalone
-  method on the same inputs (property); P/E or P/BV with FCFF, and EV/EBITDA with FCFE, return
-  `FM-E019`.
+  method on the same inputs (property); P/E or P/BV with FCFF, and EV/EBITDA or
+  `tv.value_driver` with FCFE (Decision 23), return `FM-E019`.
 - **AC12** (R21) — Mid-period with terminal discounting at N − 0.5 equals TV × DF_N × (1 + r_T)^0.5,
   r_T the terminal rate (reference, also with rates per period; Decision 16);
   `terminal_discount_time` with end-of-period timing returns `FM-E001`; the warning is reported
@@ -595,6 +597,13 @@ the source verification.
       `tests/golden/dcf.free_cash_flows/positive-ebit-below-interest.yaml` (EBIT 30, interest
       50: interest after taxes 38.00 to 42.80, FCFE −12.20 to −17.00). `dcf.fcfe` applies the
       rule from its first version. Found by the numerical audit of #165.
+- [x] **23. Value driver on the equity basis** (approved by the maintainer on 2026-11-08, issue
+      #165). NOPAT and RONIC are firm-level (asset side) quantities, so the value driver formula
+      TV_N = NOPAT_{N+1} × (1 − g / RONIC) / (r − g) is not accepted practice on the equity
+      basis: inside `dcf.fcfe`, `tv.value_driver` is refused with `FM-E019`, naming the field
+      and the fix (`tv.gordon` with a normalised next flow, or an exit multiple on earnings or
+      book value). An equity variant (net income and return on equity) may be added later as a
+      new technique or a new version. Amends R19 and AC11.
 
 Terminology decisions from the source verification:
 - [x] **a.** The projection option `linear_fade` is renamed `linear_decline` everywhere
