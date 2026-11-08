@@ -242,12 +242,17 @@
       }
     },
     "tv.compare": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "tv.compare/v1.json",
           "introduced_in": "unreleased",
           "sha256": "a8d27100fa29978862c8236d9b6d26acc9aa9775846ea5e8c53298576e0f2b81"
+        },
+        "2": {
+          "file": "tv.compare/v2.json",
+          "introduced_in": "unreleased",
+          "sha256": "a91a1b5e14382cfaba58912f766e9dcd04f140f2fbed33611dd79cd3f54f2fb6"
         }
       }
     },

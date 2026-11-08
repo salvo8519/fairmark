@@ -1,6 +1,6 @@
 ---
 source: methods/tv-compare.md
-source_hash: 593e7eb65b7f
+source_hash: 0e86154aef87
 ---
 # Confronto tra tecniche di valore terminale (`tv.compare`)
 
@@ -31,7 +31,12 @@ risultato di quel metodo eseguito da solo. Passaggi e convenzioni di ciascuna te
 in `explain`, preceduti dalla posizione e dall'id, ad esempio
 `[1] tv.gordon: Terminal value at N`. La prima tecnica che fallisce restituisce il proprio
 errore; non ci sono risultati parziali. Una tecnica deve avere esattamente una chiave, l'id
-del metodo; una voce con più chiavi è rifiutata con un messaggio che le elenca.
+del metodo; una voce con più chiavi è rifiutata con un messaggio che le elenca, e sono
+rifiutate anche una voce vuota e una chiave ripetuta nella stessa voce.
+
+Versione del metodo: 2. La versione 2 rifiuta una chiave ripetuta nella stessa voce
+(`{"tv.gordon": {...}, "tv.gordon": {...}}`) con `FM-E001`; la versione 1 la accettava e ne
+usava l'ultimo valore. I risultati per ogni altro input non cambiano.
 
 Ogni riga riporta `method_version`, la versione della tecnica che l'ha prodotta. Una modifica
 numerica in qualsiasi metodo `tv.*` richiede quindi anche una nuova versione di `tv.compare`;
@@ -104,7 +109,7 @@ except fm.FairmarkError as err:
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | L'elenco delle tecniche è vuoto, una voce ha più di una chiave distinta, l'id di una tecnica è sconosciuto, oppure un campo manca o è sconosciuto; il messaggio indica il campo con il suo JSON Pointer, per esempio `/techniques/1/tv.gordon/next_flow` o `/techniques/0/tv.gordo` per un id sconosciuto. Nella versione 1 una chiave ripetuta nella stessa voce è accettata e vale il suo ultimo valore |
+| `FM-E001` | L'elenco delle tecniche è vuoto, una voce è vuota, ha più di una chiave distinta o ripete una chiave, l'id di una tecnica è sconosciuto, oppure un campo manca o è sconosciuto; il messaggio indica il campo con il suo JSON Pointer, per esempio `/techniques/1/tv.gordon/next_flow`, `/techniques/0/tv.gordo` per un id sconosciuto, oppure ``invalid input at `/techniques/0`: duplicate key `tv.gordon`; keep one`` |
 | `FM-E019` | Un multiplo di uscita, un reddito normalizzato o una liquidazione è sull'approccio diverso da quello dichiarato |
 | Qualsiasi codice di una tecnica | La prima tecnica che fallisce restituisce il proprio errore (ad esempio `FM-E004`, `FM-E018`) |
 

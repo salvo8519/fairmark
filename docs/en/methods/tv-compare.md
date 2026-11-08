@@ -26,7 +26,11 @@ that method run alone. Steps and conventions of each technique appear in `explai
 with its position and id, for example `[1] tv.gordon: Terminal value at N`. The first technique
 that fails returns its error; there are no partial results. A technique entry must have
 exactly one key, the method id; an entry with several keys is refused with a message that
-lists them.
+lists them, and an empty entry or a key repeated within one entry is refused too.
+
+Method version: 2. Version 2 refuses a key repeated within one technique entry
+(`{"tv.gordon": {...}, "tv.gordon": {...}}`) with `FM-E001`; version 1 accepted it and used its
+last value. Results for every other input are unchanged.
 
 Each row records `method_version`, the version of the technique that produced it. A numerical
 change in any `tv.*` method therefore requires a new version of `tv.compare` as well; a test
@@ -99,7 +103,7 @@ except fm.FairmarkError as err:
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | The list of techniques is empty, an entry has more than one distinct key, a technique id is unknown, or a field is missing or unknown; the message names the field by its JSON pointer, for example `/techniques/1/tv.gordon/next_flow` or `/techniques/0/tv.gordo` for an unknown id. In version 1 a key repeated within one entry is accepted and its last value is used |
+| `FM-E001` | The list of techniques is empty, an entry is empty, has more than one distinct key or repeats a key, a technique id is unknown, or a field is missing or unknown; the message names the field by its JSON pointer, for example `/techniques/1/tv.gordon/next_flow`, `/techniques/0/tv.gordo` for an unknown id, or ``invalid input at `/techniques/0`: duplicate key `tv.gordon`; keep one`` |
 | `FM-E019` | An exit multiple, a normalised income or a liquidation is on the other basis than the one declared |
 | Any code of a technique | The first technique that fails returns its own error (for example `FM-E004`, `FM-E018`) |
 

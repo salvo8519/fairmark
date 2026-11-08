@@ -390,7 +390,7 @@ Net liquidation value at the horizon N: realisable values of labelled assets les
 
 ## `tv.compare`
 
-**Terminal value, comparison of techniques** · method version 1 · status available · tool `fairmark_tv_compare`
+**Terminal value, comparison of techniques** · method version 2 · status available · tool `fairmark_tv_compare`
 
 Runs several terminal value techniques on one rate, growth cap and basis and returns each terminal value at the horizon N with its implied assumptions, side by side.
 
@@ -399,7 +399,7 @@ Runs several terminal value techniques on one rate, growth cap and basis and ret
 | `rate` | decimal | yes |  | Discount rate of the terminal phase, decimal fraction per period, shared by every technique that uses a discount rate. |
 | `basis` | `enterprise` \| `equity` | yes |  | `enterprise` or `equity`: the basis of every terminal value compared. An exit multiple of the other basis is refused. |
 | `growth_cap` | decimal | no |  | Upper bound for the perpetual growth, decimal fraction per period, shared by every growth-based technique. Default: none, reported as absent. |
-| `techniques` | list of  | yes |  | Techniques to run, at least one, each written `{"tv.<name>": {terms}}`; the same technique may appear more than once. |
+| `techniques` | list of  | yes |  | Techniques to run, at least one, each an object with exactly one key, the method id: `{"tv.<name>": {terms}}`. The same technique may appear in more than one entry; a key repeated within one entry is refused. |
 
 ## `dcf.fcff`
 

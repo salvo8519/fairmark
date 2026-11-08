@@ -119,3 +119,9 @@ Decided under the maintainer's instruction of 2026-11-08 (stability, no silent d
       it differs from the basis of the comparison.
 - [x] AC1 needs no second example: the maintainer's session verified the values of slide 203
       (833, 917, 1000, 1122, 1071) against the published PDF; AC1 is satisfied.
+- [x] **Technique entries have exactly one key (issue #199).** `tv.compare` refuses a key
+      repeated within one technique entry (`{"tv.gordon": A, "tv.gordon": B}`) with `FM-E001`
+      at the pointer of the entry ("duplicate key `tv.gordon`; keep one"), and an empty entry,
+      before any terms are read. Version 1 accepted a repeated key with its last value; the
+      refusal is a contract change, so `tv.compare` version 2. Results for every other input
+      are unchanged.
