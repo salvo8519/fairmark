@@ -159,6 +159,7 @@ milestones:
           - { issue: 35, title: "Filed statutory totals and the reorganised balance sheet", tags: [parallel], spec: "0005", status: done }
           - { issue: 36, title: "Several financial years and exact changes in the statements reorganisation", tags: [parallel], spec: "0005", status: open }
           - { issue: 236, title: "Reorganised income statement with IFRS 18 aligned subtotals", spec: "0005", status: open }
+          - { issue: 245, title: "Intercompany financial payables in the net financial position", tags: [needs-methodology], spec: "0005", status: open }
       - title: "Free cash flows"
         issue: 37
         labels: ["area:core", "method:dcf"]
