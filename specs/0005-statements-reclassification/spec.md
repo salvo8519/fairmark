@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Status | Approved — 2026-11-08, revision 5 (best-effort input, optional dates, reclassified input form, IFRS 18 subtotals); maintainer decisions 1 to 18 recorded below |
+| Status | Implementing — approved 2026-11-08, revision 5 (best-effort input, optional dates, reclassified input form, IFRS 18 subtotals); maintainer decisions 1 to 18 recorded below |
 | Milestone | M2 (release 0.1.0); epic #34; issues #35 and #36 |
 | Owner | @salvo8519 |
 | Formula basis | The corporate-finance reorganisation of the financial statements into operating, investing and financing items (Koller, Goedhart, Wessels, *Valuation*, "Reorganizing the financial statements"; CFA Institute curriculum), with the subtotals of IFRS 18 (operating profit; profit before financing and income taxes) and of Italian credit analysis (MOL, reddito operativo, EBIT; OIC 12; art. 2427 n. 13; Banca d'Italia; EBA/GL/2020/06), applied to the aggregates of the statutory layouts (art. 2424, 2425, abridged art. 2435-bis) or to totals already reclassified; net financial position in the SPEC-0007 structure with ESMA32-382-1138 as reference; verified against an exact decimal reference script, published worked examples and practitioner cases (Decision 16) |
