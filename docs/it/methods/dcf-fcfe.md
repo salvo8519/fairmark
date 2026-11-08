@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcfe.md
-source_hash: 084de8670e19
+source_hash: 733fb7f8e89e
 ---
 # DCF, flussi di cassa disponibili per gli azionisti (`dcf.fcfe`)
 
@@ -63,7 +63,9 @@ costruito come in [`dcf.free_cash_flows`](dcf-free-cash-flows.md):
   `interest_tax_rate`.
 
 Le voci senza le voci finanziarie sono rifiutate: l'approccio equity side le richiede in ogni
-periodo. Ogni passo della costruzione è nell'explain, con il prefisso "Build-up:", e la tabella
+periodo. Con `cash_flow_terms` real, gli oneri finanziari devono essere in termini reali: la
+parte degli interessi nominali che compensa l'inflazione è, in termini reali, un rimborso di
+capitale e va nel net borrowing. È una nota di documentazione: il motore non la verifica. Ogni passo della costruzione è nell'explain, con il prefisso "Build-up:", e la tabella
 dei periodi indica che il flusso è stato costruito dalle voci.
 
 ## Tecniche del valore terminale con approccio equity side
@@ -83,7 +85,8 @@ side:
 
 Un valore terminale di Gordon sull'ultimo FCFE fatto crescere porta in perpetuo il net
 borrowing di quel flusso. Nella fase di crescita stabile il net borrowing dovrebbe essere
-quello che mantiene costante il rapporto di indebitamento dell'impresa; quando l'ultimo anno
+quello che mantiene costante il rapporto di indebitamento dell'impresa, come nel FCFE in
+crescita stabile di Damodaran, *Investment Valuation*, capitolo 14; quando l'ultimo anno
 esplicito ha nuovi finanziamenti o rimborsi non ricorrenti, si indichi un FCFE normalizzato in
 N + 1 (`first_flow` = `normalised_next_flow`). È una nota di documentazione: nessuna avvertenza
 è riportata.
@@ -251,7 +254,7 @@ come avvertenza, mai riportato a zero.
 | `FM-E004` | La crescita perpetua è pari o superiore al costo del capitale proprio della fase terminale nei termini dei flussi di cassa |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 | `FM-E018` | Un parametro della tecnica del valore terminale è fuori dal suo dominio, come in `dcf.fcff` |
-| `FM-E019` | È fornita una `net_financial_position`; oppure la tecnica del valore terminale segue l'approccio asset side: un multiplo di uscita su `ebitda`, `ebit` o `revenue`, un reddito normalizzato o una liquidazione con `basis` enterprise, oppure `tv.value_driver` |
+| `FM-E019` | È fornita una `net_financial_position`; oppure la tecnica del valore terminale segue l'approccio asset side: un multiplo di uscita su `ebitda`, `ebit` o `revenue`, un reddito normalizzato o una liquidazione con `basis` enterprise, oppure `tv.value_driver`, che non è disponibile con approccio equity side nella versione 1 |
 | `FM-E024` | `cash_flow_terms` e `discount_rate_terms` sono diversi e non è fornita l'inflazione attesa |
 | `FM-E025` | Un conteggio non corrisponde agli stage: flussi o voci, costi del capitale proprio o inflazione per periodo, oppure un base flow fuori posto |
 
@@ -277,7 +280,7 @@ $10^{-20}$.
 - Stage con `lines`: la costruzione a 50 cifre di `scripts/reference_free_cash_flows.py`
   (`equity_stages_with_flows`) composta con `scripts/reference_dcf.py`, in entrambe le forme
   fiscali e con il trattamento `zero` di un EBIT negativo (`stage-with-build-up-lines-*.yaml`).
-- Coerenza con `dcf.fcff` (test di proprietà): senza debito e senza net borrowing, l'equity
+- Coerenza con `dcf.fcff` (test parametrizzati con seme fisso): senza debito e senza net borrowing, l'equity
   value di `dcf.fcfe` è uguale all'equity value di `dcf.fcff` sugli stessi flussi, con un WACC
   pari al costo del capitale proprio e le stesse voci, fino all'ultima cifra; anche su voci con
   oneri finanziari e net borrowing pari a zero.

@@ -55,6 +55,9 @@ for new borrowing) in every line. The FCFE of each period is built up as in
   `interest_tax_rate`.
 
 Lines without the financing lines are refused: the equity basis needs them in every period.
+With `cash_flow_terms` real, the interest expense must be real interest: the part of nominal
+interest that compensates for inflation is, in real terms, a repayment of principal and
+belongs in the net borrowing. This is a documentation note: the engine does not check it.
 Every step of the build-up is in the explain, prefixed "Build-up:", and the period table says
 the flow was built up from line items.
 
@@ -74,7 +77,8 @@ of equity. The technique must be on the equity basis:
 
 A Gordon terminal value on the last FCFE grown carries that flow's net borrowing into
 perpetuity. In stable growth the net borrowing should be the one that keeps the debt ratio
-of the company constant; when the last explicit year has unusual borrowing or repayment, give
+of the company constant, as in the stable-growth FCFE of Damodaran, *Investment Valuation*,
+chapter 14; when the last explicit year has unusual borrowing or repayment, give
 a normalised FCFE at N + 1 (`first_flow` = `normalised_next_flow`). This is a documentation
 note: no warning is reported.
 
@@ -235,7 +239,7 @@ negative equity value is reported as a warning, never floored at zero.
 | `FM-E004` | The perpetual growth is equal to or greater than the terminal cost of equity in the terms of the cash flows |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 | `FM-E018` | A term of the terminal technique outside its domain, as in `dcf.fcff` |
-| `FM-E019` | A `net_financial_position` is given; or the terminal technique is on the enterprise basis: an exit multiple on `ebitda`, `ebit` or `revenue`, a normalised income or a liquidation with `basis` enterprise, or `tv.value_driver` |
+| `FM-E019` | A `net_financial_position` is given; or the terminal technique is on the enterprise basis: an exit multiple on `ebitda`, `ebit` or `revenue`, a normalised income or a liquidation with `basis` enterprise, or `tv.value_driver`, which is not available on the equity basis in version 1 |
 | `FM-E024` | `cash_flow_terms` and `discount_rate_terms` differ and no expected inflation is given |
 | `FM-E025` | A count does not match the stages: flows or lines, costs of equity or inflation per period, or a misplaced base flow |
 
@@ -260,7 +264,7 @@ golden cases from the reference are checked to $10^{-20}$.
   (`equity_stages_with_flows`) composed with `scripts/reference_dcf.py`, in both tax forms and
   with the `zero` treatment of a negative EBIT
   (`stage-with-build-up-lines-*.yaml`).
-- Consistency with `dcf.fcff` (property tests): with no debt and no net borrowing, the equity
+- Consistency with `dcf.fcff` (seeded, parametrised tests): with no debt and no net borrowing, the equity
   value of `dcf.fcfe` equals the equity value of `dcf.fcff` on the same flows, at a WACC equal
   to the cost of equity and with the same bridge lines, to the last digit; also on build-up
   lines with zero interest and zero net borrowing.
