@@ -28,7 +28,7 @@ golden file is edited; if a task would change one, stop and ask the maintainer.
       Illustration 15.3 and the 50-digit reference), AC8, AC9 (named frequencies,
       `period_months` 1 to 6, 12, 24, and the refusals for 5 and 18), AC10 including the
       end-to-end `tvm.xnpv` case, AC12; `source` names the reference script (R9 to R18).
-- [ ] T6 [P] New golden files only in `tests/golden/rates.convert/`, `tests/golden/tvm.xnpv/`
+- [x] T6 [P] New golden files only in `tests/golden/rates.convert/`, `tests/golden/tvm.xnpv/`
       and `tests/golden/loans.instalment/`: 0.0735 `annual` to `bimonthly` and to
       `four_monthly`, `tvm.xnpv` with `four_monthly`, `loans.instalment` with `bimonthly`
       against form (b), `FM-E003` at −3 with `four_monthly` (AC14). If the golden hook blocks a
@@ -40,7 +40,7 @@ golden file is edited; if a task would change one, stop and ask the maintainer.
       `period_months` `u32::MAX` with 10000 periods returns `FM-E009` (AC4).
 
 ## Implementation
-- [ ] T8 Shared frequency: `crates/fairmark-core/src/frequency.rs` (`Frequency`,
+- [x] T8 Shared frequency: `crates/fairmark-core/src/frequency.rs` (`Frequency`,
       `PeriodLength`, exactly-one and at-most-one validation); `Compounding` and
       `PaymentFrequency` gain `bimonthly` and `four_monthly`, appended, periodic values derived
       from `Frequency`; labels in `explain.conventions` (R20, R21). `uv run just generate`

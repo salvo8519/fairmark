@@ -23,13 +23,13 @@ Fraction of a year between two dates under an ISDA 2006 day-count convention: Ac
 
 **Rate conversion between compounding conventions** · method version 1 · status available · tool `fairmark_rates_convert`
 
-Equivalent annual rate under another compounding (annual, semi-annual, quarterly, monthly, continuous).
+Equivalent annual rate under another compounding (annual, semi-annual, four-monthly, quarterly, bimonthly, monthly, continuous).
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `rate` | decimal | yes |  | Annual rate as a decimal fraction (0.12 = 12% a year), quoted with `from` compounding. |
-| `from` | `annual` \| `semi_annual` \| `quarterly` \| `monthly` \| `continuous` | yes |  | Compounding of the given rate. |
-| `to` | `annual` \| `semi_annual` \| `quarterly` \| `monthly` \| `continuous` | yes |  | Compounding of the equivalent rate to return. |
+| `from` | `annual` \| `semi_annual` \| `quarterly` \| `monthly` \| `continuous` \| `bimonthly` \| `four_monthly` | yes |  | Compounding of the given rate. |
+| `to` | `annual` \| `semi_annual` \| `quarterly` \| `monthly` \| `continuous` \| `bimonthly` \| `four_monthly` | yes |  | Compounding of the equivalent rate to return. |
 
 ## `rates.real_nominal`
 
@@ -103,7 +103,7 @@ Annual rate at which the XNPV of dated flows is zero, solved deterministically; 
 | `cash_flows` | list of object | yes |  | Dated cash flows, in any order; at least one positive and one negative amount. |
 | `day_count` |  | no |  | Day count for the time between dates. Default: `act_365_fixed` (ECMA-376 XIRR). |
 | `compounding` |  | no |  | Compounding of the returned rate. Default: `annual` (ECMA-376 XIRR). |
-| `guess` | decimal | no |  | Starting point for Newton's method, annual decimal fraction in the compounding of the result, greater than -m, with m the compounding periods a year (-1 annual, -2 semi-annual, -4 quarterly, -12 monthly; no bound for continuous). Default: 0.10 (ECMA-376 XIRR). |
+| `guess` | decimal | no |  | Starting point for Newton's method, annual decimal fraction in the compounding of the result, greater than -m, with m the compounding periods a year (-1 annual, -2 semi-annual, -3 four-monthly, -4 quarterly, -6 bimonthly, -12 monthly; no bound for continuous). Default: 0.10 (ECMA-376 XIRR). |
 
 ## `tvm.mirr`
 
@@ -169,7 +169,7 @@ Constant instalment of a loan from its principal, rate, number of instalments an
 | `principal` | decimal | yes |  | Amount borrowed, in currency units, greater than zero. |
 | `rate` | decimal | no |  | Annual borrowing rate, decimal fraction (0.05 = 5% a year), quoted with `compounding`. Rate form (a): give it with `compounding` and `payment_frequency`, or give `periodic_rate` instead. |
 | `compounding` |  | no |  | Compounding of `rate` (form a); required with `rate`, no default. |
-| `payment_frequency` |  | no |  | Instalments per year (form a): `annual`, `semi_annual`, `quarterly` or `monthly`. |
+| `payment_frequency` |  | no |  | Instalments per year (form a): `annual`, `semi_annual`, `four_monthly` (3 a year), `quarterly`, `bimonthly` (every two months, 6 a year) or `monthly`. |
 | `periodic_rate` | decimal | no |  | Rate per payment period, decimal fraction (form b), greater than -1; instead of `rate`, `compounding` and `payment_frequency`. |
 | `number_of_instalments` | integer | yes |  | Number of instalments, from 1 to 10000. |
 | `timing` | `ordinary` \| `due` | yes |  | `ordinary` (in arrears: instalment k at the end of period k) or `due` (in advance: at the beginning of period k). |
@@ -187,7 +187,7 @@ Number of instalments needed to repay a loan with a given instalment, the exact 
 | `principal` | decimal | yes |  | Amount borrowed, in currency units, greater than zero. |
 | `rate` | decimal | no |  | Annual borrowing rate, decimal fraction (0.05 = 5% a year), quoted with `compounding`. Rate form (a): give it with `compounding` and `payment_frequency`, or give `periodic_rate` instead. |
 | `compounding` |  | no |  | Compounding of `rate` (form a); required with `rate`, no default. |
-| `payment_frequency` |  | no |  | Instalments per year (form a): `annual`, `semi_annual`, `quarterly` or `monthly`. |
+| `payment_frequency` |  | no |  | Instalments per year (form a): `annual`, `semi_annual`, `four_monthly` (3 a year), `quarterly`, `bimonthly` (every two months, 6 a year) or `monthly`. |
 | `periodic_rate` | decimal | no |  | Rate per payment period, decimal fraction (form b), greater than -1; instead of `rate`, `compounding` and `payment_frequency`. |
 | `instalment` | decimal | yes |  | Constant instalment, in currency units; it must exceed the interest of the first period. |
 | `timing` | `ordinary` \| `due` | yes |  | `ordinary` (in arrears: instalment k at the end of period k) or `due` (in advance: at the beginning of period k). |
@@ -203,7 +203,7 @@ Period-by-period schedule of a loan with instalment, interest portion, principal
 | `principal` | decimal | yes |  | Amount borrowed, in currency units, greater than zero. |
 | `rate` | decimal | no |  | Annual borrowing rate, decimal fraction (0.05 = 5% a year), quoted with `compounding`. Rate form (a): give it with `compounding` and `payment_frequency`, or give `periodic_rate` instead. |
 | `compounding` |  | no |  | Compounding of `rate` (form a); required with `rate`, no default. |
-| `payment_frequency` |  | no |  | Instalments per year (form a): `annual`, `semi_annual`, `quarterly` or `monthly`. |
+| `payment_frequency` |  | no |  | Instalments per year (form a): `annual`, `semi_annual`, `four_monthly` (3 a year), `quarterly`, `bimonthly` (every two months, 6 a year) or `monthly`. |
 | `periodic_rate` | decimal | no |  | Rate per payment period, decimal fraction (form b), greater than -1; instead of `rate`, `compounding` and `payment_frequency`. |
 | `number_of_instalments` | integer | yes |  | Number of instalments over the full term, grace periods included, from 1 to 10000. |
 | `timing` | `ordinary` \| `due` | yes |  | `ordinary` (in arrears: instalment k at the end of period k, time k). Version 1 accepts only `ordinary`; `due` is refused with `FM-E001`. |

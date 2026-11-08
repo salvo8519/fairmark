@@ -12,9 +12,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{rate_field, FairmarkError, Result};
 use crate::explain::Explain;
+use crate::frequency::Frequency;
 use crate::method::Method;
 use crate::num;
 
+// The periodic values take their periods a year from the named frequencies of the engine
+// (`frequency::Frequency`, SPEC-0010 R20).
 /// How often interest is compounded within a year.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -30,18 +33,41 @@ pub enum Compounding {
     Monthly,
     /// Continuously: growth factor e^(r t).
     Continuous,
+    /// Six times a year, every two months (not twice a month): nominal rate / 6 per period.
+    Bimonthly,
+    /// Three times a year, every four months: nominal rate / 3 per period.
+    FourMonthly,
 }
 
 impl Compounding {
-    /// Compounding periods per year, `None` for continuous compounding.
-    pub fn per_year(self) -> Option<u32> {
+    /// The named frequency of a periodic compounding, `None` for continuous compounding.
+    pub fn frequency(self) -> Option<Frequency> {
         match self {
-            Self::Annual => Some(1),
-            Self::SemiAnnual => Some(2),
-            Self::Quarterly => Some(4),
-            Self::Monthly => Some(12),
+            Self::Annual => Some(Frequency::Annual),
+            Self::SemiAnnual => Some(Frequency::SemiAnnual),
+            Self::Quarterly => Some(Frequency::Quarterly),
+            Self::Monthly => Some(Frequency::Monthly),
+            Self::Bimonthly => Some(Frequency::Bimonthly),
+            Self::FourMonthly => Some(Frequency::FourMonthly),
             Self::Continuous => None,
         }
+    }
+
+    /// The periodic compounding of a named frequency.
+    pub fn of(frequency: Frequency) -> Compounding {
+        match frequency {
+            Frequency::Annual => Self::Annual,
+            Frequency::SemiAnnual => Self::SemiAnnual,
+            Frequency::FourMonthly => Self::FourMonthly,
+            Frequency::Quarterly => Self::Quarterly,
+            Frequency::Bimonthly => Self::Bimonthly,
+            Frequency::Monthly => Self::Monthly,
+        }
+    }
+
+    /// Compounding periods per year, `None` for continuous compounding.
+    pub fn per_year(self) -> Option<u32> {
+        self.frequency().map(Frequency::per_year)
     }
 
     pub fn label(self) -> &'static str {
@@ -51,6 +77,8 @@ impl Compounding {
             Self::Quarterly => "quarterly compounding",
             Self::Monthly => "monthly compounding",
             Self::Continuous => "continuous compounding",
+            Self::Bimonthly => "bimonthly compounding (every two months, 6 periods a year)",
+            Self::FourMonthly => "four-monthly compounding (every four months, 3 periods a year)",
         }
     }
 }
@@ -313,8 +341,8 @@ impl Method for Convert {
     const ID: &'static str = "rates.convert";
     const TITLE: &'static str = "Rate conversion between compounding conventions";
     const DESCRIPTION: &'static str =
-        "Equivalent annual rate under another compounding (annual, semi-annual, quarterly, \
-        monthly, continuous).";
+        "Equivalent annual rate under another compounding (annual, semi-annual, four-monthly, \
+        quarterly, bimonthly, monthly, continuous).";
     const VERSION: &'static str = "1";
     type Input = ConvertInput;
     type Output = ConvertOutput;
@@ -352,10 +380,13 @@ mod tests {
 
     #[test]
     fn conversions_round_trip() {
+        // SPEC-0010 AC14: every pair of the seven compounding values.
         let all = [
             Compounding::Annual,
             Compounding::SemiAnnual,
+            Compounding::FourMonthly,
             Compounding::Quarterly,
+            Compounding::Bimonthly,
             Compounding::Monthly,
             Compounding::Continuous,
         ];
@@ -395,6 +426,48 @@ mod tests {
         })
         .unwrap_err();
         assert!(e.to_string().starts_with("`/rate` is -1"), "{e}");
+    }
+
+    /// SPEC-0010 AC14: with m = 3 the rate must exceed -3, named with the rule.
+    #[test]
+    fn four_monthly_rate_of_minus_three_is_rejected_with_the_rule() {
+        let e = convert(&ConvertInput {
+            rate: d("-3"),
+            from: Compounding::FourMonthly,
+            to: Compounding::Annual,
+        })
+        .unwrap_err();
+        assert_eq!(e.code(), "FM-E003");
+        let m = e.to_string();
+        assert!(
+            m.starts_with("`/rate` is -3: with 3 compounding periods a year"),
+            "{m}"
+        );
+        assert!(m.contains("the rate must be greater than -3"), "{m}");
+        assert!(convert(&ConvertInput {
+            rate: d("-2.99"),
+            from: Compounding::FourMonthly,
+            to: Compounding::Bimonthly,
+        })
+        .is_ok());
+    }
+
+    /// SPEC-0010 R21: the new values are labelled in the conventions.
+    #[test]
+    fn new_compounding_values_are_labelled() {
+        let (_, ex) = convert(&ConvertInput {
+            rate: d("0.0735"),
+            from: Compounding::Bimonthly,
+            to: Compounding::FourMonthly,
+        })
+        .unwrap();
+        assert_eq!(
+            ex.conventions,
+            [
+                "from: bimonthly compounding (every two months, 6 periods a year)",
+                "to: four-monthly compounding (every four months, 3 periods a year)",
+            ]
+        );
     }
 
     #[test]

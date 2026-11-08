@@ -1,6 +1,6 @@
 ---
 source: methods/tvm-xnpv.md
-source_hash: d5f0dfe19d9f
+source_hash: 22a5b6fa59ac
 ---
 # Valore attuale netto di flussi datati (`tvm.xnpv`)
 
@@ -71,7 +71,7 @@ qualsiasi ordine.
 | `cash_flows` | Flussi datati `{date, amount}`; gli importi negativi sono pagamenti, quelli positivi incassi | obbligatorio |
 | `valuation_date` | Data alla quale è calcolato il valore; nessun flusso può precederla | data del primo flusso |
 | `day_count` | `act_365_fixed`, `act_360`, `act_act_isda`, `thirty_360` oppure `thirty_e_360` | `act_365_fixed` |
-| `compounding` | `annual`, `semi_annual`, `quarterly`, `monthly` oppure `continuous` | `annual` |
+| `compounding` | `annual`, `semi_annual`, `four_monthly` (3 all'anno), `quarterly`, `bimonthly` (ogni due mesi, 6 all'anno), `monthly` oppure `continuous` | `annual` |
 
 ## Output
 
@@ -86,7 +86,7 @@ qualsiasi ordine.
 | Convenzione | Opzioni | Default |
 | --- | --- | --- |
 | Calcolo dei giorni | cinque convenzioni, vedi [`dates.year_fraction`](dates-year-fraction.md) | Actual/365 (Fixed), il default dei fogli di calcolo ECMA-376 |
-| Capitalizzazione | annuale, semestrale, trimestrale, mensile, continua | annuale, il default dei fogli di calcolo ECMA-376 |
+| Capitalizzazione | annuale, semestrale, quadrimestrale, trimestrale, bimestrale, mensile, continua | annuale, il default dei fogli di calcolo ECMA-376 |
 | Data di valutazione | qualsiasi data non successiva al primo flusso | data del primo flusso |
 
 Ogni convenzione è riportata indicando se è stata fornita o se è il default. ECMA-376 valuta
@@ -118,5 +118,8 @@ $10^{-19}$.
 ## Verificato con
 
 - Esempio pubblicato: esempio della funzione `XNPV` di ECMA-376 / Excel, 2086.65.
+- Casi di riferimento in `tests/golden/tvm.xnpv/` da un calcolo indipendente a 50 cifre
+  (`scripts/reference_time.py`), compresi gli stessi flussi attualizzati con capitalizzazione
+  `four_monthly`.
 - Concorda con la funzione `XNPV` di Excel e LibreOffice e con `pyxirr.xnpv`.
 - Convenzioni di calcolo dei giorni: definizioni delle 2006 ISDA Definitions, sezione 4.16.

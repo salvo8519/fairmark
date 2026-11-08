@@ -1,0 +1,7 @@
+method: rates.convert
+description: "A rate of -3 compounded every four months: the rate per period -3 / 3 is -100% (SPEC-0010 AC14)"
+source: >
+  SPEC-0010 R21 and AC14: with m = 3 compounding periods a year the rate must be greater than
+  -3 (r/m > -1), FM-E003. The error code is part of the specification.
+input: { rate: "-3", from: four_monthly, to: annual }
+expect_error: FM-E003

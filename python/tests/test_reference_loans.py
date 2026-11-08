@@ -30,11 +30,11 @@ TOL = D("1e-18")
 # Schedule rows: the engine carries 28 significant digits and an error in the instalment grows
 # by (1 + i) per period, so the bound is relative to the principal, on loans of realistic term.
 REL = D("1e-22")
-FREQUENCIES = ["annual", "semi_annual", "quarterly", "monthly"]
+FREQUENCIES = ["annual", "semi_annual", "four_monthly", "quarterly", "bimonthly", "monthly"]
 COMPOUNDINGS = [*FREQUENCIES, "continuous"]
 
 
-PER_YEAR = {"annual": 1, "semi_annual": 2, "quarterly": 4, "monthly": 12}
+PER_YEAR = ref.PER_YEAR
 
 
 def random_rate() -> tuple[dict[str, str], D, int]:

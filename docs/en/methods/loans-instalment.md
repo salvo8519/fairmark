@@ -73,8 +73,8 @@ assert same.instalment == again.instalment
 | --- | --- | --- |
 | `principal` | Amount borrowed, currency units, greater than 0 | required |
 | `rate` | Annual borrowing rate, decimal fraction (form a) | one rate form required |
-| `compounding` | Compounding of `rate`: `annual`, `semi_annual`, `quarterly`, `monthly`, `continuous` (form a) | required with `rate` |
-| `payment_frequency` | Instalments per year: `annual`, `semi_annual`, `quarterly`, `monthly` (form a) | required with `rate` |
+| `compounding` | Compounding of `rate`: `annual`, `semi_annual`, `four_monthly`, `quarterly`, `bimonthly`, `monthly`, `continuous` (form a) | required with `rate` |
+| `payment_frequency` | Instalments per year: `annual` (1), `semi_annual` (2), `four_monthly` (3, every four months), `quarterly` (4), `bimonthly` (6, every two months, not twice a month), `monthly` (12) (form a) | required with `rate` |
 | `periodic_rate` | Rate per payment period, decimal fraction, greater than −1 (form b) | one rate form required |
 | `number_of_instalments` | From 1 to 10000 | required |
 | `timing` | `ordinary` (in arrears) or `due` (in advance) | required |
@@ -125,6 +125,7 @@ The golden cases are checked to $10^{-20}$ against an independent 50-digit refer
 
 - Golden cases in `tests/golden/loans.instalment/`: the ECMA-376 worked example of the loan
   instalment (in arrears and in advance) and an independent 50-digit reference
-  (`scripts/reference_loans.py`).
+  (`scripts/reference_loans.py`), including payments every two months in form (a), equal to the
+  equivalent periodic rate in form (b).
 - The loan payment function of `numpy_financial` on random loans, both timings, with the
   balloon amount as the future value.

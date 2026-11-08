@@ -1,6 +1,6 @@
 ---
 source: methods/loans-number-of-instalments.md
-source_hash: 589d9c07385e
+source_hash: d872dff08ab3
 ---
 # Numero delle rate (`loans.number_of_instalments`)
 
@@ -64,7 +64,7 @@ assert advance.number_of_instalments == 33
 | Campo | Significato | Default |
 | --- | --- | --- |
 | `principal` | Capitale finanziato, in unità di valuta, maggiore di 0 | obbligatorio |
-| `rate`, `compounding`, `payment_frequency` | Tasso annuo nominale con la sua capitalizzazione e il numero di rate all'anno (forma a) | una forma di tasso obbligatoria |
+| `rate`, `compounding`, `payment_frequency` | Tasso annuo nominale con la sua capitalizzazione e il numero di rate all'anno (forma a); i valori sono quelli di [`loans.instalment`](loans-instalment.md), compresi `four_monthly` (3 all'anno) e `bimonthly` (6 all'anno) | una forma di tasso obbligatoria |
 | `periodic_rate` | Tasso per periodo di pagamento, frazione decimale, maggiore di −1 (forma b) | una forma di tasso obbligatoria |
 | `instalment` | Rata costante, in unità di valuta | obbligatorio |
 | `timing` | `ordinary` (rata posticipata) o `due` (rata anticipata) | obbligatorio |

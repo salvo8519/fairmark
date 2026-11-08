@@ -935,8 +935,8 @@ pub struct XirrInput {
     pub compounding: Option<Compounding>,
     /// Starting point for Newton's method, annual decimal fraction in the compounding of the
     /// result, greater than -m, with m the compounding periods a year (-1 annual, -2
-    /// semi-annual, -4 quarterly, -12 monthly; no bound for continuous). Default: 0.10
-    /// (ECMA-376 XIRR).
+    /// semi-annual, -3 four-monthly, -4 quarterly, -6 bimonthly, -12 monthly; no bound for
+    /// continuous). Default: 0.10 (ECMA-376 XIRR).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub guess: Option<Decimal>,
 }
@@ -2392,6 +2392,8 @@ mod tests {
             ("-2", Compounding::SemiAnnual),
             ("-4", Compounding::Quarterly),
             ("-12", Compounding::Monthly),
+            ("-6", Compounding::Bimonthly),
+            ("-3", Compounding::FourMonthly),
         ] {
             let (m, code) = message(xirr_with(d(bound), c));
             assert_eq!(code, "FM-E003", "{m}");

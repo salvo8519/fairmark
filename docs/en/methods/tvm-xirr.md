@@ -78,8 +78,8 @@ further rates in pairs cannot be excluded. With $s = 1$ the rate is proven uniqu
 | --- | --- | --- |
 | `cash_flows` | Dated flows `{date, amount}`, in any order; at least one positive and one negative amount | required |
 | `day_count` | `act_365_fixed`, `act_360`, `act_act_isda`, `thirty_360` or `thirty_e_360` | `act_365_fixed` |
-| `compounding` | Compounding of the returned rate: `annual`, `semi_annual`, `quarterly`, `monthly` or `continuous` | `annual` |
-| `guess` | Starting point for Newton's method, annual decimal fraction in the compounding of the result, greater than $-m$, with $m$ the compounding periods a year (−1 annual, −2 semi-annual, −4 quarterly, −12 monthly; no bound for continuous) | `0.10` |
+| `compounding` | Compounding of the returned rate: `annual`, `semi_annual`, `four_monthly` (3 a year), `quarterly`, `bimonthly` (every two months, 6 a year), `monthly` or `continuous` | `annual` |
+| `guess` | Starting point for Newton's method, annual decimal fraction in the compounding of the result, greater than $-m$, with $m$ the compounding periods a year (−1 annual, −2 semi-annual, −3 four-monthly, −4 quarterly, −6 bimonthly, −12 monthly; no bound for continuous) | `0.10` |
 
 ## Outputs
 
@@ -97,7 +97,7 @@ further rates in pairs cannot be excluded. With $s = 1$ the rate is proven uniqu
 | Convention | Options | Default |
 | --- | --- | --- |
 | Day count | five day counts, see [`dates.year_fraction`](dates-year-fraction.md) | Actual/365 (Fixed), the ECMA-376 spreadsheet default |
-| Compounding | annual, semi-annual, quarterly, monthly, continuous | annual, the ECMA-376 spreadsheet default |
+| Compounding | annual, semi-annual, four-monthly, quarterly, bimonthly, monthly, continuous | annual, the ECMA-376 spreadsheet default |
 | Time origin | earliest flow date | fixed |
 | Solver grid | effective annual rates −0.99 to 10, converted to the compounding | fixed |
 | Stopping rule | step on the rate below $10^{-18}$, at most 200 iterations | fixed |

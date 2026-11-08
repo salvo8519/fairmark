@@ -64,7 +64,7 @@ Dates are ISO 8601 strings or `datetime.date` objects; the flows may be in any o
 | `cash_flows` | Dated flows `{date, amount}`; negative amounts are payments, positive are receipts | required |
 | `valuation_date` | Date at which the value is computed; no flow may precede it | earliest flow date |
 | `day_count` | `act_365_fixed`, `act_360`, `act_act_isda`, `thirty_360` or `thirty_e_360` | `act_365_fixed` |
-| `compounding` | `annual`, `semi_annual`, `quarterly`, `monthly` or `continuous` | `annual` |
+| `compounding` | `annual`, `semi_annual`, `four_monthly` (3 a year), `quarterly`, `bimonthly` (every two months, 6 a year), `monthly` or `continuous` | `annual` |
 
 ## Outputs
 
@@ -79,7 +79,7 @@ Dates are ISO 8601 strings or `datetime.date` objects; the flows may be in any o
 | Convention | Options | Default |
 | --- | --- | --- |
 | Day count | five day counts, see [`dates.year_fraction`](dates-year-fraction.md) | Actual/365 (Fixed), the ECMA-376 spreadsheet default |
-| Compounding | annual, semi-annual, quarterly, monthly, continuous | annual, the ECMA-376 spreadsheet default |
+| Compounding | annual, semi-annual, four-monthly, quarterly, bimonthly, monthly, continuous | annual, the ECMA-376 spreadsheet default |
 | Valuation date | any date not later than the earliest flow | earliest flow date |
 
 Each convention is reported with whether it was given or is the default. ECMA-376 values at
@@ -109,5 +109,8 @@ keeping full relative precision. The full-precision golden cases are checked to 
 ## Verified against
 
 - Published example: ECMA-376 / Excel `XNPV` example, 2086.65.
+- Golden cases in `tests/golden/tvm.xnpv/` from an independent 50-digit computation
+  (`scripts/reference_time.py`), including the same flows discounted with `four_monthly`
+  compounding.
 - Agrees with the `XNPV` function of Excel and LibreOffice and with `pyxirr.xnpv`.
 - Day counts: definitions of the 2006 ISDA Definitions, section 4.16.

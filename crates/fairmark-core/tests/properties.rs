@@ -348,10 +348,13 @@ fn rate_and_two_periods(cap: u32, extra: u32) -> impl Strategy<Value = (Decimal,
         .prop_flat_map(move |(r, n, max)| (Just(r), Just(n), n + 1..=(n + extra).min(max)))
 }
 
-const COMPOUNDINGS: [Compounding; 5] = [
+/// The seven compounding values (SPEC-0010 R20: `four_monthly` and `bimonthly` added).
+const COMPOUNDINGS: [Compounding; 7] = [
     Compounding::Annual,
     Compounding::SemiAnnual,
+    Compounding::FourMonthly,
     Compounding::Quarterly,
+    Compounding::Bimonthly,
     Compounding::Monthly,
     Compounding::Continuous,
 ];
@@ -367,6 +370,8 @@ fn compounding() -> impl Strategy<Value = Compounding> {
         Just(Compounding::Quarterly),
         Just(Compounding::Monthly),
         Just(Compounding::Continuous),
+        Just(Compounding::Bimonthly),
+        Just(Compounding::FourMonthly),
     ]
 }
 

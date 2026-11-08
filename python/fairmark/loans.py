@@ -13,8 +13,12 @@ from typing import Any, Literal
 from ._core import Result, run
 
 Number = Decimal | int | str | float
-Compounding = Literal["annual", "semi_annual", "quarterly", "monthly", "continuous"]
-PaymentFrequency = Literal["annual", "semi_annual", "quarterly", "monthly"]
+Compounding = Literal[
+    "annual", "semi_annual", "four_monthly", "quarterly", "bimonthly", "monthly", "continuous"
+]
+PaymentFrequency = Literal[
+    "annual", "semi_annual", "four_monthly", "quarterly", "bimonthly", "monthly"
+]
 Timing = Literal["ordinary", "due"]
 RoundingMode = Literal["half_up", "half_even"]
 

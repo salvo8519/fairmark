@@ -1,0 +1,8 @@
+method: loans.instalment
+description: "6% effective annual with payments every two months: periodic rate 1.06^(1/6) − 1 (SPEC-0010 AC14)"
+source: Independent 50-digit reference, scripts/reference_loans.py (SPEC-0010 AC14)
+input: { principal: "20000", rate: "0.06", compounding: "annual", payment_frequency: "bimonthly", number_of_instalments: 18, timing: "ordinary" }
+expect:
+  instalment: "1216.953554479711913809844965"
+  periodic_rate: "0.009758794179192246406777967"
+tolerance: "0.0000000000000000001"
