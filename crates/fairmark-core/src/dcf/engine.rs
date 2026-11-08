@@ -1494,7 +1494,7 @@ mod tests {
                     m.insert("inflation_per_period".into(), json!(["0", "-1", "0"]));
                     m.insert("terminal_inflation".into(), json!("0.02"));
                 }),
-                "FM-E001",
+                "FM-E003",
                 "/inflation_per_period/1",
             ),
             (
@@ -1503,14 +1503,14 @@ mod tests {
                     m.insert("inflation_per_period".into(), json!(["0", "0", "0"]));
                     m.insert("terminal_inflation".into(), json!("-1.5"));
                 }),
-                "FM-E001",
+                "FM-E003",
                 "/terminal_inflation",
             ),
             (
                 with(base(), |m| {
                     m.insert("inflation".into(), json!("-1"));
                 }),
-                "FM-E001",
+                "FM-E003",
                 "/inflation",
             ),
             // The terminal rate converted to real terms (0.0194...) is below the growth.
