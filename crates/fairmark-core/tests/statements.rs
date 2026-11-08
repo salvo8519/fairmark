@@ -352,6 +352,81 @@ fn an_empty_list_of_years_is_refused() {
     assert!(e.to_string().contains("`/years`"), "{e}");
 }
 
+// ---------------------------------------------------------------- R11, constitution II: explain
+
+/// The step with `label`, or a panic listing the labels.
+fn step<'a>(out: &'a Value, label: &str) -> &'a Value {
+    let steps = out["explain"]["steps"].as_array().unwrap();
+    steps
+        .iter()
+        .find(|s| s["label"] == label)
+        .unwrap_or_else(|| {
+            let labels: Vec<&Value> = steps.iter().map(|s| &s["label"]).collect();
+            panic!("no step '{label}' in {labels:?}")
+        })
+}
+
+/// Review of PR 1 (item 3): every number of the net financial position is a step with its parts
+/// substituted, one labelled term per component.
+#[test]
+fn the_net_financial_position_shows_every_part_substituted() {
+    let out = run(&golden_input("balance-sheet-ordinary"));
+    for (label, formula, value) in [
+        (
+            "Gross debt (2024)",
+            "Financial debt (D) 900000 + Shareholder loans (D) 100000",
+            "1000000",
+        ),
+        ("Cash (2024)", "C.IV 240000 − operating cash 0", "240000"),
+        (
+            "Excess cash (2024)",
+            "C.IV 240000 − operating cash 0",
+            "240000",
+        ),
+        (
+            "Net financial position, current (2024)",
+            "Financial debt (D) 350000 + Shareholder loans (D) 50000 + Cash (C.IV) -240000 + \
+             Current financial assets (C.III) -60000 + Derivative liabilities (B) 0",
+            "100000",
+        ),
+        (
+            "Net financial position, non-current (2024)",
+            "Financial debt (D) 550000 + Shareholder loans (D) 50000 + Cash (C.IV) 0 + \
+             Current financial assets (C.III) 0 + Derivative liabilities (B) 10000",
+            "610000",
+        ),
+    ] {
+        let s = step(&out, label);
+        assert_eq!(s["formula"], formula, "{label}");
+        assert_eq!(s["value"], value, "{label}");
+    }
+}
+
+/// Review of PR 1 (item 3): in the reclassified form, the totals of the lists and the excess
+/// cash are steps too.
+#[test]
+fn the_reclassified_totals_of_lists_and_excess_cash_are_steps() {
+    let out = run(&golden_input("reclassified-balance-sheet"));
+    for (label, formula, value) in [
+        (
+            "Non-operating assets (2024)",
+            "Financial fixed assets (B.III) 150000",
+            "150000",
+        ),
+        ("Quasi-equity items (2024)", "none", "0"),
+        ("Debt-like items (2024)", "none", "0"),
+        (
+            "Excess cash (2024)",
+            "cash of the net financial position 240000",
+            "240000",
+        ),
+    ] {
+        let s = step(&out, label);
+        assert_eq!(s["formula"], formula, "{label}");
+        assert_eq!(s["value"], value, "{label}");
+    }
+}
+
 // ---------------------------------------------------------------- AC13: stability and schema
 
 #[test]

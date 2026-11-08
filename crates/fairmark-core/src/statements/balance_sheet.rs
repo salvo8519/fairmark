@@ -1009,7 +1009,8 @@ pub(crate) fn statutory(
             &beyond,
         )?);
     }
-    let cash_nfp = Partial::sum(&[(Plus, &c4), (Minus, &op_cash)])?;
+    let cash_terms = [(Plus, "C.IV", &c4), (Minus, "operating cash", &op_cash)];
+    let cash_nfp = total(ex, &format!("Cash ({year})"), &cash_terms)?;
     comps.push(Component::current(
         "Cash (C.IV)",
         r.p("cash"),
@@ -1070,15 +1071,29 @@ pub(crate) fn statutory(
         }
     }
     let nfp_total = Partial::plus_all(comps.iter().map(|c| &c.amount))?;
-    let nfp_current = Partial::plus_all(comps.iter().map(|c| &c.current))?;
-    let nfp_non_current = Partial::plus_all(comps.iter().map(|c| &c.non_current))?;
-    let gross = Partial::sum(&[
-        (Plus, &fd),
-        (
-            Plus,
-            &dest_sum(&sls, Destination::NetFinancialPositionGrossDebt)?,
-        ),
-    ])?;
+    let parts = |part: fn(&Component) -> &Partial| -> Vec<(Sign, &str, &Partial)> {
+        comps
+            .iter()
+            .map(|c| (Plus, c.label.as_str(), part(c)))
+            .collect()
+    };
+    let nfp_current = total(
+        ex,
+        &format!("Net financial position, current ({year})"),
+        &parts(|c| &c.current),
+    )?;
+    let nfp_non_current = total(
+        ex,
+        &format!("Net financial position, non-current ({year})"),
+        &parts(|c| &c.non_current),
+    )?;
+    let mut gross_terms: Vec<(Sign, &str, &Partial)> = vec![(Plus, "Financial debt (D)", &fd)];
+    gross_terms.extend(
+        sls.iter()
+            .filter(|s| s.destination == Destination::NetFinancialPositionGrossDebt)
+            .map(|s| (Plus, s.label.as_str(), &s.amount)),
+    );
+    let gross = total(ex, &format!("Gross debt ({year})"), &gross_terms)?;
     let (position, composition) = match nfp_total.value() {
         Some(expected) => {
             let position = NetFinancialPosition {
@@ -1092,11 +1107,25 @@ pub(crate) fn statutory(
                     })
                     .collect(),
             };
-            // R13: the total is the SPEC-0007 function's, so AC8 holds by construction.
-            if position.total(ex, year)? != expected {
+            // R13: the total is the SPEC-0007 function's, so AC8 holds by construction. Its
+            // steps restate gross debt and cash "as given"; here they were computed above with
+            // their parts substituted, so only the other items and the total are kept.
+            let mut scratch = Explain::new("statements.reorganise", "");
+            if position.total(&mut scratch, year)? != expected {
                 return Err(FairmarkError::Internal(
                     "statements: net financial position differs from its composition",
                 ));
+            }
+            for mut step in scratch.steps {
+                if step.label.starts_with("Gross debt") || step.label.starts_with("Cash") {
+                    continue;
+                }
+                if step.label.starts_with("Other item") {
+                    step.formula = "as assigned, signed for the net financial position (an asset \
+                                    is negative)"
+                        .to_owned();
+                }
+                ex.steps.push(step);
             }
             let composition = comps
                 .iter()
@@ -1112,18 +1141,6 @@ pub(crate) fn statutory(
         }
         None => (None, None),
     };
-    if let (Some(c), Some(n)) = (nfp_current.value(), nfp_non_current.value()) {
-        ex.step(
-            format!("Net financial position, current ({year})"),
-            "Σ parts due within one year",
-            c,
-        );
-        ex.step(
-            format!("Net financial position, non-current ({year})"),
-            "Σ parts due beyond one year",
-            n,
-        );
-    }
     let total_sources = total(
         ex,
         &format!("Total sources ({year})"),
@@ -1149,7 +1166,7 @@ pub(crate) fn statutory(
         }
         _ => checks.not_checked("funds_invested_equals_sources", Vec::new()),
     }
-    let excess_cash = cash_nfp.clone();
+    let excess_cash = total(ex, &format!("Excess cash ({year})"), &cash_terms)?;
 
     // Current and non-current (R15).
     let rec_b = r.part(

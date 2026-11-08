@@ -14,7 +14,6 @@ use super::{
 };
 use crate::error::Result;
 use crate::explain::Explain;
-use crate::num;
 
 use Sign::{Minus, Plus};
 
@@ -135,23 +134,32 @@ pub(crate) fn reclassified(
             p("operating_provisions"),
         ],
     )?;
-    let lines_total = |lines: Option<Vec<Decimal>>, key: &str| -> Result<Partial> {
-        Ok(match lines {
-            None => Partial::lacking(p(key)),
-            Some(values) => {
-                let mut t = Decimal::ZERO;
-                for v in values {
-                    t = num::add(t, v)?;
-                }
-                Partial::Known(t)
-            }
-        })
+    // R11: the total of each list is a step with every line substituted.
+    let lines_total = |ex: &mut Explain,
+                       lines: Option<Vec<(String, Decimal)>>,
+                       key: &str,
+                       title: &str|
+     -> Result<Partial> {
+        let Some(lines) = lines else {
+            return Ok(Partial::lacking(p(key)));
+        };
+        let amounts: Vec<(String, Partial)> = lines
+            .into_iter()
+            .map(|(label, v)| (label, Partial::Known(v)))
+            .collect();
+        let terms: Vec<(Sign, &str, &Partial)> = amounts
+            .iter()
+            .map(|(label, a)| (Plus, label.as_str(), a))
+            .collect();
+        total(ex, &format!("{title} ({year})"), &terms)
     };
     let noa_total = lines_total(
+        ex,
         bs.non_operating_assets
             .as_ref()
-            .map(|l| l.iter().map(|x| x.value).collect()),
+            .map(|l| l.iter().map(|x| (x.label.clone(), x.value)).collect()),
         "non_operating_assets",
+        "Non-operating assets",
     )?;
     let tfi_derived = total(
         ex,
@@ -171,18 +179,21 @@ pub(crate) fn reclassified(
     )?;
     let equity = Partial::of(bs.equity, || p("equity"));
     let q_total = lines_total(
+        ex,
         bs.quasi_equity_items
             .as_ref()
-            .map(|l| l.iter().map(|x| x.value).collect()),
+            .map(|l| l.iter().map(|x| (x.label.clone(), x.value)).collect()),
         "quasi_equity_items",
+        "Quasi-equity items",
     )?;
     let dl_total = lines_total(
+        ex,
         bs.debt_like_items
             .as_ref()
-            .map(|l| l.iter().map(|x| x.value).collect()),
+            .map(|l| l.iter().map(|x| (x.label.clone(), x.value)).collect()),
         "debt_like_items",
+        "Debt-like items",
     )?;
-
     let nfp_at = p("net_financial_position");
     let (position, nfp_total, current, non_current, position_why) = match &bs.net_financial_position
     {
@@ -264,7 +275,15 @@ pub(crate) fn reclassified(
          the total that differs from the statement",
     )?;
     let excess_cash = match &position {
-        Some(pos) => Partial::Known(pos.cash),
+        Some(pos) => total(
+            ex,
+            &format!("Excess cash ({year})"),
+            &[(
+                Plus,
+                "cash of the net financial position",
+                &Partial::Known(pos.cash),
+            )],
+        )?,
         None => position_why.clone(),
     };
 
