@@ -2,11 +2,13 @@
 
 | | |
 | --- | --- |
-| Status | Draft — revision 5 (2026-11-08): best-effort input, optional dates, reclassified input form, IFRS 18 subtotals |
+| Status | Approved — 2026-11-08, revision 5 (best-effort input, optional dates, reclassified input form, IFRS 18 subtotals); maintainer decisions 1 to 18 recorded below |
 | Milestone | M2 (release 0.1.0); epic #34; issues #35 and #36 |
 | Owner | @salvo8519 |
 | Formula basis | The corporate-finance reorganisation of the financial statements into operating, investing and financing items (Koller, Goedhart, Wessels, *Valuation*, "Reorganizing the financial statements"; CFA Institute curriculum), with the subtotals of IFRS 18 (operating profit; profit before financing and income taxes) and of Italian credit analysis (MOL, reddito operativo, EBIT; OIC 12; art. 2427 n. 13; Banca d'Italia; EBA/GL/2020/06), applied to the aggregates of the statutory layouts (art. 2424, 2425, abridged art. 2435-bis) or to totals already reclassified; net financial position in the SPEC-0007 structure with ESMA32-382-1138 as reference; verified against an exact decimal reference script, published worked examples and practitioner cases (Decision 16) |
 | Related | SPEC-0001 (free cash flow build-up, NOPAT taxes, bridge types), SPEC-0003 (tax rates; no IRAP logic), SPEC-0007 (`NetFinancialPosition`, every ratio and margin); ADR 0001, ADR 0009, ADR 0012 |
+
+Approved by the maintainer on 2026-11-08.
 
 ## History
 - Revision 1: statutory line items, two balance sheet criteria, two income statement layouts.
@@ -35,6 +37,14 @@
     the C16 split adjustment (C16 is investing as a whole); the ordering of reconciliation
     before classification errors (a missing classification is no longer an error); the
     standalone statutory check method from the future extensions.
+- **Approval.** Approved by the maintainer on 2026-11-08: revision 5 as written, with decisions
+  1 to 18. Plan and tasks: `plan.md` and `tasks.md` in this folder.
+- **Clarifications of 2026-11-08 (maintainer, after approval).** R2 clarified on 2026-11-08,
+  end-of-month closings: two month-end dates one year apart are consecutive (28 February 2023
+  followed by 29 February 2024), consistent with the end-of-month rule of SPEC-0010; acceptance
+  case in AC6. R8 clarified on 2026-11-08: `default` destinations of Appendix A applied to a
+  given aggregate are also listed in `meta.defaults_applied` (pointer, destination, reason),
+  consistent with SPEC-0001 Decision 24; acceptance in AC13. `FM-E026` confirmed free on main.
 
 ## Analysis
 
@@ -145,8 +155,10 @@ IRAP (SPEC-0003); ratios and margins (SPEC-0007).
   optional `label` (for example "2024"), an optional `date` (ISO 8601 balance sheet date;
   `FM-E009` when invalid) and exactly one form, `statutory` or `reclassified` (`FM-E001` when
   both). WHEN two consecutive entries both have a date, the later SHALL be exactly one calendar
-  year after the earlier (same month and day; 28 February follows 29 February), otherwise THE
-  ENGINE SHALL return `FM-E001` naming the entry and stating the fix (list the years oldest
+  year after the earlier (same month and day; 28 February follows 29 February) or, when both
+  are the last day of their month, the last day of the same month one calendar year later
+  (end-of-month convention, as in SPEC-0010: 29 February 2024 follows 28 February 2023),
+  otherwise THE ENGINE SHALL return `FM-E001` naming the entry and stating the fix (list the years oldest
   first, one financial year apart; reorganise a year of different length in a separate call).
   WHEN a date is missing, the convention SHALL state that the order given is taken as oldest
   first. One entry, with or without a date, SHALL be valid.
@@ -188,7 +200,11 @@ IRAP (SPEC-0003); ratios and margins (SPEC-0007).
   only when the aggregate is given and not zero. WHEN it is needed and missing, the outputs that
   depend on the aggregate SHALL be not computed (R6), with the treatment's pointer and the
   permitted destinations; WHEN it is not needed, the convention SHALL say so. A destination not
-  permitted for the aggregate SHALL be `FM-E001`.
+  permitted for the aggregate SHALL be `FM-E001`. WHEN a `default` destination is applied to a
+  given aggregate, THE ENGINE SHALL also list it in `meta.defaults_applied` with the pointer of
+  the input item, the destination as value and the reason, so that every default is read in one
+  place (as SPEC-0001 Decision 24), besides the assignment and the convention; the same holds for
+  the default `investing` of R17.
 - **R9** — Treatments SHALL be stated once for the call and apply to every year. A per-year
   `treatment_overrides` entry SHALL be accepted only for financial fixed assets (B.III) and
   shareholder loans, as another destination or a split by amounts summing to that year's
@@ -289,7 +305,8 @@ IRAP (SPEC-0003); ratios and margins (SPEC-0007).
 
 | Convention | Options | Default | Source |
 | --- | --- | --- | --- |
-| Years | oldest first; dates optional, checked when consecutive entries have them | order assumed and reported when a date is missing | Art. 2423-ter (V2) |
+| Years | oldest first; dates optional, checked when consecutive entries have them; month-end closings one year apart are consecutive | order assumed and reported when a date is missing | Art. 2423-ter (V2); end-of-month rule of SPEC-0010 |
+| Defaults | every `default` destination and the default of R17 listed in `meta.defaults_applied` | fixed | R8; SPEC-0001 Decision 24 |
 | Input form per year | `statutory`, `reclassified` | one per year | Decision 1, revision 5 |
 | Missing input | output null, listed in `not_computed` | never zero, never an error | Revision 5 |
 | Checks | exact, only when both sides are given | not checked otherwise, reported | Decision 2 |
@@ -330,7 +347,9 @@ Every golden case compares exactly (tolerance 0).
 - **AC6** (R2, R23) — Golden `three-years.yaml` returns two sets of changes, each the exact
   difference of its two entries; property: their sum equals last minus first. Golden
   `one-year-no-date.yaml` returns no changes and both conventions (order assumed, one year).
-  Entries 29 February 2024 and 28 February 2025 are consecutive.
+  Entries 29 February 2024 and 28 February 2025 are consecutive; golden
+  `end-of-month-dates.yaml`: entries 28 February 2023 and 29 February 2024 are consecutive
+  (end-of-month closings), while 27 February 2023 and 29 February 2024 return `FM-E001`.
 - **AC7** (R9, R10, R11) — One golden case per adjustment kind of Appendix C; a treatment stated
   once applies to every year; a B.III override applies to its year only; an amount larger than
   its source returns `FM-E026`. Property: assigned amounts sum to their aggregate.
@@ -352,7 +371,9 @@ Every golden case compares exactly (tolerance 0).
 - **AC12** (R21, R22) — Golden `lease-restatement.yaml`, and cases with subscribed capital unpaid
   and dividends declared; the identity of R12 holds in each.
 - **AC13** (R11, R24) — Unit tests: every convention of the table appears when it applies; every
-  error has a JSON pointer; no boolean in the schema; two runs give identical output.
+  error has a JSON pointer; no boolean in the schema; two runs give identical output; every
+  `default` destination applied to a given aggregate, and the default of R17, appears in
+  `meta.defaults_applied` with pointer, destination and reason (R8).
 - **AC14** (R12, R16) — At least one published worked example of the balance sheet and one of the
   income statement, re-derived from printed aggregates, match at their published precision
   (Decision 16).
@@ -435,23 +456,40 @@ Recorded as verified by the coordinator on 2026-11-08; numbers not stated are st
   not correspond to the margine operativo netto". Title, edition and page to complete.
 
 ## Sources to verify
-1. **V1** Art. 2423 (euro units, rounding differences). **V2** Art. 2423-ter (comparatives).
-2. **V3, V5** Art. 2424 and 2425: the aggregates of Appendix A, the signs of A2, A3, B11.
-3. **V9** Art. 2427 n. 19-bis and n. 22, and which disclosures abridged filers give. **V10**
-   Art. 2467.
-4. **V12** OIC 12 paragraph numbers. **V13** OIC 10 (cash). **V14** OIC 18, 19, 31.
-5. **V17** ESMA/2015/1415 (APM). **V18** Consob DEM/6064293.
-6. **V19** Directive 2013/34/EU Annex III (English names). **V21** IFRS 16. **V22** IAS 19.
-7. **V24** Eurostat SBS definitions. **V25** Koller et al., 7th edition. **V26** CFA Institute.
-8. **V27** Further Italian textbooks with worked examples, edition and page to be named
-   (candidates: Ferrero, Dezzani, Pisoni, Puddu; Caramiello, Di Lazzaro, Fiori; Teodori).
-9. **V28** Bank reclassification schemes (Centrale dei Bilanci, now Cerved).
-10. **V30** (part) The Banca d'Italia publication and page.
+None of these blocks the arithmetic: Appendices A to C and decisions 1 to 18 define every
+number, and the identifiers are fixed by this approved spec. The column "Blocks" names the only
+tasks of `tasks.md` that wait for a source; every other item must be verified before the
+methodology page and the glossary entries are final (task T39), and cannot block a merge before
+that.
+
+| # | Source | Supports | Blocks |
+| --- | --- | --- | --- |
+| 1 | **V1** Art. 2423 (euro units, rounding differences); **V2** Art. 2423-ter (comparatives) | R2, R3 conventions | nothing |
+| 2 | **V3, V5** Art. 2424 and 2425: the aggregates of Appendix A, the signs of A2, A3, B11 | Appendix A; Decision 3 | nothing |
+| 3 | **V9** Art. 2427 n. 19-bis and n. 22, and which disclosures abridged filers give; **V10** Art. 2467 | shareholder loans, leases | nothing |
+| 4 | **V12** OIC 12 paragraph numbers; **V13** OIC 10 (cash); **V14** OIC 18, 19, 31 | citations on the methodology page | nothing |
+| 5 | **V17** ESMA/2015/1415 (APM); **V18** Consob DEM/6064293 | citations | nothing |
+| 6 | **V19** Directive 2013/34/EU Annex III (English names); **V21** IFRS 16; **V22** IAS 19 | terminology; R21 | nothing |
+| 7 | **V24** Eurostat SBS definitions; **V25** Koller et al., 7th edition; **V26** CFA Institute | terminology (value added, invested capital, operating working capital) | nothing |
+| 8 | **V27** Italian textbooks with worked examples, edition and page to be named by the maintainer (candidates: Ferrero, Dezzani, Pisoni, Puddu; Caramiello, Di Lazzaro, Fiori; Teodori) | AC14; golden sources (Decision 16) | **T34** (published worked examples, AC14) |
+| 9 | **V28** Bank reclassification schemes (Centrale dei Bilanci, now Cerved) | term "quasi-equity" | nothing |
+| 10 | **V30** (part) The Banca d'Italia publication and page | citations | nothing |
+| 11 | IFRS 18 paragraph numbers still marked "to verify" in "Terminology and sources" (V32) | terminology | nothing |
+
+Golden sources (Decision 16), all independent of the implementation: the exact decimal
+reference script `scripts/reference_statements.py`, 50 significant digits, written from
+Appendices A to C and the requirements without reading the Rust code (tasks T3, T20, T32); at
+least one published worked example of the balance sheet and one of the income statement, named
+by the maintainer (V27, task T34); and at least one anonymised practitioner case provided by the
+maintainer (task T35, which waits for that case). T34 and T35 block only the completion of the
+third implementation pull request and the numerical audit (T41), not the first two.
 
 ## Decisions (maintainer, 2026-11-08)
-Decisions 1 to 3 and 12 to 16 were taken under the maintainer's delegation of 2026-11-08 (decide
-as a bank credit analyst and an asset management analyst would, aligned with CFA, IFRS and EBA
-practice) and are listed for his confirmation at approval; the others he approved.
+Approved by the maintainer on 2026-11-08: decisions 1 to 18, all of them. Decisions 1 to 3 and
+12 to 16 were first taken under the maintainer's delegation of 2026-11-08 (decide as a bank
+credit analyst and an asset management analyst would, aligned with CFA, IFRS and EBA practice)
+and were confirmed by the maintainer with the approval of the spec; the others he took or
+approved directly.
 
 1. One method, `statements.reorganise`; revision 5 adds the reclassified form to the same tool.
 2. Checks are exact, with no tolerance.
