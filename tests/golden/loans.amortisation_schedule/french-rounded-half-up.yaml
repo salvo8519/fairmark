@@ -1,0 +1,28 @@
+method: loans.amortisation_schedule
+description: "French, 25000 at 7.25% monthly, 48 instalments rounded to the cent, half_up (AC9)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py; interest portions are not
+  rounded, the last instalment carries the final adjustment.
+input: { principal: "25000", rate: "0.0725", compounding: "monthly", payment_frequency: "monthly", number_of_instalments: 48, timing: "ordinary", amortisation_type: "french", rounding: { decimal_places: 2, mode: "half_up" } }
+expect:
+  /rows/0/instalment: "601.56"
+  /rows/0/interest_portion: "151.041666666666666666666667"
+  /rows/0/principal_portion: "450.518333333333333333333333"
+  /rows/0/outstanding_balance: "24549.481666666666666666666667"
+  /rows/1/instalment: "601.56"
+  /rows/1/interest_portion: "148.319785069444444444444444"
+  /rows/1/principal_portion: "453.240214930555555555555556"
+  /rows/1/outstanding_balance: "24096.241451736111111111111111"
+  /rows/46/instalment: "601.56"
+  /rows/46/interest_portion: "7.20352554082431233065754"
+  /rows/46/principal_portion: "594.35647445917568766934246"
+  /rows/46/outstanding_balance: "597.951201263469111887767655"
+  /rows/47/instalment: "601.563823104435904438756252"
+  /rows/47/interest_portion: "3.612621840966792550988596"
+  /rows/47/principal_portion: "597.951201263469111887767655"
+  /rows/47/outstanding_balance: "0"
+  /totals/instalments: "28874.883823104435904438756252"
+  /totals/interest: "3874.883823104435904438756252"
+  /totals/principal: "25000"
+  final_adjustment: "0.003823104435904438756252"
+tolerance: "0.00000000000000000001"

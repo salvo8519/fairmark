@@ -1,0 +1,21 @@
+method: loans.amortisation_schedule
+description: "Bullet, 100000 at 5% compounded semi-annually, 6 semi-annual instalments (AC6)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py; hand check: interest 2500 every
+  period, the principal with the last instalment (102500), total interest 15000. Exact values,
+  tolerance 0.
+input: { principal: "100000", rate: "0.05", compounding: "semi_annual", payment_frequency: "semi_annual", number_of_instalments: 6, timing: "ordinary", amortisation_type: "bullet" }
+expect:
+  /rows/0/instalment: "2500"
+  /rows/0/interest_portion: "2500"
+  /rows/0/principal_portion: "0"
+  /rows/0/outstanding_balance: "100000"
+  /rows/5/instalment: "102500"
+  /rows/5/interest_portion: "2500"
+  /rows/5/principal_portion: "100000"
+  /rows/5/outstanding_balance: "0"
+  /totals/instalments: "115000"
+  /totals/interest: "15000"
+  /totals/principal: "100000"
+  final_adjustment: "0"
+tolerance: "0"

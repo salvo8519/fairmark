@@ -1,0 +1,43 @@
+method: loans.amortisation_schedule
+description: "Textbook: 50000 at 5% compounded quarterly, 6 semi-annual payments rounded to the cent (AC15)"
+source: >
+  Textbook worked example: Valerie Watts, Business and Financial Mathematics, Fanshawe College
+  Pressbooks, London (Ontario), licensed CC BY-NC-SA 4.0, digital edition deposited in the
+  eCampusOntario Open Library on 2023-06-01 (no edition number printed; adapted from J.
+  Olivier, Business Math: A Step-by-Step Handbook, Lyryx), section 6.1 Amortization Schedules,
+  worked example of a 50,000 business loan at 5% compounded quarterly with semi-annual payments
+  for three years, printed pages 543 to 545; schedule read at
+  https://ecampusontario.pressbooks.pub/businessfinancialmath/chapter/6-1-amortization-schedule/
+  (verified 2026-11-08). The book rounds every entry to the cent and adjusts the last payment
+  (9082.26); the engine rounds only the instalment (R19) and keeps the interest exact, so the
+  printed cents agree within half a cent.
+input: { principal: "50000", rate: "0.05", compounding: "quarterly", payment_frequency: "semi_annual", number_of_instalments: 6, timing: "ordinary", amortisation_type: "french", rounding: { decimal_places: 2, mode: "half_up" } }
+expect:
+  /rows/0/instalment: "9082.24"
+  /rows/0/interest_portion: "1257.81"
+  /rows/0/principal_portion: "7824.43"
+  /rows/0/outstanding_balance: "42175.57"
+  /rows/1/instalment: "9082.24"
+  /rows/1/interest_portion: "1060.98"
+  /rows/1/principal_portion: "8021.26"
+  /rows/1/outstanding_balance: "34154.31"
+  /rows/2/instalment: "9082.24"
+  /rows/2/interest_portion: "859.19"
+  /rows/2/principal_portion: "8223.05"
+  /rows/2/outstanding_balance: "25931.27"
+  /rows/3/instalment: "9082.24"
+  /rows/3/interest_portion: "652.33"
+  /rows/3/principal_portion: "8429.91"
+  /rows/3/outstanding_balance: "17501.36"
+  /rows/4/instalment: "9082.24"
+  /rows/4/interest_portion: "440.27"
+  /rows/4/principal_portion: "8641.97"
+  /rows/4/outstanding_balance: "8859.39"
+  /rows/5/instalment: "9082.26"
+  /rows/5/interest_portion: "222.87"
+  /rows/5/principal_portion: "8859.39"
+  /rows/5/outstanding_balance: "0"
+  /totals/instalments: "54493.46"
+  /totals/interest: "4493.46"
+  /totals/principal: "50000"
+tolerance: "0.005"

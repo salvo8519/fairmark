@@ -1,0 +1,7 @@
+method: loans.amortisation_schedule
+description: "10 at rate 0 over 20 instalments rounded to the unit: the balance reaches zero after 10 (AC10)"
+source: >
+  Requirement R2, R15, R16, R17, R19 or R21 of SPEC-0009: the error code is part of the
+  specification.
+input: { principal: "10", periodic_rate: "0", number_of_instalments: 20, timing: "ordinary", amortisation_type: "french", rounding: { decimal_places: 0, mode: "half_up" } }
+expect_error: FM-E023

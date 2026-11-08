@@ -1,0 +1,21 @@
+method: loans.amortisation_schedule
+description: "French, 180000 at 3.9% effective annual, 240 monthly instalments rounded to the unit, half_even (AC9)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py; the periodic rate is the twelfth
+  root of 1.039 minus one (series functions in the engine, relative error near 1e-27), still
+  within 1e-20 on these amounts.
+input: { principal: "180000", rate: "0.039", compounding: "annual", payment_frequency: "monthly", number_of_instalments: 240, timing: "ordinary", amortisation_type: "french", rounding: { decimal_places: 0, mode: "half_even" } }
+expect:
+  /rows/0/instalment: "1075"
+  /rows/0/interest_portion: "574.79648541877357349709613"
+  /rows/0/principal_portion: "500.20351458122642650290387"
+  /rows/0/outstanding_balance: "179499.79648541877357349709613"
+  /rows/239/instalment: "1036.84075377797526926033111"
+  /rows/239/interest_portion: "3.300418623252643754427192"
+  /rows/239/principal_portion: "1033.540335154722625505903918"
+  /rows/239/outstanding_balance: "0"
+  /totals/instalments: "257961.84075377797526926033111"
+  /totals/interest: "77961.84075377797526926033111"
+  /totals/principal: "180000"
+  final_adjustment: "-38.15924622202473073966889"
+tolerance: "0.00000000000000000001"

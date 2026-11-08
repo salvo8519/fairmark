@@ -1,0 +1,37 @@
+method: loans.amortisation_schedule
+description: "The textbook business loan (Watts, section 6.1) to full precision (AC9, AC15)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py; same input as
+  textbook-watts-business-loan.yaml. Periodic rate 1.0125^2 - 1 = 0.02515625.
+input: { principal: "50000", rate: "0.05", compounding: "quarterly", payment_frequency: "semi_annual", number_of_instalments: 6, timing: "ordinary", amortisation_type: "french", rounding: { decimal_places: 2, mode: "half_up" } }
+expect:
+  /rows/0/instalment: "9082.24"
+  /rows/0/interest_portion: "1257.8125"
+  /rows/0/principal_portion: "7824.4275"
+  /rows/0/outstanding_balance: "42175.5725"
+  /rows/1/instalment: "9082.24"
+  /rows/1/interest_portion: "1060.979245703125"
+  /rows/1/principal_portion: "8021.260754296875"
+  /rows/1/outstanding_balance: "34154.311745703125"
+  /rows/2/instalment: "9082.24"
+  /rows/2/interest_portion: "859.19440485284423828125"
+  /rows/2/principal_portion: "8223.04559514715576171875"
+  /rows/2/outstanding_balance: "25931.26615055596923828125"
+  /rows/3/instalment: "9082.24"
+  /rows/3/interest_portion: "652.333414099923601150512695"
+  /rows/3/principal_portion: "8429.906585900076398849487305"
+  /rows/3/outstanding_balance: "17501.359564655892839431762695"
+  /rows/4/instalment: "9082.24"
+  /rows/4/interest_portion: "440.26857654837480424195528"
+  /rows/4/principal_portion: "8641.97142345162519575804472"
+  /rows/4/outstanding_balance: "8859.388141204267643673717976"
+  /rows/5/instalment: "9082.257124131437501584884943"
+  /rows/5/interest_portion: "222.868982927169857911166968"
+  /rows/5/principal_portion: "8859.388141204267643673717976"
+  /rows/5/outstanding_balance: "0"
+  /totals/instalments: "54493.457124131437501584884943"
+  /totals/interest: "4493.457124131437501584884943"
+  /totals/principal: "50000"
+  final_adjustment: "0.017124131437501584884943"
+  periodic_rate: "0.02515625"
+tolerance: "0.00000000000000000001"

@@ -1,0 +1,7 @@
+method: loans.amortisation_schedule
+description: "Rounding without a mode (AC9)"
+source: >
+  Requirement R2, R15, R16, R17, R19 or R21 of SPEC-0009: the error code is part of the
+  specification.
+input: { principal: "1000", periodic_rate: "0.01", number_of_instalments: 12, timing: "ordinary", amortisation_type: "french", rounding: { decimal_places: 2 } }
+expect_error: FM-E001

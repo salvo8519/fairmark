@@ -1,0 +1,25 @@
+method: loans.amortisation_schedule
+description: "Fixed amortisation schedule, 120000 at 6% compounded quarterly, 8 quarterly instalments (AC6)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py; every value is a terminating
+  decimal (principal portion 15000, interest 0.015 x opening balance), so the tolerance is 0.
+  Hand check: total interest 225 x (8 + 7 + ... + 1) = 8100.
+input: { principal: "120000", rate: "0.06", compounding: "quarterly", payment_frequency: "quarterly", number_of_instalments: 8, timing: "ordinary", amortisation_type: "fixed_amortisation_schedule" }
+expect:
+  /rows/0/instalment: "16800"
+  /rows/0/interest_portion: "1800"
+  /rows/0/principal_portion: "15000"
+  /rows/0/outstanding_balance: "105000"
+  /rows/1/instalment: "16575"
+  /rows/1/interest_portion: "1575"
+  /rows/1/principal_portion: "15000"
+  /rows/1/outstanding_balance: "90000"
+  /rows/7/instalment: "15225"
+  /rows/7/interest_portion: "225"
+  /rows/7/principal_portion: "15000"
+  /rows/7/outstanding_balance: "0"
+  /totals/instalments: "128100"
+  /totals/interest: "8100"
+  /totals/principal: "120000"
+  final_adjustment: "0"
+tolerance: "0"

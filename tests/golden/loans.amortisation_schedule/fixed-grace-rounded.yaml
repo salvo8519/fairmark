@@ -1,0 +1,33 @@
+method: loans.amortisation_schedule
+description: "Fixed amortisation schedule, 3 grace periods, principal portion rounded to the cent (AC9)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py; 60000 / 9 = 6666.666... rounds to
+  6666.67; the last principal portion is 60000 - 8 x 6666.67 = 6666.64, final adjustment -0.03.
+  Exact values, tolerance 0.
+input: { principal: "60000", periodic_rate: "0.01", number_of_instalments: 12, timing: "ordinary", amortisation_type: "fixed_amortisation_schedule", principal_grace_periods: 3, rounding: { decimal_places: 2, mode: "half_even" } }
+expect:
+  /rows/0/instalment: "600"
+  /rows/0/interest_portion: "600"
+  /rows/0/principal_portion: "0"
+  /rows/0/outstanding_balance: "60000"
+  /rows/2/instalment: "600"
+  /rows/2/interest_portion: "600"
+  /rows/2/principal_portion: "0"
+  /rows/2/outstanding_balance: "60000"
+  /rows/3/instalment: "7266.67"
+  /rows/3/interest_portion: "600"
+  /rows/3/principal_portion: "6666.67"
+  /rows/3/outstanding_balance: "53333.33"
+  /rows/10/instalment: "6800.0031"
+  /rows/10/interest_portion: "133.3331"
+  /rows/10/principal_portion: "6666.67"
+  /rows/10/outstanding_balance: "6666.64"
+  /rows/11/instalment: "6733.3064"
+  /rows/11/interest_portion: "66.6664"
+  /rows/11/principal_portion: "6666.64"
+  /rows/11/outstanding_balance: "0"
+  /totals/instalments: "64799.9988"
+  /totals/interest: "4799.9988"
+  /totals/principal: "60000"
+  final_adjustment: "-0.03"
+tolerance: "0"
