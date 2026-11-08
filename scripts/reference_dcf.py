@@ -297,11 +297,12 @@ def discounted(
         {
             "/pv_explicit_period": pv_explicit,
             "/terminal/terminal_value": tv,
-            "/terminal/discount_time": D(n) - (D("0.5") if at_mid else 0),
-            "/terminal/discount_factor": df_tv,
             "/terminal/present_value": pv_tv,
         }
     )
+    if technique != "none":  # Decision 24: nothing is discounted, time and factor are null
+        out["/terminal/discount_time"] = D(n) - (D("0.5") if at_mid else 0)
+        out["/terminal/discount_factor"] = df_tv
     return out, pv_explicit, pv_tv
 
 

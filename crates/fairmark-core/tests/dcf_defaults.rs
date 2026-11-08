@@ -295,3 +295,152 @@ fn schema_documents_the_defaults() {
             .contains("Default:"));
     }
 }
+
+/// Code review of #197: an explicit `null` is not a way to ask for the default; it is refused
+/// with `FM-E001`, the pointer and the fix, for every field with a documented default.
+#[test]
+fn explicit_null_is_refused_for_defaulted_fields() {
+    let cases: Vec<(&str, Value)> = vec![
+        ("/timing", json!({"timing": null})),
+        ("/terminal", json!({"terminal": null})),
+        ("/cash_flow_terms", json!({"cash_flow_terms": null})),
+        ("/discount_rate_terms", json!({"discount_rate_terms": null})),
+        (
+            "/stages/0/periods",
+            json!({"stages": [{"flows": FLOWS, "periods": null}]}),
+        ),
+        (
+            "/stages/0/projection",
+            json!({"stages": [{"flows": FLOWS, "projection": null}]}),
+        ),
+    ];
+    for (pointer, patch) in cases {
+        let mut v = minimal();
+        for (k, x) in patch.as_object().unwrap() {
+            v[k] = x.clone();
+        }
+        let e = run("dcf.fcff", &v.to_string()).unwrap_err();
+        assert_eq!(e.code(), "FM-E001", "{pointer}");
+        let m = e.to_string();
+        assert!(m.contains(&format!("`{pointer}`")), "{pointer}: {m}");
+        assert!(
+            m.contains("leave the field out to use the default, or give a value"),
+            "{pointer}: {m}"
+        );
+    }
+}
+
+/// Code review of #197: an empty list of lines is named as `lines`, not `flows`; flows and
+/// lines both given without a projection say "not both".
+#[test]
+fn empty_lines_and_both_lists_name_their_fields() {
+    let v = json!({"stages": [{"lines": []}], "wacc": "0.09"});
+    let m = run("dcf.fcff", &v.to_string()).unwrap_err().to_string();
+    assert!(m.contains("`/stages/0/lines` is empty"), "{m}");
+    let v = json!({"stages": [{"flows": ["1"], "lines": []}], "wacc": "0.09"});
+    let m = run("dcf.fcff", &v.to_string()).unwrap_err().to_string();
+    assert!(m.contains("give `flows` or `lines`, not both"), "{m}");
+}
+
+/// Code review of #197: a terminal discounting time with the default timing says that the
+/// timing was defaulted and how to fix it.
+#[test]
+fn defaulted_timing_is_named_in_the_message() {
+    let mut v = minimal();
+    v["terminal"] = json!({"given": {"value": "100"}});
+    v["terminal_discount_time"] = json!("horizon");
+    let m = run("dcf.fcff", &v.to_string()).unwrap_err().to_string();
+    assert!(
+        m.contains(
+            "`/timing` was not given and defaults to end_of_period; give `timing: mid_period` \
+             or remove `/terminal_discount_time`"
+        ),
+        "{m}"
+    );
+    v["timing"] = json!("end_of_period");
+    let m = run("dcf.fcff", &v.to_string()).unwrap_err().to_string();
+    assert!(!m.contains("was not given"), "{m}");
+}
+
+/// Code review of #197: the typed Rust call fills in and reports the defaults exactly as the
+/// registry does, first in the conventions.
+#[test]
+fn typed_call_lists_the_defaults_first() {
+    let input: fairmark_core::dcf::DcfFcffInput = serde_json::from_value(minimal()).unwrap();
+    let (out, ex) = fairmark_core::dcf::fcff(&input).unwrap();
+    assert!(ex.conventions[0].starts_with("default: `/stages/0/projection`"));
+    assert!(ex.conventions[5].starts_with("default: `/terminal`"));
+    assert!(!ex.conventions[6].starts_with("default: "));
+    let registry = ok("dcf.fcff", &minimal());
+    assert_eq!(conventions(&registry), ex.conventions);
+    assert_eq!(
+        serde_json::to_value(&out).unwrap(),
+        registry["value"],
+        "typed and registry values"
+    );
+}
+
+/// Code review of #197: with no terminal value nothing is discounted, so the discounting time
+/// and factor are `null`; a negative given value warns that the weight is not meaningful; the
+/// message for a missing terminal rate says that the half-period shift uses it.
+#[test]
+fn terminal_option_details() {
+    let out = ok("dcf.fcff", &minimal());
+    assert!(out["value"]["terminal"]["discount_time"].is_null());
+    assert!(out["value"]["terminal"]["discount_factor"].is_null());
+    let mut v = minimal();
+    v["terminal"] = json!({"given": {"value": "-300"}});
+    let c = conventions(&ok("dcf.fcff", &v));
+    assert!(
+        c.iter()
+            .any(|c| c.starts_with("warning: the terminal value is negative")
+                && c.contains("terminal value weight is not meaningful")),
+        "{c:?}"
+    );
+    v.as_object_mut().unwrap().remove("wacc");
+    v["wacc_per_period"] = json!(["0.09", "0.09", "0.09", "0.09", "0.09"]);
+    v["timing"] = json!("mid_period");
+    v["terminal_discount_time"] = json!("mid_period");
+    let m = run("dcf.fcff", &v.to_string()).unwrap_err().to_string();
+    assert!(
+        m.contains("(the half-period shift of the given terminal value uses it)"),
+        "{m}"
+    );
+}
+
+/// Code review of #197: two terminal options, one of them `given` or `none`, are named as
+/// terminal options with the three choices.
+#[test]
+fn two_terminal_options_name_the_choices() {
+    let mut v = minimal();
+    v["terminal"] = json!({"given": {"value": "1"}, "none": {}});
+    let e = run("dcf.fcff", &v.to_string()).unwrap_err();
+    assert_eq!(e.code(), "FM-E001");
+    let m = e.to_string();
+    assert!(m.contains("names 2 terminal options (given, none)"), "{m}");
+    assert!(
+        m.contains("`given` (a terminal value at N) or `none`"),
+        "{m}"
+    );
+}
+
+/// Numerical audit of #197 (Decisions 17 and 24): a given terminal value discounted at
+/// N − 0.5 carries the warning of an amount stated at a date.
+#[test]
+fn given_terminal_value_at_n_minus_half_warns() {
+    let mut v = minimal();
+    v["terminal"] = json!({"given": {"value": "1000"}});
+    v["timing"] = json!("mid_period");
+    v["terminal_discount_time"] = json!("mid_period");
+    let c = conventions(&ok("dcf.fcff", &v));
+    assert!(
+        c.iter().any(|c| c
+            == "warning: given: the analyst's terminal value at the horizon N; discounting it \
+                at N − 0.5 brings it forward half a period; it is discounted at N − 0.5 as \
+                chosen"),
+        "{c:?}"
+    );
+    v["terminal_discount_time"] = json!("horizon");
+    let c = conventions(&ok("dcf.fcff", &v));
+    assert!(!c.iter().any(|c| c.contains("brings it forward")), "{c:?}");
+}
