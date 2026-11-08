@@ -680,7 +680,7 @@ pub fn project(input: &ProjectInput) -> Result<(ProjectOutput, Explain)> {
             input.base_value
         ));
     }
-    ex.convention("values are not rounded; each value is exact to 28 significant digits");
+    ex.convention("values: computed with 28 to 29 significant digits, not rounded");
     if let Some(s) = &schedule {
         dates::schedule_explain(s, &mut ex)?;
         ex.convention(match input.timing {
@@ -1159,6 +1159,7 @@ mod tests {
             "from and including its start date to but excluding its end date",
             "end-of-month rule",
             "value timing: end of period",
+            "values: computed with 28 to 29 significant digits, not rounded",
         ] {
             assert!(conventions.contains(item), "{item} not in\n{conventions}");
         }
