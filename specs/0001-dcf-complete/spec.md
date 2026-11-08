@@ -243,10 +243,10 @@ nominal before taxes; a leading exit multiple.
 ## Conventions and parameters (Revised 2026-11-08)
 | Convention | Options | Default | Source |
 | --- | --- | --- | --- |
-| Basis | FCFF at WACC (enterprise), FCFE at cost of equity (equity) | required (method) | Commonly adopted; source to verify (Terminology) |
+| Basis | FCFF at WACC (enterprise), FCFE at cost of equity (equity) | required (method) | CFA Institute, Free Cash Flow Valuation (Terminology [S1]) |
 | Tax on EBIT | notional rate on EBIT, or per-period amounts | required (Open question 7) | Practice varies |
 | Negative EBIT | taxes as a credit (symmetric), or zero tax | required (Open question 8) | Practice varies |
-| Stage projection | `given`, `constant_growth`, `linear_fade` | required per stage | Damodaran (stages); to verify |
+| Stage projection | `given`, `constant_growth`, `linear_fade` | required per stage | Damodaran, three-stage models (Terminology [S2], [S3]) |
 | Linear fade step | g_k = g_from + (g_to − g_from) × k / m | fixed (Open question 4) | To verify |
 | Discount rate | one rate, or one per period with an explicit terminal rate | required | SPEC-0002 R5 |
 | Terms of flows and rates | `nominal`, `real` | required, each | Fisher relation, SPEC-0002 R4 |
@@ -255,7 +255,7 @@ nominal before taxes; a leading exit multiple.
 | Terminal discounting under mid-period | `horizon` (N), `mid_period` (N − 0.5) | required | Practice varies (Open question 6) |
 | Terminal technique | any `tv.*` technique on the basis of the DCF | required | SPEC-0006 |
 | First terminal flow (Gordon, H-model) | last flow grown, or normalised flow | required | PIV (normalised flow); to verify |
-| Bridge items | net financial position (FCFF only), debt-like items, non-operating assets, non-controlling interests | none given means none, reported | Practice; to verify |
+| Bridge items | net financial position (FCFF only), debt-like items, non-operating assets, non-controlling interests | none given means none, reported | Koller et al., ch. 16; IVS 200 130 (Terminology [S12], [S5]) |
 
 ## Acceptance criteria (Revised 2026-11-08)
 - **AC1** (R2, R3, R5) — Build-up golden cases: FCFF and FCFE per period match the 50-digit
@@ -324,36 +324,87 @@ nominal before taxes; a leading exit multiple.
   (FCFF only), `equity_value`, `terminal_value_weight`, converted rates (R16).
 
 ## Terminology and sources (Revised 2026-11-08)
-No recognised source could be consulted while drafting (no network access in this session).
-Terms already in `i18n/glossary.yaml` are marked "glossary"; every source below is a
-candidate to check, and each row stays "to verify" until the maintainer or a session with
-access confirms the term on that source.
+The terms below were checked on 2026-11-08 against the sources listed after the table (keys
+[S1] to [S14]). Terms already in `i18n/glossary.yaml` are marked "glossary". "Verified" names
+the source and the passage; "to verify" stays where no recognised source could be reached, with
+the reason; where a recognised source uses a different term, the replacement is proposed and the
+previous term is kept in the note. Names in the interface are not changed by this review.
 
 | Term | Name in the interface | Italian equivalent | Candidate source | Status |
 | --- | --- | --- | --- | --- |
-| Free cash flow to the firm (FCFF) | `dcf.fcff` | flusso di cassa operativo disponibile (FCFF) | CFA Institute curriculum (equity valuation); Koller et al., *Valuation* | glossary; source to verify |
-| Free cash flow to equity (FCFE) | `dcf.fcfe` | flusso di cassa disponibile per gli azionisti (FCFE) | CFA Institute curriculum; Damodaran | glossary; source to verify |
-| Explicit forecast period | `stages` | periodo di previsione esplicita | Koller et al.; OIV, Principi Italiani di Valutazione (PIV) | to verify |
-| Stage (high growth, transition, stable growth) | `stages[].periods` | fase (di crescita elevata, di transizione, di crescita stabile) | Damodaran, multi-stage DCF models | to verify |
-| Constant growth | `constant_growth` | crescita costante | Damodaran | to verify |
-| Linear fade of growth | `linear_fade`, `from_growth`, `to_growth` | riduzione lineare della crescita | Damodaran (transition period) | to verify |
-| Base-year flow | `base_flow` | flusso dell'anno base | Damodaran | to verify |
-| Nominal terms, real terms | `cash_flow_terms`, `discount_rate_terms`: `nominal`, `real` | in termini nominali, in termini reali (a prezzi correnti, a prezzi costanti) | Eurostat (current and constant prices); Koller et al. (inflation) | to verify |
-| Expected inflation | `inflation`, `terminal_inflation` | inflazione attesa | European Central Bank | to verify |
+| Free cash flow to the firm (FCFF) | `dcf.fcff` | flusso di cassa operativo disponibile (FCFF) | CFA Institute curriculum (equity valuation); Koller et al., *Valuation* | English verified: [S1] formulas and Summary (FCFF discounted at the weighted average cost of capital); [S3] definition. Italian: glossary; the OIV text [S11] 21.3 says "flussi di cassa di tipo asset side (o unlevered)", the glossary term itself is not found there: to verify on the final PIV |
+| Free cash flow to equity (FCFE) | `dcf.fcfe` | flusso di cassa disponibile per gli azionisti (FCFE) | CFA Institute curriculum; Damodaran | English verified: [S1] formulas (FCFE discounted at the required rate of return on equity). Italian: glossary; the OIV text [S11] 21.2 says "flussi di cassa disponibili per i soci": proposed for the maintainer, glossary unchanged |
+| Explicit forecast period | `stages` | periodo di previsione esplicita | Koller et al.; OIV, Principi Italiani di Valutazione (PIV) | Verified: [S5] IVS 103 A20.09 "explicit forecast period"; Italian [S11] annex to 20.2 "periodo di previsione esplicita" |
+| Stage (high growth, transition, stable growth) | `stages[].periods` | fase (di crescita elevata, di transizione, di crescita stabile) | Damodaran, multi-stage DCF models | English verified: [S2] "three stage FCFE model", [S3] Illustration 15.3, [S4] "high growth", "transition period", "stable growth"; [S1] "Three-stage models". Italian to verify: the OIV text [S11] uses "fasi" only for the stages of the valuation process |
+| Constant growth | `constant_growth` | crescita costante | Damodaran | English verified: [S1] "a constant growth rate in each stage"; [S5] IVS 103 A20.22(a) "Gordon growth model/constant growth model". Italian to verify: not found in [S11], which speaks of "tasso di crescita dei flussi oltre l'orizzonte di piano" (16.9) |
+| Growth declining in linear increments (transition period) | `linear_fade`, `from_growth`, `to_growth` | riduzione lineare della crescita | Damodaran (transition period) | Replacement proposed. [S2] growth "drops in linear increments" (Illustration 14.5); [S3] Illustration 15.3 adjusts growth "to stable growth levels in linear increments"; [S4] uses the same wording for the cost of capital ("drops in linear increments"). Note: previous term "linear fade of growth"; "fade" is used by [S4] for excess returns, not for growth. Renaming `linear_fade` is an interface decision for the maintainer. Italian to verify |
+| Base-year flow | `base_flow` | flusso dell'anno base | Damodaran | English verified: [S4] chapter 15, Gerdau example, "Base year numbers"; [S2] uses "most recent year". Italian to verify |
+| Nominal terms, real terms | `cash_flow_terms`, `discount_rate_terms`: `nominal`, `real` | in termini nominali, in termini reali (a prezzi correnti, a prezzi costanti) | Eurostat (current and constant prices); Koller et al. (inflation) | Verified: [S5] IVS 103 A20.05(c) "real cash flow does not consider inflation whereas nominal cash flows include expectations regarding inflation"; Italian [S11] 16.7 "in termini nominali oppure in termini reali". The parenthesis (prezzi correnti, prezzi costanti) is to verify: no Eurostat glossary page could be reached in this session |
+| Expected inflation | `inflation`, `terminal_inflation` | inflazione attesa | European Central Bank | Verified: [S14] "inflation expectations", "expected inflation"; Italian [S13] QEF 578 "l'inflazione attesa"; Banca d'Italia also uses "aspettative di inflazione" [S13] |
 | Fisher relation | (conversion) | relazione di Fisher | SPEC-0002 R4 | verified in SPEC-0002 |
-| Operating taxes (taxes on EBIT) | `notional_tax_rate`, `operating_taxes` | imposte figurative (teoriche) sul reddito operativo | Koller et al. ("operating taxes"); PIV | to verify |
-| EBIT | `ebit` | reddito operativo (EBIT) | IFRS practice; CFA Institute curriculum | to verify |
-| Depreciation and amortisation | `depreciation_and_amortisation` | ammortamenti | IAS 16, IAS 38 | to verify |
-| Capital expenditure | `capital_expenditure` | investimenti in immobilizzazioni (capex) | CFA Institute curriculum | to verify |
-| Change in net working capital | `change_in_net_working_capital` | variazione del capitale circolante netto | CFA Institute curriculum | glossary (net working capital); to verify |
-| Interest expense | `interest_expense` | oneri finanziari | glossary (financial charges) | to verify |
-| Net borrowing | `net_borrowing` | variazione netta dei debiti finanziari | CFA Institute curriculum (FCFE) | to verify |
-| Debt-like items (debt equivalents) | `debt_like_items` | debt-like items (passività assimilabili al debito) | Koller et al. ("debt equivalents") | to verify |
-| Non-operating assets | `non_operating_assets` | attività non operative (surplus asset) | Koller et al. | glossary; to verify |
-| Non-controlling interests (minority interests) | `non_controlling_interests` | interessenze di minoranza (patrimonio netto di terzi) | IFRS 10, Appendix A | to verify |
-| Equity bridge (from enterprise value to equity value) | `bridge` | passaggio dall'enterprise value all'equity value | Koller et al. | to verify |
-| Terminal discounting time | `terminal_discount_time`: `horizon`, `mid_period` | momento di attualizzazione del valore terminale | Practice (mid-year convention) | to verify |
-| Normalised flow | `normalised_next_flow` | flusso normalizzato | PIV | to verify |
+| Operating taxes (taxes on EBIT) | `notional_tax_rate`, `operating_taxes` | imposte figurative (teoriche) sul reddito operativo | Koller et al. ("operating taxes"); PIV | To verify. The chapter of Koller et al. that defines operating taxes (ch. 11) is behind a paywall; [S1] and [S3] write the quantity as EBIT × (1 − tax rate) without naming it; "imposte figurative" and "imposte teoriche" are not found in [S11] |
+| EBIT | `ebit` | reddito operativo (EBIT) | IFRS practice; CFA Institute curriculum | English verified: [S1] "earnings before interest and taxes (EBIT)". Italian to verify: the closest statutory subtotal is "Differenza tra valore e costi della produzione (A-B)" [S9] para. 41, which is not identical to EBIT |
+| Depreciation and amortisation | `depreciation_and_amortisation` | ammortamenti | IAS 16, IAS 38 | Verified: [S8] IAS 16 and IAS 38 amendment "Clarification of Acceptable Methods of Depreciation and Amortisation", Italian "Chiarimento sui metodi di ammortamento accettabili"; [S9] item B10 "Ammortamenti e svalutazioni" (para. 72 to 74) |
+| Capital expenditure | `capital_expenditure` | investimenti in immobilizzazioni (capex) | CFA Institute curriculum | English verified: [S3] "FCFF = EBIT (1 - tax rate) + Depreciation - Capital Expenditure - Working Capital"; [S1] uses FCInv (fixed capital investment) for the same quantity. Italian verified: [S10] Appendix A, Schema 1, investing activities "Immobilizzazioni materiali (Investimenti)" |
+| Change in net working capital | `change_in_net_working_capital` | variazione del capitale circolante netto | CFA Institute curriculum | glossary (net working capital). English verified: [S3] Illustration 15.7 "Change in Working Capital"; [S1] uses WCInv. Italian verified: [S10] Schema 1 heading "Variazioni del capitale circolante netto" |
+| Interest expense | `interest_expense` | oneri finanziari | glossary (financial charges) | Italian verified: [S9] item C17 "Interessi e altri oneri finanziari" (para. 93, 98). English to verify: [S1] shows only the symbol "Int" in "FCFE = FCFF – Int(1 – Tax rate) + Net borrowing"; the spelled-out term is in the full reading, not reachable |
+| Net borrowing | `net_borrowing` | variazione netta dei debiti finanziari | CFA Institute curriculum (FCFE) | English verified: [S1] "Net borrowing". Italian to verify: [S10] lists "Accensione finanziamenti" and "Rimborso finanziamenti" separately; no single term found |
+| Debt-like items (debt equivalents) | `debt_like_items` | debt-like items (passività assimilabili al debito) | Koller et al. ("debt equivalents") | English verified: [S12] "debt equivalents like unfunded pension liabilities"; [S5] IVS 200 130.10 "debt equivalent securities", 130.13 "debt-like securities". Italian to verify |
+| Non-operating assets | `non_operating_assets` | attività non operative (surplus asset) | Koller et al. | glossary. English verified: [S1] Summary "Non-operating assets, such as excess cash and marketable securities"; [S5] IVS 200 120.04; [S12] "nonoperating assets". Italian to verify: not found in [S11] |
+| Non-controlling interests (minority interests) | `non_controlling_interests` | partecipazioni di minoranza | IFRS 10, Appendix A | Verified: [S6] IFRS 10 Appendix A "Equity in a subsidiary not attributable, directly or indirectly, to a parent"; Italian [S7] IAS 27 para. 4 (same definition) "La partecipazione di minoranza è il patrimonio netto di una controllata non attribuibile, direttamente o indirettamente, ad una controllante". Note: previous Italian "interessenze di minoranza (patrimonio netto di terzi)"; "patrimonio netto di terzi" is common practice but was not found on an official source |
+| From enterprise value to equity value | `bridge` | passaggio dall'enterprise value all'equity value | Koller et al. | Replacement proposed. [S12] ch. 16 "Moving from Enterprise Value to Value per Share": "subtract all nonequity claims from enterprise value"; [S5] IVS 200 130.01 and 130.05. Note: previous term "equity bridge", not found on a recognised source. In [S12] enterprise value already includes nonoperating assets ("add nonoperating assets to the value of core operations"), whereas `enterprise_value` in this spec is the value of operations: for the maintainer. Italian: [S11] 21.3 "capitale investito lordo (enterprise value)" and 16.8 "capitale netto (equity value)"; the phrase itself is to verify |
+| Terminal discounting time | `terminal_discount_time`: `horizon`, `mid_period` | momento di attualizzazione del valore terminale | Practice (mid-year convention) | To verify. [S5] mentions a "mid-period adjustment" only for intangible assets (IVS 210 100.06(g)); no recognised source reached states when the terminal value is discounted under mid-period timing |
+| Normalised flow | `normalised_next_flow` | flusso normalizzato | PIV | Partly verified. Italian [S11] 16.3 "risultato economico normalizzato" and 16.4 "normalizzazione dei risultati aziendali attesi" (income method). English: [S5] IVS 103 A20.10 uses "stabilised level of growth and profits", not "normalised". To verify on the final PIV |
+
+Sources consulted on 2026-11-08:
+- [S1] CFA Institute, "Free Cash Flow Valuation", Refresher Reading, 2025 curriculum: formulas
+  for FCFF and FCFE, discount rates, single-, two- and three-stage models, Summary.
+  https://www.cfainstitute.org/insights/professional-learning/refresher-readings/2025/free-cash-flow-valuation
+- [S2] A. Damodaran, *Investment Valuation*, 2nd edition, chapter 14 (free cash flow to equity
+  models), section "III. The E-Model - A Three Stage FCFE Model", Illustration 14.5 (Tsingtao
+  Breweries). https://pages.stern.nyu.edu/~adamodar/pdfiles/valn2ed/ch14d.pdf
+- [S3] A. Damodaran, *Investment Valuation*, 2nd edition, chapter 15 "Firm Valuation: Cost of
+  Capital and APV Approaches": FCFF definition, Illustration 15.3 (Amgen, Table 15.6),
+  Illustration 15.7 (Boeing). https://pages.stern.nyu.edu/~adamodar/pdfiles/valn2ed/ch15.pdf
+- [S4] A. Damodaran, *Investment Valuation*, 3rd edition, chapter 15 "Firm Valuation: Cost of
+  Capital and Adjusted Present Value Approaches", Illustration 15.3 (Amgen, 2009) and base year
+  of Gerdau; and "Closure in Valuation: Estimating Terminal Value" (p. 17 and 18).
+  https://pages.stern.nyu.edu/~adamodar/pdfiles/val3ed/c15.pdf,
+  https://pages.stern.nyu.edu/~adamodar/pdfiles/papers/termvalue.pdf
+- [S5] IVSC, International Valuation Standards effective 31 January 2025 (redline edition
+  distributed by ICAEW): IVS 103 Appendix A20 (A20.05, A20.09, A20.10, A20.22, A20.23), IVS 200
+  (120.04, 130.01, 130.05, 130.10, 130.13), IVS 210 (100.06).
+  https://icaew.com/-/media/corporate/files/technical/corporate-finance/valuation/ivs-effective-31-january-2025-redline-edition.ashx
+- [S6] IFRS 10 *Consolidated Financial Statements*, Appendix A, as adopted by Commission
+  Regulation (EU) No 1254/2012. https://legislation.gov.uk/eur/2012/1254/annex/2020-01-31
+- [S7] Commission Regulation (EC) No 494/2009 (IAS 27 as amended in 2008), Italian text, OJ L 149,
+  12.6.2009, paragraph 4. https://fondazioneoic.eu/wp-content/uploads/2024/09/Reg_494_2009.pdf
+- [S8] Commission Regulation (EU) 2015/2231 (amendments to IAS 16 and IAS 38), Italian text,
+  OJ L 317, 3.12.2015, https://fondazioneoic.eu/wp-content/uploads/2024/09/Reg_2231_20151.pdf;
+  IFRS Foundation, project "Clarification of Acceptable Methods of Depreciation and
+  Amortisation",
+  https://www.ifrs.org/projects/completed-projects/2014/clarification-of-acceptable-methods-of-depreciation-and-amortisation/
+- [S9] OIC 12 "Composizione e schemi del bilancio d'esercizio" (December 2016, amended up to
+  18 March 2024), paragraphs 41, 72 to 74, 93, 98.
+  https://www.fondazioneoic.eu/wp-content/uploads/2026/01/2016-12-OIC-12-Composizione-e-schemi-del-bilancio.pdf
+- [S10] OIC 10 "Rendiconto finanziario" (August 2014), Appendix A, Schema 1 (indirect method).
+  https://www.fondazioneoic.eu/wp-content/uploads/2024/09/2014-08-05-OIC-10-Rendiconto-finanziario.pdf
+- [S11] OIV, Principi Italiani di Valutazione, Parte Prima, exposure draft of 20 March 2013,
+  paragraphs 16.3, 16.4, 16.7, 16.8, 16.9, 21.2, 21.3 and annex to 20.2. The final PIV text
+  (2015, 2026 edition) is not publicly accessible; terms marked as verified on [S11] should be
+  rechecked on the final text.
+  https://www.dirittobancario.it/wp-content/uploads/sites/default/files/allegati/principi_italiani_di_valutazione_piv_-_exposure_draft.pdf
+- [S12] T. Koller, M. Goedhart, D. Wessels (McKinsey & Company), *Valuation*, 7th edition, Wiley,
+  2020, chapter 16 "Moving from Enterprise Value to Value per Share" (publisher preview).
+  https://www.oreilly.com/library/view/valuation-7th-edition/9781119610885/c16.xhtml
+- [S13] Banca d'Italia, Questioni di Economia e Finanza n. 578, A. Di Iorio and M. Fanari,
+  "Tassi di inflazione di break-even: il caso italiano", September 2020,
+  https://www.bancaditalia.it/pubblicazioni/qef/2020-0578/index.html; Banca d'Italia, "Indagine
+  sulle aspettative di inflazione e crescita, 4° trimestre 2025", 14 January 2026,
+  https://www.bancaditalia.it/pubblicazioni/indagine-inflazione/2025-indagine-inflazione/12/index.html
+- [S14] ECB Blog, U. Baumann et al., "How euro area firms' inflation expectations affect their
+  business decisions", 4 July 2024.
+  https://www.ecb.europa.eu/press/blog/date/2024/html/ecb.blog240704~a2363df64d.en.html
 
 ## Open questions (Revised 2026-11-08)
 Each item has a recommendation; answer "ok" or pick an option.
@@ -415,6 +466,35 @@ Each item has a recommendation; answer "ok" or pick an option.
     three-stage model. Candidates to check: the CFA Institute curriculum examples on FCFF and
     FCFE, and Damodaran's public three-stage FCFF material. **Recommended: you pick or approve
     the two sources;** the agents will not cite a source they could not verify.
+
+    Candidates found on 2026-11-08 (for the maintainer to approve or reject):
+    - Three-stage model: Damodaran, *Investment Valuation*, 2nd edition, chapter 15,
+      Illustration 15.3 (Amgen, May 2001), Table 15.6,
+      https://pages.stern.nyu.edu/~adamodar/pdfiles/valn2ed/ch15.pdf. Inputs ($ million):
+      adjusted after-tax EBIT 1,454; years 1 to 5 growth 13.08%, reinvestment rate 56.27%, cost
+      of capital 10.76%; years 6 to 10 growth 11.46%, 9.85%, 8.23%, 6.62%, 5.00% ("linear
+      increments"), reinvestment rate 50.01% down to 25.00%, cost of capital 10.38%, 10.00%,
+      9.62%, 9.24%, 8.86%; stable growth 5%, reinvestment rate 25%, cost of capital 8.86%.
+      Published results: FCFF years 1 to 10 of 719, 813, 919, 1,040, 1,176, 1,498, 1,851, 2,226,
+      2,611, 2,991; FCFF in year 11 of 3,140; terminal value in year 10 of 81,364; value of the
+      operating assets 39,161; plus cash and marketable securities 2,029, minus debt 323, equity
+      value 40,867. An independent recomputation from the printed rates gives 8,328 for the
+      explicit period (published 8,327), 81,368 for the terminal value and 39,168 for the
+      operating assets: the differences come from the rounding of the printed rates, so a golden
+      case should match at the published precision only. The transition growth rates follow
+      option (a) of question 4. The FCFF comes from a reinvestment rate, not from a line build-up,
+      and the cost of capital changes every period, so the case exercises `given` flows with
+      rates per period and a Gordon terminal value. A second candidate on the equity basis:
+      chapter 14, Illustration 14.5 (Tsingtao Breweries, three-stage FCFE, value per share
+      CY 7.04), https://pages.stern.nyu.edu/~adamodar/pdfiles/valn2ed/ch14d.pdf.
+    - FCFF build-up from EBIT: Damodaran, *Investment Valuation*, 2nd edition, chapter 15,
+      Illustration 15.7 (Boeing), same URL. Published figures ($ million): EBIT 1,753, tax rate
+      35%, EBIT (1 − tax rate) 1,138, plus depreciation and amortisation 1,517, minus capital
+      expenditures 1,584, minus change in working capital (105), FCFF 1,176. The arithmetic from
+      EBIT (1 − tax rate) to FCFF is exact; 1,753 × 0.65 = 1,139.45, so the printed 1,138 implies
+      an EBIT of about 1,751: the golden case should start from the published EBIT (1 − tax rate)
+      or record the discrepancy. No CFA Institute worked example with numbers could be reached:
+      the public refresher reading [S1] contains formulas only.
 13. **Terminal rate with one discount rate.** The terminal technique uses the same rate and no
     separate terminal rate is accepted; with rates per period, a terminal rate is required.
     **Recommended: ok.** A sensitivity on `/discount_rate` then moves the explicit and the
