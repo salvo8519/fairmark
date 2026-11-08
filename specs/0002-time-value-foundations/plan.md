@@ -30,4 +30,13 @@ with several IRRs now return `FM-E011` instead of one of the roots.
 ## Verification
 Golden cases from published sources (ECMA-376, ISDA) plus a 50-digit reference
 (`scripts/reference_time.py`); property tests; an independent audit by the
-`numerical-auditor` with its own recomputation.
+`numerical-auditor` with its own recomputation; a code review by the `code-reviewer`
+(issue #176).
+
+## Follow-ups
+- **`tvm.annuity` version 2.** Version 1 always computes the future value $PV (1 + r)^n$,
+  which leaves the decimal range at long horizons (a payment of 100 at 5% fails with
+  `FM-E008` above 1,208 periods), and the present value is then lost with it. A version 2
+  could return the present value and report the future value as unavailable, or drop it.
+  This changes the outputs, so it needs a new method version and the maintainer's approval;
+  out of scope of issue #176, documented on the methodology page.

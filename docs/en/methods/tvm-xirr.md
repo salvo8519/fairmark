@@ -59,7 +59,8 @@ The same deterministic solver as [`tvm.irr`](tvm-irr.md#solver), with two differ
 - **The grid is defined on effective annual rates** (−0.99, −0.95, −0.90 to 1.00 step 0.05,
   1.25 to 10 step 0.25) and converted to the chosen compounding before the scan. The range of
   economic rates scanned, and therefore the verdict on uniqueness, does not depend on how the
-  rate is quoted.
+  rate is quoted. When one root is found, `explain` shows where: the grid point, or the two
+  rates of the grid interval with the XNPV at each of them.
 - **Sign changes are counted on the flows in date order**; flows on the same date are netted.
 
 The uniqueness rule is the one of `tvm.irr`: more than one root found, an odd gap between the
@@ -106,11 +107,12 @@ states whether uniqueness is proven or not verified, with the reason.
 | Code | When |
 | --- | --- |
 | `FM-E001` | A field is missing or unknown, or a convention is not one of the listed options |
-| `FM-E005` | No root was bracketed on the grid and Newton's method from `guess` did not converge |
-| `FM-E006` | The amounts are not of both signs (this includes an empty list) |
+| `FM-E002` | `cash_flows` is empty |
+| `FM-E005` | No root was bracketed on the grid and Newton's method from `guess` did not converge; the rate may lie outside the decimal range or far from `guess`: give a `guess` near the expected rate |
+| `FM-E006` | `cash_flows` has no positive or no negative amount |
 | `FM-E008` | Arithmetic overflow while refining the root |
 | `FM-E009` | A date is malformed, does not exist or is outside 1900-01-01 to 2199-12-31 |
-| `FM-E011` | More than one rate sets XNPV to zero, or another rate is known to exist; the message lists the intervals |
+| `FM-E011` | No single rate can be isolated: several rates set XNPV to zero, a repeated root is possible, or another rate is known to exist beside the one found; the message lists the intervals and suggests `tvm.npv` at the cost of capital or `tvm.mirr` with explicit rates |
 
 ## Accuracy
 

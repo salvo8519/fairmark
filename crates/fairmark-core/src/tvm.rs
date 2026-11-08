@@ -33,6 +33,29 @@ pub fn discount_factor(rate: Decimal, t: Decimal) -> Result<Decimal> {
     rates::inverse_pow(num::one_plus(rate)?, t)
 }
 
+/// Names the rate field of the method in an `FM-E003` raised by a shared helper (finding 4 of
+/// the review of issue #176): the helpers only know the value, the method knows the field.
+fn rate_field(field: &'static str) -> impl Fn(FairmarkError) -> FairmarkError {
+    move |e| match e {
+        FairmarkError::RateOutOfRange(rate) => FairmarkError::DiscountRateOutOfRange {
+            field: field.to_owned(),
+            rate,
+        },
+        other => other,
+    }
+}
+
+/// `FM-E003` naming `field` when `rate` is −100% or lower.
+fn check_rate(field: impl Into<String>, rate: Decimal) -> Result<()> {
+    if rate <= -Decimal::ONE {
+        return Err(FairmarkError::DiscountRateOutOfRange {
+            field: field.into(),
+            rate,
+        });
+    }
+    Ok(())
+}
+
 fn npv_raw(rate: Decimal, cash_flows: &[Decimal]) -> Result<Decimal> {
     let mut total = Decimal::ZERO;
     for (i, cf) in cash_flows.iter().enumerate() {
@@ -75,7 +98,9 @@ pub struct NpvInput {
 
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct NpvOutput {
+    /// Net present value at t = 0, in the currency units of the cash flows.
     pub npv: Decimal,
+    /// Present value of each cash flow at t = 0, in the order of `cash_flows`.
     pub present_values: Vec<Decimal>,
 }
 
@@ -88,7 +113,8 @@ pub fn npv(input: &NpvInput) -> Result<(NpvOutput, Explain)> {
 
     let mut pvs = Vec::with_capacity(input.cash_flows.len());
     for (i, cf) in input.cash_flows.iter().enumerate() {
-        let df = discount_factor(input.rate, Decimal::from(i as u64))?;
+        let df =
+            discount_factor(input.rate, Decimal::from(i as u64)).map_err(rate_field("/rate"))?;
         let pv = cf.checked_mul(df).ok_or(FairmarkError::Overflow("npv"))?;
         ex.step(
             format!("Present value, t = {i}"),
@@ -134,7 +160,9 @@ pub struct IrrOutput {
     pub npv_at_irr: Decimal,
     /// "newton", "bisection" or "grid (exact root)".
     pub solver: String,
+    /// Iterations of the solver that produced the rate (0 for an exact grid root).
     pub iterations: u32,
+    /// Stopping tolerance on the rate step, decimal fraction (1e-18).
     pub tolerance: Decimal,
 }
 
@@ -147,9 +175,10 @@ pub fn irr(input: &IrrInput) -> Result<(IrrOutput, Explain)> {
 
     let mut ex = Explain::new("tvm.irr", "find r such that Σ CF_t / (1 + r)^t = 0");
     ex.convention("cash_flows[0] occurs at t = 0");
-    solver_conventions(&mut ex);
+    solver_conventions(&mut ex, "rates per period (the period of the cash flows)");
     let guess = guess_convention(&mut ex, input.guess);
     let sol = solve_rate(
+        "IRR",
         |r| npv_raw(r, cfs),
         |r| npv_derivative(r, cfs),
         guess,
@@ -158,6 +187,7 @@ pub fn irr(input: &IrrInput) -> Result<(IrrOutput, Explain)> {
     )?;
     ex.convention(sol.uniqueness.clone());
     let npv_at = npv_raw(sol.rate, cfs)?;
+    sol.location_steps(&mut ex, "NPV");
     ex.step(
         "Internal rate of return",
         format!("{}, {} iterations", sol.solver, sol.iterations),
@@ -189,12 +219,13 @@ pub fn solver_grid() -> Vec<Decimal> {
     g
 }
 
-pub(crate) fn solver_conventions(ex: &mut Explain) {
-    ex.convention(
-        "roots located on a fixed grid of effective annual (or per-period) rates: -0.99, -0.95, \
-         -0.90 to 1.00 step 0.05, 1.25 to 10 step 0.25; an ambiguous rate is an error, \
-         never a choice",
-    );
+/// The solver conventions. `rates_scanned` says what the grid points are: rates per period
+/// for IRR, effective annual rates for XIRR.
+pub(crate) fn solver_conventions(ex: &mut Explain, rates_scanned: &str) {
+    ex.convention(format!(
+        "roots located on a fixed grid of {rates_scanned}: -0.99, -0.95, -0.90 to 1.00 step \
+         0.05, 1.25 to 10 step 0.25; an ambiguous rate is an error, never a choice"
+    ));
     ex.convention("Newton's method from the guess inside the root interval; bisection as fallback");
     ex.convention(format!(
         "stopping rule: step on the rate below {IRR_TOLERANCE}, at most {IRR_MAX_ITERATIONS} \
@@ -262,11 +293,56 @@ pub(crate) struct Solution {
     pub unique: bool,
     /// Explanation of the uniqueness verdict, for `explain.conventions`.
     pub uniqueness: String,
+    /// Where the grid located the root, for the audit trail: an exact grid point, or the grid
+    /// interval with the value of the function at both ends; `None` when Newton's method ran
+    /// from the guess without an interval.
+    pub located: Option<Located>,
+}
+
+/// Where the grid scan located the root.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Located {
+    Exact(Decimal),
+    Between {
+        lo: Decimal,
+        f_lo: Decimal,
+        hi: Decimal,
+        f_hi: Decimal,
+    },
+}
+
+impl Solution {
+    /// The explain steps that show where the grid located the root (`value_name` is `NPV` or
+    /// `XNPV`).
+    pub(crate) fn location_steps(&self, ex: &mut Explain, value_name: &str) {
+        match self.located {
+            Some(Located::Exact(r)) => {
+                ex.step(
+                    "Root located on the grid (exact grid point)",
+                    format!("{value_name}({r}) = 0"),
+                    r,
+                );
+            }
+            Some(Located::Between { lo, f_lo, hi, f_hi }) => {
+                ex.step(
+                    "Root interval on the grid, lower rate",
+                    format!("{value_name}({lo}) = {f_lo}"),
+                    lo,
+                );
+                ex.step(
+                    "Root interval on the grid, upper rate",
+                    format!("{value_name}({hi}) = {f_hi}"),
+                    hi,
+                );
+            }
+            None => {}
+        }
+    }
 }
 
 enum Root {
     Exact(Decimal),
-    Between(Decimal, Decimal),
+    Between(Decimal, Decimal, Decimal, Decimal),
 }
 
 /// Deterministic root finder for a present-value function of the rate.
@@ -283,8 +359,9 @@ enum Root {
 ///    * one root found and `s = 1`: the rate is unique.
 /// 3. One interval: Newton from `guess`, accepted only inside the interval; otherwise
 ///    bisection inside the interval. No interval and `s = 1`: Newton from `guess`, accepted
-///    only if it converges, else `FM-E005`.
+///    only if it converges, else `FM-E005` naming `solver` (`IRR` or `XIRR`).
 pub(crate) fn solve_rate(
+    solver: &'static str,
     f: impl Fn(Decimal) -> Result<Decimal>,
     df: impl Fn(Decimal) -> Result<Decimal>,
     guess: Decimal,
@@ -302,7 +379,7 @@ pub(crate) fn solve_rate(
         }
         if let Some((pr, pv)) = prev {
             if pv.is_sign_negative() != v.is_sign_negative() {
-                roots.push(Root::Between(pr, r));
+                roots.push(Root::Between(pr, pv, r, v));
             }
         }
         prev = Some((r, v));
@@ -311,27 +388,30 @@ pub(crate) fn solve_rate(
         rs.iter()
             .map(|r| match r {
                 Root::Exact(x) => format!("{{{x}}}"),
-                Root::Between(a, b) => format!("[{a}, {b}]"),
+                Root::Between(a, _, b, _) => format!("[{a}, {b}]"),
             })
             .collect::<Vec<_>>()
             .join(", ")
     };
     let found = roots.len();
     if found > 1 {
-        return Err(FairmarkError::MultipleRates(describe(&roots)));
+        return Err(FairmarkError::MultipleRates(format!(
+            "the grid finds roots in {}",
+            describe(&roots)
+        )));
     }
     let gap = sign_changes.saturating_sub(found);
     if found == 1 && gap % 2 == 1 {
         return Err(FairmarkError::MultipleRates(format!(
-            "{} and at least one more outside the grid or in a pair inside one grid interval \
-             (the flows change sign {sign_changes} times)",
+            "the grid finds a root in {} and at least one more exists outside the grid or in a \
+             pair inside one grid interval (the flows change sign {sign_changes} times)",
             describe(&roots)
         )));
     }
     if found == 0 && sign_changes > 1 {
         return Err(FairmarkError::MultipleRates(format!(
-            "none isolated on the grid while the flows change sign {sign_changes} times, \
-             so zero or several rates exist"
+            "the grid isolates no root while the flows change sign {sign_changes} times, so \
+             zero or several rates exist"
         )));
     }
     let (unique, uniqueness) = if sign_changes == 1 {
@@ -348,25 +428,37 @@ pub(crate) fn solve_rate(
             ),
         )
     };
-    let solution = |rate, solver, iterations| Solution {
+    let located = match roots.as_slice() {
+        [Root::Exact(r)] => Some(Located::Exact(*r)),
+        [Root::Between(lo, f_lo, hi, f_hi)] => Some(Located::Between {
+            lo: *lo,
+            f_lo: *f_lo,
+            hi: *hi,
+            f_hi: *f_hi,
+        }),
+        _ => None,
+    };
+    let solution = |rate, method, iterations| Solution {
         rate,
-        solver,
+        solver: method,
         iterations,
         unique,
         uniqueness: uniqueness.clone(),
+        located,
     };
     match roots.as_slice() {
         [] => newton(&f, &df, guess, None)
             .map(|(rate, it)| solution(rate, "newton", it))
             .ok_or(FairmarkError::NoConvergence {
+                solver,
                 iterations: IRR_MAX_ITERATIONS,
             }),
         [Root::Exact(r)] => Ok(solution(*r, "grid (exact root)", 0)),
-        [Root::Between(lo, hi)] => {
+        [Root::Between(lo, _, hi, _)] => {
             if let Some((rate, it)) = newton(&f, &df, guess, Some((*lo, *hi))) {
                 return Ok(solution(rate, "newton", it));
             }
-            let (rate, it) = bisection(&f, *lo, *hi)?;
+            let (rate, it) = bisection(solver, &f, *lo, *hi)?;
             Ok(solution(rate, "bisection", it))
         }
         _ => unreachable!("more than one root returned above"),
@@ -390,7 +482,7 @@ fn newton(
         if next <= -Decimal::ONE {
             return None;
         }
-        if (next - r).abs() <= IRR_TOLERANCE {
+        if num::sub(next, r).ok()?.abs() <= IRR_TOLERANCE {
             return match bracket {
                 Some((lo, hi)) if next < lo || next > hi => None,
                 _ => Some((next, it)),
@@ -402,15 +494,16 @@ fn newton(
 }
 
 fn bisection(
+    solver: &'static str,
     f: &impl Fn(Decimal) -> Result<Decimal>,
     mut lo: Decimal,
     mut hi: Decimal,
 ) -> Result<(Decimal, u32)> {
     let mut f_lo = f(lo)?;
     for it in 1..=IRR_MAX_ITERATIONS {
-        let mid = (lo + hi) / Decimal::TWO;
+        let mid = num::div(num::add(lo, hi)?, Decimal::TWO)?;
         let f_mid = f(mid)?;
-        if (hi - lo) <= IRR_TOLERANCE || f_mid.is_zero() {
+        if num::sub(hi, lo)? <= IRR_TOLERANCE || f_mid.is_zero() {
             return Ok((mid, it));
         }
         if f_mid.is_sign_negative() == f_lo.is_sign_negative() {
@@ -421,6 +514,7 @@ fn bisection(
         }
     }
     Err(FairmarkError::NoConvergence {
+        solver,
         iterations: IRR_MAX_ITERATIONS,
     })
 }
@@ -533,6 +627,12 @@ pub fn present_value(input: &PresentValueInput) -> Result<(PresentValueOutput, E
     } else {
         "one rate per period (forward period rates)"
     });
+    for (k, r) in rates.iter().enumerate() {
+        match input.rate {
+            Some(_) => check_rate("/rate", *r)?,
+            None => check_rate(format!("/period_rates/{k}"), *r)?,
+        }
+    }
     let dfs = period_discount_factors(&rates, input.timing)?;
     let ends = period_discount_factors(&rates, PeriodTiming::EndOfPeriod)?;
     let mut pvs = Vec::with_capacity(n);
@@ -608,18 +708,23 @@ pub struct XnpvInput {
 
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct DatedFlowValue {
+    /// Date of the flow (ISO 8601).
     pub date: Date,
     /// Time from the valuation date in years.
     pub year_fraction: Decimal,
+    /// Discount factor from the date of the flow to the valuation date.
     pub discount_factor: Decimal,
+    /// Value of the flow at the valuation date, in currency units.
     pub present_value: Decimal,
 }
 
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct XnpvOutput {
-    /// Net present value at the valuation date.
+    /// Net present value at the valuation date, in currency units.
     pub xnpv: Decimal,
+    /// Valuation date used: the given one, or the earliest flow date (ISO 8601).
     pub valuation_date: Date,
+    /// Year fraction, discount factor and present value of each flow, in input order.
     pub flows: Vec<DatedFlowValue>,
 }
 
@@ -828,8 +933,11 @@ pub struct XirrOutput {
     pub uniqueness_verified: bool,
     /// XNPV at the returned rate (should be about zero).
     pub xnpv_at_xirr: Decimal,
+    /// "newton", "bisection" or "grid (exact root)".
     pub solver: String,
+    /// Iterations of the solver that produced the rate (0 for an exact grid root).
     pub iterations: u32,
+    /// Stopping tolerance on the rate step, decimal fraction (1e-18).
     pub tolerance: Decimal,
 }
 
@@ -848,9 +956,13 @@ pub fn xirr(input: &XirrInput) -> Result<(XirrOutput, Explain)> {
         ex.step(format!("Year fraction, {}", f.date), formula.clone(), *t);
     }
     ex.convention(format!("times measured from the earliest flow date {v}"));
-    solver_conventions(&mut ex);
+    solver_conventions(
+        &mut ex,
+        "effective annual rates, each expressed in the compounding of the result",
+    );
     let guess = guess_convention(&mut ex, input.guess);
     let sol = solve_rate(
+        "XIRR",
         |r| dated_npv(r, c, flows, &ts),
         |r| dated_npv_derivative(r, c, flows, &ts),
         guess,
@@ -859,6 +971,7 @@ pub fn xirr(input: &XirrInput) -> Result<(XirrOutput, Explain)> {
     )?;
     ex.convention(sol.uniqueness.clone());
     let check = dated_npv(sol.rate, c, flows, &ts)?;
+    sol.location_steps(&mut ex, "XNPV");
     ex.step(
         "Internal rate of return (dated flows)",
         format!("{}, {} iterations", sol.solver, sol.iterations),
@@ -910,11 +1023,8 @@ pub fn mirr(input: &MirrInput) -> Result<(MirrOutput, Explain)> {
         ));
     }
     require_sign_change(cfs.iter())?;
-    for r in [input.finance_rate, input.reinvest_rate] {
-        if r <= -Decimal::ONE {
-            return Err(FairmarkError::RateOutOfRange(r));
-        }
-    }
+    check_rate("/finance_rate", input.finance_rate)?;
+    check_rate("/reinvest_rate", input.reinvest_rate)?;
     let n = (cfs.len() - 1) as i64;
     let mut ex = Explain::new(
         "tvm.mirr",
@@ -924,31 +1034,54 @@ pub fn mirr(input: &MirrInput) -> Result<(MirrOutput, Explain)> {
     ex.convention("negative flows discounted to t = 0 at the finance rate");
     ex.convention("positive flows compounded to t = n at the reinvestment rate (ECMA-376 MIRR)");
     let (mut pv_neg, mut fv_pos) = (Decimal::ZERO, Decimal::ZERO);
+    let (mut neg_terms, mut pos_terms) = (Vec::new(), Vec::new());
     for (t, cf) in cfs.iter().enumerate() {
         let t = t as i64;
         let overflow = FairmarkError::Overflow("MIRR");
         if *cf < Decimal::ZERO {
             let g = rates::pow(num::one_plus(input.finance_rate)?, Decimal::from(t))?;
-            pv_neg = cf
-                .checked_div(g)
-                .and_then(|v| pv_neg.checked_add(v))
-                .ok_or(overflow)?;
+            let v = cf.checked_div(g).ok_or(overflow.clone())?;
+            pv_neg = pv_neg.checked_add(v).ok_or(overflow)?;
+            ex.step(
+                format!("PV at t = 0 of the flow at t = {t} (finance rate)"),
+                format!("{cf} / (1 + {})^{t}", input.finance_rate),
+                v,
+            );
+            neg_terms.push(v);
         } else if *cf > Decimal::ZERO {
             let g = rates::pow(num::one_plus(input.reinvest_rate)?, Decimal::from(n - t))?;
-            fv_pos = cf
-                .checked_mul(g)
-                .and_then(|v| fv_pos.checked_add(v))
-                .ok_or(overflow)?;
+            let v = cf.checked_mul(g).ok_or(overflow.clone())?;
+            fv_pos = fv_pos.checked_add(v).ok_or(overflow)?;
+            ex.step(
+                format!("FV at t = {n} of the flow at t = {t} (reinvestment rate)"),
+                format!("{cf} × (1 + {})^({n} − {t})", input.reinvest_rate),
+                v,
+            );
+            pos_terms.push(v);
         }
     }
+    let terms = |vs: &[Decimal]| {
+        vs.iter()
+            .map(|v| format!("({v})"))
+            .collect::<Vec<_>>()
+            .join(" + ")
+    };
     ex.step(
         "PV of negative flows at the finance rate",
-        format!("Σ CF_t / (1 + {})^t", input.finance_rate),
+        format!(
+            "Σ CF_t / (1 + {})^t = {}",
+            input.finance_rate,
+            terms(&neg_terms)
+        ),
         pv_neg,
     );
     ex.step(
         "FV of positive flows at the reinvestment rate",
-        format!("Σ CF_t × (1 + {})^({n} − t)", input.reinvest_rate),
+        format!(
+            "Σ CF_t × (1 + {})^({n} − t) = {}",
+            input.reinvest_rate,
+            terms(&pos_terms)
+        ),
         fv_pos,
     );
     let ratio = fv_pos
@@ -956,9 +1089,11 @@ pub fn mirr(input: &MirrInput) -> Result<(MirrOutput, Explain)> {
         .ok_or(FairmarkError::Overflow("MIRR"))?;
     let root = ratio
         .checked_ln()
-        .and_then(|l| (l / Decimal::from(n)).checked_exp())
+        .ok_or(FairmarkError::Overflow("MIRR root"))
+        .and_then(|l| num::div(l, Decimal::from(n)))?
+        .checked_exp()
         .ok_or(FairmarkError::Overflow("MIRR root"))?;
-    let m = root - Decimal::ONE;
+    let m = num::sub(root, Decimal::ONE)?;
     ex.step(
         "Modified internal rate of return",
         format!("({fv_pos} / {})^(1/{n}) − 1", -pv_neg),
@@ -1145,7 +1280,7 @@ fn factor_with(
 
 pub fn annuity(input: &AnnuityInput) -> Result<(AnnuityOutput, Explain)> {
     let (r, g, n) = (input.rate, input.growth.unwrap_or_default(), input.periods);
-    let (factor, steps) = factor_with(r, g, n, input.timing, false)?;
+    let (factor, steps) = factor_with(r, g, n, input.timing, false).map_err(rate_field("/rate"))?;
     let periods = Decimal::from(n);
     let one_r = num::one_plus(r)?;
     let mut ex = Explain::new(
@@ -1157,6 +1292,7 @@ pub fn annuity(input: &AnnuityInput) -> Result<(AnnuityOutput, Explain)> {
         AnnuityTiming::Due => "annuity due: payments at the beginning of each period",
     });
     ex.convention(growth_convention(input.growth));
+    ex.convention("future value at t = n for both timings");
     ex.steps.extend(steps);
     let pv = input
         .payment
@@ -1201,9 +1337,7 @@ pub struct PerpetuityOutput {
 
 pub fn perpetuity(input: &PerpetuityInput) -> Result<(PerpetuityOutput, Explain)> {
     let (r, g) = (input.rate, input.growth.unwrap_or_default());
-    if r <= -Decimal::ONE {
-        return Err(FairmarkError::RateOutOfRange(r));
-    }
+    check_rate("/rate", r)?;
     if g <= -Decimal::ONE {
         // With g ≤ -1 the payments alternate or vanish and the series diverges or is
         // meaningless (audit D6); aligned with `tvm.annuity`.
@@ -1212,7 +1346,12 @@ pub fn perpetuity(input: &PerpetuityInput) -> Result<(PerpetuityOutput, Explain)
         )));
     }
     if g >= r {
-        return Err(FairmarkError::GrowthNotBelowRate { growth: g, rate: r });
+        return Err(FairmarkError::GrowthNotBelowTerminalRate {
+            growth_field: "/growth".to_owned(),
+            growth: g,
+            rate_field: "/rate".to_owned(),
+            rate: r,
+        });
     }
     let mut ex = Explain::new("tvm.perpetuity", "PV = P / (r − g); × (1 + r) if due");
     ex.convention(match input.timing {
@@ -1312,9 +1451,7 @@ pub fn future_value(input: &FutureValueInput) -> Result<(FutureValueOutput, Expl
             "`periods` must be between 1 and {MAX_PERIODS} (got {n})"
         )));
     }
-    if r <= -Decimal::ONE {
-        return Err(FairmarkError::RateOutOfRange(r));
-    }
+    check_rate("/rate", r)?;
     let pv = input.present_value.unwrap_or_default();
     let pmt = input.payment.unwrap_or_default();
     let mut ex = Explain::new(
@@ -1902,6 +2039,207 @@ mod tests {
                 guess: None,
             });
             assert_eq!(r.unwrap_err().code(), "FM-E011", "{c:?}");
+        }
+    }
+
+    // Issue #176: error messages name the field and the fix; codes are unchanged.
+
+    fn message(r: Result<impl std::fmt::Debug>) -> (String, &'static str) {
+        let e = r.unwrap_err();
+        (e.to_string(), e.code())
+    }
+
+    #[test]
+    fn rate_errors_name_the_field() {
+        let (m, code) = message(npv(&NpvInput {
+            rate: d("-1"),
+            cash_flows: vec![d("1")],
+        }));
+        assert_eq!(code, "FM-E003");
+        assert!(m.starts_with("`/rate` is -1"), "{m}");
+        let (m, code) = message(present_value(&PresentValueInput {
+            cash_flows: vec![d("1"), d("2"), d("3")],
+            rate: None,
+            period_rates: Some(vec![d("0.1"), d("0.1"), d("-1.5")]),
+            timing: PeriodTiming::EndOfPeriod,
+        }));
+        assert_eq!(code, "FM-E003");
+        assert!(m.starts_with("`/period_rates/2` is -1.5"), "{m}");
+        for (fin, re, field) in [
+            ("-1", "0.1", "`/finance_rate`"),
+            ("0.1", "-2", "`/reinvest_rate`"),
+        ] {
+            let (m, code) = message(mirr(&MirrInput {
+                cash_flows: vec![d("-1"), d("2")],
+                finance_rate: d(fin),
+                reinvest_rate: d(re),
+            }));
+            assert_eq!(code, "FM-E003");
+            assert!(m.starts_with(field) && m.contains("10% is 0.10"), "{m}");
+        }
+        let (m, code) = message(annuity(&AnnuityInput {
+            payment: d("1"),
+            rate: d("-1"),
+            periods: 3,
+            growth: None,
+            timing: AnnuityTiming::Ordinary,
+        }));
+        assert_eq!(code, "FM-E003");
+        assert!(m.starts_with("`/rate`"), "{m}");
+        let (m, code) = message(perpetuity(&PerpetuityInput {
+            payment: d("1"),
+            rate: d("-1"),
+            growth: None,
+            timing: AnnuityTiming::Ordinary,
+        }));
+        assert_eq!(code, "FM-E003");
+        assert!(m.starts_with("`/rate`"), "{m}");
+    }
+
+    #[test]
+    fn annuity_keeps_the_periods_error_first() {
+        // The field is named without changing which error comes first.
+        let r = annuity(&AnnuityInput {
+            payment: d("1"),
+            rate: d("-1"),
+            periods: 0,
+            growth: None,
+            timing: AnnuityTiming::Ordinary,
+        });
+        assert_eq!(r.unwrap_err().code(), "FM-E001");
+    }
+
+    #[test]
+    fn perpetuity_growth_error_names_growth_and_rate() {
+        let (m, code) = message(perpetuity(&PerpetuityInput {
+            payment: d("100"),
+            rate: d("0.05"),
+            growth: Some(d("0.06")),
+            timing: AnnuityTiming::Ordinary,
+        }));
+        assert_eq!(code, "FM-E004");
+        assert!(m.starts_with("`/growth` (0.06)"), "{m}");
+        assert!(
+            m.contains("`/rate` (0.05)") && !m.contains("terminal"),
+            "{m}"
+        );
+    }
+
+    #[test]
+    fn solver_errors_say_what_to_do() {
+        let e = FairmarkError::NoConvergence {
+            solver: "XIRR",
+            iterations: IRR_MAX_ITERATIONS,
+        };
+        assert_eq!(e.code(), "FM-E005");
+        let m = e.to_string();
+        assert!(m.starts_with("the XIRR solver"), "{m}");
+        assert!(m.contains("give a `guess` near the expected rate"), "{m}");
+        let (m, code) = message(irr(&IrrInput {
+            cash_flows: vec![d("1"), d("2")],
+            guess: None,
+        }));
+        assert_eq!(code, "FM-E006");
+        assert_eq!(
+            m,
+            "`cash_flows` needs at least one positive and one negative amount"
+        );
+        let (m, code) = message(irr(&IrrInput {
+            cash_flows: vec![d("-100"), d("230"), d("-132")],
+            guess: None,
+        }));
+        assert_eq!(code, "FM-E011");
+        assert!(m.contains("repeated root"), "{m}");
+        assert!(
+            m.ends_with("use `tvm.npv` at the cost of capital or `tvm.mirr` with explicit rates"),
+            "{m}"
+        );
+    }
+
+    // Issue #176: explain detail.
+
+    #[test]
+    fn mirr_explain_lists_every_flow() {
+        let (_, ex) = mirr(&MirrInput {
+            cash_flows: vec![d("-100"), d("0"), d("-50"), d("80"), d("120")],
+            finance_rate: d("0.10"),
+            reinvest_rate: d("0.12"),
+        })
+        .unwrap();
+        let labels: Vec<&str> = ex.steps.iter().map(|s| s.label.as_str()).collect();
+        assert_eq!(
+            labels[..4],
+            [
+                "PV at t = 0 of the flow at t = 0 (finance rate)",
+                "PV at t = 0 of the flow at t = 2 (finance rate)",
+                "FV at t = 4 of the flow at t = 3 (reinvestment rate)",
+                "FV at t = 4 of the flow at t = 4 (reinvestment rate)",
+            ]
+        );
+        assert_eq!(ex.steps[1].formula, "-50 / (1 + 0.10)^2");
+        let pv = &ex.steps[4];
+        assert_eq!(pv.value, ex.steps[0].value + ex.steps[1].value);
+        assert!(pv.formula.ends_with(&format!(
+            "= ({}) + ({})",
+            ex.steps[0].value, ex.steps[1].value
+        )));
+        let fv = &ex.steps[5];
+        assert_eq!(fv.value, ex.steps[2].value + ex.steps[3].value);
+    }
+
+    #[test]
+    fn irr_explain_shows_where_the_grid_located_the_root() {
+        let (out, ex) = irr(&IrrInput {
+            cash_flows: vec![d("-1000"), d("300"), d("400"), d("500")],
+            guess: None,
+        })
+        .unwrap();
+        let lo = ex
+            .steps
+            .iter()
+            .find(|s| s.label == "Root interval on the grid, lower rate")
+            .unwrap();
+        let hi = ex
+            .steps
+            .iter()
+            .find(|s| s.label == "Root interval on the grid, upper rate")
+            .unwrap();
+        assert_eq!((lo.value, hi.value), (d("0.05"), d("0.10")));
+        assert!(lo.value < out.irr && out.irr < hi.value);
+        assert!(lo.formula.starts_with("NPV(0.05) = "), "{}", lo.formula);
+        assert!(ex
+            .conventions
+            .iter()
+            .any(|c| c.contains("grid of rates per period")));
+        let (out, ex) = irr(&IrrInput {
+            cash_flows: vec![d("-1"), d("2")],
+            guess: None,
+        })
+        .unwrap();
+        assert_eq!(out.solver, "grid (exact root)");
+        assert!(
+            ex.steps
+                .iter()
+                .any(|s| s.label == "Root located on the grid (exact grid point)"
+                    && s.value == d("1"))
+        );
+    }
+
+    #[test]
+    fn annuity_reports_the_future_value_date() {
+        for timing in [AnnuityTiming::Ordinary, AnnuityTiming::Due] {
+            let (_, ex) = annuity(&AnnuityInput {
+                payment: d("100"),
+                rate: d("0.05"),
+                periods: 10,
+                growth: None,
+                timing,
+            })
+            .unwrap();
+            assert!(ex
+                .conventions
+                .iter()
+                .any(|c| c == "future value at t = n for both timings"));
         }
     }
 }

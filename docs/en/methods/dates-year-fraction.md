@@ -25,6 +25,9 @@ The 30/360 variants differ only in how day 31 is treated:
   (after the first adjustment), set $d_2 = 30$.
 - **30E/360 (Eurobond Basis):** every day 31 becomes 30, for both dates.
 
+The formula step in `explain` states each adjustment made, and a day 31 kept at the end under
+30/360 (Bond Basis) because the start day is below 30.
+
 Under Actual/Actual (ISDA), when the two dates fall in different years the period is split at
 each 1 January: the days to the end of the first year over that year's length, plus one for
 each whole year in between, plus the days in the last year over that year's length. The start
@@ -84,7 +87,7 @@ business-day adjustments are out of scope.
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | The end date precedes the start date, a field is missing or unknown, or `day_count` is not one of the five options |
+| `FM-E001` | `end` precedes `start` (the message asks to swap them), a field is missing or unknown, or `day_count` is not one of the five options |
 | `FM-E009` | A date is malformed (not exactly `YYYY-MM-DD`), does not exist (`2023-02-29`) or is outside 1900-01-01 to 2199-12-31 |
 
 ## Accuracy

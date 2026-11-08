@@ -1,6 +1,6 @@
 ---
 source: methods/tvm-mirr.md
-source_hash: a1de6a18dbc3
+source_hash: 287a592c7548
 ---
 # Tasso interno di rendimento modificato (`tvm.mirr`)
 
@@ -26,7 +26,8 @@ MIRR = \left(\frac{FV^{+}}{-PV^{-}}\right)^{1/n} - 1
 $$
 
 dove $r_{\text{fin}}$ è il tasso di finanziamento e $r_{\text{re}}$ il tasso di reinvestimento,
-entrambi per periodo.
+entrambi per periodo. `explain` mostra un passaggio per ogni flusso diverso da zero, con il suo
+valore attualizzato o capitalizzato, e le due somme con tutti i termini scritti per esteso.
 
 ## Esempio
 
@@ -84,8 +85,8 @@ assert round(reinvest_14.mirr, 6) == Decimal("0.134759")
 | Codice | Quando |
 | --- | --- |
 | `FM-E001` | Meno di due flussi di cassa, oppure un campo è mancante o sconosciuto |
-| `FM-E003` | Il tasso di finanziamento o il tasso di reinvestimento è pari o inferiore a −100%; entrambi sono verificati prima di qualsiasi calcolo |
-| `FM-E006` | I flussi non contengono alcun valore positivo o alcun valore negativo |
+| `FM-E003` | `finance_rate` o `reinvest_rate` è pari o inferiore a −100%; entrambi sono verificati prima di qualsiasi calcolo, e il messaggio indica il campo |
+| `FM-E006` | `cash_flows` non contiene alcun importo positivo o alcun importo negativo |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 
 ## Precisione

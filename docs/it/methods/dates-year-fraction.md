@@ -1,6 +1,6 @@
 ---
 source: methods/dates-year-fraction.md
-source_hash: 079e6d41d24a
+source_hash: 5025b1770d92
 ---
 # Frazione d'anno (`dates.year_fraction`)
 
@@ -28,6 +28,9 @@ Le due varianti 30/360 differiscono solo nel trattamento del giorno 31:
 - **30/360 (Bond Basis):** se $d_1 = 31$, si pone $d_1 = 30$; se $d_2 = 31$ e $d_1 \ge 30$
   (dopo la prima rettifica), si pone $d_2 = 30$.
 - **30E/360 (Eurobond Basis):** ogni giorno 31 diventa 30, per entrambe le date.
+
+Il passaggio della formula in `explain` indica ogni rettifica applicata e, con 30/360 (Bond
+Basis), un giorno 31 finale mantenuto perché il giorno iniziale è inferiore a 30.
 
 Con Actual/Actual (ISDA), quando le due date cadono in anni diversi il periodo viene diviso a
 ogni 1° gennaio: i giorni fino alla fine del primo anno divisi per la durata di quell'anno, più
@@ -88,7 +91,7 @@ cedole, e le rettifiche per giorni lavorativi sono fuori ambito.
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | La data finale precede la data iniziale, un campo è mancante o sconosciuto, oppure `day_count` non è una delle cinque opzioni |
+| `FM-E001` | `end` precede `start` (il messaggio chiede di scambiarle), un campo è mancante o sconosciuto, oppure `day_count` non è una delle cinque opzioni |
 | `FM-E009` | Una data è malformata (non esattamente `YYYY-MM-DD`), non esiste (`2023-02-29`) o è fuori dall'intervallo 1900-01-01 - 2199-12-31 |
 
 ## Precisione

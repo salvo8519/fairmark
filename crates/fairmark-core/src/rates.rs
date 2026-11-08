@@ -80,7 +80,7 @@ pub fn growth_factor(rate: Decimal, compounding: Compounding, t: Decimal) -> Res
     match compounding.per_year() {
         Some(m) => {
             let m = Decimal::from(m);
-            pow(period_base(rate, m)?, m * t)
+            pow(period_base(rate, m)?, num::mul(m, t)?)
         }
         None => rate
             .checked_mul(t)
@@ -123,7 +123,7 @@ pub fn discount_factor(rate: Decimal, compounding: Compounding, t: Decimal) -> R
     match compounding.per_year() {
         Some(m) => {
             let m = Decimal::from(m);
-            inverse_pow(period_base(rate, m)?, m * t)
+            inverse_pow(period_base(rate, m)?, num::mul(m, t)?)
         }
         None => (-rate)
             .checked_mul(t)
@@ -156,14 +156,16 @@ pub fn equivalent_rate(rate: Decimal, from: Compounding, to: Compounding) -> Res
     }
     let g = growth_factor(rate, from, Decimal::ONE)?;
     match to.per_year() {
-        Some(1) => Ok(g - Decimal::ONE),
+        Some(1) => num::sub(g, Decimal::ONE),
         Some(m) => {
             let m = Decimal::from(m);
             let root = g
                 .checked_ln()
-                .and_then(|l| (l / m).checked_exp())
+                .ok_or(FairmarkError::Overflow("rate conversion"))
+                .and_then(|l| num::div(l, m))?
+                .checked_exp()
                 .ok_or(FairmarkError::Overflow("rate conversion"))?;
-            Ok(m * (root - Decimal::ONE))
+            num::mul(m, num::sub(root, Decimal::ONE)?)
         }
         None => g.checked_ln().ok_or(FairmarkError::Overflow("logarithm")),
     }
@@ -263,11 +265,13 @@ pub struct RealNominalOutput {
 
 pub fn real_nominal(input: &RealNominalInput) -> Result<(RealNominalOutput, Explain)> {
     let one = Decimal::ONE;
-    if input.inflation <= -one {
-        return Err(FairmarkError::RateOutOfRange(input.inflation));
-    }
-    if input.rate <= -one {
-        return Err(FairmarkError::RateOutOfRange(input.rate));
+    for (field, value) in [("/inflation", input.inflation), ("/rate", input.rate)] {
+        if value <= -one {
+            return Err(FairmarkError::DiscountRateOutOfRange {
+                field: field.to_owned(),
+                rate: value,
+            });
+        }
     }
     let mut ex = Explain::new(
         "rates.real_nominal",
@@ -369,6 +373,26 @@ mod tests {
             growth_factor(d("0.1"), Compounding::Annual, d("2")).unwrap(),
             d("1.21")
         );
+    }
+
+    #[test]
+    fn fisher_errors_name_the_field() {
+        // Issue #176: the inflation is checked first and named.
+        let e = real_nominal(&RealNominalInput {
+            rate: d("-2"),
+            inflation: d("-1"),
+            direction: FisherDirection::ToReal,
+        })
+        .unwrap_err();
+        assert_eq!(e.code(), "FM-E003");
+        assert!(e.to_string().starts_with("`/inflation` is -1"), "{e}");
+        let e = real_nominal(&RealNominalInput {
+            rate: d("-1"),
+            inflation: d("0.02"),
+            direction: FisherDirection::ToNominal,
+        })
+        .unwrap_err();
+        assert!(e.to_string().starts_with("`/rate` is -1"), "{e}");
     }
 
     #[test]

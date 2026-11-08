@@ -21,7 +21,8 @@ MIRR = \left(\frac{FV^{+}}{-PV^{-}}\right)^{1/n} - 1
 $$
 
 where $r_{\text{fin}}$ is the finance rate and $r_{\text{re}}$ the reinvestment rate, both per
-period.
+period. `explain` shows one step for each non-zero flow, with its discounted or compounded
+value, and the two sums with every term written out.
 
 ## Example
 
@@ -79,8 +80,8 @@ assert round(reinvest_14.mirr, 6) == Decimal("0.134759")
 | Code | When |
 | --- | --- |
 | `FM-E001` | Fewer than two cash flows, or a field is missing or unknown |
-| `FM-E003` | The finance rate or the reinvestment rate is −100% or lower; both are checked before any calculation |
-| `FM-E006` | The flows have no positive or no negative value |
+| `FM-E003` | `finance_rate` or `reinvest_rate` is −100% or lower; both are checked before any calculation, and the message names the field |
+| `FM-E006` | `cash_flows` has no positive or no negative amount |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 
 ## Accuracy

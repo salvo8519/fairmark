@@ -15,6 +15,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
 use crate::method::Method;
+use crate::num;
 
 /// First and last supported years.
 pub const MIN_YEAR: i32 = 1900;
@@ -194,18 +195,18 @@ impl DayCount {
     pub fn year_fraction(self, start: Date, end: Date) -> Result<(Decimal, String)> {
         if end < start {
             return Err(FairmarkError::InvalidInput(format!(
-                "end date {end} precedes start date {start}"
+                "`end` ({end}) precedes `start` ({start}); swap them"
             )));
         }
         let days = start.days_until(end);
-        let div = |n: i64, d: i64| Decimal::from(n) / Decimal::from(d);
+        let div = |n: i64, d: i64| num::div(Decimal::from(n), Decimal::from(d));
         Ok(match self {
-            Self::Act365Fixed => (div(days, 365), format!("{days} / 365")),
-            Self::Act360 => (div(days, 360), format!("{days} / 360")),
+            Self::Act365Fixed => (div(days, 365)?, format!("{days} / 365")),
+            Self::Act360 => (div(days, 360)?, format!("{days} / 360")),
             Self::ActActIsda => {
                 if start.year == end.year {
                     let den = days_in_year(start.year);
-                    (div(days, den), format!("{days} / {den}"))
+                    (div(days, den)?, format!("{days} / {den}"))
                 } else {
                     let next = Date::new(start.year + 1, 1, 1)?;
                     let first = start.days_until(next);
@@ -214,7 +215,10 @@ impl DayCount {
                     let whole = i64::from(end.year - start.year - 1);
                     let (d1, d2) = (days_in_year(start.year), days_in_year(end.year));
                     (
-                        div(first, d1) + Decimal::from(whole) + div(last, d2),
+                        num::add(
+                            num::add(div(first, d1)?, Decimal::from(whole))?,
+                            div(last, d2)?,
+                        )?,
                         format!("{first} / {d1} + {whole} + {last} / {d2}"),
                     )
                 }
@@ -222,19 +226,37 @@ impl DayCount {
             Self::Thirty360 | Self::ThirtyE360 => {
                 let mut d1 = start.day;
                 let mut d2 = end.day;
+                // Day adjustments, written next to the formula for the audit trail.
+                let mut notes = Vec::new();
                 if d1 == 31 {
                     d1 = 30;
+                    notes.push("start day 31 adjusted to 30".to_owned());
                 }
-                if d2 == 31 && (self == Self::ThirtyE360 || d1 > 29) {
-                    d2 = 30;
+                if d2 == 31 {
+                    if self == Self::ThirtyE360 {
+                        d2 = 30;
+                        notes.push("end day 31 adjusted to 30".to_owned());
+                    } else if d1 > 29 {
+                        d2 = 30;
+                        notes.push(
+                            "end day 31 adjusted to 30 (the start day is 30 or 31)".to_owned(),
+                        );
+                    } else {
+                        notes.push(format!("end day 31 kept (the start day {d1} is below 30)"));
+                    }
                 }
-                let num = 360 * i64::from(end.year - start.year)
+                let numerator = 360 * i64::from(end.year - start.year)
                     + 30 * (i64::from(end.month) - i64::from(start.month))
                     + (i64::from(d2) - i64::from(d1));
+                let adjusted = if notes.is_empty() {
+                    String::new()
+                } else {
+                    format!("; {}", notes.join(", "))
+                };
                 (
-                    div(num, 360),
+                    div(numerator, 360)?,
                     format!(
-                        "[360 × ({} − {}) + 30 × ({} − {}) + ({d2} − {d1})] / 360",
+                        "[360 × ({} − {}) + 30 × ({} − {}) + ({d2} − {d1})] / 360{adjusted}",
                         end.year, start.year, end.month, start.month
                     ),
                 )
@@ -388,8 +410,27 @@ mod tests {
 
     #[test]
     fn end_before_start_is_rejected() {
-        assert!(DayCount::Act360
+        let e = DayCount::Act360
             .year_fraction(d("2024-02-02"), d("2024-02-01"))
-            .is_err());
+            .unwrap_err();
+        assert_eq!(e.code(), "FM-E001");
+        assert_eq!(
+            e.to_string(),
+            "invalid input: `end` (2024-02-01) precedes `start` (2024-02-02); swap them"
+        );
+    }
+
+    #[test]
+    fn thirty_360_formula_states_the_day_adjustments() {
+        // Issue #176: the adjusted days are written next to the formula.
+        let f = |dc: DayCount, a: &str, b: &str| dc.year_fraction(d(a), d(b)).unwrap().1;
+        assert!(f(DayCount::Thirty360, "2024-01-31", "2024-03-31").ends_with(
+            "; start day 31 adjusted to 30, end day 31 adjusted to 30 (the start day is 30 or 31)"
+        ));
+        assert!(f(DayCount::Thirty360, "2024-02-15", "2024-03-31")
+            .ends_with("; end day 31 kept (the start day 15 is below 30)"));
+        assert!(f(DayCount::ThirtyE360, "2024-02-15", "2024-03-31")
+            .ends_with("; end day 31 adjusted to 30"));
+        assert!(f(DayCount::Thirty360, "2024-02-15", "2024-03-15").ends_with("] / 360"));
     }
 }

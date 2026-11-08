@@ -1,6 +1,6 @@
 ---
 source: methods/tvm-irr.md
-source_hash: 234d091bc5c1
+source_hash: 3b844ef59050
 ---
 # Tasso interno di rendimento (`tvm.irr`)
 
@@ -46,7 +46,7 @@ try:
     fm.tvm.irr([-100, 230, -132])
 except fm.FairmarkError as err:
     assert err.code == "FM-E011"
-    print(err.message)  # ... in the intervals {0.10}, {0.20}; the result is ambiguous
+    print(err.message)  # no single rate can be isolated: the grid finds roots in {0.10}, {0.20}; ...
 
 # Tre cambi di segno, un tasso isolato sulla griglia (50%); un'ulteriore coppia non si può escludere.
 # Qui una coppia esiste (11% e 12%), quindi il risultato è segnalato.
@@ -57,11 +57,13 @@ print(flagged.conventions[-1])  # uniqueness not verified: the flows change sign
 
 ## Algoritmo
 
-1. **Scansione su griglia.** Il VAN è valutato su una griglia fissa di tassi: −0.99, −0.95,
-   poi da −0.90 a 1.00 con passo 0.05, poi da 1.25 a 10 con passo 0.25 (ADR 0008). Un punto
-   della griglia in cui il calcolo va in overflow viene saltato. Ogni cambio di segno tra punti
-   consecutivi della griglia, e ogni punto della griglia in cui il VAN è esattamente zero, è
-   una radice trovata.
+1. **Scansione su griglia.** Il VAN è valutato su una griglia fissa di tassi per periodo (il
+   periodo dei flussi di cassa): −0.99, −0.95, poi da −0.90 a 1.00 con passo 0.05, poi da 1.25
+   a 10 con passo 0.25 (ADR 0008). Un punto della griglia in cui il calcolo va in overflow
+   viene saltato. Ogni cambio di segno tra punti consecutivi della griglia, e ogni punto della
+   griglia in cui il VAN è esattamente zero, è una radice trovata. Quando è trovata una sola
+   radice, `explain` mostra dove: il punto della griglia, oppure i due tassi dell'intervallo
+   della griglia con il VAN in ciascuno di essi.
 2. **Verifica di unicità.** Le radici trovate sono confrontate con il numero $s$ di cambi di
    segno nei flussi. Per la regola dei segni di Cartesio, il numero di tassi superiori a −100%
    è pari a $s$ meno un numero pari. Quindi:
@@ -112,7 +114,7 @@ preferisci il VAN al costo del capitale, oppure [`tvm.mirr`](tvm-mirr.md).
 | Convenzione | Valore | Default |
 | --- | --- | --- |
 | Origine dei tempi | `cash_flows[0]` in $t = 0$ | fissa |
-| Griglia dell'algoritmo | −0.99, −0.95, da −0.90 a 1.00 passo 0.05, da 1.25 a 10 passo 0.25 | fissa |
+| Griglia dell'algoritmo | tassi per periodo −0.99, −0.95, da −0.90 a 1.00 passo 0.05, da 1.25 a 10 passo 0.25 | fissa |
 | Ordine degli algoritmi | metodo di Newton all'interno dell'intervallo della radice, bisezione come alternativa | fisso |
 | Criterio di arresto | passo sul tasso inferiore a $10^{-18}$, al massimo 200 iterazioni | fisso |
 | Punto di partenza del metodo di Newton | `guess`, riportato come fornito o come default | `0.10` |
@@ -124,10 +126,10 @@ preferisci il VAN al costo del capitale, oppure [`tvm.mirr`](tvm-mirr.md).
 | --- | --- |
 | `FM-E001` | Un campo è mancante o sconosciuto |
 | `FM-E002` | `cash_flows` è vuoto |
-| `FM-E005` | Nessuna radice è stata isolata sulla griglia e il metodo di Newton a partire da `guess` non converge |
-| `FM-E006` | I flussi non presentano cambi di segno |
+| `FM-E005` | Nessuna radice è stata isolata sulla griglia e il metodo di Newton a partire da `guess` non converge; il tasso può trovarsi fuori dall'intervallo dei decimali o lontano da `guess`: indica un `guess` vicino al tasso atteso |
+| `FM-E006` | `cash_flows` non contiene alcun importo positivo o alcun importo negativo |
 | `FM-E008` | Overflow aritmetico durante il raffinamento della radice |
-| `FM-E011` | Più di un tasso annulla il VAN, oppure è noto che esiste un altro tasso; il messaggio elenca gli intervalli |
+| `FM-E011` | Nessun tasso unico può essere isolato: più tassi annullano il VAN, è possibile una radice multipla, oppure è noto che esiste un altro tasso oltre a quello trovato; il messaggio elenca gli intervalli e suggerisce `tvm.npv` al costo del capitale o `tvm.mirr` con tassi espliciti |
 
 ## Precisione
 
