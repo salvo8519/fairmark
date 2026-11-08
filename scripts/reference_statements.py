@@ -411,6 +411,41 @@ def defaults_applied(inp: dict[str, Any]) -> list[tuple[str, str]]:
             )
     if not wdr_given:
         out.append(("/treatments/write_downs_of_receivables", "investing"))
+    for i, y in enumerate(inp["years"]):
+        bs = get(y, "statutory", "balance_sheet")
+        if bs is None:
+            continue
+        for key in taken_as_zero(bs):
+            out.append((f"/years/{i}/statutory/balance_sheet/{key}", "0"))
+    return out
+
+
+def taken_as_zero(bs: dict[str, Any]) -> list[str]:
+    """Items of a statutory balance sheet taken as zero because they are not given (D1, D2,
+    D3), and separate lines D and E presented within C.II and D, in the order of art. 2424."""
+    out = []
+    if "subscribed_capital_unpaid" not in bs:
+        out.append("subscribed_capital_unpaid")
+    for parent, sub in (
+        ("receivables", "subscribed_capital_unpaid"),
+        ("receivables", "prepayments_and_accrued_income"),
+    ):
+        if get(bs, parent, sub) is None:
+            out.append(f"{parent}/{sub}")
+    if "prepayments_and_accrued_income" not in bs and (
+        get(bs, "receivables", "prepayments_and_accrued_income") is not None
+    ):
+        out.append("prepayments_and_accrued_income/total")
+    for parent, sub in (
+        ("provisions", "of_which_derivative_liabilities"),
+        ("payables", "accruals_and_deferred_income"),
+    ):
+        if get(bs, parent, sub) is None:
+            out.append(f"{parent}/{sub}")
+    if "accruals_and_deferred_income" not in bs and (
+        get(bs, "payables", "accruals_and_deferred_income") is not None
+    ):
+        out.append("accruals_and_deferred_income/total")
     return out
 
 
@@ -563,25 +598,11 @@ def balance_sheet_checks(bs: dict[str, Any], inc: dict[str, Any], base: str) -> 
     check(c, "current_assets_total", opt(bs, "current_assets"), plus(c1, c2, c3, c4))
     eq = get(bs, "equity") or {}
     check(c, "equity_total", opt(eq, "total"), plus(*(opt(eq, p) for p in EQUITY_PARTS)))
-    a_sep = separate(
-        bs, base, "subscribed_capital_unpaid", "receivables", "subscribed_capital_unpaid", leaf
-    )
-    d_sep = separate(
-        bs,
-        base,
-        "prepayments_and_accrued_income",
-        "receivables",
-        "prepayments_and_accrued_income",
-        node_total,
-    )
-    e_sep = separate(
-        bs,
-        base,
-        "accruals_and_deferred_income",
-        "payables",
-        "accruals_and_deferred_income",
-        node_total,
-    )
+    # A relation compares items given only: item A, assets D and liabilities E enter as given,
+    # never as a zero taken by default or for a line presented within another aggregate.
+    a_sep = leaf(bs, base, "subscribed_capital_unpaid")
+    d_sep = opt(bs, "prepayments_and_accrued_income", "total")
+    e_sep = opt(bs, "accruals_and_deferred_income", "total")
     b_tot = opt(bs, "fixed_assets") if "fixed_assets" in bs else plus(b1, b2, b3)
     c_tot = opt(bs, "current_assets") if "current_assets" in bs else plus(c1, c2, c3, c4)
     assets = plus(a_sep, b_tot, c_tot, d_sep)
@@ -761,12 +782,8 @@ def statutory_balance_sheet(inp: dict[str, Any], i: int) -> dict[str, Any]:
 
     # Items of Appendix A.1.
     a_within = of_which(bs, "receivables", "subscribed_capital_unpaid")
-    a_total = plus(
-        separate(
-            bs, base, "subscribed_capital_unpaid", "receivables", "subscribed_capital_unpaid", leaf
-        ),
-        known(a_within),
-    )
+    # D1: item A not given is zero, the same zero wherever it enters a number.
+    a_total = plus(known(dec(bs.get("subscribed_capital_unpaid", 0))), known(a_within))
     b1 = net_node(bs, base, "intangible_assets")
     b2 = net_node(bs, base, "tangible_assets")
     b3 = leaf(bs, base, "financial_fixed_assets")
@@ -1066,7 +1083,9 @@ def statutory_balance_sheet(inp: dict[str, Any], i: int) -> dict[str, Any]:
     total_sources = plus(equity, q_total, nfp_total, dl_total)
     if tfi.known and total_sources.known:
         if tfi.value != total_sources.value:
-            raise RefError("FM-E012", "identity")
+            # With every item given the identity follows from R7 (a defect otherwise); with
+            # items taken as zero, the inputs given do not balance.
+            raise RefError("FM-E026" if taken_as_zero(bs) else "FM-E012", "identity")
         checks["funds_invested_equals_sources"] = "reconciled"
     else:
         checks["funds_invested_equals_sources"] = "not_checked"

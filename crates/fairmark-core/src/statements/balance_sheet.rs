@@ -14,7 +14,7 @@ use super::input::{
     Adjustment, DerivativeLiabilitiesDestination as Deriv, Equity,
     FinancialFixedAssetsDestination as Ffa, FinancialFixedAssetsOverride, Maturity, NetFixedAsset,
     NonOperatingSource, ProvisionSource, ReorganiseInput, ShareholderLoansDestination as Sl,
-    ShareholderLoansOverride, StatutoryBalanceSheet, StatutoryIncomeStatement, WithMaturity,
+    ShareholderLoansOverride, StatutoryBalanceSheet, WithMaturity, TAKEN_AS_ZERO,
 };
 use super::partial::{total, Partial, Sign};
 use super::{
@@ -22,7 +22,7 @@ use super::{
     NetFinancialPositionBlock, NfpComponent, Notes, OperatingBlock, Origin, Sources, YearBody,
 };
 use crate::dcf::{BridgeClaim, MeasurementBasis};
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Reconciliation, Result};
 use crate::explain::Explain;
 use crate::ratios::{NetFinancialPosition, NfpItem};
 use crate::tv::Line;
@@ -285,7 +285,7 @@ pub(crate) fn statutory(
     let mut checks = Checks::new(year);
     checks::balance_sheet(&mut checks, &bs, &is, &base, &is_base)?;
     checks::income_statement(&mut checks, &is, &is_base)?;
-    statutory_conventions(&bs, &is, &r, year, ex);
+    statutory_conventions(&bs, year, ex);
 
     // Items of Appendix A.1.
     let rec = bs.receivables.clone();
@@ -294,12 +294,10 @@ pub(crate) fn statutory(
     let a_within = rec.as_ref().and_then(|n| n.subscribed_capital_unpaid);
     let d_within = rec.as_ref().and_then(|n| n.prepayments_and_accrued_income);
     let e_within = pay.as_ref().and_then(|n| n.accruals_and_deferred_income);
+    // D1, D2: item A and its part within C.II are zero when not given, the same zero wherever
+    // they enter a number (listed in `meta.defaults_applied`).
     let a_within_v = Partial::Known(a_within.unwrap_or_default());
-    let a_sep = r.separate(
-        r.leaf(bs.subscribed_capital_unpaid, "subscribed_capital_unpaid"),
-        bs.subscribed_capital_unpaid.is_some(),
-        a_within.is_some(),
-    );
+    let a_sep = Partial::Known(bs.subscribed_capital_unpaid.unwrap_or_default());
     let a_total = total(
         ex,
         &format!("Subscribed capital unpaid, deducted from equity ({year})"),
@@ -1138,11 +1136,8 @@ pub(crate) fn statutory(
     )?;
     match (tfi.value(), total_sources.value()) {
         (Some(uses), Some(sources)) => {
-            // R12: in the statutory form the identity follows from R7; a difference is a defect.
             if uses != sources {
-                return Err(FairmarkError::Internal(
-                    "statements: total funds invested differ from the sources",
-                ));
+                return Err(identity_error(&bs, &base, year, uses, sources)?);
             }
             checks.map.insert(
                 "funds_invested_equals_sources",
@@ -1305,6 +1300,48 @@ pub(crate) fn statutory(
     })
 }
 
+/// R12 in the statutory form: total funds invested differ from the sources. With every item
+/// given, the identity follows from the relations of R7, so a difference is a defect
+/// (`FM-E012`). Otherwise the inputs given do not balance once the items not given are taken
+/// as zero: `FM-E026` naming those items, the only inputs that were not compared.
+fn identity_error(
+    bs: &StatutoryBalanceSheet,
+    base: &str,
+    year: &str,
+    uses: Decimal,
+    sources: Decimal,
+) -> Result<FairmarkError> {
+    let zero: Vec<String> = TAKEN_AS_ZERO
+        .iter()
+        .filter(|row| (row.applies)(bs))
+        .map(|row| format!("`{base}/{}`", row.key))
+        .collect();
+    if zero.is_empty() {
+        return Ok(FairmarkError::Internal(
+            "statements: total funds invested differ from the sources",
+        ));
+    }
+    Ok(FairmarkError::StatementsDoNotReconcile(Box::new(
+        Reconciliation {
+            left_name: format!(
+                "total funds invested of the reorganised balance sheet ({year}), from the assets \
+                 given"
+            ),
+            left: uses,
+            right_name: "the sources, from the liabilities and equity given".to_owned(),
+            right: sources,
+            difference: crate::num::sub(uses, sources)?,
+            fix: format!(
+                "the assets and the liabilities and equity given do not balance once the items \
+                 not given are taken as zero: {}; give the item that is not zero, or give \
+                 `{base}/total_assets` and `{base}/total_liabilities_and_equity` to have the \
+                 totals compared (R7, R12)",
+                zero.join(", ")
+            ),
+        },
+    )))
+}
+
 /// A component of the net financial position: its signed amount and maturities.
 struct Component {
     label: String,
@@ -1425,40 +1462,7 @@ fn deriv_destination(d: Deriv) -> Destination {
 }
 
 /// The conventions of a statutory year that depend on what was given (R2, R8, R15).
-fn statutory_conventions(
-    bs: &StatutoryBalanceSheet,
-    _is: &StatutoryIncomeStatement,
-    r: &Reader,
-    year: &str,
-    ex: &mut Explain,
-) {
-    let mut absent = Vec::new();
-    if let Some(n) = &bs.receivables {
-        if n.subscribed_capital_unpaid.is_none() {
-            absent.push(r.p("receivables/subscribed_capital_unpaid"));
-        }
-        if n.prepayments_and_accrued_income.is_none() {
-            absent.push(r.p("receivables/prepayments_and_accrued_income"));
-        }
-    }
-    if let Some(n) = &bs.provisions {
-        if n.of_which_derivative_liabilities.is_none() {
-            absent.push(r.p("provisions/of_which_derivative_liabilities"));
-        }
-    }
-    if let Some(n) = &bs.payables {
-        if n.accruals_and_deferred_income.is_none() {
-            absent.push(r.p("payables/accruals_and_deferred_income"));
-        }
-    }
-    if !absent.is_empty() {
-        let list: Vec<String> = absent.iter().map(|p| format!("`{p}`")).collect();
-        ex.convention(format!(
-            "year {year}: \"of which\" parts not given, taken as none within their aggregate \
-             (each is a separate item of the ordinary layout): {}",
-            list.join(", ")
-        ));
-    }
+fn statutory_conventions(bs: &StatutoryBalanceSheet, year: &str, ex: &mut Explain) {
     for (node, what, current) in [
         (
             bs.provisions.as_ref().map(|n| n.beyond_one_year),

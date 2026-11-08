@@ -428,16 +428,172 @@ fn every_default_destination_is_listed_and_no_fixed_one() {
 }
 
 #[test]
-fn a_default_of_an_aggregate_not_given_is_not_listed() {
+fn a_default_destination_of_an_aggregate_not_given_is_not_listed() {
     let input = json!({"years": [{"statutory": {"balance_sheet": {"cash": "100"}}}],
         "treatments": {"write_downs_of_receivables": "investing"}});
     let out = run(&input);
-    let defaults = out["meta"]["defaults_applied"].as_array().unwrap();
-    assert_eq!(defaults.len(), 1);
+    let destinations: Vec<&Value> = out["meta"]["defaults_applied"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|d| d["value"] != "0")
+        .collect();
+    assert_eq!(destinations.len(), 1);
     assert_eq!(
-        defaults[0]["field"],
+        destinations[0]["field"],
         "/years/0/statutory/balance_sheet/cash"
     );
+}
+
+/// D1, D2 of 2026-11-08: item A and the "of which" parts not given are zero, each listed in
+/// `meta.defaults_applied` after the destinations and the input default, also when the parent
+/// node is absent.
+#[test]
+fn items_taken_as_zero_are_listed_also_without_their_parent() {
+    let input = json!({"years": [{"statutory": {"balance_sheet": {"cash": "100"}}}],
+        "treatments": {"write_downs_of_receivables": "investing"}});
+    let out = run(&input);
+    let fields: Vec<(String, String)> = out["meta"]["defaults_applied"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| {
+            (
+                d["field"].as_str().unwrap().to_owned(),
+                d["value"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect();
+    let b = "/years/0/statutory/balance_sheet";
+    let zero = |k: &str| (format!("{b}/{k}"), "0".to_owned());
+    assert_eq!(
+        fields,
+        [
+            (
+                format!("{b}/cash"),
+                "net_financial_position_cash".to_owned()
+            ),
+            zero("subscribed_capital_unpaid"),
+            zero("receivables/subscribed_capital_unpaid"),
+            zero("receivables/prepayments_and_accrued_income"),
+            zero("provisions/of_which_derivative_liabilities"),
+            zero("payables/accruals_and_deferred_income"),
+        ]
+    );
+    let conv = conventions(&out);
+    assert!(
+        conv.contains(&format!(
+            "default: `{b}/provisions/of_which_derivative_liabilities` not given, set to"
+        )),
+        "{conv}"
+    );
+}
+
+/// D1: without item A, equity is computed with A = 0, and the same zero is used for the total
+/// assets of the current and non-current block.
+#[test]
+fn item_a_not_given_is_zero_everywhere() {
+    let mut input = golden_input("balance-sheet-ordinary");
+    let bs = &mut input["years"][0]["statutory"]["balance_sheet"];
+    bs.as_object_mut()
+        .unwrap()
+        .remove("subscribed_capital_unpaid");
+    let out = run(&input);
+    let y = &out["value"]["years"][0];
+    assert_eq!(y["balance_sheet"]["sources"]["equity"], "900000");
+    assert_eq!(y["current_non_current"]["total_assets"], "2850000");
+    assert_eq!(y["checks"]["total_assets_total"]["status"], "not_checked");
+    let fields: Vec<&str> = out["meta"]["defaults_applied"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["field"].as_str().unwrap())
+        .collect();
+    assert!(fields.contains(&"/years/0/statutory/balance_sheet/subscribed_capital_unpaid"));
+}
+
+// ---------------------------------------------------------------- R7: only items given
+
+/// Review of PR 1: a relation is compared only on items the user gave. Without total assets
+/// and without a separate line D (assets D given within C.II), total assets rebuilt from
+/// A + B + C + D would rest on a line taken as zero: the relation is not checked.
+#[test]
+fn a_total_rebuilt_from_an_item_not_given_is_not_checked() {
+    let mut input = golden_input("balance-sheet-ordinary");
+    let bs = &mut input["years"][0]["statutory"]["balance_sheet"];
+    let m = bs.as_object_mut().unwrap();
+    m.remove("total_assets");
+    m.remove("prepayments_and_accrued_income");
+    bs["receivables"]["total"] = json!("980000");
+    bs["receivables"]["prepayments_and_accrued_income"] = json!("30000");
+    bs["current_assets"] = json!("1680000");
+    let out = run(&input);
+    let checks = &out["value"]["years"][0]["checks"];
+    for relation in [
+        "total_assets_total",
+        "total_assets_equals_total_liabilities_and_equity",
+    ] {
+        assert_eq!(checks[relation]["status"], "not_checked", "{relation}");
+    }
+    assert_eq!(
+        out["value"]["years"][0]["balance_sheet"]["total_funds_invested"],
+        "1610000"
+    );
+}
+
+/// With the same presentation but a receivables total that leaves out assets D, the inputs
+/// given do not balance: `FM-E026` names the line taken as zero, never a total not given.
+#[test]
+fn a_difference_names_the_items_taken_as_zero_never_a_total_not_given() {
+    let mut input = golden_input("balance-sheet-ordinary");
+    let bs = &mut input["years"][0]["statutory"]["balance_sheet"];
+    let m = bs.as_object_mut().unwrap();
+    m.remove("total_assets");
+    m.remove("prepayments_and_accrued_income");
+    bs["receivables"]["prepayments_and_accrued_income"] = json!("30000");
+    let e = err(&input);
+    assert_eq!(e.code(), "FM-E026");
+    let msg = e.to_string();
+    let b = "/years/0/statutory/balance_sheet";
+    assert!(
+        !msg.contains(&format!("total assets (`{b}/total_assets`")),
+        "{msg}"
+    );
+    assert!(
+        msg.contains(&format!("`{b}/prepayments_and_accrued_income/total`")),
+        "{msg}"
+    );
+    assert!(msg.contains("difference -30000"), "{msg}");
+}
+
+/// Every relation reported as reconciled names only pointers of items given (R7).
+#[test]
+fn a_reconciled_relation_names_only_items_given() {
+    let dir =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden/statements.reorganise");
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        let case: Value = serde_norway::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        if case.get("expect_error").is_some() {
+            continue;
+        }
+        let out = run(&case["input"]);
+        for y in out["value"]["years"].as_array().unwrap() {
+            for (relation, check) in y["checks"].as_object().unwrap() {
+                if check["status"] != "reconciled" {
+                    continue;
+                }
+                for pointer in check["pointers"].as_array().unwrap() {
+                    let pointer = pointer.as_str().unwrap();
+                    assert!(
+                        case["input"].pointer(pointer).is_some(),
+                        "{}: {relation} names {pointer}, not given",
+                        path.display()
+                    );
+                }
+            }
+        }
+    }
 }
 
 #[test]

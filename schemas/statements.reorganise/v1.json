@@ -1217,7 +1217,7 @@
       "properties": {
         "accruals_and_deferred_income": {
           "default": null,
-          "description": "Of which accruals and deferred income (liabilities E presented within D,\nart. 2435-bis), in currency units. Not given: none within D.",
+          "description": "Of which accruals and deferred income (liabilities E presented within D,\nart. 2435-bis), in currency units; when given without a separate line E, that line is\nzero. Not given: none within D (D2), listed in `meta.defaults_applied`.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -1313,7 +1313,7 @@
         },
         "of_which_derivative_liabilities": {
           "default": null,
-          "description": "Of which derivative liabilities (B.3), in currency units; needs the treatment\n`derivative_liabilities` when not zero. Not given: none within B.",
+          "description": "Of which derivative liabilities (B.3), in currency units; needs the treatment\n`derivative_liabilities` when not zero. Not given: none within B (D2, D3), listed in\n`meta.defaults_applied`.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -1350,7 +1350,7 @@
         },
         "prepayments_and_accrued_income": {
           "default": null,
-          "description": "Of which prepayments and accrued income (assets D presented within C.II,\nart. 2435-bis), in currency units. Not given: none within C.II.",
+          "description": "Of which prepayments and accrued income (assets D presented within C.II,\nart. 2435-bis), in currency units; when given without a separate line D, that line is\nzero. Not given: none within C.II (D2), listed in `meta.defaults_applied`.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -1360,7 +1360,7 @@
         },
         "subscribed_capital_unpaid": {
           "default": null,
-          "description": "Of which subscribed capital unpaid (item A presented within C.II, art. 2435-bis), in\ncurrency units; deducted from equity. Not given: none within C.II.",
+          "description": "Of which subscribed capital unpaid (item A presented within C.II, art. 2435-bis), in\ncurrency units; deducted from equity. Not given: none within C.II (D2), listed in\n`meta.defaults_applied`.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -2084,7 +2084,7 @@
         },
         "subscribed_capital_unpaid": {
           "default": null,
-          "description": "Assets A, subscribed capital unpaid, in currency units; deducted from equity.",
+          "description": "Assets A, subscribed capital unpaid, in currency units; deducted from equity. Not given:\nzero (D1), listed in `meta.defaults_applied`; give it to have total assets checked.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",

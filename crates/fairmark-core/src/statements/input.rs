@@ -116,10 +116,12 @@ pub struct Receivables {
     /// Of which trade receivables, in currency units; needed for `trade_working_capital`.
     pub trade: Option<Decimal>,
     /// Of which subscribed capital unpaid (item A presented within C.II, art. 2435-bis), in
-    /// currency units; deducted from equity. Not given: none within C.II.
+    /// currency units; deducted from equity. Not given: none within C.II (D2), listed in
+    /// `meta.defaults_applied`.
     pub subscribed_capital_unpaid: Option<Decimal>,
     /// Of which prepayments and accrued income (assets D presented within C.II,
-    /// art. 2435-bis), in currency units. Not given: none within C.II.
+    /// art. 2435-bis), in currency units; when given without a separate line D, that line is
+    /// zero. Not given: none within C.II (D2), listed in `meta.defaults_applied`.
     pub prepayments_and_accrued_income: Option<Decimal>,
 }
 
@@ -162,7 +164,8 @@ pub struct Provisions {
     /// non-current, reported.
     pub beyond_one_year: Option<Decimal>,
     /// Of which derivative liabilities (B.3), in currency units; needs the treatment
-    /// `derivative_liabilities` when not zero. Not given: none within B.
+    /// `derivative_liabilities` when not zero. Not given: none within B (D2, D3), listed in
+    /// `meta.defaults_applied`.
     pub of_which_derivative_liabilities: Option<Decimal>,
 }
 
@@ -184,7 +187,8 @@ pub struct Payables {
     /// Of which trade payables, in currency units; needed for `trade_working_capital`.
     pub trade: Option<Decimal>,
     /// Of which accruals and deferred income (liabilities E presented within D,
-    /// art. 2435-bis), in currency units. Not given: none within D.
+    /// art. 2435-bis), in currency units; when given without a separate line E, that line is
+    /// zero. Not given: none within D (D2), listed in `meta.defaults_applied`.
     pub accruals_and_deferred_income: Option<Decimal>,
 }
 
@@ -193,7 +197,8 @@ pub struct Payables {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct StatutoryBalanceSheet {
-    /// Assets A, subscribed capital unpaid, in currency units; deducted from equity.
+    /// Assets A, subscribed capital unpaid, in currency units; deducted from equity. Not given:
+    /// zero (D1), listed in `meta.defaults_applied`; give it to have total assets checked.
     pub subscribed_capital_unpaid: Option<Decimal>,
     /// B.I intangible assets, net, or gross and accumulated amortisation.
     pub intangible_assets: Option<NetFixedAsset>,
@@ -1040,6 +1045,97 @@ pub(crate) const WRITE_DOWNS_OF_RECEIVABLES_DEFAULT: &str =
     "Appendix A.2, B10 d: write-downs are extra-characteristic, in the investing result below \
      operating profit (Decision 17); the treatment `write_downs_of_receivables: operating` \
      places them in operating profit, below EBITDA";
+
+/// An item of a statutory balance sheet that the computation takes as zero when it is not
+/// given: item A (D1), an "of which" part (D2, D3), or a separate line presented within another
+/// aggregate (assets D within C.II, liabilities E within D, art. 2435-bis).
+pub(crate) struct TakenAsZero {
+    /// Pointer of the item below the balance sheet, as it would be written in the input.
+    pub key: &'static str,
+    /// Whether the item is taken as zero in this balance sheet: not given, and, for a separate
+    /// line, presented within another aggregate.
+    pub applies: fn(&StatutoryBalanceSheet) -> bool,
+    /// Why, citing the rule.
+    pub reason: &'static str,
+}
+
+/// Every item taken as zero when not given, in the order of art. 2424.
+pub(crate) const TAKEN_AS_ZERO: &[TakenAsZero] = &[
+    TakenAsZero {
+        key: "subscribed_capital_unpaid",
+        applies: |bs| bs.subscribed_capital_unpaid.is_none(),
+        reason: "assets A, subscribed capital unpaid, not given: zero (SPEC-0005 D1); the same \
+                 zero is deducted from equity and from total assets",
+    },
+    TakenAsZero {
+        key: "receivables/subscribed_capital_unpaid",
+        applies: |bs| {
+            bs.receivables
+                .as_ref()
+                .and_then(|n| n.subscribed_capital_unpaid)
+                .is_none()
+        },
+        reason: "\"of which\" part not given: none of item A is presented within receivables \
+                 C.II (SPEC-0005 D2)",
+    },
+    TakenAsZero {
+        key: "receivables/prepayments_and_accrued_income",
+        applies: |bs| {
+            bs.receivables
+                .as_ref()
+                .and_then(|n| n.prepayments_and_accrued_income)
+                .is_none()
+        },
+        reason: "\"of which\" part not given: none of assets D is presented within receivables \
+                 C.II (SPEC-0005 D2)",
+    },
+    TakenAsZero {
+        key: "prepayments_and_accrued_income/total",
+        applies: |bs| {
+            bs.prepayments_and_accrued_income.is_none()
+                && bs
+                    .receivables
+                    .as_ref()
+                    .is_some_and(|n| n.prepayments_and_accrued_income.is_some())
+        },
+        reason: "assets D presented within receivables C.II (art. 2435-bis), as given in \
+                 `receivables/prepayments_and_accrued_income`: no separate line D",
+    },
+    TakenAsZero {
+        key: "provisions/of_which_derivative_liabilities",
+        applies: |bs| {
+            bs.provisions
+                .as_ref()
+                .and_then(|n| n.of_which_derivative_liabilities)
+                .is_none()
+        },
+        reason: "\"of which\" part not given: no derivative liabilities within provisions B \
+                 (SPEC-0005 D2, D3)",
+    },
+    TakenAsZero {
+        key: "payables/accruals_and_deferred_income",
+        applies: |bs| {
+            bs.payables
+                .as_ref()
+                .and_then(|n| n.accruals_and_deferred_income)
+                .is_none()
+        },
+        reason: "\"of which\" part not given: none of liabilities E is presented within \
+                 payables D (SPEC-0005 D2)",
+    },
+    TakenAsZero {
+        key: "accruals_and_deferred_income/total",
+        applies: |bs| {
+            bs.accruals_and_deferred_income.is_none()
+                && bs
+                    .payables
+                    .as_ref()
+                    .is_some_and(|n| n.accruals_and_deferred_income.is_some())
+        },
+        reason: "liabilities E presented within payables D (art. 2435-bis), as given in \
+                 `payables/accruals_and_deferred_income`: no separate line E",
+    },
+];
 
 impl StatutoryBalanceSheet {
     /// Whether the aggregate `key` of [`BALANCE_SHEET_DEFAULTS`] is given.

@@ -346,7 +346,20 @@ fn compute(input: &ReorganiseInput) -> Result<(ReorganiseOutput, Explain)> {
             "bridge items at their carrying amount: non-operating assets as labelled amounts, \
              debt-like items with measurement basis `book_value` (Decision 15)",
         );
-        ex.convention("subscribed capital unpaid (assets A) deducted from equity (Decision 14)");
+        ex.convention(
+            "subscribed capital unpaid (assets A, and item A presented within C.II) deducted from \
+             equity (Decision 14); not given, it is zero (D1)",
+        );
+        ex.convention(
+            "derivative liabilities within provisions B treated as `financial_liability` are \
+             non-current in the net financial position (D3)",
+        );
+        ex.convention(
+            "derivative assets are not given separately and follow their aggregate (D3): those \
+             within B.III (B.III.4) follow the treatment of B.III and are non-current in the net \
+             financial position; those within C.III (C.III.5) are current financial assets of \
+             the net financial position",
+        );
         ex.convention(
             "current and non-current: receivables (C.II) and payables (D) split by their \
              statutory amounts beyond one year, read as twelve months (R15); the adjustments of \
@@ -541,6 +554,20 @@ impl Method for Reorganise {
                 serde_json::json!("investing"),
                 WRITE_DOWNS_OF_RECEIVABLES_DEFAULT,
             ));
+        }
+        // D1, D2: every item of a statutory balance sheet taken as zero because it is not
+        // given, also when its parent node is absent.
+        for (i, y) in input.years.iter().enumerate() {
+            let Some(bs) = y.statutory.as_ref().and_then(|s| s.balance_sheet.as_ref()) else {
+                continue;
+            };
+            for row in TAKEN_AS_ZERO.iter().filter(|row| (row.applies)(bs)) {
+                out.push(DefaultApplied::new(
+                    format!("/years/{i}/statutory/balance_sheet/{}", row.key),
+                    serde_json::json!("0"),
+                    row.reason,
+                ));
+            }
         }
         out
     }

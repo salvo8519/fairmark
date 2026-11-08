@@ -180,13 +180,65 @@ pub(crate) fn signed_sum(terms: &[(i8, Option<Decimal>)]) -> Result<Option<Decim
     Ok(Some(total))
 }
 
-/// The sum of the "of which" parts given, `None` when none is given (nothing to check).
-fn given_parts(values: &[Option<Decimal>]) -> Result<Option<Decimal>> {
-    let mut total = None;
-    for v in values.iter().flatten() {
-        total = Some(num::add(total.unwrap_or(Decimal::ZERO), *v)?);
+/// An amount read from items the user gave, with the pointers of those items. A side of a
+/// relation is built only from items given: never from a default or from a line inferred from
+/// another one (review of PR 1), so `FM-E026` always names amounts the user wrote.
+#[derive(Clone)]
+struct Read {
+    value: Option<Decimal>,
+    /// The pointers of the items read, or of the items needed when one is missing.
+    pointers: Vec<String>,
+}
+
+impl Read {
+    fn item(pointer: String, value: Option<Decimal>) -> Self {
+        Self {
+            value,
+            pointers: vec![pointer],
+        }
     }
-    Ok(total)
+
+    /// The signed sum of `terms`; missing when a term is missing.
+    fn sum(terms: &[(i8, &Read)]) -> Result<Self> {
+        let values: Vec<(i8, Option<Decimal>)> = terms.iter().map(|(s, r)| (*s, r.value)).collect();
+        Ok(Self {
+            value: signed_sum(&values)?,
+            pointers: terms.iter().flat_map(|(_, r)| r.pointers.clone()).collect(),
+        })
+    }
+
+    /// `self` when given, else `derived` (a total given prevails over its components).
+    fn or(self, derived: Read) -> Self {
+        if self.value.is_some() {
+            self
+        } else {
+            derived
+        }
+    }
+
+    fn side(&self, name: impl Into<String>) -> Side {
+        Side::new(name, self.pointers.clone(), self.value)
+    }
+}
+
+/// The sum of the "of which" parts given, with their pointers; `None` when none is given
+/// (nothing to check).
+fn given_parts(parts: &[(String, Option<Decimal>)]) -> Result<Read> {
+    let mut total = None;
+    let mut pointers = Vec::new();
+    for (pointer, v) in parts {
+        if let Some(v) = v {
+            total = Some(num::add(total.unwrap_or(Decimal::ZERO), *v)?);
+            pointers.push(pointer.clone());
+        }
+    }
+    if pointers.is_empty() {
+        pointers = parts.iter().map(|(p, _)| p.clone()).collect();
+    }
+    Ok(Read {
+        value: total,
+        pointers,
+    })
 }
 
 const FIX_TOTAL: &str = "correct the total or the amount that differs among its components, or \
@@ -195,7 +247,8 @@ const FIX_PART: &str = "a part cannot exceed its aggregate: correct the part or 
 
 /// The relations of R7 on the statutory balance sheet (Appendix A.1), and the profit of A.IX
 /// against item 21. `base` is the pointer of the balance sheet; `is_base` of the income
-/// statement.
+/// statement. Every side is read from items given only; a relation with a side that is not
+/// fully given is `not_checked`.
 pub(crate) fn balance_sheet(
     c: &mut Checks,
     bs: &StatutoryBalanceSheet,
@@ -204,11 +257,14 @@ pub(crate) fn balance_sheet(
     is_base: &str,
 ) -> Result<()> {
     let p = |k: &str| format!("{base}/{k}");
-    for (key, node, name) in [
-        ("intangible_assets", &bs.intangible_assets, "B.I"),
-        ("tangible_assets", &bs.tangible_assets, "B.II"),
-    ] {
+    let item = |k: &str, v: Option<Decimal>| Read::item(p(k), v);
+    let mut net_of = |key: &str, node: &Option<super::input::NetFixedAsset>, name: &str| {
         let n = node.clone().unwrap_or_default();
+        let total = item(&format!("{key}/total"), n.total);
+        let derived = Read::sum(&[
+            (1, &item(&format!("{key}/gross"), n.gross)),
+            (-1, &item(&format!("{key}/accumulated"), n.accumulated)),
+        ])?;
         let relation = if key == "intangible_assets" {
             "intangible_assets_net"
         } else {
@@ -216,557 +272,257 @@ pub(crate) fn balance_sheet(
         };
         c.equal(
             relation,
-            Side::new(
-                format!("{name} net"),
-                vec![p(&format!("{key}/total"))],
-                n.total,
-            ),
-            Side::new(
-                format!("{name} gross − accumulated"),
-                vec![p(&format!("{key}/gross")), p(&format!("{key}/accumulated"))],
-                signed_sum(&[(1, n.gross), (-1, n.accumulated)])?,
-            ),
+            total.side(format!("{name} net")),
+            derived.side(format!("{name} gross − accumulated")),
             FIX_TOTAL,
         )?;
-    }
-    let b1 = net(&bs.intangible_assets)?;
-    let b2 = net(&bs.tangible_assets)?;
-    let b = sum_all(&[b1, b2, bs.financial_fixed_assets])?;
+        Ok::<Read, FairmarkError>(total.or(derived))
+    };
+    let b1 = net_of("intangible_assets", &bs.intangible_assets, "B.I")?;
+    let b2 = net_of("tangible_assets", &bs.tangible_assets, "B.II")?;
+    let b3 = item("financial_fixed_assets", bs.financial_fixed_assets);
+    let b = Read::sum(&[(1, &b1), (1, &b2), (1, &b3)])?;
+    let b_given = item("fixed_assets", bs.fixed_assets);
     c.equal(
         "fixed_assets_total",
-        Side::new(
-            "total B, fixed assets",
-            vec![p("fixed_assets")],
-            bs.fixed_assets,
-        ),
-        Side::new(
-            "B.I + B.II + B.III",
-            vec![
-                p("intangible_assets"),
-                p("tangible_assets"),
-                p("financial_fixed_assets"),
-            ],
-            b,
-        ),
+        b_given.side("total B, fixed assets"),
+        b.side("B.I + B.II + B.III"),
         FIX_TOTAL,
     )?;
     let receivables = bs.receivables.clone().unwrap_or_default();
-    let cc = sum_all(&[
-        bs.inventories,
-        receivables.total,
-        bs.current_financial_assets,
-        bs.cash,
+    let cc = Read::sum(&[
+        (1, &item("inventories", bs.inventories)),
+        (1, &item("receivables/total", receivables.total)),
+        (
+            1,
+            &item("current_financial_assets", bs.current_financial_assets),
+        ),
+        (1, &item("cash", bs.cash)),
     ])?;
+    let c_given = item("current_assets", bs.current_assets);
     c.equal(
         "current_assets_total",
-        Side::new(
-            "total C, current assets",
-            vec![p("current_assets")],
-            bs.current_assets,
-        ),
-        Side::new(
-            "C.I + C.II + C.III + C.IV",
-            vec![
-                p("inventories"),
-                p("receivables/total"),
-                p("current_financial_assets"),
-                p("cash"),
-            ],
-            cc,
-        ),
+        c_given.side("total C, current assets"),
+        cc.side("C.I + C.II + C.III + C.IV"),
         FIX_TOTAL,
     )?;
     let eq = bs.equity.clone().unwrap_or_default();
-    let eq_parts = [
-        eq.share_capital,
-        eq.share_premium,
-        eq.revaluation_reserves,
-        eq.legal_reserve,
-        eq.statutory_reserves,
-        eq.other_reserves,
-        eq.cash_flow_hedge_reserve,
-        eq.retained_earnings,
-        eq.profit_or_loss_for_the_year,
-        eq.negative_reserve_for_own_shares,
-    ];
-    let eq_sum = sum_all(&eq_parts)?;
+    let eq_total = item("equity/total", eq.total);
+    let eq_parts = Read {
+        value: sum_all(&equity_parts(&eq))?,
+        pointers: EQUITY_PARTS
+            .iter()
+            .map(|k| p(&format!("equity/{k}")))
+            .collect(),
+    };
     c.equal(
         "equity_total",
-        Side::new("total equity A", vec![p("equity/total")], eq.total),
-        Side::new("A.I + … + A.X", vec![p("equity")], eq_sum),
+        eq_total.side("total equity A"),
+        eq_parts.side("A.I + … + A.X"),
         FIX_TOTAL,
     )?;
-    let payables = bs.payables.clone().unwrap_or_default();
-    let a_sep = separate(
-        bs.subscribed_capital_unpaid,
-        receivables.subscribed_capital_unpaid,
-    );
-    let d_sep = separate(
+    // Item A, assets D and liabilities E as separate lines: only as given. A line presented
+    // within another aggregate, or taken as zero by default (D1, D2), never enters a check.
+    let a = item("subscribed_capital_unpaid", bs.subscribed_capital_unpaid);
+    let d = item(
+        "prepayments_and_accrued_income/total",
         bs.prepayments_and_accrued_income
             .as_ref()
             .and_then(|n| n.total),
-        receivables.prepayments_and_accrued_income,
     );
-    let d_sep = given_node_or(&bs.prepayments_and_accrued_income, d_sep);
-    let e_sep = given_node_or(
-        &bs.accruals_and_deferred_income,
-        separate(
-            bs.accruals_and_deferred_income
-                .as_ref()
-                .and_then(|n| n.total),
-            payables.accruals_and_deferred_income,
-        ),
-    );
-    let b_tot = if bs.fixed_assets.is_some() {
-        bs.fixed_assets
-    } else {
-        b
-    };
-    let c_tot = if bs.current_assets.is_some() {
-        bs.current_assets
-    } else {
-        cc
-    };
-    let assets = sum_all(&[a_sep, b_tot, c_tot, d_sep])?;
-    c.equal(
-        "total_assets_total",
-        Side::new("total assets", vec![p("total_assets")], bs.total_assets),
-        Side::new(
-            "A + B + C + D",
-            vec![
-                p("subscribed_capital_unpaid"),
-                p("fixed_assets"),
-                p("current_assets"),
-                p("prepayments_and_accrued_income"),
-            ],
-            assets,
-        ),
-        FIX_TOTAL,
-    )?;
-    let equity = equity_amount(&bs.equity)?;
-    let liabilities = sum_all(&[
-        equity,
-        bs.provisions.as_ref().and_then(|n| n.total),
-        bs.employee_severance_indemnity
+    let e = item(
+        "accruals_and_deferred_income/total",
+        bs.accruals_and_deferred_income
             .as_ref()
             .and_then(|n| n.total),
-        payables.total,
-        e_sep,
-    ])?;
+    );
+    let assets = Read::sum(&[(1, &a), (1, &b_given.or(b)), (1, &c_given.or(cc)), (1, &d)])?;
+    let ta_given = item("total_assets", bs.total_assets);
     c.equal(
-        "total_liabilities_and_equity_total",
-        Side::new(
-            "total liabilities and equity",
-            vec![p("total_liabilities_and_equity")],
-            bs.total_liabilities_and_equity,
-        ),
-        Side::new(
-            "liabilities A + B + C + D + E",
-            vec![
-                p("equity"),
-                p("provisions/total"),
-                p("employee_severance_indemnity/total"),
-                p("payables/total"),
-                p("accruals_and_deferred_income"),
-            ],
-            liabilities,
-        ),
+        "total_assets_total",
+        ta_given.side("total assets"),
+        assets.side("A + B + C + D"),
         FIX_TOTAL,
     )?;
-    let ta = if bs.total_assets.is_some() {
-        bs.total_assets
-    } else {
-        assets
-    };
-    let tl = if bs.total_liabilities_and_equity.is_some() {
-        bs.total_liabilities_and_equity
-    } else {
-        liabilities
-    };
+    let payables = bs.payables.clone().unwrap_or_default();
+    let liabilities = Read::sum(&[
+        (1, &eq_total.or(eq_parts)),
+        (
+            1,
+            &item(
+                "provisions/total",
+                bs.provisions.as_ref().and_then(|n| n.total),
+            ),
+        ),
+        (
+            1,
+            &item(
+                "employee_severance_indemnity/total",
+                bs.employee_severance_indemnity
+                    .as_ref()
+                    .and_then(|n| n.total),
+            ),
+        ),
+        (1, &item("payables/total", payables.total)),
+        (1, &e),
+    ])?;
+    let tl_given = item(
+        "total_liabilities_and_equity",
+        bs.total_liabilities_and_equity,
+    );
+    c.equal(
+        "total_liabilities_and_equity_total",
+        tl_given.side("total liabilities and equity"),
+        liabilities.side("liabilities A + B + C + D + E"),
+        FIX_TOTAL,
+    )?;
     c.equal(
         "total_assets_equals_total_liabilities_and_equity",
-        Side::new("total assets", vec![p("total_assets")], ta),
-        Side::new(
-            "total liabilities and equity",
-            vec![p("total_liabilities_and_equity")],
-            tl,
-        ),
+        ta_given.or(assets).side("total assets"),
+        tl_given
+            .or(liabilities)
+            .side("total liabilities and equity"),
         "the balance sheet does not balance: correct the item that differs from the filing; \
          for statements in euro units, give the rounding reserve within other reserves (A.VI)",
     )?;
+    let rec_total = item("receivables/total", receivables.total);
     c.at_most(
         "receivables_beyond_one_year",
-        Side::new(
-            "receivables beyond one year",
-            vec![p("receivables/beyond_one_year")],
-            receivables.beyond_one_year,
-        ),
-        Side::new(
-            "receivables C.II",
-            vec![p("receivables/total")],
-            receivables.total,
-        ),
+        item("receivables/beyond_one_year", receivables.beyond_one_year)
+            .side("receivables beyond one year"),
+        rec_total.side("receivables C.II"),
         FIX_PART,
     )?;
     c.at_most(
         "receivables_of_which",
-        Side::new(
-            "the \"of which\" parts of receivables",
-            vec![
-                p("receivables/trade"),
+        given_parts(&[
+            (p("receivables/trade"), receivables.trade),
+            (
                 p("receivables/subscribed_capital_unpaid"),
-                p("receivables/prepayments_and_accrued_income"),
-            ],
-            given_parts(&[
-                receivables.trade,
                 receivables.subscribed_capital_unpaid,
+            ),
+            (
+                p("receivables/prepayments_and_accrued_income"),
                 receivables.prepayments_and_accrued_income,
-            ])?,
-        ),
-        Side::new(
-            "receivables C.II",
-            vec![p("receivables/total")],
-            receivables.total,
-        ),
+            ),
+        ])?
+        .side("the \"of which\" parts of receivables"),
+        rec_total.side("receivables C.II"),
         FIX_PART,
     )?;
+    let pay_total = item("payables/total", payables.total);
     c.at_most(
         "payables_beyond_one_year",
-        Side::new(
-            "payables beyond one year",
-            vec![p("payables/beyond_one_year")],
-            payables.beyond_one_year,
-        ),
-        Side::new("payables D", vec![p("payables/total")], payables.total),
+        item("payables/beyond_one_year", payables.beyond_one_year).side("payables beyond one year"),
+        pay_total.side("payables D"),
         FIX_PART,
     )?;
     let fd = payables.financial_debt.clone().unwrap_or_default();
     let sl = payables.shareholder_loans.clone().unwrap_or_default();
     c.at_most(
         "payables_of_which",
-        Side::new(
-            "the \"of which\" parts of payables",
-            vec![
-                p("payables/financial_debt/total"),
-                p("payables/shareholder_loans/total"),
-                p("payables/trade"),
+        given_parts(&[
+            (p("payables/financial_debt/total"), fd.total),
+            (p("payables/shareholder_loans/total"), sl.total),
+            (p("payables/trade"), payables.trade),
+            (
                 p("payables/accruals_and_deferred_income"),
-            ],
-            given_parts(&[
-                fd.total,
-                sl.total,
-                payables.trade,
                 payables.accruals_and_deferred_income,
-            ])?,
-        ),
-        Side::new("payables D", vec![p("payables/total")], payables.total),
+            ),
+        ])?
+        .side("the \"of which\" parts of payables"),
+        pay_total.side("payables D"),
         FIX_PART,
     )?;
-    for (relation, key, node) in [
+    let prov = bs.provisions.clone().unwrap_or_default();
+    let maturities = [
         (
             "financial_debt_beyond_one_year",
             "payables/financial_debt",
-            &fd,
+            Some(fd.clone()),
         ),
         (
             "shareholder_loans_beyond_one_year",
             "payables/shareholder_loans",
-            &sl,
+            Some(sl.clone()),
         ),
-    ] {
-        c.at_most(
-            relation,
-            Side::new(
-                format!("{key} beyond one year"),
-                vec![p(&format!("{key}/beyond_one_year"))],
-                node.beyond_one_year,
-            ),
-            Side::new(key.to_owned(), vec![p(&format!("{key}/total"))], node.total),
-            FIX_PART,
-        )?;
-    }
-    let prov = bs.provisions.clone().unwrap_or_default();
-    c.at_most(
-        "provisions_beyond_one_year",
-        Side::new(
-            "provisions beyond one year",
-            vec![p("provisions/beyond_one_year")],
-            prov.beyond_one_year,
+        (
+            "provisions_beyond_one_year",
+            "provisions",
+            Some(super::input::WithMaturity {
+                total: prov.total,
+                beyond_one_year: prov.beyond_one_year,
+            }),
         ),
-        Side::new("provisions B", vec![p("provisions/total")], prov.total),
-        FIX_PART,
-    )?;
-    c.at_most(
-        "provisions_of_which",
-        Side::new(
-            "derivative liabilities within provisions",
-            vec![p("provisions/of_which_derivative_liabilities")],
-            prov.of_which_derivative_liabilities,
-        ),
-        Side::new("provisions B", vec![p("provisions/total")], prov.total),
-        FIX_PART,
-    )?;
-    for (relation, key, node) in [
         (
             "employee_severance_indemnity_beyond_one_year",
             "employee_severance_indemnity",
-            &bs.employee_severance_indemnity,
+            bs.employee_severance_indemnity.clone(),
         ),
         (
             "prepayments_and_accrued_income_beyond_one_year",
             "prepayments_and_accrued_income",
-            &bs.prepayments_and_accrued_income,
+            bs.prepayments_and_accrued_income.clone(),
         ),
         (
             "accruals_and_deferred_income_beyond_one_year",
             "accruals_and_deferred_income",
-            &bs.accruals_and_deferred_income,
+            bs.accruals_and_deferred_income.clone(),
         ),
-    ] {
-        let n = node.clone().unwrap_or_default();
+    ];
+    for (relation, key, node) in maturities {
+        let n = node.unwrap_or_default();
         c.at_most(
             relation,
-            Side::new(
-                format!("{key} beyond one year"),
-                vec![p(&format!("{key}/beyond_one_year"))],
-                n.beyond_one_year,
-            ),
-            Side::new(key.to_owned(), vec![p(&format!("{key}/total"))], n.total),
+            item(&format!("{key}/beyond_one_year"), n.beyond_one_year)
+                .side(format!("{key} beyond one year")),
+            item(&format!("{key}/total"), n.total).side(key.to_owned()),
             FIX_PART,
         )?;
     }
+    c.at_most(
+        "provisions_of_which",
+        item(
+            "provisions/of_which_derivative_liabilities",
+            prov.of_which_derivative_liabilities,
+        )
+        .side("derivative liabilities within provisions"),
+        item("provisions/total", prov.total).side("provisions B"),
+        FIX_PART,
+    )?;
     c.equal(
         "profit_for_the_year",
-        Side::new(
-            "profit (loss) for the year in equity, A.IX",
-            vec![p("equity/profit_or_loss_for_the_year")],
+        item(
+            "equity/profit_or_loss_for_the_year",
             eq.profit_or_loss_for_the_year,
-        ),
-        Side::new(
-            "item 21 of the income statement",
-            vec![format!("{is_base}/profit_or_loss_for_the_year")],
+        )
+        .side("profit (loss) for the year in equity, A.IX"),
+        Read::item(
+            format!("{is_base}/profit_or_loss_for_the_year"),
             is.profit_or_loss_for_the_year,
-        ),
+        )
+        .side("item 21 of the income statement"),
         "the profit of equity A.IX and item 21 of the income statement are the same amount: \
          correct the one that differs from the filing",
     )
 }
 
-/// The relations of R7 on the statutory income statement (Appendix A.2).
-pub(crate) fn income_statement(
-    c: &mut Checks,
-    is: &StatutoryIncomeStatement,
-    base: &str,
-) -> Result<()> {
-    let p = |k: &str| format!("{base}/{k}");
-    let a_parts = [
-        is.revenue,
-        is.change_in_product_inventories,
-        is.own_work_capitalised,
-        is.other_revenue_and_income,
-    ];
-    let a_der = sum_all(&a_parts)?;
-    c.equal(
-        "value_of_production_total",
-        Side::new(
-            "total A",
-            vec![p("value_of_production")],
-            is.value_of_production,
-        ),
-        Side::new(
-            "A1 + A2 and A3 + A4 + A5",
-            vec![
-                p("revenue"),
-                p("change_in_product_inventories"),
-                p("own_work_capitalised"),
-                p("other_revenue_and_income"),
-            ],
-            a_der,
-        ),
-        FIX_TOTAL,
-    )?;
-    let b10 = is.depreciation_and_write_downs.clone().unwrap_or_default();
-    let b10p = |k: &str| p(&format!("depreciation_and_write_downs/{k}"));
-    let ab_c = sum_all(&[
-        b10.depreciation_and_amortisation,
-        b10.write_downs_of_fixed_assets,
-    ])?;
-    c.equal(
-        "value_adjustments_of_fixed_assets_total",
-        Side::new(
-            "B10 a to c",
-            vec![b10p("value_adjustments_of_fixed_assets")],
-            b10.value_adjustments_of_fixed_assets,
-        ),
-        Side::new(
-            "B10 a and b + B10 c",
-            vec![
-                b10p("depreciation_and_amortisation"),
-                b10p("write_downs_of_fixed_assets"),
-            ],
-            ab_c,
-        ),
-        FIX_TOTAL,
-    )?;
-    let ac = b10.value_adjustments_of_fixed_assets.or(ab_c);
-    let b10_der = sum_all(&[ac, b10.write_downs_of_receivables])?;
-    c.equal(
-        "depreciation_and_write_downs_total",
-        Side::new("total B10", vec![b10p("total")], b10.total),
-        Side::new(
-            "B10 a to c + B10 d",
-            vec![
-                b10p("value_adjustments_of_fixed_assets"),
-                b10p("write_downs_of_receivables"),
-            ],
-            b10_der,
-        ),
-        FIX_TOTAL,
-    )?;
-    let b10_amt = if b10.total.is_some() {
-        b10.total
-    } else {
-        b10_der
-    };
-    let b_der = sum_all(&[
-        is.purchases,
-        is.services,
-        is.use_of_third_party_assets,
-        is.personnel_costs,
-        b10_amt,
-        is.change_in_raw_material_inventories,
-        is.provisions_for_risks,
-        is.other_provisions,
-        is.other_operating_expenses,
-    ])?;
-    c.equal(
-        "costs_of_production_total",
-        Side::new(
-            "total B",
-            vec![p("costs_of_production")],
-            is.costs_of_production,
-        ),
-        Side::new("B6 + … + B14", vec![base.to_owned()], b_der),
-        FIX_TOTAL,
-    )?;
-    let a_amt = is.value_of_production.or(a_der);
-    let b_amt = is.costs_of_production.or(b_der);
-    let diff = signed_sum(&[(1, a_amt), (-1, b_amt)])?;
-    c.equal(
-        "difference_between_value_and_costs_of_production_total",
-        Side::new(
-            "A − B",
-            vec![p("difference_between_value_and_costs_of_production")],
-            is.difference_between_value_and_costs_of_production,
-        ),
-        Side::new(
-            "total A − total B",
-            vec![p("value_of_production"), p("costs_of_production")],
-            diff,
-        ),
-        FIX_TOTAL,
-    )?;
-    let c_der = signed_sum(&[
-        (1, is.income_from_equity_investments),
-        (1, is.other_financial_income),
-        (-1, is.interest_and_other_financial_charges),
-        (1, is.exchange_gains_and_losses),
-    ])?;
-    c.equal(
-        "financial_income_and_charges_total",
-        Side::new(
-            "total C",
-            vec![p("financial_income_and_charges")],
-            is.financial_income_and_charges,
-        ),
-        Side::new(
-            "C15 + C16 − C17 ± C17-bis",
-            vec![
-                p("income_from_equity_investments"),
-                p("other_financial_income"),
-                p("interest_and_other_financial_charges"),
-                p("exchange_gains_and_losses"),
-            ],
-            c_der,
-        ),
-        FIX_TOTAL,
-    )?;
-    let d_der = signed_sum(&[
-        (1, is.revaluations_of_financial_assets),
-        (-1, is.write_downs_of_financial_assets),
-    ])?;
-    c.equal(
-        "value_adjustments_of_financial_assets_total",
-        Side::new(
-            "total D",
-            vec![p("value_adjustments_of_financial_assets")],
-            is.value_adjustments_of_financial_assets,
-        ),
-        Side::new(
-            "D18 − D19",
-            vec![
-                p("revaluations_of_financial_assets"),
-                p("write_downs_of_financial_assets"),
-            ],
-            d_der,
-        ),
-        FIX_TOTAL,
-    )?;
-    let diff_amt = is.difference_between_value_and_costs_of_production.or(diff);
-    let c_amt = is.financial_income_and_charges.or(c_der);
-    let d_amt = is.value_adjustments_of_financial_assets.or(d_der);
-    let pbt_der = sum_all(&[diff_amt, c_amt, d_amt])?;
-    c.equal(
-        "profit_before_tax_total",
-        Side::new(
-            "profit before tax",
-            vec![p("profit_before_tax")],
-            is.profit_before_tax,
-        ),
-        Side::new(
-            "A − B ± C ± D",
-            vec![
-                p("difference_between_value_and_costs_of_production"),
-                p("financial_income_and_charges"),
-                p("value_adjustments_of_financial_assets"),
-            ],
-            pbt_der,
-        ),
-        FIX_TOTAL,
-    )?;
-    let pbt = is.profit_before_tax.or(pbt_der);
-    c.equal(
-        "profit_or_loss_for_the_year_total",
-        Side::new(
-            "item 21",
-            vec![p("profit_or_loss_for_the_year")],
-            is.profit_or_loss_for_the_year,
-        ),
-        Side::new(
-            "profit before tax − item 20",
-            vec![p("profit_before_tax"), p("income_taxes")],
-            signed_sum(&[(1, pbt), (-1, is.income_taxes)])?,
-        ),
-        FIX_TOTAL,
-    )
-}
+/// The keys of the Roman numerals of equity, in the order of art. 2424.
+const EQUITY_PARTS: [&str; 10] = [
+    "share_capital",
+    "share_premium",
+    "revaluation_reserves",
+    "legal_reserve",
+    "statutory_reserves",
+    "other_reserves",
+    "cash_flow_hedge_reserve",
+    "retained_earnings",
+    "profit_or_loss_for_the_year",
+    "negative_reserve_for_own_shares",
+];
 
-/// B.I or B.II net: the total, or gross − accumulated.
-fn net(node: &Option<super::input::NetFixedAsset>) -> Result<Option<Decimal>> {
-    let Some(n) = node else { return Ok(None) };
-    if n.total.is_some() {
-        return Ok(n.total);
-    }
-    signed_sum(&[(1, n.gross), (-1, n.accumulated)])
-}
-
-/// Equity: the total, or the sum of the ten Roman numerals.
-fn equity_amount(node: &Option<super::input::Equity>) -> Result<Option<Decimal>> {
-    let Some(e) = node else { return Ok(None) };
-    if e.total.is_some() {
-        return Ok(e.total);
-    }
-    sum_all(&[
+fn equity_parts(e: &super::input::Equity) -> [Option<Decimal>; 10] {
+    [
         e.share_capital,
         e.share_premium,
         e.revaluation_reserves,
@@ -777,27 +533,207 @@ fn equity_amount(node: &Option<super::input::Equity>) -> Result<Option<Decimal>>
         e.retained_earnings,
         e.profit_or_loss_for_the_year,
         e.negative_reserve_for_own_shares,
-    ])
+    ]
 }
 
-/// Item A, assets D or liabilities E as a separate item: zero when presented within C.II or D
-/// (its "of which" part given there) and not given separately.
-fn separate(given: Option<Decimal>, within: Option<Decimal>) -> Option<Decimal> {
-    match (given, within) {
-        (Some(v), _) => Some(v),
-        (None, Some(_)) => Some(Decimal::ZERO),
-        (None, None) => None,
-    }
-}
-
-/// A node given without its total stays missing, even when an "of which" part is given within
-/// another aggregate.
-fn given_node_or(
-    node: &Option<super::input::WithMaturity>,
-    fallback: Option<Decimal>,
-) -> Option<Decimal> {
-    match node {
-        Some(n) => n.total,
-        None => fallback,
-    }
+/// The relations of R7 on the statutory income statement (Appendix A.2), each side read from
+/// items given only.
+pub(crate) fn income_statement(
+    c: &mut Checks,
+    is: &StatutoryIncomeStatement,
+    base: &str,
+) -> Result<()> {
+    let p = |k: &str| format!("{base}/{k}");
+    let item = |k: &str, v: Option<Decimal>| Read::item(p(k), v);
+    let a_der = Read::sum(&[
+        (1, &item("revenue", is.revenue)),
+        (
+            1,
+            &item(
+                "change_in_product_inventories",
+                is.change_in_product_inventories,
+            ),
+        ),
+        (1, &item("own_work_capitalised", is.own_work_capitalised)),
+        (
+            1,
+            &item("other_revenue_and_income", is.other_revenue_and_income),
+        ),
+    ])?;
+    let a_given = item("value_of_production", is.value_of_production);
+    c.equal(
+        "value_of_production_total",
+        a_given.side("total A"),
+        a_der.side("A1 + A2 and A3 + A4 + A5"),
+        FIX_TOTAL,
+    )?;
+    let b10 = is.depreciation_and_write_downs.clone().unwrap_or_default();
+    let b10i = |k: &str, v: Option<Decimal>| item(&format!("depreciation_and_write_downs/{k}"), v);
+    let ab_c = Read::sum(&[
+        (
+            1,
+            &b10i(
+                "depreciation_and_amortisation",
+                b10.depreciation_and_amortisation,
+            ),
+        ),
+        (
+            1,
+            &b10i(
+                "write_downs_of_fixed_assets",
+                b10.write_downs_of_fixed_assets,
+            ),
+        ),
+    ])?;
+    let ac_given = b10i(
+        "value_adjustments_of_fixed_assets",
+        b10.value_adjustments_of_fixed_assets,
+    );
+    c.equal(
+        "value_adjustments_of_fixed_assets_total",
+        ac_given.side("B10 a to c"),
+        ab_c.side("B10 a and b + B10 c"),
+        FIX_TOTAL,
+    )?;
+    let b10_der = Read::sum(&[
+        (1, &ac_given.or(ab_c)),
+        (
+            1,
+            &b10i("write_downs_of_receivables", b10.write_downs_of_receivables),
+        ),
+    ])?;
+    let b10_given = b10i("total", b10.total);
+    c.equal(
+        "depreciation_and_write_downs_total",
+        b10_given.side("total B10"),
+        b10_der.side("B10 a to c + B10 d"),
+        FIX_TOTAL,
+    )?;
+    let b_der = Read::sum(&[
+        (1, &item("purchases", is.purchases)),
+        (1, &item("services", is.services)),
+        (
+            1,
+            &item("use_of_third_party_assets", is.use_of_third_party_assets),
+        ),
+        (1, &item("personnel_costs", is.personnel_costs)),
+        (1, &b10_given.or(b10_der)),
+        (
+            1,
+            &item(
+                "change_in_raw_material_inventories",
+                is.change_in_raw_material_inventories,
+            ),
+        ),
+        (1, &item("provisions_for_risks", is.provisions_for_risks)),
+        (1, &item("other_provisions", is.other_provisions)),
+        (
+            1,
+            &item("other_operating_expenses", is.other_operating_expenses),
+        ),
+    ])?;
+    let b_given = item("costs_of_production", is.costs_of_production);
+    c.equal(
+        "costs_of_production_total",
+        b_given.side("total B"),
+        b_der.side("B6 + … + B14"),
+        FIX_TOTAL,
+    )?;
+    let diff = Read::sum(&[(1, &a_given.or(a_der)), (-1, &b_given.or(b_der))])?;
+    let diff_given = item(
+        "difference_between_value_and_costs_of_production",
+        is.difference_between_value_and_costs_of_production,
+    );
+    c.equal(
+        "difference_between_value_and_costs_of_production_total",
+        diff_given.side("A − B"),
+        diff.side("total A − total B"),
+        FIX_TOTAL,
+    )?;
+    let c_der = Read::sum(&[
+        (
+            1,
+            &item(
+                "income_from_equity_investments",
+                is.income_from_equity_investments,
+            ),
+        ),
+        (
+            1,
+            &item("other_financial_income", is.other_financial_income),
+        ),
+        (
+            -1,
+            &item(
+                "interest_and_other_financial_charges",
+                is.interest_and_other_financial_charges,
+            ),
+        ),
+        (
+            1,
+            &item("exchange_gains_and_losses", is.exchange_gains_and_losses),
+        ),
+    ])?;
+    let c_given = item(
+        "financial_income_and_charges",
+        is.financial_income_and_charges,
+    );
+    c.equal(
+        "financial_income_and_charges_total",
+        c_given.side("total C"),
+        c_der.side("C15 + C16 − C17 ± C17-bis"),
+        FIX_TOTAL,
+    )?;
+    let d_der = Read::sum(&[
+        (
+            1,
+            &item(
+                "revaluations_of_financial_assets",
+                is.revaluations_of_financial_assets,
+            ),
+        ),
+        (
+            -1,
+            &item(
+                "write_downs_of_financial_assets",
+                is.write_downs_of_financial_assets,
+            ),
+        ),
+    ])?;
+    let d_given = item(
+        "value_adjustments_of_financial_assets",
+        is.value_adjustments_of_financial_assets,
+    );
+    c.equal(
+        "value_adjustments_of_financial_assets_total",
+        d_given.side("total D"),
+        d_der.side("D18 − D19"),
+        FIX_TOTAL,
+    )?;
+    let pbt_der = Read::sum(&[
+        (1, &diff_given.or(diff)),
+        (1, &c_given.or(c_der)),
+        (1, &d_given.or(d_der)),
+    ])?;
+    let pbt_given = item("profit_before_tax", is.profit_before_tax);
+    c.equal(
+        "profit_before_tax_total",
+        pbt_given.side("profit before tax"),
+        pbt_der.side("A − B ± C ± D"),
+        FIX_TOTAL,
+    )?;
+    let net = Read::sum(&[
+        (1, &pbt_given.or(pbt_der)),
+        (-1, &item("income_taxes", is.income_taxes)),
+    ])?;
+    c.equal(
+        "profit_or_loss_for_the_year_total",
+        item(
+            "profit_or_loss_for_the_year",
+            is.profit_or_loss_for_the_year,
+        )
+        .side("item 21"),
+        net.side("profit before tax − item 20"),
+        FIX_TOTAL,
+    )
 }
