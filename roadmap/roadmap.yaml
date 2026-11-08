@@ -76,6 +76,7 @@ milestones:
           - { issue: 152, title: "Roadmap sync treats issues closed by an open pull request as pending", status: done }
           - { issue: 142, title: "Release preparation runs as a workflow that opens the release pull request", tags: [parallel], status: done }
           - { issue: 154, title: "Release scripts validate versions as whole strings", tags: [parallel], status: done }
+          - { issue: 181, title: "Dependency check resilient to GitHub download errors", status: done }
       - title: "Community infrastructure"
         issue: 15
         labels: ["area:infra"]

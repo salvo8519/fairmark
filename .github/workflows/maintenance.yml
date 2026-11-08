@@ -40,8 +40,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2
-        with: { command: check advisories }
+      # cargo-deny 0.20.2: install-action downloads it with retries and checks its SHA-256.
+      # If the download still fails (GitHub outage on release assets), the next step builds the
+      # same version from crates.io with its published lockfile (#181).
+      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        id: deny-install
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          tool: cargo-deny@0.20.2
+          fallback: none
+      - name: Build cargo-deny from crates.io (download failed)
+        if: steps.deny-install.outcome == 'failure'
+        run: cargo install --locked cargo-deny@0.20.2
+      - name: cargo deny check advisories
+        run: cargo deny --locked --all-features check advisories
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
       - name: pip-audit on the locked Python dependencies
         run: |
@@ -71,8 +84,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: stable
-      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2
-        with: { tool: cargo-mutants }
+      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        id: mutants-install
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          tool: cargo-mutants@27.1.0
+          fallback: none
+      - name: Build cargo-mutants from crates.io (download failed)
+        if: steps.mutants-install.outcome == 'failure'
+        run: cargo install --locked cargo-mutants@27.1.0
       - run: cargo mutants --package fairmark-core --timeout 300 --no-shuffle
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
