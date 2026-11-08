@@ -3,10 +3,14 @@
 # the Italian explanation at first use.
 # Rule: use only terms in use in Italian professional practice; never invent Italian terms or
 # verbs from English roots. English terms are kept when practice uses them.
+# Rule (maintainer, 2026-11-08): when no verified Italian equivalent exists, or Italian sources
+# conflict with each other or with international practice (CFA Institute, EBA, IVS, IFRS), keep
+# the term of international financial practice in English, optionally with an Italian
+# explanation in parentheses. Never translate on the basis of an unverified or ambiguous source.
 terms:
   valuation: valutazione
   enterprise value: enterprise value (valore delle attività operative più le attività non operative)
-  value of operations: valore del capitale operativo
+  value of operations: value of operations (valore delle attività operative)
   equity value: equity value (valore del capitale proprio)
   free cash flow to the firm (FCFF): flusso di cassa operativo disponibile (FCFF)
   free cash flow to equity (FCFE): flusso di cassa disponibile per gli azionisti (FCFE)

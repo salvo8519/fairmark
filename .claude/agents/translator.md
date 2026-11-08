@@ -12,6 +12,10 @@ truth; translations live in `docs/<lang>/` and `README.<lang>.md`.
 1. Get the work list: `uv run python scripts/i18n.py todo`.
 2. Read `i18n/glossary.yaml` (or the glossary for the target language) and `i18n/<lang>.yaml`.
    Use the glossary terms exactly; keep `keep_in_english` terms untranslated.
+   When a term is not in the glossary and no verified Italian equivalent exists, or Italian
+   sources conflict with international practice (CFA Institute, EBA, IVS, IFRS), keep the
+   English term of international practice, optionally with an Italian explanation in
+   parentheses at first use, and propose the term for the glossary in your report.
 3. For each stale page, compare the English source with the current translation and update
    only what changed; for missing pages, translate the whole page.
 4. Never translate: code blocks, identifiers, method ids, field names, error messages and
