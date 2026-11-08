@@ -542,6 +542,22 @@ fn current_non_current_uses_the_totals_given() {
     assert_eq!(cnc["total_assets"], "2850000");
 }
 
+/// Review round 2 (audit F): with receivables absent, total assets derived from total B, total
+/// C and assets D, with item A within C.II none (D2), are the same as when total assets are
+/// given; the parts beyond one year cancel out and are not needed.
+#[test]
+fn current_non_current_total_assets_derived_as_when_given() {
+    let mut input = golden_input("balance-sheet-ordinary");
+    let bs = &mut input["years"][0]["statutory"]["balance_sheet"];
+    let m = bs.as_object_mut().unwrap();
+    m.remove("receivables");
+    m.remove("total_assets");
+    let out = run(&input);
+    let cnc = &out["value"]["years"][0]["current_non_current"];
+    assert_eq!(cnc["total_assets"], "2850000");
+    assert!(cnc["fixed_assets"].is_null());
+}
+
 // ---------------------------------------------------------------- R5: the reclassified form
 
 /// Review of PR 1 (item 5): an output that only the statutory form gives is listed without a

@@ -1349,10 +1349,33 @@ pub(crate) fn statutory(
                 (Minus, "assets A", &a_sep),
                 (Minus, "assets A within C.II", &a_within_v),
             ],
-            None => vec![
-                (Plus, "non-current assets", &fixed),
-                (Plus, "current assets", &current),
-            ],
+            // B + C + D − A within C.II: the parts beyond one year of C.II and D cancel out, so
+            // the total does not wait for them (audit F of review round 2), and equals the
+            // total given less item A whenever both exist.
+            None => {
+                let mut terms = match &b_given {
+                    Some(b) => vec![(Plus, "total B", b)],
+                    None => vec![
+                        (Plus, "B.I", &b1),
+                        (Plus, "B.II", &b2),
+                        (Plus, "B.III", &b3),
+                    ],
+                };
+                match &c_given {
+                    Some(c) => terms.push((Plus, "total C", c)),
+                    None => terms.extend([
+                        (Plus, "C.I", &c1),
+                        (Plus, "C.II", &c2),
+                        (Plus, "C.III", &c3),
+                        (Plus, "C.IV", &c4),
+                    ]),
+                }
+                terms.extend([
+                    (Plus, "assets D", &d_sep),
+                    (Minus, "assets A within C.II", &a_within_v),
+                ]);
+                terms
+            }
         },
     )?;
 
