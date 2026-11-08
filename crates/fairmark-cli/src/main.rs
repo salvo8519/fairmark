@@ -1,7 +1,7 @@
 //! `fairmark` — JSON in, JSON out. Designed to be driven by AI coding agents
 //! (Claude Code, Codex, ...) as well as by humans and scripts.
 
-use std::io::Read;
+use std::io::{ErrorKind, Read, Write};
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
@@ -45,27 +45,47 @@ enum Command {
 
 fn main() -> ExitCode {
     match dispatch(Cli::parse().command) {
-        Ok(out) => {
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&out).expect("serializable")
-            );
-            ExitCode::SUCCESS
-        }
+        Ok(out) => match emit(std::io::stdout().lock(), &out) {
+            Ok(()) => ExitCode::SUCCESS,
+            // The reader closed the pipe early (`fairmark methods | head -1`):
+            // it has all it wanted, so exit quietly with success (issue #191).
+            Err(e) if e.kind() == ErrorKind::BrokenPipe => ExitCode::SUCCESS,
+            Err(e) => {
+                report(&io_error(e));
+                ExitCode::FAILURE
+            }
+        },
         Err(err) => {
-            eprintln!(
-                "{}",
-                serde_json::to_string_pretty(&err).expect("serializable")
-            );
+            report(&err);
             ExitCode::FAILURE
         }
     }
 }
 
+/// Writes `value` as pretty JSON followed by a newline, then flushes, so that
+/// every write error (including a closed pipe) is returned instead of the
+/// panic of `println!`. The single place where the CLI writes to stdout.
+fn emit(mut out: impl Write, value: &serde_json::Value) -> std::io::Result<()> {
+    let text = serde_json::to_string_pretty(value).expect("serializable");
+    out.write_all(text.as_bytes())?;
+    out.write_all(b"\n")?;
+    out.flush()
+}
+
+/// Writes an error report to stderr. A failure to write it (stderr closed)
+/// is ignored: the exit status still reports the error.
+fn report(err: &serde_json::Value) {
+    let _ = emit(std::io::stderr().lock(), err);
+}
+
+/// JSON error report of an I/O failure, in the shape the CLI already uses for
+/// unreadable input files.
+fn io_error(e: std::io::Error) -> serde_json::Value {
+    json!({ "error": { "code": "FM-E001", "message": e.to_string() } })
+}
+
 fn dispatch(cmd: Command) -> Result<serde_json::Value, serde_json::Value> {
     let core = |e: fairmark_core::FairmarkError| json!({ "error": e.to_report() });
-    let io =
-        |e: std::io::Error| json!({ "error": { "code": "FM-E001", "message": e.to_string() } });
 
     match cmd {
         Command::Methods => Ok(json!(fairmark_core::METHODS)),
@@ -75,7 +95,7 @@ fn dispatch(cmd: Command) -> Result<serde_json::Value, serde_json::Value> {
             input,
             value_only,
         } => {
-            let text = read_input(input.as_deref()).map_err(io)?;
+            let text = read_input(input.as_deref()).map_err(io_error)?;
             let out = fairmark_core::run(&method, &text).map_err(core)?;
             Ok(if value_only {
                 out["value"].clone()
@@ -84,12 +104,13 @@ fn dispatch(cmd: Command) -> Result<serde_json::Value, serde_json::Value> {
             })
         }
         Command::Verify { result, input } => {
-            let saved: serde_json::Value = serde_json::from_str(
-                &std::fs::read_to_string(&result).map_err(io)?,
-            )
-            .map_err(|e| json!({ "error": { "code": "FM-E001", "message": e.to_string() } }))?;
+            let saved: serde_json::Value =
+                serde_json::from_str(&std::fs::read_to_string(&result).map_err(io_error)?)
+                    .map_err(
+                        |e| json!({ "error": { "code": "FM-E001", "message": e.to_string() } }),
+                    )?;
             let method = saved["method"].as_str().unwrap_or_default().to_owned();
-            let fresh = fairmark_core::run(&method, &read_input(Some(&input)).map_err(io)?)
+            let fresh = fairmark_core::run(&method, &read_input(Some(&input)).map_err(io_error)?)
                 .map_err(core)?;
             let same_hash = saved["meta"]["input_hash"] == fresh["meta"]["input_hash"];
             let same_value = saved["value"] == fresh["value"];
