@@ -75,7 +75,7 @@ golden file is edited; if a task would change one, stop and ask the maintainer.
       `python/fairmark/series.py` with `fm.series.project` (exported from the package);
       `Decimal` or strings only, never `float`; docstrings with an example; tests of the
       helpers.
-- [ ] T16 [P] Oracle tests (Python, `oracles` group, CI matrix): random schedules against
+- [x] T16 [P] Oracle tests (Python, `oracles` group, CI matrix): random schedules against
       python-dateutil and QuantLib, every named frequency and `period_months` 1 to 36, year
       fractions against the QuantLib day counters (AC2, AC3).
 - [ ] T17 [P] Methodology pages `docs/en/methods/dates-schedule.md` and
