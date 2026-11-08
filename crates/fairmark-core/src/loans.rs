@@ -210,9 +210,11 @@ fn periodic_rate(form: &RateForm, ex: &mut Explain) -> Result<Decimal> {
     let per_year = frequency.per_year();
     let i = num::div(converted.rate, Decimal::from(per_year))?;
     if i <= -Decimal::ONE {
-        // Not reached for a rate that passed the conversion (its periodic rate is above -1);
-        // kept so that the domain is checked where the rate is used.
-        return Err(at_rate(FairmarkError::RateOutOfRange(rate)));
+        // Not reached: a rate that passed the conversion has a periodic rate above -1, so
+        // reaching this is a defect, not an input error.
+        return Err(FairmarkError::Internal(
+            "periodic rate at or below -1 after a valid rate conversion",
+        ));
     }
     ex.step(
         "Periodic rate",
