@@ -65,4 +65,7 @@ expect:
   /summary/not_tested: '0'
   /covenants/1/not_tested_reason: 'null'
   /covenants/0/headroom_relative/not_defined: 'null'
+  /covenants/0/outcome_basis: tested_value
+  /covenants/1/outcome_basis: tested_value
+  /covenants/2/outcome_basis: tested_value
 tolerance: '0.00000000000000000001'

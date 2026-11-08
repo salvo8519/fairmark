@@ -175,7 +175,8 @@ def covenants(*, covenants: Sequence[Mapping[str, Any]]) -> Result:
     comparison.
 
     Each result has ``outcome`` (``"passed"``, ``"breached"`` or ``"not_tested"``), decided
-    exactly, ``value`` (the value compared, rounded only when ``rounding`` is given),
+    exactly, ``outcome_basis`` (``"tested_value"`` or ``"if_denominator_not_positive"``),
+    ``value`` (the value compared, rounded only when ``rounding`` is given),
     ``value_unrounded`` (with ``rounding``), ``headroom`` (positive on the compliant side,
     negative on the breach side), ``headroom_relative`` (headroom / threshold),
     ``not_tested_code`` (``"denominator_not_positive"`` or ``"overflow"``) and

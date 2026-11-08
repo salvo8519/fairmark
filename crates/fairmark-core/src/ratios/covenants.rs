@@ -201,6 +201,17 @@ pub enum Outcome {
     NotTested,
 }
 
+/// What decided the outcome, machine-readable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum OutcomeBasis {
+    /// The tested value (rounded when `rounding` is given) compared with the threshold.
+    TestedValue,
+    /// The denominator is zero or negative: the outcome is the input
+    /// `if_denominator_not_positive`.
+    IfDenominatorNotPositive,
+}
+
 /// Why a covenant was not tested, machine-readable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -226,6 +237,9 @@ pub struct CovenantResult {
     /// `passed`, `breached` or `not_tested`, decided exactly (never on a value rounded by the
     /// decimal type).
     pub outcome: Outcome,
+    /// What decided the outcome: `tested_value` or `if_denominator_not_positive`; null when the
+    /// covenant is not tested because of an overflow (`not_tested_code` `overflow`).
+    pub outcome_basis: Option<OutcomeBasis>,
     /// The value compared with the threshold: numerator / denominator to the 28 significant
     /// digits of the decimal type, or rounded as `rounding` states; in the unit of the
     /// threshold. Null when the denominator is not positive or the covenant is not tested.
@@ -576,6 +590,7 @@ fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
         operator: op,
         threshold,
         outcome: Outcome::NotTested,
+        outcome_basis: None,
         value: None,
         value_unrounded: None,
         headroom: None,
@@ -600,6 +615,10 @@ fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
         let relative = RatioValue {
             value: None,
             not_defined: Some(format!("no tested value: {reason}")),
+        };
+        let result = CovenantResult {
+            outcome_basis: Some(OutcomeBasis::IfDenominatorNotPositive),
+            ..result
         };
         let outcome = match rule {
             IfDenominatorNotPositive::NotTested => {
@@ -727,6 +746,7 @@ fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
     );
     CovenantResult {
         outcome,
+        outcome_basis: Some(OutcomeBasis::TestedValue),
         value: Some(value),
         value_unrounded,
         headroom: Some(headroom),
@@ -774,6 +794,10 @@ pub fn covenants(input: &CovenantsInput) -> Result<(CovenantsOutput, Explain)> {
          threshold is zero or negative",
     );
     ex.convention("a negative numerator is compared as computed");
+    ex.convention(
+        "outcome_basis of each covenant: tested_value when the tested value decides the \
+         outcome, if_denominator_not_positive when the input rule does; null on overflow",
+    );
     ex.convention(
         "a covenant whose tested value, rounded value or headroom exceeds the range of the \
          decimal type is not tested, never breached; the other covenants are tested",
@@ -1070,6 +1094,10 @@ mod tests {
             let r = one(c);
             assert_eq!(r.outcome, outcome, "{den} {rule:?}");
             assert_eq!((r.value, r.headroom), (None, None));
+            assert_eq!(
+                r.outcome_basis,
+                Some(OutcomeBasis::IfDenominatorNotPositive)
+            );
             let tested = outcome != Outcome::NotTested;
             assert_eq!(r.not_tested_code.is_none(), tested);
         }
@@ -1160,7 +1188,12 @@ mod tests {
             reasons,
             vec![OVERFLOW_VALUE, OVERFLOW_HEADROOM, OVERFLOW_ROUNDED]
         );
+        assert!(out.covenants[..3].iter().all(|r| r.outcome_basis.is_none()));
         assert_eq!(out.covenants[3].outcome, Outcome::Passed);
+        assert_eq!(
+            out.covenants[3].outcome_basis,
+            Some(OutcomeBasis::TestedValue)
+        );
         assert_eq!(out.summary.not_tested, 3);
     }
 

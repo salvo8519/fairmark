@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-covenants.md
-source_hash: 445186b08742
+source_hash: 6fe20d7e95ed
 ---
 # Verifica dei covenant (`ratios.covenants`)
 
@@ -67,7 +67,9 @@ dell'arrotondamento.
 
 **Denominatore nullo o negativo.** Il valore verificato non è calcolato: valore e headroom sono
 null e l'esito è quello indicato da `if_denominator_not_positive` (`breached`, `passed` o
-`not_tested`). Con `not_tested` il codice è `denominator_not_positive` e il motivo indica se il
+`not_tested`), e `outcome_basis` è `if_denominator_not_positive`, così un agente distingue un
+esito fissato dalla regola del contratto da uno deciso su un valore verificato
+(`tested_value`). Con `not_tested` il codice è `denominator_not_positive` e il motivo indica se il
 denominatore è nullo o negativo.
 
 Nota: `headroom_relative` è headroom / soglia. Per un covenant di massimo con valore verificato
@@ -134,6 +136,8 @@ assert cover["outcome"] == "breached"  # 600 / 175 = 3.4285... < 4
 assert cover["headroom"] < 0  # negativo: dal lato della violazione
 assert dscr["outcome"] == "not_tested"  # servizio del debito nullo, come stabilisce il contratto
 assert dscr["not_tested_code"] == "denominator_not_positive"
+assert dscr["outcome_basis"] == "if_denominator_not_positive"
+assert leverage["outcome_basis"] == "tested_value"
 assert dscr["not_tested_reason"].startswith("denominator is zero")
 # 3.504 si arrotonda a 3.50 secondo il contratto, che rispetta il massimo di 3.50
 assert senior["outcome"] == "passed"
@@ -162,6 +166,7 @@ assert r.summary == {"passed": 2, "breached": 1, "not_tested": 1}
 | `covenants` | Un risultato per covenant, nell'ordine dell'input |
 | `covenants[].name`, `test_date`, `operator`, `threshold` | Riportati dall'input |
 | `covenants[].outcome` | `passed`, `breached` o `not_tested`, deciso in modo esatto |
+| `covenants[].outcome_basis` | Che cosa ha deciso l'esito: `tested_value`, oppure `if_denominator_not_positive` quando il denominatore è nullo o negativo e si applica la regola indicata in input; null se il covenant non è verificato per un overflow |
 | `covenants[].value` | Il valore confrontato con la soglia: numeratore / denominatore con 28 cifre significative, oppure arrotondato come indica `rounding`; null se il denominatore non è positivo o il covenant non è verificato |
 | `covenants[].value_unrounded` | Con `rounding`: numeratore / denominatore prima dell'arrotondamento; null altrimenti |
 | `covenants[].headroom` | Distanza di `value` dalla soglia nell'unità dell'indice, positiva dal lato del rispetto; null se `value` è null |

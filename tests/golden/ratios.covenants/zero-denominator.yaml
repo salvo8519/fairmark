@@ -50,4 +50,6 @@ expect:
     the test date'
   /covenants/0/headroom_relative/not_defined: 'no tested value: denominator is zero: consolidated EBITDA
     for the 12 months ending on the test date'
+  /covenants/0/outcome_basis: if_denominator_not_positive
+  /covenants/1/outcome_basis: tested_value
 tolerance: '0.00000000000000000001'

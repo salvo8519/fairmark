@@ -49,4 +49,6 @@ expect:
   /covenants/0/headroom_relative/not_defined: threshold is zero
   /covenants/1/headroom_relative/not_defined: threshold is negative (-0.25); the relative headroom on
     a negative threshold is not specified
+  /covenants/0/outcome_basis: tested_value
+  /covenants/1/outcome_basis: tested_value
 tolerance: '0.00000000000000000001'

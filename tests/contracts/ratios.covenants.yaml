@@ -106,6 +106,7 @@ conventions:
   - 'exact decision without rounding: the sign of numerator − threshold × denominator, computed in integer arithmetic on the decimal mantissas, with a positive denominator; with rounding: the rounded value, computed from the exact quotient, compared with the threshold'
   - a zero or negative denominator gives the outcome set by if_denominator_not_positive; value and headroom are then null
   - a negative numerator is compared as computed
+  - 'outcome_basis of each covenant: tested_value when the tested value decides the outcome, if_denominator_not_positive when the input rule does; null on overflow'
   - covenants are numbered from 1 in the audit trail; error messages name the zero-based position, covenants[i]
   - 'headroom positive on the compliant side and negative on the breach side: threshold − tested value for a maximum, tested value − threshold for a minimum'
   - relative headroom = headroom / threshold, a decimal fraction; not defined when the threshold is zero or negative

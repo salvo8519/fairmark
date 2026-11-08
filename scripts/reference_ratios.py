@@ -272,6 +272,7 @@ def covenants(items: list[dict[str, Any]]) -> dict[str, Any]:
             outcome = c["if_denominator_not_positive"]
             value, headroom, relative = None, None, None
             code = "denominator_not_positive" if outcome == "not_tested" else None
+            basis = "if_denominator_not_positive"
         else:
             exact = Fraction(num) / Fraction(den)
             rounding = c.get("rounding")
@@ -292,9 +293,11 @@ def covenants(items: list[dict[str, Any]]) -> dict[str, Any]:
             headroom = D(gap.numerator) / D(gap.denominator)
             relative = headroom / limit if limit > 0 else None
             code = None
+            basis = "tested_value"
         counts[outcome] += 1
         out[f"covenants.{i}.outcome"] = outcome
         out[f"covenants.{i}.not_tested_code"] = code
+        out[f"covenants.{i}.outcome_basis"] = basis
         out[f"covenants.{i}.value"] = value
         out[f"covenants.{i}.value_unrounded"] = unrounded
         out[f"covenants.{i}.headroom"] = headroom

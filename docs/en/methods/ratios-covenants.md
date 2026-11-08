@@ -60,7 +60,9 @@ the rounded value and `value_unrounded` the value before rounding.
 
 **Zero or negative denominator.** The tested value is not computed: value and headroom are null
 and the outcome is the one stated by `if_denominator_not_positive` (`breached`, `passed` or
-`not_tested`). With `not_tested` the code is `denominator_not_positive` and the reason says
+`not_tested`), and `outcome_basis` is `if_denominator_not_positive`, so an agent can tell an
+outcome set by the agreement's rule from one decided on a tested value (`tested_value`). With
+`not_tested` the code is `denominator_not_positive` and the reason says
 whether the denominator is zero or negative.
 
 Note: `headroom_relative` is headroom / threshold. For a maximum covenant with a positive
@@ -127,6 +129,8 @@ assert cover["outcome"] == "breached"  # 600 / 175 = 3.4285... < 4
 assert cover["headroom"] < 0  # negative: on the breach side
 assert dscr["outcome"] == "not_tested"  # zero debt service, as the agreement states
 assert dscr["not_tested_code"] == "denominator_not_positive"
+assert dscr["outcome_basis"] == "if_denominator_not_positive"
+assert leverage["outcome_basis"] == "tested_value"
 assert dscr["not_tested_reason"].startswith("denominator is zero")
 # 3.504 rounds to 3.50 under the agreement, which passes at most 3.50
 assert senior["outcome"] == "passed"
@@ -155,6 +159,7 @@ assert r.summary == {"passed": 2, "breached": 1, "not_tested": 1}
 | `covenants` | One result per covenant, in the order of the input |
 | `covenants[].name`, `test_date`, `operator`, `threshold` | Echoed from the input |
 | `covenants[].outcome` | `passed`, `breached` or `not_tested`, decided exactly |
+| `covenants[].outcome_basis` | What decided the outcome: `tested_value`, or `if_denominator_not_positive` when the denominator is zero or negative and the input rule applies; null when the covenant is not tested because of an overflow |
 | `covenants[].value` | The value compared with the threshold: numerator / denominator to 28 significant digits, or rounded as `rounding` states; null when the denominator is not positive or the covenant is not tested |
 | `covenants[].value_unrounded` | With `rounding`: numerator / denominator before the rounding; null otherwise |
 | `covenants[].headroom` | Distance of `value` from the threshold in the unit of the ratio, positive on the compliant side; null when `value` is null |

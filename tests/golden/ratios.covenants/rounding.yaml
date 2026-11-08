@@ -48,4 +48,6 @@ expect:
   /summary/passed: '1'
   /summary/breached: '1'
   /summary/not_tested: '0'
+  /covenants/0/outcome_basis: tested_value
+  /covenants/1/outcome_basis: tested_value
 tolerance: '0.00000000000000000001'
