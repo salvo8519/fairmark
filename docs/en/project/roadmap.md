@@ -14,7 +14,7 @@ generated from `roadmap/roadmap.yaml`, and a scheduled job reports any differenc
 
 | Milestone | Gate | Release | Done | Open |
 | --- | --- | --- | --- | --- |
-| M0 · Foundations | A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows. | 0.1.0 | 17 | 2 |
+| M0 · Foundations | A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows. | 0.1.0 | 18 | 2 |
 | M1 · Numerical core | Golden harness green; NPV and IRR validated; property tests running. | 0.1.0 | 12 | 5 |
 | M2 · Complete DCF | DCF passes every golden case provided by practitioners. | 0.1.0 | 11 | 7 |
 | M3 · Agent layer and v0.1 release | An external user completes a DCF with Claude Code or Codex using only the README. | 0.1.0 | 11 | 8 |
@@ -45,6 +45,7 @@ Gate: A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows.
 | CI/CD | Deterministic checks: workflows (actionlint, zizmor), YAML validity, unused Rust dependencies, external links | [#117](https://github.com/salvo8519/fairmark/issues/117) |  | Done |
 | CI/CD | Roadmap sync tolerates changes pending in open pull requests; Pages deploy waits for slow CDN purges | [#134](https://github.com/salvo8519/fairmark/issues/134) |  | Done |
 | CI/CD | Roadmap sync treats issues closed by an open pull request as pending | [#152](https://github.com/salvo8519/fairmark/issues/152) |  | Done |
+| CI/CD | Release preparation runs as a workflow that opens the release pull request | [#142](https://github.com/salvo8519/fairmark/issues/142) |  | Done |
 | Community infrastructure | Issue forms: bug, method request, numerical discrepancy | [#16](https://github.com/salvo8519/fairmark/issues/16) |  | Done |
 | Community infrastructure | Labels, GitHub Project board, Discussions | [#17](https://github.com/salvo8519/fairmark/issues/17) |  | Open |
 
