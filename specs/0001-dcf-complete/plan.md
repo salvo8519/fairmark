@@ -126,7 +126,7 @@ Each is additive to version 3 under the schema checker.
 - **#166 nominal and real terms**: optional fields `inflation`, `inflation_per_period` and
   `terminal_inflation`; the engine's `resolve_terms` step, which today refuses different terms
   with `FM-E024`, converts the rate schedule through `rates::real_nominal` instead and fills
-  `rate_used` of the period table, which already differs from `discount_rate` in the output
+  `rate_used` of the period table, which the output already reports next to `discount_rate`
   (R16 to R18).
 - **#43 terminal technique and discounting time**: new optional properties of the `terminal`
   object (`tv.h_model`, `tv.exit_multiple`, `tv.value_driver`, `tv.limited_horizon`,
