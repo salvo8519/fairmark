@@ -113,7 +113,7 @@ def test_new_issue_is_pending_while_its_pull_request_is_open() -> None:
     issues = github_view(branch)
     drift, _ = roadmap.differences(copy.deepcopy(main), issues)
     assert [n for n, _ in drift] == [99999]
-    assert roadmap.pending_in(drift, {7: branch}, issues) == {99999: 7}
+    assert roadmap.pending_in(drift, {7: (branch, set())}, issues) == {99999: 7}
     # Without the pull request the difference stands.
     assert roadmap.pending_in(drift, {}, issues) == {}
 
@@ -126,4 +126,26 @@ def test_a_pull_request_that_does_not_resolve_leaves_the_difference() -> None:
     drift, _ = roadmap.differences(copy.deepcopy(main), issues)
     assert [n for n, _ in drift] == [task["issue"]]
     unrelated = copy.deepcopy(main)
-    assert roadmap.pending_in(drift, {8: unrelated}, issues) == {}
+    assert roadmap.pending_in(drift, {8: (unrelated, set())}, issues) == {}
+
+
+def test_issue_closed_by_an_open_pull_request_is_pending() -> None:
+    # The pull request adds the task as done (check --pr-body requires it); the issue is still
+    # open on GitHub until the merge closes it.
+    main = data()
+    branch = copy.deepcopy(main)
+    branch["milestones"][0]["epics"][0]["tasks"].append(
+        {"issue": 99998, "title": "Closed by the pull request", "status": "done"}
+    )
+    issues = github_view(branch)
+    issues[99998]["state"] = "open"
+    drift, _ = roadmap.differences(copy.deepcopy(main), issues)
+    assert [n for n, _ in drift] == [99998]
+    assert roadmap.pending_in(drift, {9: (branch, {99998})}, issues) == {99998: 9}
+    # A pull request that does not close the issue leaves the difference.
+    assert roadmap.pending_in(drift, {9: (branch, set())}, issues) == {}
+
+
+def test_closed_by_reads_the_closing_keywords() -> None:
+    body = "Closes #12\nfixes #7\n  Resolves #3\nSee #99\nRelated: closes #5 later"
+    assert roadmap.closed_by(body) == {12, 7, 3}
