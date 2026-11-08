@@ -266,6 +266,3 @@ golden cases from the reference are checked to $10^{-20}$.
   lines with zero interest and zero net borrowing.
 - The R24 identity on random bridges: equity value = present value of the FCFE and the terminal
   value + non-operating assets − debt-like items − non-controlling interests.
-- A published worked example of an FCFE valuation (Damodaran, *Investment Valuation*, 2nd
-  edition, chapter 14) is planned; it is added when its inputs and published values are
-  checked against the text.

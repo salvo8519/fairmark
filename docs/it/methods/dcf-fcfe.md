@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcfe.md
-source_hash: c83282cc7ccb
+source_hash: 084de8670e19
 ---
 # DCF, flussi di cassa disponibili per gli azionisti (`dcf.fcfe`)
 
@@ -283,6 +283,3 @@ $10^{-20}$.
   oneri finanziari e net borrowing pari a zero.
 - L'identità di R24 su voci casuali: equity value = valore attuale dei FCFE e del valore
   terminale + attività non operative − debt-like items − partecipazioni di minoranza.
-- Un esempio pubblicato di valutazione FCFE (Damodaran, *Investment Valuation*, 2a edizione,
-  capitolo 14) è previsto; sarà aggiunto quando i suoi input e i valori pubblicati saranno
-  verificati sul testo.
