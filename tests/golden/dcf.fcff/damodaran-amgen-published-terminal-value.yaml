@@ -6,7 +6,8 @@ source: >
   of 81,364 = FCFF of year 11 / (8.86% - 5%). The printed FCFF of year 11 is 3,140, which gives
   3,140 / 0.0386 = 81,347.15; the published 81,364 implies an unrounded flow of 81,364 x 0.0386
   = 3,140.65. The tolerance of 20 (0.025% of the value) covers that rounding of the printed
-  flow, and nothing else: the formula is exact. Source check against the published PDF on
+  flow, and nothing else: the formula is exact. The tolerance is pending the maintainer's
+  acceptance. Source check against the published PDF on
   2026-11-08.
 input:
   stages:
