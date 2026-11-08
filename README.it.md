@@ -1,4 +1,4 @@
-<!-- i18n source: README.md source_hash: ab99cf9092b6 -->
+<!-- i18n source: README.md source_hash: 2b96cf80ae4f -->
 <div align="center">
 
 <a href="https://salvo8519.github.io/fairmark/it/">
@@ -270,6 +270,12 @@ revisionata da persone e da revisori AI con gli standard del progetto
 [Apache-2.0](LICENSE). La licenza copre il codice; non concede diritti d'uso sul nome e sul
 logo Fairmark (Apache-2.0, sezione 6).
 
-<sub>Fairmark calcola ciò che gli chiedi di calcolare. Non costituisce consulenza in materia di
-investimenti, contabile o legale; la scelta del metodo e degli input resta responsabilità
-dell'analista.</sub>
+## Avvertenze legali
+
+Fairmark è uno strumento di calcolo, non un consulente: calcola, l'utilizzatore decide. Ogni
+decisione presa con l'ausilio di Fairmark, e ogni uso dei suoi risultati, appartiene
+esclusivamente all'utilizzatore, che sceglie il metodo e gli input, direttamente o tramite un
+agente di intelligenza artificiale, e verifica i risultati prima di farvi affidamento. Fairmark
+non fornisce consulenza in materia di investimenti, finanziaria, contabile, fiscale o legale,
+ed è fornito senza garanzie di alcun tipo secondo la licenza Apache 2.0. Leggi le
+[avvertenze legali complete](DISCLAIMER.it.md).

@@ -90,6 +90,8 @@ def italian_config() -> None:
     en_site = base["project"]["site_url"]
     p["site_url"] = en_site + "it/"
     p["site_description"] = cfg["site_description"]
+    if "copyright" in cfg:
+        p["copyright"] = cfg["copyright"]
     p["docs_dir"] = "docs/it"
     p["site_dir"] = "site/it"
     p["edit_uri"] = "edit/main/docs/it/"

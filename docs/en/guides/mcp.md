@@ -39,7 +39,8 @@ financial values.
 
 - One tool per method (`fairmark_dcf_fcff`, `fairmark_tvm_npv`, ...), with the full input
   schema, marked read-only and idempotent.
-- Server instructions telling the model to use the tools for every number and to cite
-  `explain.steps`.
+- Server instructions telling the model to use the tools for every number, to cite
+  `explain.steps`, and to present every result as a calculation under the user's
+  responsibility, never as advice (see the [disclaimer](../disclaimer.md)).
 - Results as structured content (the full JSON envelope) and as text.
 - Errors flagged with `isError` and a stable code, so the model can correct its call.
