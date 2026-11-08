@@ -166,6 +166,20 @@ terms:
   loan life cover ratio (LLCR): LLCR (indice di copertura sulla durata del finanziamento)
   debt outstanding: debito residuo
   covenant: covenant
+  covenant test: verifica del covenant
+  loan agreement: contratto di finanziamento
+  test date: data di verifica
+  threshold (covenant): soglia
+  breach (covenant): violazione
+  tested value: valore verificato
+  not tested: non verificato
+  headroom (covenant): headroom (margine rispetto alla soglia)
+  relative headroom: headroom relativo
+  equity cure: equity cure
+  step-down (covenant threshold): step-down (riduzione programmata della soglia)
+  contractual rounding: arrotondamento contrattuale
+  half up (rounding): half_up (le metà si arrotondano allontanandosi dallo zero)
+  half even (rounding): half_even (le metà si arrotondano alla cifra pari)
   return on assets (ROA): ROA (redditività dell'attivo)
   leverage form (ROE decomposition): forma con leva finanziaria
   leverage effect: effetto leva

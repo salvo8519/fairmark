@@ -1,0 +1,197 @@
+{
+  "$defs": {
+    "ContractualAmount": {
+      "additionalProperties": false,
+      "description": "One side of the covenant ratio, as the loan agreement defines it.",
+      "properties": {
+        "amount": {
+          "description": "The amount under that definition for the period ending on the test date, in currency\nunits.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "definition": {
+          "description": "The definition in the words of the loan agreement, for example \"consolidated EBITDA\nfor the 12 months ending on the test date\"; not blank. Echoed in the audit trail.",
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "definition",
+        "amount"
+      ],
+      "type": "object"
+    },
+    "Covenant": {
+      "additionalProperties": false,
+      "description": "One covenant of the loan agreement at one test date.",
+      "properties": {
+        "denominator": {
+          "$ref": "#/$defs/ContractualAmount",
+          "description": "Denominator of the covenant ratio, as defined by the loan agreement. Zero or negative:\nthe outcome is `if_denominator_not_positive`."
+        },
+        "if_denominator_not_positive": {
+          "$ref": "#/$defs/IfDenominatorNotPositive",
+          "description": "Outcome when the denominator is zero or negative, as the loan agreement states:\n`breached`, `passed` or `not_tested`. Required, no default."
+        },
+        "name": {
+          "description": "Name of the covenant as in the loan agreement, for example \"net leverage\"; not blank.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "numerator": {
+          "$ref": "#/$defs/ContractualAmount",
+          "description": "Numerator of the covenant ratio, as defined by the loan agreement."
+        },
+        "operator": {
+          "$ref": "#/$defs/Operator",
+          "description": "Comparison with the threshold: `at_most` (≤), `less_than` (<), `at_least` (≥) or\n`greater_than` (>). Required, no default."
+        },
+        "rounding": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Rounding"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Rounding of the tested value before the comparison, as the loan agreement states.\nAbsent: no rounding; the outcome is decided on the exact value."
+        },
+        "test_date": {
+          "$ref": "#/$defs/Date",
+          "description": "Test date (ISO 8601, `YYYY-MM-DD`). The amounts refer to the period ending on this date."
+        },
+        "threshold": {
+          "description": "Threshold in the unit of numerator / denominator: a multiple (3.5 = 3.5x) or a decimal\nfraction (0.30 = 30%), as the loan agreement states it.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "test_date",
+        "numerator",
+        "denominator",
+        "operator",
+        "threshold",
+        "if_denominator_not_positive"
+      ],
+      "type": "object"
+    },
+    "Date": {
+      "description": "Calendar date, ISO 8601 YYYY-MM-DD, from 1900-01-01 to 2199-12-31.",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "type": "string"
+    },
+    "IfDenominatorNotPositive": {
+      "description": "The outcome the loan agreement assigns to a covenant whose denominator is zero or negative.\nRequired, no default.",
+      "oneOf": [
+        {
+          "const": "breached",
+          "description": "The covenant is breached.",
+          "type": "string"
+        },
+        {
+          "const": "passed",
+          "description": "The covenant is passed.",
+          "type": "string"
+        },
+        {
+          "const": "not_tested",
+          "description": "The covenant is not tested (never a breach); code `denominator_not_positive`.",
+          "type": "string"
+        }
+      ]
+    },
+    "Operator": {
+      "description": "How the tested value is compared with the threshold. Required, no default.",
+      "oneOf": [
+        {
+          "const": "at_most",
+          "description": "Maximum, inclusive: passes when tested value ≤ threshold.",
+          "type": "string"
+        },
+        {
+          "const": "less_than",
+          "description": "Maximum, strict: passes when tested value < threshold.",
+          "type": "string"
+        },
+        {
+          "const": "at_least",
+          "description": "Minimum, inclusive: passes when tested value ≥ threshold.",
+          "type": "string"
+        },
+        {
+          "const": "greater_than",
+          "description": "Minimum, strict: passes when tested value > threshold.",
+          "type": "string"
+        }
+      ]
+    },
+    "Rounding": {
+      "additionalProperties": false,
+      "description": "The rounding of the tested value that the loan agreement states.",
+      "properties": {
+        "decimal_places": {
+          "description": "Decimal places of the rounded tested value, 0 to 6 (2 rounds 3.504 to 3.50).",
+          "format": "uint32",
+          "maximum": 6,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mode": {
+          "$ref": "#/$defs/RoundingMode",
+          "description": "`half_up` (halves away from zero) or `half_even` (halves to the even digit)."
+        }
+      },
+      "required": [
+        "decimal_places",
+        "mode"
+      ],
+      "type": "object"
+    },
+    "RoundingMode": {
+      "description": "How halves are rounded.",
+      "oneOf": [
+        {
+          "const": "half_up",
+          "description": "A half is rounded away from zero (3.505 → 3.51, −3.505 → −3.51).",
+          "type": "string"
+        },
+        {
+          "const": "half_even",
+          "description": "A half is rounded to the even last digit (3.505 → 3.50, 3.515 → 3.52).",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:fairmark:schema:ratios.covenants:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `ratios.covenants`.",
+  "properties": {
+    "covenants": {
+      "description": "The covenants to test, at least one. Each is tested on its own; the results keep this\norder.",
+      "items": {
+        "$ref": "#/$defs/Covenant"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "covenants"
+  ],
+  "title": "CovenantsInput",
+  "type": "object",
+  "x-fairmark-method": "ratios.covenants",
+  "x-fairmark-method-version": "1"
+}

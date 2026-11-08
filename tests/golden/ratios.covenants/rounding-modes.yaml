@@ -1,0 +1,78 @@
+method: ratios.covenants
+description: 'Half up and half even differ on a half: 3.505 rounds to 3.51 or 3.50; 2 / 3 rounds to 1
+  at 0 decimals'
+source: 'scripts/reference_ratios.py, covenants (Python fractions for the outcome and the contractual
+  rounding, decimal at 50 digits for the printed values), written from the covenant rules in specs/0007-ratios-covenants/plan.md
+  and the maintainer decisions of 2026-11-08 in spec.md. Closed form: 3.505 half up 3.51 > 3.50 (breach,
+  headroom -0.01); half even 3.50 (pass, headroom 0); 2 / 3 = 0.666... rounded to 0 decimals is 1, at
+  least 1 passes.'
+input:
+  covenants:
+  - name: net leverage, 3.505 half up
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '3505'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '1000'
+    operator: at_most
+    threshold: '3.50'
+    if_denominator_not_positive: not_tested
+    rounding:
+      decimal_places: 2
+      mode: half_up
+  - name: net leverage, 3.505 half even
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '3505'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '1000'
+    operator: at_most
+    threshold: '3.50'
+    if_denominator_not_positive: not_tested
+    rounding:
+      decimal_places: 2
+      mode: half_even
+  - name: interest cover, 2 / 3 to 0 decimals half up
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '2'
+    denominator:
+      definition: net finance charges for the 12 months ending on the test date
+      amount: '3'
+    operator: at_least
+    threshold: '1'
+    if_denominator_not_positive: not_tested
+    rounding:
+      decimal_places: 0
+      mode: half_up
+expect:
+  /covenants/0/outcome: breached
+  /covenants/0/not_tested_code: 'null'
+  /covenants/0/value: '3.51'
+  /covenants/0/value_unrounded: '3.505'
+  /covenants/0/headroom: '-0.01'
+  /covenants/0/headroom_relative/value: '-0.0028571428571428571428571428571428571428571428571429'
+  /covenants/1/outcome: passed
+  /covenants/1/not_tested_code: 'null'
+  /covenants/1/value: '3.5'
+  /covenants/1/value_unrounded: '3.505'
+  /covenants/1/headroom: '0'
+  /covenants/1/headroom_relative/value: '0'
+  /covenants/2/outcome: passed
+  /covenants/2/not_tested_code: 'null'
+  /covenants/2/value: '1'
+  /covenants/2/value_unrounded: '0.66666666666666666666666666666666666666666666666667'
+  /covenants/2/headroom: '0'
+  /covenants/2/headroom_relative/value: '0'
+  /summary/passed: '2'
+  /summary/breached: '1'
+  /summary/not_tested: '0'
+  /covenants/0/outcome_basis: tested_value
+  /covenants/1/outcome_basis: tested_value
+  /covenants/2/outcome_basis: tested_value
+tolerance: '0.00000000000000000001'

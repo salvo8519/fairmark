@@ -1,0 +1,47 @@
+method: ratios.covenants
+description: A covenant whose tested value exceeds the decimal range is not tested with code overflow;
+  the other covenants are tested
+source: Constructed. MAX / 0.0000000000000000000000000001 is about 7.9e56, beyond the 96-bit mantissa
+  of the decimal type (decision 1 of 2026-11-08, a ratio that cannot be computed is not tested). Second
+  covenant 300 / 100 = 3, at most 4, headroom 1, relative 0.25.
+input:
+  covenants:
+  - name: extreme leverage
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '79228162514264337593543950335'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '0.0000000000000000000000000001'
+    operator: at_most
+    threshold: '3.5'
+    if_denominator_not_positive: not_tested
+  - name: net leverage
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '300'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '100'
+    operator: at_most
+    threshold: '4'
+    if_denominator_not_positive: not_tested
+expect:
+  /covenants/0/outcome: not_tested
+  /covenants/0/not_tested_code: overflow
+  /covenants/0/not_tested_reason: the tested value exceeds the range of the decimal type (28-29 significant
+    digits)
+  /covenants/0/value: 'null'
+  /covenants/0/headroom: 'null'
+  /covenants/1/outcome: passed
+  /covenants/1/value: '3'
+  /covenants/1/headroom: '1'
+  /covenants/1/headroom_relative/value: '0.25'
+  /summary/passed: '1'
+  /summary/breached: '0'
+  /summary/not_tested: '1'
+  /covenants/0/outcome_basis: 'null'
+  /covenants/1/outcome_basis: tested_value
+tolerance: '0.00000000000000000001'

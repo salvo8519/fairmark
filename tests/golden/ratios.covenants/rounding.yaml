@@ -1,0 +1,53 @@
+method: ratios.covenants
+description: 'Maintainer decision 4 (2026-11-08): 3.504 at most 3.50 breaches without rounding and passes
+  when the agreement rounds to 2 decimals half up'
+source: 'scripts/reference_ratios.py, covenants (Python fractions for the outcome and the contractual
+  rounding, decimal at 50 digits for the printed values), written from the covenant rules in specs/0007-ratios-covenants/plan.md
+  and the maintainer decisions of 2026-11-08 in spec.md. Closed form: 3504 / 1000 = 3.504 > 3.50, headroom
+  -0.004; rounded to 2 decimals half up 3.50 <= 3.50, headroom 0.'
+input:
+  covenants:
+  - name: net leverage, no rounding
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '3504'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '1000'
+    operator: at_most
+    threshold: '3.50'
+    if_denominator_not_positive: not_tested
+  - name: net leverage, rounded to 2 decimals half up
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '3504'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '1000'
+    operator: at_most
+    threshold: '3.50'
+    if_denominator_not_positive: not_tested
+    rounding:
+      decimal_places: 2
+      mode: half_up
+expect:
+  /covenants/0/outcome: breached
+  /covenants/0/not_tested_code: 'null'
+  /covenants/0/value: '3.504'
+  /covenants/0/value_unrounded: 'null'
+  /covenants/0/headroom: '-0.004'
+  /covenants/0/headroom_relative/value: '-0.0011428571428571428571428571428571428571428571428571'
+  /covenants/1/outcome: passed
+  /covenants/1/not_tested_code: 'null'
+  /covenants/1/value: '3.5'
+  /covenants/1/value_unrounded: '3.504'
+  /covenants/1/headroom: '0'
+  /covenants/1/headroom_relative/value: '0'
+  /summary/passed: '1'
+  /summary/breached: '1'
+  /summary/not_tested: '0'
+  /covenants/0/outcome_basis: tested_value
+  /covenants/1/outcome_basis: tested_value
+tolerance: '0.00000000000000000001'

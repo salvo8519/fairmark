@@ -1,0 +1,6 @@
+method: ratios.covenants
+description: An empty list of covenants is refused
+source: Constructed. R5 tests a list of covenants; an empty list tests nothing (FM-E001).
+input:
+  covenants: []
+expect_error: FM-E001

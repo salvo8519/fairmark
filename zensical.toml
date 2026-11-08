@@ -71,6 +71,7 @@ nav = [
     "methods/ratios-liquidity.md",
     "methods/ratios-working-capital.md",
     "methods/ratios-debt-service.md",
+    "methods/ratios-covenants.md",
     "methods/analysis-goal-seek.md",
     "methods/analysis-sensitivity.md",
     "methods/analysis-scenarios.md",

@@ -2,7 +2,8 @@
 //!
 //! Each group is one method: `ratios.profitability`, `ratios.capital_structure`,
 //! `ratios.liquidity`, `ratios.working_capital` and `ratios.debt_service`. They share the
-//! pieces of this module:
+//! pieces of this module. `ratios.covenants` tests covenants on the definitions of the loan
+//! agreement and uses only [`RatioValue`]:
 //!
 //! - [`Balances`]: closing balances, or the average of opening and closing (R2);
 //! - [`DayBasis`]: 360 or 365 days for day-based ratios (R2);
@@ -12,6 +13,7 @@
 //! - [`NetFinancialPosition`]: the net financial position with its composition (R6).
 
 pub mod capital_structure;
+pub mod covenants;
 pub mod debt_service;
 pub mod liquidity;
 pub mod profitability;

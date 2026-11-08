@@ -176,6 +176,16 @@
         }
       }
     },
+    "ratios.covenants": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "ratios.covenants/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "28e7e3eda8073f3b693143ad3c6da07629c054560a61736ba3e2a886a4b7adf4"
+        }
+      }
+    },
     "ratios.debt_service": {
       "current": "1",
       "versions": {

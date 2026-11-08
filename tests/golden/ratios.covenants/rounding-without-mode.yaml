@@ -1,0 +1,20 @@
+method: ratios.covenants
+description: A contractual rounding without its mode is refused, there is no default
+source: 'Constructed. Maintainer decision 4 (2026-11-08): decimal_places and mode are both required when
+  rounding is given (FM-E001).'
+input:
+  covenants:
+  - name: net leverage
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '1900'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '600'
+    operator: at_most
+    threshold: '3.5'
+    if_denominator_not_positive: not_tested
+    rounding:
+      decimal_places: 2
+expect_error: FM-E001

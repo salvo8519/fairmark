@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from decimal import Context, localcontext
 from decimal import Decimal as D
+from fractions import Fraction
 from functools import wraps
 from typing import Any, TypeVar
 
@@ -237,6 +238,75 @@ def debt_service(
     return out
 
 
+def round_fraction(x: Fraction, places: int, mode: str) -> Fraction:
+    """x rounded to `places` decimals, exactly: half_up = halves away from zero."""
+    scaled = abs(x) * 10**places
+    q, rem = divmod(scaled.numerator, scaled.denominator)
+    twice = 2 * rem
+    if twice > scaled.denominator or (
+        twice == scaled.denominator and (mode == "half_up" or q % 2 == 1)
+    ):
+        q += 1
+    return Fraction(q if x >= 0 else -q, 10**places)
+
+
+@at_50_digits
+def covenants(items: list[dict[str, Any]]) -> dict[str, Any]:
+    """Covenant tests on contractual definitions (SPEC-0007 R5, decisions of 2026-11-08).
+
+    Each item: numerator, denominator (amounts), operator (at_most, less_than, at_least,
+    greater_than), threshold, if_denominator_not_positive (breached, passed, not_tested) and
+    optional rounding (decimal_places, mode half_up or half_even). Exact arithmetic on
+    fractions: the outcome compares the exact tested value, or the value rounded exactly from
+    the exact quotient, with the threshold. Value, headroom and relative headroom are printed
+    at 50 digits. A zero or negative denominator gives the outcome of the rule, value and
+    headroom None, code denominator_not_positive when not tested. Headroom is positive on the
+    compliant side; relative headroom = headroom / threshold, None for a threshold <= 0.
+    """
+    out: dict[str, Any] = {}
+    counts = {"passed": 0, "breached": 0, "not_tested": 0}
+    for i, c in enumerate(items):
+        num, den, op, limit = c["numerator"], c["denominator"], c["operator"], c["threshold"]
+        unrounded: Opt = None
+        if den <= 0:
+            outcome = c["if_denominator_not_positive"]
+            value, headroom, relative = None, None, None
+            code = "denominator_not_positive" if outcome == "not_tested" else None
+            basis = "if_denominator_not_positive"
+        else:
+            exact = Fraction(num) / Fraction(den)
+            rounding = c.get("rounding")
+            if rounding is not None:
+                exact = round_fraction(exact, rounding["decimal_places"], rounding["mode"])
+                unrounded = num / den
+            lim = Fraction(limit)
+            passed = {
+                "at_most": exact <= lim,
+                "less_than": exact < lim,
+                "at_least": exact >= lim,
+                "greater_than": exact > lim,
+            }[op]
+            outcome = "passed" if passed else "breached"
+            is_max = op in ("at_most", "less_than")
+            gap = lim - exact if is_max else exact - lim
+            value = D(exact.numerator) / D(exact.denominator)
+            headroom = D(gap.numerator) / D(gap.denominator)
+            relative = headroom / limit if limit > 0 else None
+            code = None
+            basis = "tested_value"
+        counts[outcome] += 1
+        out[f"covenants.{i}.outcome"] = outcome
+        out[f"covenants.{i}.not_tested_code"] = code
+        out[f"covenants.{i}.outcome_basis"] = basis
+        out[f"covenants.{i}.value"] = value
+        out[f"covenants.{i}.value_unrounded"] = unrounded
+        out[f"covenants.{i}.headroom"] = headroom
+        out[f"covenants.{i}.headroom_relative.value"] = relative
+    for k, v in counts.items():
+        out[f"summary.{k}"] = v
+    return out
+
+
 @at_50_digits
 def level_llcr(cfads: D, rate: D, periods: int, debt: D) -> D:
     """LLCR of a level CFADS in closed form: C * (1 - (1 + r)^-n) / r / debt."""
@@ -310,6 +380,109 @@ ZERO_SERVICE_SCHEDULE = {
         {"cfads": D(150), "debt_service": D(100)},
     ],
 }
+
+
+def cov(
+    name: str,
+    num: int | str,
+    den: int | str,
+    op: str,
+    limit: str,
+    rule: str = "not_tested",
+    rounding: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "name": name,
+        "numerator": D(num),
+        "denominator": D(den),
+        "operator": op,
+        "threshold": D(limit),
+        "if_denominator_not_positive": rule,
+        **({"rounding": rounding} if rounding else {}),
+    }
+
+
+# AC5: one breach (interest cover) among three covenants on the same test date.
+COVENANTS_ONE_BREACH = [
+    cov("net leverage", 1900, 600, "at_most", "3.5"),
+    cov("interest cover", 600, 175, "at_least", "4"),
+    cov("debt service cover", 700, 530, "at_least", "1.2"),
+]
+COVENANTS_ZERO_DENOMINATOR = [
+    cov("net leverage", 1900, 0, "at_most", "3.5"),
+    cov("interest cover", 600, 175, "at_least", "3"),
+]
+COVENANTS_NEGATIVE_DENOMINATOR = [
+    cov("net leverage, breached by agreement", 1900, -600, "at_most", "3.5", "breached"),
+    cov("net leverage, passed by agreement", 1900, -600, "at_most", "3.5", "passed"),
+    cov("net leverage, not tested by agreement", 1900, -600, "at_most", "3.5", "not_tested"),
+    cov("interest cover, zero charges breached", 600, 0, "at_least", "4", "breached"),
+]
+# Maintainer decision 4 (2026-11-08): 3.504 at most 3.50, with and without rounding.
+COVENANTS_ROUNDING = [
+    cov("net leverage, no rounding", 3504, 1000, "at_most", "3.50"),
+    cov(
+        "net leverage, rounded to 2 decimals half up",
+        3504,
+        1000,
+        "at_most",
+        "3.50",
+        rounding={"decimal_places": 2, "mode": "half_up"},
+    ),
+]
+COVENANTS_ROUNDING_MODES = [
+    cov(
+        "net leverage, 3.505 half up",
+        3505,
+        1000,
+        "at_most",
+        "3.50",
+        rounding={"decimal_places": 2, "mode": "half_up"},
+    ),
+    cov(
+        "net leverage, 3.505 half even",
+        3505,
+        1000,
+        "at_most",
+        "3.50",
+        rounding={"decimal_places": 2, "mode": "half_even"},
+    ),
+    cov(
+        "interest cover, 2 / 3 to 0 decimals half up",
+        2,
+        3,
+        "at_least",
+        "1",
+        rounding={"decimal_places": 0, "mode": "half_up"},
+    ),
+]
+# Second audit: the 28-digit display shows the threshold, the exact comparison decides.
+COVENANTS_DISPLAY_AT_THRESHOLD = [
+    cov(
+        "net leverage, half above the threshold",
+        "79228162514264337593543950333",
+        2,
+        "at_most",
+        "39614081257132168796771975166",
+    ),
+]
+COVENANTS_DISPLAY_ZERO = [
+    cov("interest cover, tiny positive", 1, "79228162514264337593543950335", "greater_than", "0"),
+]
+COVENANTS_AT_THRESHOLD = [
+    cov("leverage, inclusive maximum", 1750, 500, "at_most", "3.5"),
+    cov("leverage, strict maximum", 1750, 500, "less_than", "3.5"),
+    cov("cover, inclusive minimum", 1200, 300, "at_least", "4"),
+    cov("cover, strict minimum", 1200, 300, "greater_than", "4"),
+]
+COVENANTS_NEGATIVE_NUMERATOR = [
+    cov("net leverage, net cash", -300, 700, "at_most", "3"),
+    cov("interest cover, negative EBITDA", -150, 90, "at_least", "2.5"),
+]
+COVENANTS_NON_POSITIVE_THRESHOLD = [
+    cov("net financial position to EBITDA, net cash required", -200, 800, "at_most", "0"),
+    cov("net financial position to EBITDA, minimum net cash", -400, 800, "at_most", "-0.25"),
+]
 
 
 def cases() -> dict[str, dict[str, Opt]]:
@@ -444,11 +617,23 @@ def cases() -> dict[str, dict[str, Opt]]:
             {**LEVEL_SCHEDULE, "reserve_balance": D(100)},
             average=False,
         ),
+        "ratios.covenants/one-breach": covenants(COVENANTS_ONE_BREACH),
+        "ratios.covenants/zero-denominator": covenants(COVENANTS_ZERO_DENOMINATOR),
+        "ratios.covenants/negative-denominator": covenants(COVENANTS_NEGATIVE_DENOMINATOR),
+        "ratios.covenants/rounding": covenants(COVENANTS_ROUNDING),
+        "ratios.covenants/display-at-threshold": covenants(COVENANTS_DISPLAY_AT_THRESHOLD),
+        "ratios.covenants/display-zero": covenants(COVENANTS_DISPLAY_ZERO),
+        "ratios.covenants/rounding-modes": covenants(COVENANTS_ROUNDING_MODES),
+        "ratios.covenants/at-the-threshold": covenants(COVENANTS_AT_THRESHOLD),
+        "ratios.covenants/negative-numerator": covenants(COVENANTS_NEGATIVE_NUMERATOR),
+        "ratios.covenants/non-positive-threshold": covenants(COVENANTS_NON_POSITIVE_THRESHOLD),
     }
 
 
-def text(v: Opt) -> str:
-    return "null" if v is None else format(v, "f")
+def text(v: Any) -> str:
+    if v is None:
+        return "null"
+    return v if isinstance(v, str | int) and not isinstance(v, D) else format(v, "f")
 
 
 if __name__ == "__main__":

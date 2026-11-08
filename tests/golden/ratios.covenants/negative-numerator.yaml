@@ -1,0 +1,51 @@
+method: ratios.covenants
+description: 'A negative numerator is compared as computed: net cash passes a maximum leverage, negative
+  EBITDA breaches a minimum cover'
+source: 'scripts/reference_ratios.py, covenants (Python fractions for the outcome and the contractual
+  rounding, decimal at 50 digits for the printed values), written from the covenant rules in specs/0007-ratios-covenants/plan.md
+  and the maintainer decisions of 2026-11-08 in spec.md. Closed form: -300 / 700 = -0.428571..., at most
+  3, headroom 3 + 0.428571... = 3.428571...; -150 / 90 = -1.6666..., at least 2.5, headroom -1.6666...
+  - 2.5 = -4.1666...'
+input:
+  covenants:
+  - name: net leverage, net cash
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '-300'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '700'
+    operator: at_most
+    threshold: '3'
+    if_denominator_not_positive: not_tested
+  - name: interest cover, negative EBITDA
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '-150'
+    denominator:
+      definition: net finance charges for the 12 months ending on the test date
+      amount: '90'
+    operator: at_least
+    threshold: '2.5'
+    if_denominator_not_positive: not_tested
+expect:
+  /covenants/0/outcome: passed
+  /covenants/0/not_tested_code: 'null'
+  /covenants/0/value: '-0.42857142857142857142857142857142857142857142857143'
+  /covenants/0/value_unrounded: 'null'
+  /covenants/0/headroom: '3.4285714285714285714285714285714285714285714285714'
+  /covenants/0/headroom_relative/value: '1.1428571428571428571428571428571428571428571428571'
+  /covenants/1/outcome: breached
+  /covenants/1/not_tested_code: 'null'
+  /covenants/1/value: '-1.6666666666666666666666666666666666666666666666667'
+  /covenants/1/value_unrounded: 'null'
+  /covenants/1/headroom: '-4.1666666666666666666666666666666666666666666666667'
+  /covenants/1/headroom_relative/value: '-1.6666666666666666666666666666666666666666666666667'
+  /summary/passed: '1'
+  /summary/breached: '1'
+  /summary/not_tested: '0'
+  /covenants/0/outcome_basis: tested_value
+  /covenants/1/outcome_basis: tested_value
+tolerance: '0.00000000000000000001'

@@ -1,0 +1,17 @@
+method: ratios.covenants
+description: A test date that does not exist is refused
+source: Constructed. 2026-02-30 is not a calendar date (FM-E009).
+input:
+  covenants:
+  - name: net leverage
+    test_date: '2026-02-30'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '1900'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '600'
+    operator: at_most
+    threshold: '3.5'
+    if_denominator_not_positive: not_tested
+expect_error: FM-E009

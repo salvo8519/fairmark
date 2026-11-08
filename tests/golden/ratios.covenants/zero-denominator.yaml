@@ -1,0 +1,55 @@
+method: ratios.covenants
+description: 'A zero denominator with if_denominator_not_positive not_tested: not tested, never a breach;
+  the others are tested'
+source: 'scripts/reference_ratios.py, covenants (Python fractions for the outcome and the contractual
+  rounding, decimal at 50 digits for the printed values), written from the covenant rules in specs/0007-ratios-covenants/plan.md
+  and the maintainer decisions of 2026-11-08 in spec.md. Net leverage over a zero EBITDA: outcome not_tested
+  from the input, code denominator_not_positive, with the reason; interest cover 600 / 175 = 3.428571...,
+  at least 3, headroom 0.428571...'
+input:
+  covenants:
+  - name: net leverage
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '1900'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '0'
+    operator: at_most
+    threshold: '3.5'
+    if_denominator_not_positive: not_tested
+  - name: interest cover
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '600'
+    denominator:
+      definition: net finance charges for the 12 months ending on the test date
+      amount: '175'
+    operator: at_least
+    threshold: '3'
+    if_denominator_not_positive: not_tested
+expect:
+  /covenants/0/outcome: not_tested
+  /covenants/0/not_tested_code: denominator_not_positive
+  /covenants/0/value: 'null'
+  /covenants/0/value_unrounded: 'null'
+  /covenants/0/headroom: 'null'
+  /covenants/0/headroom_relative/value: 'null'
+  /covenants/1/outcome: passed
+  /covenants/1/not_tested_code: 'null'
+  /covenants/1/value: '3.4285714285714285714285714285714285714285714285714'
+  /covenants/1/value_unrounded: 'null'
+  /covenants/1/headroom: '0.42857142857142857142857142857142857142857142857143'
+  /covenants/1/headroom_relative/value: '0.14285714285714285714285714285714285714285714285714'
+  /summary/passed: '1'
+  /summary/breached: '0'
+  /summary/not_tested: '1'
+  /covenants/0/not_tested_reason: 'denominator is zero: consolidated EBITDA for the 12 months ending on
+    the test date'
+  /covenants/0/headroom_relative/not_defined: 'no tested value: denominator is zero: consolidated EBITDA
+    for the 12 months ending on the test date'
+  /covenants/0/outcome_basis: if_denominator_not_positive
+  /covenants/1/outcome_basis: tested_value
+tolerance: '0.00000000000000000001'
