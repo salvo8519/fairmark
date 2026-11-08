@@ -25,7 +25,7 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:-((?:alpha|beta|rc)\.\d+))?$")
+SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:-((?:alpha|beta|rc)\.\d+))?\Z")
 REPO = "salvo8519/fairmark"
 
 

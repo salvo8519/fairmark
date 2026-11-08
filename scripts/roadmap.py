@@ -49,7 +49,7 @@ STATUSES = ("open", "done", "dropped")
 TASK_KEYS = {"issue", "title", "tags", "status", "spec"}
 EPIC_KEYS = {"title", "issue", "labels", "tasks"}
 MILESTONE_KEYS = {"title", "gate", "release", "epics"}
-SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
+SEMVER = re.compile(r"^\d+\.\d+\.\d+\Z")
 CLOSES = re.compile(r"(?im)^[ \t]*(?:closes|fixes|resolves)[ \t]+#(\d+)")
 HEADER = """\
 # Source of truth for the plan: milestones, epics (parent issues) and tasks (sub-issues).

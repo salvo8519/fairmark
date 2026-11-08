@@ -72,6 +72,7 @@ milestones:
           - { issue: 134, title: "Roadmap sync tolerates changes pending in open pull requests; Pages deploy waits for slow CDN purges", status: done }
           - { issue: 152, title: "Roadmap sync treats issues closed by an open pull request as pending", status: done }
           - { issue: 142, title: "Release preparation runs as a workflow that opens the release pull request", tags: [parallel], status: done }
+          - { issue: 154, title: "Release scripts validate versions as whole strings", tags: [parallel], status: done }
       - title: "Community infrastructure"
         issue: 15
         labels: ["area:infra"]
