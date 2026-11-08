@@ -5,6 +5,7 @@ Rust crates inherit it, the Python package derives it at build time (maturin con
 `0.1.0-alpha.1` to `0.1.0a1`), and the engine stamps it into every result.
 
     python scripts/version.py show
+    python scripts/version.py show --python   # the same version in Python form (0.1.0a1)
     python scripts/version.py check            # CI: every place agrees (and the tag, if any)
     python scripts/version.py bump minor       # or major | patch | 1.2.0 | 1.2.0-rc.1
 """
@@ -96,9 +97,10 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=["show", "check", "bump"])
     parser.add_argument("spec", nargs="?")
+    parser.add_argument("--python", action="store_true", help="show: the Python (PEP 440) form")
     args = parser.parse_args()
     if args.command == "show":
-        print(current())
+        print(pep440(current()) if args.python else current())
     elif args.command == "check":
         check()
     else:
