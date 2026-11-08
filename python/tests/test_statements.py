@@ -40,3 +40,21 @@ def test_the_net_financial_position_reaches_dcf_fcff_unchanged() -> None:
     assert v.bridge["net_financial_position"] == Decimal("400")
     nc = r.years[0]["not_computed"]["balance_sheet"]
     assert any(e["output"].endswith("/invested_capital") for e in nc)
+
+
+def test_a_label_that_looks_like_a_number_stays_text() -> None:
+    """Review of PR 1 (item 6): labels name things; "2024" is not the amount 2024."""
+    r = statements.reorganise(
+        [{"label": "2024", "statutory": {"balance_sheet": {"cash": "100"}}}],
+        adjustments=[
+            {
+                "kind": "operating_cash",
+                "label": "1000",
+                "reason": "minimum cash",
+                "amounts": ["10"],
+            }
+        ],
+    )
+    assert r.years[0]["label"] == "2024"
+    assert r.years[0]["adjustments_applied"][0]["label"] == "1000"
+    assert r.years[0]["adjustments_applied"][0]["amount"] == Decimal("10")

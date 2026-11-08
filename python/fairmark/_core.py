@@ -48,6 +48,7 @@ _TEXT_KEYS = frozenset(
         "method",
         "method_version",
         "name",
+        "label",
         "output",
         "variable",
         "pointer",
