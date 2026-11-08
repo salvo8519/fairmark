@@ -203,6 +203,24 @@
       ],
       "type": "object"
     },
+    "GivenTerminal": {
+      "additionalProperties": false,
+      "description": "A terminal value given by the analyst (SPEC-0001 Decision 24): an amount at the horizon N,\nnot computed by a technique.",
+      "properties": {
+        "value": {
+          "description": "The terminal value at the horizon N, in currency units, in the terms of the cash flows,\non the basis of the DCF: the value of operations at N for `dcf.fcff` (enterprise\nbasis), the equity value at N for `dcf.fcfe` (equity basis). Any sign: a negative amount\n(for example a decommissioning cost) is reported as a warning. Discounted like the value\nof a technique.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "type": "object"
+    },
     "GordonTerminal": {
       "additionalProperties": false,
       "description": "The terms of `tv.gordon` inside the DCF: the rate is the terminal rate of the DCF and the\nlast flow is the last explicit flow.",
@@ -574,6 +592,11 @@
       ],
       "type": "object"
     },
+    "NoTerminal": {
+      "additionalProperties": false,
+      "description": "No terminal value (SPEC-0001 Decision 24): an empty object `{}`. The value covers the\nexplicit flows only.",
+      "type": "object"
+    },
     "NormalisedIncomeTerminal": {
       "additionalProperties": false,
       "description": "The terms of `tv.normalised_income` inside the DCF: the capitalisation rate is the terminal\nrate of the DCF (R19, Decision 13); no separate capitalisation rate is accepted.",
@@ -682,14 +705,14 @@
           ]
         },
         "periods": {
-          "description": "Number of periods of the stage, at least 1; one period is one year.",
+          "description": "Number of periods of the stage, at least 1; one period is one year. Default: for a\n`given` stage, the number of its `flows` or `lines`; required for `constant_growth` and\n`linear_decline`.",
           "format": "uint32",
           "minimum": 1,
           "type": "integer"
         },
         "projection": {
           "$ref": "#/$defs/Projection",
-          "description": "`given`, `constant_growth` or `linear_decline`; no default."
+          "description": "`given`, `constant_growth` or `linear_decline`. Default: `given` when the stage has\n`flows` or `lines`; required otherwise."
         },
         "to_growth": {
           "description": "For `linear_decline`: the growth of the last period of the stage, decimal fraction per\nperiod, greater than -1.",
@@ -701,18 +724,36 @@
           ]
         }
       },
-      "required": [
-        "periods",
-        "projection"
-      ],
       "type": "object"
     },
     "Terminal": {
       "additionalProperties": false,
-      "description": "The terminal technique, written as an object with exactly one key, the `tv.*` method id,\nas in `tv.compare`: `{\"tv.gordon\": {...}}`.",
+      "description": "The terminal option, written as an object with exactly one key: a `tv.*` method id, as in\n`tv.compare` (`{\"tv.gordon\": {...}}`), `given` (`{\"given\": {\"value\": ...}}`, an amount at N\ngiven by the analyst) or `none` (`{\"none\": {}}`, no terminal value).",
       "maxProperties": 1,
       "minProperties": 1,
       "properties": {
+        "given": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GivenTerminal"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A terminal value given by the analyst (`given`): `value`, an amount at N on the basis of\nthe DCF, in the terms of the cash flows."
+        },
+        "none": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NoTerminal"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "No terminal value (`none`), an empty object: the value covers the explicit flows only,\nwith a warning."
+        },
         "tv.exit_multiple": {
           "anyOf": [
             {
@@ -902,7 +943,7 @@
   "$id": "urn:fairmark:schema:dcf.fcff:v3",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Input of `dcf.fcff` (version 3). Every choice is required, with no default (R29).",
+  "description": "Input of `dcf.fcff` (version 3). The minimal input is a vector of FCFF and one WACC,\n`{\"stages\": [{\"flows\": [...]}], \"wacc\": \"0.09\"}`; every other choice is required or has\na default documented on its field, reported in the result (R29, Decision 24).",
   "properties": {
     "base_flow": {
       "description": "FCFF of the base period CF_0, in currency units: required when the first stage is\n`constant_growth` or `linear_decline`, refused when it is `given`.",
@@ -915,7 +956,7 @@
     },
     "cash_flow_terms": {
       "$ref": "#/$defs/Terms",
-      "description": "`nominal` or `real`: the terms of every amount and growth rate of the input."
+      "description": "`nominal` or `real`: the terms of every amount and growth rate of the input.\nDefault: `nominal`, reported."
     },
     "debt_like_items": {
       "description": "Debt-like items (debt equivalents) at the valuation date, for example unfunded pension\nobligations or provisions, each a label, a value in currency units (zero or more) and\nits measurement basis, subtracted from enterprise value. Do not repeat an item\nalready among the `other_items` of the net financial position. Default: none, reported.",
@@ -926,7 +967,7 @@
     },
     "discount_rate_terms": {
       "$ref": "#/$defs/Terms",
-      "description": "`nominal` or `real`: the terms of the discount rates. When they differ from\n`cash_flow_terms`, expected inflation is required (`inflation`, or\n`inflation_per_period` with `terminal_inflation`) and every rate is converted to the\nterms of the cash flows; the cash flows are never converted."
+      "description": "`nominal` or `real`: the terms of the discount rates. When they differ from\n`cash_flow_terms`, expected inflation is required (`inflation`, or\n`inflation_per_period` with `terminal_inflation`) and every rate is converted to the\nterms of the cash flows; the cash flows are never converted. Default: `nominal`,\nreported."
     },
     "inflation": {
       "description": "Expected inflation, decimal fraction per period (0.02 = 2%), greater than -1, for every\nexplicit period and for the terminal phase. Give this or `inflation_per_period`, or\nneither. With different terms it converts the discount rates by the exact Fisher\nrelation; with equal terms it only restates the perpetual growth in the other terms.\nDefault: none.",
@@ -997,7 +1038,7 @@
       ]
     },
     "stages": {
-      "description": "One to three explicit stages, in order; the explicit horizon N is the sum of their\nperiods. Each stage is `{\"periods\", \"projection\", ...}` with the fields of its\nprojection.",
+      "description": "One to three explicit stages, in order; the explicit horizon N is the sum of their\nperiods. Each stage is `{\"periods\", \"projection\", ...}` with the fields of its\nprojection; a stage of given FCFF can be just `{\"flows\": [...]}` (projection `given`\nand periods the number of flows, by default).",
       "items": {
         "$ref": "#/$defs/Stage"
       },
@@ -1006,7 +1047,7 @@
     },
     "terminal": {
       "$ref": "#/$defs/Terminal",
-      "description": "The terminal technique, an object with exactly one key, the method id, for example\n`{\"tv.gordon\": {\"growth\", \"first_flow\", ...}}`: `tv.gordon`, `tv.h_model`,\n`tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income` or\n`tv.liquidation`, on the enterprise basis."
+      "description": "The terminal option, an object with exactly one key: a technique by its method id,\nfor example `{\"tv.gordon\": {\"growth\", \"first_flow\", ...}}` (`tv.gordon`,\n`tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`,\n`tv.normalised_income` or `tv.liquidation`, on the enterprise basis);\n`{\"given\": {\"value\": ...}}`, a terminal value at N given by the analyst (the value of\noperations at N); or `{\"none\": {}}`, no terminal value. Default: `none`, the value\ncovers the given flows only, reported with a warning."
     },
     "terminal_discount_time": {
       "anyOf": [
@@ -1017,10 +1058,10 @@
           "type": "null"
         }
       ],
-      "description": "With `mid_period` timing, required: `horizon` (terminal value at t = N) or\n`mid_period` (t = N − 0.5). Refused with `end_of_period`."
+      "description": "With `mid_period` timing and a terminal value to discount, required: `horizon`\n(terminal value at t = N) or `mid_period` (t = N − 0.5). Refused with\n`end_of_period` and with no terminal value."
     },
     "terminal_inflation": {
-      "description": "Expected inflation of the terminal phase, decimal fraction per period, greater than -1;\nrequired with `inflation_per_period`, refused otherwise.",
+      "description": "Expected inflation of the terminal phase, decimal fraction per period, greater than -1;\nrequired with `inflation_per_period` when the terminal value uses a terminal rate,\nrefused otherwise.",
       "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
       "type": [
         "string",
@@ -1039,7 +1080,7 @@
     },
     "timing": {
       "$ref": "#/$defs/Timing",
-      "description": "`end_of_period` (flow k at t = k) or `mid_period` (t = k − 0.5); no default."
+      "description": "`end_of_period` (flow k at t = k) or `mid_period` (t = k − 0.5). Default:\n`end_of_period`, reported."
     },
     "wacc": {
       "description": "One WACC for every period and for the terminal value, decimal fraction per period\n(0.09 = 9%), greater than -1. Give this or `wacc_per_period`, not both.",
@@ -1066,11 +1107,7 @@
     }
   },
   "required": [
-    "stages",
-    "cash_flow_terms",
-    "discount_rate_terms",
-    "timing",
-    "terminal"
+    "stages"
   ],
   "title": "DcfFcffInput",
   "type": "object",

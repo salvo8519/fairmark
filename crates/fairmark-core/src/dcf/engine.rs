@@ -15,7 +15,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{FairmarkError, Result};
-use crate::explain::Explain;
+use crate::explain::{DefaultApplied, Explain};
 use crate::method::Method;
 use crate::num::{add, div, mul, one_plus, sub};
 use crate::rates::{real_nominal, FisherDirection, RealNominal, RealNominalInput};
@@ -26,7 +26,7 @@ use crate::types::Timing;
 use super::free_cash_flows::{
     build_up, FreeCashFlowLines, FreeCashFlows, Location, TaxChoice, FORMULA_FCFE, FORMULA_FCFF,
 };
-use super::terminal::{self, Technique, Terminal, TerminalContext, TerminalOutput};
+use super::terminal::{self, Terminal, TerminalChoice, TerminalContext, TerminalOutput};
 use std::borrow::Cow;
 
 /// Explicit stages accepted (Decision 2). Checked at run time, not in the schema, so that more
@@ -69,11 +69,17 @@ impl Projection {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Stage {
-    /// Number of periods of the stage, at least 1; one period is one year.
-    #[schemars(range(min = 1))]
-    pub periods: u32,
-    /// `given`, `constant_growth` or `linear_decline`; no default.
-    pub projection: Projection,
+    /// Number of periods of the stage, at least 1; one period is one year. Default: for a
+    /// `given` stage, the number of its `flows` or `lines`; required for `constant_growth` and
+    /// `linear_decline`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "u32", range(min = 1))]
+    pub periods: Option<u32>,
+    /// `given`, `constant_growth` or `linear_decline`. Default: `given` when the stage has
+    /// `flows` or `lines`; required otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Projection")]
+    pub projection: Option<Projection>,
     /// For `given`: the flows of the stage in currency units, exactly one per period, in the
     /// terms of `cash_flow_terms`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -187,11 +193,15 @@ pub struct TermsOutput {
     pub discount_rate_terms: Terms,
     /// `none`, `to_real` or `to_nominal`: the conversion applied to every discount rate.
     pub conversion: RateConversion,
-    /// Terminal rate as given (the single rate, or the terminal rate), decimal fraction.
-    pub terminal_rate_given: Decimal,
-    /// Terminal rate used, in the terms of the cash flows, decimal fraction.
-    pub terminal_rate_used: Decimal,
-    /// Expected inflation of the terminal phase, decimal fraction; `null` without inflation.
+    /// Terminal rate as given (the single rate, or the terminal rate), decimal fraction; `null`
+    /// when the terminal value uses no rate (no terminal value, or a given terminal value
+    /// discounted at N).
+    pub terminal_rate_given: Option<Decimal>,
+    /// Terminal rate used, in the terms of the cash flows, decimal fraction; `null` when the
+    /// terminal value uses no rate.
+    pub terminal_rate_used: Option<Decimal>,
+    /// Expected inflation of the terminal phase, decimal fraction; `null` without inflation or
+    /// when the terminal value uses no rate.
     pub terminal_inflation: Option<Decimal>,
     /// Perpetual growth stated by the terminal technique, in the terms of the cash flows,
     /// decimal fraction; `null` when the technique states none.
@@ -257,12 +267,18 @@ macro_rules! dcf_input {
                 pub $interest: Option<::rust_decimal::Decimal>,
             )?
             /// `nominal` or `real`: the terms of every amount and growth rate of the input.
-            pub cash_flow_terms: $crate::dcf::engine::Terms,
+            /// Default: `nominal`, reported.
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            #[schemars(with = "crate::dcf::engine::Terms")]
+            pub cash_flow_terms: Option<$crate::dcf::engine::Terms>,
             /// `nominal` or `real`: the terms of the discount rates. When they differ from
             /// `cash_flow_terms`, expected inflation is required (`inflation`, or
             /// `inflation_per_period` with `terminal_inflation`) and every rate is converted to the
-            /// terms of the cash flows; the cash flows are never converted.
-            pub discount_rate_terms: $crate::dcf::engine::Terms,
+            /// terms of the cash flows; the cash flows are never converted. Default: `nominal`,
+            /// reported.
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            #[schemars(with = "crate::dcf::engine::Terms")]
+            pub discount_rate_terms: Option<$crate::dcf::engine::Terms>,
             /// Expected inflation, decimal fraction per period (0.02 = 2%), greater than -1, for every
             /// explicit period and for the terminal phase. Give this or `inflation_per_period`, or
             /// neither. With different terms it converts the discount rates by the exact Fisher
@@ -276,7 +292,8 @@ macro_rules! dcf_input {
             #[serde(default, skip_serializing_if = "Option::is_none")]
             pub inflation_per_period: Option<Vec<::rust_decimal::Decimal>>,
             /// Expected inflation of the terminal phase, decimal fraction per period, greater than -1;
-            /// required with `inflation_per_period`, refused otherwise.
+            /// required with `inflation_per_period` when the terminal value uses a terminal rate,
+            /// refused otherwise.
             #[serde(default, skip_serializing_if = "Option::is_none")]
             pub terminal_inflation: Option<::rust_decimal::Decimal>,
             $(#[$single_doc])*
@@ -288,30 +305,54 @@ macro_rules! dcf_input {
             $(#[$terminal_rate_doc])*
             #[serde(default, skip_serializing_if = "Option::is_none")]
             pub $terminal_rate: Option<::rust_decimal::Decimal>,
-            /// `end_of_period` (flow k at t = k) or `mid_period` (t = k − 0.5); no default.
-            pub timing: $crate::types::Timing,
-            /// With `mid_period` timing, required: `horizon` (terminal value at t = N) or
-            /// `mid_period` (t = N − 0.5). Refused with `end_of_period`.
+            /// `end_of_period` (flow k at t = k) or `mid_period` (t = k − 0.5). Default:
+            /// `end_of_period`, reported.
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            #[schemars(with = "crate::types::Timing")]
+            pub timing: Option<$crate::types::Timing>,
+            /// With `mid_period` timing and a terminal value to discount, required: `horizon`
+            /// (terminal value at t = N) or `mid_period` (t = N − 0.5). Refused with
+            /// `end_of_period` and with no terminal value.
             #[serde(default, skip_serializing_if = "Option::is_none")]
             pub terminal_discount_time: Option<$crate::dcf::engine::TerminalDiscountTime>,
             $(#[$terminal_doc])*
-            pub terminal: $crate::dcf::terminal::Terminal,
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            #[schemars(with = "crate::dcf::terminal::Terminal")]
+            pub terminal: Option<$crate::dcf::terminal::Terminal>,
             $($bridge)*
         }
 
         impl $name {
-            /// The engine's view of the input: every shared field, the basis and the JSON
-            /// names of the rate fields.
-            pub(crate) fn engine_input(&self) -> $crate::dcf::engine::EngineInput<'_> {
+            /// Fills in the documented defaults of the fields not given (SPEC-0001 Decision 24,
+            /// R31) and returns them in input order; a field given is never changed.
+            pub fn apply_defaults(&mut self) -> Vec<$crate::explain::DefaultApplied> {
+                $crate::dcf::engine::apply_defaults($crate::dcf::engine::Defaultable {
+                    stages: &mut self.stages,
+                    cash_flow_terms: &mut self.cash_flow_terms,
+                    discount_rate_terms: &mut self.discount_rate_terms,
+                    timing: &mut self.timing,
+                    terminal: &mut self.terminal,
+                })
+            }
+
+            /// The engine's view of an input whose defaults were filled in: every shared field,
+            /// the basis, the JSON names of the rate fields and which terms were defaulted.
+            pub(crate) fn engine_input(
+                &self,
+                defaults: &[$crate::explain::DefaultApplied],
+            ) -> $crate::error::Result<$crate::dcf::engine::EngineInput<'_>> {
                 // Only the equity basis has the field; elsewhere the rate is absent.
                 let interest_tax_rate: Option<::rust_decimal::Decimal> =
                     None $(.or(self.$interest))?;
-                $crate::dcf::engine::EngineInput {
+                let missing = || $crate::error::FairmarkError::Internal("DCF defaults not applied");
+                let defaulted = |field: &str| defaults.iter().any(|d| d.field == field);
+                Ok($crate::dcf::engine::EngineInput {
                     basis: $basis,
                     stages: &self.stages,
                     base_flow: self.base_flow,
-                    cash_flow_terms: self.cash_flow_terms,
-                    discount_rate_terms: self.discount_rate_terms,
+                    cash_flow_terms: self.cash_flow_terms.ok_or_else(missing)?,
+                    discount_rate_terms: self.discount_rate_terms.ok_or_else(missing)?,
+                    defaulted_terms: (defaulted("/cash_flow_terms"), defaulted("/discount_rate_terms")),
                     inflation: $crate::dcf::engine::InflationInput {
                         single: self.inflation,
                         per_period: self.inflation_per_period.as_deref(),
@@ -327,20 +368,122 @@ macro_rules! dcf_input {
                             terminal: stringify!($terminal_rate),
                         },
                     },
-                    timing: self.timing,
+                    timing: self.timing.ok_or_else(missing)?,
                     terminal_discount_time: self.terminal_discount_time,
-                    terminal: &self.terminal,
+                    terminal: self.terminal.as_ref().ok_or_else(missing)?,
                     taxes: $crate::dcf::free_cash_flows::TaxChoice {
                         notional_tax_rate: self.notional_tax_rate,
                         negative_ebit: self.negative_ebit,
                         interest_tax_rate,
                     },
-                }
+                })
             }
         }
     };
 }
 pub(crate) use dcf_input;
+
+// ---------------------------------------------------------------- documented defaults
+
+/// The fields of a DCF input that have a documented default (SPEC-0001 Decision 24).
+pub struct Defaultable<'a> {
+    pub stages: &'a mut [Stage],
+    pub cash_flow_terms: &'a mut Option<Terms>,
+    pub discount_rate_terms: &'a mut Option<Terms>,
+    pub timing: &'a mut Option<Timing>,
+    pub terminal: &'a mut Option<Terminal>,
+}
+
+const NOMINAL_REASON: &str = "business plans and discount rates (WACC, cost of equity) are \
+    commonly stated in nominal terms, at current prices";
+
+/// SPEC-0001 Decision 24, R31: fills in, once, every documented default of the DCF input and
+/// returns one entry per field filled, in input order. A field given is never changed. A
+/// stage whose default cannot be decided (no `flows` or `lines`, both, or none of them
+/// non-empty) is left as it is, and the checks of the engine name the field to give.
+pub fn apply_defaults(d: Defaultable<'_>) -> Vec<DefaultApplied> {
+    let mut out = Vec::new();
+    for (i, s) in d.stages.iter_mut().enumerate() {
+        let amounts = match (&s.flows, &s.lines) {
+            (Some(f), None) => Some((f.len(), "flows")),
+            (None, Some(l)) => Some((l.len(), "lines")),
+            _ => None,
+        };
+        if s.projection.is_none() && amounts.is_some() {
+            s.projection = Some(Projection::Given);
+            out.push(DefaultApplied::new(
+                format!("/stages/{i}/projection"),
+                serde_json::json!("given"),
+                "a stage with flows or lines is a stage of given flows",
+            ));
+        }
+        if let (None, Some(Projection::Given), Some((n, what))) = (s.periods, s.projection, amounts)
+        {
+            if let Ok(n) = u32::try_from(n) {
+                if n > 0 {
+                    s.periods = Some(n);
+                    out.push(DefaultApplied::new(
+                        format!("/stages/{i}/periods"),
+                        serde_json::json!(n),
+                        if what == "flows" {
+                            "the number of flows given in the stage"
+                        } else {
+                            "the number of lines given in the stage"
+                        },
+                    ));
+                }
+            }
+        }
+    }
+    for (field, terms) in [
+        ("/cash_flow_terms", d.cash_flow_terms),
+        ("/discount_rate_terms", d.discount_rate_terms),
+    ] {
+        if terms.is_none() {
+            *terms = Some(Terms::Nominal);
+            out.push(DefaultApplied::new(
+                field,
+                serde_json::json!("nominal"),
+                NOMINAL_REASON,
+            ));
+        }
+    }
+    if d.timing.is_none() {
+        *d.timing = Some(Timing::EndOfPeriod);
+        out.push(DefaultApplied::new(
+            "/timing",
+            serde_json::json!("end_of_period"),
+            "each flow at the end of its period, the convention of tvm.npv and of most published \
+             examples",
+        ));
+    }
+    if d.terminal.is_none() {
+        *d.terminal = Some(Terminal::none());
+        out.push(DefaultApplied::new(
+            "/terminal",
+            serde_json::json!({"none": {}}),
+            "no terminal value: the value covers the given flows only (a holding period equal \
+             to the explicit horizon); give `/terminal` to add one",
+        ));
+    }
+    out
+}
+
+/// A typed call of a DCF method (ADR 0009): the defaults of the input filled in on a copy, the
+/// calculation, and the defaults reported first in the conventions, as the registry reports
+/// them.
+pub(crate) fn typed_call<I: Clone, O>(
+    input: &I,
+    apply: impl FnOnce(&mut I) -> Vec<DefaultApplied>,
+    compute: impl FnOnce(&I, &[DefaultApplied]) -> Result<(O, Explain)>,
+) -> Result<(O, Explain)> {
+    let mut resolved = input.clone();
+    let defaults = apply(&mut resolved);
+    let (out, mut ex) = compute(&resolved, &defaults)?;
+    ex.conventions
+        .splice(0..0, defaults.iter().map(DefaultApplied::convention));
+    Ok((out, ex))
+}
 
 // ---------------------------------------------------------------- engine input and output
 
@@ -374,6 +517,9 @@ pub(crate) struct EngineInput<'a> {
     pub base_flow: Option<Decimal>,
     pub cash_flow_terms: Terms,
     pub discount_rate_terms: Terms,
+    /// Whether `cash_flow_terms` and `discount_rate_terms` took their default (Decision 24),
+    /// for the message of `FM-E024`.
+    pub defaulted_terms: (bool, bool),
     pub inflation: InflationInput<'a>,
     pub rates: RateInput<'a>,
     pub timing: Timing,
@@ -492,13 +638,20 @@ fn check_stages(
     let mut resolved = Vec::with_capacity(stages.len());
     for (i, s) in stages.iter().enumerate() {
         let at = format!("/stages/{i}");
-        if s.periods == 0 {
+        if s.periods == Some(0) {
             return Err(invalid(format!(
                 "`{at}/periods` is 0; a stage has at least 1 period"
             )));
         }
-        horizon += u64::from(s.periods);
-        if s.projection == Projection::Given {
+        // Decision 24: the projection defaults to `given` only for a stage with flows or lines.
+        let Some(projection) = s.projection else {
+            return Err(invalid(format!(
+                "`{at}/projection` is required: give `given` with `flows` or `lines`, \
+                 `constant_growth` with `growth`, or `linear_decline` with `from_growth` and \
+                 `to_growth`"
+            )));
+        };
+        if projection == Projection::Given {
             match (&s.flows, &s.lines) {
                 (Some(_), Some(_)) => {
                     return Err(invalid(format!(
@@ -518,9 +671,25 @@ fn check_stages(
             return Err(invalid(format!(
                 "`{at}/lines` is not used by the projection `{}`; remove it (line items belong \
                  to a `given` stage)",
-                s.projection.label()
+                projection.label()
             )));
         }
+        // Decision 24: the periods of a `given` stage default to the number of its flows or
+        // lines; a generated stage states them.
+        let Some(periods) = s.periods else {
+            return Err(invalid(match projection {
+                Projection::Given => format!(
+                    "`{at}/flows` is empty: a stage has at least 1 period; give the flows of the \
+                     stage"
+                ),
+                _ => format!(
+                    "`{at}/periods` is required by the projection `{}`: give the number of \
+                     periods of the stage",
+                    projection.label()
+                ),
+            }));
+        };
+        horizon += u64::from(periods);
         // For `given`, `flows` stands for `flows` or `lines`, checked above.
         let present = [
             ("flows", s.flows.is_some() || s.lines.is_some()),
@@ -528,7 +697,7 @@ fn check_stages(
             ("from_growth", s.from_growth.is_some()),
             ("to_growth", s.to_growth.is_some()),
         ];
-        let own: &[&str] = match s.projection {
+        let own: &[&str] = match projection {
             Projection::Given => &["flows"],
             Projection::ConstantGrowth => &["growth"],
             Projection::LinearDecline => &["from_growth", "to_growth"],
@@ -539,39 +708,39 @@ fn check_stages(
                 return Err(invalid(format!(
                     "`{at}/{field}` is not used by the projection `{}`; remove it (the \
                      projection takes {})",
-                    s.projection.label(),
+                    projection.label(),
                     own.join(" and ")
                 )));
             }
             if !given && belongs {
                 return Err(invalid(format!(
                     "`{at}/{field}` is required by the projection `{}`",
-                    s.projection.label()
+                    projection.label()
                 )));
             }
         }
         if let Some(lines) = &s.lines {
-            if lines.len() != s.periods as usize {
+            if lines.len() != periods as usize {
                 return Err(count(format!(
                     "stage {} (`{at}/lines`) has {} lines for {} periods; give exactly {} \
                      lines or set `{at}/periods` to {}",
                     i + 1,
                     lines.len(),
-                    s.periods,
-                    s.periods,
+                    periods,
+                    periods,
                     lines.len()
                 )));
             }
         }
         if let Some(flows) = &s.flows {
-            if flows.len() != s.periods as usize {
+            if flows.len() != periods as usize {
                 return Err(count(format!(
                     "stage {} (`{at}/flows`) has {} flows for {} periods; give exactly {} \
                      flows or set `{at}/periods` to {}",
                     i + 1,
                     flows.len(),
-                    s.periods,
-                    s.periods,
+                    periods,
+                    periods,
                     flows.len()
                 )));
             }
@@ -591,7 +760,7 @@ fn check_stages(
             }
         }
         let kind = match (
-            s.projection,
+            projection,
             s.flows.as_deref(),
             s.growth,
             s.from_growth,
@@ -609,8 +778,8 @@ fn check_stages(
             _ => return Err(FairmarkError::Internal("stage fields not checked")),
         };
         resolved.push(ResolvedStage {
-            periods: s.periods,
-            projection: s.projection,
+            periods,
+            projection,
             kind,
             built_up: None,
         });
@@ -621,12 +790,12 @@ fn check_stages(
              {MAX_PERIODS} periods"
         )));
     }
-    let generated = stages[0].projection != Projection::Given;
+    let generated = resolved[0].projection != Projection::Given;
     match (generated, base_flow) {
         (true, None) => Err(count(format!(
             "`/base_flow` is missing: the first stage (`/stages/0`) is `{}` and grows from the \
              base flow CF_0; give `/base_flow`",
-            stages[0].projection.label()
+            resolved[0].projection.label()
         ))),
         (false, Some(_)) => Err(count(
             "`/base_flow` is given but the first stage (`/stages/0`) is `given`; remove \
@@ -637,10 +806,22 @@ fn check_stages(
     }
 }
 
+/// The period rates and the terminal rate with the JSON pointer of its field, if one is used.
+type ResolvedRates = (Vec<Decimal>, Option<(Decimal, String)>);
+
 /// R12, R13: one rate for every period and the terminal value, or one per period plus a
-/// terminal rate. Returns the period rates and the terminal rate with its field name.
-fn resolve_rates(r: &RateInput<'_>, n: usize) -> Result<(Vec<Decimal>, Decimal, String)> {
+/// terminal rate. Returns the period rates and the terminal rate with its field name; no
+/// terminal rate when the terminal value uses none (`uses_terminal_rate` false, Decision 24),
+/// in which case a separate terminal rate is refused.
+fn resolve_rates(r: &RateInput<'_>, n: usize, uses_terminal_rate: bool) -> Result<ResolvedRates> {
     let f = &r.fields;
+    if !uses_terminal_rate && r.single.is_none() && r.per_period.is_some() && r.terminal.is_some() {
+        return Err(invalid(format!(
+            "`/{}` is not used: the terminal value takes no terminal rate (no terminal value, or \
+             a given terminal value discounted at the horizon N); remove `/{}`",
+            f.terminal, f.terminal
+        )));
+    }
     let (rates, terminal, terminal_field) = match (r.single, r.per_period, r.terminal) {
         (Some(_), Some(_), _) => {
             return Err(invalid(format!(
@@ -661,14 +842,14 @@ fn resolve_rates(r: &RateInput<'_>, n: usize) -> Result<(Vec<Decimal>, Decimal, 
                 f.terminal, f.single, f.terminal, f.per_period
             )))
         }
-        (None, Some(_), None) => {
+        (None, Some(_), None) if uses_terminal_rate => {
             return Err(invalid(format!(
                 "`/{}` is required with `/{}`: give the rate of the terminal phase",
                 f.terminal, f.per_period
             )))
         }
-        (Some(rate), None, None) => (vec![rate; n], rate, format!("/{}", f.single)),
-        (None, Some(list), Some(term)) => {
+        (Some(rate), None, None) => (vec![rate; n], Some(rate), format!("/{}", f.single)),
+        (None, Some(list), term) => {
             if list.len() != n {
                 return Err(count(format!(
                     "`/{}` has {} rates for an explicit horizon of {n} periods (the sum of \
@@ -680,6 +861,7 @@ fn resolve_rates(r: &RateInput<'_>, n: usize) -> Result<(Vec<Decimal>, Decimal, 
             (list.to_vec(), term, format!("/{}", f.terminal))
         }
     };
+    let terminal = terminal.filter(|_| uses_terminal_rate);
     for (k, rate) in rates.iter().enumerate() {
         if *rate <= -Decimal::ONE {
             let field = match r.single {
@@ -693,21 +875,22 @@ fn resolve_rates(r: &RateInput<'_>, n: usize) -> Result<(Vec<Decimal>, Decimal, 
             });
         }
     }
-    if terminal <= -Decimal::ONE {
-        return Err(FairmarkError::DiscountRateOutOfRange {
+    match terminal {
+        Some(t) if t <= -Decimal::ONE => Err(FairmarkError::DiscountRateOutOfRange {
             field: terminal_field,
-            rate: terminal,
+            rate: t,
             converted_with: None,
-        });
+        }),
+        _ => Ok((rates, terminal.map(|t| (t, terminal_field)))),
     }
-    Ok((rates, terminal, terminal_field))
 }
 
 /// Expected inflation after validation: the value of each explicit period, the value of the
 /// terminal phase and the JSON pointers that name them.
 struct Inflation {
     per_period: Vec<Decimal>,
-    terminal: Decimal,
+    /// `None` when the terminal value uses no terminal rate (Decision 24).
+    terminal: Option<Decimal>,
     /// True for one inflation (`/inflation`), false for the per-period form.
     single: bool,
 }
@@ -727,10 +910,22 @@ impl Inflation {
 /// a terminal inflation, or none; each greater than -1 (`FM-E003` otherwise, Decision 19).
 /// Checked whenever given (R18 too). A terminal inflation next to one inflation is refused
 /// (Decision 18).
-fn resolve_inflation(i: &InflationInput<'_>, n: usize) -> Result<Option<Inflation>> {
+fn resolve_inflation(
+    i: &InflationInput<'_>,
+    n: usize,
+    uses_terminal_rate: bool,
+) -> Result<Option<Inflation>> {
     let resolved =
         match (i.single, i.per_period, i.terminal) {
             (None, None, None) => return Ok(None),
+            (None, Some(_), Some(_)) if !uses_terminal_rate => {
+                return Err(invalid(
+                    "`/terminal_inflation` is not used: the terminal value takes no terminal rate \
+                 (no terminal value, or a given terminal value discounted at the horizon N); \
+                 remove `/terminal_inflation`"
+                        .to_owned(),
+                ))
+            }
             (Some(_), Some(_), _) => {
                 return Err(invalid(
                     "give exactly one of `/inflation` and `/inflation_per_period`, not both: one \
@@ -745,7 +940,7 @@ fn resolve_inflation(i: &InflationInput<'_>, n: usize) -> Result<Option<Inflatio
                  `/terminal_inflation`, or give `/inflation_per_period` instead"
                     .to_owned(),
             )),
-            (None, Some(_), None) => {
+            (None, Some(_), None) if uses_terminal_rate => {
                 return Err(invalid(
                     "`/terminal_inflation` is required with `/inflation_per_period`: give the \
                  expected inflation of the terminal phase"
@@ -761,10 +956,10 @@ fn resolve_inflation(i: &InflationInput<'_>, n: usize) -> Result<Option<Inflatio
             }
             (Some(one), None, None) => Inflation {
                 per_period: vec![one; n],
-                terminal: one,
+                terminal: uses_terminal_rate.then_some(one),
                 single: true,
             },
-            (None, Some(list), Some(terminal)) => {
+            (None, Some(list), terminal) => {
                 if list.len() != n {
                     return Err(count(format!(
                         "`/inflation_per_period` has {} values for an explicit horizon of {n} \
@@ -784,7 +979,7 @@ fn resolve_inflation(i: &InflationInput<'_>, n: usize) -> Result<Option<Inflatio
         .iter()
         .enumerate()
         .map(|(k, v)| (Some(k), *v))
-        .chain(std::iter::once((None, resolved.terminal)));
+        .chain(resolved.terminal.map(|t| (None, t)));
     for (k, v) in values {
         if v <= -Decimal::ONE {
             // Decision 19: the code of `rates.real_nominal` for the same value (FM-E003).
@@ -825,9 +1020,10 @@ struct RatesUsed {
     conversion: RateConversion,
     /// Rate used in each period, with the inflation and the Fisher formula when converted.
     per_period: Vec<(Decimal, Option<(Decimal, String)>)>,
-    terminal: Decimal,
+    /// `None` when the terminal value uses no terminal rate (Decision 24).
+    terminal: Option<Decimal>,
     terminal_formula: Option<String>,
-    /// JSON pointer of the terminal rate as given.
+    /// JSON pointer of the terminal rate as given; empty without a terminal rate.
     terminal_field: String,
     /// JSON pointer of the inflation the terminal rate was converted with, if it was.
     terminal_converted_with: Option<String>,
@@ -840,35 +1036,51 @@ fn resolve_terms(
     ex: &mut Explain,
     input: &EngineInput<'_>,
     rates: &[Decimal],
-    terminal: (Decimal, &str),
+    terminal: Option<(Decimal, &str)>,
     inflation: Option<&Inflation>,
 ) -> Result<RatesUsed> {
     let (flows, given) = (input.cash_flow_terms, input.discount_rate_terms);
     let f = &input.rates.fields;
-    let (terminal_rate, terminal_field) = terminal;
+    let terminal_field = terminal.map(|(_, f)| f).unwrap_or_default();
     match inflation {
-        Some(i) if i.single => ex.convention(format!(
-            "expected inflation: one rate, {}, for every period and for the terminal phase \
-             (`/inflation`)",
-            i.terminal
-        )),
-        Some(i) => ex.convention(format!(
-            "expected inflation: one rate per period (`/inflation_per_period`); terminal \
-             inflation {} (`/terminal_inflation`)",
-            i.terminal
-        )),
+        Some(i) if i.single => ex.convention(match i.terminal {
+            Some(t) => format!(
+                "expected inflation: one rate, {t}, for every period and for the terminal phase \
+                 (`/inflation`)"
+            ),
+            None => format!(
+                "expected inflation: one rate, {}, for every period (`/inflation`); the terminal \
+                 value uses no terminal rate",
+                i.per_period.first().copied().unwrap_or_default()
+            ),
+        }),
+        Some(i) => ex.convention(match i.terminal {
+            Some(t) => format!(
+                "expected inflation: one rate per period (`/inflation_per_period`); terminal \
+                 inflation {t} (`/terminal_inflation`)"
+            ),
+            None => "expected inflation: one rate per period (`/inflation_per_period`); no \
+                     terminal inflation, the terminal value uses no terminal rate"
+                .to_owned(),
+        }),
         None => {}
     }
     if flows == given {
         if let Some(i) = inflation.filter(|i| !i.single) {
             let values: Vec<String> = i.per_period.iter().map(Decimal::to_string).collect();
-            ex.convention(format!(
-                "expected inflation per period ({}) validated but not used: the terms are \
-                 equal, no discount rate is converted (R18); only the terminal inflation {} \
-                 restates the perpetual growth",
-                values.join(", "),
-                i.terminal
-            ));
+            ex.convention(match i.terminal {
+                Some(t) => format!(
+                    "expected inflation per period ({}) validated but not used: the terms are \
+                     equal, no discount rate is converted (R18); only the terminal inflation {t} \
+                     restates the perpetual growth",
+                    values.join(", ")
+                ),
+                None => format!(
+                    "expected inflation per period ({}) validated but not used: the terms are \
+                     equal, no discount rate is converted (R18)",
+                    values.join(", ")
+                ),
+            });
         }
         ex.convention(match inflation {
             None => format!(
@@ -888,19 +1100,34 @@ fn resolve_terms(
         return Ok(RatesUsed {
             conversion: RateConversion::None,
             per_period: rates.iter().map(|r| (*r, None)).collect(),
-            terminal: terminal_rate,
+            terminal: terminal.map(|(r, _)| r),
             terminal_formula: None,
             terminal_field: terminal_field.to_owned(),
             terminal_converted_with: None,
         });
     }
     let Some(inflation) = inflation else {
+        // Decision 24 (c): say which term came from its default and how to state it.
+        let defaulted = match input.defaulted_terms {
+            (true, _) => Some(("cash_flow_terms", flows, given)),
+            (_, true) => Some(("discount_rate_terms", given, flows)),
+            _ => None,
+        };
+        let note = match defaulted {
+            Some((field, default, other)) => format!(
+                "; `/{field}` was not given and defaults to {}: give `{field}: {}`, or give \
+                 expected inflation",
+                default.label(),
+                other.label()
+            ),
+            None => String::new(),
+        };
         return Err(FairmarkError::TermsMismatch(format!(
             "`/cash_flow_terms` is {} and `/discount_rate_terms` is {}, and no expected \
              inflation is given; discounting {} flows at {} rates misstates the value. Either \
              give expected inflation in `/inflation` (or `/inflation_per_period` with \
              `/terminal_inflation`), so that the discount rates are converted to {} terms, or \
-             restate the discount rates or the cash flows in the same terms",
+             restate the discount rates or the cash flows in the same terms{note}",
             flows.label(),
             given.label(),
             flows.label(),
@@ -910,12 +1137,17 @@ fn resolve_terms(
     };
     let source = format!("{} v{}", RealNominal::ID, RealNominal::VERSION);
     ex.convention(format!(
-        "terms: cash flows and growth rates {}, discount rates {}; every discount rate, the \
-         terminal rate included, converted to {} terms with expected inflation by the exact \
-         Fisher relation (1 + nominal) = (1 + real) × (1 + inflation) ({source}); cash flows and \
-         growth rates are never converted (Decision 5)",
+        "terms: cash flows and growth rates {}, discount rates {}; every discount rate{}, \
+         converted to {} terms with expected inflation by the exact Fisher relation \
+         (1 + nominal) = (1 + real) × (1 + inflation) ({source}); cash flows and growth rates \
+         are never converted (Decision 5)",
         flows.label(),
         given.label(),
+        if terminal.is_some() {
+            ", the terminal rate included"
+        } else {
+            ""
+        },
         flows.label()
     ));
     let mut per_period = Vec::with_capacity(rates.len());
@@ -934,7 +1166,24 @@ fn resolve_terms(
         }
         per_period.push((used, Some((*infl, formula))));
     }
-    let (used, formula) = fisher(terminal_rate, inflation.terminal, flows)?;
+    let conversion = match flows {
+        Terms::Real => RateConversion::ToReal,
+        Terms::Nominal => RateConversion::ToNominal,
+    };
+    let Some((terminal_rate, _)) = terminal else {
+        return Ok(RatesUsed {
+            conversion,
+            per_period,
+            terminal: None,
+            terminal_formula: None,
+            terminal_field: String::new(),
+            terminal_converted_with: None,
+        });
+    };
+    let terminal_inflation = inflation.terminal.ok_or(FairmarkError::Internal(
+        "terminal rate without terminal inflation",
+    ))?;
+    let (used, formula) = fisher(terminal_rate, terminal_inflation, flows)?;
     let converted_with = inflation.field(None);
     if used <= -Decimal::ONE {
         return Err(FairmarkError::DiscountRateOutOfRange {
@@ -944,12 +1193,9 @@ fn resolve_terms(
         });
     }
     Ok(RatesUsed {
-        conversion: match flows {
-            Terms::Real => RateConversion::ToReal,
-            Terms::Nominal => RateConversion::ToNominal,
-        },
+        conversion,
         per_period,
-        terminal: used,
+        terminal: Some(used),
         terminal_formula: Some(formula),
         terminal_field: terminal_field.to_owned(),
         terminal_converted_with: Some(converted_with.as_str().into()),
@@ -961,15 +1207,15 @@ fn resolve_terms(
 /// inflation (a real decline). Returns the growth and its restatement.
 fn restate_growth(
     ex: &mut Explain,
-    technique: Technique<'_>,
+    choice: TerminalChoice<'_>,
     flows: Terms,
     inflation: Option<&Inflation>,
 ) -> Result<(Option<Decimal>, Option<Decimal>)> {
-    let growth = technique.perpetual_growth();
+    let growth = choice.perpetual_growth();
     let Some(inflation) = inflation else {
         return Ok((growth, None));
     };
-    let id = technique.id();
+    let id = choice.id();
     let Some(g) = growth else {
         ex.convention(format!(
             "perpetual growth not restated in {} terms: {id} states no perpetual growth (R17)",
@@ -978,7 +1224,9 @@ fn restate_growth(
         return Ok((None, None));
     };
     let other = flows.other();
-    let pi = inflation.terminal;
+    let pi = inflation.terminal.ok_or(FairmarkError::Internal(
+        "perpetual growth without terminal inflation",
+    ))?;
     let (restated, formula) = fisher(g, pi, other)?;
     ex.step(
         format!("Perpetual growth in {} terms", other.label()),
@@ -1002,15 +1250,24 @@ fn restate_growth(
 }
 
 /// R21: the terminal discounting time is required under mid-period timing and refused at end
-/// of period.
-fn check_timing(timing: Timing, time: Option<TerminalDiscountTime>) -> Result<()> {
+/// of period; with no terminal value it is refused too (Decision 24).
+fn check_timing(
+    timing: Timing,
+    time: Option<TerminalDiscountTime>,
+    no_terminal_value: bool,
+) -> Result<()> {
     match (timing, time) {
         (Timing::EndOfPeriod, Some(_)) => Err(invalid(
             "`/terminal_discount_time` is not accepted with `/timing` = end_of_period: the \
              terminal value is then discounted at the horizon N; remove it"
                 .to_owned(),
         )),
-        (Timing::MidPeriod, None) => Err(invalid(
+        (Timing::MidPeriod, Some(_)) if no_terminal_value => Err(invalid(
+            "`/terminal_discount_time` is not used: there is no terminal value to discount \
+             (`/terminal` is none); remove it, or give a terminal value in `/terminal`"
+                .to_owned(),
+        )),
+        (Timing::MidPeriod, None) if !no_terminal_value => Err(invalid(
             "`/terminal_discount_time` is required with `/timing` = mid_period: give `horizon` \
              (t = N) or `mid_period` (t = N - 0.5)"
                 .to_owned(),
@@ -1235,19 +1492,31 @@ fn period_timing(t: Timing) -> PeriodTiming {
 pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOutput> {
     let (mut stages, n) = check_stages(input.stages, input.base_flow)?;
     build_up_stages(&mut stages, input.basis, &input.taxes, ex)?;
-    let (given_rates, terminal_given, terminal_field) = resolve_rates(&input.rates, n)?;
-    let inflation = resolve_inflation(&input.inflation, n)?;
+    // The terminal option is read first, because it decides whether a terminal rate is used
+    // (Decision 24); an error in it is reported where the technique is checked, as before.
+    let choice = terminal::choose(input.terminal);
+    let uses_terminal_rate = match &choice {
+        Ok(c) => c.uses_terminal_rate(input.timing, input.terminal_discount_time),
+        Err(_) => true,
+    };
+    let no_terminal_value = matches!(choice, Ok(TerminalChoice::None));
+    let (given_rates, terminal_given) = resolve_rates(&input.rates, n, uses_terminal_rate)?;
+    let inflation = resolve_inflation(&input.inflation, n, uses_terminal_rate)?;
     let used = resolve_terms(
         ex,
         input,
         &given_rates,
-        (terminal_given, &terminal_field),
+        terminal_given.as_ref().map(|(r, f)| (*r, f.as_str())),
         inflation.as_ref(),
     )?;
-    check_timing(input.timing, input.terminal_discount_time)?;
+    check_timing(
+        input.timing,
+        input.terminal_discount_time,
+        no_terminal_value,
+    )?;
     let terminal_rate = used.terminal;
-    let technique = terminal::check(
-        input.terminal,
+    let choice = terminal::check(
+        choice?,
         terminal_rate,
         &used.terminal_field,
         used.terminal_converted_with.as_deref(),
@@ -1267,13 +1536,20 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
             input.discount_rate_terms.label()
         ),
     };
-    ex.convention(match input.rates.single {
-        Some(r) => format!(
+    ex.convention(match (input.rates.single, &terminal_given) {
+        (Some(r), Some(_)) => format!(
             "discount rate: one rate, {r}, for every period and for the terminal value{as_given}"
         ),
-        None => format!(
-            "discount rate: one rate per period; terminal rate {terminal_given} given \
-             separately{as_given}"
+        (Some(r), None) => format!(
+            "discount rate: one rate, {r}, for every period{as_given}; the terminal value uses \
+             no terminal rate"
+        ),
+        (None, Some((t, _))) => format!(
+            "discount rate: one rate per period; terminal rate {t} given separately{as_given}"
+        ),
+        (None, None) => format!(
+            "discount rate: one rate per period{as_given}; the terminal value uses no terminal \
+             rate"
         ),
     });
     ex.convention(format!(
@@ -1401,30 +1677,37 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
         pv_explicit,
     );
 
-    if let (Some(formula), Some(i)) = (&used.terminal_formula, &inflation) {
-        ex.step("Terminal rate: as given", "as given", terminal_given);
-        ex.step(
-            "Terminal rate: expected inflation of the terminal phase",
-            "as given",
-            i.terminal,
-        );
+    if let (Some(formula), Some(i), Some((given, _)), Some(rate)) = (
+        &used.terminal_formula,
+        &inflation,
+        &terminal_given,
+        terminal_rate,
+    ) {
+        ex.step("Terminal rate: as given", "as given", *given);
+        if let Some(t) = i.terminal {
+            ex.step(
+                "Terminal rate: expected inflation of the terminal phase",
+                "as given",
+                t,
+            );
+        }
         ex.step(
             format!(
                 "Terminal rate used ({} terms)",
                 input.cash_flow_terms.label()
             ),
             formula.clone(),
-            terminal_rate,
+            rate,
         );
     }
     let (perpetual_growth, perpetual_growth_other_terms) =
-        restate_growth(ex, technique, input.cash_flow_terms, inflation.as_ref())?;
+        restate_growth(ex, choice, input.cash_flow_terms, inflation.as_ref())?;
 
     let last = &projected[n - 1];
     let terminal = terminal::value(
         ex,
         &TerminalContext {
-            technique,
+            choice,
             basis: input.basis,
             timing: input.timing,
             discount_time: input.terminal_discount_time,
@@ -1444,9 +1727,9 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
             cash_flow_terms: input.cash_flow_terms,
             discount_rate_terms: input.discount_rate_terms,
             conversion: used.conversion,
-            terminal_rate_given: terminal_given,
+            terminal_rate_given: terminal_given.map(|(r, _)| r),
             terminal_rate_used: terminal_rate,
-            terminal_inflation: inflation.as_ref().map(|i| i.terminal),
+            terminal_inflation: inflation.as_ref().and_then(|i| i.terminal),
             perpetual_growth,
             perpetual_growth_other_terms,
         },

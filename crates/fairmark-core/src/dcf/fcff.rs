@@ -9,19 +9,22 @@ use serde::Serialize;
 use super::bridge::{self, BridgeClaim};
 use super::engine::{self, dcf_input, DiscountedValue};
 use crate::error::Result;
-use crate::explain::Explain;
+use crate::explain::{DefaultApplied, Explain};
 use crate::method::Method;
 use crate::num::{add, sub};
 use crate::ratios::{NetFinancialPosition, NFP_CONVENTION};
 use crate::tv::{Line, TerminalBasis};
 
 dcf_input! {
-    /// Input of `dcf.fcff` (version 3). Every choice is required, with no default (R29).
+    /// Input of `dcf.fcff` (version 3). The minimal input is a vector of FCFF and one WACC,
+    /// `{"stages": [{"flows": [...]}], "wacc": "0.09"}`; every other choice is required or has
+    /// a default documented on its field, reported in the result (R29, Decision 24).
     pub struct DcfFcffInput {
         basis: TerminalBasis::Enterprise,
         /// One to three explicit stages, in order; the explicit horizon N is the sum of their
         /// periods. Each stage is `{"periods", "projection", ...}` with the fields of its
-        /// projection.
+        /// projection; a stage of given FCFF can be just `{"flows": [...]}` (projection `given`
+        /// and periods the number of flows, by default).
         stages,
         /// FCFF of the base period CF_0, in currency units: required when the first stage is
         /// `constant_growth` or `linear_decline`, refused when it is `given`.
@@ -44,10 +47,13 @@ dcf_input! {
             /// with `wacc_per_period`, refused with `wacc`.
             terminal_wacc,
         },
-        /// The terminal technique, an object with exactly one key, the method id, for example
-        /// `{"tv.gordon": {"growth", "first_flow", ...}}`: `tv.gordon`, `tv.h_model`,
-        /// `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income` or
-        /// `tv.liquidation`, on the enterprise basis.
+        /// The terminal option, an object with exactly one key: a technique by its method id,
+        /// for example `{"tv.gordon": {"growth", "first_flow", ...}}` (`tv.gordon`,
+        /// `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`,
+        /// `tv.normalised_income` or `tv.liquidation`, on the enterprise basis);
+        /// `{"given": {"value": ...}}`, a terminal value at N given by the analyst (the value of
+        /// operations at N); or `{"none": {}}`, no terminal value. Default: `none`, the value
+        /// covers the given flows only, reported with a warning.
         terminal,
         bridge {
             /// Net financial position at the valuation date (SPEC-0007): gross debt − cash + signed
@@ -124,10 +130,21 @@ const FORMULA: &str = "Value of operations = Σ FCFF_k × DF_k + TV_N × DF_TV; 
     value of operations + Σ non-operating assets; Equity value = enterprise value − net \
     financial position − Σ debt-like items − Σ non-controlling interests";
 
+/// `dcf.fcff` through a typed call (ADR 0009): the documented defaults are filled in and
+/// reported first in the conventions, as through the registry (SPEC-0001 R31).
 pub fn fcff(input: &DcfFcffInput) -> Result<(DcfFcffOutput, Explain)> {
+    engine::typed_call(input, DcfFcffInput::apply_defaults, fcff_with_defaults)
+}
+
+/// The calculation on an input whose defaults were filled in; `defaults` names them, for the
+/// messages that say when a value came from a default.
+fn fcff_with_defaults(
+    input: &DcfFcffInput,
+    defaults: &[DefaultApplied],
+) -> Result<(DcfFcffOutput, Explain)> {
     let mut ex = Explain::new("dcf.fcff", FORMULA);
     ex.convention("basis: enterprise, free cash flows to the firm (FCFF) discounted at the WACC");
-    let engine_input = input.engine_input();
+    let engine_input = input.engine_input(defaults)?;
     // Bridge items are checked before any calculation, like every other input.
     bridge::check_lines(
         &input.non_operating_assets,
@@ -251,13 +268,25 @@ impl Method for Fcff {
         WACC over one to three explicit stages (given flows, constant growth, linear decline \
         of growth) and a terminal value by a tv.* technique on the enterprise basis (stable \
         growth, H-model, value driver, exit multiple, finite horizon, normalised income, \
-        liquidation). Returns every period and step for audit.";
+        liquidation), given as an amount, or none. The minimal input is a list of FCFF and \
+        one WACC; the defaults applied are reported. Returns every period and step for audit.";
     const VERSION: &'static str = "3";
     type Input = DcfFcffInput;
     type Output = DcfFcffOutput;
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         fcff(input)
+    }
+
+    fn apply_defaults(input: &mut Self::Input) -> Vec<DefaultApplied> {
+        input.apply_defaults()
+    }
+
+    fn compute_with_defaults(
+        input: &Self::Input,
+        defaults: &[DefaultApplied],
+    ) -> Result<(Self::Output, Explain)> {
+        fcff_with_defaults(input, defaults)
     }
 }
 
@@ -706,9 +735,14 @@ mod tests {
 
     /// R29: every choice is required; a missing choice is refused, never defaulted.
     #[test]
-    fn every_choice_is_required() {
+    fn every_choice_is_required_or_documented_default() {
+        // R29 as amended by Decision 24: `stages` has no default; the terms, the timing and
+        // the terminal option take their documented default, reported in meta.
+        let v = with(base(), |m| {
+            m.remove("stages");
+        });
+        assert_eq!(err(&v).code(), "FM-E001");
         for field in [
-            "stages",
             "cash_flow_terms",
             "discount_rate_terms",
             "timing",
@@ -717,7 +751,12 @@ mod tests {
             let v = with(base(), |m| {
                 m.remove(field);
             });
-            assert_eq!(err(&v).code(), "FM-E001", "{field}");
+            let out = run("dcf.fcff", &v.to_string()).unwrap();
+            assert_eq!(
+                out["meta"]["defaults_applied"][0]["field"],
+                format!("/{field}"),
+                "{field}"
+            );
         }
     }
 

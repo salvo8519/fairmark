@@ -13,21 +13,25 @@ use serde::Serialize;
 use super::bridge::{self, BridgeClaim};
 use super::engine::{self, dcf_input, DiscountedValue};
 use crate::error::{FairmarkError, Result};
-use crate::explain::Explain;
+use crate::explain::{DefaultApplied, Explain};
 use crate::method::Method;
 use crate::num::{add, sub};
 use crate::ratios::NetFinancialPosition;
 use crate::tv::{Line, TerminalBasis};
 
 dcf_input! {
-    /// Input of `dcf.fcfe` (version 1). Every choice is required, with no default (R29).
+    /// Input of `dcf.fcfe` (version 1). The minimal input is a vector of FCFE and one cost of
+    /// equity, `{"stages": [{"flows": [...]}], "cost_of_equity": "0.11"}`; every other choice is
+    /// required or has a default documented on its field, reported in the result (R29,
+    /// Decision 24).
     pub struct DcfFcfeInput {
         basis: TerminalBasis::Equity,
         /// One to three explicit stages of free cash flows to equity (FCFE), in order; the
         /// explicit horizon N is the sum of their periods. Each stage is `{"periods",
         /// "projection", ...}` with the fields of its projection; a `given` stage takes the FCFE
         /// as amounts (`flows`) or builds them up from line items with `interest_expense` and
-        /// `net_borrowing` in every line (`lines`).
+        /// `net_borrowing` in every line (`lines`); a stage of given FCFE can be just
+        /// `{"flows": [...]}` (projection `given` and periods the number of flows, by default).
         stages,
         /// FCFE of the base period CF_0, in currency units: required when the first stage is
         /// `constant_growth` or `linear_decline`, refused when it is `given`.
@@ -60,12 +64,15 @@ dcf_input! {
             /// required with `cost_of_equity_per_period`, refused with `cost_of_equity`.
             terminal_cost_of_equity,
         },
-        /// The terminal technique on the equity basis, an object with exactly one key, the method
-        /// id, for example `{"tv.gordon": {"growth", "first_flow", ...}}`: `tv.gordon`,
-        /// `tv.h_model` or `tv.limited_horizon` on the FCFE, `tv.exit_multiple` on `earnings`
-        /// (P/E) or `book_value` (P/BV), `tv.normalised_income` or `tv.liquidation` declared on
-        /// the `equity` basis. `tv.value_driver` is refused: its NOPAT and RONIC are firm-level
-        /// quantities (SPEC-0001 Decision 23).
+        /// The terminal option on the equity basis, an object with exactly one key: a technique
+        /// by its method id, for example `{"tv.gordon": {"growth", "first_flow", ...}}`
+        /// (`tv.gordon`, `tv.h_model` or `tv.limited_horizon` on the FCFE, `tv.exit_multiple` on
+        /// `earnings` (P/E) or `book_value` (P/BV), `tv.normalised_income` or `tv.liquidation`
+        /// declared on the `equity` basis; `tv.value_driver` is refused: its NOPAT and RONIC are
+        /// firm-level quantities, SPEC-0001 Decision 23); `{"given": {"value": ...}}`, a
+        /// terminal value at N given by the analyst (the equity value at N); or `{"none": {}}`,
+        /// no terminal value. Default: `none`, the value covers the given flows only, reported
+        /// with a warning.
         terminal,
         bridge {
             /// Not used on the equity basis and refused (`FM-E019`): debt is already in the FCFE,
@@ -138,7 +145,18 @@ pub struct DcfFcfeOutput {
 const FORMULA: &str = "Equity value = Σ FCFE_k × DF_k + TV_N × DF_TV + Σ non-operating assets − \
     Σ debt-like items − Σ non-controlling interests, at the cost of equity";
 
+/// `dcf.fcfe` through a typed call (ADR 0009): the documented defaults are filled in and
+/// reported first in the conventions, as through the registry (SPEC-0001 R31).
 pub fn fcfe(input: &DcfFcfeInput) -> Result<(DcfFcfeOutput, Explain)> {
+    engine::typed_call(input, DcfFcfeInput::apply_defaults, fcfe_with_defaults)
+}
+
+/// The calculation on an input whose defaults were filled in; `defaults` names them, for the
+/// messages that say when a value came from a default.
+fn fcfe_with_defaults(
+    input: &DcfFcfeInput,
+    defaults: &[DefaultApplied],
+) -> Result<(DcfFcfeOutput, Explain)> {
     // R24, Decision 9: debt is in the flows; a net financial position would count it twice.
     if input.net_financial_position.is_some() {
         return Err(FairmarkError::MixedBasis(
@@ -158,7 +176,7 @@ pub fn fcfe(input: &DcfFcfeInput) -> Result<(DcfFcfeOutput, Explain)> {
         "no net financial position is subtracted: debt is already in the flows through interest \
          and net borrowing (R24); equity value is computed directly",
     );
-    let engine_input = input.engine_input();
+    let engine_input = input.engine_input(defaults)?;
     // Bridge items are checked before any calculation, like every other input.
     bridge::check_lines(
         &input.non_operating_assets,
@@ -251,14 +269,26 @@ impl Method for Fcfe {
         stages (given flows or flows built up from line items with interest and net borrowing, \
         constant growth, linear decline of growth) and a terminal value by a tv.* technique on \
         the equity basis, plus non-operating assets, minus debt-like items and non-controlling \
-        interests; no net financial position, debt is in the flows. Returns every period and \
-        step for audit.";
+        interests; no net financial position, debt is in the flows. The terminal value may \
+        also be given as an amount, or none. The minimal input is a list of FCFE and one cost \
+        of equity; the defaults applied are reported. Returns every period and step for audit.";
     const VERSION: &'static str = "1";
     type Input = DcfFcfeInput;
     type Output = DcfFcfeOutput;
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         fcfe(input)
+    }
+
+    fn apply_defaults(input: &mut Self::Input) -> Vec<DefaultApplied> {
+        input.apply_defaults()
+    }
+
+    fn compute_with_defaults(
+        input: &Self::Input,
+        defaults: &[DefaultApplied],
+    ) -> Result<(Self::Output, Explain)> {
+        fcfe_with_defaults(input, defaults)
     }
 }
 
@@ -533,8 +563,13 @@ mod tests {
     /// R29: every choice is required; the WACC field of the enterprise basis is unknown here.
     #[test]
     fn every_choice_is_required_and_wacc_is_unknown() {
+        // R29 as amended by Decision 24: `stages` has no default; the terms, the timing and
+        // the terminal option take their documented default, reported in meta.
+        let v = with(base(), |m| {
+            m.remove("stages");
+        });
+        assert_eq!(err(&v).code(), "FM-E001");
         for field in [
-            "stages",
             "cash_flow_terms",
             "discount_rate_terms",
             "timing",
@@ -543,7 +578,12 @@ mod tests {
             let v = with(base(), |m| {
                 m.remove(field);
             });
-            assert_eq!(err(&v).code(), "FM-E001", "{field}");
+            let out = run("dcf.fcfe", &v.to_string()).unwrap();
+            assert_eq!(
+                out["meta"]["defaults_applied"][0]["field"],
+                format!("/{field}"),
+                "{field}"
+            );
         }
         let v = with(base(), |m| {
             m.insert("wacc".into(), json!("0.09"));
