@@ -405,7 +405,7 @@ fn bridge(
         "Debt-like item",
         "Debt-like items",
     )?;
-    let minority = claims_total(
+    let non_controlling = claims_total(
         ex,
         &input.non_controlling_interests,
         "Non-controlling interest",
@@ -413,7 +413,7 @@ fn bridge(
     )?;
     let equity_value = sub(
         sub(sub(enterprise_value, nfp.unwrap_or_default())?, debt_like)?,
-        minority,
+        non_controlling,
     )?;
     if equity_value.is_sign_negative() && !equity_value.is_zero() {
         // R26: reported, never floored at zero and never refused.
@@ -425,7 +425,7 @@ fn bridge(
     ex.step(
         "Equity value",
         format!(
-            "{enterprise_value} − {} − {debt_like} − {minority}",
+            "{enterprise_value} − {} − {debt_like} − {non_controlling}",
             nfp.unwrap_or_default()
         ),
         equity_value,
@@ -439,7 +439,7 @@ fn bridge(
         debt_like_items: input.debt_like_items.clone(),
         debt_like_items_total: debt_like,
         non_controlling_interests: input.non_controlling_interests.clone(),
-        non_controlling_interests_total: minority,
+        non_controlling_interests_total: non_controlling,
         equity_value,
     })
 }
