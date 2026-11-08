@@ -970,13 +970,16 @@ def statutory_balance_sheet(inp: dict[str, Any], i: int) -> dict[str, Any]:
         if s.dest != "financial_debt":
             continue
         beyond = s.beyond if s.beyond is not None else sl_b
+        # A maturity part never exists without its loan (R6): while the loan waits for its
+        # treatment, the part beyond one year waits too.
+        non_current = beyond if s.amount.known else plus(s.amount, beyond)
         comps.append(
             (
                 s.label,
                 f"{base}/payables/shareholder_loans",
                 s.amount,
                 total((1, s.amount), (-1, beyond)),
-                beyond,
+                non_current,
             )
         )
     cash_nfp = total((1, c4), (-1, op_cash))

@@ -1335,14 +1335,21 @@ impl Component {
         }
     }
 
-    /// A loan split by its part beyond one year.
+    /// A loan split by its part beyond one year. A part never exists without its whole: while
+    /// the loan is missing (for example, its treatment is not given), both parts are missing
+    /// with the loan's pointers, even when the amount beyond one year is given (R6).
     fn split(label: &str, source: String, amount: &Partial, beyond: &Partial) -> Result<Self> {
+        let non_current = if amount.is_known() {
+            beyond.clone()
+        } else {
+            Partial::sum(&[(Plus, amount), (Plus, beyond)])?
+        };
         Ok(Self {
             label: label.to_owned(),
             source,
             amount: amount.clone(),
             current: Partial::sum(&[(Plus, amount), (Minus, beyond)])?,
-            non_current: beyond.clone(),
+            non_current,
         })
     }
 }
