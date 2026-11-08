@@ -487,6 +487,16 @@ Interest cover on EBIT and EBITDA, net financial position to EBITDA, DSCR per pe
 | `opening` |  | no |  | Balance sheet at the start of the period. Required with average balances; not used with closing balances. |
 | `debt_schedule` |  | no |  | Loan schedule for DSCR and LLCR. Absent: DSCR and LLCR are not defined and the other ratios are computed. |
 
+## `ratios.covenants`
+
+**Ratios — covenants** · versione del metodo 1 · tool `fairmark_ratios_covenants`
+
+Tests financial covenants on the numerator and denominator defined by the loan agreement, against a threshold with an explicit operator (at most, less than, at least, greater than) at a test date. Returns for each covenant the outcome (passed, breached or not tested with the reason, never a breach when the ratio cannot be computed), the tested value and the headroom, absolute and relative to the threshold.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `covenants` | lista di object | sì |  | The covenants to test, at least one. Each is tested on its own; the results keep this order. |
+
 ## `analysis.goal_seek`
 
 **Goal seek** · versione del metodo 1 · tool `fairmark_analysis_goal_seek`

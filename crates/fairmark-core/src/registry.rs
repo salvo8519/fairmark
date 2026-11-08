@@ -103,6 +103,7 @@ registry! {
     ratios::liquidity::Liquidity,
     ratios::working_capital::WorkingCapital,
     ratios::debt_service::DebtService,
+    ratios::covenants::Covenants,
     analysis::goal_seek::GoalSeek,
     analysis::sensitivity::Sensitivity,
     analysis::scenarios::Scenarios,
