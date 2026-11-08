@@ -1,6 +1,6 @@
 ---
 source: methods/dates-schedule.md
-source_hash: eea753f35245
+source_hash: 895f6bb5dfa8
 ---
 # Schedule dei periodi (`dates.schedule`)
 
@@ -186,8 +186,10 @@ della loro ultima cifra.
   × p, day=31)` per un inizio a fine mese, `start + relativedelta(months=k × p)` altrimenti):
   ogni caso di riferimento in `tests/golden/dates.schedule/` è costruito con entrambe le
   librerie, che concordano (`scripts/reference_schedule.py`), e i test con gli oracoli
-  confrontano schedule casuali con entrambe. La riduzione del giorno di python-dateutil è stata
-  letta nel suo codice sorgente (`relativedelta.__add__`: il giorno è il minore tra il giorno
+  confrontano schedule casuali con entrambe. I casi di riferimento sono stati generati con
+  python-dateutil 3.0.0 e danno le stesse date con la 4.0.0, la versione che il lock file
+  installa da Python 3.11 in poi. La riduzione del giorno di python-dateutil è stata letta nel
+  suo codice sorgente (`relativedelta.__add__`: il giorno è il minore tra il giorno
   indicato e la lunghezza del mese).
 - Frazioni d'anno: il riferimento ISDA a 50 cifre di `scripts/reference_time.py`, confermato
   dalle convenzioni di QuantLib `Actual365Fixed`, `Actual360`, `ActualActual(ISDA)`,

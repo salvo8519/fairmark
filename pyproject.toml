@@ -48,10 +48,11 @@ dev = [
 oracles = [
   "pyxirr>=0.10",
   "numpy-financial>=1.0",
-  # Schedule oracles of SPEC-0010, pinned exactly: QuantLib's end-of-month behaviour has
-  # changed across releases, and the golden files record the versions they were checked with.
+  # Schedule oracles of SPEC-0010. QuantLib is pinned exactly: its end-of-month behaviour has
+  # changed across releases, and the golden files record the version they were checked with.
+  # python-dateutil's month arithmetic is stable, so a lower bound is enough.
   "QuantLib==1.44",
-  "python-dateutil==3.0.0",
+  "python-dateutil>=3.0",
 ]
 docs = [
   "zensical>=0.1; python_version >= '3.11'",

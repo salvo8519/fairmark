@@ -16,9 +16,11 @@ Year fractions are computed with the QuantLib day counters (`Actual365Fixed`, `A
 `decimal` at 50 digits from the ISDA 2006 §4.16 definitions of `scripts/reference_time.py`, for
 the exact digits.
 
-The library versions are pinned in the `oracles` dependency group (`pyproject.toml`) and
-printed with every run; QuantLib's end-of-month behaviour has changed across releases, so a
-golden file records the versions it was checked with.
+Both libraries are in the `oracles` dependency group (`pyproject.toml`): QuantLib pinned
+exactly, because its end-of-month behaviour has changed across releases, python-dateutil with a
+lower bound. The versions are printed with every run, and a golden file records the versions it
+was generated with (QuantLib 1.44 and python-dateutil 3.0.0; python-dateutil 4.0.0 gives the
+same dates).
 
     uv run --group oracles python scripts/reference_schedule.py
 """
