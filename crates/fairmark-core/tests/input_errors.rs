@@ -143,6 +143,98 @@ fn dcf_unknown_terminal_technique_is_an_unknown_field() {
     );
 }
 
+// ---------------------------------------------------------------- dcf.fcfe
+
+fn fcfe() -> Value {
+    json!({
+        "stages": [{"periods": 2, "projection": "given", "flows": [100, 110]}],
+        "cash_flow_terms": "nominal",
+        "discount_rate_terms": "nominal",
+        "cost_of_equity": "0.11",
+        "timing": "end_of_period",
+        "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}},
+        "non_operating_assets": [{"label": "Excess cash", "value": "30"}]
+    })
+}
+
+#[test]
+fn fcfe_fixture_is_valid() {
+    run("dcf.fcfe", &fcfe().to_string()).unwrap();
+}
+
+#[test]
+fn fcfe_the_wacc_field_is_unknown_and_the_cost_of_equity_is_offered() {
+    let mut input = fcfe();
+    input["wacc"] = json!("0.09");
+    assert_error(
+        "dcf.fcfe",
+        &input,
+        "FM-E001",
+        "/wacc",
+        &[
+            "unknown field `wacc`",
+            "`cost_of_equity`",
+            "remove or rename it",
+        ],
+    );
+}
+
+#[test]
+fn fcfe_missing_field_inside_a_line() {
+    let mut input = fcfe();
+    input["stages"] = json!([{"periods": 1, "projection": "given", "lines": [
+        {"ebit": "100", "capital_expenditure": "12", "change_in_net_working_capital": "3",
+         "interest_expense": "8", "net_borrowing": "0"}
+    ]}]);
+    input["notional_tax_rate"] = json!("0.24");
+    input["negative_ebit"] = json!("zero");
+    assert_error(
+        "dcf.fcfe",
+        &input,
+        "FM-E001",
+        "/stages/0/lines/0/depreciation_and_amortisation",
+        &["missing required field `depreciation_and_amortisation`"],
+    );
+}
+
+#[test]
+fn fcfe_wrong_type_and_enum_in_the_bridge() {
+    let mut input = fcfe();
+    input["non_operating_assets"][0]["value"] = json!(true);
+    assert_error(
+        "dcf.fcfe",
+        &input,
+        "FM-E001",
+        "/non_operating_assets/0/value",
+        &["invalid type: boolean `true`"],
+    );
+    let mut input = fcfe();
+    input["debt_like_items"] =
+        json!([{"label": "Pension", "value": "10", "measurement_basis": "book"}]);
+    assert_error(
+        "dcf.fcfe",
+        &input,
+        "FM-E001",
+        "/debt_like_items/0/measurement_basis",
+        &["unknown variant `book`", "`book_value`"],
+    );
+}
+
+#[test]
+fn fcfe_wrong_type_in_the_cost_of_equity_list() {
+    let mut input = fcfe();
+    input.as_object_mut().unwrap().remove("cost_of_equity");
+    input["cost_of_equity_per_period"] = json!(["0.11", [1]]);
+    input["terminal_cost_of_equity"] = json!("0.1");
+    assert_error(
+        "dcf.fcfe",
+        &input,
+        "FM-E001",
+        "/cost_of_equity_per_period/1",
+        &[],
+    );
+}
+
 // ---------------------------------------------------------------- tvm.irr and tvm.xirr
 
 #[test]

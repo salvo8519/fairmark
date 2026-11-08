@@ -1,0 +1,52 @@
+method: dcf.fcfe
+description: "FCFE built up from line items under the zero treatment with EBIT above the interest (period 1), positive but below the interest (period 2: shield limited to EBIT) and negative (period 3: no shield), then constant growth, Gordon on a normalised flow (R3, R4, R7, R24; Decision 22)"
+source: >
+  Independent 50-digit references composed: scripts/reference_free_cash_flows.py builds the
+  FCFE of the stages with lines (SPEC-0001 R2 to R4, amendment 14; equity_stages_with_flows),
+  scripts/reference_dcf.py values the resulting flows (dcf_fcfe, R6 to R22, R24); neither
+  shares code with the engine. Decision 22: under zero the interest tax shield is t x
+  min(interest, max(EBIT, 0)): period 1 shield 0.24 x 95 = 22.80; period 2 EBIT 60 below
+  interest 100, taxes on EBIT 14.40, FCFF = 60 - 14.40 + 145 - 150 + 8 = 48.60, shield 0.24 x
+  60 = 14.40 (not 0.24 x 100 = 24.00), FCFE = 48.60 - (100 - 14.40) + 70 = 33.00, equal to the
+  net-income route (pre-tax income -40, no tax: -40 + 145 - 150 + 8 + 70 = 33.00; with the
+  unlimited shield it would be 42.60); period 3 no shield, FCFE = -17 - 104 + 90 = -31.00.
+input:
+  stages: [{"periods": 3, "projection": "given", "lines": [{"ebit": "520", "depreciation_and_amortisation": "140", "capital_expenditure": "170", "change_in_net_working_capital": "22", "interest_expense": "95", "net_borrowing": "30"}, {"ebit": "60", "depreciation_and_amortisation": "145", "capital_expenditure": "150", "change_in_net_working_capital": "-8", "interest_expense": "100", "net_borrowing": "70"}, {"ebit": "-40", "depreciation_and_amortisation": "148", "capital_expenditure": "130", "change_in_net_working_capital": "-5", "interest_expense": "104", "net_borrowing": "90"}]}, {"periods": 2, "projection": "constant_growth", "growth": "0.02"}]
+  notional_tax_rate: "0.24"
+  negative_ebit: "zero"
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  cost_of_equity: "0.12"
+  timing: "end_of_period"
+  terminal: {"tv.gordon": {"growth": "0.02", "first_flow": "normalised_next_flow", "normalised_next_flow": "260"}}
+  non_operating_assets: [{"label": "Excess cash", "value": "50"}]
+expect:
+  /periods/0/flow: "301.00"
+  /periods/0/discount_rate: "0.12"
+  /periods/0/discount_factor: "0.8928571428571428571428571429"
+  /periods/0/present_value: "268.7500000000000000000000000"
+  /periods/1/flow: "33.00"
+  /periods/1/discount_rate: "0.12"
+  /periods/1/discount_factor: "0.7971938775510204081632653061"
+  /periods/1/present_value: "26.30739795918367346938775510"
+  /periods/2/flow: "-31.00"
+  /periods/2/discount_rate: "0.12"
+  /periods/2/discount_factor: "0.7117802478134110787172011662"
+  /periods/2/present_value: "-22.06518768221574344023323615"
+  /periods/3/flow: "-31.6200"
+  /periods/3/growth: "0.02"
+  /periods/3/discount_rate: "0.12"
+  /periods/3/discount_factor: "0.6355180784048313202832153269"
+  /periods/3/present_value: "-20.09508163916076634735526864"
+  /periods/4/flow: "-32.252400"
+  /periods/4/growth: "0.02"
+  /periods/4/discount_rate: "0.12"
+  /periods/4/discount_factor: "0.5674268557185993931100136848"
+  /periods/4/present_value: "-18.30087792137855506634140537"
+  /pv_explicit_period: "234.5962507164286086154578449"
+  /terminal/terminal_value: "2600"
+  /terminal/present_value: "1475.309824868358422086035580"
+  /bridge/pv_explicit_and_terminal: "1709.906075584787030701493425"
+  /equity_value: "1759.906075584787030701493425"
+  /terminal_value_weight: "0.8628016742754734016031871143"
+tolerance: "0.00000000000000000001"
