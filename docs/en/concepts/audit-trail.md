@@ -24,5 +24,13 @@ Every result is an envelope with four parts:
   always yields the same value. `meta.method_status` states whether the method was
   `available` or `preview` when it ran (see
   [method status](../project/releases.md#method-status)); report a preview result as such.
+- **`meta.defaults_applied`** lists the documented defaults the engine filled in because their
+  fields were not given, in input order: for each, `field` (its JSON pointer, for example
+  `/timing`), `value` (the value filled in, as it would be written in the input) and `reason`
+  (one line). Each is also the first entries of `explain.conventions`, starting with
+  "default:". The key is omitted when no default applies, as for every method without
+  documented defaults; a field given explicitly always prevails and is never listed. The DCF
+  methods use it for their minimal input (SPEC-0001 Decision 24, see
+  [`dcf.fcff`](../methods/dcf-fcff.md#minimal-input)).
 
 In Python, `result.explain_markdown()` renders a methodology note for reports.

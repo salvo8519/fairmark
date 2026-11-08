@@ -1,0 +1,8 @@
+method: dcf.fcff
+description: "Real cash flows with the discount rate terms left to their default (nominal) and no inflation: refused, the message says that the terms were defaulted (R15, Decision 24)"
+source: SPEC-0001 R15 and Decision 24
+input:
+  stages: [{"flows": ["120", "135", "150", "160", "170"]}]
+  cash_flow_terms: "real"
+  wacc: "0.09"
+expect_error: FM-E024

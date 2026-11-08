@@ -1,0 +1,21 @@
+method: dcf.fcff
+description: "Flows-only input with a terminal technique: the explicit tv.gordon prevails over the default none (Decision 24, R19)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 Decision 24 and R19 to R22, sharing no code with the engine; the defaults are
+  filled in by its own with_defaults, written from the spec).
+input:
+  stages: [{"flows": ["120", "135", "150", "160", "170"]}]
+  wacc: "0.09"
+  terminal: {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}
+expect:
+  /terminal/technique: "tv.gordon"
+  /pv_explicit_period: "563.3824336605614874662835655"
+  /terminal/terminal_value: "2477.142857142857142857142857"
+  /terminal/present_value: "1609.972891201901527639567402"
+  /value_of_operations: "2173.355324862463015105850967"
+  /enterprise_value: "2173.355324862463015105850967"
+  /equity_value: "2173.355324862463015105850967"
+  /terminal_value_weight: "0.7407775768574730604797620923"
+  /terms/terminal_rate_used: "0.09"
+tolerance: "0.00000000000000000001"

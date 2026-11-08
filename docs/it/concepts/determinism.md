@@ -1,6 +1,6 @@
 ---
 source: concepts/determinism.md
-source_hash: c8ce6129a22f
+source_hash: a723d2358bde
 ---
 # Il contratto di determinismo
 
@@ -25,8 +25,11 @@ metodo. Questo documento è il contratto; la CI lo verifica a ogni commit.
    fissi. L'algoritmo usato e il numero di iterazioni sono riportati nel risultato.
 5. **Nessun valore predefinito implicito.** I default esistono solo dove documentati nello
    schema di input. I campi sconosciuti sono rifiutati (`FM-E001`): un refuso non ricade mai
-   su un valore predefinito.
-6. **Impronta dell'input.** `meta.input_hash` è lo SHA-256 dell'input canonico.
+   su un valore predefinito. Un valore predefinito assegnato dal motore è riportato in
+   `meta.defaults_applied` e in `explain.conventions`.
+6. **Impronta dell'input.** `meta.input_hash` è lo SHA-256 dell'input canonico, con i valori
+   predefiniti documentati già assegnati: un input che omette un campo e lo stesso input con il
+   valore predefinito scritto per esteso hanno lo stesso hash e lo stesso valore.
    `fairmark verify` riesegue un risultato salvato e ne confronta hash e valore.
 7. **Versionamento numerico.** Se un caso di riferimento cambia risultato a parità di input,
    la PR riceve l'etichetta `numerical-change`, incrementa `method_version` e porta nel

@@ -1,0 +1,26 @@
+method: dcf.fcff
+description: "Terminal value given by the analyst under mid-period timing, discounted at N - 0.5 with the half-period shift at the terminal WACC (Decisions 16, 24, R21)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 Decision 24 and R19 to R22, sharing no code with the engine; the defaults are
+  filled in by its own with_defaults, written from the spec).
+input:
+  stages: [{"flows": ["120", "135", "150", "160", "170"]}]
+  wacc_per_period: ["0.10", "0.095", "0.09", "0.09", "0.085"]
+  terminal_wacc: "0.08"
+  timing: "mid_period"
+  terminal_discount_time: "mid_period"
+  terminal: {"given": {"value": "2400"}}
+expect:
+  /terminal/technique: "given"
+  /pv_explicit_period: "581.7512530505939830482684774"
+  /terminal/terminal_value: "2400"
+  /terminal/present_value: "1606.325601081010774389639609"
+  /value_of_operations: "2188.076854131604757437908086"
+  /enterprise_value: "2188.076854131604757437908086"
+  /equity_value: "2188.076854131604757437908086"
+  /terminal_value_weight: "0.7341266820897490333145866387"
+  /terminal/discount_factor: "0.6693023337837544893290165036"
+  /terminal/discount_time: "4.5"
+  /terminal/rate: "0.08"
+tolerance: "0.00000000000000000001"

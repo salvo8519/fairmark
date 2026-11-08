@@ -89,7 +89,7 @@ class Result:
     steps: list[Step]
     formula: str
     conventions: list[str]
-    meta: dict[str, str]
+    meta: dict[str, Any]
     raw: dict[str, Any] = field(repr=False)
 
     def __getattr__(self, name: str) -> Any:

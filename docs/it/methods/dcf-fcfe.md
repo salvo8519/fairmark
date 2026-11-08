@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcfe.md
-source_hash: 9acd6e548bdc
+source_hash: 7331594bf16c
 ---
 # DCF, flussi di cassa disponibili per gli azionisti (`dcf.fcfe`)
 
@@ -13,7 +13,30 @@ finanziamenti al netto dei rimborsi), quindi non si sottrae alcuna posizione fin
 Ogni scelta che modifica il valore è un input esplicito, come in [`dcf.fcff`](dcf-fcff.md), che
 usa lo stesso motore.
 
-Versione del metodo: 1. Stato: anteprima.
+Versione del metodo: 1. Stato: anteprima. Dalla Decision 24 di SPEC-0001 (issue #197) sono
+obbligatori soltanto i flussi e il costo del capitale proprio: una modifica additiva, ogni input
+precedente dà lo stesso risultato.
+
+## Input minimo
+
+Bastano una lista di FCFE e un costo del capitale proprio:
+
+```python
+import fairmark as fm
+
+r = fm.dcf.fcfe(flows=[80, 85, 92, 96, 101], cost_of_equity="0.11")
+print(r.equity_value)
+print([d["field"] for d in r.meta["defaults_applied"]])
+```
+
+In JSON: `{"stages": [{"flows": ["80", "85", "92", "96", "101"]}], "cost_of_equity": "0.11"}`.
+I valori predefiniti documentati sono quelli di [`dcf.fcff`](dcf-fcff.md#input-minimo),
+applicati dallo stesso motore e riportati allo stesso modo: uno stage con flussi è `given` e ha
+tanti periodi quanti flussi, i termini sono `nominal`, la collocazione temporale dei flussi è
+`end_of_period` e non c'è valore terminale (`none`, con un'avvertenza). Un valore terminale può
+essere fornito dall'analista come importo in N con approccio equity side,
+`{"given": {"value": "1500"}}`: l'equity value in N, di qualunque segno, attualizzato come
+quello di una tecnica.
 
 ## Formula
 
@@ -205,20 +228,21 @@ cifra.
 
 | Campo | Significato | Default |
 | --- | --- | --- |
-| `stages` | Da uno a tre stage di FCFE, in ordine: `{"periods", "projection", ...}` con `flows` o `lines` (`given`), `growth` (`constant_growth`) oppure `from_growth` e `to_growth` (`linear_decline`) | obbligatorio |
+| `stages` | Da uno a tre stage di FCFE, in ordine: `{"periods", "projection", ...}` con `flows` o `lines` (`given`), `growth` (`constant_growth`) oppure `from_growth` e `to_growth` (`linear_decline`); uno stage di flussi forniti può essere soltanto `{"flows": [...]}` | obbligatorio |
+| `stages[].projection`, `stages[].periods` | Come in [`dcf.fcff`](dcf-fcff.md#input) | `given` e il numero di flussi o di `lines`, per uno stage con `flows` o `lines` |
 | `base_flow` | FCFE del periodo base $CF_0$, quando il primo stage è generato | obbligatorio per un primo stage generato; rifiutato altrimenti |
 | `notional_tax_rate` | Aliquota fiscale sull'EBIT per gli stage con `lines`, usata anche per lo scudo fiscale sugli oneri finanziari; in alternativa a `operating_taxes` in ogni voce | nessuno; rifiutata senza `lines` |
 | `negative_ebit` | `credit` o `zero`, per gli stage con `lines` e `notional_tax_rate` | obbligatorio con `notional_tax_rate`; rifiutato altrimenti |
 | `interest_tax_rate` | Aliquota dello scudo fiscale per gli stage con `lines` e `operating_taxes` | obbligatoria in quel caso; rifiutata altrimenti |
-| `cash_flow_terms` | `nominal` oppure `real`: termini di ogni importo e di ogni tasso di crescita | obbligatorio |
-| `discount_rate_terms` | `nominal` oppure `real`: termini dei costi del capitale proprio; se diversi da `cash_flow_terms`, l'inflazione attesa è obbligatoria e i tassi sono convertiti nei termini dei flussi di cassa | obbligatorio |
+| `cash_flow_terms` | `nominal` oppure `real`: termini di ogni importo e di ogni tasso di crescita | `nominal`, riportato |
+| `discount_rate_terms` | `nominal` oppure `real`: termini dei costi del capitale proprio; se diversi da `cash_flow_terms`, l'inflazione attesa è obbligatoria e i tassi sono convertiti nei termini dei flussi di cassa | `nominal`, riportato |
 | `inflation`, `inflation_per_period`, `terminal_inflation` | Inflazione attesa, come in [`dcf.fcff`](dcf-fcff.md#termini-nominali-e-reali) | nessuna |
 | `cost_of_equity` | Un unico costo del capitale proprio per tutti i periodi e per il valore terminale, frazione decimale | questo oppure `cost_of_equity_per_period` |
 | `cost_of_equity_per_period` | Un costo del capitale proprio per ogni periodo dell'orizzonte esplicito | questo oppure `cost_of_equity` |
-| `terminal_cost_of_equity` | Costo del capitale proprio della fase terminale | obbligatorio con `cost_of_equity_per_period`; rifiutato con `cost_of_equity` |
-| `timing` | `end_of_period` oppure `mid_period` | obbligatorio |
-| `terminal_discount_time` | `horizon` (t = N) oppure `mid_period` (t = N − 0.5) | obbligatorio con `mid_period`; rifiutato con `end_of_period` |
-| `terminal` | Una tecnica con approccio equity side, indicata con l'identificativo del suo metodo | obbligatorio |
+| `terminal_cost_of_equity` | Costo del capitale proprio della fase terminale | obbligatorio con `cost_of_equity_per_period` quando il valore terminale usa un tasso terminale; rifiutato con `cost_of_equity` e quando non è usato alcun tasso terminale |
+| `timing` | `end_of_period` oppure `mid_period` | `end_of_period`, riportato |
+| `terminal_discount_time` | `horizon` (t = N) oppure `mid_period` (t = N − 0.5) | obbligatorio con `mid_period` e un valore terminale; rifiutato con `end_of_period` e senza valore terminale |
+| `terminal` | Una tecnica con approccio equity side indicata con l'identificativo del suo metodo, un importo fornito `{"given": {"value"}}` (l'equity value in N), oppure `{"none": {}}` | `none`, riportato con un'avvertenza |
 | `net_financial_position` | Rifiutata con `FM-E019`: il debito è nei FCFE | non accettata |
 | `non_operating_assets` | Lista di `{"label", "value"}`, valori pari a zero o positivi, aggiunte | nessuna, riportato |
 | `debt_like_items` | Lista di `{"label", "value", "measurement_basis", "basis_note"}`, valori pari a zero o positivi, sottratti | nessuno, riportato |
@@ -244,16 +268,17 @@ cifra.
 | Approccio | equity side: FCFE attualizzati al costo del capitale proprio; equity value direttamente, senza posizione finanziaria netta | fissato dal metodo |
 | FCFE di uno stage `given` | importi (`flows`) o voci con oneri finanziari e net borrowing (`lines`) | uno dei due, obbligatorio |
 | Scudo fiscale sugli oneri finanziari | t × oneri finanziari deducibili, con t l'aliquota sull'EBIT o `interest_tax_rate`; gli oneri deducibili sono l'intero importo con `credit` e nella forma a importi, e min(oneri finanziari, max(EBIT, 0)) con `zero` (Decision 22) | fisso |
-| Stage, tasso di attualizzazione, termini, inflazione, collocazione temporale dei flussi, momento di attualizzazione del valore terminale | come in [`dcf.fcff`](dcf-fcff.md), con il costo del capitale proprio come tasso di attualizzazione | obbligatori |
-| Tecnica del valore terminale | con approccio equity side, al costo del capitale proprio della fase terminale | obbligatoria |
+| Stage, tasso di attualizzazione, termini, inflazione, collocazione temporale dei flussi, momento di attualizzazione del valore terminale | come in [`dcf.fcff`](dcf-fcff.md), con il costo del capitale proprio come tasso di attualizzazione | come in `dcf.fcff`: stage e tasso di attualizzazione obbligatori; per impostazione predefinita flussi forniti, termini `nominal` e collocazione `end_of_period` |
+| Opzione del valore terminale | una tecnica con approccio equity side, al costo del capitale proprio della fase terminale; `given`, un importo in N con approccio equity side; `none` | `none` |
 | Voci del passaggio all'equity value | misurate alla data di valutazione come fornite; nessuna voce significa nessuna | nessuna |
 | Segni delle voci | attività non operative aggiunte; debt-like items e partecipazioni di minoranza sottratti | fissi |
 | Criterio di valutazione dei debt-like items e delle partecipazioni di minoranza | `book_value`, `market_value`, `fair_value`, `present_value`, `other` (con `basis_note`); riportato, non usato nel calcolo | obbligatorio per ogni voce |
 
 Le avvertenze di `dcf.fcff` si applicano invariate (crescita su un flusso negativo, crescita
 discontinua, momento di attualizzazione del valore terminale con la convenzione di metà
-periodo, crescita perpetua inferiore all'inflazione), e un equity value negativo è riportato
-come avvertenza, mai riportato a zero.
+periodo, crescita perpetua inferiore all'inflazione, assenza del valore terminale, valore
+terminale fornito negativo), e un equity value negativo è riportato come avvertenza, mai
+riportato a zero.
 
 ## Errori
 
@@ -265,7 +290,7 @@ come avvertenza, mai riportato a zero.
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 | `FM-E018` | Un parametro della tecnica del valore terminale è fuori dal suo dominio, come in `dcf.fcff` |
 | `FM-E019` | È fornita una `net_financial_position`; oppure la tecnica del valore terminale segue l'approccio asset side: un multiplo di uscita su `ebitda`, `ebit` o `revenue`, un reddito normalizzato o una liquidazione con `basis` enterprise, oppure `tv.value_driver`, il cui NOPAT e il cui RONIC sono grandezze a livello d'impresa (Decision 23) |
-| `FM-E024` | `cash_flow_terms` e `discount_rate_terms` sono diversi e non è fornita l'inflazione attesa |
+| `FM-E024` | `cash_flow_terms` e `discount_rate_terms` sono diversi e non è fornita l'inflazione attesa; il messaggio indica quando uno dei due ha assunto il valore predefinito |
 | `FM-E025` | Un conteggio non corrisponde agli stage: flussi o voci, costi del capitale proprio o inflazione per periodo, oppure un base flow fuori posto |
 
 Ogni errore indica il campo con il suo JSON Pointer, per esempio
@@ -299,3 +324,7 @@ $10^{-20}$.
   oneri finanziari e net borrowing pari a zero.
 - L'identità di R24 su voci casuali: equity value = valore attuale dei FCFE e del valore
   terminale + attività non operative − debt-like items − partecipazioni di minoranza.
+- Valori predefiniti documentati (Decision 24): l'input minimo e un valore terminale fornito con
+  approccio equity side, confrontati con `scripts/reference_dcf.py`, che assegna i valori
+  predefiniti con un proprio codice (`flows-only-single-cost-of-equity.yaml`,
+  `terminal-given-equity-basis.yaml`).

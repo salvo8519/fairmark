@@ -1,0 +1,12 @@
+method: tvm.npv
+description: "Cross-check of the minimal DCF input (SPEC-0001 Decision 24): the NPV of 0, 120, 135, 150, 160, 170 at 9%, the first flow at t = 0, equals the value of operations of tests/golden/dcf.fcff/flows-only-single-wacc.yaml"
+source: >
+  scripts/reference_npv_irr.py (Python decimal, 50 digits, NPV = sum CF_t / (1 + r)^t with the
+  first flow at t = 0): 563.38243366056148746628356552958279955608664623684; the same digits as the value of operations of
+  dcf.fcff/flows-only-single-wacc.yaml from scripts/reference_dcf.py.
+input:
+  rate: "0.09"
+  cash_flows: ["0", "120", "135", "150", "160", "170"]
+expect:
+  npv: "563.3824336605614874662835655"
+tolerance: "0.00000000000000000001"

@@ -7,7 +7,29 @@ interests. Debt is already in the flows, through interest and net borrowing, so 
 financial position is subtracted. Every choice that changes the value is an explicit input, as
 in [`dcf.fcff`](dcf-fcff.md), which shares the same engine.
 
-Method version: 1. Status: preview.
+Method version: 1. Status: preview. Since SPEC-0001 Decision 24 (issue #197), only the flows
+and the cost of equity are required: an additive change, every earlier input gives the same
+result.
+
+## Minimal input
+
+A list of FCFE and one cost of equity are enough:
+
+```python
+import fairmark as fm
+
+r = fm.dcf.fcfe(flows=[80, 85, 92, 96, 101], cost_of_equity="0.11")
+print(r.equity_value)
+print([d["field"] for d in r.meta["defaults_applied"]])
+```
+
+In JSON: `{"stages": [{"flows": ["80", "85", "92", "96", "101"]}], "cost_of_equity": "0.11"}`.
+The documented defaults are those of [`dcf.fcff`](dcf-fcff.md#minimal-input), applied by the
+same engine and reported in the same way: a stage with flows is `given` and has as many
+periods as flows, the terms are `nominal`, the timing is `end_of_period` and there is no
+terminal value (`none`, with a warning). A terminal value can be given by the analyst as an
+amount at N on the equity basis, `{"given": {"value": "1500"}}`: the equity value at N, of any
+sign, discounted like the value of a technique.
 
 ## Formula
 
@@ -190,20 +212,21 @@ the equity value of `dcf.fcff` without a net financial position, to the last dig
 
 | Field | Meaning | Default |
 | --- | --- | --- |
-| `stages` | One to three stages of FCFE, in order: `{"periods", "projection", ...}` with `flows` or `lines` (`given`), `growth` (`constant_growth`) or `from_growth` and `to_growth` (`linear_decline`) | required |
+| `stages` | One to three stages of FCFE, in order: `{"periods", "projection", ...}` with `flows` or `lines` (`given`), `growth` (`constant_growth`) or `from_growth` and `to_growth` (`linear_decline`); a stage of given flows can be just `{"flows": [...]}` | required |
+| `stages[].projection`, `stages[].periods` | As in [`dcf.fcff`](dcf-fcff.md#inputs) | `given` and the number of flows or lines, for a stage with `flows` or `lines` |
 | `base_flow` | FCFE of the base period $CF_0$, when the first stage is generated | required for a generated first stage; refused otherwise |
 | `notional_tax_rate` | Tax rate on EBIT for the stages with `lines`, also the rate of the interest tax shield; give this or `operating_taxes` in every line | none; refused without `lines` |
 | `negative_ebit` | `credit` or `zero`, for the stages with `lines` and `notional_tax_rate` | required with `notional_tax_rate`; refused otherwise |
 | `interest_tax_rate` | Rate of the interest tax shield for the stages with `lines` and `operating_taxes` | required in that case; refused otherwise |
-| `cash_flow_terms` | `nominal` or `real`: terms of every amount and growth rate | required |
-| `discount_rate_terms` | `nominal` or `real`: terms of the costs of equity; when different from `cash_flow_terms`, expected inflation is required and the rates are converted to the terms of the cash flows | required |
+| `cash_flow_terms` | `nominal` or `real`: terms of every amount and growth rate | `nominal`, reported |
+| `discount_rate_terms` | `nominal` or `real`: terms of the costs of equity; when different from `cash_flow_terms`, expected inflation is required and the rates are converted to the terms of the cash flows | `nominal`, reported |
 | `inflation`, `inflation_per_period`, `terminal_inflation` | Expected inflation, as in [`dcf.fcff`](dcf-fcff.md#nominal-and-real-terms) | none |
 | `cost_of_equity` | One cost of equity for every period and for the terminal value, decimal fraction | give this or `cost_of_equity_per_period` |
 | `cost_of_equity_per_period` | One cost of equity per period of the explicit horizon | give this or `cost_of_equity` |
-| `terminal_cost_of_equity` | Cost of equity of the terminal phase | required with `cost_of_equity_per_period`; refused with `cost_of_equity` |
-| `timing` | `end_of_period` or `mid_period` | required |
-| `terminal_discount_time` | `horizon` (t = N) or `mid_period` (t = N − 0.5) | required with `mid_period` timing; refused with `end_of_period` |
-| `terminal` | One technique on the equity basis, written with its method id | required |
+| `terminal_cost_of_equity` | Cost of equity of the terminal phase | required with `cost_of_equity_per_period` when the terminal value uses a terminal rate; refused with `cost_of_equity` and when no terminal rate is used |
+| `timing` | `end_of_period` or `mid_period` | `end_of_period`, reported |
+| `terminal_discount_time` | `horizon` (t = N) or `mid_period` (t = N − 0.5) | required with `mid_period` timing and a terminal value; refused with `end_of_period` and with no terminal value |
+| `terminal` | One technique on the equity basis written with its method id, a given amount `{"given": {"value"}}` (the equity value at N), or `{"none": {}}` | `none`, reported with a warning |
 | `net_financial_position` | Refused with `FM-E019`: debt is in the FCFE | not accepted |
 | `non_operating_assets` | List of `{"label", "value"}`, values zero or more, added | none, reported |
 | `debt_like_items` | List of `{"label", "value", "measurement_basis", "basis_note"}`, values zero or more, subtracted | none, reported |
@@ -229,15 +252,16 @@ the equity value of `dcf.fcff` without a net financial position, to the last dig
 | Basis | equity: FCFE discounted at the cost of equity; equity value directly, no net financial position | fixed by the method |
 | FCFE of a `given` stage | amounts (`flows`) or line items with interest and net borrowing (`lines`) | one of the two required |
 | Interest tax shield | t × deductible interest, t the tax rate on EBIT or `interest_tax_rate`; the deductible interest is the whole interest under `credit` and in the amounts form, and min(interest, max(EBIT, 0)) under `zero` (Decision 22) | fixed |
-| Stages, discount rate, terms, inflation, timing, terminal discounting time | as in [`dcf.fcff`](dcf-fcff.md), with the cost of equity as the discount rate | required |
-| Terminal technique | on the equity basis, at the terminal cost of equity | required |
+| Stages, discount rate, terms, inflation, timing, terminal discounting time | as in [`dcf.fcff`](dcf-fcff.md), with the cost of equity as the discount rate | as in `dcf.fcff`: the stages and the discount rate required; given flows, `nominal` terms and `end_of_period` timing by default |
+| Terminal option | a technique on the equity basis, at the terminal cost of equity; `given`, an amount at N on the equity basis; `none` | `none` |
 | Bridge items | measured at the valuation date as given; none given means none | none |
 | Bridge signs | non-operating assets added; debt-like items and non-controlling interests subtracted | fixed |
 | Measurement basis of debt-like items and non-controlling interests | `book_value`, `market_value`, `fair_value`, `present_value`, `other` (with `basis_note`); reported, not used in the calculation | required per item |
 
 The warnings of `dcf.fcff` apply unchanged (growth on a negative flow, growth discontinuity,
-terminal discounting time under mid-period timing, perpetual growth below inflation), and a
-negative equity value is reported as a warning, never floored at zero.
+terminal discounting time under mid-period timing, perpetual growth below inflation, no
+terminal value, a negative given terminal value), and a negative equity value is reported as a
+warning, never floored at zero.
 
 ## Errors
 
@@ -249,7 +273,7 @@ negative equity value is reported as a warning, never floored at zero.
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 | `FM-E018` | A term of the terminal technique outside its domain, as in `dcf.fcff` |
 | `FM-E019` | A `net_financial_position` is given; or the terminal technique is on the enterprise basis: an exit multiple on `ebitda`, `ebit` or `revenue`, a normalised income or a liquidation with `basis` enterprise, or `tv.value_driver`, whose NOPAT and RONIC are firm-level quantities (Decision 23) |
-| `FM-E024` | `cash_flow_terms` and `discount_rate_terms` differ and no expected inflation is given |
+| `FM-E024` | `cash_flow_terms` and `discount_rate_terms` differ and no expected inflation is given; the message says when one of them took its default |
 | `FM-E025` | A count does not match the stages: flows or lines, costs of equity or inflation per period, or a misplaced base flow |
 
 Every error names the field by its JSON pointer, for example `/cost_of_equity_per_period/2`,
@@ -280,3 +304,6 @@ golden cases from the reference are checked to $10^{-20}$.
   lines with zero interest and zero net borrowing.
 - The R24 identity on random bridges: equity value = present value of the FCFE and the terminal
   value + non-operating assets − debt-like items − non-controlling interests.
+- Documented defaults (Decision 24): the minimal input and a terminal value given on the equity
+  basis, against `scripts/reference_dcf.py`, which fills in the defaults with its own code
+  (`flows-only-single-cost-of-equity.yaml`, `terminal-given-equity-basis.yaml`).

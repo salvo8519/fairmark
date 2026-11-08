@@ -1,0 +1,23 @@
+method: dcf.fcfe
+description: "Minimal input: a vector of five FCFE and one cost of equity; every other choice takes its documented default (Decision 24): given flows, nominal terms, end of period, no terminal value"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 Decision 24 and R19 to R22, sharing no code with the engine; the defaults are
+  filled in by its own with_defaults, written from the spec).
+input:
+  stages: [{"flows": ["80", "85", "92", "96", "101"]}]
+  cost_of_equity: "0.11"
+expect:
+  /terminal/technique: "none"
+  /terms/terminal_rate_used: "null"
+  /pv_explicit_period: "331.5063436293386358745975366"
+  /terminal/terminal_value: "0"
+  /terminal/present_value: "0"
+  /equity_value: "331.5063436293386358745975366"
+  /terminal_value_weight: "0"
+  /periods/0/present_value: "72.07207207207207207207207207"
+  /periods/1/present_value: "68.98790682574466358250142034"
+  /periods/2/present_value: "67.26960707968743030832146975"
+  /periods/3/present_value: "63.23817351792002849195907850"
+  /periods/4/present_value: "59.93858413391444141974349595"
+tolerance: "0.00000000000000000001"

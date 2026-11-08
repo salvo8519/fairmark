@@ -1,0 +1,26 @@
+method: dcf.fcff
+description: "Flows-only input with the timing given as mid_period: the explicit timing prevails over the default; no terminal value, so no terminal discounting time (Decision 24, R21)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 Decision 24 and R19 to R22, sharing no code with the engine; the defaults are
+  filled in by its own with_defaults, written from the spec).
+input:
+  stages: [{"flows": ["120", "135", "150", "160", "170"]}]
+  wacc: "0.09"
+  timing: "mid_period"
+expect:
+  /terminal/technique: "none"
+  /pv_explicit_period: "588.1885289152226336770385933"
+  /terminal/terminal_value: "0"
+  /terminal/present_value: "0"
+  /value_of_operations: "588.1885289152226336770385933"
+  /enterprise_value: "588.1885289152226336770385933"
+  /equity_value: "588.1885289152226336770385933"
+  /terminal_value_weight: "0"
+  /periods/0/present_value: "114.9391542265381671165991269"
+  /periods/1/present_value: "118.6298610136288422074990988"
+  /periods/2/present_value: "120.9274831943209400688064208"
+  /periods/3/present_value: "118.3388214745648343180980265"
+  /periods/4/present_value: "115.3532090061698499660359203"
+  /periods/0/discount_factor: "0.9578262852211513926383260571"
+tolerance: "0.00000000000000000001"

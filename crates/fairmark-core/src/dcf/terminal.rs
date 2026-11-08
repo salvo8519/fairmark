@@ -201,9 +201,29 @@ pub struct NormalisedIncomeTerminal {
     pub growth_cap: Option<Decimal>,
 }
 
-/// The terminal technique, written as an object with exactly one key, the `tv.*` method id,
-/// as in `tv.compare`: `{"tv.gordon": {...}}`.
+/// A terminal value given by the analyst (SPEC-0001 Decision 24): an amount at the horizon N,
+/// not computed by a technique.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GivenTerminal {
+    /// The terminal value at the horizon N, in currency units, in the terms of the cash flows,
+    /// on the basis of the DCF: the value of operations at N for `dcf.fcff` (enterprise
+    /// basis), the equity value at N for `dcf.fcfe` (equity basis). Any sign: a negative amount
+    /// (for example a decommissioning cost) is reported as a warning. Discounted like the value
+    /// of a technique.
+    pub value: Decimal,
+}
+
+/// No terminal value (SPEC-0001 Decision 24): an empty object `{}`. The value covers the
+/// explicit flows only.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NoTerminal {}
+
+/// The terminal option, written as an object with exactly one key: a `tv.*` method id, as in
+/// `tv.compare` (`{"tv.gordon": {...}}`), `given` (`{"given": {"value": ...}}`, an amount at N
+/// given by the analyst) or `none` (`{"none": {}}`, no terminal value).
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[schemars(extend("minProperties" = 1, "maxProperties" = 1))]
 pub struct Terminal {
@@ -260,6 +280,24 @@ pub struct Terminal {
         skip_serializing_if = "Option::is_none"
     )]
     pub liquidation: Option<LiquidationTerminal>,
+    /// A terminal value given by the analyst (`given`): `value`, an amount at N on the basis of
+    /// the DCF, in the terms of the cash flows.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub given: Option<GivenTerminal>,
+    /// No terminal value (`none`), an empty object: the value covers the explicit flows only,
+    /// with a warning.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub none: Option<NoTerminal>,
+}
+
+impl Terminal {
+    /// `{"none": {}}`: the default terminal option (Decision 24).
+    pub fn none() -> Self {
+        Self {
+            none: Some(NoTerminal {}),
+            ..Self::default()
+        }
+    }
 }
 
 // ---------------------------------------------------------------- output types
@@ -280,24 +318,28 @@ pub enum TechniqueOutput {
 /// The terminal value and its discounting (R19 to R22).
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct TerminalOutput {
-    /// Method id of the technique, for example `tv.gordon`.
+    /// Method id of the technique, for example `tv.gordon`; `given` for a terminal value given
+    /// by the analyst, `none` for no terminal value.
     pub technique: String,
-    /// Version of the technique's method that produced the value.
-    pub technique_version: String,
+    /// Version of the technique's method that produced the value; `null` for `given` and
+    /// `none`.
+    pub technique_version: Option<String>,
     /// Rate of the terminal phase (the single rate, or the terminal rate given with rates per
     /// period), decimal fraction per period, in the terms of the cash flows; the conventions
-    /// state whether the technique uses it.
-    pub rate: Decimal,
+    /// state whether the technique uses it. `null` when no terminal rate is used (`none`, or
+    /// `given` discounted at N).
+    pub rate: Option<Decimal>,
     /// Terminal value at the horizon N, not discounted, in currency units.
     pub terminal_value: Decimal,
-    /// Time at which the terminal value is discounted, in periods: N, or N − 0.5.
-    pub discount_time: Decimal,
-    /// Discount factor applied to the terminal value.
-    pub discount_factor: Decimal,
+    /// Time at which the terminal value is discounted, in periods: N, or N − 0.5; `null` with
+    /// no terminal value (`none`).
+    pub discount_time: Option<Decimal>,
+    /// Discount factor applied to the terminal value; `null` with no terminal value (`none`).
+    pub discount_factor: Option<Decimal>,
     /// Present value of the terminal value, in currency units.
     pub present_value: Decimal,
-    /// The technique's own output, with its implied assumptions.
-    pub output: TechniqueOutput,
+    /// The technique's own output, with its implied assumptions; `null` for `given` and `none`.
+    pub output: Option<TechniqueOutput>,
 }
 
 // ---------------------------------------------------------------- checks
@@ -371,6 +413,75 @@ impl Technique<'_> {
                 Some("includes a price at a date (the residual value at N + n)")
             }
             _ => None,
+        }
+    }
+}
+
+/// The terminal option chosen (Decision 24): a technique, a value given by the analyst, or none.
+#[derive(Clone, Copy)]
+pub(crate) enum TerminalChoice<'a> {
+    Technique(Technique<'a>),
+    Given(&'a GivenTerminal),
+    None,
+}
+
+impl TerminalChoice<'_> {
+    /// The key of the option in `/terminal`.
+    pub(crate) fn id(self) -> &'static str {
+        match self {
+            Self::Technique(t) => t.id(),
+            Self::Given(_) => "given",
+            Self::None => "none",
+        }
+    }
+
+    pub(crate) fn perpetual_growth(self) -> Option<Decimal> {
+        match self {
+            Self::Technique(t) => t.perpetual_growth(),
+            Self::Given(_) | Self::None => None,
+        }
+    }
+
+    /// Whether and why a terminal rate is used: by every technique; by a given value only for
+    /// the half-period shift (Decision 16); never with no terminal value (Decision 24).
+    pub(crate) fn terminal_rate_use(
+        self,
+        timing: Timing,
+        time: Option<TerminalDiscountTime>,
+    ) -> TerminalRateUse {
+        match self {
+            Self::Technique(_) => TerminalRateUse::Technique,
+            Self::Given(_)
+                if timing == Timing::MidPeriod && time == Some(TerminalDiscountTime::MidPeriod) =>
+            {
+                TerminalRateUse::HalfPeriodShift
+            }
+            Self::Given(_) | Self::None => TerminalRateUse::NotUsed,
+        }
+    }
+}
+
+/// What uses the terminal rate (Decision 24), for the checks of the rates and the inflation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TerminalRateUse {
+    /// A `tv.*` technique computes the terminal value at the terminal rate.
+    Technique,
+    /// A given terminal value is discounted at N − 0.5 with the half-period shift (Decision 16).
+    HalfPeriodShift,
+    /// No terminal value, or a given terminal value discounted at N.
+    NotUsed,
+}
+
+impl TerminalRateUse {
+    pub(crate) fn is_used(self) -> bool {
+        self != Self::NotUsed
+    }
+
+    /// Added to a message that requires the terminal rate, so that it says why.
+    pub(crate) fn note(self) -> &'static str {
+        match self {
+            Self::HalfPeriodShift => " (the half-period shift of the given terminal value uses it)",
+            _ => "",
         }
     }
 }
@@ -544,56 +655,79 @@ fn at_pointer(
     }
 }
 
-/// R19, R20: exactly one technique, on the basis of the DCF, with the first terminal flow
-/// stated; the terms checked by the technique's own method, every error with its JSON pointer
-/// (R27). Runs before any calculation.
-pub(crate) fn check<'a>(
-    t: &'a Terminal,
-    rate: Decimal,
-    rate_field: &str,
-    converted_with: Option<&str>,
-    basis: TerminalBasis,
-) -> Result<Technique<'a>> {
-    let mut given: Vec<Technique<'a>> = Vec::with_capacity(1);
+/// R19 (Decision 24): exactly one terminal option, a technique, `given` or `none`. Read before
+/// the rates, because it decides whether a terminal rate is used.
+pub(crate) fn choose(t: &Terminal) -> Result<TerminalChoice<'_>> {
+    let mut given: Vec<TerminalChoice<'_>> = Vec::with_capacity(1);
     if let Some(x) = &t.gordon {
-        given.push(Technique::Gordon(x));
+        given.push(TerminalChoice::Technique(Technique::Gordon(x)));
     }
     if let Some(x) = &t.h_model {
-        given.push(Technique::HModel(x));
+        given.push(TerminalChoice::Technique(Technique::HModel(x)));
     }
     if let Some(x) = &t.value_driver {
-        given.push(Technique::ValueDriver(x));
+        given.push(TerminalChoice::Technique(Technique::ValueDriver(x)));
     }
     if let Some(x) = &t.exit_multiple {
-        given.push(Technique::ExitMultiple(x));
+        given.push(TerminalChoice::Technique(Technique::ExitMultiple(x)));
     }
     if let Some(x) = &t.limited_horizon {
-        given.push(Technique::LimitedHorizon(x));
+        given.push(TerminalChoice::Technique(Technique::LimitedHorizon(x)));
     }
     if let Some(x) = &t.normalised_income {
-        given.push(Technique::NormalisedIncome(x));
+        given.push(TerminalChoice::Technique(Technique::NormalisedIncome(x)));
     }
     if let Some(x) = &t.liquidation {
-        given.push(Technique::Liquidation(x));
+        given.push(TerminalChoice::Technique(Technique::Liquidation(x)));
     }
-    let technique = match given.as_slice() {
-        [] => {
-            return Err(invalid(
-                "`/terminal` names no technique: give exactly one, written with its method id, \
-                 for example {\"tv.gordon\": {\"growth\": 0.02, \"first_flow\": \"last_flow_grown\"}}"
-                    .to_owned(),
-            ))
-        }
-        [one] => *one,
+    if let Some(x) = &t.given {
+        given.push(TerminalChoice::Given(x));
+    }
+    if t.none.is_some() {
+        given.push(TerminalChoice::None);
+    }
+    match given.as_slice() {
+        [] => Err(invalid(
+            "`/terminal` names no technique: give exactly one, written with its method id, \
+             for example {\"tv.gordon\": {\"growth\": 0.02, \"first_flow\": \"last_flow_grown\"}}"
+                .to_owned(),
+        )),
+        [one] => Ok(*one),
         many => {
             let ids: Vec<&str> = many.iter().map(|t| t.id()).collect();
-            return Err(invalid(format!(
+            let option = |t: &TerminalChoice<'_>| !matches!(t, TerminalChoice::Technique(_));
+            // The text for techniques only is kept as it was before Decision 24.
+            if many.iter().any(option) {
+                return Err(invalid(format!(
+                    "`/terminal` names {} terminal options ({}); give exactly one terminal \
+                     option: a `tv.*` technique, `given` (a terminal value at N) or `none`",
+                    ids.len(),
+                    ids.join(", ")
+                )));
+            }
+            Err(invalid(format!(
                 "`/terminal` names {} techniques ({}); give exactly one terminal technique",
                 ids.len(),
                 ids.join(", ")
-            )));
+            )))
         }
+    }
+}
+
+/// R19, R20: a technique on the basis of the DCF, with the first terminal flow stated; the
+/// terms checked by the technique's own method, every error with its JSON pointer (R27). Runs
+/// before any calculation. `given` and `none` have nothing to check here.
+pub(crate) fn check<'a>(
+    choice: TerminalChoice<'a>,
+    rate: Option<Decimal>,
+    rate_field: &str,
+    converted_with: Option<&str>,
+    basis: TerminalBasis,
+) -> Result<TerminalChoice<'a>> {
+    let TerminalChoice::Technique(technique) = choice else {
+        return Ok(choice);
     };
+    let rate = rate.ok_or(FairmarkError::Internal("technique without a terminal rate"))?;
     let at = format!("/terminal/{}", technique.id());
     let at = at.as_str();
     // What only the DCF knows: the first terminal flow (R20) and the basis (R19).
@@ -667,7 +801,7 @@ pub(crate) fn check<'a>(
     // its value: zero stands in for it.
     tv_check(&tv_input(technique, rate, Decimal::ZERO))
         .map_err(|e| at_pointer(e, technique, rate_field, converted_with))?;
-    Ok(technique)
+    Ok(choice)
 }
 
 // ---------------------------------------------------------------- calculation
@@ -794,11 +928,12 @@ fn compute(
 /// growth, the end-of-period factors of the explicit periods, and the compounding
 /// factor G_N (`None` beyond the decimal range).
 pub(crate) struct TerminalContext<'a> {
-    pub technique: Technique<'a>,
+    pub choice: TerminalChoice<'a>,
     pub basis: TerminalBasis,
     pub timing: Timing,
     pub discount_time: Option<TerminalDiscountTime>,
-    pub rate: Decimal,
+    /// The terminal rate in the terms of the cash flows; `None` when none is used.
+    pub rate: Option<Decimal>,
     pub last_flow: Decimal,
     pub last_growth: Option<Decimal>,
     pub ends: &'a [Decimal],
@@ -808,11 +943,92 @@ pub(crate) struct TerminalContext<'a> {
     pub converted_with: Option<&'a str>,
 }
 
-/// R19 to R22: the terminal value through the typed `tv` function, and its discounting.
+/// Decision 24: no terminal value. The value covers the explicit flows only; the terminal
+/// value and its present value are zero, with a warning.
+fn no_terminal_value(ex: &mut Explain, c: &TerminalContext<'_>) -> TerminalOutput {
+    let n = c.ends.len();
+    ex.convention(format!(
+        "terminal value: none (`/terminal/none`): the value covers the {n} explicit flows only, \
+         a holding period of N = {n} periods"
+    ));
+    ex.convention(format!(
+        "warning: no terminal value is included: the value covers the {n} explicit flows only; \
+         include an exit value in the last flow, or give a terminal value in `/terminal` \
+         (`given`, or a `tv.*` technique)"
+    ));
+    ex.step(
+        "Terminal value at N",
+        "none: no terminal value",
+        Decimal::ZERO,
+    );
+    ex.step(
+        "Present value of the terminal value",
+        "none: no terminal value",
+        Decimal::ZERO,
+    );
+    TerminalOutput {
+        technique: "none".to_owned(),
+        technique_version: None,
+        rate: None,
+        terminal_value: Decimal::ZERO,
+        discount_time: None,
+        discount_factor: None,
+        present_value: Decimal::ZERO,
+        output: None,
+    }
+}
+
+/// R19 to R22: the terminal value through the typed `tv` function, or given by the analyst
+/// (Decision 24), and its discounting; no terminal value for `none`.
 pub(crate) fn value(ex: &mut Explain, c: &TerminalContext<'_>) -> Result<TerminalOutput> {
-    let technique = c.technique;
+    let (tv_n, output, id, version) = match c.choice {
+        TerminalChoice::None => return Ok(no_terminal_value(ex, c)),
+        TerminalChoice::Given(g) => {
+            let v = g.value;
+            let what = match c.basis {
+                TerminalBasis::Enterprise => "the value of operations at N",
+                TerminalBasis::Equity => "the equity value at N",
+            };
+            ex.convention(format!(
+                "terminal value: given by the analyst, {v} at the horizon N on the {} basis \
+                 ({what}), in the terms of the cash flows; the amount and its basis are the \
+                 analyst's, not computed by a technique",
+                c.basis.name()
+            ));
+            if v.is_sign_negative() && !v.is_zero() {
+                ex.convention(format!(
+                    "warning: the given terminal value {v} is negative (for example a \
+                     decommissioning cost); it is discounted as given"
+                ));
+                ex.convention(
+                    "warning: the terminal value is negative, so the terminal value weight is \
+                     not meaningful as a share of the value",
+                );
+            }
+            ex.step("Terminal value at N", "as given", v);
+            (v, None, "given", None)
+        }
+        TerminalChoice::Technique(technique) => {
+            let (id, version) = (technique.id(), technique.version());
+            let rate = c
+                .rate
+                .ok_or(FairmarkError::Internal("technique without a terminal rate"))?;
+            let (tv_n, output, tv_ex) = compute(ex, technique, rate, c.last_flow, c.basis)?;
+            report_technique(ex, c, technique, tv_ex);
+            (tv_n, Some(output), id, Some(version))
+        }
+    };
+    discount(ex, c, tv_n, output, id, version)
+}
+
+/// The steps and conventions of the technique's own method, and the continuity warning (R11).
+fn report_technique(
+    ex: &mut Explain,
+    c: &TerminalContext<'_>,
+    technique: Technique<'_>,
+    tv_ex: Explain,
+) {
     let (id, version) = (technique.id(), technique.version());
-    let (tv_n, output, tv_ex) = compute(ex, technique, c.rate, c.last_flow, c.basis)?;
     for s in tv_ex.steps {
         ex.step(format!("Terminal value: {}", s.label), s.formula, s.value);
     }
@@ -840,7 +1056,18 @@ pub(crate) fn value(ex: &mut Explain, c: &TerminalContext<'_>) -> Result<Termina
             ));
         }
     }
+}
 
+/// R21, R22: the terminal value at N discounted at N, or at N − 0.5 with the half-period shift
+/// at the terminal rate (Decision 16), for a technique and for a given value alike.
+fn discount(
+    ex: &mut Explain,
+    c: &TerminalContext<'_>,
+    tv_n: Decimal,
+    output: Option<TechniqueOutput>,
+    id: &'static str,
+    version: Option<&'static str>,
+) -> Result<TerminalOutput> {
     let n = c.ends.len();
     let df_n = c.ends[n - 1];
     let horizon = Decimal::from(n as u64);
@@ -852,7 +1079,9 @@ pub(crate) fn value(ex: &mut Explain, c: &TerminalContext<'_>) -> Result<Termina
     };
     let (time, df, pv) = match (c.timing, c.discount_time) {
         (Timing::MidPeriod, Some(TerminalDiscountTime::MidPeriod)) => {
-            let r_t = c.rate;
+            let r_t = c.rate.ok_or(FairmarkError::Internal(
+                "half-period shift without a terminal rate",
+            ))?;
             let root = one_plus(r_t)?
                 .sqrt()
                 .ok_or(FairmarkError::Overflow("square root"))?;
@@ -861,9 +1090,17 @@ pub(crate) fn value(ex: &mut Explain, c: &TerminalContext<'_>) -> Result<Termina
                 "terminal discounting time: mid_period, t = N − 0.5, factor DF_N × (1 + r_T)^0.5; \
                  the half-period shift uses the terminal rate r_T = {r_t} (R21, Decision 16)"
             ));
-            if let Some(what) = technique.price_at_date() {
+            // Decisions 6, 17 and 24: an amount stated at a date, moved half a period earlier.
+            let price_at_date = match c.choice {
+                TerminalChoice::Technique(t) => t.price_at_date().map(|w| format!("{id} {w}")),
+                TerminalChoice::Given(_) => {
+                    Some("given: the analyst's terminal value at the horizon N".to_owned())
+                }
+                TerminalChoice::None => None,
+            };
+            if let Some(what) = price_at_date {
                 ex.convention(format!(
-                    "warning: {id} {what}; discounting it at N − 0.5 brings it forward half a \
+                    "warning: {what}; discounting it at N − 0.5 brings it forward half a \
                      period; it is discounted at N − 0.5 as chosen"
                 ));
             }
@@ -905,7 +1142,9 @@ pub(crate) fn value(ex: &mut Explain, c: &TerminalContext<'_>) -> Result<Termina
                     "terminal value discounted at the horizon, t = N, factor DF_N"
                 }
             });
-            if timing == Timing::MidPeriod && technique.is_perpetual_growth() {
+            let perpetual =
+                matches!(c.choice, TerminalChoice::Technique(t) if t.is_perpetual_growth());
+            if timing == Timing::MidPeriod && perpetual {
                 ex.convention(
                     "warning: under mid-period timing a perpetuity-growth terminal value is \
                      commonly discounted at N − 0.5, consistent with the flows it capitalises; \
@@ -938,11 +1177,11 @@ pub(crate) fn value(ex: &mut Explain, c: &TerminalContext<'_>) -> Result<Termina
     };
     Ok(TerminalOutput {
         technique: id.to_owned(),
-        technique_version: version.to_owned(),
+        technique_version: version.map(str::to_owned),
         rate: c.rate,
         terminal_value: tv_n,
-        discount_time: time,
-        discount_factor: df,
+        discount_time: Some(time),
+        discount_factor: Some(df),
         present_value: pv,
         output,
     })

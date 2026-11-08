@@ -1,0 +1,8 @@
+method: dcf.fcff
+description: "An explicit null for a field with a documented default is refused: leave the field out to use the default, or give a value (Decision 24, code review of #197)"
+source: SPEC-0001 Decision 24 and R27
+input:
+  stages: [{"flows": ["120", "135"]}]
+  wacc: "0.09"
+  timing: null
+expect_error: FM-E001
