@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -75,7 +76,7 @@ def test_hook_exit_status_and_message(repo: Path) -> None:
         capture_output=True,
         text=True,
         encoding="utf-8",
-        env={"FAIRMARK_GOLDEN_BASE": "main", "PATH": "/usr/bin:/bin"},
+        env={**os.environ, "FAIRMARK_GOLDEN_BASE": "main"},
         check=False,
     )
     assert result.returncode == 2
