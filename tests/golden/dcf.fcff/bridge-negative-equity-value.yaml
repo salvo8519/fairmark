@@ -15,8 +15,8 @@ input:
   timing: "end_of_period"
   terminal: {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}
   net_financial_position: {"gross_debt": "1100", "cash": "50"}
-  debt_like_items: [{"label": "Unfunded pension obligation", "value": "300", "measurement_basis": "book value"}]
-  non_controlling_interests: [{"label": "40% of Subsidiary B", "value": "150", "measurement_basis": "book value"}]
+  debt_like_items: [{"label": "Unfunded pension obligation", "value": "300", "measurement_basis": "present_value"}]
+  non_controlling_interests: [{"label": "40% of Subsidiary B", "value": "150", "measurement_basis": "book_value"}]
 expect:
   /value_of_operations: "1421.4876033057851239669421488"
   /enterprise_value: "1421.4876033057851239669421488"

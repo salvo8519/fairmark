@@ -1124,15 +1124,15 @@ mod tests {
                 "debt_like_items".into(),
                 json!([
                     {"label": "Unfunded pension obligation", "value": "70",
-                     "measurement_basis": "present value net of tax"},
+                     "measurement_basis": "present_value", "basis_note": "net of tax"},
                     {"label": "Restructuring provision", "value": "12.5",
-                     "measurement_basis": "book value"}
+                     "measurement_basis": "book_value"}
                 ]),
             );
             m.insert(
                 "non_controlling_interests".into(),
                 json!([{"label": "20% of Subsidiary A", "value": "45",
-                        "measurement_basis": "fair value"}]),
+                        "measurement_basis": "fair_value"}]),
             );
         })
     }
@@ -1167,8 +1167,15 @@ mod tests {
         assert_eq!(d("/bridge/equity_value"), d("/equity_value"));
         assert_eq!(
             out["value"]["bridge"]["debt_like_items"][1]["measurement_basis"],
-            "book value"
+            "book_value"
         );
+        assert_eq!(
+            out["value"]["bridge"]["debt_like_items"][0]["basis_note"],
+            "net of tax"
+        );
+        assert!(out["value"]["bridge"]["debt_like_items"][1]
+            .get("basis_note")
+            .is_none());
         assert_eq!(
             out["value"]["bridge"]["non_controlling_interests"][0]["label"],
             "20% of Subsidiary A"
@@ -1182,12 +1189,13 @@ mod tests {
                 .clone()
         };
         assert_eq!(
-            step("Debt-like item: Unfunded pension obligation (present value net of tax)")["value"],
+            step("Debt-like item: Unfunded pension obligation (present_value: net of tax)")
+                ["value"],
             "70"
         );
         assert_eq!(step("Debt-like items, total")["formula"], "70 + 12.5");
         assert_eq!(
-            step("Non-controlling interest: 20% of Subsidiary A (fair value)")["value"],
+            step("Non-controlling interest: 20% of Subsidiary A (fair_value)")["value"],
             "45"
         );
         assert_eq!(step("Non-controlling interests, total")["formula"], "45");
@@ -1210,10 +1218,12 @@ mod tests {
              position (positive for net debt), debt-like items and non-controlling interests \
              subtracted from enterprise value; every debt-like item and non-controlling \
              interest is zero or more",
-            "debt-like item 'Unfunded pension obligation': measurement basis stated by the \
-             analyst: present value net of tax",
-            "non-controlling interest '20% of Subsidiary A': measurement basis stated by the \
-             analyst: fair value",
+            "debt-like item 'Unfunded pension obligation': measurement basis present_value \
+             (present value of the obligation), stated by the analyst; note: net of tax",
+            "debt-like item 'Restructuring provision': measurement basis book_value (book \
+             value per the accounts), stated by the analyst",
+            "non-controlling interest '20% of Subsidiary A': measurement basis fair_value (fair \
+             value as defined by IFRS 13), stated by the analyst",
         ] {
             assert!(c.contains(needle), "missing '{needle}' in:\n{c}");
         }
@@ -1230,11 +1240,11 @@ mod tests {
         let v = with(base(), |m| {
             m.insert(
                 "debt_like_items".into(),
-                json!([{"label": "Pension", "value": "1000", "measurement_basis": "book value"}]),
+                json!([{"label": "Pension", "value": "1000", "measurement_basis": "book_value"}]),
             );
             m.insert(
                 "non_controlling_interests".into(),
-                json!([{"label": "Minority", "value": "500", "measurement_basis": "book value"}]),
+                json!([{"label": "Minority", "value": "500", "measurement_basis": "book_value"}]),
             );
         });
         let out = run("dcf.fcff", &v.to_string()).unwrap();
@@ -1253,43 +1263,55 @@ mod tests {
     #[test]
     fn bridge_claim_errors_name_their_field() {
         let claim = |label: &str, value: &str, basis: &str| json!([{"label": label, "value": value, "measurement_basis": basis}]);
+        let noted = |basis: &str, note: &str| {
+            json!([{"label": "Pension", "value": "1", "measurement_basis": basis,
+                    "basis_note": note}])
+        };
         let cases = [
             (
                 "debt_like_items",
-                claim("Pension", "-1", "book value"),
+                claim("Pension", "-1", "book_value"),
                 "`/debt_like_items/0/value`",
                 "non_operating_assets",
             ),
             (
                 "non_controlling_interests",
-                claim("Minority", "-1", "book value"),
+                claim("Minority", "-1", "book_value"),
                 "`/non_controlling_interests/0/value`",
                 "a non-controlling interest is zero or more (SPEC-0001 R25); give zero or a \
                  positive amount",
             ),
             (
                 "debt_like_items",
-                claim(" ", "1", "book value"),
+                claim(" ", "1", "market_value"),
                 "`/debt_like_items/0/label`",
                 "name the item",
             ),
             (
                 "non_controlling_interests",
-                claim("", "1", "book value"),
+                claim("", "1", "fair_value"),
                 "`/non_controlling_interests/0/label`",
                 "name the item",
             ),
             (
                 "debt_like_items",
-                claim("Pension", "1", "  "),
-                "`/debt_like_items/0/measurement_basis`",
-                "state how the amount was measured",
+                claim("Pension", "1", "other"),
+                "`/debt_like_items/0/basis_note`",
+                "with `measurement_basis` `other`, describe in `basis_note` how the amount was \
+                 measured",
             ),
             (
                 "non_controlling_interests",
-                claim("Minority", "1", ""),
-                "`/non_controlling_interests/0/measurement_basis`",
-                "for example book value or fair value",
+                noted("other", "  "),
+                "`/non_controlling_interests/0/basis_note`",
+                "with `measurement_basis` `other`, describe in `basis_note` how the amount was \
+                 measured",
+            ),
+            (
+                "debt_like_items",
+                noted("book_value", ""),
+                "`/debt_like_items/0/basis_note`",
+                "write the note or remove the field",
             ),
         ];
         for (field, items, pointer, fix) in cases {
@@ -1302,11 +1324,71 @@ mod tests {
             assert!(text.contains(pointer), "{pointer} not in: {text}");
             assert!(text.contains(fix), "'{fix}' not in: {text}");
         }
-        // A missing measurement basis is refused, never defaulted (R29).
+        // A missing measurement basis, or one that is not an option, is refused, never
+        // defaulted (R29, Decision 21).
+        for items in [
+            json!([{"label": "Pension", "value": "1"}]),
+            json!([{"label": "Pension", "value": "1", "measurement_basis": "book value"}]),
+            json!([{"label": "Pension", "value": "1", "measurement_basis": ""}]),
+        ] {
+            let v = with(base(), |m| {
+                m.insert("debt_like_items".into(), items);
+            });
+            assert_eq!(err(&v).code(), "FM-E001");
+        }
+    }
+
+    /// Decision 21: `other` with a note is accepted and the note is echoed in the step, the
+    /// convention and the output; every option of the enumeration is accepted.
+    #[test]
+    fn every_measurement_basis_is_accepted_and_echoed() {
+        for basis in [
+            "book_value",
+            "market_value",
+            "fair_value",
+            "present_value",
+            "other",
+        ] {
+            let v = with(base(), |m| {
+                m.insert(
+                    "non_controlling_interests".into(),
+                    json!([{"label": "Minority", "value": "10", "measurement_basis": basis,
+                            "basis_note": "valued by a multiple of the subsidiary's earnings"}]),
+                );
+            });
+            let out = run("dcf.fcff", &v.to_string()).unwrap();
+            let claim = &out["value"]["bridge"]["non_controlling_interests"][0];
+            assert_eq!(claim["measurement_basis"], basis);
+            assert_eq!(
+                claim["basis_note"],
+                "valued by a multiple of the subsidiary's earnings"
+            );
+            let steps = out["explain"]["steps"].to_string();
+            assert!(
+                steps.contains(&format!(
+                    "Non-controlling interest: Minority ({basis}: valued by a multiple of the \
+                     subsidiary's earnings)"
+                )),
+                "{steps}"
+            );
+            let c = out["explain"]["conventions"].to_string();
+            assert!(
+                c.contains(&format!(
+                    "non-controlling interest 'Minority': measurement basis {basis}"
+                )) && c.contains("note: valued by a multiple of the subsidiary's earnings"),
+                "{c}"
+            );
+        }
+    }
+
+    /// Decision 21: no measurement basis on the non-operating assets yet (pending the
+    /// maintainer's decision under the schema of version 3); the input is unchanged.
+    #[test]
+    fn non_operating_assets_keep_their_shape() {
         let v = with(base(), |m| {
             m.insert(
-                "debt_like_items".into(),
-                json!([{"label": "Pension", "value": "1"}]),
+                "non_operating_assets".into(),
+                json!([{"label": "Land", "value": "1", "measurement_basis": "book_value"}]),
             );
         });
         assert_eq!(err(&v).code(), "FM-E001");

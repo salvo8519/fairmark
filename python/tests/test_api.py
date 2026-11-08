@@ -200,11 +200,11 @@ def test_dcf_bridge_with_debt_like_items_and_non_controlling_interests() -> None
             {
                 "label": "49% of Seville Television",
                 "value": "122.5",
-                "measurement_basis": "book value",
+                "measurement_basis": "book_value",
             }
         ],
     )
     assert r.value_of_operations.quantize(Decimal("0.000001")) == Decimal("2205")
     assert r.equity_value.quantize(Decimal("0.000001")) == Decimal("1605")
-    assert r.bridge["non_controlling_interests"][0]["measurement_basis"] == "book value"
+    assert r.bridge["non_controlling_interests"][0]["measurement_basis"] == "book_value"
     assert any("debt-like items: none given" in c for c in r.conventions)

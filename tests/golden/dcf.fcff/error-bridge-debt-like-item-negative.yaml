@@ -8,5 +8,5 @@ input:
   wacc: "0.10"
   timing: "end_of_period"
   terminal: {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}
-  debt_like_items: [{"label": "Pension", "value": "-10", "measurement_basis": "book value"}]
+  debt_like_items: [{"label": "Pension", "value": "-10", "measurement_basis": "present_value"}]
 expect_error: FM-E001

@@ -1,6 +1,6 @@
 method: dcf.fcff
-description: "A non-controlling interest with an empty measurement basis (R25: the basis is stated, not chosen by the engine)"
-source: SPEC-0001 R25, R27
+description: "A non-controlling interest with an empty measurement basis, which is not one of the options of the enumeration (R25, Decision 21: the basis is stated, not chosen by the engine)"
+source: SPEC-0001 R25, Decision 21
 input:
   stages: [{"periods": 3, "projection": "given", "flows": ["100", "110", "120"]}]
   cash_flow_terms: "nominal"

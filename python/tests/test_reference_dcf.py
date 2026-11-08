@@ -524,15 +524,26 @@ def test_ac9_real_flows_equal_the_inflated_nominal_flows(inflation: dict[str, An
 # Issue #44: from value of operations to equity value (R23, R25, AC13).
 
 
+BASES = ["book_value", "market_value", "fair_value", "present_value", "other"]
+
+
 def random_bridge(rng: Any) -> dict[str, Any]:
     """A bridge with zero to three lines of each kind, amounts with up to four decimals."""
 
     def amount() -> str:
         return str(D(rng.randint(0, 50_000_000)).scaleb(-4))
 
+    def basis(i: int) -> dict[str, str]:
+        b = rng.choice(BASES)
+        return (
+            {"measurement_basis": b, "basis_note": f"note {i}"}
+            if b == "other"
+            else {"measurement_basis": b}
+        )
+
     def claims(kind: str) -> list[dict[str, str]]:
         return [
-            {"label": f"{kind} {i}", "value": amount(), "measurement_basis": "book value"}
+            {"label": f"{kind} {i}", "value": amount(), **basis(i)}
             for i in range(rng.randint(0, 3))
         ]
 
@@ -612,6 +623,9 @@ def test_bridge_identity_holds_to_the_last_digit(seed: int) -> None:
         assert abs(D(got["equity_value"]) - equity) <= 3 * ulp
     for kind in ("debt_like_items", "non_controlling_interests"):
         given = bridge.get(kind, [])
-        assert [(c["label"], D(c["value"]), c["measurement_basis"]) for c in b[kind]] == [
-            (c["label"], D(c["value"]), c["measurement_basis"]) for c in given
+        assert [
+            (c["label"], D(c["value"]), c["measurement_basis"], c.get("basis_note"))
+            for c in b[kind]
+        ] == [
+            (c["label"], D(c["value"]), c["measurement_basis"], c.get("basis_note")) for c in given
         ]

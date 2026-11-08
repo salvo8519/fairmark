@@ -5,8 +5,9 @@ source: >
   SPEC-0001 R23 and R25; net financial position as in SPEC-0007 R6, sharing no code with the
   engine). Net financial position 900 - 150 + 120 - 20 = 850; non-operating assets 80 + 45.5 =
   125.5; debt-like items 95 + 32.25 = 127.25; non-controlling interests 210. Equity value =
-  value of operations + 125.5 - 850 - 127.25 - 210. The measurement bases are stated by the
-  analyst and echoed, never used in the calculation.
+  value of operations + 125.5 - 850 - 127.25 - 210. The measurement bases (present_value,
+  other with its note, fair_value; Decision 21) are stated by the analyst and echoed, never
+  used in the calculation.
 input:
   stages: [{"periods": 4, "projection": "given", "flows": ["250", "270", "285", "300"]}]
   cash_flow_terms: "nominal"
@@ -16,8 +17,8 @@ input:
   terminal: {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}
   net_financial_position: {"gross_debt": "900", "cash": "150", "other_items": [{"name": "lease liabilities", "amount": "120"}, {"name": "derivative assets", "amount": "-20"}]}
   non_operating_assets: [{"label": "Land held for sale", "value": "80"}, {"label": "Investment in an associate", "value": "45.5"}]
-  debt_like_items: [{"label": "Unfunded pension obligation", "value": "95", "measurement_basis": "present value of the obligation net of plan assets, after tax"}, {"label": "Environmental remediation provision", "value": "32.25", "measurement_basis": "present value at the valuation date"}]
-  non_controlling_interests: [{"label": "30% of Subsidiary A", "value": "210", "measurement_basis": "fair value"}]
+  debt_like_items: [{"label": "Unfunded pension obligation", "value": "95", "measurement_basis": "present_value", "basis_note": "obligation net of plan assets, after tax"}, {"label": "Environmental remediation provision", "value": "32.25", "measurement_basis": "other", "basis_note": "best estimate of the settlement amount, undiscounted"}]
+  non_controlling_interests: [{"label": "30% of Subsidiary A", "value": "210", "measurement_basis": "fair_value"}]
 expect:
   /value_of_operations: "3986.041459854787587216745174"
   /enterprise_value: "4111.541459854787587216745174"
@@ -29,7 +30,10 @@ expect:
   /bridge/non_controlling_interests_total: "210"
   /bridge/debt_like_items/0/label: "Unfunded pension obligation"
   /bridge/debt_like_items/1/value: "32.25"
-  /bridge/debt_like_items/0/measurement_basis: "present value of the obligation net of plan assets, after tax"
+  /bridge/debt_like_items/0/measurement_basis: "present_value"
+  /bridge/debt_like_items/0/basis_note: "obligation net of plan assets, after tax"
+  /bridge/debt_like_items/1/measurement_basis: "other"
+  /bridge/debt_like_items/1/basis_note: "best estimate of the settlement amount, undiscounted"
   /bridge/non_controlling_interests/0/label: "30% of Subsidiary A"
-  /bridge/non_controlling_interests/0/measurement_basis: "fair value"
+  /bridge/non_controlling_interests/0/measurement_basis: "fair_value"
 tolerance: "0.00000000000000000001"

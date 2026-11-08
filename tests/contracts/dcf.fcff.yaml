@@ -91,8 +91,8 @@ extreme_inputs:
   terminal: {tv.gordon: {growth: '0.01', first_flow: last_flow_grown}}
   net_financial_position: {gross_debt: MAX, cash: MIN}
   non_operating_assets: [{label: a, value: MAX}]
-  debt_like_items: [{label: b, value: MAX, measurement_basis: book value}, {label: c, value: MAX, measurement_basis: book value}]
-  non_controlling_interests: [{label: d, value: MAX, measurement_basis: fair value}]
+  debt_like_items: [{label: b, value: MAX, measurement_basis: present_value}, {label: c, value: MAX, measurement_basis: other, basis_note: e}]
+  non_controlling_interests: [{label: d, value: MAX, measurement_basis: fair_value}]
 conventions:
 - input:
     stages: [{periods: 3, projection: given, flows: ['100', '110', '120']}]
@@ -183,12 +183,12 @@ conventions:
     timing: end_of_period
     terminal: {tv.gordon: {growth: '0.02', first_flow: last_flow_grown}}
     net_financial_position: {gross_debt: '1100', cash: '50'}
-    debt_like_items: [{label: Unfunded pension obligation, value: '300', measurement_basis: book value}]
-    non_controlling_interests: [{label: 40% of Subsidiary B, value: '150', measurement_basis: fair value}]
+    debt_like_items: [{label: Unfunded pension obligation, value: '300', measurement_basis: present_value, basis_note: net of tax}]
+    non_controlling_interests: [{label: 40% of Subsidiary B, value: '150', measurement_basis: fair_value}]
   expect:
   - bridge items measured at the valuation date, as given
   - 'bridge signs: non-operating assets added to the value of operations; net financial position (positive for net debt), debt-like items and non-controlling interests subtracted from enterprise value; every debt-like item and non-controlling interest is zero or more'
   - 'non-operating assets: none given'
-  - 'debt-like item ''Unfunded pension obligation'': measurement basis stated by the analyst: book value'
-  - 'non-controlling interest ''40% of Subsidiary B'': measurement basis stated by the analyst: fair value'
+  - 'debt-like item ''Unfunded pension obligation'': measurement basis present_value (present value of the obligation), stated by the analyst; note: net of tax'
+  - 'non-controlling interest ''40% of Subsidiary B'': measurement basis fair_value (fair value as defined by IFRS 13), stated by the analyst'
   - 'warning: the equity value is negative'

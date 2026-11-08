@@ -35,7 +35,7 @@ input:
   terminal: {"tv.gordon": {"growth": "0.05", "first_flow": "last_flow_grown"}}
   net_financial_position: {"gross_debt": "500", "cash": "0"}
   non_operating_assets: [{"label": "15% holding in LatinWorks", "value": "22.5"}]
-  non_controlling_interests: [{"label": "49% of Seville Television", "value": "122.5", "measurement_basis": "book value (49% of the book value of equity of Seville)"}]
+  non_controlling_interests: [{"label": "49% of Seville Television", "value": "122.5", "measurement_basis": "book_value", "basis_note": "49% of the book value of equity of Seville"}]
 expect:
   /value_of_operations: "2205"
   /enterprise_value: "2227.5"
