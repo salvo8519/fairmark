@@ -1,6 +1,6 @@
 # ADR 0013 — Input errors name the field by its JSON pointer, through `serde_path_to_error`
 
-Status: proposed · 2026-11-08 (issue #174)
+Status: accepted · 2026-11-08 (maintainer decision on #174)
 
 ## Context
 SPEC-0001 R27 requires every error to name the offending field by its JSON pointer and to
