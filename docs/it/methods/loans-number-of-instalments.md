@@ -1,6 +1,6 @@
 ---
 source: methods/loans-number-of-instalments.md
-source_hash: 9d99d9cb60cf
+source_hash: 0d63ed881f78
 ---
 # Numero delle rate (`loans.number_of_instalments`)
 
@@ -100,7 +100,7 @@ proprio numero di rate invece di una rata in più pari a una frazione di centesi
 | --- | --- |
 | `FM-E001` | Capitale pari a 0 o negativo, più di 10000 rate necessarie, forma di tasso incompleta o doppia, un campo `balloon_amount`, oppure un campo mancante o sconosciuto |
 | `FM-E003` | Il tasso periodico è pari o inferiore a −100% |
-| `FM-E021` | La rata non supera $i\,P'$, la quota interessi del primo periodo: il debito residuo non diminuisce mai |
+| `FM-E021` | La rata è pari a 0 o negativa, oppure non supera $i\,P'$, la quota interessi del primo periodo, qualunque sia il segno del tasso: il debito residuo non arriva mai a zero |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 
 ## Precisione

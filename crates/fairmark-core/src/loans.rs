@@ -103,7 +103,7 @@ impl Rounding {
     fn validate(&self) -> Result<()> {
         if self.decimal_places > 6 {
             return Err(FairmarkError::InvalidInput(format!(
-                "rounding.decimal_places must be between 0 and 6 (got {})",
+                "`rounding.decimal_places` must be between 0 and 6 (got {})",
                 self.decimal_places
             )));
         }
@@ -147,7 +147,8 @@ fn periodic_rate(form: &RateForm, ex: &mut Explain) -> Result<Decimal> {
         if !given.is_empty() {
             return Err(FairmarkError::InvalidInput(format!(
                 "give the rate in one form only: `periodic_rate` (form b) conflicts with `{}` \
-                 (form a)",
+                 (form a); remove `periodic_rate` or remove `rate`, `compounding` and \
+                 `payment_frequency`",
                 given.join("`, `")
             )));
         }
@@ -171,7 +172,8 @@ fn periodic_rate(form: &RateForm, ex: &mut Explain) -> Result<Decimal> {
         }
         let missing: Vec<&str> = form_a.iter().filter(|f| !f.1).map(|f| f.0).collect();
         return Err(FairmarkError::InvalidInput(format!(
-            "rate form (a) needs `rate`, `compounding` and `payment_frequency`; missing `{}`",
+            "rate form (a) needs `rate`, `compounding` and `payment_frequency`; missing `{}`: \
+             add it, or give `periodic_rate` (form b) instead",
             missing.join("`, `")
         )));
     };
@@ -226,7 +228,7 @@ fn timing_convention(timing: AnnuityTiming) -> &'static str {
 fn check_principal(principal: Decimal) -> Result<()> {
     if principal <= Decimal::ZERO {
         return Err(FairmarkError::InvalidInput(format!(
-            "principal must be greater than zero (got {principal})"
+            "`principal` must be greater than 0 (got {principal})"
         )));
     }
     Ok(())
@@ -235,7 +237,7 @@ fn check_principal(principal: Decimal) -> Result<()> {
 fn check_instalments(n: u32) -> Result<()> {
     if n == 0 || n > MAX_PERIODS {
         return Err(FairmarkError::InvalidInput(format!(
-            "number_of_instalments must be between 1 and {MAX_PERIODS} (got {n})"
+            "`number_of_instalments` must be between 1 and {MAX_PERIODS} (got {n})"
         )));
     }
     Ok(())
@@ -246,7 +248,7 @@ fn balloon(principal: Decimal, balloon: Option<Decimal>, ex: &mut Explain) -> Re
     let b = balloon.unwrap_or_default();
     if b < Decimal::ZERO || b >= principal {
         return Err(FairmarkError::BalloonOutOfRange(format!(
-            "{b} must be at least 0 and lower than the principal {principal}"
+            "`balloon_amount` must be at least 0 and below `principal` ({principal}); got {b}"
         )));
     }
     ex.convention(match balloon {
@@ -505,16 +507,14 @@ pub fn number_of_instalments(
         }
     };
     let interest = num::mul(i, p_eff)?;
-    if a <= interest {
+    // One condition, one code: an instalment that never repays the loan is FM-E021 whatever
+    // the sign of the rate (with a negative rate and an instalment <= 0 the balance never
+    // reaches zero either). Decision 3, maintainer, 2026-11-08.
+    if a <= interest || a <= Decimal::ZERO {
         return Err(FairmarkError::LoanNeverRepaid {
             instalment: a,
             interest,
         });
-    }
-    if a <= Decimal::ZERO {
-        return Err(FairmarkError::InvalidInput(format!(
-            "instalment must be greater than zero (got {a})"
-        )));
     }
     let exact = if i.is_zero() {
         let e = num::div(p, a)?;
@@ -547,7 +547,8 @@ pub fn number_of_instalments(
     let max = Decimal::from(MAX_PERIODS);
     if exact > max + Decimal::ONE {
         return Err(FairmarkError::InvalidInput(format!(
-            "the loan needs {exact} periods, more than {MAX_PERIODS} instalments"
+            "with this `instalment` the loan needs {exact} periods, more than the \
+             {MAX_PERIODS} instalments allowed: raise `instalment`"
         )));
     }
     let nearest = exact.round();
@@ -559,7 +560,8 @@ pub fn number_of_instalments(
     let whole = whole.max(Decimal::ONE);
     if whole > max {
         return Err(FairmarkError::InvalidInput(format!(
-            "the loan needs {whole} instalments, more than {MAX_PERIODS}"
+            "with this `instalment` the loan needs {whole} instalments, more than the \
+             {MAX_PERIODS} allowed: raise `instalment`"
         )));
     }
     let count = whole
@@ -723,8 +725,8 @@ pub fn amortisation_schedule(
 ) -> Result<(AmortisationScheduleOutput, Explain)> {
     if input.timing == AnnuityTiming::Due {
         return Err(FairmarkError::InvalidInput(
-            "loans.amortisation_schedule version 1 supports payments in arrears only: timing \
-             must be `ordinary`"
+            "`timing` must be `ordinary`: loans.amortisation_schedule version 1 supports \
+             payments in arrears only (got `due`)"
                 .to_owned(),
         ));
     }
@@ -737,14 +739,15 @@ pub fn amortisation_schedule(
     if kind == AmortisationType::Bullet {
         if let Some(b) = input.balloon_amount {
             return Err(FairmarkError::BalloonOutOfRange(format!(
-                "a bullet schedule repays the full principal with the last instalment; a \
-                 balloon amount ({b}) cannot be given with it"
+                "`balloon_amount` ({b}) cannot be given with `amortisation_type` `bullet`, which \
+                 repays the full principal with the last instalment: omit `balloon_amount`"
             )));
         }
         if let Some(g) = input.principal_grace_periods {
             return Err(FairmarkError::GracePeriodOutOfRange(format!(
-                "a bullet schedule is interest only until the last instalment; principal grace \
-                 periods ({g}) cannot be given with it"
+                "`principal_grace_periods` ({g}) cannot be given with `amortisation_type` \
+                 `bullet`, which is interest only until the last instalment: omit \
+                 `principal_grace_periods`"
             )));
         }
     }
@@ -752,7 +755,7 @@ pub fn amortisation_schedule(
     let g = input.principal_grace_periods.unwrap_or_default();
     if g >= n {
         return Err(FairmarkError::GracePeriodOutOfRange(format!(
-            "{g} grace periods must be fewer than the {n} instalments"
+            "`principal_grace_periods` must be lower than `number_of_instalments` ({n}); got {g}"
         )));
     }
     let mut ex = Explain::new(
@@ -878,8 +881,9 @@ pub fn amortisation_schedule(
             };
             if rounded && (principal < Decimal::ZERO || instalment < Decimal::ZERO) {
                 return Err(FairmarkError::RoundingTooCoarse(format!(
-                    "the last principal portion ({principal}) or instalment ({instalment}) would \
-                     be negative"
+                    "with `rounding` the last principal portion ({principal}) or instalment \
+                     ({instalment}) would be negative: raise `rounding.decimal_places` (up to 6) \
+                     or omit `rounding`"
                 )));
             }
             ex.step(
@@ -927,8 +931,9 @@ pub fn amortisation_schedule(
             let closing = num::sub(opening, principal)?;
             if rounded && closing < Decimal::ZERO {
                 return Err(FairmarkError::RoundingTooCoarse(format!(
-                    "the outstanding balance would become negative ({closing}) in period {k} of \
-                     {n}"
+                    "with `rounding` the outstanding balance would become negative ({closing}) in \
+                     period {k} of {n}: raise `rounding.decimal_places` (up to 6) or omit \
+                     `rounding`"
                 )));
             }
             // The first period, and the first amortising period after a grace period, with the

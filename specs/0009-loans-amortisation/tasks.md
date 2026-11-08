@@ -20,7 +20,7 @@ parallel; tick a task only when `just check` passes.
 - [x] T5 [P] Contract cases for the three methods [R5, R11; AC13]
 
 ### Implementation
-- [x] T6 Error variants `FM-E020` and `FM-E021` (provisional numbering), code tests,
+- [x] T6 Error variants `FM-E020` and `FM-E021`, code tests,
   `docs/en/reference/errors.md` [R7, R9]
 - [x] T7 `tvm::annuity_factor` extracted from `tvm.annuity` (refactoring, numbers unchanged)
 - [x] T8 `loans.rs`: rate-form helper, `loans.instalment`, `loans.number_of_instalments`

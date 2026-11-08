@@ -1273,12 +1273,12 @@ pub fn future_value(input: &FutureValueInput) -> Result<(FutureValueOutput, Expl
     let (r, n) = (input.rate, input.periods);
     if input.present_value.is_none() && input.payment.is_none() {
         return Err(FairmarkError::InvalidInput(
-            "give `present_value`, `payment` or both".to_owned(),
+            "give `present_value`, `payment` or both (each defaults to 0, but not both)".to_owned(),
         ));
     }
     if n == 0 || n > MAX_PERIODS {
         return Err(FairmarkError::InvalidInput(format!(
-            "periods must be between 1 and {MAX_PERIODS} (got {n})"
+            "`periods` must be between 1 and {MAX_PERIODS} (got {n})"
         )));
     }
     if r <= -Decimal::ONE {

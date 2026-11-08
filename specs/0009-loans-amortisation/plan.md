@@ -13,7 +13,7 @@ Two phases on one branch: phase A (issue #136: `loans.instalment`,
 | `src/loans.rs` (new, theme `loans`) | `PaymentFrequency`, `Rounding`, `RoundingMode`, `AmortisationType`; the shared rate-form helper (R1, R1a, R5); `instalment`, `number_of_instalments`, `amortisation_schedule` with their input and output types; unit types `Instalment`, `NumberOfInstalments`, `AmortisationSchedule` implementing `Method` |
 | `src/tvm.rs` | `tvm.future_value` (`FutureValueInput`, `FutureValueOutput`, unit type `FutureValue`); the annuity factor of `tvm.annuity` extracted into `pub(crate) fn annuity_factor`, so that the loan methods and the future value reuse it (no change to the numbers or the explain of `tvm.annuity`) |
 | `src/rates.rs` | Unchanged; `rates::convert` is called by the rate-form helper |
-| `src/error.rs` | Four variants `FM-E020` to `FM-E023` (provisional numbering, see below) |
+| `src/error.rs` | Four variants `FM-E020` to `FM-E023` |
 | `src/registry.rs` | One line per new method: `tvm::FutureValue` in the `tvm` group, the three `loans::*` lines in a new `loans` group after `tvm` |
 
 Type paths `fairmark_core::loans::Instalment` and `fairmark_core::tvm::FutureValue` satisfy the
@@ -40,9 +40,8 @@ is given (`FM-E001` naming the missing or conflicting fields, R1a), checks that 
 rate exceeds −1 (`FM-E003`) and reports the conventions and steps of R5. `serde(flatten)` is
 not used because it does not combine with `deny_unknown_fields`.
 
-### Error codes (provisional)
-`main` ends at `FM-E017`; `FM-E018` and `FM-E019` are taken by SPEC-0006 on an unmerged
-branch. This spec uses:
+### Error codes
+`FM-E018` and `FM-E019` belong to SPEC-0006 (terminal value), merged first. This spec adds:
 
 | Code | Variant | Requirement |
 | --- | --- | --- |
@@ -51,8 +50,8 @@ branch. This spec uses:
 | `FM-E022` | `GracePeriodOutOfRange` | R15, R16 |
 | `FM-E023` | `RoundingTooCoarse` | R21 |
 
-The numbers become final when the merge order with SPEC-0006 is settled; until then they are
-documented in `docs/en/reference/errors.md` as on any other code.
+Error messages name the input field or fields involved and state the valid range or the fix,
+for example "`balloon_amount` must be at least 0 and below `principal` (1000); got -1".
 
 ## Schema changes
 All additive: four new methods at version 1, snapshots `schemas/<id>/v1.json`, entries in
@@ -152,5 +151,35 @@ the extraction of the annuity factor is a refactoring with identical numbers and
 - **Final adjustment definition with a balloon**: the balloon is excluded from
   `final_adjustment`, so that without rounding the adjustment is zero up to the arithmetic,
   as AC9 requires, also when a balloon is paid.
-- **Error numbering**: may need renumbering after SPEC-0006 merges; only `error.rs`, the
-  error reference and the error golden cases would change, before any release.
+- **Error numbering**: final after the rebase on SPEC-0006 (`FM-E018`, `FM-E019` on main).
+- **Shared annuity factor**: SPEC-0006 extracted `tvm::annuity_factor` (with the underflow of
+  long horizons taken as 0); the loan methods and `tvm.future_value` use that one function.
+  The outputs of `tvm.annuity` and `tv.limited_horizon` are byte-identical to `main` on a grid
+  of 960 inputs.
+- **FM-E003 message**: the message of `RateOutOfRange` is shared by every method and names the
+  rate value, not the field (`rate` or `periodic_rate`); changing it is outside this spec.
+
+## Implementation decisions (confirmed by the maintainer, 2026-11-08)
+Choices where the spec is silent, taken during the implementation and confirmed by the
+maintainer on 2026-11-08 (the library is used mainly by AI agents: one condition, one error
+code; explicit, machine-readable conventions; error messages that name the field and the fix).
+
+1. **Whole number of periods.** `loans.number_of_instalments` takes an exact number of periods
+   within 1e-15 of an integer as that integer, reported in `explain.conventions`, so that an
+   instalment computed to full precision gives back its number of instalments. Confirmed.
+2. **Final adjustment.** `final_adjustment` excludes the balloon amount (last instalment −
+   balloon − regular instalment of the last period); for a fixed amortisation schedule it is
+   measured on the principal portion; for bullet it is 0. Confirmed.
+3. **Instalment that never repays the loan.** `FM-E021` whatever the sign of the rate: an
+   instalment of 0 or below, or not above the interest of the first period. With a negative
+   rate and an instalment of 0 or below the balance never reaches zero either. Changed by the
+   maintainer from the first implementation (`FM-E001` for a non-positive instalment with a
+   negative rate); golden case `error-negative-rate-instalment-zero.yaml`.
+4. **Bullet with a balloon amount or a grace period.** Any `balloon_amount` or
+   `principal_grace_periods` field given with `bullet` is refused, even 0 (`FM-E020`,
+   `FM-E022`): "given" is read literally. Confirmed.
+5. **Totals of `loans.instalment`.** `total_paid` = n × instalment as returned (rounded when
+   rounding is chosen) + balloon amount; the final-period adjustment belongs to the schedule.
+   Confirmed.
+6. **Timing in the Python helpers.** `timing` is required in every helper, including
+   `amortisation_schedule`, where only `ordinary` is accepted: no adapter default. Confirmed.

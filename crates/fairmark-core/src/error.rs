@@ -75,8 +75,9 @@ pub enum FairmarkError {
     BalloonOutOfRange(String),
 
     #[error(
-        "the instalment ({instalment}) does not exceed the interest of the first period \
-         ({interest}): the outstanding balance never decreases and the loan is never repaid"
+        "`instalment` ({instalment}) never repays the loan: it must be greater than 0 and \
+         than the interest of the first period ({interest}), otherwise the outstanding balance \
+         never reaches zero; raise `instalment`"
     )]
     LoanNeverRepaid {
         instalment: Decimal,

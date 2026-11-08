@@ -96,7 +96,7 @@ its number of instalments instead of one more instalment of a fraction of a cent
 | --- | --- |
 | `FM-E001` | Principal 0 or negative, more than 10000 instalments needed, an incomplete or double rate form, a `balloon_amount` field, or a field missing or unknown |
 | `FM-E003` | The periodic rate is −100% or lower |
-| `FM-E021` | The instalment does not exceed $i\,P'$, the interest of the first period: the balance never decreases |
+| `FM-E021` | The instalment is 0 or below, or does not exceed $i\,P'$, the interest of the first period, whatever the sign of the rate: the balance never reaches zero |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 
 ## Accuracy
