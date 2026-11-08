@@ -1,0 +1,5 @@
+method: dcf.free_cash_flows
+description: "Every adjustment needs a label (R2)"
+source: "SPEC-0001 R2"
+input: {"notional_tax_rate": "0.24", "negative_ebit": "credit", "periods": [{"ebit": "100", "depreciation_and_amortisation": "10", "capital_expenditure": "12", "change_in_net_working_capital": "3", "other_adjustments": [{"label": " ", "value": "5"}]}]}
+expect_error: FM-E001

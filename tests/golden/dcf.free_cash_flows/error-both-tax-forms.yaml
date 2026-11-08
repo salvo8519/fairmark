@@ -1,0 +1,5 @@
+method: dcf.free_cash_flows
+description: "A tax rate and tax amounts together are refused: exactly one tax form (R2, Decision 7)"
+source: "SPEC-0001 R2, Decision 7"
+input: {"notional_tax_rate": "0.24", "negative_ebit": "credit", "periods": [{"ebit": "100", "depreciation_and_amortisation": "10", "capital_expenditure": "12", "change_in_net_working_capital": "3", "operating_taxes": "24"}]}
+expect_error: FM-E001

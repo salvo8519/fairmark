@@ -1,0 +1,5 @@
+method: dcf.free_cash_flows
+description: "Negative depreciation and amortisation in period 2 is refused, naming the field and the period (R5; AC3)"
+source: "SPEC-0001 R5; AC3"
+input: {"notional_tax_rate": "0.24", "negative_ebit": "credit", "periods": [{"ebit": "100", "depreciation_and_amortisation": "10", "capital_expenditure": "12", "change_in_net_working_capital": "3"}, {"ebit": "100", "depreciation_and_amortisation": "-1", "capital_expenditure": "12", "change_in_net_working_capital": "3"}]}
+expect_error: FM-E001

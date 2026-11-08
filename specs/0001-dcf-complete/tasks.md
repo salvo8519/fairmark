@@ -47,3 +47,32 @@ parallel; tick a task only when `just check` passes.
   schema bounds of `terminal`, explain substitutions, docs; open question on R11 in plan.md
 - [ ] T13 `numerical-auditor` review, `code-reviewer` review, acceptance criteria of #110
   ticked in spec.md (maintainer)
+
+## Issue #38: free cash flow build-up (`dcf.free_cash_flows`)
+
+### Tests (write first, they must fail)
+- [x] F1 Reference functions `scripts/reference_free_cash_flows.py` (50 digits, local
+  context): taxes on EBIT in both forms, negative EBIT under `credit` and `zero`, FCFF, FCFE
+  [R2, R3, R4]
+- [x] F2 [P] Golden cases `tests/golden/dcf.free_cash_flows/`: Damodaran Illustration 15.7
+  (Boeing) with the recorded discrepancy, multi-period FCFF and FCFE in both tax forms,
+  negative EBIT under each treatment, adjustments, errors [AC1, AC3]
+- [x] F3 [P] Contract cases `tests/contracts/dcf.free_cash_flows.yaml` [R28]
+
+### Implementation
+- [x] F4 `src/dcf/free_cash_flows.rs`: input and output types, tax-form validation, build-up
+  with explain and conventions, unit type `FreeCashFlows`; unit tests for AC2, AC14 (JSON
+  pointers, conventions) and every error [R2 to R5, R27 to R29]
+- [x] F5 Registry line `dcf::FreeCashFlows`, `uv run just generate` [R1]
+
+### Adapters and docs
+- [x] F6 [P] Python helper `fm.dcf.free_cash_flows`; seeded comparison with the reference and
+  the AC2 property [AC1, AC2]
+- [x] F7 [P] Methodology page `dcf-free-cash-flows.md`, nav, index (preview); Italian edition;
+  release note `changes/38.feature.md`
+- [x] F8 Roadmap: issue #38 done, page regenerated with `scripts/roadmap.py render`
+
+### Verification
+- [ ] F9 `uv run just check` green (done); `numerical-auditor` and `code-reviewer` reviews
+  (pending, to be run by the orchestrating session); AC1, AC2 and AC3 ticked in spec.md (by
+  the maintainer: spec.md is not changed on this branch)

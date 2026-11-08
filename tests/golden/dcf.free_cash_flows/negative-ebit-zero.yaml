@@ -1,0 +1,21 @@
+method: dcf.free_cash_flows
+description: "Negative EBIT in period 1 with the zero treatment: no tax; the interest tax shield still uses 27.9% as R3 states (R4; AC3)"
+source: "Independent 50-digit reference, scripts/reference_free_cash_flows.py"
+input: {"notional_tax_rate": "0.279", "negative_ebit": "zero", "periods": [{"ebit": "-250", "depreciation_and_amortisation": "90", "capital_expenditure": "60", "change_in_net_working_capital": "-35", "interest_expense": "30", "net_borrowing": "100"}, {"ebit": "180", "depreciation_and_amortisation": "95", "capital_expenditure": "70", "change_in_net_working_capital": "12", "interest_expense": "33", "net_borrowing": "-20"}]}
+expect:
+  negative_ebit: "zero"
+  /periods/0/operating_taxes: "0"
+  /periods/0/ebit_after_taxes: "-250"
+  /periods/0/free_cash_flow_to_firm: "-185"
+  /free_cash_flows_to_firm/0: "-185"
+  /periods/0/interest_after_taxes: "21.630"
+  /periods/0/free_cash_flow_to_equity: "-106.630"
+  /free_cash_flows_to_equity/0: "-106.630"
+  /periods/1/operating_taxes: "50.220"
+  /periods/1/ebit_after_taxes: "129.780"
+  /periods/1/free_cash_flow_to_firm: "142.780"
+  /free_cash_flows_to_firm/1: "142.780"
+  /periods/1/interest_after_taxes: "23.793"
+  /periods/1/free_cash_flow_to_equity: "98.987"
+  /free_cash_flows_to_equity/1: "98.987"
+tolerance: "0"

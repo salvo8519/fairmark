@@ -1,0 +1,80 @@
+# Contract cases for dcf.free_cash_flows: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: dcf.free_cash_flows
+extreme_inputs:
+- notional_tax_rate: '0.999999999999'
+  negative_ebit: credit
+  periods:
+  - ebit: MAX
+    depreciation_and_amortisation: MAX
+    capital_expenditure: '0'
+    change_in_net_working_capital: MIN
+    other_adjustments:
+    - label: Extreme inflow
+      value: MAX
+    interest_expense: MAX
+    net_borrowing: MAX
+- notional_tax_rate: '0'
+  negative_ebit: zero
+  periods:
+  - ebit: MIN
+    depreciation_and_amortisation: '0'
+    capital_expenditure: MAX
+    change_in_net_working_capital: MAX
+    interest_expense: '0'
+    net_borrowing: MIN
+- interest_tax_rate: '0.999999999999'
+  periods:
+  - ebit: MIN
+    operating_taxes: MAX
+    depreciation_and_amortisation: '0'
+    capital_expenditure: '0'
+    change_in_net_working_capital: '0'
+    interest_expense: MAX
+    net_borrowing: '0'
+conventions:
+- input:
+    notional_tax_rate: '0.24'
+    negative_ebit: credit
+    periods:
+    - ebit: '-100'
+      depreciation_and_amortisation: '10'
+      capital_expenditure: '12'
+      change_in_net_working_capital: '3'
+      interest_expense: '5'
+      net_borrowing: '0'
+  expect:
+  - 'tax form: rate on EBIT'
+  - 'negative EBIT: credit'
+  - 'negative EBIT in period 1'
+  - no tax loss carry-forward
+  - interest tax shield at the tax rate on EBIT 0.24
+  - change in net working capital is positive for an increase
+  - net borrowing is positive for new borrowing
+  - adjustments are positive for an inflow
+  - not discounted
+- input:
+    interest_tax_rate: '0.279'
+    periods:
+    - ebit: '100'
+      operating_taxes: '27.9'
+      depreciation_and_amortisation: '10'
+      capital_expenditure: '12'
+      change_in_net_working_capital: '3'
+      interest_expense: '5'
+      net_borrowing: '0'
+  expect:
+  - 'tax form: amounts given per period'
+  - interest tax shield at the separate interest tax rate 0.279
+- input:
+    notional_tax_rate: '0.24'
+    negative_ebit: zero
+    periods:
+    - ebit: '100'
+      depreciation_and_amortisation: '10'
+      capital_expenditure: '12'
+      change_in_net_working_capital: '3'
+  expect:
+  - 'negative EBIT: zero'
+  - 'FCFE: not computed'

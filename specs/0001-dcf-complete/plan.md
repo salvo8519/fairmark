@@ -165,3 +165,104 @@ Each is additive to version 3 under the schema checker.
   CF_N / CF_{N−1} − 1, could be compared with the perpetual growth too. Not implemented: the
   spec does not say whether an implied growth counts as "the growth of the last explicit
   period".
+
+## Issue #38: free cash flow build-up (`dcf.free_cash_flows`)
+
+Requirements: R1 (the build-up method id and version), R2, R3, R4, R5, R27, R28 and R29 for
+the fields of the build-up; acceptance criteria AC1, AC2, AC3 and the build-up part of AC14.
+
+### Module layout in `crates/fairmark-core`
+| File | Content |
+| --- | --- |
+| `src/dcf/free_cash_flows.rs` (new) | `FreeCashFlowsInput`, `FreeCashFlowLines`, `Adjustment`, `NegativeEbit`, `TaxForm`, `FreeCashFlowsOutput`, `FreeCashFlowPeriod`; `pub fn free_cash_flows`; unit type `FreeCashFlows` implementing `Method` (id `dcf.free_cash_flows`, version 1); unit tests |
+| `src/dcf.rs` | Two lines only: `pub mod free_cash_flows;` and the re-export of the public items. `dcf.fcff` is not changed |
+| `src/registry.rs` | One line, `dcf::FreeCashFlows`, in the `dcf` group |
+| `src/error.rs` | Unchanged: every refusal of the build-up is `FM-E001` (R5, R27); no new code |
+
+The type path `fairmark_core::dcf::free_cash_flows::FreeCashFlows` satisfies the ADR 0009 test
+(the path starts with the theme module `dcf`). The build-up lives in its own file so that the
+shared engine of #110 can be written in `dcf.rs` (or a `dcf/` folder) without conflicts.
+
+### Input
+One list `periods` of per-period line items, in currency units per period, plus the tax
+choice, which applies to every period:
+
+| Field | Meaning | Rule |
+| --- | --- | --- |
+| `periods[].ebit` | EBIT of the period | any sign |
+| `periods[].operating_taxes` | Taxes on EBIT given as an amount (amounts form) | any sign; positive is a tax paid |
+| `periods[].depreciation_and_amortisation` | D&A added back | zero or more (R5) |
+| `periods[].capital_expenditure` | Capex subtracted | zero or more (R5) |
+| `periods[].change_in_net_working_capital` | ΔNWC subtracted | signed: positive for an increase, which absorbs cash (R5) |
+| `periods[].other_adjustments` | Labelled adjustments added | signed: positive for an inflow (R5); default none |
+| `periods[].interest_expense` | Interest for FCFE | zero or more (R5); for every period or for none |
+| `periods[].net_borrowing` | Net borrowing for FCFE | signed: positive for new borrowing; with `interest_expense` |
+| `notional_tax_rate` | Tax rate on EBIT (rate form) | 0 ≤ t < 1, as `coc.*` |
+| `negative_ebit` | `credit` or `zero` | required with the rate form, refused with the amounts form (R4, Decision 8) |
+| `interest_tax_rate` | Rate t of the interest tax shield | required with the amounts form when financing lines are given; refused otherwise (R3) |
+
+Exactly one tax form (Decision 7): `notional_tax_rate` with no `operating_taxes` in any period,
+or `operating_taxes` in every period with no `notional_tax_rate`. Any other combination is
+`FM-E001` naming the fields by JSON pointer (`/notional_tax_rate`,
+`/periods/2/operating_taxes`) and stating the fix (R27). The form is chosen by which fields are
+present, as the rate forms of `loans.*` and the flow choice of `tv.gordon`; no boolean (R29).
+`serde(flatten)` is not used because it does not combine with `deny_unknown_fields`.
+
+### Computation (per period t)
+- Rate form: taxes_t = t × EBIT_t; when EBIT_t < 0, `credit` keeps t × EBIT_t (a saving) and
+  `zero` sets taxes_t = 0. No tax loss carry-forward (R4). Amounts form: taxes_t as given.
+- FCFF_t = EBIT_t − taxes_t + D&A_t − capex_t − ΔNWC_t + Σ adjustments_t (R2).
+- FCFE_t = FCFF_t − interest_t × (1 − t) + net borrowing_t, with t = `notional_tax_rate` in
+  the rate form and `interest_tax_rate` in the amounts form (R3). The rate is applied to the
+  interest as given, independently of the sign of EBIT and of the `negative_ebit` treatment,
+  as R3 states; this is reported in `explain.conventions`.
+- All arithmetic through `crate::num` (checked; overflow is `FM-E008`).
+
+### Output and reuse by the shared engine (#110, #165)
+`FreeCashFlowsOutput` holds `periods` (one `FreeCashFlowPeriod` per period with every
+component, the FCFF and, when financing lines are given, the after-tax interest, the net
+borrowing and the FCFE), the two flow lists `free_cash_flows_to_firm` and
+`free_cash_flows_to_equity` (`null` without financing lines), the tax form, the negative EBIT
+treatment and the rate of the interest tax shield.
+
+The shared engine reuses the build-up for a `given` stage with build-up lines (R7): the stage
+carries `Vec<FreeCashFlowLines>`, the DCF input carries the three tax fields, and the engine
+calls `dcf::free_cash_flows(&FreeCashFlowsInput { .. })` (a typed call, ADR 0009), takes
+`free_cash_flows_to_firm` for `dcf.fcff` or `free_cash_flows_to_equity` for `dcf.fcfe`, and
+appends the explain steps and conventions of the build-up to its own. The types are public and
+re-exported from `dcf`; the count check of R7 (`FM-E025`) stays in the engine.
+
+### Explain
+Per period: taxes on EBIT (formula with the rate substituted, or "given"), EBIT after taxes,
+each labelled adjustment and their sum, FCFF with every component substituted, and for FCFE
+the after-tax interest and the FCFE. Conventions (R28): tax form and rate, negative EBIT
+treatment and the periods where it applied, no tax loss carry-forward, the rate of the
+interest tax shield, the sign conventions of ΔNWC, net borrowing and adjustments, amounts per
+period in currency units and not discounted.
+
+### Tests
+- Independent reference `scripts/reference_free_cash_flows.py` (Python `decimal`, local
+  50-digit context, written from R2 to R4, no shared code).
+- Golden cases `tests/golden/dcf.free_cash_flows/`: Damodaran, *Investment Valuation*, 2nd
+  edition, Illustration 15.7 (Boeing) in the amounts form from the published EBIT (1 − tax
+  rate) of 1,138, with the 1,139.45 discrepancy recorded in the file (AC1, Decision 12);
+  multi-period FCFF and FCFE against the reference, both tax forms, negative EBIT under
+  `credit` and `zero` (AC3), adjustments; error cases for each negative D&A, capex and interest
+  and for every tax-form conflict (AC3).
+- Contract cases `tests/contracts/dcf.free_cash_flows.yaml`.
+- Rust unit tests: FCFE equals FCFF with zero interest and zero net borrowing (AC2), every
+  error message contains a JSON pointer and the period (AC14), every convention is reported.
+- Python: seeded random comparison with the reference (to the 28th significant digit), and the
+  AC2 property on random inputs.
+
+### Schema changes
+Additive: new method `dcf.free_cash_flows` version 1, snapshot
+`schemas/dcf.free_cash_flows/v1.json`, entry in `schemas/index.json` with
+`introduced_in: unreleased`. `dcf.fcff` is unchanged.
+
+### Documentation
+`docs/en/methods/dcf-free-cash-flows.md` and the Italian edition
+`docs/it/methods/dcf-free-cash-flows.md` (terms from `i18n/glossary.yaml`; English practice
+terms kept where the spec marks the Italian term "to verify": EBIT, net borrowing, operating
+taxes), nav entry, methods index row (status preview), Python helper
+`fairmark.dcf.free_cash_flows`, release note `changes/38.feature.md`.
