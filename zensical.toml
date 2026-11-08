@@ -113,6 +113,7 @@ nav = [
       "project/adr/0009-themed-methods-and-versioned-contracts.md",
       "project/adr/0010-analysis-composes-through-the-registry.md",
       "project/adr/0011-release-notes-translated-with-each-fragment.md",
+      "project/adr/0012-method-status-in-the-registry.md",
     ] },
   ] },
 ]
