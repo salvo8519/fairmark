@@ -141,30 +141,30 @@ properties of the `terminal` object (additive to version 3).
 Plan: `plan.md`, section "Issue #166". Additive to `dcf.fcff` version 3.
 
 ### Tests (write first, they must fail)
-- [ ] N1 [P] Reference `scripts/reference_dcf.py` extended with the rate conversion (R16), the
+- [x] N1 [P] Reference `scripts/reference_dcf.py` extended with the rate conversion (R16), the
   perpetual growth in the other terms (R17) and the inflated-flows restatement for AC9
   [R16, R17; AC9]
-- [ ] N2 [P] Golden cases `tests/golden/dcf.fcff/terms-*.yaml` and `error-terms-*.yaml`: real
+- [x] N2 [P] Golden cases `tests/golden/dcf.fcff/terms-*.yaml` and `error-terms-*.yaml`: real
   flows with a nominal rate, nominal flows with a real rate, inflation per period, equal terms
   with inflation, a converted rate equal to the rate given directly, errors [R13, R15 to R18;
   AC6, AC8, AC9]
-- [ ] N3 [P] Python: grid against the reference with conversion, AC9 exact equality and the
+- [x] N3 [P] Python: grid against the reference with conversion, AC9 exact equality and the
   inflated-flows equivalence [AC9]
 
 ### Implementation
-- [ ] N4 `dcf/engine.rs`: inflation forms, conversion through `rates::real_nominal`,
+- [x] N4 `dcf/engine.rs`: inflation forms, conversion through `rates::real_nominal`,
   `rate_used`, `inflation` per period, `terms` output, R17 restatement and warning, `FM-E024`
   message with both fixes; `dcf/fcff.rs`: the three optional fields; unit tests
   [R13 to R18, R27, R28; AC8, AC10, AC14]
-- [ ] N5 `uv run just generate`: `dcf.fcff/v3.json` changed additively only
+- [x] N5 `uv run just generate`: `dcf.fcff/v3.json` changed additively only
   (`scripts/schema_snapshots.py --diff-against` the schemas of main), methods reference
 
 ### Adapters and docs
-- [ ] N6 [P] Python helper: `inflation`, `inflation_per_period`, `terminal_inflation` on
+- [x] N6 [P] Python helper: `inflation`, `inflation_per_period`, `terminal_inflation` on
   `fm.dcf.fcff`
-- [ ] N7 [P] Methodology page `docs/en/methods/dcf-fcff.md` (terms and inflation),
+- [x] N7 [P] Methodology page `docs/en/methods/dcf-fcff.md` (terms and inflation),
   `docs/en/reference/errors.md` (`FM-E024` fixes), release note `changes/166.feature.md`
-- [ ] N8 Italian edition; roadmap #166 done; `uv run just check`
+- [x] N8 Italian edition; roadmap #166 done; `uv run just check`
 
 ### Verification
 - [ ] N9 `numerical-auditor` and `code-reviewer` reviews, open questions of plan.md (issue

@@ -90,6 +90,66 @@ is a required choice: for `tv.gordon`, `last_flow_grown` or a normalised flow at
 the terminal rate, as every technique that takes a rate: a separate `capitalisation_rate` is
 not accepted inside the DCF.
 
+## Nominal and real terms
+
+`cash_flow_terms` states whether every amount and growth rate of the input is nominal (at
+current prices, expected inflation included) or real (at constant prices); `discount_rate_terms`
+states the same for the discount rates. Both are required. When they are equal, the rates are
+used as given. When they differ:
+
+- without expected inflation the input is refused with `FM-E024`: discounting real flows at a
+  nominal rate, or nominal flows at a real rate, misstates the value;
+- with expected inflation every discount rate, the terminal rate included, is converted to the
+  terms of the cash flows by the exact Fisher relation, computed by
+  [`rates.real_nominal`](rates-real-nominal.md):
+
+$$
+(1 + r_{nominal}) = (1 + r_{real}) \, (1 + i)
+\qquad
+r_{real} = \frac{1 + r_{nominal}}{1 + i} - 1
+\qquad
+r_{nominal} = (1 + r_{real}) (1 + i) - 1
+$$
+
+The cash flows and the growth rates are never converted: only the rates move to the terms of
+the flows. Expected inflation is one rate for every period and the terminal phase
+(`inflation`), or one rate per period of the explicit horizon (`inflation_per_period`) with
+the inflation of the terminal phase (`terminal_inflation`); the rate of period k is converted
+with the inflation of period k, the terminal rate with the inflation of the terminal phase.
+Each period reports the rate given (`discount_rate`), the inflation and the rate used
+(`rate_used`), and the explain shows every conversion with its numbers.
+
+Whenever inflation is given, also with equal terms (where it converts nothing), the perpetual
+growth of the terminal technique (`growth`, or `long_term_growth` for `tv.h_model`) is restated
+in the other terms with the inflation of the terminal phase, in `terms`; with nominal flows, a
+perpetual growth below that inflation is reported as a warning, because the flows then decline
+in real terms after the horizon. An exit multiple, a limited horizon and a liquidation state no
+perpetual growth, and the conventions say that none is restated.
+
+A real plan discounted at a nominal WACC of 10% with expected inflation of 2%:
+
+```python
+import fairmark as fm
+
+r = fm.dcf.fcff(
+    [fm.dcf.given([100, 104, 108, 112])],
+    cash_flow_terms="real",
+    discount_rate_terms="nominal",
+    wacc="0.10",
+    inflation="0.02",
+    timing="end_of_period",
+    terminal=fm.dcf.gordon("0.01", first_flow="last_flow_grown"),
+)
+print(r.periods[0]["rate_used"])  # (1 + 0.10) / (1 + 0.02) − 1 = 0.07843137...
+print(r.terminal["rate"])  # the same real rate for the terminal value
+print(r.value["terms"]["perpetual_growth_other_terms"])  # 1.01 × 1.02 − 1 = 0.0302 nominal
+print(r.value_of_operations)  # 1573.18265943050768644554905...
+```
+
+The same value follows from the real rate given directly with `discount_rate_terms="real"`;
+under end-of-period timing it also equals the flows restated in nominal terms (each real flow
+times the cumulated inflation index) discounted at the nominal rate with the nominal growth.
+
 ## Example
 
 A plan with three given years, then four years in which growth declines in linear increments
@@ -163,7 +223,10 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | `notional_tax_rate` | Tax rate on EBIT for the stages with `lines`, decimal fraction from 0 to below 1; give this or `operating_taxes` in every line | none; refused without `lines` |
 | `negative_ebit` | `credit` or `zero`, for the stages with `lines` and `notional_tax_rate` | required with `notional_tax_rate`; refused otherwise |
 | `cash_flow_terms` | `nominal` or `real`: terms of every amount and growth rate | required |
-| `discount_rate_terms` | `nominal` or `real`: terms of the discount rates; must equal `cash_flow_terms` | required |
+| `discount_rate_terms` | `nominal` or `real`: terms of the discount rates; when different from `cash_flow_terms`, expected inflation is required and the rates are converted to the terms of the cash flows | required |
+| `inflation` | Expected inflation for every period and for the terminal phase, decimal fraction, greater than −1 | none; give this or `inflation_per_period` |
+| `inflation_per_period` | Expected inflation per period of the explicit horizon, decimal fractions | none; requires `terminal_inflation` |
+| `terminal_inflation` | Expected inflation of the terminal phase | required with `inflation_per_period`; refused otherwise |
 | `wacc` | One WACC for every period and for the terminal value, decimal fraction | give this or `wacc_per_period` |
 | `wacc_per_period` | One WACC per period of the explicit horizon, decimal fractions | give this or `wacc` |
 | `terminal_wacc` | WACC of the terminal phase | required with `wacc_per_period`; refused with `wacc` |
@@ -182,7 +245,8 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | `equity_value` | Enterprise value minus the net financial position |
 | `pv_explicit_period` | Present value of the explicit FCFF |
 | `terminal_value_weight` | Present value of the terminal value divided by the value of operations |
-| `periods` | Per period: stage, projection, growth applied, flow, discount rate given, rate used, discount factor, present value |
+| `periods` | Per period: stage, projection, growth applied, flow, discount rate given, rate used (in the terms of the cash flows), inflation used to convert it (`null` without conversion), discount factor, present value |
+| `terms` | Terms of the flows and of the rates, the conversion (`none`, `to_real`, `to_nominal`), terminal rate given and used, inflation of the terminal phase, perpetual growth in the terms of the flows and in the other terms |
 | `terminal` | Technique and its method version, terminal rate, value at N, discounting time, factor, present value, the technique's own output (for example the implied growth of an exit multiple) |
 | `bridge` | Every line from value of operations to equity value, with labels |
 
@@ -195,7 +259,9 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | Flows of a `given` stage | amounts (`flows`) or line items (`lines`), with the tax conventions of `dcf.free_cash_flows` | one of the two required |
 | Linear decline step | $g_k = g_{from} + (g_{to} - g_{from}) \, k / m$, $g_{to}$ reached in the last period | fixed |
 | Discount rate | one rate (also used for the terminal value), or one per period with a terminal rate | required |
-| Terms of flows and rates | `nominal`, `real`; different terms are refused | required, each |
+| Terms of flows and rates | `nominal`, `real` | required, each |
+| Different terms | refused without expected inflation; with it, every discount rate converted to the terms of the cash flows by the exact Fisher relation; flows and growth rates never converted | fixed |
+| Expected inflation | one rate, or one per period with a terminal inflation | none |
 | Timing | `end_of_period`, `mid_period` | required |
 | Terminal discounting time | `horizon`, `mid_period` (with mid-period timing only; the half period at the terminal rate) | required |
 | Terminal technique | `tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income`, `tv.liquidation`, at the terminal rate, on the enterprise basis | required |
@@ -209,21 +275,23 @@ by an exit multiple is reported, not compared); under mid-period timing, a perpe
 terminal value (`tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.normalised_income`)
 discounted at the horizon N, where practice commonly discounts it at N − 0.5; under mid-period
 timing, an exit multiple, a liquidation or a limited horizon discounted at N − 0.5, although
-it is or includes a price at a date (for the limited horizon, its residual value); a negative equity value, which is reported as computed and never floored at zero. A high `terminal_value_weight` signals that the valuation depends mostly
+it is or includes a price at a date (for the limited horizon, its residual value); with
+nominal flows and expected inflation, a perpetual growth below the inflation of the terminal
+phase (a real decline); a negative equity value, which is reported as computed and never floored at zero. A high `terminal_value_weight` signals that the valuation depends mostly
 on long-term assumptions.
 
 ## Errors
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | A field is missing, unknown or not used by the chosen option; no stage or more than three; stages adding up to more than 10,000 periods; a growth of −100% or lower; a terminal rate with one rate, or none with rates per period; a terminal discounting time missing under mid-period timing or given at end of period; no terminal technique or more than one; a `normalised_base_flow` of `tv.h_model` missing with `first_flow` = `normalised_base_flow` or given otherwise; a growth cap of an exit multiple without `next_flow`; a liquidation without assets or with an unlabelled line; a negative non-operating asset, or one with an empty label; a `given` stage with both or neither of `flows` and `lines`, `lines` on a generated stage, tax fields without `lines`, interest expense or net borrowing in `lines`, and every refusal of [`dcf.free_cash_flows`](dcf-free-cash-flows.md) for the lines, named by pointer (for example `/stages/0/lines/2/capital_expenditure`) |
-| `FM-E003` | A discount rate is −100% or lower; the message names the field and the period |
-| `FM-E004` | The perpetual growth (`growth`, or `long_term_growth` for `tv.h_model`) is equal to or greater than the terminal rate |
+| `FM-E001` | A field is missing, unknown or not used by the chosen option; both `inflation` and `inflation_per_period`, `inflation_per_period` without `terminal_inflation`, `terminal_inflation` without `inflation_per_period`, an expected inflation of −100% or lower; no stage or more than three; stages adding up to more than 10,000 periods; a growth of −100% or lower; a terminal rate with one rate, or none with rates per period; a terminal discounting time missing under mid-period timing or given at end of period; no terminal technique or more than one; a `normalised_base_flow` of `tv.h_model` missing with `first_flow` = `normalised_base_flow` or given otherwise; a growth cap of an exit multiple without `next_flow`; a liquidation without assets or with an unlabelled line; a negative non-operating asset, or one with an empty label; a `given` stage with both or neither of `flows` and `lines`, `lines` on a generated stage, tax fields without `lines`, interest expense or net borrowing in `lines`, and every refusal of [`dcf.free_cash_flows`](dcf-free-cash-flows.md) for the lines, named by pointer (for example `/stages/0/lines/2/capital_expenditure`) |
+| `FM-E003` | A discount rate, given or converted, is −100% or lower; the message names the field and the period |
+| `FM-E004` | The perpetual growth (`growth`, or `long_term_growth` for `tv.h_model`) is equal to or greater than the terminal rate in the terms of the cash flows (after conversion, when the terms differ) |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 | `FM-E018` | A term of the terminal technique outside its domain: a return on new invested capital, multiple or metric of zero or below, a terminal rate of zero or below with `tv.normalised_income`, a finite horizon outside 1 to 10,000 periods, a negative half-life, a negative liquidation line or tax on gains |
 | `FM-E019` | The terminal technique is on the equity basis: an exit multiple on `earnings` (P/E) or `book_value` (P/BV), or a normalised income or a liquidation with `basis` equity |
-| `FM-E024` | `cash_flow_terms` and `discount_rate_terms` differ |
-| `FM-E025` | A `given` stage with more or fewer flows or lines than its periods, rates per period not one per period, a base flow missing for a generated first stage or given for a `given` one |
+| `FM-E024` | `cash_flow_terms` and `discount_rate_terms` differ and no expected inflation is given; the message states both fixes |
+| `FM-E025` | A `given` stage with more or fewer flows or lines than its periods, rates or expected inflation per period not one per period, a base flow missing for a generated first stage or given for a `given` one |
 
 Validation errors name the field by its JSON pointer, for example `/stages/1/flows`, and state
 the fix; errors raised while reading the input (a missing or unknown field, a wrong type) report
@@ -249,6 +317,11 @@ golden cases from the reference are checked to $10^{-20}$.
   `tests/golden/dcf.fcff/`, and properties: a constant growth stage equals the same flows
   given; a linear decline with equal growths equals constant growth; discount factors equal
   those of [`tvm.present_value`](tvm-present-value.md).
+- Nominal and real terms: the conversion restated in the reference with the Fisher relation
+  written there (`terms-*.yaml`); real flows at nominal rates with inflation equal exactly the
+  same flows at the real rates computed by `rates.real_nominal` and given directly, and under
+  end-of-period timing the independently inflated nominal flows at the nominal rates within
+  $10^{-20}$ relative (property tests, one inflation and inflation per period).
 - Stages with `lines`: the 50-digit build-up of `scripts/reference_free_cash_flows.py`
   composed with `scripts/reference_dcf.py` (`stage-with-build-up-lines*.yaml`).
 - Every terminal technique: the terminal value and the technique's whole output inside the

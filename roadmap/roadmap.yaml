@@ -153,7 +153,7 @@ milestones:
           - { issue: 110, title: "Parametric stages on the shared DCF engine (dcf.fcff v3)", spec: "0001", status: done }
           - { issue: 164, title: "Approve SPEC-0001: free cash flows, stages, terminal value and equity bridge", spec: "0001", status: done }
           - { issue: 165, title: "Free cash flow to equity on the shared DCF engine (dcf.fcfe)", spec: "0001", status: open }
-          - { issue: 166, title: "Nominal and real terms in the DCF: basis check and rate conversion", spec: "0001", status: open }
+          - { issue: 166, title: "Nominal and real terms in the DCF: basis check and rate conversion", spec: "0001", status: done }
       - title: "Cost of capital"
         issue: 39
         labels: ["area:core", "method:dcf"]
