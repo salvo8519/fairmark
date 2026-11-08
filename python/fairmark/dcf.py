@@ -340,7 +340,9 @@ def free_cash_flows(
 
     Taxes on EBIT: give ``notional_tax_rate`` with ``negative_ebit`` (``"credit"`` or
     ``"zero"``), or ``operating_taxes`` in every period. With ``operating_taxes`` and the
-    financing lines, ``interest_tax_rate`` is required. Amounts are not discounted.
+    financing lines, ``interest_tax_rate`` is required. Under ``"zero"`` the interest tax
+    shield is limited to the taxable income available, rate x min(interest, max(EBIT, 0)).
+    Amounts are not discounted.
 
     >>> r = free_cash_flows(
     ...     [{"ebit": 100, "depreciation_and_amortisation": 10, "capital_expenditure": 12,

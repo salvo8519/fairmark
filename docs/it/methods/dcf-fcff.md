@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: bc5884d37162
+source_hash: 60e05e6218b6
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
@@ -55,7 +55,10 @@ oggetto per periodo con `ebit`, `depreciation_and_amortisation`, `capital_expend
 [`dcf.free_cash_flows`](dcf-free-cash-flows.md), con le operating taxes (imposte sull'EBIT) da
 `notional_tax_rate` e `negative_ebit`, oppure da `operating_taxes` in ogni voce. Oneri
 finanziari e net borrowing sono rifiutati: il FCFF è prima dei flussi finanziari. Ogni passo
-della costruzione è nell'explain, con il prefisso "Build-up:".
+della costruzione è nell'explain, con il prefisso "Build-up:", e le sue convenzioni indicano la
+versione della costruzione (`dcf.free_cash_flows v2`). Con `zero` la versione 2 limita lo scudo
+fiscale sugli oneri finanziari al reddito imponibile disponibile; il FCFF esclude gli oneri
+finanziari, quindi flussi e valori di `dcf.fcff` non cambiano.
 
 Con la convenzione di metà periodo il flusso del periodo k è attualizzato mezzo periodo prima,
 $DF_k = DF_{k-1} (1 + r_k)^{-0.5}$. Il valore terminale $TV_N$ è calcolato dalla tecnica

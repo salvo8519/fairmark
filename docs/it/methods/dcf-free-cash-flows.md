@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-free-cash-flows.md
-source_hash: d4dd25f9cda6
+source_hash: 32a13de3122b
 ---
 # Costruzione dei flussi di cassa disponibili (`dcf.free_cash_flows`)
 
@@ -12,7 +12,7 @@ finanziamenti al netto dei rimborsi), costruisce il flusso di cassa disponibile 
 azionisti (FCFE). I flussi sono importi per periodo, non attualizzati: attualizzarli è compito
 del DCF. La riclassificazione dei bilanci civilistici in queste voci è un passaggio distinto.
 
-Versione del metodo: 1. Stato: anteprima.
+Versione del metodo: 2. Stato: anteprima.
 
 ## Formula
 
@@ -23,7 +23,7 @@ FCFF_t = EBIT_t - T_t + DA_t - CAPEX_t - \Delta NWC_t + \sum_k ADJ_{k,t}
 $$
 
 $$
-FCFE_t = FCFF_t - INT_t \times (1 - \tau) + NB_t
+FCFE_t = FCFF_t - (INT_t - S_t) + NB_t, \qquad S_t = \tau \times INT_t
 $$
 
 Le imposte sull'EBIT $T_t$ si forniscono in una sola di due forme:
@@ -34,17 +34,31 @@ Le imposte sull'EBIT $T_t$ si forniscono in una sola di due forme:
   loss carry-forward (riporto delle perdite fiscali) non è modellato;
 - **importi**: $T_t$ fornito per ogni periodo.
 
-L'aliquota $\tau$ dello scudo fiscale sugli oneri finanziari nel FCFE è l'aliquota sull'EBIT
-nella prima forma, e un input separato obbligatorio, `interest_tax_rate`, nella seconda. In un
-periodo in cui si applica il trattamento `zero` (EBIT negativo, imposte da un'aliquota) lo
-scudo fiscale sugli oneri finanziari è nullo: $\tau = 0$ e gli oneri finanziari sono sottratti
-per intero. Il FCFE coincide allora con quello calcolato dall'utile netto (utile netto +
-ammortamenti − capex − variazione del capitale circolante netto + rettifiche + net borrowing,
-senza imposte su un risultato ante imposte negativo). Con `credit`, e in ogni periodo con EBIT
-pari a zero o positivo, lo scudo si applica anche quando l'EBIT è inferiore agli oneri
-finanziari. Nella forma a importi lo scudo si applica a `interest_tax_rate` in ogni periodo,
-qualunque sia il segno dell'EBIT: il trattamento di un EBIT negativo appartiene solo alla forma
-ad aliquota.
+L'aliquota $\tau$ dello scudo fiscale sugli oneri finanziari $S_t$ nel FCFE è l'aliquota
+sull'EBIT nella prima forma, e un input separato obbligatorio, `interest_tax_rate`, nella
+seconda.
+
+Con il trattamento `zero` una perdita ante imposte non genera alcun credito d'imposta, quindi
+gli oneri finanziari sono deducibili solo fino al reddito imponibile disponibile:
+
+$$
+S_t = \tau \times \min\big(INT_t, \max(EBIT_t, 0)\big)
+$$
+
+e le imposte complessive, $T_t - S_t$, non scendono mai sotto zero. In un periodo con EBIT
+negativo lo scudo è nullo: $\tau = 0$ e gli oneri finanziari sono sottratti per intero. Quando
+l'EBIT è positivo ma inferiore agli oneri finanziari, lo scudo è $\tau \times EBIT_t$: con EBIT
+30, oneri finanziari 50 e un'aliquota del 24%, lo scudo è 7,20, non 12. In ogni periodo il FCFE
+coincide allora con quello calcolato dall'utile netto (utile netto + ammortamenti − capex −
+variazione del capitale circolante netto + rettifiche + net borrowing, senza imposte su un
+risultato ante imposte negativo). Il limite si applica dalla versione 2 del metodo (SPEC-0001,
+decisione 22); la versione 1 manteneva lo scudo pieno quando l'EBIT era positivo ma inferiore
+agli oneri finanziari.
+
+Con `credit` lo scudo pieno $\tau \times INT_t$ si applica in ogni periodo, anche quando l'EBIT
+è inferiore agli oneri finanziari o negativo: la perdita genera un risparmio d'imposta. Nella
+forma a importi lo scudo si applica a `interest_tax_rate` in ogni periodo, qualunque sia il
+segno dell'EBIT: il trattamento di un EBIT negativo appartiene solo alla forma ad aliquota.
 
 ## Esempio
 
@@ -120,7 +134,7 @@ Si fornisce `notional_tax_rate` oppure `operating_taxes` in ogni periodo, mai en
 
 | Campo | Significato |
 | --- | --- |
-| `periods` | Una riga per periodo: ogni voce come fornita, `operating_taxes` usate, `ebit_after_taxes`, `other_adjustments_total`, `free_cash_flow_to_firm` e, con le voci finanziarie, `interest_tax_rate` applicata (0 dove si applica il trattamento `zero`), `interest_after_taxes` e `free_cash_flow_to_equity` (altrimenti `null`) |
+| `periods` | Una riga per periodo: ogni voce come fornita, `operating_taxes` usate, `ebit_after_taxes`, `other_adjustments_total`, `free_cash_flow_to_firm` e, con le voci finanziarie, `interest_tax_rate` applicata (0 in un periodo con EBIT negativo e trattamento `zero`), `interest_tax_shield` (con `zero` limitato al reddito imponibile disponibile), `interest_after_taxes` (oneri finanziari − scudo) e `free_cash_flow_to_equity` (altrimenti `null`) |
 | `free_cash_flows_to_firm` | FCFF dei periodi 1..n |
 | `free_cash_flows_to_equity` | FCFE dei periodi 1..n; `null` senza le voci finanziarie |
 | `tax_form` | `rate_on_ebit` o `amounts` |
@@ -135,6 +149,7 @@ Si fornisce `notional_tax_rate` oppure `operating_taxes` in ogni periodo, mai en
 | EBIT negativo (forma ad aliquota) | `credit`, `zero` | nessuno: va scelto |
 | Tax loss carry-forward | non modellato | fisso |
 | Aliquota dello scudo fiscale sugli oneri finanziari | l'aliquota sull'EBIT (forma ad aliquota), o `interest_tax_rate` (forma a importi); 0 in un periodo con EBIT negativo e trattamento `zero` | fissata dalla forma delle imposte e dal trattamento |
+| Scudo fiscale sugli oneri finanziari con `zero` | limitato al reddito imponibile disponibile, aliquota × min(oneri finanziari, max(EBIT, 0)); ogni periodo in cui il limite opera è riportato con i suoi valori | fissato dal trattamento |
 | Segno delle imposte sull'EBIT (forma a importi) | positivo per un'imposta pagata, sottratto; negativo per un credito d'imposta | fisso |
 | Segno della variazione del capitale circolante netto | positivo per un aumento, sottratto | fisso |
 | Segno del net borrowing | positivo per nuovi finanziamenti, sommato | fisso |
@@ -168,3 +183,9 @@ precisione pubblicata, in unità (tolleranza 0,5).
   `boeing-rate-form-recomputed.yaml` registra l'FCFF di 1.177,45 che dà la forma ad aliquota.
 - Gli altri casi di riferimento e un confronto con seme fisso su piani casuali provengono da un
   calcolo indipendente a 50 cifre (`scripts/reference_free_cash_flows.py`).
+- Lo scudo fiscale sugli oneri finanziari con entrambi i trattamenti (`shield-*.yaml`: EBIT
+  negativo, inferiore, pari e superiore agli oneri finanziari, EBIT nullo, oneri finanziari
+  nulli) è verificato anche con il calcolo dall'utile netto (utile netto + ammortamenti − capex
+  − variazione del capitale circolante netto + rettifiche + net borrowing), calcolato a parte
+  nello stesso riferimento: con `zero` senza imposte su una perdita ante imposte, con `credit`
+  con un risparmio d'imposta.

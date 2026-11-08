@@ -7,7 +7,7 @@ net borrowing are also given, it builds the free cash flow to equity (FCFE). The
 amounts per period, not discounted: discounting them is the job of the DCF. Reclassifying the
 statutory statements into these lines is a separate step.
 
-Method version: 1. Status: preview.
+Method version: 2. Status: preview.
 
 ## Formula
 
@@ -18,7 +18,7 @@ FCFF_t = EBIT_t - T_t + DA_t - CAPEX_t - \Delta NWC_t + \sum_k ADJ_{k,t}
 $$
 
 $$
-FCFE_t = FCFF_t - INT_t \times (1 - \tau) + NB_t
+FCFE_t = FCFF_t - (INT_t - S_t) + NB_t, \qquad S_t = \tau \times INT_t
 $$
 
 The taxes on EBIT $T_t$ are given in exactly one of two forms:
@@ -29,15 +29,28 @@ The taxes on EBIT $T_t$ are given in exactly one of two forms:
   not modelled;
 - **amounts**: $T_t$ given for every period.
 
-The rate $\tau$ of the interest tax shield in the FCFE is the tax rate on EBIT in the first
-form, and a separate required input, `interest_tax_rate`, in the second. In a period where
-the `zero` treatment applies (EBIT negative, taxes from a rate) there is no interest tax
-shield: $\tau = 0$ and the interest is subtracted in full. The FCFE then equals the net-income
+The rate $\tau$ of the interest tax shield $S_t$ in the FCFE is the tax rate on EBIT in the
+first form, and a separate required input, `interest_tax_rate`, in the second.
+
+Under the `zero` treatment no tax credit arises on a pre-tax loss, so the interest is deductible
+only up to the taxable income available:
+
+$$
+S_t = \tau \times \min\big(INT_t, \max(EBIT_t, 0)\big)
+$$
+
+and the total taxes, $T_t - S_t$, never fall below zero. In a period with a negative EBIT there
+is no shield: $\tau = 0$ and the interest is subtracted in full. When EBIT is positive but
+below the interest, the shield is $\tau \times EBIT_t$: with EBIT 30, interest 50 and a tax
+rate of 24%, the shield is 7.20, not 12. In every period the FCFE then equals the net-income
 route (net income + D&A − capex − ΔNWC + adjustments + net borrowing, with no tax on a negative
-pre-tax income). With `credit`, and in every period with an EBIT of zero or more, the shield
-applies also when EBIT is lower than the interest. In the amounts form the shield applies at
-`interest_tax_rate` in every period, whatever the sign of EBIT: the treatment of a negative
-EBIT belongs to the rate form only.
+pre-tax income). This limit applies from method version 2 (SPEC-0001 Decision 22); version 1
+kept the full shield when EBIT was positive but below the interest.
+
+With `credit` the full shield $\tau \times INT_t$ applies in every period, also when EBIT is
+lower than the interest or negative: the loss gives a tax saving. In the amounts form the shield
+applies at `interest_tax_rate` in every period, whatever the sign of EBIT: the treatment of a
+negative EBIT belongs to the rate form only.
 
 ## Example
 
@@ -113,7 +126,7 @@ Give either `notional_tax_rate` or `operating_taxes` in every period, never both
 
 | Field | Meaning |
 | --- | --- |
-| `periods` | One row per period: every line as given, `operating_taxes` used, `ebit_after_taxes`, `other_adjustments_total`, `free_cash_flow_to_firm` and, with the financing lines, `interest_tax_rate` applied (0 where the `zero` treatment applies), `interest_after_taxes` and `free_cash_flow_to_equity` (`null` otherwise) |
+| `periods` | One row per period: every line as given, `operating_taxes` used, `ebit_after_taxes`, `other_adjustments_total`, `free_cash_flow_to_firm` and, with the financing lines, `interest_tax_rate` applied (0 in a period with a negative EBIT under `zero`), `interest_tax_shield` (under `zero` limited to the taxable income available), `interest_after_taxes` (interest − shield) and `free_cash_flow_to_equity` (`null` otherwise) |
 | `free_cash_flows_to_firm` | FCFF of periods 1..n |
 | `free_cash_flows_to_equity` | FCFE of periods 1..n; `null` without the financing lines |
 | `tax_form` | `rate_on_ebit` or `amounts` |
@@ -128,6 +141,7 @@ Give either `notional_tax_rate` or `operating_taxes` in every period, never both
 | Negative EBIT (rate form) | `credit`, `zero` | none: must be chosen |
 | Tax loss carry-forward | not modelled | fixed |
 | Rate of the interest tax shield | the tax rate on EBIT (rate form), or `interest_tax_rate` (amounts form); 0 in a period with a negative EBIT under `zero` | fixed by the tax form and the treatment |
+| Interest tax shield under `zero` | limited to the taxable income available, rate × min(interest, max(EBIT, 0)); each period where the limit binds is reported with its values | fixed by the treatment |
 | Sign of the taxes on EBIT (amounts form) | positive for a tax paid, subtracted; negative for a tax credit | fixed |
 | Sign of the change in net working capital | positive for an increase, subtracted | fixed |
 | Sign of net borrowing | positive for new borrowing, added | fixed |
@@ -160,3 +174,7 @@ illustration is compared at its published precision, in units (tolerance 0.5).
   `boeing-rate-form-recomputed.yaml` records the FCFF of 1,177.45 that the rate form gives.
 - The other golden cases and a seeded comparison on random plans come from an independent
   50-digit computation (`scripts/reference_free_cash_flows.py`).
+- The interest tax shield under both treatments (`shield-*.yaml`: EBIT negative, below, equal
+  to and above the interest, EBIT zero, interest zero) is cross-checked by the net-income route
+  (net income + D&A − capex − ΔNWC + adjustments + net borrowing), computed separately in the
+  same reference: under `zero` with no tax on a pre-tax loss, under `credit` with a tax saving.

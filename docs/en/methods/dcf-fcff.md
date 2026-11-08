@@ -49,7 +49,10 @@ per period with `ebit`, `depreciation_and_amortisation`, `capital_expenditure`,
 [`dcf.free_cash_flows`](dcf-free-cash-flows.md), with the taxes on EBIT from
 `notional_tax_rate` and `negative_ebit`, or from `operating_taxes` in every line. Interest
 expense and net borrowing are refused: FCFF is before financing. Every step of the build-up is
-in the explain, prefixed "Build-up:".
+in the explain, prefixed "Build-up:", and its conventions name the version of the build-up
+(`dcf.free_cash_flows v2`). Under `zero`, version 2 limits the interest tax shield to the
+taxable income available; the FCFF excludes the interest, so the flows and values of
+`dcf.fcff` do not change.
 
 Under mid-period timing the flow of period k is discounted half a period earlier,
 $DF_k = DF_{k-1} (1 + r_k)^{-0.5}$. The terminal value $TV_N$ is computed by the terminal
