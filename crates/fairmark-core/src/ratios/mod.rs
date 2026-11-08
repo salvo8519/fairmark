@@ -108,8 +108,13 @@ pub(crate) trait Ratio {
     fn days(&self) -> Option<Decimal> {
         None
     }
-    /// Whether a negative denominator makes the ratio not meaningful (ratios over equity).
+    /// Whether a negative denominator makes the ratio not meaningful (for example ratios over
+    /// equity, NFP / EBITDA, DSCR).
     fn needs_positive_denominator(&self) -> bool {
+        false
+    }
+    /// Whether a numerator at or below zero makes the ratio not meaningful (interest covers).
+    fn needs_positive_numerator(&self) -> bool {
         false
     }
 
@@ -123,6 +128,16 @@ pub(crate) trait Ratio {
         if self.needs_positive_denominator() && d.value.is_sign_negative() {
             let reason = format!("{} is negative ({})", d.name, d.value);
             return Ok(RatioValue::not_defined(ex, self.label(), reason));
+        }
+        if self.needs_positive_numerator() {
+            if n.value.is_zero() {
+                let reason = format!("{} is zero", n.name);
+                return Ok(RatioValue::not_defined(ex, self.label(), reason));
+            }
+            if n.value.is_sign_negative() {
+                let reason = format!("{} is negative ({})", n.name, n.value);
+                return Ok(RatioValue::not_defined(ex, self.label(), reason));
+            }
         }
         let (value, substituted) = match self.days() {
             None => (
@@ -149,8 +164,10 @@ pub(crate) struct Quotient {
     pub formula: &'static str,
     pub numerator: Term,
     pub denominator: Term,
-    /// True for ratios over equity: not defined when equity is negative.
+    /// Not defined when the denominator is negative (zero is never defined).
     pub positive_denominator: bool,
+    /// Not defined when the numerator is zero or negative.
+    pub positive_numerator: bool,
 }
 
 impl Ratio for Quotient {
@@ -168,6 +185,9 @@ impl Ratio for Quotient {
     }
     fn needs_positive_denominator(&self) -> bool {
         self.positive_denominator
+    }
+    fn needs_positive_numerator(&self) -> bool {
+        self.positive_numerator
     }
 }
 
@@ -211,6 +231,33 @@ pub(crate) fn quotient(
         numerator,
         denominator,
         positive_denominator: false,
+        positive_numerator: false,
+    }
+}
+
+/// `numerator / denominator`, not defined when the denominator is zero or negative.
+pub(crate) fn over_positive(
+    label: &'static str,
+    formula: &'static str,
+    numerator: Term,
+    denominator: Term,
+) -> Quotient {
+    Quotient {
+        positive_denominator: true,
+        ..quotient(label, formula, numerator, denominator)
+    }
+}
+
+/// `numerator / denominator`, not defined when either is zero or negative (interest covers).
+pub(crate) fn both_positive(
+    label: &'static str,
+    formula: &'static str,
+    numerator: Term,
+    denominator: Term,
+) -> Quotient {
+    Quotient {
+        positive_numerator: true,
+        ..over_positive(label, formula, numerator, denominator)
     }
 }
 

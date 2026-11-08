@@ -5,8 +5,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    all_defined, over_equity, quotient, require_definition, term, BalanceBasis, Balances, Ratio,
-    RatioValue, Term,
+    all_defined, over_equity, over_positive, quotient, require_definition, term, BalanceBasis,
+    Balances, Ratio, RatioValue, Term,
 };
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
@@ -49,6 +49,35 @@ pub struct ProfitabilityBalances {
     /// `invested_capital`; not used otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invested_capital: Option<Decimal>,
+    /// Debt D of the leverage form, in currency units, on the basis chosen in
+    /// `leverage.debt_basis`. Required when `leverage` is given; not used otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub debt: Option<Decimal>,
+}
+
+/// What D measures in the leverage form of the ROE decomposition. No default.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DebtBasis {
+    /// Gross financial debt.
+    GrossFinancialDebt,
+    /// Net financial position (gross debt minus cash and other items, as the analyst defines it).
+    NetFinancialPosition,
+}
+
+/// Inputs of the leverage form ROE = [ROI + (ROI − i) × D/E] × (1 − t). The debt D itself is
+/// given in the balance sheets (`debt`), so the balance convention applies to it.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct LeverageInputs {
+    /// Basis of D: `gross_financial_debt` or `net_financial_position`.
+    pub debt_basis: DebtBasis,
+    /// Financial charges of the period, in currency units; i = financial charges / D.
+    pub financial_charges: Decimal,
+    /// Income taxes of the period, in currency units; t = taxes / pre-tax income.
+    pub taxes: Decimal,
+    /// Income before taxes of the period, in currency units.
+    pub pre_tax_income: Decimal,
 }
 
 /// Input of `ratios.profitability`.
@@ -70,6 +99,29 @@ pub struct ProfitabilityInput {
     /// with closing balances.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opening: Option<ProfitabilityBalances>,
+    /// Inputs of the leverage form of the ROE decomposition. Absent: the leverage form is not
+    /// defined and the other ratios are computed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub leverage: Option<LeverageInputs>,
+}
+
+/// ROE = [ROI + (ROI − i) × D/E] × (1 − t).
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct RoeLeverage {
+    /// ROI of the group (EBIT / operating return base), decimal fraction.
+    pub roi: RatioValue,
+    /// i = financial charges / D, decimal fraction.
+    pub cost_of_debt: RatioValue,
+    /// D / equity, multiple.
+    pub debt_to_equity: RatioValue,
+    /// (ROI − i) × D/E, decimal fraction.
+    pub leverage_effect: RatioValue,
+    /// ROI + leverage effect, decimal fraction.
+    pub pre_tax_roe: RatioValue,
+    /// t = taxes / pre-tax income (effective tax rate), decimal fraction.
+    pub tax_rate: RatioValue,
+    /// Pre-tax ROE × (1 − t), decimal fraction.
+    pub roe: RatioValue,
 }
 
 /// ROE = net margin × asset turnover × equity multiplier (DuPont).
@@ -92,6 +144,8 @@ pub struct ProfitabilityOutput {
     pub roe: RatioValue,
     /// EBIT / operating return base, decimal fraction.
     pub roi: RatioValue,
+    /// EBIT / total assets, decimal fraction.
+    pub roa: RatioValue,
     /// EBIT / revenue, decimal fraction.
     pub ros: RatioValue,
     /// EBITDA / revenue, decimal fraction.
@@ -102,6 +156,8 @@ pub struct ProfitabilityOutput {
     pub capital_turnover: RatioValue,
     /// Three-factor decomposition of ROE.
     pub roe_three_factor: RoeThreeFactor,
+    /// Leverage form of the ROE decomposition.
+    pub roe_leverage: RoeLeverage,
 }
 
 pub fn profitability(input: &ProfitabilityInput) -> Result<(ProfitabilityOutput, Explain)> {
@@ -132,8 +188,17 @@ pub fn profitability(input: &ProfitabilityInput) -> Result<(ProfitabilityOutput,
         "three-factor ROE on total assets (asset turnover and equity multiplier), whatever the \
          operating return base",
     );
+    ex.convention("ROA = EBIT / total assets");
     ex.convention("a ratio with a zero denominator is not defined");
     ex.convention("a ratio over equity is not defined when equity is zero or negative");
+    if input.operating_return_base == OperatingReturnBase::InvestedCapital {
+        ex.convention("ROI is not defined when invested capital is zero or negative");
+    }
+    let debt_given =
+        input.closing.debt.is_some() || input.opening.as_ref().is_some_and(|o| o.debt.is_some());
+    if input.leverage.is_none() && debt_given {
+        ex.convention("debt given and not used (no leverage inputs)");
+    }
 
     let open = input.opening.as_ref();
     let equity = basis.resolve(
@@ -178,7 +243,12 @@ pub fn profitability(input: &ProfitabilityInput) -> Result<(ProfitabilityOutput,
         OperatingReturnBase::InvestedCapital => "EBIT / invested capital",
         OperatingReturnBase::TotalAssets => "EBIT / total assets",
     };
-    let roi = quotient("ROI", roi_formula, ebit, base).evaluate(&mut ex)?;
+    let roi = match input.operating_return_base {
+        OperatingReturnBase::InvestedCapital => over_positive("ROI", roi_formula, ebit, base),
+        OperatingReturnBase::TotalAssets => quotient("ROI", roi_formula, ebit, base),
+    }
+    .evaluate(&mut ex)?;
+    let roa = quotient("ROA", "EBIT / total assets", ebit, assets).evaluate(&mut ex)?;
     let ros = quotient("ROS", "EBIT / revenue", ebit, revenue).evaluate(&mut ex)?;
     let ebitda_margin =
         quotient("EBITDA margin", "EBITDA / revenue", ebitda, revenue).evaluate(&mut ex)?;
@@ -216,11 +286,13 @@ pub fn profitability(input: &ProfitabilityInput) -> Result<(ProfitabilityOutput,
         }
         Err(reason) => RatioValue::not_defined(&mut ex, "ROE, three-factor decomposition", reason),
     };
+    let roe_leverage = leverage_form(input, &basis, &mut ex, &roi, equity)?;
 
     Ok((
         ProfitabilityOutput {
             roe,
             roi,
+            roa,
             ros,
             ebitda_margin,
             ebit_margin,
@@ -231,9 +303,122 @@ pub fn profitability(input: &ProfitabilityInput) -> Result<(ProfitabilityOutput,
                 equity_multiplier,
                 roe: three_factor_roe,
             },
+            roe_leverage,
         },
         ex,
     ))
+}
+
+const NO_LEVERAGE: &str = "leverage inputs not given";
+
+/// ROE = [ROI + (ROI − i) × D/E] × (1 − t), or not defined without the leverage inputs.
+fn leverage_form(
+    input: &ProfitabilityInput,
+    basis: &BalanceBasis,
+    ex: &mut Explain,
+    roi: &RatioValue,
+    equity: Term,
+) -> Result<RoeLeverage> {
+    let Some(lev) = &input.leverage else {
+        ex.convention(format!("ROE, leverage form not defined: {NO_LEVERAGE}"));
+        let none = || RatioValue {
+            value: None,
+            not_defined: Some(NO_LEVERAGE.to_owned()),
+        };
+        return Ok(RoeLeverage {
+            roi: none(),
+            cost_of_debt: none(),
+            debt_to_equity: none(),
+            leverage_effect: none(),
+            pre_tax_roe: none(),
+            tax_rate: none(),
+            roe: none(),
+        });
+    };
+    let (basis_name, debt_name) = match lev.debt_basis {
+        DebtBasis::GrossFinancialDebt => ("gross financial debt", "gross financial debt"),
+        DebtBasis::NetFinancialPosition => ("net financial position", "net financial position"),
+    };
+    ex.convention(format!(
+        "ROE, leverage form: ROE = [ROI + (ROI − i) × D/E] × (1 − t), D = {basis_name}, \
+         i = financial charges / D, t = taxes / pre-tax income (effective tax rate), ROI on \
+         the operating return base"
+    ));
+    let missing = || {
+        FairmarkError::InvalidInput(
+            "`debt` is required in every balance sheet given when `leverage` is given".into(),
+        )
+    };
+    let closing = input.closing.debt.ok_or_else(missing)?;
+    let opening = match (input.balances, input.opening.as_ref()) {
+        (Balances::Average, Some(o)) => Some(o.debt.ok_or_else(missing)?),
+        _ => None,
+    };
+    let debt = basis.resolve(ex, debt_name, closing, opening)?;
+    let cost_of_debt = quotient(
+        "Cost of debt i",
+        "financial charges / D",
+        term("financial charges", lev.financial_charges),
+        debt,
+    )
+    .evaluate(ex)?;
+    let debt_to_equity =
+        over_equity("D/E, leverage form", "D / equity", debt, equity).evaluate(ex)?;
+    let tax_rate = quotient(
+        "Effective tax rate t",
+        "taxes / pre-tax income",
+        term("taxes", lev.taxes),
+        term("pre-tax income", lev.pre_tax_income),
+    )
+    .evaluate(ex)?;
+    let parts = all_defined(&[
+        ("ROI", roi),
+        ("cost of debt", &cost_of_debt),
+        ("D/E", &debt_to_equity),
+    ]);
+    let (leverage_effect, pre_tax_roe) = match parts {
+        Ok(v) => {
+            let (r, i, de) = (v[0], v[1], v[2]);
+            let effect = num::mul(num::sub(r, i)?, de)?;
+            ex.step(
+                "Leverage effect",
+                format!("(ROI − i) × D/E = ({r} − {i}) × {de}"),
+                effect,
+            );
+            let pre_tax = num::add(r, effect)?;
+            ex.step(
+                "Pre-tax ROE, leverage form",
+                format!("ROI + leverage effect = {r} + {effect}"),
+                pre_tax,
+            );
+            (RatioValue::defined(effect), RatioValue::defined(pre_tax))
+        }
+        Err(reason) => (
+            RatioValue::not_defined(ex, "Leverage effect", reason.clone()),
+            RatioValue::not_defined(ex, "Pre-tax ROE, leverage form", reason),
+        ),
+    };
+    let roe = match all_defined(&[("pre-tax ROE", &pre_tax_roe), ("tax rate", &tax_rate)]) {
+        Ok(v) => {
+            let value = num::mul(v[0], num::sub(Decimal::ONE, v[1])?)?;
+            ex.step(
+                "ROE, leverage form",
+                format!("pre-tax ROE × (1 − t) = {} × (1 − {})", v[0], v[1]),
+                value,
+            );
+            RatioValue::defined(value)
+        }
+        Err(reason) => RatioValue::not_defined(ex, "ROE, leverage form", reason),
+    };
+    Ok(RoeLeverage {
+        roi: roi.clone(),
+        cost_of_debt,
+        debt_to_equity,
+        leverage_effect,
+        pre_tax_roe,
+        tax_rate,
+        roe,
+    })
 }
 
 /// `ratios.profitability`: see the methodology page.
@@ -243,8 +428,9 @@ impl Method for Profitability {
     const ID: &'static str = "ratios.profitability";
     const TITLE: &'static str = "Ratios — profitability";
     const DESCRIPTION: &'static str =
-        "ROE, ROI, ROS, EBITDA and EBIT margins, capital turnover and the three-factor ROE \
-        decomposition, on closing or average balances. A ratio that cannot be computed is \
+        "ROE, ROI, ROA, ROS, EBITDA and EBIT margins, capital turnover and the ROE \
+        decomposition in three factors and in the leverage form, on closing or average \
+        balances. A ratio that cannot be computed is \
         reported as not defined with the reason.";
     const VERSION: &'static str = "1";
     type Input = ProfitabilityInput;
@@ -278,8 +464,15 @@ mod tests {
                 equity: d(2000),
                 total_assets: d(6000),
                 invested_capital: Some(d(4000)),
+                debt: Some(d(2000)),
             },
             opening: None,
+            leverage: Some(LeverageInputs {
+                debt_basis: DebtBasis::NetFinancialPosition,
+                financial_charges: d(100),
+                taxes: d(140),
+                pre_tax_income: d(400),
+            }),
         }
     }
 
@@ -332,7 +525,55 @@ mod tests {
             equity: d(1800),
             total_assets: d(5600),
             invested_capital: None,
+            debt: Some(d(1800)),
         });
         assert_eq!(profitability(&i).unwrap_err().code(), "FM-E001");
+    }
+
+    #[test]
+    fn leverage_form_equals_roe_when_capital_is_equity_plus_debt() {
+        let (out, _) = profitability(&input()).unwrap();
+        let l = &out.roe_leverage;
+        assert_eq!(l.cost_of_debt.value, Some(Decimal::new(5, 2)));
+        assert_eq!(l.tax_rate.value, Some(Decimal::new(35, 2)));
+        assert_eq!(l.roe.value, out.roe.value);
+    }
+
+    #[test]
+    fn without_leverage_inputs_the_form_is_not_defined() {
+        let mut i = input();
+        i.leverage = None;
+        let (out, ex) = profitability(&i).unwrap();
+        assert_eq!(
+            out.roe_leverage.roe.not_defined.as_deref(),
+            Some("leverage inputs not given")
+        );
+        assert!(ex
+            .conventions
+            .iter()
+            .any(|c| c == "debt given and not used (no leverage inputs)"));
+    }
+
+    #[test]
+    fn leverage_needs_debt() {
+        let mut i = input();
+        i.closing.debt = None;
+        assert_eq!(profitability(&i).unwrap_err().code(), "FM-E001");
+    }
+
+    #[test]
+    fn negative_invested_capital_leaves_roi_not_defined() {
+        let mut i = input();
+        i.closing.invested_capital = Some(d(-500));
+        let (out, _) = profitability(&i).unwrap();
+        assert_eq!(
+            out.roi.not_defined.as_deref(),
+            Some("invested capital is negative (-500)")
+        );
+        assert_eq!(
+            out.roe_leverage.pre_tax_roe.not_defined.as_deref(),
+            Some("ROI is not defined")
+        );
+        assert!(out.capital_turnover.value.is_some());
     }
 }

@@ -35,12 +35,18 @@ def profitability(
     income_statement: Mapping[str, Any],
     closing: Mapping[str, Any],
     opening: Mapping[str, Any] | None = None,
+    leverage: Mapping[str, Any] | None = None,
 ) -> Result:
-    """ROE, ROI, ROS, EBITDA and EBIT margins, capital turnover and the three-factor ROE.
+    """ROE, ROI, ROA, ROS, margins, capital turnover and the ROE decompositions.
 
     ``income_statement``: ``revenue``, ``ebitda``, ``ebit``, ``net_income``. Balance sheets:
     ``equity``, ``total_assets`` and, when ``operating_return_base`` is ``invested_capital``,
     ``invested_capital``. ``ebitda_definition`` states in words how EBITDA was measured.
+
+    ``leverage`` (optional) enables the leverage form ROE = [ROI + (ROI - i) x D/E] x (1 - t):
+    ``debt_basis`` (``"gross_financial_debt"`` or ``"net_financial_position"``),
+    ``financial_charges``, ``taxes``, ``pre_tax_income``; D itself is ``debt`` in the balance
+    sheets. Without it the leverage form is not defined.
 
     >>> r = profitability(balances="closing", operating_return_base="invested_capital",
     ...     ebitda_definition="reported", closing={"equity": 2000, "total_assets": 6000,
@@ -58,6 +64,7 @@ def profitability(
             income_statement=income_statement,
             closing=closing,
             opening=opening,
+            leverage=leverage,
         ),
     )
 
@@ -124,16 +131,17 @@ def debt_service(
     interest_definition: str,
     income_statement: Mapping[str, Any],
     closing: Mapping[str, Any],
-    debt_schedule: Mapping[str, Any],
+    debt_schedule: Mapping[str, Any] | None = None,
     opening: Mapping[str, Any] | None = None,
 ) -> Result:
     """Interest cover, NFP / EBITDA, DSCR per period and LLCR.
 
     ``income_statement``: ``ebitda``, ``ebit``, ``interest``; ``ebitda_definition`` and
     ``interest_definition`` state in words how EBITDA and interest were measured. Balance sheets:
-    ``net_financial_position``. ``debt_schedule``: ``discount_rate`` (per period),
-    ``debt_outstanding`` (at the start of the first period) and ``periods``, a list of
-    ``{"cfads": ..., "debt_service": ...}`` up to the final maturity.
+    ``net_financial_position``. ``debt_schedule`` (optional; without it DSCR and LLCR are not
+    defined): ``discount_rate`` (cost of debt per period), ``debt_outstanding`` (at the start of
+    the first period), optional ``reserve_balance`` (added undiscounted to the LLCR numerator)
+    and ``periods``, a list of ``{"cfads": ..., "debt_service": ...}`` up to the final maturity.
     """
     return run(
         "ratios.debt_service",

@@ -15,6 +15,62 @@
         }
       ]
     },
+    "DebtBasis": {
+      "description": "What D measures in the leverage form of the ROE decomposition. No default.",
+      "oneOf": [
+        {
+          "const": "gross_financial_debt",
+          "description": "Gross financial debt.",
+          "type": "string"
+        },
+        {
+          "const": "net_financial_position",
+          "description": "Net financial position (gross debt minus cash and other items, as the analyst defines it).",
+          "type": "string"
+        }
+      ]
+    },
+    "LeverageInputs": {
+      "additionalProperties": false,
+      "description": "Inputs of the leverage form ROE = [ROI + (ROI − i) × D/E] × (1 − t). The debt D itself is\ngiven in the balance sheets (`debt`), so the balance convention applies to it.",
+      "properties": {
+        "debt_basis": {
+          "$ref": "#/$defs/DebtBasis",
+          "description": "Basis of D: `gross_financial_debt` or `net_financial_position`."
+        },
+        "financial_charges": {
+          "description": "Financial charges of the period, in currency units; i = financial charges / D.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "pre_tax_income": {
+          "description": "Income before taxes of the period, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "taxes": {
+          "description": "Income taxes of the period, in currency units; t = taxes / pre-tax income.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "debt_basis",
+        "financial_charges",
+        "taxes",
+        "pre_tax_income"
+      ],
+      "type": "object"
+    },
     "OperatingReturnBase": {
       "description": "The capital on which the operating return (ROI) and the capital turnover are measured.",
       "oneOf": [
@@ -34,6 +90,15 @@
       "additionalProperties": false,
       "description": "Balance-sheet amounts at one date, in currency units.",
       "properties": {
+        "debt": {
+          "description": "Debt D of the leverage form, in currency units, on the basis chosen in\n`leverage.debt_basis`. Required when `leverage` is given; not used otherwise.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
         "equity": {
           "description": "Shareholders' equity, in currency units. May be negative.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
@@ -132,6 +197,17 @@
     "income_statement": {
       "$ref": "#/$defs/ProfitabilityIncome",
       "description": "Flows of the period."
+    },
+    "leverage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LeverageInputs"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Inputs of the leverage form of the ROE decomposition. Absent: the leverage form is not\ndefined and the other ratios are computed."
     },
     "opening": {
       "anyOf": [

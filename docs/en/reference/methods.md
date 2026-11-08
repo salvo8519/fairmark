@@ -238,7 +238,7 @@ Enterprise and equity value from explicit FCFF forecasts discounted at WACC, wit
 
 **Ratios — profitability** · method version 1 · tool `fairmark_ratios_profitability`
 
-ROE, ROI, ROS, EBITDA and EBIT margins, capital turnover and the three-factor ROE decomposition, on closing or average balances. A ratio that cannot be computed is reported as not defined with the reason.
+ROE, ROI, ROA, ROS, EBITDA and EBIT margins, capital turnover and the ROE decomposition in three factors and in the leverage form, on closing or average balances. A ratio that cannot be computed is reported as not defined with the reason.
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -248,6 +248,7 @@ ROE, ROI, ROS, EBITDA and EBIT margins, capital turnover and the three-factor RO
 | `income_statement` | object | yes |  | Flows of the period. |
 | `closing` | object | yes |  | Balance sheet at the end of the period. |
 | `opening` |  | no |  | Balance sheet at the start of the period. Required with average balances; not used with closing balances. |
+| `leverage` |  | no |  | Inputs of the leverage form of the ROE decomposition. Absent: the leverage form is not defined and the other ratios are computed. |
 
 ## `ratios.capital_structure`
 
@@ -301,7 +302,7 @@ Interest cover on EBIT and EBITDA, net financial position to EBITDA, DSCR per pe
 | `income_statement` | object | yes |  | Flows of the period. |
 | `closing` | object | yes |  | Balance sheet at the end of the period. |
 | `opening` |  | no |  | Balance sheet at the start of the period. Required with average balances; not used with closing balances. |
-| `debt_schedule` | object | yes |  | Loan schedule for DSCR and LLCR. |
+| `debt_schedule` |  | no |  | Loan schedule for DSCR and LLCR. Absent: DSCR and LLCR are not defined and the other ratios are computed. |
 
 ## `analysis.goal_seek`
 

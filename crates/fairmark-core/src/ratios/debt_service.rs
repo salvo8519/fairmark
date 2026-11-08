@@ -5,8 +5,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    quotient, require_definition, term, BalanceBasis, Balances, NetFinancialPosition, Ratio,
-    RatioValue, NFP_CONVENTION,
+    both_positive, over_positive, require_definition, term, BalanceBasis, Balances,
+    NetFinancialPosition, Ratio, RatioValue, NFP_CONVENTION,
 };
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
@@ -49,11 +49,15 @@ pub struct DebtPeriod {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DebtSchedule {
-    /// Discount rate for the LLCR, per period of the schedule, as a decimal fraction (0.06 =
-    /// 6% per period). Usually the interest rate of the loan.
+    /// Discount rate for the LLCR: the cost of debt per period of the schedule chosen by the
+    /// analyst, as a decimal fraction (0.06 = 6% per period).
     pub discount_rate: Decimal,
     /// Debt outstanding at the start of the first period, in currency units.
     pub debt_outstanding: Decimal,
+    /// Balance of the debt service reserve account at the valuation date, in currency units,
+    /// added undiscounted to the LLCR numerator. Absent: no reserve account.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reserve_balance: Option<Decimal>,
     /// Periods 1..n, in order, up to the final maturity of the loan. At least one.
     pub periods: Vec<DebtPeriod>,
 }
@@ -78,8 +82,10 @@ pub struct DebtServiceInput {
     /// with closing balances.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opening: Option<DebtServiceBalances>,
-    /// Loan schedule for DSCR and LLCR.
-    pub debt_schedule: DebtSchedule,
+    /// Loan schedule for DSCR and LLCR. Absent: DSCR and LLCR are not defined and the other
+    /// ratios are computed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub debt_schedule: Option<DebtSchedule>,
 }
 
 /// Output of `ratios.debt_service`.
@@ -93,23 +99,30 @@ pub struct DebtServiceOutput {
     pub interest_cover_ebitda: RatioValue,
     /// Net financial position / EBITDA, multiple.
     pub nfp_to_ebitda: RatioValue,
-    /// CFADS / debt service of each period, multiple, in the order of the schedule.
+    /// CFADS / debt service of each period, multiple, in the order of the schedule; empty when
+    /// no debt schedule is given.
     pub dscr: Vec<RatioValue>,
-    /// Present value of the CFADS of every period at the calculation date, in currency units.
-    pub pv_cfads: Decimal,
-    /// Present value of CFADS / debt outstanding, multiple.
+    /// Present value of the CFADS of every period at the calculation date, in currency units;
+    /// null when no debt schedule is given.
+    pub pv_cfads: Option<Decimal>,
+    /// (Present value of CFADS + reserve balance) / debt outstanding, multiple.
     pub llcr: RatioValue,
 }
 
+pub(crate) const NO_SCHEDULE: &str = "no debt schedule given";
+
 pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Explain)> {
-    let schedule = &input.debt_schedule;
-    if schedule.periods.is_empty() {
+    if input
+        .debt_schedule
+        .as_ref()
+        .is_some_and(|s| s.periods.is_empty())
+    {
         return Err(FairmarkError::EmptyCashFlows);
     }
     let mut ex = Explain::new(
         DebtService::ID,
         "interest cover = EBIT (or EBITDA) / interest; NFP / EBITDA; DSCR_t = CFADS_t / debt \
-         service_t; LLCR = Σ CFADS_t / (1 + r)^t / debt outstanding",
+         service_t; LLCR = (Σ CFADS_t / (1 + r)^t + reserve balance) / debt outstanding",
     );
     require_definition("ebitda_definition", &input.ebitda_definition)?;
     require_definition("interest_definition", &input.interest_definition)?;
@@ -118,16 +131,12 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
     ex.convention(format!("interest as given: {}", input.interest_definition));
     ex.convention(NFP_CONVENTION);
     ex.convention("debt service as given");
-    let r = schedule.discount_rate;
-    let n = schedule.periods.len();
-    ex.convention(format!(
-        "CFADS discounted at the end of each period at {r} per period"
-    ));
-    ex.convention(format!(
-        "LLCR over the {n} periods of the schedule, debt outstanding at the start of the first \
-         period"
-    ));
     ex.convention("a ratio with a zero denominator is not defined");
+    ex.convention(
+        "not meaningful, so not defined: an interest cover when interest or its numerator (EBIT \
+         or EBITDA) is zero or negative; NFP / EBITDA when EBITDA is zero or negative; DSCR \
+         when debt service is zero or negative; LLCR when debt outstanding is zero or negative",
+    );
 
     let closing_nfp = input
         .closing
@@ -142,21 +151,21 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
     let is = &input.income_statement;
     let interest = term("interest", is.interest);
     let ebitda = term("EBITDA", is.ebitda);
-    let interest_cover_ebit = quotient(
+    let interest_cover_ebit = both_positive(
         "Interest cover, EBIT",
         "EBIT / interest",
         term("EBIT", is.ebit),
         interest,
     )
     .evaluate(&mut ex)?;
-    let interest_cover_ebitda = quotient(
+    let interest_cover_ebitda = both_positive(
         "Interest cover, EBITDA",
         "EBITDA / interest",
         ebitda,
         interest,
     )
     .evaluate(&mut ex)?;
-    let nfp_to_ebitda = quotient(
+    let nfp_to_ebitda = over_positive(
         "NFP / EBITDA",
         "net financial position / EBITDA",
         nfp,
@@ -164,13 +173,48 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
     )
     .evaluate(&mut ex)?;
 
+    let Some(schedule) = &input.debt_schedule else {
+        ex.convention(format!("DSCR and LLCR not defined: {NO_SCHEDULE}"));
+        return Ok((
+            DebtServiceOutput {
+                net_financial_position: nfp.value,
+                interest_cover_ebit,
+                interest_cover_ebitda,
+                nfp_to_ebitda,
+                dscr: Vec::new(),
+                pv_cfads: None,
+                llcr: RatioValue {
+                    value: None,
+                    not_defined: Some(NO_SCHEDULE.to_owned()),
+                },
+            },
+            ex,
+        ));
+    };
+    let r = schedule.discount_rate;
+    let n = schedule.periods.len();
+    ex.convention(format!(
+        "CFADS discounted at the end of each period at {r} per period, the cost of debt chosen \
+         by the analyst"
+    ));
+    ex.convention(format!(
+        "LLCR over the {n} periods of the schedule, debt outstanding at the start of the first \
+         period"
+    ));
+    match schedule.reserve_balance {
+        Some(reserve) => ex.convention(format!(
+            "reserve balance {reserve} added undiscounted to the LLCR numerator"
+        )),
+        None => ex.convention("no reserve balance given: LLCR on CFADS only"),
+    }
+
     let mut dscr = Vec::with_capacity(n);
     let mut pv = Decimal::ZERO;
     let mut present_values = Vec::with_capacity(n);
     for (i, p) in schedule.periods.iter().enumerate() {
         let t = i + 1;
         let label = format!("DSCR, period {t}");
-        let ratio = quotient(
+        let ratio = over_positive(
             "DSCR",
             "CFADS / debt service",
             term("CFADS", p.cfads),
@@ -195,10 +239,28 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
         format!("Σ PV CFADS_t = {}", present_values.join(" + ")),
         pv,
     );
-    let llcr = quotient(
+    let (numerator, formula) = match schedule.reserve_balance {
+        Some(reserve) => {
+            let total = num::add(pv, reserve)?;
+            ex.step(
+                "Present value of CFADS and reserve balance",
+                format!("present value of CFADS + reserve balance = {pv} + {reserve}"),
+                total,
+            );
+            (
+                term("present value of CFADS and reserve balance", total),
+                "(present value of CFADS + reserve balance) / debt outstanding",
+            )
+        }
+        None => (
+            term("present value of CFADS", pv),
+            "present value of CFADS / debt outstanding",
+        ),
+    };
+    let llcr = over_positive(
         "LLCR",
-        "present value of CFADS / debt outstanding",
-        term("present value of CFADS", pv),
+        formula,
+        numerator,
         term("debt outstanding", schedule.debt_outstanding),
     )
     .evaluate(&mut ex)?;
@@ -210,7 +272,7 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
             interest_cover_ebitda,
             nfp_to_ebitda,
             dscr,
-            pv_cfads: pv,
+            pv_cfads: Some(pv),
             llcr,
         },
         ex,
@@ -238,6 +300,9 @@ impl<R: Ratio> Ratio for Labelled<'_, R> {
     }
     fn needs_positive_denominator(&self) -> bool {
         self.1.needs_positive_denominator()
+    }
+    fn needs_positive_numerator(&self) -> bool {
+        self.1.needs_positive_numerator()
     }
 }
 
@@ -286,9 +351,10 @@ mod tests {
                 },
             },
             opening: None,
-            debt_schedule: DebtSchedule {
+            debt_schedule: Some(DebtSchedule {
                 discount_rate: Decimal::ZERO,
                 debt_outstanding: d(500),
+                reserve_balance: None,
                 periods: vec![
                     DebtPeriod {
                         cfads: d(120),
@@ -299,8 +365,12 @@ mod tests {
                         debt_service: d(100),
                     },
                 ],
-            },
+            }),
         }
+    }
+
+    fn schedule(i: &mut DebtServiceInput) -> &mut DebtSchedule {
+        i.debt_schedule.as_mut().unwrap()
     }
 
     #[test]
@@ -312,14 +382,14 @@ mod tests {
         );
         assert_eq!(out.dscr[1].value, Some(Decimal::new(15, 1)));
         // At a zero rate the present value is the plain sum of CFADS.
-        assert_eq!(out.pv_cfads, d(270));
+        assert_eq!(out.pv_cfads, Some(d(270)));
         assert_eq!(out.llcr.value, Some(Decimal::new(54, 2)));
     }
 
     #[test]
     fn zero_debt_outstanding_leaves_llcr_not_defined() {
         let mut i = input();
-        i.debt_schedule.debt_outstanding = Decimal::ZERO;
+        schedule(&mut i).debt_outstanding = Decimal::ZERO;
         let (out, _) = debt_service(&i).unwrap();
         assert_eq!(
             out.llcr.not_defined.as_deref(),
@@ -330,7 +400,7 @@ mod tests {
     #[test]
     fn present_value_steps_show_the_numbers() {
         let mut i = input();
-        i.debt_schedule.discount_rate = Decimal::new(25, 2);
+        schedule(&mut i).discount_rate = Decimal::new(25, 2);
         let (_, ex) = debt_service(&i).unwrap();
         let step = ex
             .steps
@@ -354,5 +424,57 @@ mod tests {
         let mut i = input();
         i.interest_definition = String::new();
         assert_eq!(debt_service(&i).unwrap_err().code(), "FM-E001");
+    }
+
+    #[test]
+    fn without_a_schedule_dscr_and_llcr_are_not_defined() {
+        let mut i = input();
+        i.debt_schedule = None;
+        let (out, _) = debt_service(&i).unwrap();
+        assert!(out.dscr.is_empty());
+        assert_eq!(out.pv_cfads, None);
+        assert_eq!(
+            out.llcr.not_defined.as_deref(),
+            Some("no debt schedule given")
+        );
+        assert!(out.interest_cover_ebit.value.is_some());
+    }
+
+    #[test]
+    fn reserve_balance_is_added_undiscounted() {
+        let mut i = input();
+        schedule(&mut i).reserve_balance = Some(d(30));
+        let (out, _) = debt_service(&i).unwrap();
+        assert_eq!(out.llcr.value, Some(Decimal::new(6, 1)));
+    }
+
+    #[test]
+    fn not_meaningful_signs() {
+        let mut i = input();
+        i.income_statement.ebit = d(-50);
+        i.income_statement.ebitda = Decimal::ZERO;
+        schedule(&mut i).periods[0].debt_service = d(-10);
+        schedule(&mut i).debt_outstanding = d(-1);
+        let (out, _) = debt_service(&i).unwrap();
+        assert_eq!(
+            out.interest_cover_ebit.not_defined.as_deref(),
+            Some("EBIT is negative (-50)")
+        );
+        assert_eq!(
+            out.interest_cover_ebitda.not_defined.as_deref(),
+            Some("EBITDA is zero")
+        );
+        assert_eq!(
+            out.nfp_to_ebitda.not_defined.as_deref(),
+            Some("EBITDA is zero")
+        );
+        assert_eq!(
+            out.dscr[0].not_defined.as_deref(),
+            Some("debt service is negative (-10)")
+        );
+        assert_eq!(
+            out.llcr.not_defined.as_deref(),
+            Some("debt outstanding is negative (-1)")
+        );
     }
 }
