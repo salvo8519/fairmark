@@ -83,18 +83,26 @@ def h_model(
     long_term_growth: Number,
     half_life: Number,
     *,
-    first_flow: Literal["last_flow_grown"],
+    first_flow: Literal["last_flow_grown", "normalised_base_flow"],
+    normalised_base_flow: Number | None = None,
     growth_cap: Number | None = None,
 ) -> dict[str, Any]:
-    """The terminal technique ``tv.h_model`` on the last explicit flow, written
-    ``{"tv.h_model": {...}}``: growth declining linearly from ``short_term_growth`` to
-    ``long_term_growth`` over 2 x ``half_life`` periods, at the terminal rate of the DCF."""
+    """The terminal technique ``tv.h_model``, written ``{"tv.h_model": {...}}``: growth
+    declining linearly from ``short_term_growth`` to ``long_term_growth`` over 2 x
+    ``half_life`` periods, at the terminal rate of the DCF.
+
+    ``first_flow`` is ``"last_flow_grown"`` (the H-model grows the last explicit flow CF_N) or
+    ``"normalised_base_flow"`` (then give ``normalised_base_flow``, a normalised CF_N at the
+    horizon N that replaces the last explicit flow).
+    """
     terms: dict[str, Any] = {
         "short_term_growth": short_term_growth,
         "long_term_growth": long_term_growth,
         "half_life": half_life,
         "first_flow": first_flow,
     }
+    if normalised_base_flow is not None:
+        terms["normalised_base_flow"] = normalised_base_flow
     if growth_cap is not None:
         terms["growth_cap"] = growth_cap
     return {"tv.h_model": terms}

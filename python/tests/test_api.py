@@ -135,6 +135,9 @@ def test_dcf_terminal_helpers_build_each_technique() -> None:
     lines = [{"label": "Plant", "value": 500}]
     for terminal in (
         fm.dcf.h_model("0.05", "0.02", 3, first_flow="last_flow_grown", growth_cap="0.03"),
+        fm.dcf.h_model(
+            "0.05", "0.02", 3, first_flow="normalised_base_flow", normalised_base_flow=95
+        ),
         fm.dcf.value_driver(150, "0.02", "0.12", growth_cap="0.03"),
         fm.dcf.exit_multiple(8, "ebitda", 180, next_flow=120, growth_cap="0.03"),
         fm.dcf.limited_horizon(110, 5, growth=0, residual_value=300, growth_cap="0.03"),
