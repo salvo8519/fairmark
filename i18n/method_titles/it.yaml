@@ -5,6 +5,7 @@
 # Italian practice keeps an English term (FCFF, WACC, XNPV, H-model) keep it in English.
 dates.year_fraction: Frazione d'anno (convenzione di calcolo dei giorni)
 dates.schedule: Piano dei periodi di calcolo
+series.project: Proiezione di una serie di valori su una timeline
 rates.convert: Conversione di un tasso tra convenzioni di capitalizzazione
 rates.real_nominal: Tassi reali e nominali (Fisher)
 tvm.npv: Valore attuale netto (VAN, NPV)

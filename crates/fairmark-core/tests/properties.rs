@@ -25,6 +25,7 @@ use fairmark_core::dates::{self, Date, DayCount, ScheduleInput};
 use fairmark_core::frequency::Frequency;
 use fairmark_core::loans::{self, InstalmentInput, NumberOfInstalmentsInput};
 use fairmark_core::rates::{self, Compounding, ConvertInput, FisherDirection, RealNominalInput};
+use fairmark_core::series;
 use fairmark_core::tvm::{
     self, AnnuityInput, AnnuityTiming, DatedCashFlow, FutureValueInput, IrrInput, MirrInput,
     NpvInput, XirrInput, XnpvInput,
@@ -1391,6 +1392,96 @@ fn schedules_are_contiguous_and_do_not_drift() {
                     serde_json::to_string(&out).unwrap(),
                     serde_json::to_string(&by_months).unwrap()
                 );
+            }
+            Ok(())
+        },
+    );
+}
+
+// ---------------------------------------------------------------- series (SPEC-0010)
+
+fn project(input: Value) -> Result<series::ProjectOutput, FairmarkError> {
+    series::project(&serde_json::from_value(input).unwrap()).map(|(out, _)| out)
+}
+
+/// A base value, a growth rate, a second rate for a linear rule, a base period and a number of
+/// periods.
+fn series_case() -> impl Strategy<Value = (Decimal, Decimal, Decimal, bool, u32)> {
+    (
+        -1_000_000_000i64..=1_000_000_000,
+        -5_000i64..=5_000,
+        -5_000i64..=5_000,
+        any::<bool>(),
+        1u32..=40,
+    )
+        .prop_map(|(base, g, h, period_0, n)| (dec(base, 2), dec(g, 4), dec(h, 4), period_0, n))
+}
+
+/// SPEC-0010 AC11: `constant` g equals `per_period` with g repeated, bit for bit; `linear` with
+/// equal ends equals `constant`; under `period_0` the values equal the flows of the
+/// `constant_growth` and `linear_decline` stages of `dcf.fcff` with the same base flow.
+#[test]
+fn series_rules_agree_with_each_other_and_with_dcf_stages() {
+    check(
+        "series_rules_agree_with_each_other_and_with_dcf_stages",
+        128,
+        0x3311,
+        series_case(),
+        |(base, g, h, period_0, n)| {
+            let base_period = if period_0 { "period_0" } else { "period_1" };
+            let steps = if period_0 { n } else { n - 1 };
+            let with = |growth: Value| {
+                project(serde_json::json!({
+                    "base_value": base.to_string(), "base_period": base_period,
+                    "growth": growth, "timeline": {"periods": {"number_of_periods": n}}}))
+                .map(|o| serde_json::to_string(&o.values).unwrap())
+                .map_err(|e| TestCaseError::fail(format!("project failed: {e}")))
+            };
+            let constant = with(serde_json::json!({"constant": {"growth": g.to_string()}}))?;
+            let repeated = with(serde_json::json!({"per_period": {
+                "growth_rates": vec![g.to_string(); steps as usize]}}))?;
+            prop_assert_eq!(&constant, &repeated);
+            let flat = with(serde_json::json!({"linear": {
+                "from_growth": g.to_string(), "to_growth": g.to_string()}}))?;
+            prop_assert_eq!(&constant, &flat);
+
+            if period_0 {
+                let linear = with(serde_json::json!({"linear": {
+                    "from_growth": g.to_string(), "to_growth": h.to_string()}}))?;
+                for (projection, values) in [
+                    (
+                        serde_json::json!({"periods": n, "projection": "constant_growth",
+                                           "growth": g.to_string()}),
+                        &constant,
+                    ),
+                    (
+                        serde_json::json!({"periods": n, "projection": "linear_decline",
+                                           "from_growth": g.to_string(),
+                                           "to_growth": h.to_string()}),
+                        &linear,
+                    ),
+                ] {
+                    let dcf = fairmark_core::run(
+                        "dcf.fcff",
+                        &serde_json::json!({
+                            "stages": [projection], "base_flow": base.to_string(),
+                            "cash_flow_terms": "nominal", "discount_rate_terms": "nominal",
+                            "wacc": "0.50", "timing": "end_of_period",
+                            "terminal": {"tv.gordon": {"growth": "0",
+                                                       "first_flow": "last_flow_grown"}},
+                            "net_financial_position": {"gross_debt": 0, "cash": 0}})
+                        .to_string(),
+                    );
+                    let dcf = dcf.map_err(|e| TestCaseError::fail(format!("dcf.fcff: {e}")))?;
+                    let flows: Vec<Value> = dcf["value"]["periods"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|p| p["flow"].clone())
+                        .collect();
+                    let ours: Vec<Value> = serde_json::from_str(values).unwrap();
+                    prop_assert_eq!(ours, flows);
+                }
             }
             Ok(())
         },

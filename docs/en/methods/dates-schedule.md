@@ -3,8 +3,8 @@
 Builds the periods of a model from a start date, a period length and a number of periods: the
 start date and end date of every period and, under a day count, its year fraction. Use it
 instead of typing dates by hand, so that month ends, February and leap years are handled once,
-by a stated rule, and the dates feed [`tvm.xnpv`](tvm-xnpv.md) and [`tvm.xirr`](tvm-xirr.md)
-without retyping.
+by a stated rule, and the dates feed [`tvm.xnpv`](tvm-xnpv.md), [`tvm.xirr`](tvm-xirr.md) and
+[`series.project`](series-project.md) without retyping.
 
 ## What a period is: [start, end)
 

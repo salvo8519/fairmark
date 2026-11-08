@@ -1,0 +1,11 @@
+method: series.project
+description: "1000 at 12% a year, annual_simple, 24-month periods (AC9)"
+source: >
+  Independent 50-digit reference, scripts/reference_series.py (written from SPEC-0010, not from
+  the engine); exact: 0.12 x 2 = 0.24 per period.
+input: {"base_value": "1000", "base_period": "period_0", "growth": {"constant": {"growth": "0.12"}}, "growth_basis": "annual_simple", "timeline": {"periods": {"number_of_periods": 2, "period_months": 24}}}
+expect:
+  "/periods/0/growth_per_period": "0.24"
+  "/values/0": "1240"
+  "/values/1": "1537.6"
+tolerance: "0"

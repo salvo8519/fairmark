@@ -1,6 +1,6 @@
 ---
 source: methods/dates-schedule.md
-source_hash: 49c64ef8d814
+source_hash: 632b77882b5b
 ---
 # Piano dei periodi di calcolo (`dates.schedule`)
 
@@ -8,7 +8,8 @@ Costruisce i periodi di un modello a partire da una data di inizio, una durata d
 numero di periodi: la data di inizio e la data di fine di ogni periodo e, con una convenzione di
 calcolo dei giorni, la sua frazione d'anno. Usalo al posto di date scritte a mano, così che fine
 mese, febbraio e anni bisestili siano trattati una volta sola, con una regola dichiarata, e le
-date alimentino [`tvm.xnpv`](tvm-xnpv.md) e [`tvm.xirr`](tvm-xirr.md) senza essere ribattute.
+date alimentino [`tvm.xnpv`](tvm-xnpv.md), [`tvm.xirr`](tvm-xirr.md) e
+[`series.project`](series-project.md) senza essere ribattute.
 
 ## Che cos'è un periodo: [inizio, fine)
 

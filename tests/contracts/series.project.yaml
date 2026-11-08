@@ -1,0 +1,83 @@
+# Contract cases for series.project: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions (SPEC-0010 R10, R11, R13, R15, R18, R19).
+method: series.project
+extreme_inputs:
+- base_value: MAX
+  base_period: period_0
+  growth:
+    constant:
+      growth: MAX
+  timeline:
+    periods:
+      number_of_periods: 10000
+- base_value: MIN
+  base_period: period_1
+  growth:
+    linear:
+      from_growth: '-0.9999999999999999999999999999'
+      to_growth: MAX
+  growth_basis: annual_compound
+  timeline:
+    periods:
+      number_of_periods: 10000
+      frequency: monthly
+- base_value: '1'
+  base_period: period_0
+  growth:
+    constant:
+      growth: MAX
+  growth_basis: annual_compound
+  timeline:
+    periods:
+      number_of_periods: 3
+      period_months: 120
+- base_value: '1'
+  base_period: period_0
+  growth:
+    constant:
+      growth: '-0.9999999999999999999999999999'
+  growth_basis: annual_simple
+  timeline:
+    schedule:
+      start_date: '1900-01-31'
+      period_months: 4294967295
+      number_of_periods: 10000
+  timing: end_of_period
+conventions:
+- input:
+    base_value: '1000'
+    base_period: period_0
+    growth:
+      constant:
+        growth: '0.12'
+    growth_basis: annual_simple
+    timeline:
+      periods:
+        number_of_periods: 12
+        frequency: monthly
+  expect:
+  - 'base period: `period_0`'
+  - 'growth rule: constant, 0.12 for every growth step'
+  - 'growth basis: `annual_simple` (given); each annual rate g becomes g / 12'
+  - 'effective annual growth implied by the rate per period, (1 + g)^12 − 1: 0.126825030131969720661201'
+  - 'timeline: 12 periods without dates; period length: 1 month per period, given as `frequency` `monthly`, 12 periods a year'
+- input:
+    base_value: '-50'
+    base_period: period_1
+    growth:
+      per_period:
+        growth_rates: ['0.1', '0.2']
+    timeline:
+      schedule:
+        start_date: '2025-12-31'
+        frequency: annual
+        number_of_periods: 3
+    timing: beginning_of_period
+  expect:
+  - 'base period: `period_1`'
+  - 'growth rule: per period, 2 rates applied in order'
+  - 'with 12-month periods the three bases coincide'
+  - 'warning: the base value -50 is negative'
+  - 'value timing: beginning of period'
+  - 'from and including its start date to but excluding its end date'

@@ -1,0 +1,7 @@
+method: series.project
+description: "An annual_compound growth of -1 on a monthly timeline (AC12)"
+source: >
+  SPEC-0010 R17 and AC12 (the rule of SPEC-0001 R11); the error code is part of the
+  specification.
+input: {"base_value": "100", "base_period": "period_0", "growth": {"constant": {"growth": "-1"}}, "growth_basis": "annual_compound", "timeline": {"periods": {"number_of_periods": 12, "frequency": "monthly"}}}
+expect_error: FM-E001

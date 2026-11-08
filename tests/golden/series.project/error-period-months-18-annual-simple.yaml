@@ -1,0 +1,6 @@
+method: series.project
+description: "18-month periods with annual_simple (AC9)"
+source: >
+  SPEC-0010 R13 and AC9; the error code is part of the specification.
+input: {"base_value": "1000", "base_period": "period_0", "growth": {"constant": {"growth": "0.12"}}, "growth_basis": "annual_simple", "timeline": {"periods": {"number_of_periods": 3, "period_months": 18}}}
+expect_error: FM-E001

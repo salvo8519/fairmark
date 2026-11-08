@@ -128,6 +128,15 @@ terms:
   annual: annuale
   end-of-month rule: regola di fine mese
   unadjusted dates: date non rettificate
+  # SPEC-0010 (series.project): "valore base" and "periodo base" are marked to verify in the
+  # spec; "tasso equivalente" and "tasso proporzionale" are the terms of Italian financial
+  # mathematics for the equivalent and the proportional periodic rate (spec: to verify).
+  base value: valore base
+  base period: periodo base
+  growth rule: regola di crescita
+  growth basis: base dei tassi di crescita
+  equivalent periodic rate: tasso equivalente
+  proportional periodic rate: tasso proporzionale
   payment in arrears: rata posticipata
   payment in advance: rata anticipata
   number of instalments: numero delle rate
@@ -260,3 +269,5 @@ keep_in_english:
   - CLI
   - pull request
   - JSON Pointer
+  # SPEC-0010: the field `timeline` of series.project, no verified Italian equivalent
+  - timeline

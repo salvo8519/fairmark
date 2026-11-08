@@ -1,0 +1,11 @@
+method: series.project
+description: "5-month periods with rates per period (AC9)"
+source: >
+  Independent 50-digit reference, scripts/reference_series.py (written from SPEC-0010, not from
+  the engine); SPEC-0010 R13.
+input: {"base_value": "100", "base_period": "period_0", "growth": {"constant": {"growth": "0.02"}}, "growth_basis": "per_period", "timeline": {"periods": {"number_of_periods": 3, "period_months": 5}}}
+expect:
+  "/values/0": "102"
+  "/values/1": "104.04"
+  "/values/2": "106.1208"
+tolerance: "0"

@@ -39,6 +39,7 @@ nav = [
     "methods/index.md",
     "methods/dates-year-fraction.md",
     "methods/dates-schedule.md",
+    "methods/series-project.md",
     "methods/rates-convert.md",
     "methods/rates-real-nominal.md",
     "methods/tvm-present-value.md",

@@ -14,7 +14,7 @@ Status of each method, as the engine registry reports it to `fm.methods()`, `fai
 | Status | Methods |
 | --- | --- |
 | Available | `dates.year_fraction`, `rates.convert`, `rates.real_nominal`, `tvm.npv`, `tvm.present_value`, `tvm.xnpv`, `tvm.irr`, `tvm.xirr`, `tvm.mirr`, `tvm.annuity`, `tvm.perpetuity`, `tvm.future_value`, `loans.instalment`, `loans.number_of_instalments`, `loans.amortisation_schedule`, `coc.cost_of_equity`, `coc.beta_relever`, `coc.beta_peers`, `coc.cost_of_debt`, `coc.wacc`, `tv.gordon`, `tv.value_driver`, `tv.h_model`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income`, `tv.liquidation`, `tv.compare`, `analysis.goal_seek`, `analysis.sensitivity`, `analysis.scenarios`, `analysis.tornado` |
-| Preview | `dates.schedule`, `dcf.fcff`, `dcf.fcfe`, `dcf.free_cash_flows`, `ratios.profitability`, `ratios.capital_structure`, `ratios.liquidity`, `ratios.working_capital`, `ratios.debt_service`, `ratios.covenants` |
+| Preview | `dates.schedule`, `series.project`, `dcf.fcff`, `dcf.fcfe`, `dcf.free_cash_flows`, `ratios.profitability`, `ratios.capital_structure`, `ratios.liquidity`, `ratios.working_capital`, `ratios.debt_service`, `ratios.covenants` |
 
 <!-- generated:status:end -->
 
@@ -22,6 +22,7 @@ Status of each method, as the engine registry reports it to `fm.methods()`, `fai
 | --- | --- |
 | [`dates.year_fraction`](dates-year-fraction.md) | Year fraction between two dates under an ISDA day count |
 | [`dates.schedule`](dates-schedule.md) | Start and end dates of contiguous accrual periods [start, end), with year fractions |
+| [`series.project`](series-project.md) | Values of periods 1 to n grown from a base value by a constant, linear or per-period rule, dated on a schedule |
 | [`rates.convert`](rates-convert.md) | Equivalent annual rate under another compounding convention |
 | [`rates.real_nominal`](rates-real-nominal.md) | Real rate from a nominal rate, or the reverse (Fisher relation) |
 | [`tvm.present_value`](tvm-present-value.md) | Present value of periodic flows with one rate or one rate per period |

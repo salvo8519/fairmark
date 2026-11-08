@@ -34,6 +34,21 @@ Start and end dates of n contiguous accrual periods from a start date, each from
 | `number_of_periods` | integer | sì |  | Number of periods, from 1 to 10000. |
 | `day_count` |  | no |  | Day count for the year fraction of each period, measured on [start, end). Optional: without it no year fraction is computed (none is assumed). |
 
+## `series.project`
+
+**Value series projected on a timeline** · versione del metodo 1 · stato anteprima · tool `fairmark_series_project`
+
+Values of periods 1 to n grown from a base value period by period, V_k = V_(k−1) × (1 + g_k), with a constant, linear or per-period growth rule; annual rates converted to the period length by a stated basis (compound or proportional). The timeline is a number of periods or a `dates.schedule` definition, whose periods run from and including the start date to but excluding the end date; dated values feed `tvm.xnpv`.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `base_value` | decimale | sì |  | Base value V_0, in the units of the series (currency units for revenues or flows); may be negative. |
+| `base_period` | `period_0` \| `period_1` | sì |  | `period_0` (the base value is before period 1, V_1 = V_0 × (1 + g_1)) or `period_1` (the base value is the value of period 1, V_1 = V_0). Required, no default. |
+| `growth` |  | sì |  | Growth rule, externally tagged: `constant`, `linear` or `per_period`. |
+| `growth_basis` |  | no |  | How the growth rates are read: `per_period`, `annual_compound` or `annual_simple`. Required when the timeline has a period length other than 12 months; may be omitted with 12-month periods (the three bases coincide) or without a period length (rates per period). The annual bases need a period length that divides 12 or is a multiple of 12. |
+| `timeline` |  | sì |  | The periods: `periods` (a number of periods) or `schedule` (dated periods, built as by `dates.schedule`). |
+| `timing` |  | no |  | With a `schedule` timeline only, and then required: `end_of_period` (each value dated at the end date of its period, the first day of the next period) or `beginning_of_period` (at its start date). |
+
 ## `rates.convert`
 
 **Rate conversion between compounding conventions** · versione del metodo 1 · stato disponibile · tool `fairmark_rates_convert`

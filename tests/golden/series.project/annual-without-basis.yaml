@@ -1,0 +1,10 @@
+method: series.project
+description: "12-month periods without a growth basis: the three bases coincide (AC9)"
+source: >
+  Independent 50-digit reference, scripts/reference_series.py (written from SPEC-0010, not from
+  the engine); SPEC-0010 R13.
+input: {"base_value": "1000", "base_period": "period_0", "growth": {"constant": {"growth": "0.12"}}, "timeline": {"periods": {"number_of_periods": 2, "frequency": "annual"}}}
+expect:
+  "/values/0": "1120"
+  "/values/1": "1254.4"
+tolerance: "0"

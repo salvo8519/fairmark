@@ -1,0 +1,6 @@
+method: series.project
+description: "A periods timeline with both frequency and period_months (AC10)"
+source: >
+  SPEC-0010 R14, R15 and AC10; the error code is part of the specification.
+input: {"base_value": "300", "base_period": "period_0", "growth": {"constant": {"growth": "0.02"}}, "growth_basis": "per_period", "timeline": {"periods": {"number_of_periods": 4, "frequency": "quarterly", "period_months": 3}}}
+expect_error: FM-E001

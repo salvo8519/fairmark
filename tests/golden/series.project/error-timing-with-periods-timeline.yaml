@@ -1,0 +1,6 @@
+method: series.project
+description: "A timing with a periods timeline (AC10)"
+source: >
+  SPEC-0010 R14, R15 and AC10; the error code is part of the specification.
+input: {"base_value": "300", "base_period": "period_0", "growth": {"constant": {"growth": "0.02"}}, "timeline": {"periods": {"number_of_periods": 4}}, "timing": "end_of_period"}
+expect_error: FM-E001

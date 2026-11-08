@@ -1,0 +1,11 @@
+method: series.project
+description: "1000 at 12% a year, annual_simple, four_monthly, one year of periods (AC9)"
+source: >
+  Independent 50-digit reference, scripts/reference_series.py (written from SPEC-0010, not from
+  the engine); proportional rate 0.12 / 3, exact.
+input: {"base_value": "1000", "base_period": "period_0", "growth": {"constant": {"growth": "0.12"}}, "growth_basis": "annual_simple", "timeline": {"periods": {"number_of_periods": 3, "frequency": "four_monthly"}}}
+expect:
+  "/periods/0/growth_per_period": "0.04"
+  "/periods/0/effective_annual_growth": "0.124864"
+  "/values/2": "1124.864"
+tolerance: "0"

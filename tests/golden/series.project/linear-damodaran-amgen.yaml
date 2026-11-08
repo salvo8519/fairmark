@@ -1,0 +1,19 @@
+method: series.project
+description: "Linear growth from 13.08% to 5% over 5 steps, base 1000, period_0 (AC7)"
+source: >
+  Damodaran, Investment Valuation, 2nd edition, Illustration 15.3 (Amgen): growth rates 11.46%,
+  9.85%, 8.23%, 6.62%, 5.00%, which the exact rates round to; values from the Independent
+  50-digit reference, scripts/reference_series.py (written from SPEC-0010, not from the engine).
+input: {"base_value": "1000", "base_period": "period_0", "growth": {"linear": {"from_growth": "0.1308", "to_growth": "0.05"}}, "timeline": {"periods": {"number_of_periods": 5}}}
+expect:
+  "/periods/0/stated_growth": "0.11464"
+  "/periods/1/stated_growth": "0.09848"
+  "/periods/2/stated_growth": "0.08232"
+  "/periods/3/stated_growth": "0.06616"
+  "/periods/4/stated_growth": "0.05"
+  "/values/0": "1114.64"
+  "/values/1": "1224.4097472"
+  "/values/2": "1325.203157589504"
+  "/values/3": "1412.87859849562558464"
+  "/values/4": "1483.522528420406863872"
+tolerance: "0"

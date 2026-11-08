@@ -1,0 +1,412 @@
+{
+  "$defs": {
+    "BasePeriod": {
+      "description": "Which period the base value belongs to (R10). Required: the two readings differ by a full\nperiod of growth on every value.",
+      "oneOf": [
+        {
+          "const": "period_0",
+          "description": "The base value is the value before the first period (for example the last actual\nyear): V_1 = V_0 × (1 + g_1), n growth steps.",
+          "type": "string"
+        },
+        {
+          "const": "period_1",
+          "description": "The base value is the value of period 1: V_1 = V_0, growth steps into periods 2 to n\nonly (n − 1 steps).",
+          "type": "string"
+        }
+      ]
+    },
+    "ConstantGrowth": {
+      "additionalProperties": false,
+      "description": "A constant growth rate.",
+      "properties": {
+        "growth": {
+          "description": "Growth rate applied to every growth step, decimal fraction (0.05 = 5%), greater than\n-1, read according to `growth_basis`.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "growth"
+      ],
+      "type": "object"
+    },
+    "Date": {
+      "description": "Calendar date, ISO 8601 YYYY-MM-DD, from 1900-01-01 to 2199-12-31.",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "type": "string"
+    },
+    "DayCount": {
+      "description": "Day-count conventions of the 2006 ISDA Definitions, section 4.16.",
+      "oneOf": [
+        {
+          "const": "act_365_fixed",
+          "description": "Actual/365 (Fixed), §4.16(d): actual days / 365.",
+          "type": "string"
+        },
+        {
+          "const": "act_360",
+          "description": "Actual/360, §4.16(e): actual days / 360.",
+          "type": "string"
+        },
+        {
+          "const": "act_act_isda",
+          "description": "Actual/Actual (ISDA), §4.16(b): days in leap years / 366 + other days / 365.",
+          "type": "string"
+        },
+        {
+          "const": "thirty_360",
+          "description": "30/360 (Bond Basis), §4.16(f): day 31 becomes 30; the end day 31 becomes 30 only if the\nstart day is 30 or 31.",
+          "type": "string"
+        },
+        {
+          "const": "thirty_e_360",
+          "description": "30E/360 (Eurobond Basis), §4.16(g): every day 31 becomes 30.",
+          "type": "string"
+        }
+      ]
+    },
+    "Frequency": {
+      "description": "A named frequency: periods a year and months per period.",
+      "oneOf": [
+        {
+          "const": "annual",
+          "description": "Once a year: 1 period a year, 12 months per period.",
+          "type": "string"
+        },
+        {
+          "const": "semi_annual",
+          "description": "Twice a year: 2 periods a year, 6 months per period.",
+          "type": "string"
+        },
+        {
+          "const": "four_monthly",
+          "description": "Every four months: 3 periods a year, 4 months per period.",
+          "type": "string"
+        },
+        {
+          "const": "quarterly",
+          "description": "Every three months: 4 periods a year, 3 months per period.",
+          "type": "string"
+        },
+        {
+          "const": "bimonthly",
+          "description": "Every two months (not twice a month): 6 periods a year, 2 months per period.",
+          "type": "string"
+        },
+        {
+          "const": "monthly",
+          "description": "Every month: 12 periods a year, 1 month per period.",
+          "type": "string"
+        }
+      ]
+    },
+    "GrowthBasis": {
+      "description": "How the rates of the growth rule are read (R13).",
+      "oneOf": [
+        {
+          "const": "per_period",
+          "description": "Rates per period of the timeline, used as given.",
+          "type": "string"
+        },
+        {
+          "const": "annual_compound",
+          "description": "Annual growth rates, converted to the rate per period that compounds exactly to the\nannual rate: (1 + g)^(1/m) − 1 with m periods a year (the equivalent rate of\n`rates.convert`), or (1 + g)^k − 1 with periods of k years.",
+          "type": "string"
+        },
+        {
+          "const": "annual_simple",
+          "description": "Annual growth rates, converted in proportion to the period length: g / m with m periods\na year (m periods then compound to more than g), or g × k with periods of k years.",
+          "type": "string"
+        }
+      ]
+    },
+    "GrowthRule": {
+      "description": "The growth rule (R11, R12).",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "The same rate for every growth step: `{\"constant\": {\"growth\": 0.05}}`.",
+          "properties": {
+            "constant": {
+              "$ref": "#/$defs/ConstantGrowth"
+            }
+          },
+          "required": [
+            "constant"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "From `from_growth` to `to_growth` in equal steps, reaching `to_growth` in the last step:\n`{\"linear\": {\"from_growth\": 0.10, \"to_growth\": 0.03}}`.",
+          "properties": {
+            "linear": {
+              "$ref": "#/$defs/LinearGrowth"
+            }
+          },
+          "required": [
+            "linear"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "One rate per growth step: `{\"per_period\": {\"growth_rates\": [0.10, 0.08]}}`.",
+          "properties": {
+            "per_period": {
+              "$ref": "#/$defs/PerPeriodGrowth"
+            }
+          },
+          "required": [
+            "per_period"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "LinearGrowth": {
+      "additionalProperties": false,
+      "description": "A growth rate that moves in equal steps between two rates.",
+      "properties": {
+        "from_growth": {
+          "description": "The growth before the first step, decimal fraction, greater than -1, read according to\n`growth_basis`: step j of s applies from_growth + (to_growth − from_growth) × j / s.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "to_growth": {
+          "description": "The growth of the last step, decimal fraction, greater than -1, read according to\n`growth_basis`.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "from_growth",
+        "to_growth"
+      ],
+      "type": "object"
+    },
+    "PerPeriodGrowth": {
+      "additionalProperties": false,
+      "description": "One growth rate per growth step.",
+      "properties": {
+        "growth_rates": {
+          "description": "One growth rate per growth step, in order, decimal fractions, each greater than -1, read\naccording to `growth_basis`: n rates under `period_0`, n − 1 under `period_1`.",
+          "items": {
+            "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "growth_rates"
+      ],
+      "type": "object"
+    },
+    "PeriodsTimeline": {
+      "additionalProperties": false,
+      "description": "A timeline given as a number of periods, without dates.",
+      "properties": {
+        "frequency": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Frequency"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional period length as a named frequency: `monthly` (1 month), `bimonthly` (2 months,\nevery two months), `quarterly` (3), `four_monthly` (4), `semi_annual` (6) or `annual`\n(12). At most one of `frequency` and `period_months`; without either the rates are per\nperiod and no annual basis applies."
+        },
+        "number_of_periods": {
+          "description": "Number of periods, from 1 to 10000.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "period_months": {
+          "description": "Optional period length as a positive whole number of months per period (1 = `monthly`,\n3 = `quarterly`, 12 = `annual`, or any other such as 5 or 18). At most one of\n`frequency` and `period_months`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "number_of_periods"
+      ],
+      "type": "object"
+    },
+    "ScheduleInput": {
+      "additionalProperties": false,
+      "description": "Input of `dates.schedule`. The period length is given in exactly one of two forms:\n`frequency` or `period_months`.",
+      "properties": {
+        "day_count": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DayCount"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Day count for the year fraction of each period, measured on [start, end). Optional:\nwithout it no year fraction is computed (none is assumed)."
+        },
+        "frequency": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Frequency"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Period length as a named frequency: `monthly` (1 month per period, 12 a year),\n`bimonthly` (2 months, every two months, 6 a year), `quarterly` (3 months, 4 a year),\n`four_monthly` (4 months, 3 a year), `semi_annual` (6 months, 2 a year) or `annual` (12\nmonths, 1 a year). Give exactly one of `frequency` and `period_months`."
+        },
+        "number_of_periods": {
+          "description": "Number of periods, from 1 to 10000.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "period_months": {
+          "description": "Period length as a positive whole number of months per period (not periods a year), for\ntenors with or without a name: 1 = `monthly`, 2 = `bimonthly`, 3 = `quarterly`, 4 =\n`four_monthly`, 6 = `semi_annual`, 12 = `annual`, and any other such as 5, 18 or 24. Give\nexactly one of `frequency` and `period_months`.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "start_date": {
+          "$ref": "#/$defs/Date",
+          "description": "Start date of the first period (ISO 8601). Each period runs from and including its start\ndate to but excluding its end date, [start, end); the end date of a period is the start\ndate of the next one."
+        }
+      },
+      "required": [
+        "start_date",
+        "number_of_periods"
+      ],
+      "type": "object"
+    },
+    "Timeline": {
+      "description": "The periods the values are projected on (R14).",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "A number of periods with an optional period length, no dates:\n`{\"periods\": {\"number_of_periods\": 5, \"frequency\": \"annual\"}}`.",
+          "properties": {
+            "periods": {
+              "$ref": "#/$defs/PeriodsTimeline"
+            }
+          },
+          "required": [
+            "periods"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A schedule defined as the input of `dates.schedule`; each period runs from and including\nits start date to but excluding its end date: `{\"schedule\": {\"start_date\":\n\"2025-12-31\", \"frequency\": \"quarterly\", \"number_of_periods\": 4}}`.",
+          "properties": {
+            "schedule": {
+              "$ref": "#/$defs/ScheduleInput"
+            }
+          },
+          "required": [
+            "schedule"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ValueTiming": {
+      "description": "Which date of its period a value is dated at, with a `schedule` timeline (R15).",
+      "oneOf": [
+        {
+          "const": "end_of_period",
+          "description": "At the end date of the period, which is the first day of the next period.",
+          "type": "string"
+        },
+        {
+          "const": "beginning_of_period",
+          "description": "At the start date of the period.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:fairmark:schema:series.project:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `series.project`.",
+  "properties": {
+    "base_period": {
+      "$ref": "#/$defs/BasePeriod",
+      "description": "`period_0` (the base value is before period 1, V_1 = V_0 × (1 + g_1)) or `period_1` (the\nbase value is the value of period 1, V_1 = V_0). Required, no default."
+    },
+    "base_value": {
+      "description": "Base value V_0, in the units of the series (currency units for revenues or flows); may\nbe negative.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "growth": {
+      "$ref": "#/$defs/GrowthRule",
+      "description": "Growth rule, externally tagged: `constant`, `linear` or `per_period`."
+    },
+    "growth_basis": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GrowthBasis"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "How the growth rates are read: `per_period`, `annual_compound` or `annual_simple`.\nRequired when the timeline has a period length other than 12 months; may be omitted with\n12-month periods (the three bases coincide) or without a period length (rates per\nperiod). The annual bases need a period length that divides 12 or is a multiple of 12."
+    },
+    "timeline": {
+      "$ref": "#/$defs/Timeline",
+      "description": "The periods: `periods` (a number of periods) or `schedule` (dated periods, built as by\n`dates.schedule`)."
+    },
+    "timing": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ValueTiming"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "With a `schedule` timeline only, and then required: `end_of_period` (each value dated at\nthe end date of its period, the first day of the next period) or `beginning_of_period`\n(at its start date)."
+    }
+  },
+  "required": [
+    "base_value",
+    "base_period",
+    "growth",
+    "timeline"
+  ],
+  "title": "ProjectInput",
+  "type": "object",
+  "x-fairmark-method": "series.project",
+  "x-fairmark-method-version": "1"
+}

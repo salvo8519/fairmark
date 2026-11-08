@@ -168,6 +168,7 @@ fairmark verify result.json --input company.json  # reproduce a result bit for b
 | --- | --- | --- |
 | `dates.year_fraction` | Available | Year fraction (day count) |
 | `dates.schedule` | Preview | Schedule of accrual periods |
+| `series.project` | Preview | Value series projected on a timeline |
 | `rates.convert` | Available | Rate conversion between compounding conventions |
 | `rates.real_nominal` | Available | Real and nominal rates (Fisher) |
 | `tvm.npv` | Available | Net present value |

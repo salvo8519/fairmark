@@ -1,0 +1,11 @@
+method: series.project
+description: "1000 at 12% a year, annual_compound, four_monthly, one year of periods (AC9)"
+source: >
+  Independent 50-digit reference, scripts/reference_series.py (written from SPEC-0010, not from
+  the engine); compounds exactly to 12% a year: V_n = 1120 within 1e-20 relative (AC9).
+input: {"base_value": "1000", "base_period": "period_0", "growth": {"constant": {"growth": "0.12"}}, "growth_basis": "annual_compound", "timeline": {"periods": {"number_of_periods": 3, "frequency": "four_monthly"}}}
+expect:
+  "/periods/0/growth_per_period": "0.038498820370220805238891"
+  "/periods/0/effective_annual_growth": "0.12"
+  "/values/2": "1120"
+tolerance: "0.00000000000000001"

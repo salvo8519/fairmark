@@ -1,0 +1,7 @@
+method: series.project
+description: "Four rates for four periods under period_1: three growth steps expected (AC8)"
+source: >
+  SPEC-0010 R12 and AC8: under period_1 there are n - 1 growth steps; the error code is part of
+  the specification.
+input: {"base_value": "500", "base_period": "period_1", "growth": {"per_period": {"growth_rates": ["0.10", "0.08", "-0.02", "0.01"]}}, "timeline": {"periods": {"number_of_periods": 4}}}
+expect_error: FM-E001

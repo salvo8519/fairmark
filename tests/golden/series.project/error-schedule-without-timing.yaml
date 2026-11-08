@@ -1,0 +1,6 @@
+method: series.project
+description: "A schedule timeline without a timing (R15)"
+source: >
+  SPEC-0010 R14, R15 and AC10; the error code is part of the specification.
+input: {"base_value": "300", "base_period": "period_0", "growth": {"constant": {"growth": "0.02"}}, "growth_basis": "per_period", "timeline": {"schedule": {"start_date": "2026-01-01", "frequency": "quarterly", "number_of_periods": 4}}}
+expect_error: FM-E001

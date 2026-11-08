@@ -1,0 +1,6 @@
+method: series.project
+description: "Annual basis on a periods timeline without a period length (AC9)"
+source: >
+  SPEC-0010 R13 and AC9; the error code is part of the specification.
+input: {"base_value": "1000", "base_period": "period_0", "growth": {"constant": {"growth": "0.12"}}, "growth_basis": "annual_compound", "timeline": {"periods": {"number_of_periods": 3}}}
+expect_error: FM-E001

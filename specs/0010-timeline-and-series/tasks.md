@@ -24,7 +24,7 @@ golden file is edited; if a task would change one, stop and ask the maintainer.
 - [x] T4 [P] Golden cases `tests/golden/dates.schedule/` (new folder): the fourteen schedules
       of AC1, one case per day count (AC3), the error cases of AC4 (`expect_error`); `source`
       names QuantLib and python-dateutil with their pinned versions (R1 to R7).
-- [ ] T5 [P] Golden cases `tests/golden/series.project/` (new folder): AC6, AC7 (Damodaran
+- [x] T5 [P] Golden cases `tests/golden/series.project/` (new folder): AC6, AC7 (Damodaran
       Illustration 15.3 and the 50-digit reference), AC8, AC9 (named frequencies,
       `period_months` 1 to 6, 12, 24, and the refusals for 5 and 18), AC10 including the
       end-to-end `tvm.xnpv` case, AC12; `source` names the reference script (R9 to R18).
@@ -33,7 +33,7 @@ golden file is edited; if a task would change one, stop and ask the maintainer.
       `four_monthly`, `tvm.xnpv` with `four_monthly`, `loans.instalment` with `bimonthly`
       against form (b), `FM-E003` at −3 with `four_monthly` (AC14). If the golden hook blocks a
       new file in an existing folder, stop and ask the maintainer.
-- [ ] T7 Rust unit and property tests: frequency mapping agreement (R20); AC2 properties with
+- [x] T7 Rust unit and property tests: frequency mapping agreement (R20); AC2 properties with
       named frequencies and `period_months` 1 to 36; AC5 descriptions and bounded `explain`;
       AC11 properties including the `dcf.fcff` stage equality; AC13 `explain` items and error
       messages with pointer and fix; AC14 round-trips over the seven compounding values;
@@ -59,19 +59,19 @@ golden file is edited; if a task would change one, stop and ask the maintainer.
       `build_schedule`, year fractions through `DayCount::year_fraction`, errors with pointers
       and fixes, `explain` of R8 via `schedule_explain`; registry line; `FM-E001` and `FM-E009`
       cases in `docs/en/reference/errors.md` (R1 to R8). T4 and the schedule part of T7 pass.
-- [ ] T12 `series.project` types in the new theme `crates/fairmark-core/src/series.rs`:
+- [x] T12 `series.project` types in the new theme `crates/fairmark-core/src/series.rs`:
       `ProjectInput`, `BasePeriod`, `GrowthRule`, `GrowthBasis`, `Timeline`, `ValueTiming`,
       output rows; `dated_values` uses the dated-flow type of `tvm` (R14 to R16).
-- [ ] T13 `series.project` calculation: timeline resolution through `build_schedule`, growth
+- [x] T13 `series.project` calculation: timeline resolution through `build_schedule`, growth
       steps, linear expansion, basis resolution for p dividing 12 (through `equivalent_rate`),
       p multiple of 12 (integer power) and other p (`per_period` only), recurrence period by
       period, rows, `values`, `dated_values`, negative base warning, `explain` of R19; registry
       line; error catalogue cases (R9 to R19, R24). T5 and the rest of T7 pass.
-- [ ] T14 `uv run just generate`: `schemas/dates.schedule/v1.json`,
+- [x] T14 `uv run just generate`: `schemas/dates.schedule/v1.json`,
       `schemas/series.project/v1.json`, `schemas/index.json`, `docs/en/reference/methods.md`.
 
 ## Adapters and docs
-- [ ] T15 [P] Python helpers: `fm.dates.schedule` in `python/fairmark/dates.py` and the new
+- [x] T15 [P] Python helpers: `fm.dates.schedule` in `python/fairmark/dates.py` and the new
       `python/fairmark/series.py` with `fm.series.project` (exported from the package);
       `Decimal` or strings only, never `float`; docstrings with an example; tests of the
       helpers.

@@ -1,0 +1,11 @@
+method: series.project
+description: "A negative base value grows more negative under a positive growth (AC12)"
+source: >
+  Independent 50-digit reference, scripts/reference_series.py (written from SPEC-0010, not from
+  the engine); SPEC-0010 R18: projected, with a warning in explain.conventions.
+input: {"base_value": "-200", "base_period": "period_0", "growth": {"constant": {"growth": "0.10"}}, "timeline": {"periods": {"number_of_periods": 3}}}
+expect:
+  "/values/0": "-220"
+  "/values/1": "-242"
+  "/values/2": "-266.2"
+tolerance: "0"

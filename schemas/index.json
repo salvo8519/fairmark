@@ -266,6 +266,16 @@
         }
       }
     },
+    "series.project": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "series.project/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "de08b746c84b9033fcc8eb4586f114fd49af41514711122676b694245e32b79c"
+        }
+      }
+    },
     "tv.compare": {
       "current": "2",
       "versions": {
