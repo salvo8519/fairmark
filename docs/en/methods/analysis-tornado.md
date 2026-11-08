@@ -34,32 +34,35 @@ from decimal import Decimal
 import fairmark as fm
 
 base = {
-    "free_cash_flows": [100, 110, 120, 130, 140],
-    "discount_rate": "0.09",
-    "terminal_growth": "0.02",
-    "net_debt": 300,
+    "stages": [{"periods": 5, "projection": "given", "flows": [100, 110, 120, 130, 140]}],
+    "cash_flow_terms": "nominal",
+    "discount_rate_terms": "nominal",
+    "wacc": "0.09",
+    "timing": "end_of_period",
+    "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}},
+    "net_financial_position": {"gross_debt": 300, "cash": 0},
 }
 t = fm.analysis.tornado(
     "dcf.fcff",
     base,
     output="/equity_value",
     variables={
-        "/net_debt": ("250", "350"),
-        "/free_cash_flows/0": ("90", "110"),
-        "/terminal_growth": ("0.01", "0.03"),
-        "/discount_rate": ("0.08", "0.10"),
+        "/net_financial_position/gross_debt": ("250", "350"),
+        "/stages/0/flows/0": ("90", "110"),
+        "/terminal/tv.gordon/growth": ("0.01", "0.03"),
+        "/wacc": ("0.08", "0.10"),
     },
 )
 print(t.base)  # 1485.9356357015730744749501235
 for bar in t.ranking:
     print(bar["variable"], bar["swing"])
-# /discount_rate -536.7420151241019796250302455
-# /terminal_growth 413.2480397880313369436240625
-# /net_debt -100.0000000000000000000000000
-# /free_cash_flows/0 18.3486238532110091743119266
+# /wacc -536.7420151241019796250302455
+# /terminal/tv.gordon/growth 413.2480397880313369436240625
+# /net_financial_position/gross_debt -100.0000000000000000000000000
+# /stages/0/flows/0 18.3486238532110091743119266
 
 assert [bar["variable"] for bar in t.ranking] == [
-    "/discount_rate", "/terminal_growth", "/net_debt", "/free_cash_flows/0",
+    "/wacc", "/terminal/tv.gordon/growth", "/net_financial_position/gross_debt", "/stages/0/flows/0",
 ]
 # Expected swings from an independent 50-digit computation (scripts/reference_analysis.py).
 expected = ["-536.74201512410197962503024533", "413.24803978803133694362406247",
@@ -74,10 +77,10 @@ same = fm.run("analysis.tornado", {
     "base_input": base,
     "output": "/equity_value",
     "variables": [
-        {"variable": "/net_debt", "low": "250", "high": "350"},
-        {"variable": "/free_cash_flows/0", "low": "90", "high": "110"},
-        {"variable": "/terminal_growth", "low": "0.01", "high": "0.03"},
-        {"variable": "/discount_rate", "low": "0.08", "high": "0.10"},
+        {"variable": "/net_financial_position/gross_debt", "low": "250", "high": "350"},
+        {"variable": "/stages/0/flows/0", "low": "90", "high": "110"},
+        {"variable": "/terminal/tv.gordon/growth", "low": "0.01", "high": "0.03"},
+        {"variable": "/wacc", "low": "0.08", "high": "0.10"},
     ],
 })
 assert same.ranking == t.ranking
