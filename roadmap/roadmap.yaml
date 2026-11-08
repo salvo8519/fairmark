@@ -83,6 +83,7 @@ milestones:
           - { issue: 181, title: "Dependency check resilient to GitHub download errors", status: done }
           - { issue: 192, title: "Golden case protection hook applies in every git worktree", status: done }
           - { issue: 210, title: "Rule for external analysis failures before merge", status: open }
+          - { issue: 239, title: "Pin release build and smoke images by digest", status: open }
       - title: "Community infrastructure"
         issue: 15
         labels: ["area:infra"]
