@@ -239,8 +239,8 @@ version 3 unchanged.
 - [x] E7 [P] Python helper `fm.dcf.fcfe`
 - [x] E8 [P] Methodology page `docs/en/methods/dcf-fcfe.md`, nav, index, errors reference,
   release note `changes/165.feature.md`, method evidence, Italian method title
-- [x] E9 Italian edition; `uv run just check`. Roadmap #165 stays open until the maintainer
-  records the decision on `tv.value_driver` (plan.md, open questions)
+- [x] E9 Italian edition; `uv run just check`; roadmap #165 done after Decision 23 (value
+  driver on the equity basis) was recorded
 
 ### Verification
 - [ ] E10 Damodaran FCFE illustration re-derived as a golden case (pending the source text,
@@ -249,5 +249,8 @@ version 3 unchanged.
   declaration (`dcf_input!`), terminal value weight and output fields, Python payload builder,
   equity-basis AC11 test, pointers and documentation nits; `dcf.fcff` v3 changed in
   descriptions only, its output byte-identical [R19, R21, R27, R29; AC11]
+- [x] E13 Decision 23 (maintainer, 2026-11-08): `tv.value_driver` refused on the equity basis
+  with `FM-E019`, R19 and AC11 amended; code comments, schema description and documentation
+  cite the decision; `bridge.pv_explicit_and_terminal` confirmed [R19; AC11]
 - [ ] E11 `numerical-auditor` review, `code-reviewer` review, open questions of plan.md
   (issue #165) answered, the FCFE part of AC13 ticked in spec.md (maintainer)

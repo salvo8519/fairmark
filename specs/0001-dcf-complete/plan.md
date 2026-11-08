@@ -615,15 +615,14 @@ Additive: new method `dcf.fcfe` version 1, snapshot `schemas/dcf.fcfe/v1.json`, 
 `docs/en/reference/errors.md` (`FM-E019` on the equity basis), Python helper `fm.dcf.fcfe`,
 release note `changes/165.feature.md`, `specs/method-evidence.yaml`, Italian method title.
 
+### Resolved by the maintainer (issue #165, 2026-11-08)
+- **`tv.value_driver` on the equity basis**: option (a), refused with `FM-E019`; NOPAT and
+  RONIC are firm-level quantities (spec, Decision 23, which amends R19 and AC11). An equity
+  variant may come later as a new technique or version.
+- **Name of the starting line of the equity bridge**: `bridge.pv_explicit_and_terminal`,
+  confirmed.
+
 ### Open questions for the maintainer (issue #165)
-- **`tv.value_driver` on the equity basis.** The spec does not decide it. Its terms are
-  NOPAT_{N+1} and RONIC, enterprise measures; the equity counterpart is net income and the
-  return on equity, with the equity reinvestment rate g / ROE. Options: (a) refuse it on the
-  equity basis with `FM-E019` and point to `tv.gordon` with a normalised next flow; (b) accept
-  it with the same fields read as net income and return on equity; (c) add equity terms
-  (`net_income_next`, `return_on_equity`) as optional fields, required on the equity basis.
-  Recommendation: (a) in version 1, (c) later as an additive option. Until decided, the engine
-  refuses it on the equity basis (no number is produced, so any option remains open).
 - **Damodaran FCFE illustration.** The source named by the spec (Illustration 14.5) could not
   be read in the implementation session; the golden case is added when its inputs and
   published values are checked against the text.
