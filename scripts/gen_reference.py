@@ -17,6 +17,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import tomllib
+
 import fairmark as fm
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -106,7 +108,10 @@ def render(lang: str) -> str:
     return "\n".join(lines)
 
 
-ROADMAP_URL = "https://salvo8519.github.io/fairmark/project/roadmap/"
+SITE_URL = tomllib.loads((ROOT / "zensical.toml").read_text(encoding="utf-8"))["project"][
+    "site_url"
+]  # English site: project pages are English only
+ROADMAP_URL = f"{SITE_URL}project/roadmap/"
 README = {
     "en": {
         "file": "README.md",
@@ -144,7 +149,7 @@ def readme_with_block(lang: str) -> tuple[Path, str]:
     return path, head + readme_block(lang) + tail
 
 
-STATUS_URL = "https://salvo8519.github.io/fairmark/project/releases/#method-status"
+STATUS_URL = f"{SITE_URL}project/releases/#method-status"
 INDEX = {
     "en": {
         "intro": "Status of each method, as the engine registry reports it to `fm.methods()`,"
