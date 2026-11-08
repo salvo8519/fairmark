@@ -19,6 +19,7 @@ import time
 from typing import Any
 
 from . import ENGINE_VERSION, tools
+from ._core import methods
 from ._logging import configure, log_event
 
 INSTRUCTIONS = (
@@ -28,10 +29,31 @@ INSTRUCTIONS = (
     "cite explain.steps and keep the returned values unchanged. Present every result as a "
     "calculation from the method, conventions and inputs you used, never as advice or a "
     "recommendation: decisions belong to the user, who verifies the results before relying "
-    "on them (https://salvo8519.github.io/fairmark/disclaimer/)."
+    "on them (https://salvo8519.github.io/fairmark/disclaimer/). A tool whose description "
+    "says 'Status: preview' has not completed independent verification: tell the user when "
+    "a result comes from it."
 )
 
 logger = logging.getLogger("fairmark.mcp")
+
+
+async def list_tools() -> list[Any]:
+    """One MCP tool per method, with its status in `_meta` (`fairmark/status`, ADR 0011)."""
+    from mcp import types
+
+    status = {tools.tool_name(m["id"]): m["status"] for m in methods()}
+    return [
+        types.Tool(
+            name=d["name"],
+            description=d["description"],
+            input_schema=d["parameters"],
+            annotations=types.ToolAnnotations(
+                read_only_hint=True, idempotent_hint=True, open_world_hint=False
+            ),
+            _meta={"fairmark/status": status[d["name"]]},
+        )
+        for d in tools.definitions()
+    ]
 
 
 def _build_server() -> Any:
@@ -42,19 +64,7 @@ def _build_server() -> Any:
         raise SystemExit('The MCP server needs the extra: pip install "fairmark[mcp]"') from err
 
     async def on_list_tools(ctx: Any, params: Any) -> Any:
-        return types.ListToolsResult(
-            tools=[
-                types.Tool(
-                    name=d["name"],
-                    description=d["description"],
-                    input_schema=d["parameters"],
-                    annotations=types.ToolAnnotations(
-                        read_only_hint=True, idempotent_hint=True, open_world_hint=False
-                    ),
-                )
-                for d in tools.definitions()
-            ]
-        )
+        return types.ListToolsResult(tools=await list_tools())
 
     async def on_call_tool(ctx: Any, params: Any) -> Any:
         started = time.perf_counter()

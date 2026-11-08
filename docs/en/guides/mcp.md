@@ -39,8 +39,13 @@ financial values.
 
 - One tool per method (`fairmark_dcf_fcff`, `fairmark_tvm_npv`, ...), with the full input
   schema, marked read-only and idempotent.
+- The status of each method in the tool's `_meta`, `{"fairmark/status": "available"}` or
+  `"preview"`. The description of a preview tool has "(preview)" after the title and a
+  sentence starting "Status: preview", so a model sees it before calling. The
+  [method status](../project/releases.md#method-status) page defines both statuses.
 - Server instructions telling the model to use the tools for every number, to cite
-  `explain.steps`, and to present every result as a calculation under the user's
-  responsibility, never as advice (see the [disclaimer](../disclaimer.md)).
+  `explain.steps`, to tell the user when a result comes from a preview method, and to present
+  every result as a calculation under the user's responsibility, never as advice (see the
+  [disclaimer](../disclaimer.md)).
 - Results as structured content (the full JSON envelope) and as text.
 - Errors flagged with `isError` and a stable code, so the model can correct its call.

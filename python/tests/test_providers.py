@@ -75,3 +75,36 @@ def test_json_log_lines_are_parseable() -> None:
     record.fields = {"tool": "fairmark_tvm_npv", "outcome": "ok"}
     line = json.loads(JsonFormatter().format(record))
     assert line["event"] == "tool_call" and line["tool"] == "fairmark_tvm_npv"
+
+
+def test_methods_report_their_status() -> None:
+    """ADR 0011: the registry reports the status; `fm.methods()` passes it through."""
+    status = {m["id"]: m["status"] for m in fm.methods()}
+    assert set(status.values()) == {"available", "preview"}
+    assert status["dcf.fcff"] == "preview"
+    assert status["tvm.npv"] == "available"
+
+
+@pytest.mark.parametrize("provider", sorted(fm.tools.PROVIDERS))
+def test_tool_descriptions_flag_preview_methods(provider: str) -> None:
+    preview = {fm.tools.tool_name(m["id"]) for m in fm.methods() if m["status"] == "preview"}
+    for tool in fm.tools.for_provider(provider):
+        body = tool.get("function", tool)
+        flagged = fm.tools.PREVIEW_NOTE in body["description"]
+        assert flagged == (body["name"] in preview), body["name"]
+        assert "status" not in body, "provider payloads carry no extra keys"
+
+
+def test_mcp_tools_carry_the_status() -> None:
+    pytest.importorskip("mcp")
+    import anyio
+
+    from fairmark import mcp_server
+
+    assert "preview" in mcp_server.INSTRUCTIONS
+    status = {fm.tools.tool_name(m["id"]): m["status"] for m in fm.methods()}
+    tools = anyio.run(mcp_server.list_tools)
+    assert {t.name for t in tools} == set(status)
+    for t in tools:
+        assert t.meta == {"fairmark/status": status[t.name]}
+        assert (fm.tools.PREVIEW_NOTE in (t.description or "")) == (status[t.name] == "preview")

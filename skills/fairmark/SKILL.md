@@ -11,7 +11,9 @@ report its results.
 
 ## Workflow
 
-1. **Find the right method**: `fairmark methods`.
+1. **Find the right method**: `fairmark methods`. Each method has a `status`: `available`,
+   or `preview` (not yet independently verified). You may use a preview method, but tell the
+   user that the result comes from a preview method.
 2. **Read its input schema**: `fairmark schema <method>`. Every field is documented.
 3. **Extract inputs** from the documents or the user's request. Rates are decimal fractions
    (9% → `"0.09"`). Write amounts as strings to keep them exact. If an input is missing or
