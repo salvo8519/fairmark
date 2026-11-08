@@ -43,5 +43,8 @@ parallel; tick a task only when `just check` passes.
   roadmap #110 done; `uv run just check`
 
 ### Verification
+- [x] T14 Findings of the code review and the numerical audit applied: present values by
+  division at long horizons (golden cases X12, X13), mid-period Gordon warning, R26 warning,
+  schema bounds of `terminal`, explain substitutions, docs; open question on R11 in plan.md
 - [ ] T13 `numerical-auditor` review, `code-reviewer` review, acceptance criteria of #110
   ticked in spec.md (maintainer)

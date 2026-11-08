@@ -14,7 +14,7 @@ Module layout in `crates/fairmark-core`:
 | `src/dcf/fcff.rs` | `dcf.fcff` version 3: input and output types, the mapping of `wacc` fields to the engine, the bridge from value of operations to equity value on the enterprise basis, the `Method` registration |
 
 The engine is called by typed Rust calls (ADR 0009), never through the registry. It takes an
-internal `EngineInput` that borrows the stages, the base flow, the terms, a `RateSchedule`
+internal `EngineInput` that borrows the stages, the base flow, the terms, a `RateInput`
 (one rate, or one rate per period plus a terminal rate), the timing, the terminal discounting
 time, the terminal technique and the basis, together with the JSON names of the rate fields of
 the calling method (`wacc`, `wacc_per_period`, `terminal_wacc` for `dcf.fcff`), so that every
@@ -31,9 +31,11 @@ Building blocks reused, not duplicated:
 - `ratios::NetFinancialPosition` of SPEC-0007 and `tv::Line` for labelled amounts (R23, R25).
 - `types::Timing` for `end_of_period` and `mid_period`.
 
-The domain types announced by ADR 0009 point 5 stay internal, as that ADR requires: the
-engine's period table is the periodic `CashFlowSeries`; the rate schedule is the `Rate`
-sequence. JSON inputs keep plain decimals.
+The domain types announced by ADR 0009 point 5 (`Rate`, `CashFlowSeries`) are not introduced
+by this issue: the engine keeps internal types only (`ResolvedStage` with `StageKind`,
+`Projected`, `RateInput`, `RateFields`, `EngineInput`, `EngineOutput`) and JSON inputs keep
+plain decimals. Whether they become the ADR types is decided with #167, when a dated time axis
+gives `CashFlowSeries` its second form.
 
 ## Schema changes
 `dcf.fcff` version 2 to version 3, **breaking** (approved, spec "Recorded approval of the
@@ -74,19 +76,24 @@ In implementation order, all in `Decimal` with checked arithmetic (`crate::num`)
    multiplying before dividing so that the only rounding is the final division (Decision 4).
 3. Rates: one rate repeated N times or the per-period list; every rate greater than −1
    (`FM-E003` naming the period).
-4. Discount factors from `tvm::period_discount_factors`: end of period DF_k = DF_{k−1} /
-   (1 + r_k); mid period DF_{k−1} / (1 + r_k)^0.5 (exact square root of `rust_decimal`).
+4. Discount factors from `tvm::period_discount_factors`, reported in the period table: end
+   of period DF_k = DF_{k−1} / (1 + r_k); mid period DF_{k−1} / (1 + r_k)^0.5 (square root of
+   `rust_decimal`). Present values are computed in `run` by dividing each flow by its
+   compounding factor G_k = G_{k−1} × (1 + r_k) (mid period: G_{k−1} × (1 + r_k)^0.5), so that
+   they keep every significant digit at long horizons (numerical audit, finding 1); when G_k
+   leaves the decimal range the engine multiplies by DF_k and reports it.
 5. Terminal value through `tv::gordon` at the terminal rate (the single rate, or
    `terminal_wacc`), with CF_{N+1} = CF_N × (1 + g) or the given normalised flow.
-6. Terminal discounting: `horizon` uses DF_N; `mid_period` uses DF_N × (1 + r_N)^0.5 (R21).
+6. Terminal discounting: `horizon` uses DF_N; `mid_period` uses DF_N × (1 + r_N)^0.5 with
+   the rate of period N (R21); the present value is TV_N / G_N, or TV_N × (1 + r_N)^0.5 / G_N.
 7. Value of operations = Σ PV + PV(TV); enterprise value = value of operations + Σ
    non-operating assets; equity value = enterprise value − net financial position.
 8. Terminal value weight = PV(TV) / value of operations.
 
-Version 2 used `tvm::discount_factor` (direct powers); version 3 uses the cumulative factors of
-`tvm::period_discount_factors`, which agree to about 1e-24 relative at end of period and about
-1e-18 at mid period: the migrated version 2 golden cases keep their expected values at their
-tolerance of 1e-9 (R30, AC15).
+Version 2 used `tvm::discount_factor` (direct powers) and multiplied by it; version 3 divides
+by the compounding factor. Against the 50-digit reference the value of operations agrees to
+about 1e-24 relative or better, also over 300 to 1,000 periods: the migrated version 2 golden
+cases keep their expected values at their tolerance of 1e-9 (R30, AC15).
 
 ## Test strategy
 - Independent reference `scripts/reference_dcf.py` (Python `decimal`, 50 digits in a local
@@ -117,24 +124,25 @@ reference regenerated (`uv run just generate`); release notes `changes/110.break
 Each is additive to version 3 under the schema checker.
 - **#38 `dcf.free_cash_flows`**: a new module `src/dcf/free_cash_flows.rs` (one line in
   `src/dcf.rs`); a `given` stage accepts build-up lines through a new optional field `lines`
-  next to `flows` (exactly one of the two), mapped by the engine's `GivenFlows` resolution to
-  amounts before projection.
+  next to `flows` (exactly one of the two), resolved by `check_stages` into a new `StageKind`
+  variant that becomes amounts before projection.
 - **#165 `dcf.fcfe`**: a new module `src/dcf/fcfe.rs` that maps `cost_of_equity`,
-  `cost_of_equity_per_period`, `terminal_cost_of_equity` to the engine's `RateSchedule` with
+  `cost_of_equity_per_period`, `terminal_cost_of_equity` to the engine's `RateInput` with
   its own `RateFields`, passes `TerminalBasis::Equity`, and implements the equity bridge (R24).
   The engine already carries the basis and reports it.
 - **#166 nominal and real terms**: optional fields `inflation`, `inflation_per_period` and
-  `terminal_inflation`; the engine's `resolve_terms` step, which today refuses different terms
+  `terminal_inflation`; the engine's `check_terms` step, which today refuses different terms
   with `FM-E024`, converts the rate schedule through `rates::real_nominal` instead and fills
   `rate_used` of the period table, which the output already reports next to `discount_rate`
   (R16 to R18).
 - **#43 terminal technique and discounting time**: new optional properties of the `terminal`
   object (`tv.h_model`, `tv.exit_multiple`, `tv.value_driver`, `tv.limited_horizon`,
-  `tv.normalised_income`, `tv.liquidation`), one arm each in the engine's `terminal_value`
-  dispatch, with the basis check (`FM-E019`) and the warning for a price discounted at
+  `tv.normalised_income`, `tv.liquidation`), validated in `check_terminal` and computed by one
+  arm each in `terminal_value`, with the basis check (`FM-E019`) and the warning for a price discounted at
   N − 0.5. The terminal discounting time of Decision 6 is already in version 3.
 - **#44 bridge**: optional `debt_like_items` and `non_controlling_interests` (labelled amounts),
-  added to `fcff::bridge` and reported; negative equity warning (R26).
+  added to `bridge` in `dcf/fcff.rs` and reported (the negative equity warning of R26 is
+  already in place).
 - **#167 dated periods**: optional `valuation_date` and period end dates; the engine's time
   axis (today t = k or k − 0.5) becomes the dated axis of `tvm::time_axis`.
 
@@ -149,3 +157,15 @@ Each is additive to version 3 under the schema checker.
 - **Analysis golden cases** use `dcf.fcff` as their inner method with version 2 inputs; they
   are re-expressed in version 3 with identical expected values in the migration commit and
   need the maintainer's review with the `numerical-change` label.
+
+## Open questions for the maintainer
+- **Implied growth of a given last stage (R11).** The warning for a growth discontinuity is
+  reported only when the last explicit period is generated, because only then is a growth
+  applied. For a `given` last stage the growth implied by the last two flows,
+  CF_N / CF_{N−1} − 1, could be compared with the perpetual growth too. Not implemented: the
+  spec does not say whether an implied growth counts as "the growth of the last explicit
+  period".
+- **Analysis golden cases** re-expressed in version 3 (see "Risks and alternatives"): awaiting
+  explicit approval.
+- **Tolerances of the Amgen published-precision cases** (2, and 20 for the terminal value):
+  awaiting acceptance; the golden files decompose the differences.
