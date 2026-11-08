@@ -31,8 +31,14 @@ pub enum FairmarkError {
         iterations: u32,
     },
 
-    #[error("`cash_flows` needs at least one positive and one negative amount")]
-    NoSignChange,
+    #[error(
+        "`cash_flows` needs at least one positive and one negative amount{}",
+        if *netted { " after flows on the same date are netted" } else { "" }
+    )]
+    NoSignChange {
+        /// True when the check is made after netting flows at the same time (XIRR).
+        netted: bool,
+    },
 
     #[error("unknown method '{0}'")]
     UnknownMethod(String),
@@ -50,9 +56,8 @@ pub enum FairmarkError {
     },
 
     #[error(
-        "no single rate can be isolated: {0}; the flows admit several rates, a repeated root \
-         (the present value touches zero without crossing it) or none, so any one rate would be \
-         arbitrary; use `tvm.npv` at the cost of capital or `tvm.mirr` with explicit rates"
+        "no single rate can be isolated: {0}; use `tvm.npv` at the cost of capital or \
+         `tvm.mirr` with explicit rates"
     )]
     MultipleRates(String),
 
@@ -136,7 +141,7 @@ impl FairmarkError {
             Self::RateOutOfRange(_) => "FM-E003",
             Self::GrowthNotBelowRate { .. } => "FM-E004",
             Self::NoConvergence { .. } => "FM-E005",
-            Self::NoSignChange => "FM-E006",
+            Self::NoSignChange { .. } => "FM-E006",
             Self::UnknownMethod(_) => "FM-E007",
             Self::Overflow(_) => "FM-E008",
             Self::InvalidDate(_) => "FM-E009",

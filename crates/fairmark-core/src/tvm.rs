@@ -33,8 +33,8 @@ pub fn discount_factor(rate: Decimal, t: Decimal) -> Result<Decimal> {
     rates::inverse_pow(num::one_plus(rate)?, t)
 }
 
-/// Names the rate field of the method in an `FM-E003` raised by a shared helper (finding 4 of
-/// the review of issue #176): the helpers only know the value, the method knows the field.
+/// Names the rate field of the method in an `FM-E003` raised by a shared helper (issue #176):
+/// the helpers only know the value, the method knows the field.
 fn rate_field(field: &'static str) -> impl Fn(FairmarkError) -> FairmarkError {
     move |e| match e {
         FairmarkError::RateOutOfRange(rate) => FairmarkError::DiscountRateOutOfRange {
@@ -171,7 +171,7 @@ pub fn irr(input: &IrrInput) -> Result<(IrrOutput, Explain)> {
     if cfs.is_empty() {
         return Err(FairmarkError::EmptyCashFlows);
     }
-    require_sign_change(cfs.iter())?;
+    require_sign_change(cfs.iter(), false)?;
 
     let mut ex = Explain::new("tvm.irr", "find r such that Σ CF_t / (1 + r)^t = 0");
     ex.convention("cash_flows[0] occurs at t = 0");
@@ -272,7 +272,12 @@ pub(crate) fn sign_changes<'a>(flows: impl Iterator<Item = &'a Decimal>) -> usiz
     n
 }
 
-pub(crate) fn require_sign_change<'a>(flows: impl Iterator<Item = &'a Decimal>) -> Result<()> {
+/// `FM-E006` unless the flows have a positive and a negative amount; `netted` states in the
+/// message that the flows at the same time were netted first (XIRR).
+pub(crate) fn require_sign_change<'a>(
+    flows: impl Iterator<Item = &'a Decimal>,
+    netted: bool,
+) -> Result<()> {
     let (mut pos, mut neg) = (false, false);
     for c in flows {
         pos |= *c > Decimal::ZERO;
@@ -281,7 +286,7 @@ pub(crate) fn require_sign_change<'a>(flows: impl Iterator<Item = &'a Decimal>) 
     if pos && neg {
         Ok(())
     } else {
-        Err(FairmarkError::NoSignChange)
+        Err(FairmarkError::NoSignChange { netted })
     }
 }
 
@@ -396,7 +401,8 @@ pub(crate) fn solve_rate(
     let found = roots.len();
     if found > 1 {
         return Err(FairmarkError::MultipleRates(format!(
-            "the grid finds roots in {}",
+            "the grid finds roots in {}, so several rates set the present value to zero and \
+             any one of them would be arbitrary",
             describe(&roots)
         )));
     }
@@ -411,7 +417,8 @@ pub(crate) fn solve_rate(
     if found == 0 && sign_changes > 1 {
         return Err(FairmarkError::MultipleRates(format!(
             "the grid isolates no root while the flows change sign {sign_changes} times, so \
-             zero or several rates exist"
+             there are no rate, several rates, or a repeated root where the present value \
+             touches zero without crossing it"
         )));
     }
     let (unique, uniqueness) = if sign_changes == 1 {
@@ -951,7 +958,11 @@ pub fn xirr(input: &XirrInput) -> Result<(XirrOutput, Explain)> {
     let axis = time_axis(flows, None, dc)?;
     let (v, ts) = (axis.valuation_date, axis.times.clone());
     let netted = net_by_time(flows, &ts)?;
-    require_sign_change(netted.iter())?;
+    if require_sign_change(netted.iter(), true).is_err() {
+        // Say whether the flows lacked a sign change as given or only after netting.
+        require_sign_change(flows.iter().map(|f| &f.amount), false)?;
+        require_sign_change(netted.iter(), true)?;
+    }
     for ((f, t), formula) in flows.iter().zip(&ts).zip(&axis.formulas) {
         ex.step(format!("Year fraction, {}", f.date), formula.clone(), *t);
     }
@@ -1022,7 +1033,7 @@ pub fn mirr(input: &MirrInput) -> Result<(MirrOutput, Explain)> {
             "MIRR needs at least two cash flows".to_owned(),
         ));
     }
-    require_sign_change(cfs.iter())?;
+    require_sign_change(cfs.iter(), false)?;
     check_rate("/finance_rate", input.finance_rate)?;
     check_rate("/reinvest_rate", input.reinvest_rate)?;
     let n = (cfs.len() - 1) as i64;
@@ -1190,7 +1201,7 @@ fn factor_with(
 ) -> Result<(Decimal, Vec<Step>)> {
     if n == 0 || n > MAX_PERIODS {
         return Err(FairmarkError::InvalidInput(format!(
-            "periods must be between 1 and {MAX_PERIODS} (got {n})"
+            "`/periods` must be between 1 and {MAX_PERIODS} (got {n})"
         )));
     }
     if r <= -Decimal::ONE {
@@ -1198,7 +1209,7 @@ fn factor_with(
     }
     if g <= -Decimal::ONE {
         return Err(FairmarkError::InvalidInput(format!(
-            "growth must be greater than -1 (got {g})"
+            "`/growth` must be greater than -1 (got {g})"
         )));
     }
     let one = Decimal::ONE;
@@ -1342,7 +1353,7 @@ pub fn perpetuity(input: &PerpetuityInput) -> Result<(PerpetuityOutput, Explain)
         // With g ≤ -1 the payments alternate or vanish and the series diverges or is
         // meaningless (audit D6); aligned with `tvm.annuity`.
         return Err(FairmarkError::InvalidInput(format!(
-            "growth must be greater than -1 (got {g})"
+            "`/growth` must be greater than -1 (got {g})"
         )));
     }
     if g >= r {
@@ -1716,7 +1727,10 @@ mod tests {
             cash_flows: vec![d("1"), d("2")],
             guess: None,
         });
-        assert_eq!(r.unwrap_err(), FairmarkError::NoSignChange);
+        assert_eq!(
+            r.unwrap_err(),
+            FairmarkError::NoSignChange { netted: false }
+        );
     }
 
     #[test]
@@ -2149,11 +2163,44 @@ mod tests {
             guess: None,
         }));
         assert_eq!(code, "FM-E011");
-        assert!(m.contains("repeated root"), "{m}");
+        assert!(
+            m.contains("several rates set the present value to zero"),
+            "{m}"
+        );
         assert!(
             m.ends_with("use `tvm.npv` at the cost of capital or `tvm.mirr` with explicit rates"),
             "{m}"
         );
+        // A double root at 12%, between grid points: no sign change on the grid.
+        let (m, code) = message(irr(&IrrInput {
+            cash_flows: vec![d("-1"), d("2.24"), d("-1.2544")],
+            guess: None,
+        }));
+        assert_eq!(code, "FM-E011");
+        assert!(m.contains("a repeated root"), "{m}");
+        // XIRR: amounts of both signs that net to one sign on the same date.
+        let (m, code) = message(xirr(&XirrInput {
+            cash_flows: dated(&[
+                ("2024-01-01", "-10"),
+                ("2024-01-01", "5"),
+                ("2025-01-01", "-1"),
+            ]),
+            day_count: None,
+            compounding: None,
+            guess: None,
+        }));
+        assert_eq!(code, "FM-E006");
+        assert!(
+            m.ends_with("after flows on the same date are netted"),
+            "{m}"
+        );
+        let (m, _) = message(xirr(&XirrInput {
+            cash_flows: dated(&[("2024-01-01", "-10"), ("2025-01-01", "-1")]),
+            day_count: None,
+            compounding: None,
+            guess: None,
+        }));
+        assert!(m.ends_with("one negative amount"), "{m}");
     }
 
     // Issue #176: explain detail.

@@ -7,7 +7,7 @@ function calling) reports errors as `{"code": "...", "message": "..."}`.
 | --- | --- | --- |
 | `FM-E001` | Invalid input: wrong type, missing required field, unknown field | Check the input against `fairmark schema <method>` |
 | `FM-E002` | Empty cash flow series | Provide at least one cash flow |
-| `FM-E003` | Rate out of range: the rate per period, or per compounding period, is at or below −100%; the message names the rate by its JSON pointer, for example `/wacc_per_period/3` in the DCF or `/finance_rate` in `tvm.mirr` (`rates.convert` and `tvm.xnpv` give the value and the bound per compounding period) | Rates are decimal fractions: 10% is `0.10`; a nominal rate with compounding is checked per compounding period ($r/m$) |
+| `FM-E003` | Rate out of range: the rate per period, or per compounding period, is at or below −100%; the message names the rate by its JSON pointer, for example `/wacc_per_period/3` in the DCF or `/finance_rate` in `tvm.mirr`; `rates.convert`, `tvm.xnpv` and `loans.*` give the value and the rule that one plus the rate per compounding period ($1 + r/m$) must be positive, without naming the field | Rates are decimal fractions: 10% is `0.10`; a nominal rate with compounding is checked per compounding period ($r/m$) |
 | `FM-E004` | Growth ≥ discount rate (terminal value, perpetuity); in the DCF and in `tvm.perpetuity` the message names the growth and the rate by their JSON pointers | The Gordon model needs g < r |
 | `FM-E005` | IRR or XIRR solver did not converge; the message names the solver | The rate may lie outside the decimal range or far from `guess`: give a `guess` near the expected rate |
 | `FM-E006` | `cash_flows` has no positive or no negative amount | IRR, XIRR and MIRR need both outflows and inflows |

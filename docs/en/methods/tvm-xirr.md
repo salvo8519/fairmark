@@ -109,7 +109,7 @@ states whether uniqueness is proven or not verified, with the reason.
 | `FM-E001` | A field is missing or unknown, or a convention is not one of the listed options |
 | `FM-E002` | `cash_flows` is empty |
 | `FM-E005` | No root was bracketed on the grid and Newton's method from `guess` did not converge; the rate may lie outside the decimal range or far from `guess`: give a `guess` near the expected rate |
-| `FM-E006` | `cash_flows` has no positive or no negative amount |
+| `FM-E006` | `cash_flows` has no positive or no negative amount, as given or after flows on the same date are netted (the message says which) |
 | `FM-E008` | Arithmetic overflow while refining the root |
 | `FM-E009` | A date is malformed, does not exist or is outside 1900-01-01 to 2199-12-31 |
 | `FM-E011` | No single rate can be isolated: several rates set XNPV to zero, a repeated root is possible, or another rate is known to exist beside the one found; the message lists the intervals and suggests `tvm.npv` at the cost of capital or `tvm.mirr` with explicit rates |

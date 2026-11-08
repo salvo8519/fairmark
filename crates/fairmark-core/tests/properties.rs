@@ -911,7 +911,7 @@ fn convert_round_trip() {
 }
 
 /// rates.real_nominal to_real then to_nominal with the same inflation returns the rate within
-/// 1e-20 (AC3), for rate and inflation in (-1, 1] (issue #176, finding 2).
+/// 1e-20 (AC3), for rate and inflation in (-1, 1] (issue #176).
 #[test]
 fn fisher_round_trip() {
     let unit = || (-999_999i64..=1_000_000).prop_map(|m| dec(m, 6));

@@ -95,7 +95,7 @@ $(1 + r)^{-(k - 0.5)}$.
 | --- | --- |
 | `FM-E001` | Both or neither of `rate` and `period_rates` are given, `period_rates` does not have exactly one rate per cash flow, or a field is missing or unknown |
 | `FM-E002` | `cash_flows` is empty |
-| `FM-E003` | `rate`, or a rate in `period_rates`, is −100% or lower; the message names the field by its JSON pointer, for example `/period_rates/2` |
+| `FM-E003` | `rate`, or a rate in `period_rates`, is −100% or lower; all rates are checked before any calculation, and the message names the field by its JSON pointer, for example `/period_rates/2` |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 
 ## Accuracy

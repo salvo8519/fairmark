@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Status | Approved (implementing) — approved by maintainer instruction of 2026-11-07 (published market standards only) |
+| Status | Implementing — approved by maintainer instruction of 2026-11-07 (published market standards only) |
 | Milestone | M1 |
 | Owner | @salvo8519 |
 | Formula basis | Market definitions of day counts (ISDA 2006 §4.16) and spreadsheet functions (ECMA-376: XNPV, XIRR, MIRR); closed forms for annuities and rate conversion; cross-checked against widely used implementations |
