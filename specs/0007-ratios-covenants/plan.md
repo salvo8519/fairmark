@@ -38,14 +38,15 @@ Every group takes the flows of the period in `income_statement` (where it needs 
 closing balance sheet in `closing` and, for average balances, the opening balance sheet in
 `opening`. Each group declares only the aggregates it uses. `balances` is required in every group
 (R2); `day_basis` is required in `ratios.working_capital` (R2); `operating_return_base` is
-required in `ratios.profitability`; `ebitda_definition` (free text, echoed in the conventions) is
-required wherever EBITDA is an input.
+required in `ratios.profitability`; `ebitda_definition` and `interest_definition` (free text,
+not empty, echoed in the conventions) are required wherever EBITDA or interest is an input; a
+blank text is `FM-E001`.
 
 The balance convention applies to every balance-sheet amount the group uses, numerator or
 denominator, so that a stock is never compared with a flow of a different period and the two
 stocks of a stock-to-stock ratio are measured on the same basis. With `closing`, an `opening`
 block that is given is not used and the conventions say so. With `average`, a missing `opening`
-block is `FM-E001`.
+block is `FM-E001`. An `invested_capital` given with a total-assets base is reported as not used.
 
 ### Net financial position (R6)
 `NetFinancialPosition { gross_debt, cash, other_items: [{name, amount}] }`;
@@ -107,13 +108,13 @@ decomposition is the DuPont form of the same curriculum.
 ## Test strategy
 | Test | Source of expected values | Proves |
 | --- | --- | --- |
-| Golden `ratios.profitability/closing-balances.yaml`, `average-balances.yaml` | `scripts/reference_ratios.py` (decimal, 50 digits, local context), closed form written out | AC1, AC2 |
+| Golden `ratios.profitability/closing-balances.yaml`, `average-balances.yaml`, `average-invested-capital.yaml` | `scripts/reference_ratios.py` (decimal, 50 digits, local context), closed form written out | AC1, AC2 |
 | Golden `ratios.profitability/negative-equity.yaml`, `zero-revenue.yaml` | same, reasons by construction | AC3 |
 | Golden `ratios.capital_structure/closing-balances.yaml`, `average-balances.yaml`, `negative-equity.yaml` | same | AC1, AC2, AC3 |
-| Golden `ratios.liquidity/closing-balances.yaml`, `zero-current-liabilities.yaml` | same | AC1, AC3 |
-| Golden `ratios.working_capital/closing-365.yaml`, `average-360.yaml`, `zero-purchases.yaml` | same | AC1, AC2, AC3 |
-| Golden `ratios.debt_service/loan-schedule.yaml`, `zero-debt-service.yaml` | same, and the LLCR of a level annuity in closed form | AC1, AC3, AC4 |
-| Golden error cases (`average` without `opening`, empty schedule) | constructed | R2 |
+| Golden `ratios.liquidity/closing-balances.yaml`, `average-balances.yaml`, `zero-current-liabilities.yaml` | same | AC1, AC2, AC3 |
+| Golden `ratios.working_capital/closing-365.yaml`, `closing-360.yaml`, `average-360.yaml`, `zero-purchases.yaml` | same | AC1, AC2, AC3 |
+| Golden `ratios.debt_service/loan-schedule.yaml`, `zero-denominators.yaml`, `zero-debt-outstanding.yaml` | same, and the LLCR of a level annuity in closed form | AC1, AC3, AC4 |
+| Golden error cases (`average` without `opening`, blank definitions, empty schedule) | constructed | R2 |
 | Contract cases `tests/contracts/ratios.*.yaml` | constructed | extreme inputs, conventions |
 | Unit tests in `src/ratios/*.rs` | constructed | R3 rules, identities (ROI = ROS × turnover, DuPont product = ROE) |
 
@@ -161,3 +162,13 @@ decomposition is the DuPont form of the same curriculum.
    negative interest (interest cover), negative invested capital (ROI) or negative revenue make
    a ratio not defined. Version 1 reports not defined only for zero denominators and for ratios
    over equity when equity is zero or negative.
+8. **Debt schedule optional.** `debt_schedule` is required in `ratios.debt_service`; a company
+   without a project-style loan schedule cannot get interest cover and NFP / EBITDA alone.
+   Should the schedule become optional, with DSCR and LLCR reported as not defined without it?
+9. **Golden tolerance.** Ratio golden cases use an absolute tolerance of 0.000000001; confirm,
+   or set a relative tolerance for large multiples and day counts.
+10. **Negative EBITDA, interest or debt service.** Whether NFP / EBITDA with negative EBITDA,
+    interest cover with negative interest, or a DSCR with negative debt service should be not
+    meaningful rather than computed (extends question 7).
+11. **LLCR reserve account.** Whether the LLCR numerator should add a debt service reserve
+    account (DSRA) balance given as an input, as many loan agreements define it.
