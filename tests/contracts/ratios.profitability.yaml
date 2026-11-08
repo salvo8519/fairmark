@@ -1,0 +1,71 @@
+# Contract cases for ratios.profitability: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: ratios.profitability
+extreme_inputs:
+- balances: average
+  operating_return_base: invested_capital
+  ebitda_definition: extreme
+  income_statement: {revenue: MAX, ebitda: MIN, ebit: MAX, net_income: MAX}
+  closing: {equity: '0.0000000000000000000000000001', total_assets: MAX, invested_capital: MAX}
+  opening: {equity: MAX, total_assets: MAX, invested_capital: MIN}
+- balances: closing
+  operating_return_base: total_assets
+  ebitda_definition: extreme
+  income_statement: {revenue: '0.0000000000000000000000000001', ebitda: MAX, ebit: MIN, net_income: MAX}
+  closing: {equity: '0.0000000000000000000000000001', total_assets: '0.0000000000000000000000000001'}
+- balances: average
+  operating_return_base: invested_capital
+  ebitda_definition: extreme
+  income_statement: {revenue: MAX, ebitda: MAX, ebit: MAX, net_income: MIN}
+  closing: {equity: '0.0000000000000000000000000001', total_assets: MAX, invested_capital: '0.0000000000000000000000000001', debt: MAX}
+  opening: {equity: MAX, total_assets: MAX, invested_capital: MAX, debt: MIN}
+  leverage: {debt_basis: gross_financial_debt, financial_charges: MIN, taxes: MAX, pre_tax_income: '0.0000000000000000000000000001'}
+conventions:
+- input:
+    balances: closing
+    operating_return_base: invested_capital
+    ebitda_definition: reported EBITDA, no adjustments
+    income_statement: {revenue: '5000', ebitda: '800', ebit: '500', net_income: '260'}
+    closing: {equity: '2000', total_assets: '6000', invested_capital: '4000'}
+    opening: {equity: '1800', total_assets: '5600', invested_capital: '3800'}
+  expect:
+  - balances at closing
+  - opening balances given and not used
+  - 'operating return base: invested capital'
+  - 'EBITDA as given: reported EBITDA, no adjustments'
+  - a ratio with a zero denominator is not defined
+  - a ratio over equity is not defined when equity is zero or negative
+  - ROA = EBIT / total assets
+  - ROI is not defined when invested capital is zero or negative
+  - 'ROE, leverage form not defined: leverage inputs not given'
+- input:
+    balances: average
+    operating_return_base: total_assets
+    ebitda_definition: adjusted for one-off restructuring costs of 40
+    income_statement: {revenue: '5000', ebitda: '840', ebit: '500', net_income: '260'}
+    closing: {equity: '2000', total_assets: '6000'}
+    opening: {equity: '1800', total_assets: '5600'}
+  expect:
+  - balances as the average of opening and closing
+  - 'operating return base: total assets'
+  - ROS = EBIT / revenue, equal to the EBIT margin
+  - three-factor ROE on total assets (asset turnover and equity multiplier), whatever the operating return base
+  - 'EBITDA as given: adjusted for one-off restructuring costs of 40'
+- input:
+    balances: closing
+    operating_return_base: total_assets
+    ebitda_definition: reported EBITDA, no adjustments
+    income_statement: {revenue: '5000', ebitda: '800', ebit: '500', net_income: '260'}
+    closing: {equity: '2000', total_assets: '6000', invested_capital: '4000'}
+  expect:
+  - invested capital given and not used
+- input:
+    balances: closing
+    operating_return_base: invested_capital
+    ebitda_definition: reported EBITDA, no adjustments
+    income_statement: {revenue: '5000', ebitda: '800', ebit: '500', net_income: '260'}
+    closing: {equity: '2000', total_assets: '6000', invested_capital: '4000', debt: '2000'}
+    leverage: {debt_basis: net_financial_position, financial_charges: '100', taxes: '140', pre_tax_income: '400'}
+  expect:
+  - 'ROE, leverage form: ROE = [ROI + (ROI − i) × D/E] × (1 − t), D = net financial position, i = financial charges / D, t = taxes / pre-tax income (effective tax rate), ROI on the operating return base'

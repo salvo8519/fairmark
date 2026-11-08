@@ -1,0 +1,22 @@
+method: ratios.debt_service
+description: A debt schedule without periods is refused
+source: Constructed. DSCR and LLCR need at least one period of CFADS (FM-E002, empty cash flow
+  series).
+input:
+  balances: closing
+  ebitda_definition: reported EBITDA, no adjustments
+  interest_definition: gross interest expense
+  income_statement:
+    ebitda: '800'
+    ebit: '500'
+    interest: '100'
+  closing:
+    net_financial_position:
+      gross_debt: '2200'
+      cash: '300'
+      other_items: []
+  debt_schedule:
+    discount_rate: '0.06'
+    debt_outstanding: '1000'
+    periods: []
+expect_error: FM-E002

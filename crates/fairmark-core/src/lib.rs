@@ -27,6 +27,7 @@ pub mod explain;
 pub mod method;
 mod num;
 pub mod rates;
+pub mod ratios;
 pub mod registry;
 pub mod solver;
 pub mod tvm;

@@ -1,0 +1,29 @@
+method: ratios.capital_structure
+description: 'AC1: capital structure on closing balances, NFP with its composition'
+source: 'scripts/reference_ratios.py, capital_structure (Python decimal, 50 digits, local context), written
+  from the definitions in specs/0007-ratios-covenants/plan.md. Closed form: NFP 2200 - 300 + 150 = 2050;
+  D/E 2200 / 2000 = 1.1; NFP/E 2050 / 2000 = 1.025; margins 2000 - 3500 = -1500 and 2000 + 1800 - 3500
+  = 300; coverage 2000 / 3500 and 3800 / 3500.'
+input:
+  balances: closing
+  closing:
+    equity: '2000'
+    total_assets: '6000'
+    fixed_assets: '3500'
+    non_current_liabilities: '1800'
+    net_financial_position:
+      gross_debt: '2200'
+      cash: '300'
+      other_items:
+      - name: lease liabilities
+        amount: '150'
+expect:
+  /net_financial_position: '2050'
+  /debt_to_equity/value: '1.1'
+  /nfp_to_equity/value: '1.025'
+  /equity_ratio/value: '0.33333333333333333333333333333333333333333333333333'
+  /primary_structure_margin: '-1500'
+  /secondary_structure_margin: '300'
+  /primary_fixed_asset_coverage/value: '0.57142857142857142857142857142857142857142857142857'
+  /secondary_fixed_asset_coverage/value: '1.0857142857142857142857142857142857142857142857143'
+tolerance: '0.00000000000000000001'

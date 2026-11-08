@@ -1,0 +1,24 @@
+method: ratios.debt_service
+description: An EBITDA definition made only of blanks is refused
+source: Constructed. The analyst must state how EBITDA was measured; a whitespace-only text states
+  nothing (FM-E001).
+input:
+  balances: closing
+  ebitda_definition: " \t "
+  interest_definition: gross interest expense
+  income_statement:
+    ebitda: '800'
+    ebit: '500'
+    interest: '100'
+  closing:
+    net_financial_position:
+      gross_debt: '2200'
+      cash: '300'
+      other_items: []
+  debt_schedule:
+    discount_rate: '0.06'
+    debt_outstanding: '1000'
+    periods:
+    - cfads: '250'
+      debt_service: '200'
+expect_error: FM-E001

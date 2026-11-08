@@ -1,0 +1,37 @@
+method: ratios.capital_structure
+description: 'AC2: capital structure on average balances'
+source: 'scripts/reference_ratios.py, capital_structure (Python decimal, 50 digits, local context), written
+  from the definitions in specs/0007-ratios-covenants/plan.md. Closed form: average NFP (2150 + 2050)
+  / 2 = 2100; average gross debt 2300; average equity 1900; D/E 2300 / 1900.'
+input:
+  balances: average
+  closing:
+    equity: '2000'
+    total_assets: '6000'
+    fixed_assets: '3500'
+    non_current_liabilities: '1800'
+    net_financial_position:
+      gross_debt: '2200'
+      cash: '300'
+      other_items:
+      - name: lease liabilities
+        amount: '150'
+  opening:
+    equity: '1800'
+    total_assets: '5600'
+    fixed_assets: '3300'
+    non_current_liabilities: '1700'
+    net_financial_position:
+      gross_debt: '2400'
+      cash: '250'
+      other_items: []
+expect:
+  /net_financial_position: '2100'
+  /debt_to_equity/value: '1.2105263157894736842105263157894736842105263157895'
+  /nfp_to_equity/value: '1.1052631578947368421052631578947368421052631578947'
+  /equity_ratio/value: '0.32758620689655172413793103448275862068965517241379'
+  /primary_structure_margin: '-1500'
+  /secondary_structure_margin: '250'
+  /primary_fixed_asset_coverage/value: '0.55882352941176470588235294117647058823529411764706'
+  /secondary_fixed_asset_coverage/value: '1.0735294117647058823529411764705882352941176470588'
+tolerance: '0.00000000000000000001'

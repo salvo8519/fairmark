@@ -1,0 +1,46 @@
+method: ratios.debt_service
+description: 'AC4: LLCR of a level CFADS equals the annuity closed form'
+source: 'scripts/reference_ratios.py, debt_service (Python decimal, 50 digits, local context), written
+  from the definitions in specs/0007-ratios-covenants/plan.md. Closed form (level_llcr): 250 × (1 - 1.06^-5)
+  / 0.06 / 1000 = 1.0530909463914284700337504593814453184458398742236, equal to the sum of the discounted
+  CFADS.'
+input:
+  balances: closing
+  ebitda_definition: reported EBITDA, no adjustments
+  interest_definition: gross interest expense
+  income_statement:
+    ebitda: '800'
+    ebit: '500'
+    interest: '100'
+  closing:
+    net_financial_position:
+      gross_debt: '2200'
+      cash: '300'
+      other_items: []
+  debt_schedule:
+    discount_rate: '0.06'
+    debt_outstanding: '1000'
+    periods:
+    - cfads: '250'
+      debt_service: '200'
+    - cfads: '250'
+      debt_service: '200'
+    - cfads: '250'
+      debt_service: '200'
+    - cfads: '250'
+      debt_service: '200'
+    - cfads: '250'
+      debt_service: '200'
+expect:
+  /net_financial_position: '1900'
+  /interest_cover_ebit/value: '5'
+  /interest_cover_ebitda/value: '8'
+  /nfp_to_ebitda/value: '2.375'
+  /pv_cfads: '1053.0909463914284700337504593814453184458398742236'
+  /llcr/value: '1.0530909463914284700337504593814453184458398742236'
+  /dscr/0/value: '1.25'
+  /dscr/1/value: '1.25'
+  /dscr/2/value: '1.25'
+  /dscr/3/value: '1.25'
+  /dscr/4/value: '1.25'
+tolerance: '0.00000000000000000001'

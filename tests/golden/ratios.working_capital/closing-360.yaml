@@ -1,0 +1,22 @@
+method: ratios.working_capital
+description: 'AC2: the inputs of closing-365 on a 360-day basis'
+source: 'scripts/reference_ratios.py, working_capital (Python decimal, 50 digits, local context), written
+  from the definitions in specs/0007-ratios-covenants/plan.md. Closed form: DSO 1200 × 360 / 5000 = 86.4;
+  DIO 600 × 360 / 3000 = 72; DPO 700 × 360 / 2800 = 90; CCC 68.4.'
+input:
+  balances: closing
+  day_basis: '360'
+  income_statement:
+    revenue: '5000'
+    cost_of_sales: '3000'
+    purchases: '2800'
+  closing:
+    trade_receivables: '1200'
+    inventories: '600'
+    trade_payables: '700'
+expect:
+  /days_sales_outstanding/value: '86.4'
+  /days_inventory_outstanding/value: '72'
+  /days_payable_outstanding/value: '90'
+  /cash_conversion_cycle/value: '68.4'
+tolerance: '0.00000000000000000001'

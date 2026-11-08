@@ -1,0 +1,149 @@
+{
+  "$defs": {
+    "Balances": {
+      "description": "Which balance-sheet amounts the ratios use (SPEC-0007 R2). No default: the analyst chooses.",
+      "oneOf": [
+        {
+          "const": "closing",
+          "description": "Balances at the end of the period (`closing`).",
+          "type": "string"
+        },
+        {
+          "const": "average",
+          "description": "Average of the opening and closing balances: (opening + closing) / 2. Needs `opening`.",
+          "type": "string"
+        }
+      ]
+    },
+    "DayBasis": {
+      "description": "Days in the year for day-based ratios (SPEC-0007 R2). No default: the analyst chooses.",
+      "oneOf": [
+        {
+          "const": "360",
+          "description": "A 360-day year.",
+          "type": "string"
+        },
+        {
+          "const": "365",
+          "description": "A 365-day year.",
+          "type": "string"
+        }
+      ]
+    },
+    "WorkingCapitalBalances": {
+      "additionalProperties": false,
+      "description": "Balance-sheet amounts at one date, in currency units.",
+      "properties": {
+        "inventories": {
+          "description": "Inventories, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "trade_payables": {
+          "description": "Trade payables, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "trade_receivables": {
+          "description": "Trade receivables, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "trade_receivables",
+        "inventories",
+        "trade_payables"
+      ],
+      "type": "object"
+    },
+    "WorkingCapitalIncome": {
+      "additionalProperties": false,
+      "description": "Flows of the period, in currency units.",
+      "properties": {
+        "cost_of_sales": {
+          "description": "Cost of sales of the period, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "purchases": {
+          "description": "Purchases of goods and services of the period, in currency units, on the same VAT basis\nas trade payables.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "revenue": {
+          "description": "Revenue of the period, in currency units, on the same VAT basis as trade receivables.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "revenue",
+        "cost_of_sales",
+        "purchases"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:ratios.working_capital:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `ratios.working_capital`.",
+  "properties": {
+    "balances": {
+      "$ref": "#/$defs/Balances",
+      "description": "Balances used by the ratios: `closing`, or `average` of opening and closing."
+    },
+    "closing": {
+      "$ref": "#/$defs/WorkingCapitalBalances",
+      "description": "Balance sheet at the end of the period."
+    },
+    "day_basis": {
+      "$ref": "#/$defs/DayBasis",
+      "description": "Days in the year: \"360\" or \"365\"."
+    },
+    "income_statement": {
+      "$ref": "#/$defs/WorkingCapitalIncome",
+      "description": "Flows of the period (one year)."
+    },
+    "opening": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WorkingCapitalBalances"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Balance sheet at the start of the period. Required with average balances; not used\nwith closing balances."
+    }
+  },
+  "required": [
+    "balances",
+    "day_basis",
+    "income_statement",
+    "closing"
+  ],
+  "title": "WorkingCapitalInput",
+  "type": "object",
+  "x-fairmark-method": "ratios.working_capital",
+  "x-fairmark-method-version": "1"
+}

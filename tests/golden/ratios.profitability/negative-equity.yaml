@@ -1,0 +1,42 @@
+method: ratios.profitability
+description: 'AC3: negative equity makes ROE and the equity multiplier not defined, the others are computed'
+source: 'scripts/reference_ratios.py, profitability (Python decimal, 50 digits, local context), written
+  from the definitions in specs/0007-ratios-covenants/plan.md. Equity -100: ROE and equity multiplier
+  not defined; ROI 500 / 6000.'
+input:
+  balances: closing
+  operating_return_base: total_assets
+  ebitda_definition: reported EBITDA, no adjustments
+  income_statement:
+    revenue: '5000'
+    ebitda: '800'
+    ebit: '500'
+    net_income: '260'
+  closing:
+    equity: '-100'
+    total_assets: '6000'
+    invested_capital: '4000'
+expect:
+  /roe/value: 'null'
+  /roi/value: '0.083333333333333333333333333333333333333333333333333'
+  /roa/value: '0.083333333333333333333333333333333333333333333333333'
+  /ros/value: '0.1'
+  /ebitda_margin/value: '0.16'
+  /ebit_margin/value: '0.1'
+  /capital_turnover/value: '0.83333333333333333333333333333333333333333333333333'
+  /roe_three_factor/net_margin/value: '0.052'
+  /roe_three_factor/asset_turnover/value: '0.83333333333333333333333333333333333333333333333333'
+  /roe_three_factor/equity_multiplier/value: 'null'
+  /roe_three_factor/roe/value: 'null'
+  /roe_leverage/roi/value: 'null'
+  /roe_leverage/cost_of_debt/value: 'null'
+  /roe_leverage/debt_to_equity/value: 'null'
+  /roe_leverage/leverage_effect/value: 'null'
+  /roe_leverage/pre_tax_roe/value: 'null'
+  /roe_leverage/tax_rate/value: 'null'
+  /roe_leverage/roe/value: 'null'
+  /roe/not_defined: equity is negative (-100)
+  /roe_three_factor/equity_multiplier/not_defined: equity is negative (-100)
+  /roe_three_factor/roe/not_defined: equity multiplier is not defined
+  /roi/not_defined: 'null'
+tolerance: '0.00000000000000000001'

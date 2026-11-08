@@ -1,0 +1,28 @@
+# Contract cases for ratios.working_capital: extreme inputs must return a result or a typed
+# error, never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: ratios.working_capital
+extreme_inputs:
+- balances: average
+  day_basis: '365'
+  income_statement: {revenue: '0.0000000000000000000000000001', cost_of_sales: MIN, purchases: MAX}
+  closing: {trade_receivables: MAX, inventories: MAX, trade_payables: MIN}
+  opening: {trade_receivables: MAX, inventories: MIN, trade_payables: MIN}
+- balances: closing
+  day_basis: '360'
+  income_statement: {revenue: MAX, cost_of_sales: '0.0000000000000000000000000001', purchases: MIN}
+  closing: {trade_receivables: MIN, inventories: MAX, trade_payables: MAX}
+conventions:
+- input:
+    balances: closing
+    day_basis: '365'
+    income_statement: {revenue: '5000', cost_of_sales: '3000', purchases: '2800'}
+    closing: {trade_receivables: '1200', inventories: '600', trade_payables: '700'}
+  expect:
+  - balances at closing
+  - 'day basis: 365 days'
+  - DSO on revenue
+  - DIO on cost of sales
+  - DPO on purchases
+  - balances and flows are used as given, so trade receivables and revenue must be stated on the same VAT basis
+  - a ratio with a zero denominator is not defined

@@ -1,0 +1,38 @@
+method: ratios.debt_service
+description: 'Decision 7: negative debt service and negative debt outstanding make DSCR and LLCR not meaningful'
+source: 'scripts/reference_ratios.py, debt_service (Python decimal, 50 digits, local context), written
+  from the definitions in specs/0007-ratios-covenants/plan.md. Debt service -10 in period 1, debt outstanding
+  -100: DSCR of period 1 and LLCR not defined; DSCR of period 2 150 / 100.'
+input:
+  balances: closing
+  ebitda_definition: reported EBITDA, no adjustments
+  interest_definition: gross interest expense
+  income_statement:
+    ebitda: '800'
+    ebit: '500'
+    interest: '100'
+  closing:
+    net_financial_position:
+      gross_debt: '2200'
+      cash: '300'
+      other_items: []
+  debt_schedule:
+    discount_rate: '0.05'
+    debt_outstanding: '-100'
+    periods:
+    - cfads: '120'
+      debt_service: '-10'
+    - cfads: '150'
+      debt_service: '100'
+expect:
+  /net_financial_position: '1900'
+  /interest_cover_ebit/value: '5'
+  /interest_cover_ebitda/value: '8'
+  /nfp_to_ebitda/value: '2.375'
+  /pv_cfads: '250.34013605442176870748299319727891156462585034013'
+  /llcr/value: 'null'
+  /dscr/0/value: 'null'
+  /dscr/1/value: '1.5'
+  /dscr/0/not_defined: debt service is negative (-10)
+  /llcr/not_defined: debt outstanding is negative (-100)
+tolerance: '0.00000000000000000001'

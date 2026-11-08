@@ -1,0 +1,46 @@
+# Contract cases for ratios.capital_structure: extreme inputs must return a result or a typed
+# error, never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: ratios.capital_structure
+extreme_inputs:
+- balances: average
+  closing:
+    equity: MAX
+    total_assets: MIN
+    fixed_assets: MAX
+    non_current_liabilities: MAX
+    net_financial_position:
+      gross_debt: MAX
+      cash: MIN
+      other_items: [{name: a, amount: MAX}, {name: b, amount: MAX}]
+  opening:
+    equity: MAX
+    total_assets: MIN
+    fixed_assets: MIN
+    non_current_liabilities: MAX
+    net_financial_position: {gross_debt: MAX, cash: MAX, other_items: []}
+- balances: closing
+  closing:
+    equity: '0.0000000000000000000000000001'
+    total_assets: '0.0000000000000000000000000001'
+    fixed_assets: '0.0000000000000000000000000001'
+    non_current_liabilities: MAX
+    net_financial_position: {gross_debt: MAX, cash: '0', other_items: []}
+conventions:
+- input:
+    balances: closing
+    closing:
+      equity: '2000'
+      total_assets: '6000'
+      fixed_assets: '3500'
+      non_current_liabilities: '1800'
+      net_financial_position:
+        gross_debt: '2200'
+        cash: '300'
+        other_items: [{name: lease liabilities, amount: '150'}]
+  expect:
+  - balances at closing
+  - net financial position = gross debt − cash + other items, positive for net debt
+  - 'D/E uses gross debt only: cash and the other items of the net financial position are excluded'
+  - a ratio with a zero denominator is not defined
+  - a ratio over equity is not defined when equity is zero or negative

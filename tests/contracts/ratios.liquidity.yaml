@@ -1,0 +1,18 @@
+# Contract cases for ratios.liquidity: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: ratios.liquidity
+extreme_inputs:
+- balances: average
+  closing: {current_assets: MAX, inventories: MIN, cash: MAX, current_liabilities: '0.0000000000000000000000000001'}
+  opening: {current_assets: MAX, inventories: MIN, cash: MAX, current_liabilities: MIN}
+- balances: closing
+  closing: {current_assets: MIN, inventories: MAX, cash: MIN, current_liabilities: MAX}
+conventions:
+- input:
+    balances: average
+    closing: {current_assets: '2500', inventories: '900', cash: '200', current_liabilities: '2000'}
+    opening: {current_assets: '2300', inventories: '850', cash: '150', current_liabilities: '1900'}
+  expect:
+  - balances as the average of opening and closing
+  - a ratio with a zero denominator is not defined

@@ -179,6 +179,11 @@ fairmark verify result.json --input company.json  # reproduce a result bit for b
 | `coc.cost_of_debt` | Available | Cost of debt |
 | `coc.wacc` | Available | Weighted average cost of capital (WACC) |
 | `dcf.fcff` | Preview | DCF — unlevered free cash flow |
+| `ratios.profitability` | Preview | Ratios — profitability |
+| `ratios.capital_structure` | Preview | Ratios — capital structure |
+| `ratios.liquidity` | Preview | Ratios — liquidity |
+| `ratios.working_capital` | Preview | Ratios — working capital |
+| `ratios.debt_service` | Preview | Ratios — debt service |
 | `analysis.goal_seek` | Available | Goal seek |
 | `analysis.sensitivity` | Available | Sensitivity table |
 | `analysis.scenarios` | Available | Scenario analysis |

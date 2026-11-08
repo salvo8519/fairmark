@@ -1,0 +1,39 @@
+method: ratios.profitability
+description: 'AC1 and AC2: every profitability ratio on closing balances, ROI on invested capital'
+source: 'scripts/reference_ratios.py, profitability (Python decimal, 50 digits, local context), written
+  from the definitions in specs/0007-ratios-covenants/plan.md. Closed form: ROE 260 / 2000 = 0.13; ROI
+  500 / 4000 = 0.125; ROS 500 / 5000 = 0.1; EBITDA margin 800 / 5000 = 0.16; capital turnover 5000 / 4000
+  = 1.25; DuPont 0.052 × (5000 / 6000) × 3 = 0.13.'
+input:
+  balances: closing
+  operating_return_base: invested_capital
+  ebitda_definition: reported EBITDA, no adjustments
+  income_statement:
+    revenue: '5000'
+    ebitda: '800'
+    ebit: '500'
+    net_income: '260'
+  closing:
+    equity: '2000'
+    total_assets: '6000'
+    invested_capital: '4000'
+expect:
+  /roe/value: '0.13'
+  /roi/value: '0.125'
+  /roa/value: '0.083333333333333333333333333333333333333333333333333'
+  /ros/value: '0.1'
+  /ebitda_margin/value: '0.16'
+  /ebit_margin/value: '0.1'
+  /capital_turnover/value: '1.25'
+  /roe_three_factor/net_margin/value: '0.052'
+  /roe_three_factor/asset_turnover/value: '0.83333333333333333333333333333333333333333333333333'
+  /roe_three_factor/equity_multiplier/value: '3'
+  /roe_three_factor/roe/value: '0.13000000000000000000000000000000000000000000000000'
+  /roe_leverage/roi/value: 'null'
+  /roe_leverage/cost_of_debt/value: 'null'
+  /roe_leverage/debt_to_equity/value: 'null'
+  /roe_leverage/leverage_effect/value: 'null'
+  /roe_leverage/pre_tax_roe/value: 'null'
+  /roe_leverage/tax_rate/value: 'null'
+  /roe_leverage/roe/value: 'null'
+tolerance: '0.00000000000000000001'

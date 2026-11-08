@@ -1,0 +1,42 @@
+method: ratios.profitability
+description: 'AC2: the same inputs as average-balances, ROI and capital turnover on average invested capital'
+source: 'scripts/reference_ratios.py, profitability (Python decimal, 50 digits, local context), written
+  from the definitions in specs/0007-ratios-covenants/plan.md. Closed form: average invested capital (3800
+  + 4000) / 2 = 3900; ROI 500 / 3900; capital turnover 5000 / 3900; ROE 260 / 1900.'
+input:
+  balances: average
+  operating_return_base: invested_capital
+  ebitda_definition: reported EBITDA, no adjustments
+  income_statement:
+    revenue: '5000'
+    ebitda: '800'
+    ebit: '500'
+    net_income: '260'
+  closing:
+    equity: '2000'
+    total_assets: '6000'
+    invested_capital: '4000'
+  opening:
+    equity: '1800'
+    total_assets: '5600'
+    invested_capital: '3800'
+expect:
+  /roe/value: '0.13684210526315789473684210526315789473684210526316'
+  /roi/value: '0.12820512820512820512820512820512820512820512820513'
+  /roa/value: '0.086206896551724137931034482758620689655172413793103'
+  /ros/value: '0.1'
+  /ebitda_margin/value: '0.16'
+  /ebit_margin/value: '0.1'
+  /capital_turnover/value: '1.2820512820512820512820512820512820512820512820513'
+  /roe_three_factor/net_margin/value: '0.052'
+  /roe_three_factor/asset_turnover/value: '0.86206896551724137931034482758620689655172413793103'
+  /roe_three_factor/equity_multiplier/value: '3.0526315789473684210526315789473684210526315789474'
+  /roe_three_factor/roe/value: '0.13684210526315789473684210526315789473684210526316'
+  /roe_leverage/roi/value: 'null'
+  /roe_leverage/cost_of_debt/value: 'null'
+  /roe_leverage/debt_to_equity/value: 'null'
+  /roe_leverage/leverage_effect/value: 'null'
+  /roe_leverage/pre_tax_roe/value: 'null'
+  /roe_leverage/tax_rate/value: 'null'
+  /roe_leverage/roe/value: 'null'
+tolerance: '0.00000000000000000001'

@@ -1,0 +1,15 @@
+method: ratios.working_capital
+description: 'R2: the day basis is 360 or 365, nothing else'
+source: Constructed. A 364-day basis is not one of the two documented options (FM-E001).
+input:
+  balances: closing
+  day_basis: '364'
+  income_statement:
+    revenue: '5000'
+    cost_of_sales: '3000'
+    purchases: '2800'
+  closing:
+    trade_receivables: '1200'
+    inventories: '600'
+    trade_payables: '700'
+expect_error: FM-E001

@@ -16,7 +16,7 @@ generated from `roadmap/roadmap.yaml`, and a scheduled job reports any differenc
 | --- | --- | --- | --- | --- |
 | M0 · Foundations | A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows. | 0.1.0 | 15 | 2 |
 | M1 · Numerical core | Golden harness green; NPV and IRR validated; property tests running. | 0.1.0 | 12 | 5 |
-| M2 · Complete DCF | DCF passes every golden case provided by practitioners. | 0.1.0 | 9 | 9 |
+| M2 · Complete DCF | DCF passes every golden case provided by practitioners. | 0.1.0 | 10 | 8 |
 | M3 · Agent layer and v0.1 release | An external user completes a DCF with Claude Code or Codex using only the README. | 0.1.0 | 10 | 8 |
 | M4 · Traditional European methods | Golden cases green for every method. | 0.2.0 | 0 | 6 |
 | M5 · Opt-in usage statistics | CI proves the payload carries no financial data; privacy notice reviewed by counsel. | 0.3.0 | 0 | 4 |
@@ -92,7 +92,7 @@ Gate: DCF passes every golden case provided by practitioners.
 | Analysis: goal seek, sensitivity, scenarios, tornado | Draft spec for analysis: goal seek, sensitivity, scenarios, tornado | [#106](https://github.com/salvo8519/fairmark/issues/106) | [0008](https://github.com/salvo8519/fairmark/tree/main/specs) | Done |
 | Analysis: goal seek, sensitivity, scenarios, tornado | Implement analysis.goal_seek with Brent's method on decimals | [#108](https://github.com/salvo8519/fairmark/issues/108) | [0008](https://github.com/salvo8519/fairmark/tree/main/specs) | Done |
 | Analysis: goal seek, sensitivity, scenarios, tornado | Sensitivity tables, scenarios and tornado (SPEC-0008 R15 to R22) | [#116](https://github.com/salvo8519/fairmark/issues/116) | [0008](https://github.com/salvo8519/fairmark/tree/main/specs) | Done |
-| Financial ratios and covenants | Ratios and covenants: profitability, capital structure, liquidity, working capital, debt service (SPEC-0007) | [#114](https://github.com/salvo8519/fairmark/issues/114) | [0007](https://github.com/salvo8519/fairmark/tree/main/specs) | Open |
+| Financial ratios and covenants | Ratios: profitability, capital structure, liquidity, working capital, debt service (SPEC-0007) | [#114](https://github.com/salvo8519/fairmark/issues/114) | [0007](https://github.com/salvo8519/fairmark/tree/main/specs) | Done |
 | Financial ratios and covenants | Covenant tests on contractual definitions | [#147](https://github.com/salvo8519/fairmark/issues/147) | [0007](https://github.com/salvo8519/fairmark/tree/main/specs) | Open |
 
 ### M3 · Agent layer and v0.1 release

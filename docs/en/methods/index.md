@@ -22,6 +22,11 @@ page. The [methods reference](../reference/methods.md) lists every input.
 | [`coc.cost_of_debt`](coc-cost-of-debt.md) | available | Pre-tax and after-tax cost of debt |
 | [`coc.wacc`](coc-wacc.md) | available | Weighted average cost of capital at a target capital structure |
 | [`dcf.fcff`](dcf-fcff.md) | preview | Enterprise and equity value from unlevered free cash flows |
+| [`ratios.profitability`](ratios-profitability.md) | preview | ROE, ROI, ROA, ROS, margins, capital turnover and the ROE decomposition in three factors and in the leverage form |
+| [`ratios.capital_structure`](ratios-capital-structure.md) | preview | Debt to equity, net financial position to equity, equity ratio, structure margins and fixed-asset coverage |
+| [`ratios.liquidity`](ratios-liquidity.md) | preview | Current, quick and cash ratios, net working capital and treasury margin |
+| [`ratios.working_capital`](ratios-working-capital.md) | preview | Days sales, inventory and payable outstanding and the cash conversion cycle |
+| [`ratios.debt_service`](ratios-debt-service.md) | preview | Interest cover, net financial position to EBITDA, DSCR per period and LLCR |
 | [`analysis.goal_seek`](analysis-goal-seek.md) | available | Value of one input of any method at which one of its outputs equals a target |
 | [`analysis.sensitivity`](analysis-sensitivity.md) | available | One output of any method across a one-way or two-way table of input values |
 | [`analysis.scenarios`](analysis-scenarios.md) | available | Outputs of any method under named cases, with deltas against the base case |

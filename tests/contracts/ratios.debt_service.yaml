@@ -1,0 +1,100 @@
+# Contract cases for ratios.debt_service: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: ratios.debt_service
+extreme_inputs:
+- balances: average
+  ebitda_definition: extreme
+  interest_definition: extreme
+  income_statement: {ebitda: '0.0000000000000000000000000001', ebit: MAX, interest: MIN}
+  closing:
+    net_financial_position: {gross_debt: MAX, cash: MIN, other_items: [{name: a, amount: MAX}]}
+  opening:
+    net_financial_position: {gross_debt: MAX, cash: MIN, other_items: []}
+  debt_schedule:
+    discount_rate: '-0.9999999999999999999999999999'
+    debt_outstanding: '0.0000000000000000000000000001'
+    periods: [{cfads: MAX, debt_service: '0.0000000000000000000000000001'}, {cfads: MAX, debt_service: MIN}]
+- balances: closing
+  ebitda_definition: extreme
+  interest_definition: extreme
+  income_statement: {ebitda: MIN, ebit: MIN, interest: '0.0000000000000000000000000001'}
+  closing:
+    net_financial_position: {gross_debt: MIN, cash: MAX, other_items: []}
+  debt_schedule:
+    discount_rate: MAX
+    debt_outstanding: MIN
+    periods: [{cfads: MIN, debt_service: MAX}]
+- balances: closing
+  ebitda_definition: extreme
+  interest_definition: extreme
+  income_statement: {ebitda: '1', ebit: '1', interest: '1'}
+  closing:
+    net_financial_position: {gross_debt: '1', cash: '0', other_items: []}
+  debt_schedule:
+    discount_rate: '-1'
+    debt_outstanding: '1'
+    periods: [{cfads: '1', debt_service: '1'}]
+- balances: closing
+  ebitda_definition: extreme
+  interest_definition: extreme
+  income_statement: {ebitda: MAX, ebit: MAX, interest: '0.0000000000000000000000000001'}
+  closing:
+    net_financial_position: {gross_debt: MAX, cash: '0', other_items: []}
+  debt_schedule:
+    discount_rate: '0'
+    debt_outstanding: '0.0000000000000000000000000001'
+    reserve_balance: MAX
+    periods: [{cfads: MAX, debt_service: '1'}]
+- balances: closing
+  ebitda_definition: extreme
+  interest_definition: extreme
+  income_statement: {ebitda: MIN, ebit: MIN, interest: MIN}
+  closing:
+    net_financial_position: {gross_debt: MIN, cash: MAX, other_items: []}
+conventions:
+- input:
+    balances: closing
+    ebitda_definition: reported EBITDA, no adjustments
+    interest_definition: gross interest expense
+    income_statement: {ebitda: '800', ebit: '500', interest: '100'}
+    closing:
+      net_financial_position: {gross_debt: '2200', cash: '300', other_items: []}
+    debt_schedule:
+      discount_rate: '0.06'
+      debt_outstanding: '1000'
+      periods: [{cfads: '320', debt_service: '250'}, {cfads: '330', debt_service: '250'}]
+  expect:
+  - balances at closing
+  - 'EBITDA as given: reported EBITDA, no adjustments'
+  - net financial position = gross debt − cash + other items, positive for net debt
+  - CFADS discounted at the end of each period at 0.06 per period, the cost of debt chosen by the analyst
+  - 'no reserve balance given: LLCR on CFADS only'
+  - LLCR over the 2 periods of the schedule, debt outstanding at the start of the first period
+  - 'interest as given: gross interest expense'
+  - debt service as given
+  - a ratio with a zero denominator is not defined
+- input:
+    balances: closing
+    ebitda_definition: reported EBITDA, no adjustments
+    interest_definition: gross interest expense
+    income_statement: {ebitda: '800', ebit: '500', interest: '100'}
+    closing:
+      net_financial_position: {gross_debt: '2200', cash: '300', other_items: []}
+  expect:
+  - 'DSCR and LLCR not defined: no debt schedule given'
+  - 'not meaningful, so not defined: an interest cover when interest or its numerator (EBIT or EBITDA) is zero or negative'
+- input:
+    balances: closing
+    ebitda_definition: reported EBITDA, no adjustments
+    interest_definition: gross interest expense
+    income_statement: {ebitda: '800', ebit: '500', interest: '100'}
+    closing:
+      net_financial_position: {gross_debt: '2200', cash: '300', other_items: []}
+    debt_schedule:
+      discount_rate: '0.06'
+      debt_outstanding: '1000'
+      reserve_balance: '100'
+      periods: [{cfads: '250', debt_service: '200'}]
+  expect:
+  - reserve balance 100 added undiscounted to the LLCR numerator

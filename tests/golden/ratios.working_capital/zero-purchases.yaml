@@ -1,0 +1,23 @@
+method: ratios.working_capital
+description: 'AC3: zero purchases make DPO and the cash conversion cycle not defined'
+source: scripts/reference_ratios.py, working_capital (Python decimal, 50 digits, local context), written
+  from the definitions in specs/0007-ratios-covenants/plan.md. Purchases 0.
+input:
+  balances: closing
+  day_basis: '365'
+  income_statement:
+    revenue: '5000'
+    cost_of_sales: '3000'
+    purchases: '0'
+  closing:
+    trade_receivables: '1200'
+    inventories: '600'
+    trade_payables: '700'
+expect:
+  /days_sales_outstanding/value: '87.6'
+  /days_inventory_outstanding/value: '73'
+  /days_payable_outstanding/value: 'null'
+  /cash_conversion_cycle/value: 'null'
+  /days_payable_outstanding/not_defined: purchases is zero
+  /cash_conversion_cycle/not_defined: days payable outstanding is not defined
+tolerance: '0.00000000000000000001'
