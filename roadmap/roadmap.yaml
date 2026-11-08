@@ -83,6 +83,10 @@ milestones:
         tasks:
           - { issue: 16, title: "Issue forms: bug, method request, numerical discrepancy", tags: [gfi], status: done }
           - { issue: 17, title: "Labels, GitHub Project board, Discussions", tags: [parallel], status: open }
+      - title: "Documentation"
+        labels: []
+        tasks:
+          - { issue: 185, title: "README explains method status and shows Italian method titles", status: open }
 
   - title: "M1 · Numerical core"
     gate: "Golden harness green; NPV and IRR validated; property tests running."
