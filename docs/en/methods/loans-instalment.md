@@ -102,8 +102,8 @@ assert same.instalment == again.instalment
 | Rate zero | limit form $(P - B) / n$, shown as a separate step | applied when $i = 0$ |
 
 With rounding, the last instalment of a real schedule differs from the others by the
-accumulated rounding (the final-period adjustment). `total_paid` here uses the rounded
-instalment for every period.
+accumulated rounding: [`loans.amortisation_schedule`](loans-amortisation-schedule.md) computes
+that final-period adjustment. `total_paid` here uses the rounded instalment for every period.
 
 ## Errors
 

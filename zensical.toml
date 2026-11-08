@@ -51,6 +51,7 @@ nav = [
     "methods/tvm-future-value.md",
     "methods/loans-instalment.md",
     "methods/loans-number-of-instalments.md",
+    "methods/loans-amortisation-schedule.md",
     "methods/coc-cost-of-equity.md",
     "methods/coc-beta-relever.md",
     "methods/coc-beta-peers.md",

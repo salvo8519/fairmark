@@ -19,6 +19,7 @@ page. The [methods reference](../reference/methods.md) lists every input.
 | [`tvm.future_value`](tvm-future-value.md) | available | Future value of a present amount and level payments |
 | [`loans.instalment`](loans-instalment.md) | available | Constant instalment of a loan, with an optional balloon amount and rounding |
 | [`loans.number_of_instalments`](loans-number-of-instalments.md) | available | Number of instalments that repays a loan and the reduced final instalment |
+| [`loans.amortisation_schedule`](loans-amortisation-schedule.md) | available | Amortisation schedule: French, constant principal or bullet, with grace period, balloon and rounding |
 | [`coc.cost_of_equity`](coc-cost-of-equity.md) | available | Cost of equity by CAPM with explicit country, size and specific premia |
 | [`coc.beta_relever`](coc-beta-relever.md) | available | Levered beta from an unlevered beta, or the reverse (Hamada, Harris-Pringle) |
 | [`coc.beta_peers`](coc-beta-peers.md) | available | Mean and median unlevered beta of comparables, relevered to a target structure |

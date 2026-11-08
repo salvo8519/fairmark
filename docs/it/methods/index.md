@@ -1,6 +1,6 @@
 ---
 source: methods/index.md
-source_hash: 81651d7795cf
+source_hash: 0b9e9aa9fbbb
 ---
 # Metodi
 
@@ -24,6 +24,7 @@ elenca tutti gli input.
 | [`tvm.future_value`](tvm-future-value.md) | Disponibile | Valore futuro (montante) di un importo attuale e di pagamenti costanti |
 | [`loans.instalment`](loans-instalment.md) | Disponibile | Rata costante di un finanziamento, con balloon e arrotondamento facoltativi |
 | [`loans.number_of_instalments`](loans-number-of-instalments.md) | Disponibile | Numero delle rate che rimborsa un finanziamento e ultima rata ridotta |
+| [`loans.amortisation_schedule`](loans-amortisation-schedule.md) | Disponibile | Piano di ammortamento alla francese, all'italiana o bullet, con preammortamento, balloon e arrotondamento |
 | [`coc.cost_of_equity`](coc-cost-of-equity.md) | Disponibile | Costo del capitale proprio con il CAPM e premi espliciti per rischio paese, dimensione e rischio specifico |
 | [`coc.beta_relever`](coc-beta-relever.md) | Disponibile | Beta levered da un beta unlevered, o viceversa (Hamada, Harris-Pringle) |
 | [`coc.beta_peers`](coc-beta-peers.md) | Disponibile | Beta unlevered medio e mediano delle società comparabili, con relevering alla struttura finanziaria obiettivo |

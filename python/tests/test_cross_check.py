@@ -212,3 +212,18 @@ def test_future_value_agrees_with_numpy_financial() -> None:
             ).future_value  # type: ignore[arg-type]
             theirs = -npf.fv(float(rate), periods, float(pmt), float(pv), when)
             assert close(ours, theirs), f"{rate} {periods} {pv} {pmt} {timing}"
+
+
+def test_french_schedule_agrees_with_numpy_financial() -> None:
+    """SPEC-0009 R13: interest and principal portions against numpy_financial.ipmt and ppmt."""
+    for _ in range(50):
+        principal, i, n = random_loan()
+        schedule = fm.loans.amortisation_schedule(
+            principal, n, periodic_rate=i, amortisation_type="french", timing="ordinary"
+        )
+        for row in schedule.rows:
+            k = row["period"]
+            interest = -float(npf.ipmt(float(i), k, n, float(principal)))
+            principal_portion = -float(npf.ppmt(float(i), k, n, float(principal)))
+            assert close(row["interest_portion"], interest), f"{principal} {i} {n} {k}"
+            assert close(row["principal_portion"], principal_portion), f"{principal} {i} {n} {k}"

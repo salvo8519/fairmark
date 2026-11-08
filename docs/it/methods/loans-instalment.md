@@ -1,6 +1,6 @@
 ---
 source: methods/loans-instalment.md
-source_hash: ef81d242995e
+source_hash: 4c23dbb99426
 ---
 # Rata di un finanziamento (`loans.instalment`)
 
@@ -109,8 +109,9 @@ assert same.instalment == again.instalment
 | Tasso zero | forma limite $(P - B) / n$, mostrata come passaggio separato | applicata quando $i = 0$ |
 
 Con l'arrotondamento, l'ultima rata di un piano effettivo differisce dalle altre per
-l'arrotondamento accumulato (la rettifica dell'ultima rata). Qui `total_paid` usa la rata
-arrotondata per ogni periodo.
+l'arrotondamento accumulato: [`loans.amortisation_schedule`](loans-amortisation-schedule.md)
+calcola questa rettifica dell'ultima rata. Qui `total_paid` usa la rata arrotondata per ogni
+periodo.
 
 ## Errori
 

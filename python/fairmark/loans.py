@@ -103,3 +103,46 @@ def number_of_instalments(
         **_rate_form(rate, compounding, payment_frequency, periodic_rate),
     }
     return run("loans.number_of_instalments", payload)
+
+
+def amortisation_schedule(
+    principal: Number,
+    number_of_instalments: int,
+    *,
+    amortisation_type: Literal["french", "fixed_amortisation_schedule", "bullet"],
+    timing: Timing,
+    rate: Number | None = None,
+    compounding: Compounding | None = None,
+    payment_frequency: PaymentFrequency | None = None,
+    periodic_rate: Number | None = None,
+    principal_grace_periods: int | None = None,
+    balloon_amount: Number | None = None,
+    decimal_places: int | None = None,
+    rounding_mode: RoundingMode | None = None,
+) -> Result:
+    """Amortisation schedule: one row per period with instalment, interest portion, principal
+    portion and outstanding balance, the totals and the final-period adjustment.
+
+    ``amortisation_type`` is ``french`` (constant instalment), ``fixed_amortisation_schedule``
+    (constant principal portion) or ``bullet`` (principal repaid with the last instalment).
+    Version 1 supports payments in arrears only: ``timing="ordinary"`` (``"due"`` is refused
+    with ``FM-E001``).
+
+    >>> s = amortisation_schedule(120000, 8, periodic_rate="0.015", timing="ordinary",
+    ...                           amortisation_type="fixed_amortisation_schedule")
+    >>> s.rows[0]["instalment"], s.totals["interest"]
+    (Decimal('16800.000'), Decimal('8100.000'))
+    """
+    payload: dict[str, Any] = {
+        "principal": principal,
+        "number_of_instalments": number_of_instalments,
+        "timing": timing,
+        "amortisation_type": amortisation_type,
+        **_rate_form(rate, compounding, payment_frequency, periodic_rate),
+        **_rounding(decimal_places, rounding_mode),
+    }
+    if principal_grace_periods is not None:
+        payload["principal_grace_periods"] = principal_grace_periods
+    if balloon_amount is not None:
+        payload["balloon_amount"] = balloon_amount
+    return run("loans.amortisation_schedule", payload)
