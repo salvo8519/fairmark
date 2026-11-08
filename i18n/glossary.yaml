@@ -177,6 +177,9 @@ terms:
   relative headroom: headroom relativo
   equity cure: equity cure
   step-down (covenant threshold): step-down (riduzione programmata della soglia)
+  contractual rounding: arrotondamento contrattuale
+  half up (rounding): half_up (le metà si arrotondano allontanandosi dallo zero)
+  half even (rounding): half_even (le metà si arrotondano alla cifra pari)
   return on assets (ROA): ROA (redditività dell'attivo)
   leverage form (ROE decomposition): forma con leva finanziaria
   leverage effect: effetto leva
