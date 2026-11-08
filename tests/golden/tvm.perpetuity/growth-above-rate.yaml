@@ -1,0 +1,5 @@
+method: tvm.perpetuity
+description: Growth strictly above the rate has no finite value
+source: Gordon (1959), the growing perpetuity P / (r - g) converges only when g < r; SPEC-0002 R12. Added for issue #176.
+input: { payment: "100", rate: "0.05", growth: "0.06", timing: ordinary }
+expect_error: FM-E004
