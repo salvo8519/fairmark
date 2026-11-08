@@ -1,6 +1,6 @@
 # ADR 0011 — Release notes are translated with each fragment
 
-Status: proposed · 2026-11-08
+Status: accepted · 2026-11-08 (maintainer decision on #162)
 
 ## Context
 Fairmark is written for Italian analysts and SMEs. The documentation has an English source and
