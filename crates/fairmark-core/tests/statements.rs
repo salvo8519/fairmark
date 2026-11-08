@@ -514,6 +514,34 @@ fn the_reclassified_totals_of_lists_and_excess_cash_are_steps() {
     }
 }
 
+// ---------------------------------------------------------------- R15: current and non-current
+
+/// Review of PR 1 (item 10): the block uses the totals given (B, C, total assets) when their
+/// components are not all given, with item A deducted as everywhere else (D1).
+#[test]
+fn current_non_current_uses_the_totals_given() {
+    let mut input = golden_input("balance-sheet-ordinary");
+    let bs = &mut input["years"][0]["statutory"]["balance_sheet"];
+    let m = bs.as_object_mut().unwrap();
+    m.remove("intangible_assets");
+    m.remove("cash");
+    m.insert("subscribed_capital_unpaid".into(), json!("0"));
+    let out = run(&input);
+    let cnc = &out["value"]["years"][0]["current_non_current"];
+    assert_eq!(cnc["fixed_assets"], "1220000");
+    assert_eq!(cnc["current_assets"], "1630000");
+    assert_eq!(cnc["total_assets"], "2850000");
+    let mut input = golden_input("balance-sheet-ordinary");
+    let bs = &mut input["years"][0]["statutory"]["balance_sheet"];
+    let m = bs.as_object_mut().unwrap();
+    m.remove("fixed_assets");
+    m.remove("tangible_assets");
+    let out = run(&input);
+    let cnc = &out["value"]["years"][0]["current_non_current"];
+    assert!(cnc["fixed_assets"].is_null());
+    assert_eq!(cnc["total_assets"], "2850000");
+}
+
 // ---------------------------------------------------------------- R5: the reclassified form
 
 /// Review of PR 1 (item 5): an output that only the statutory form gives is listed without a

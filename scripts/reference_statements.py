@@ -1105,14 +1105,14 @@ def statutory_balance_sheet(inp: dict[str, Any], i: int) -> dict[str, Any]:
     e_b = beyond_or(bs, "accruals_and_deferred_income", e_sep, ZERO_IF_ABSENT)
     prov_nc = beyond_or(bs, "provisions", prov, WHOLE_IF_ABSENT)
     tfr_nc = beyond_or(bs, "employee_severance_indemnity", tfr, WHOLE_IF_ABSENT)
-    fixed = plus(b1, b2, b3, rec_b, d_b)
+    # Totals given (B, C, total assets) stand in for their components (review of PR 1).
+    b_whole = opt(bs, "fixed_assets") if "fixed_assets" in bs else plus(b1, b2, b3)
+    c_whole = opt(bs, "current_assets") if "current_assets" in bs else plus(c1, c2, c3, c4)
+    fixed = plus(b_whole, rec_b, d_b)
     current = total(
-        (1, c1),
-        (1, c2),
+        (1, c_whole),
         (-1, rec_b),
         (-1, known(a_within)),
-        (1, c3),
-        (1, c4),
         (1, d_sep),
         (-1, d_b),
     )
@@ -1132,7 +1132,11 @@ def statutory_balance_sheet(inp: dict[str, Any], i: int) -> dict[str, Any]:
         "current_assets": current,
         "inventories": c1,
         "cash": c4,
-        "total_assets": plus(fixed, current),
+        "total_assets": (
+            total((1, opt(bs, "total_assets")), (-1, a_total))
+            if "total_assets" in bs
+            else plus(fixed, current)
+        ),
         "current_liabilities": cur_liab,
         "non_current_liabilities": nc_liab,
     }

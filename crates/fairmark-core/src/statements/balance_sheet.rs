@@ -1282,31 +1282,39 @@ pub(crate) fn statutory(
         true,
     );
     let tfr_nc = r.beyond_or(bs.employee_severance_indemnity.as_ref(), &tfr, true);
-    let fixed = total(
-        ex,
-        &format!("Non-current assets ({year})"),
-        &[
+    // Review of PR 1 (item 10): totals given (B, C, total assets) stand in for their
+    // components; R7 has checked them against the components when both are given.
+    let b_given = bs.fixed_assets.map(Partial::Known);
+    let mut fixed_terms: Vec<(Sign, &str, &Partial)> = match &b_given {
+        Some(b) => vec![(Plus, "total B", b)],
+        None => vec![
             (Plus, "B.I", &b1),
             (Plus, "B.II", &b2),
             (Plus, "B.III", &b3),
-            (Plus, "C.II beyond one year", &rec_b),
-            (Plus, "assets D beyond one year", &d_b),
         ],
-    )?;
-    let current = total(
-        ex,
-        &format!("Current assets ({year})"),
-        &[
+    };
+    fixed_terms.extend([
+        (Plus, "C.II beyond one year", &rec_b),
+        (Plus, "assets D beyond one year", &d_b),
+    ]);
+    let fixed = total(ex, &format!("Non-current assets ({year})"), &fixed_terms)?;
+    let c_given = bs.current_assets.map(Partial::Known);
+    let mut current_terms: Vec<(Sign, &str, &Partial)> = match &c_given {
+        Some(c) => vec![(Plus, "total C", c)],
+        None => vec![
             (Plus, "C.I", &c1),
             (Plus, "C.II", &c2),
-            (Minus, "C.II beyond one year", &rec_b),
-            (Minus, "assets A within C.II", &a_within_v),
             (Plus, "C.III", &c3),
             (Plus, "C.IV", &c4),
-            (Plus, "assets D", &d_sep),
-            (Minus, "assets D beyond one year", &d_b),
         ],
-    )?;
+    };
+    current_terms.extend([
+        (Minus, "C.II beyond one year", &rec_b),
+        (Minus, "assets A within C.II", &a_within_v),
+        (Plus, "assets D", &d_sep),
+        (Minus, "assets D beyond one year", &d_b),
+    ]);
+    let current = total(ex, &format!("Current assets ({year})"), &current_terms)?;
     let cur_liab = total(
         ex,
         &format!("Current liabilities ({year})"),
@@ -1331,13 +1339,21 @@ pub(crate) fn statutory(
             (Plus, "liabilities E beyond one year", &e_b),
         ],
     )?;
+    let ta_given = bs.total_assets.map(Partial::Known);
     let total_assets = total(
         ex,
         &format!("Total assets less subscribed capital unpaid ({year})"),
-        &[
-            (Plus, "non-current assets", &fixed),
-            (Plus, "current assets", &current),
-        ],
+        &match &ta_given {
+            Some(ta) => vec![
+                (Plus, "total assets", ta),
+                (Minus, "assets A", &a_sep),
+                (Minus, "assets A within C.II", &a_within_v),
+            ],
+            None => vec![
+                (Plus, "non-current assets", &fixed),
+                (Plus, "current assets", &current),
+            ],
+        },
     )?;
 
     let mut out = Outputs::new(i, permits);
