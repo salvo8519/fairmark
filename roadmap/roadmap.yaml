@@ -138,9 +138,12 @@ milestones:
         issue: 37
         labels: ["area:core", "method:dcf"]
         tasks:
-          - { issue: 38, title: "FCFF and FCFE build-up: working capital, capex, notional taxes on EBIT", spec: "0001", status: open }
+          - { issue: 38, title: "Free cash flow build-up from EBIT, taxes, capex and working capital (dcf.free_cash_flows)", spec: "0001", status: open }
           - { issue: 97, title: "Draft specs for cost of capital, multi-stage DCF and Italian valuation methods", spec: "0001", status: done }
-          - { issue: 110, title: "Parametric stages: explicit stage lengths, optional growth and inflation, nominal and real conversions", tags: [needs-methodology], spec: "0001", status: open }
+          - { issue: 110, title: "Parametric stages on the shared DCF engine (dcf.fcff v3)", spec: "0001", status: open }
+          - { issue: 164, title: "Approve SPEC-0001: free cash flows, stages, terminal value and equity bridge", spec: "0001", status: done }
+          - { issue: 165, title: "Free cash flow to equity on the shared DCF engine (dcf.fcfe)", spec: "0001", status: open }
+          - { issue: 166, title: "Nominal and real terms in the DCF: basis check and rate conversion", spec: "0001", status: open }
       - title: "Cost of capital"
         issue: 39
         labels: ["area:core", "method:dcf"]
@@ -152,8 +155,8 @@ milestones:
         issue: 42
         labels: ["area:core", "method:dcf"]
         tasks:
-          - { issue: 43, title: "Exit-multiple terminal value; configurable terminal value timing", tags: [parallel], spec: "0006", status: open }
-          - { issue: 44, title: "EV to equity: minorities, surplus assets, debt-like items", tags: [parallel], status: open }
+          - { issue: 43, title: "Terminal value inside the DCF: technique and discounting time", tags: [parallel], spec: "0001", status: open }
+          - { issue: 44, title: "From enterprise value to equity value: non-operating assets, debt-like items, non-controlling interests", tags: [parallel], spec: "0001", status: open }
           - { issue: 45, title: "Deterministic WACC × g sensitivity grid", tags: [gfi], spec: "0008", status: done }
           - { issue: 101, title: "Draft specs for terminal value methods and financial ratios with covenants", spec: "0006", status: done }
           - { issue: 115, title: "Terminal value building blocks tv.* (SPEC-0006)", spec: "0006", status: done }
@@ -287,3 +290,4 @@ milestones:
           - { issue: 90, title: "Hosted MCP with API key and free tier", tags: [maintainer], status: open }
           - { issue: 91, title: "External methodological review", tags: [maintainer], status: open }
           - { issue: 92, title: "Jurisdiction profiles and translated manuals", tags: [parallel], status: open }
+          - { issue: 167, title: "Dated periods and a stub first period in the DCF", spec: "0001", status: open }
