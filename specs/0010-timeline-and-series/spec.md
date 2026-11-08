@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Status | Approved |
+| Status | Implementing — approved by the maintainer on 2026-11-08 |
 | Approval | Approved by the maintainer on 2026-11-08 |
 | Revision | 4, 2026-11-08: open questions 1 to 8 resolved with the recommendations; period length given as a named frequency or as a number of months (Decision F) |
 | Milestone | M1 |

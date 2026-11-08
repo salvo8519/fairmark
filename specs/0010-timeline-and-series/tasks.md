@@ -7,7 +7,7 @@ parallel; tick a task only when `just check` passes. Commits cite the requiremen
 golden file is edited; if a task would change one, stop and ask the maintainer.
 
 ## Preparation
-- [ ] T1 Move the spec Status to `Implementing`; add `series` to the commit scopes of
+- [x] T1 Move the spec Status to `Implementing`; add `series` to the commit scopes of
       `scripts/conventions.py` (and its test).
 - [ ] T2 Oracle dependencies: QuantLib-Python and python-dateutil pinned to exact versions in the
       `oracles` dependency group (`pyproject.toml`, `uv.lock`), per
