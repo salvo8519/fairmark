@@ -489,13 +489,18 @@ fn resolve_rates(r: &RateInput<'_>, n: usize) -> Result<(Vec<Decimal>, Decimal, 
                 Some(_) => format!("/{}", f.single),
                 None => format!("/{}/{k}", f.per_period),
             };
-            return Err(FairmarkError::DiscountRateOutOfRange { field, rate: *rate });
+            return Err(FairmarkError::DiscountRateOutOfRange {
+                field,
+                rate: *rate,
+                converted_with: None,
+            });
         }
     }
     if terminal <= -Decimal::ONE {
         return Err(FairmarkError::DiscountRateOutOfRange {
             field: terminal_field,
             rate: terminal,
+            converted_with: None,
         });
     }
     Ok((rates, terminal, terminal_field))
@@ -622,8 +627,10 @@ struct RatesUsed {
     per_period: Vec<(Decimal, Option<(Decimal, String)>)>,
     terminal: Decimal,
     terminal_formula: Option<String>,
-    /// The terminal rate field as named in errors, "converted" when it was.
+    /// JSON pointer of the terminal rate as given.
     terminal_field: String,
+    /// JSON pointer of the inflation the terminal rate was converted with, if it was.
+    terminal_converted_with: Option<String>,
 }
 
 /// R14 to R16, R18: equal terms use the rates as given; different terms are refused without
@@ -653,6 +660,16 @@ fn resolve_terms(
         None => {}
     }
     if flows == given {
+        if let Some(i) = inflation.filter(|i| !i.single) {
+            let values: Vec<String> = i.per_period.iter().map(Decimal::to_string).collect();
+            ex.convention(format!(
+                "expected inflation per period ({}) validated but not used: the terms are \
+                 equal, no discount rate is converted (R18); only the terminal inflation {} \
+                 restates the perpetual growth",
+                values.join(", "),
+                i.terminal
+            ));
+        }
         ex.convention(match inflation {
             None => format!(
                 "terms: cash flows and growth rates {}, discount rates {}; same terms, no \
@@ -674,6 +691,7 @@ fn resolve_terms(
             terminal: terminal_rate,
             terminal_formula: None,
             terminal_field: terminal_field.to_owned(),
+            terminal_converted_with: None,
         });
     }
     let Some(inflation) = inflation else {
@@ -709,24 +727,21 @@ fn resolve_terms(
                 None => format!("/{}/{k}", f.per_period),
             };
             return Err(FairmarkError::DiscountRateOutOfRange {
-                field: format!(
-                    "{field}` converted with `{}` (period {})",
-                    inflation.field(Some(k)),
-                    k + 1
-                ),
+                field,
                 rate: used,
+                converted_with: Some(inflation.field(Some(k)).into()),
             });
         }
         per_period.push((used, Some((*infl, formula))));
     }
     let (used, formula) = fisher(terminal_rate, inflation.terminal, flows)?;
-    let field = format!(
-        "{terminal_field}` converted to {} terms with `{}",
-        flows.label(),
-        inflation.field(None)
-    );
+    let converted_with = inflation.field(None);
     if used <= -Decimal::ONE {
-        return Err(FairmarkError::DiscountRateOutOfRange { field, rate: used });
+        return Err(FairmarkError::DiscountRateOutOfRange {
+            field: terminal_field.to_owned(),
+            rate: used,
+            converted_with: Some(converted_with.as_str().into()),
+        });
     }
     Ok(RatesUsed {
         conversion: match flows {
@@ -736,7 +751,8 @@ fn resolve_terms(
         per_period,
         terminal: used,
         terminal_formula: Some(formula),
-        terminal_field: field,
+        terminal_field: terminal_field.to_owned(),
+        terminal_converted_with: Some(converted_with.as_str().into()),
     })
 }
 
@@ -1023,6 +1039,7 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
         input.terminal,
         terminal_rate,
         &used.terminal_field,
+        used.terminal_converted_with.as_deref(),
         input.basis,
     )?;
     let rates: Vec<Decimal> = used.per_period.iter().map(|(r, _)| *r).collect();
@@ -1032,12 +1049,20 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
          annual effective",
         input.stages.len()
     ));
+    let as_given = match used.conversion {
+        RateConversion::None => String::new(),
+        _ => format!(
+            " (as given, in {} terms)",
+            input.discount_rate_terms.label()
+        ),
+    };
     ex.convention(match input.rates.single {
-        Some(r) => {
-            format!("discount rate: one rate, {r}, for every period and for the terminal value")
-        }
+        Some(r) => format!(
+            "discount rate: one rate, {r}, for every period and for the terminal value{as_given}"
+        ),
         None => format!(
-            "discount rate: one rate per period; terminal rate {terminal_given} given separately"
+            "discount rate: one rate per period; terminal rate {terminal_given} given \
+             separately{as_given}"
         ),
     });
     ex.convention(format!(
@@ -1197,6 +1222,7 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
             last_growth: last.growth,
             ends: &ends,
             g_n: growth_factors[n],
+            converted_with: used.terminal_converted_with.as_deref(),
         },
     )?;
     Ok(EngineOutput {
@@ -1498,7 +1524,7 @@ mod tests {
                     );
                 }),
                 "FM-E004",
-                "`/wacc` converted to real terms with `/inflation`",
+                "`/wacc` (converted to the terms of the cash flows with `/inflation`)",
             ),
         ];
         for (input, code, pointer) in cases {
@@ -1506,6 +1532,129 @@ mod tests {
             assert_eq!(e.code(), code, "{e}");
             assert!(e.to_string().contains(pointer), "{pointer}: {e}");
         }
+    }
+
+    /// R13, R27: a converted rate keeps its plain JSON pointer in `field`; the inflation it was
+    /// converted with is a separate context, and the fixes name it. A converted rate of -1 is
+    /// reachable when the quotient underflows the decimal range.
+    #[test]
+    fn converted_rate_errors_carry_the_inflation_as_context() {
+        use crate::FairmarkError;
+        let growth = err(&with(base(), |m| {
+            m.insert("wacc".into(), json!("0.05"));
+            m.insert("inflation".into(), json!("0.03"));
+            m.insert(
+                "terminal".into(),
+                json!({"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}),
+            );
+        }));
+        match &growth {
+            FairmarkError::GrowthNotBelowTerminalRate {
+                rate_field,
+                converted_with,
+                ..
+            } => {
+                assert_eq!(rate_field, "/wacc");
+                assert_eq!(converted_with.as_deref(), Some("/inflation"));
+            }
+            other => panic!("{other:?}"),
+        }
+        assert!(growth.to_string().ends_with(
+            "lower the growth or check the rate, or check the expected inflation `/inflation`"
+        ));
+        // Without conversion the message is unchanged.
+        let plain = err(&with(base(), |m| {
+            m.insert("discount_rate_terms".into(), json!("real"));
+            m.insert("wacc".into(), json!("0.01"));
+        }));
+        assert_eq!(plain.code(), "FM-E004");
+        assert!(!plain.to_string().contains("inflation"), "{plain}");
+
+        // (1 + r) / (1 + i) with 1 + r = 1e-28 and i = 1e10 underflows to 0: rate used -1.
+        let tiny = "-0.9999999999999999999999999999";
+        let period = err(&with(base(), |m| {
+            m.insert("wacc".into(), json!(tiny));
+            m.insert("inflation".into(), json!("10000000000"));
+        }));
+        match &period {
+            FairmarkError::DiscountRateOutOfRange {
+                field,
+                converted_with,
+                ..
+            } => {
+                assert_eq!(field, "/wacc");
+                assert_eq!(converted_with.as_deref(), Some("/inflation"));
+            }
+            other => panic!("{other:?}"),
+        }
+        assert!(period.to_string().contains(
+            "`/wacc` (converted to the terms of the cash flows with `/inflation`) is -1"
+        ));
+        let terminal = err(&with(base(), |m| {
+            m.remove("wacc");
+            m.insert("wacc_per_period".into(), json!(["0.1", "0.1", "0.1"]));
+            m.insert("terminal_wacc".into(), json!(tiny));
+            m.insert("inflation".into(), json!("10000000000"));
+        }));
+        match &terminal {
+            FairmarkError::DiscountRateOutOfRange {
+                field,
+                converted_with,
+                ..
+            } => {
+                assert_eq!(field, "/terminal_wacc");
+                assert_eq!(converted_with.as_deref(), Some("/inflation"));
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    /// R18: with equal terms, inflation per period is validated but not used, and the
+    /// conventions list its values.
+    #[test]
+    fn equal_terms_report_unused_inflation_per_period() {
+        let input = with(base(), |m| {
+            m.insert("cash_flow_terms".into(), json!("nominal"));
+            m.remove("inflation");
+            m.insert(
+                "inflation_per_period".into(),
+                json!(["0.03", "0.025", "0.02"]),
+            );
+            m.insert("terminal_inflation".into(), json!("0.02"));
+        });
+        assert!(conventions(&input).iter().any(|c| c
+            == "expected inflation per period (0.03, 0.025, 0.02) validated but not used: the \
+                terms are equal, no discount rate is converted (R18); only the terminal \
+                inflation 0.02 restates the perpetual growth"));
+    }
+
+    /// The conventions of a converted rate say so: the one-rate convention states the terms of
+    /// the rate as given, and the technique's rate convention says "converted", not "given".
+    #[test]
+    fn converted_rate_conventions_say_converted() {
+        let c = conventions(&base());
+        assert!(c.iter().any(|c| c
+            == "discount rate: one rate, 0.10, for every period and for the terminal value (as \
+                given, in nominal terms)"));
+        let rate = c
+            .iter()
+            .find(|c| c.starts_with("terminal value (tv.gordon v1): rate of the terminal phase"))
+            .unwrap();
+        assert!(
+            rate.contains("(converted to the terms of the cash flows with `/inflation`;"),
+            "{rate}"
+        );
+        let same = with(base(), |m| {
+            m.insert("cash_flow_terms".into(), json!("nominal"));
+        });
+        let c = conventions(&same);
+        assert!(c
+            .iter()
+            .any(|c| c
+                == "discount rate: one rate, 0.10, for every period and for the terminal value"));
+        assert!(c.iter().any(|c| c
+            .starts_with("terminal value (tv.gordon v1): rate of the terminal phase")
+            && c.contains("(given;")));
     }
 
     /// AC9: the conversion gives exactly the valuation at the real rate given directly when

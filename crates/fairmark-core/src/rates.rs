@@ -270,6 +270,7 @@ pub fn real_nominal(input: &RealNominalInput) -> Result<(RealNominalOutput, Expl
             return Err(FairmarkError::DiscountRateOutOfRange {
                 field: field.to_owned(),
                 rate: value,
+                converted_with: None,
             });
         }
     }
