@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-working-capital.md
-source_hash: 4961cb84f59f
+source_hash: bfcc52677556
 ---
 # Indici del capitale circolante (`ratios.working_capital`)
 
@@ -76,6 +76,7 @@ Gli indici sono oggetti `{"value": ..., "not_defined": ...}`, come in ogni grupp
 | --- | --- | --- |
 | Saldi | di chiusura, media tra apertura e chiusura | obbligatorio |
 | Base giorni | 360, 365 | obbligatorio |
+| Denominatori di DSO, DIO, DPO | ricavi, costo del venduto, acquisti | fissa |
 | IVA | importi usati come forniti | fissa |
 | Non definito | denominatore nullo | fissa |
 
@@ -94,6 +95,6 @@ significative del tipo decimale.
 ## Verificato con
 
 - Casi di riferimento (golden case) in `tests/golden/ratios.working_capital/` (saldi di chiusura
-  su 365 giorni, saldi medi su 360 giorni, acquisti nulli), i cui valori attesi provengono da
+  su 365 e su 360 giorni, saldi medi su 360 giorni, acquisti nulli), i cui valori attesi provengono da
   `scripts/reference_ratios.py` (decimal di Python a 50 cifre), con la forma chiusa scritta in
   ciascun file.

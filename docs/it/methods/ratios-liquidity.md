@@ -1,12 +1,13 @@
 ---
 source: methods/ratios-liquidity.md
-source_hash: 043949e4d2d6
+source_hash: a80dc9ec0722
 ---
 # Indici di liquidità (`ratios.liquidity`)
 
 Risponde alla domanda "la società è in grado di pagare nel breve termine?". Restituisce
-l'indice di disponibilità (current ratio), l'indice di liquidità (quick ratio), l'indice di
-liquidità immediata (cash ratio), il capitale circolante netto e il margine di tesoreria.
+l'indice di disponibilità (current ratio), l'indice di liquidità primaria (quick ratio, acid
+test), il cash ratio (disponibilità liquide su passività correnti), il capitale circolante netto
+e il margine di tesoreria.
 
 ## Formula
 
@@ -88,6 +89,6 @@ significative del tipo decimale.
 
 ## Verificato con
 
-- Casi di riferimento (golden case) in `tests/golden/ratios.liquidity/` (saldi di chiusura,
-  passività correnti nulle), i cui valori attesi provengono da `scripts/reference_ratios.py`
+- Casi di riferimento (golden case) in `tests/golden/ratios.liquidity/` (saldi di chiusura e
+  saldi medi, passività correnti nulle), i cui valori attesi provengono da `scripts/reference_ratios.py`
   (decimal di Python a 50 cifre), con la forma chiusa scritta in ciascun file.

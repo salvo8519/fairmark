@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-debt-service.md
-source_hash: 672f46f86f6b
+source_hash: da56b631ae14
 ---
 # Indici di servizio del debito (`ratios.debt_service`)
 
@@ -39,6 +39,7 @@ import fairmark as fm
 r = fm.ratios.debt_service(
     balances="closing",
     ebitda_definition="reported EBITDA, no adjustments",
+    interest_definition="gross interest expense",
     income_statement={"ebitda": 800, "ebit": 500, "interest": 100},
     closing={"net_financial_position": {"gross_debt": 2200, "cash": 300}},
     debt_schedule={
@@ -59,7 +60,8 @@ assert abs(r.llcr["value"] - Decimal("1.05309094639142847003375")) < Decimal("1e
 | Campo | Significato | Default |
 | --- | --- | --- |
 | `balances` | `closing`, oppure `average` della posizione finanziaria netta di apertura e di chiusura | obbligatorio |
-| `ebitda_definition` | Come è stato misurato l'EBITDA, a parole; riportato nelle convenzioni | obbligatorio |
+| `ebitda_definition` | Come è stato misurato l'EBITDA, a parole, non vuoto; riportato nelle convenzioni | obbligatorio |
+| `interest_definition` | Come sono stati misurati gli oneri finanziari (lordi, o al netto dei proventi finanziari), a parole, non vuoto; riportato nelle convenzioni | obbligatorio |
 | `income_statement` | `ebitda`, `ebit`, `interest` del periodo, in unità monetarie | obbligatorio |
 | `closing` | `net_financial_position` con `gross_debt`, `cash` e `other_items` | obbligatorio |
 | `opening` | Lo stesso campo all'inizio del periodo | obbligatorio con saldi medi, non usato altrimenti |
@@ -84,8 +86,9 @@ Gli indici sono oggetti `{"value": ..., "not_defined": ...}`, come in ogni grupp
 | Convenzione | Opzioni | Default |
 | --- | --- | --- |
 | Saldi | di chiusura, media tra apertura e chiusura (posizione finanziaria netta) | obbligatorio |
-| Definizione dell'EBITDA | come indicata dall'analista | obbligatorio |
-| Oneri finanziari e servizio del debito | come forniti (lordi o al netto dei proventi finanziari, come indica l'analista) | fissa |
+| Definizione dell'EBITDA | come indicata dall'analista, non vuota | obbligatorio |
+| Definizione degli oneri finanziari | come indicata dall'analista (lordi, o al netto dei proventi finanziari), non vuota | obbligatorio |
+| Servizio del debito | come fornito | fissa |
 | Attualizzazione dell'LLCR | a fine periodo, a `discount_rate` per periodo | fissa |
 | Non definito | denominatore nullo (oneri finanziari, EBITDA, servizio del debito di un periodo, debito residuo) | fissa |
 
@@ -93,7 +96,7 @@ Gli indici sono oggetti `{"value": ..., "not_defined": ...}`, come in ogni grupp
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | Saldi medi senza `opening`; un campo mancante o sconosciuto |
+| `FM-E001` | Saldi medi senza `opening`; `ebitda_definition` o `interest_definition` vuoto o composto solo da spazi; un campo mancante o sconosciuto |
 | `FM-E002` | Il piano di rimborso non ha periodi |
 | `FM-E003` | Tasso di attualizzazione pari o inferiore a −100% per periodo |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |

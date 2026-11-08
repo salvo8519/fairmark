@@ -146,8 +146,8 @@ terms:
   secondary structure margin: margine secondario di struttura
   fixed-asset coverage: quoziente di struttura (copertura delle immobilizzazioni)
   current ratio: indice di disponibilità (current ratio)
-  quick ratio: indice di liquidità (quick ratio)
-  cash ratio: indice di liquidità immediata (cash ratio)
+  quick ratio: indice di liquidità primaria (quick ratio, acid test)
+  cash ratio: cash ratio (disponibilità liquide su passività correnti)
   net working capital: capitale circolante netto (CCN)
   treasury margin: margine di tesoreria
   days sales outstanding (DSO): giorni medi di incasso dei crediti (DSO)

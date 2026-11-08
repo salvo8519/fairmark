@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-capital-structure.md
-source_hash: 95e8be0500bc
+source_hash: 3b22987f4f43
 ---
 # Indici di struttura finanziaria (`ratios.capital_structure`)
 
@@ -103,6 +103,7 @@ Gli indici sono oggetti `{"value": ..., "not_defined": ...}`, come in ogni grupp
 | --- | --- | --- |
 | Saldi | di chiusura, media tra apertura e chiusura (applicata a ogni saldo, PFN inclusa) | obbligatorio |
 | Posizione finanziaria netta | debiti finanziari lordi − disponibilità liquide + altre voci, positiva se indebitamento netto | fissa |
+| D/E | solo debiti finanziari lordi: disponibilità liquide e altre voci della posizione finanziaria netta escluse | fissa |
 | Non definito | denominatore nullo; capitale proprio nullo o negativo per D/E e PFN/E | fissa |
 
 ## Errori

@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-profitability.md
-source_hash: 862988b084a5
+source_hash: b5e04aa76a67
 ---
 # Indici di redditività (`ratios.profitability`)
 
@@ -81,7 +81,7 @@ print(n.roe["not_defined"])  # equity is negative (-100)
 | --- | --- | --- |
 | `balances` | `closing`, oppure `average` degli stati patrimoniali di apertura e di chiusura | obbligatorio |
 | `operating_return_base` | `invested_capital` o `total_assets`: il capitale del ROI e della rotazione | obbligatorio |
-| `ebitda_definition` | Come è stato misurato l'EBITDA, a parole; riportato nelle convenzioni | obbligatorio |
+| `ebitda_definition` | Come è stato misurato l'EBITDA, a parole, non vuoto; riportato nelle convenzioni | obbligatorio |
 | `income_statement` | `revenue`, `ebitda`, `ebit`, `net_income` del periodo, in unità monetarie | obbligatorio |
 | `closing` | `equity`, `total_assets` e, con base capitale investito, `invested_capital`, in unità monetarie | obbligatorio |
 | `opening` | Gli stessi campi all'inizio del periodo | obbligatorio con saldi medi, non usato altrimenti |
@@ -106,8 +106,10 @@ non è definito, e `not_defined` ne indica allora il motivo.
 | Convenzione | Opzioni | Default |
 | --- | --- | --- |
 | Saldi | di chiusura, media tra apertura e chiusura | obbligatorio |
-| Base del rendimento operativo | capitale investito, totale attivo | obbligatorio |
-| Definizione dell'EBITDA | come indicata dall'analista | obbligatorio |
+| Base del rendimento operativo | capitale investito, totale attivo; un capitale investito fornito con base totale attivo è segnalato come non usato | obbligatorio |
+| Definizione dell'EBITDA | come indicata dall'analista, non vuota | obbligatorio |
+| ROS | EBIT / ricavi, pari all'EBIT margin | fissa |
+| ROE in tre fattori | sul totale attivo (rotazione dell'attivo ed equity multiplier), qualunque sia la base del rendimento operativo | fissa |
 | Non definito | denominatore nullo; capitale proprio nullo o negativo per ROE ed equity multiplier | fissa |
 
 Il ROS è l'EBIT sui ricavi, quindi coincide con l'EBIT margin; sono restituiti entrambi perché
@@ -117,7 +119,7 @@ la catena ROI = ROS × rotazione del capitale investito si legga direttamente.
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | Saldi medi senza `opening`; `invested_capital` mancante con base capitale investito; un campo mancante o sconosciuto |
+| `FM-E001` | Saldi medi senza `opening`; `invested_capital` mancante con base capitale investito; `ebitda_definition` vuoto o composto solo da spazi; un campo mancante o sconosciuto |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 
 ## Precisione
@@ -129,6 +131,7 @@ ROE diretto alla ventottesima cifra.
 ## Verificato con
 
 - Casi di riferimento (golden case) in `tests/golden/ratios.profitability/` (saldi di chiusura e
-  saldi medi, capitale proprio negativo, ricavi nulli), i cui valori attesi provengono da
+  saldi medi su entrambe le basi del rendimento operativo, capitale proprio negativo, ricavi
+  nulli), i cui valori attesi provengono da
   `scripts/reference_ratios.py` (decimal di Python a 50 cifre), con la forma chiusa scritta in
   ciascun file.

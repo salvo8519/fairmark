@@ -29,7 +29,7 @@ elenca tutti gli input.
 | [`dcf.fcff`](dcf-fcff.md) | Anteprima | Enterprise value ed equity value dai flussi di cassa operativi |
 | [`ratios.profitability`](ratios-profitability.md) | Anteprima | ROE, ROI, ROS, margini, rotazione del capitale investito e scomposizione del ROE in tre fattori |
 | [`ratios.capital_structure`](ratios-capital-structure.md) | Anteprima | Rapporto tra debito e capitale proprio, PFN su capitale proprio, indice di indipendenza finanziaria, margini e quozienti di struttura |
-| [`ratios.liquidity`](ratios-liquidity.md) | Anteprima | Indice di disponibilità, indice di liquidità, indice di liquidità immediata, capitale circolante netto e margine di tesoreria |
+| [`ratios.liquidity`](ratios-liquidity.md) | Anteprima | Indice di disponibilità, indice di liquidità primaria, cash ratio, capitale circolante netto e margine di tesoreria |
 | [`ratios.working_capital`](ratios-working-capital.md) | Anteprima | Giorni medi di incasso, di giacenza e di pagamento e ciclo monetario |
 | [`ratios.debt_service`](ratios-debt-service.md) | Anteprima | Copertura degli oneri finanziari, PFN su EBITDA, DSCR per periodo e LLCR |
 | [`analysis.goal_seek`](analysis-goal-seek.md) | Disponibile | Valore di un input di qualsiasi metodo al quale uno dei suoi output è pari a un valore obiettivo |
