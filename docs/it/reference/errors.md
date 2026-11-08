@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: 979b53f53d46
+source_hash: 209d8c8a4b93
 ---
 # Codici di errore
 
