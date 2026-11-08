@@ -200,6 +200,7 @@ fairmark verify result.json --input company.json  # reproduce a result bit for b
 | `dcf.fcff` | Preview | DCF — unlevered free cash flow |
 | `dcf.fcfe` | Preview | DCF — free cash flow to equity |
 | `dcf.free_cash_flows` | Preview | Free cash flow build-up (FCFF and FCFE) |
+| `statements.reorganise` | Preview | Financial statements — operating and financing reorganisation |
 | `ratios.profitability` | Preview | Ratios — profitability |
 | `ratios.capital_structure` | Preview | Ratios — capital structure |
 | `ratios.liquidity` | Preview | Ratios — liquidity |

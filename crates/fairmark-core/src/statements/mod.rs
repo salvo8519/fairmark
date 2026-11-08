@@ -474,8 +474,7 @@ pub struct Reorganise;
 
 impl Method for Reorganise {
     const ID: &'static str = "statements.reorganise";
-    const TITLE: &'static str =
-        "Financial statements reorganised into an operating and financing view";
+    const TITLE: &'static str = "Financial statements — operating and financing reorganisation";
     const DESCRIPTION: &'static str = "Reorganises statutory aggregates (art. 2424, 2425, \
         abridged art. 2435-bis) or totals already reclassified, for one or more financial years, \
         into invested capital, non-operating assets, equity, quasi-equity, the net financial \
