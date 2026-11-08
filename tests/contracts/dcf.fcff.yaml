@@ -76,6 +76,13 @@ extreme_inputs:
   timing: mid_period
   terminal_discount_time: horizon
   terminal: {tv.normalised_income: {income: MAX, basis: enterprise, growth: MIN, growth_cap: MAX}}
+- stages: [{periods: 2, projection: given, flows: ['100', '110']}]
+  cash_flow_terms: real
+  discount_rate_terms: nominal
+  wacc: '0.1'
+  inflation: MAX
+  timing: end_of_period
+  terminal: {tv.gordon: {growth: '0.01', first_flow: last_flow_grown}}
 conventions:
 - input:
     stages: [{periods: 3, projection: given, flows: ['100', '110', '120']}]
@@ -143,3 +150,18 @@ conventions:
   - 'terminal technique: tv.liquidation version 1 on the enterprise basis'
   - 'the technique takes no discount rate'
   - 'terminal value (tv.liquidation v1): basis: enterprise (declared)'
+- input:
+    stages: [{periods: 3, projection: given, flows: ['100', '104', '108']}]
+    cash_flow_terms: real
+    discount_rate_terms: nominal
+    wacc: '0.10'
+    inflation: '0.02'
+    timing: end_of_period
+    terminal: {tv.gordon: {growth: '0.01', first_flow: last_flow_grown}}
+  expect:
+  - 'expected inflation: one rate, 0.02, for every period and for the terminal phase'
+  - 'terms: cash flows and growth rates real, discount rates nominal; every discount rate, the terminal rate included, converted to real terms'
+  - exact Fisher relation (1 + nominal) = (1 + real) × (1 + inflation) (rates.real_nominal v1)
+  - cash flows and growth rates are never converted
+  - 'discount rate: one rate, 0.10, for every period and for the terminal value (as given, in nominal terms)'
+  - 'perpetual growth of the terminal value (tv.gordon): 0.01 in real terms, (1 + 0.01) × (1 + 0.02) − 1 = 0.0302 in nominal terms'

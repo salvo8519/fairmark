@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: 99b8f3336da7
+source_hash: c8659b273145
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
@@ -100,6 +100,92 @@ del DCF i campi `growth` e `residual_value` di `tv.limited_horizon` e il campo `
 capitalizzato al tasso terminale, come ogni tecnica che usa un tasso: un `capitalisation_rate`
 separato non è accettato all'interno del DCF.
 
+## Termini nominali e reali
+
+`cash_flow_terms` indica se ogni importo e ogni tasso di crescita dell'input è espresso in
+termini nominali (inflazione attesa inclusa) oppure in termini reali (inflazione attesa
+esclusa); `discount_rate_terms` indica lo stesso per i tassi di attualizzazione. Entrambi sono
+obbligatori. Quando coincidono, i tassi sono usati come forniti. Quando sono diversi:
+
+- senza inflazione attesa l'input è rifiutato con `FM-E024`: attualizzare flussi reali a un
+  tasso nominale, o flussi nominali a un tasso reale, altera il valore;
+- con l'inflazione attesa ogni tasso di attualizzazione, compreso il tasso terminale, è
+  convertito nei termini dei flussi di cassa con la relazione di Fisher esatta, calcolata da
+  [`rates.real_nominal`](rates-real-nominal.md):
+
+$$
+(1 + r_{nominal}) = (1 + r_{real}) \, (1 + i)
+\qquad
+r_{real} = \frac{1 + r_{nominal}}{1 + i} - 1
+\qquad
+r_{nominal} = (1 + r_{real}) (1 + i) - 1
+$$
+
+I flussi di cassa e i tassi di crescita non sono mai convertiti: solo i tassi passano nei
+termini dei flussi. L'inflazione attesa è un unico tasso per tutti i periodi e per la fase
+terminale (`inflation`), oppure un tasso per ogni periodo dell'orizzonte esplicito
+(`inflation_per_period`) con l'inflazione della fase terminale (`terminal_inflation`); il tasso
+del periodo k è convertito con l'inflazione del periodo k, il tasso terminale con l'inflazione
+della fase terminale. Ogni periodo riporta il tasso fornito (`discount_rate`), l'inflazione e il
+tasso usato (`rate_used`), e l'explain mostra ogni conversione con i suoi numeri.
+
+Ogni volta che l'inflazione è fornita, anche con termini uguali (quando non converte nulla), la
+crescita perpetua della tecnica del valore terminale (`growth`, oppure `long_term_growth` per
+`tv.h_model`) è espressa anche negli altri termini con l'inflazione della fase terminale, in
+`terms`; con flussi nominali, una crescita perpetua inferiore a quell'inflazione è riportata
+come avvertenza, perché i flussi diminuiscono in termini reali dopo l'orizzonte. Un multiplo di
+uscita, un orizzonte finito e una liquidazione non indicano una crescita perpetua, e le
+convenzioni riportano che nessuna crescita è riespressa.
+
+Un piano in termini reali attualizzato a un WACC nominale del 10% con un'inflazione attesa del
+2%:
+
+```python
+import fairmark as fm
+
+r = fm.dcf.fcff(
+    [fm.dcf.given([100, 104, 108, 112])],
+    cash_flow_terms="real",
+    discount_rate_terms="nominal",
+    wacc="0.10",
+    inflation="0.02",
+    timing="end_of_period",
+    terminal=fm.dcf.gordon("0.01", first_flow="last_flow_grown"),
+)
+print(r.periods[0]["rate_used"])  # (1 + 0.10) / (1 + 0.02) − 1 = 0.07843137...
+print(r.terminal["rate"])  # lo stesso tasso reale per il valore terminale
+print(r.value["terms"]["perpetual_growth_other_terms"])  # 1.01 × 1.02 − 1 = 0.0302 nominale
+print(r.value_of_operations)  # 1573.18265943050768644554905...
+```
+
+Lo stesso valore si ottiene fornendo direttamente il tasso reale con
+`discount_rate_terms="real"`. I flussi reali sono espressi ai prezzi della data di valutazione
+(t = 0). Con la convenzione di fine periodo il valore coincide anche con quello dei flussi
+riespressi in termini nominali, ogni flusso reale per l'indice cumulato dell'inflazione
+$\prod_{i \le k} (1 + i_i)$, attualizzati al tasso nominale con la crescita nominale; con la
+convenzione di metà periodo l'equivalenza vale con l'indice calcolato in t = k − 0.5,
+$\prod_{i < k} (1 + i_i) \, (1 + i_k)^{0.5}$. Quando il tasso terminale è stato convertito, la
+convenzione sul tasso della tecnica del valore terminale indica "converted" (convertito) invece
+di "given" (fornito).
+
+Aspetti della prassi che il motore non verifica:
+
+- Un WACC reale deve essere il WACC nominale dopo le imposte deflazionato con la relazione di
+  Fisher: lo scudo fiscale si applica agli interessi nominali, quindi il WACC va calcolato in
+  termini nominali e convertito dal motore (o deflazionato dall'utente), invece di applicare
+  l'aliquota fiscale a un costo del debito reale.
+- Con voci di costruzione (`lines`) in termini reali, le imposte calcolate sull'EBIT reale
+  sottostimano le imposte effettivamente pagate, perché gli ammortamenti fiscali sono sul costo
+  storico e non sono indicizzati all'inflazione; quando l'inflazione è rilevante è preferibile
+  un piano in termini nominali (come raccomanda Damodaran). È una nota di documentazione:
+  nessuna avvertenza è riportata.
+- Una rendita perpetua a crescita costante (`tv.gordon`) dà lo stesso valore in termini reali
+  e in termini nominali. L'H-model approssima una crescita decrescente e il value driver
+  sottrae un reinvestimento g / RONIC, quindi una valutazione reale e una nominale della stessa
+  impresa differiscono leggermente con `tv.h_model` e `tv.value_driver`: è una proprietà delle
+  tecniche, non della conversione. I loro parametri, compreso il RONIC (rendimento del nuovo
+  capitale investito), sono nei termini dei flussi di cassa (Decision 5).
+
 ## Esempio
 
 Un piano con tre anni di flussi forniti, poi quattro anni in cui la crescita si riduce in modo
@@ -173,7 +259,10 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | `notional_tax_rate` | Aliquota fiscale sull'EBIT per gli stage con `lines`, frazione decimale da 0 a meno di 1; in alternativa a `operating_taxes` in ogni voce | nessuno; rifiutata senza `lines` |
 | `negative_ebit` | `credit` o `zero`, per gli stage con `lines` e `notional_tax_rate` | obbligatorio con `notional_tax_rate`; rifiutato altrimenti |
 | `cash_flow_terms` | `nominal` oppure `real`: termini di ogni importo e di ogni tasso di crescita | obbligatorio |
-| `discount_rate_terms` | `nominal` oppure `real`: termini dei tassi di attualizzazione; devono coincidere con `cash_flow_terms` | obbligatorio |
+| `discount_rate_terms` | `nominal` oppure `real`: termini dei tassi di attualizzazione; se diversi da `cash_flow_terms`, l'inflazione attesa è obbligatoria e i tassi sono convertiti nei termini dei flussi di cassa | obbligatorio |
+| `inflation` | Inflazione attesa per tutti i periodi e per la fase terminale, frazione decimale, maggiore di −1 | nessuna; questo oppure `inflation_per_period` |
+| `inflation_per_period` | Inflazione attesa per ogni periodo dell'orizzonte esplicito, frazioni decimali | nessuna; richiede `terminal_inflation` |
+| `terminal_inflation` | Inflazione attesa della fase terminale | obbligatoria con `inflation_per_period`; rifiutata altrimenti |
 | `wacc` | Un unico WACC per tutti i periodi e per il valore terminale, frazione decimale | questo oppure `wacc_per_period` |
 | `wacc_per_period` | Un WACC per ogni periodo dell'orizzonte esplicito, frazioni decimali | questo oppure `wacc` |
 | `terminal_wacc` | WACC della fase terminale | obbligatorio con `wacc_per_period`; rifiutato con `wacc` |
@@ -192,7 +281,8 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | `equity_value` | Enterprise value meno la posizione finanziaria netta |
 | `pv_explicit_period` | Valore attuale dei FCFF espliciti |
 | `terminal_value_weight` | Valore attuale del valore terminale diviso per il value of operations |
-| `periods` | Per periodo: stage, proiezione, crescita applicata, flusso, tasso di attualizzazione fornito, tasso usato, fattore di sconto, valore attuale |
+| `periods` | Per periodo: stage, proiezione, crescita applicata, flusso, tasso di attualizzazione fornito, tasso usato (nei termini dei flussi di cassa), inflazione usata per convertirlo (`null` senza conversione), fattore di sconto, valore attuale |
+| `terms` | Termini dei flussi e dei tassi, conversione (`none`, `to_real`, `to_nominal`), tasso terminale fornito e usato, inflazione della fase terminale, crescita perpetua nei termini dei flussi e negli altri termini |
 | `terminal` | Tecnica e versione del suo metodo, tasso terminale, valore in N, momento di attualizzazione, fattore, valore attuale, output proprio della tecnica (per esempio la crescita implicita di un multiplo di uscita) |
 | `bridge` | Ogni voce dal value of operations all'equity value, con le descrizioni |
 
@@ -205,7 +295,9 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | Flussi di uno stage `given` | importi (`flows`) o voci (`lines`), con le convenzioni fiscali di `dcf.free_cash_flows` | uno dei due, obbligatorio |
 | Passo della riduzione lineare della crescita | $g_k = g_{from} + (g_{to} - g_{from}) \, k / m$, $g_{to}$ raggiunta nell'ultimo periodo | fissa |
 | Tasso di attualizzazione | un unico tasso (usato anche per il valore terminale), oppure uno per periodo con un tasso terminale | obbligatorio |
-| Termini di flussi e tassi | `nominal`, `real`; termini diversi sono rifiutati | obbligatori, entrambi |
+| Termini di flussi e tassi | `nominal`, `real` | obbligatori, entrambi |
+| Termini diversi | rifiutati senza inflazione attesa; con essa, ogni tasso di attualizzazione è convertito nei termini dei flussi di cassa con la relazione di Fisher esatta; flussi e tassi di crescita mai convertiti | fissa |
+| Inflazione attesa | un unico tasso, oppure uno per periodo con un'inflazione terminale | nessuna |
 | Collocazione temporale dei flussi | `end_of_period`, `mid_period` | obbligatoria |
 | Terminal discounting time (momento di attualizzazione del valore terminale) | `horizon`, `mid_period` (solo con la convenzione di metà periodo; il mezzo periodo al tasso terminale) | obbligatorio |
 | Tecnica del valore terminale | `tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income`, `tv.liquidation`, al tasso terminale, con approccio asset side | obbligatoria |
@@ -220,21 +312,23 @@ non confrontata); con la convenzione di metà periodo, un valore terminale a cre
 (`tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.normalised_income`) attualizzato all'orizzonte N,
 mentre la prassi lo attualizza di solito in N − 0.5; con la convenzione di metà periodo, un
 multiplo di uscita, una liquidazione o un orizzonte finito attualizzati in N − 0.5, benché
-siano o includano un prezzo a una data (per l'orizzonte finito, il valore residuo); un equity value negativo, riportato come calcolato e mai riportato a zero. Un `terminal_value_weight`
+siano o includano un prezzo a una data (per l'orizzonte finito, il valore residuo); con flussi
+nominali e inflazione attesa, una crescita perpetua inferiore all'inflazione della fase
+terminale (una diminuzione in termini reali); un equity value negativo, riportato come calcolato e mai riportato a zero. Un `terminal_value_weight`
 elevato segnala che la valutazione dipende soprattutto dalle ipotesi di lungo periodo.
 
 ## Errori
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | Un campo è mancante, sconosciuto o non usato dall'opzione scelta; nessuno stage o più di tre; stage che sommano più di 10.000 periodi; una crescita pari o inferiore a −100%; un tasso terminale insieme a un unico tasso, oppure nessuno con tassi per periodo; un momento di attualizzazione del valore terminale mancante con la convenzione di metà periodo o fornito con quella di fine periodo; nessuna tecnica del valore terminale o più di una; un `normalised_base_flow` di `tv.h_model` mancante con `first_flow` = `normalised_base_flow` o fornito negli altri casi; un limite alla crescita di un multiplo di uscita senza `next_flow`; una liquidazione senza attività o con una voce senza descrizione; un'attività non operativa negativa o con descrizione vuota; uno stage `given` con entrambi o nessuno tra `flows` e `lines`, `lines` in uno stage generato, campi fiscali senza `lines`, oneri finanziari o net borrowing in `lines`, e ogni rifiuto di [`dcf.free_cash_flows`](dcf-free-cash-flows.md) sulle voci, indicato con il suo pointer (ad esempio `/stages/0/lines/2/capital_expenditure`) |
-| `FM-E003` | Un tasso di attualizzazione è pari o inferiore a −100%; il messaggio indica il campo e il periodo |
-| `FM-E004` | La crescita perpetua (`growth`, oppure `long_term_growth` per `tv.h_model`) è pari o superiore al tasso terminale |
+| `FM-E001` | Un campo è mancante, sconosciuto o non usato dall'opzione scelta; sia `inflation` sia `inflation_per_period`, `inflation_per_period` senza `terminal_inflation`, `terminal_inflation` senza `inflation_per_period`, `terminal_inflation` insieme a `inflation`; nessuno stage o più di tre; stage che sommano più di 10.000 periodi; una crescita pari o inferiore a −100%; un tasso terminale insieme a un unico tasso, oppure nessuno con tassi per periodo; un momento di attualizzazione del valore terminale mancante con la convenzione di metà periodo o fornito con quella di fine periodo; nessuna tecnica del valore terminale o più di una; un `normalised_base_flow` di `tv.h_model` mancante con `first_flow` = `normalised_base_flow` o fornito negli altri casi; un limite alla crescita di un multiplo di uscita senza `next_flow`; una liquidazione senza attività o con una voce senza descrizione; un'attività non operativa negativa o con descrizione vuota; uno stage `given` con entrambi o nessuno tra `flows` e `lines`, `lines` in uno stage generato, campi fiscali senza `lines`, oneri finanziari o net borrowing in `lines`, e ogni rifiuto di [`dcf.free_cash_flows`](dcf-free-cash-flows.md) sulle voci, indicato con il suo pointer (ad esempio `/stages/0/lines/2/capital_expenditure`) |
+| `FM-E003` | Un tasso di attualizzazione, fornito o convertito, oppure un'inflazione attesa è pari o inferiore a −100%; il messaggio indica il campo e il periodo (lo stesso codice di [`rates.real_nominal`](rates-real-nominal.md) per lo stesso valore) |
+| `FM-E004` | La crescita perpetua (`growth`, oppure `long_term_growth` per `tv.h_model`) è pari o superiore al tasso terminale nei termini dei flussi di cassa (dopo la conversione, se i termini sono diversi) |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 | `FM-E018` | Un parametro della tecnica del valore terminale è fuori dal suo dominio: rendimento del nuovo capitale investito, multiplo o grandezza di riferimento pari a zero o negativi, un tasso terminale pari a zero o negativo con `tv.normalised_income`, orizzonte finito fuori dall'intervallo da 1 a 10.000 periodi, H negativo, voce di liquidazione o imposte sulle plusvalenze negative |
 | `FM-E019` | La tecnica del valore terminale segue l'approccio equity side: un multiplo di uscita su `earnings` (P/E) o `book_value` (P/BV), oppure un reddito normalizzato o una liquidazione con `basis` equity |
-| `FM-E024` | `cash_flow_terms` e `discount_rate_terms` sono diversi |
-| `FM-E025` | Uno stage `given` con più o meno flussi o voci dei suoi periodi, tassi per periodo non uno per periodo, un base flow mancante per un primo stage generato o fornito per uno `given` |
+| `FM-E024` | `cash_flow_terms` e `discount_rate_terms` sono diversi e non è fornita l'inflazione attesa; il messaggio indica entrambe le correzioni |
+| `FM-E025` | Uno stage `given` con più o meno flussi o voci dei suoi periodi, tassi o inflazione attesa per periodo non uno per periodo, un base flow mancante per un primo stage generato o fornito per uno `given` |
 
 Gli errori di validazione indicano il campo con il suo JSON Pointer, per esempio
 `/stages/1/flows`, e la correzione da apportare; gli errori rilevati durante la lettura
@@ -263,6 +357,13 @@ $10^{-20}$.
   costante equivale agli stessi flussi forniti; una riduzione lineare con crescite uguali
   equivale alla crescita costante; i fattori di sconto coincidono con quelli di
   [`tvm.present_value`](tvm-present-value.md).
+- Termini nominali e reali: la conversione riespressa nel calcolo di riferimento con la
+  relazione di Fisher scritta lì (`terms-*.yaml`); flussi reali a tassi nominali con
+  l'inflazione coincidono esattamente con gli stessi flussi ai tassi reali calcolati da
+  `rates.real_nominal` e forniti direttamente, e con la convenzione di fine periodo con i flussi
+  nominali ottenuti applicando l'inflazione in modo indipendente, ai tassi nominali, entro
+  $10^{-20}$ in termini relativi (test di proprietà, con un'unica inflazione e con l'inflazione
+  per periodo).
 - Stage con `lines`: la costruzione a 50 cifre di `scripts/reference_free_cash_flows.py`
   composta con `scripts/reference_dcf.py` (`stage-with-build-up-lines*.yaml`).
 - Ogni tecnica del valore terminale: il valore terminale e l'intero output della tecnica

@@ -304,9 +304,9 @@ nominal before taxes; a leading exit multiple.
   flow return `FM-E025` naming the stage or field, the expected and the actual count.
 - **AC7** (R12, R13) — With rates per period, discount factors equal those of
   `tvm.present_value` for the same rates and timing; a rate of −1 or lower returns `FM-E003`.
-- **AC8** (R14, R15) — Real flows with nominal rates and no inflation return `FM-E024`; so do
+- [x] **AC8** (R14, R15) — Real flows with nominal rates and no inflation return `FM-E024`; so do
   nominal flows with real rates.
-- **AC9** (R16) — Real flows at nominal rates with inflation give the same result as the same
+- [x] **AC9** (R16) — Real flows at nominal rates with inflation give the same result as the same
   flows at real rates computed by `rates.real_nominal` (exact equality); with end-of-period
   timing they equal the independently inflated nominal flows at nominal rates within 1e-20
   relative (50-digit reference).
@@ -528,6 +528,22 @@ the source verification.
       2026-11-08). Under mid-period timing, `tv.limited_horizon` discounted at N − 0.5 carries
       the same warning as an exit multiple and a liquidation: its residual value is a price at a
       date. Amends R21.
+- [x] **18. Terminal inflation with one inflation** (approved by the maintainer on
+      2026-11-08). `terminal_inflation` next to a single `inflation` is refused with `FM-E001`
+      naming both fields: one inflation applies to every period and to the terminal phase.
+      Consistent with Decision 13 for the terminal discount rate. Applies to R16.
+- [x] **19. Inflation at or below -1** (approved by the maintainer on 2026-11-08). An expected
+      inflation at or below -1 is `FM-E003` (rate out of range), naming its JSON pointer: the
+      same code that `rates.real_nominal` returns for the same value, so that one condition has
+      one code across the library. Applies to R16 and R27.
+- [x] **20. Readings of R17 confirmed** (approved by the maintainer on 2026-11-08). (a) No
+      growth is restated for the terminal techniques that state no perpetual growth
+      (`tv.exit_multiple`, `tv.limited_horizon`, `tv.liquidation`); the growth implied by an
+      exit multiple is an output of the technique, not restated; a convention says that none is
+      restated. (b) The warning for a perpetual growth below inflation uses the inflation of the
+      terminal phase (`inflation`, or `terminal_inflation`), since the perpetual growth applies
+      after N. (c) No warning is reported with real flows: the restated nominal growth is
+      reported only.
 
 Terminology decisions from the source verification:
 - [x] **a.** The projection option `linear_fade` is renamed `linear_decline` everywhere

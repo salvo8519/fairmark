@@ -1,0 +1,12 @@
+method: dcf.fcff
+description: "Expected inflation per period without the inflation of the terminal phase (R16: required)"
+source: SPEC-0001 R16, R27
+input:
+  stages: [{ periods: 2, projection: given, flows: ["100", "110"] }]
+  cash_flow_terms: real
+  discount_rate_terms: nominal
+  wacc: "0.10"
+  inflation_per_period: ["0.02", "0.02"]
+  timing: end_of_period
+  terminal: { "tv.gordon": { growth: "0.01", first_flow: last_flow_grown } }
+expect_error: FM-E001

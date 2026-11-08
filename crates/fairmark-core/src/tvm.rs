@@ -40,6 +40,7 @@ fn rate_field(field: &'static str) -> impl Fn(FairmarkError) -> FairmarkError {
         FairmarkError::RateOutOfRange(rate) => FairmarkError::DiscountRateOutOfRange {
             field: field.to_owned(),
             rate,
+            converted_with: None,
         },
         other => other,
     }
@@ -51,6 +52,7 @@ fn check_rate(field: impl Into<String>, rate: Decimal) -> Result<()> {
         return Err(FairmarkError::DiscountRateOutOfRange {
             field: field.into(),
             rate,
+            converted_with: None,
         });
     }
     Ok(())
@@ -1362,6 +1364,7 @@ pub fn perpetuity(input: &PerpetuityInput) -> Result<(PerpetuityOutput, Explain)
             growth: g,
             rate_field: "/rate".to_owned(),
             rate: r,
+            converted_with: None,
         });
     }
     let mut ex = Explain::new("tvm.perpetuity", "PV = P / (r − g); × (1 + r) if due");

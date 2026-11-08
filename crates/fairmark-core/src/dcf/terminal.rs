@@ -315,7 +315,7 @@ pub(crate) enum Technique<'a> {
 }
 
 impl Technique<'_> {
-    fn id(self) -> &'static str {
+    pub(crate) fn id(self) -> &'static str {
         match self {
             Self::Gordon(_) => tv::Gordon::ID,
             Self::HModel(_) => tv::HModel::ID,
@@ -341,7 +341,7 @@ impl Technique<'_> {
 
     /// The perpetual growth the technique assumes after the horizon, for the continuity
     /// warning of R11; `None` for the techniques that state none.
-    fn perpetual_growth(self) -> Option<Decimal> {
+    pub(crate) fn perpetual_growth(self) -> Option<Decimal> {
         match self {
             Self::Gordon(t) => Some(t.growth),
             Self::HModel(t) => Some(t.long_term_growth),
@@ -504,7 +504,12 @@ fn tv_check(input: &TvInput) -> std::result::Result<(), FieldError> {
 /// DCF input (R27): `/terminal/<id>/<field>`, or the field of the terminal rate for the rate
 /// the DCF passes to the technique. The code is unchanged; a growth not below the rate becomes
 /// the pointer-carrying variant of `FM-E004`.
-fn at_pointer(e: FieldError, technique: Technique<'_>, rate_field: &str) -> FairmarkError {
+fn at_pointer(
+    e: FieldError,
+    technique: Technique<'_>,
+    rate_field: &str,
+    converted_with: Option<&str>,
+) -> FairmarkError {
     let at = format!("/terminal/{}", technique.id());
     let (pointer, note) = match (technique, e.field.as_str()) {
         (_, "rate" | "capitalisation_rate") => (
@@ -527,11 +532,13 @@ fn at_pointer(e: FieldError, technique: Technique<'_>, rate_field: &str) -> Fair
                 growth,
                 rate_field: rate_field.to_owned(),
                 rate,
+                converted_with: converted_with.map(Box::from),
             }
         }
         FairmarkError::RateOutOfRange(rate) => FairmarkError::DiscountRateOutOfRange {
             field: rate_field.to_owned(),
             rate,
+            converted_with: converted_with.map(Box::from),
         },
         other => other,
     }
@@ -544,6 +551,7 @@ pub(crate) fn check<'a>(
     t: &'a Terminal,
     rate: Decimal,
     rate_field: &str,
+    converted_with: Option<&str>,
     basis: TerminalBasis,
 ) -> Result<Technique<'a>> {
     let mut given: Vec<Technique<'a>> = Vec::with_capacity(1);
@@ -648,7 +656,7 @@ pub(crate) fn check<'a>(
     // The terms, by the technique's own checks. CF_N is not known yet and no technique checks
     // its value: zero stands in for it.
     tv_check(&tv_input(technique, rate, Decimal::ZERO))
-        .map_err(|e| at_pointer(e, technique, rate_field))?;
+        .map_err(|e| at_pointer(e, technique, rate_field, converted_with))?;
     Ok(technique)
 }
 
@@ -785,6 +793,9 @@ pub(crate) struct TerminalContext<'a> {
     pub last_growth: Option<Decimal>,
     pub ends: &'a [Decimal],
     pub g_n: Option<Decimal>,
+    /// JSON pointer of the expected inflation the terminal rate was converted with, if it was
+    /// (SPEC-0001 R16): the technique's rate convention then says "converted", not "given".
+    pub converted_with: Option<&'a str>,
 }
 
 /// R19 to R22: the terminal value through the typed `tv` function, and its discounting.
@@ -796,6 +807,19 @@ pub(crate) fn value(ex: &mut Explain, c: &TerminalContext<'_>) -> Result<Termina
         ex.step(format!("Terminal value: {}", s.label), s.formula, s.value);
     }
     for conv in tv_ex.conventions {
+        let conv = match c.converted_with {
+            Some(p)
+                if conv.starts_with("rate of the terminal phase")
+                    || conv.starts_with("capitalisation rate") =>
+            {
+                conv.replacen(
+                    "(given",
+                    &format!("(converted to the terms of the cash flows with `{p}`"),
+                    1,
+                )
+            }
+            _ => conv,
+        };
         ex.convention(format!("terminal value ({id} v{version}): {conv}"));
     }
     if let (Some(last_growth), Some(g)) = (c.last_growth, technique.perpetual_growth()) {

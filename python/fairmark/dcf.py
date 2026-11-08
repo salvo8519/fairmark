@@ -218,6 +218,9 @@ def fcff(
     wacc: Number | None = None,
     wacc_per_period: Sequence[Number] | None = None,
     terminal_wacc: Number | None = None,
+    inflation: Number | None = None,
+    inflation_per_period: Sequence[Number] | None = None,
+    terminal_inflation: Number | None = None,
     terminal_discount_time: TerminalDiscountTime | None = None,
     base_flow: Number | None = None,
     net_financial_position: Mapping[str, Any] | None = None,
@@ -230,6 +233,11 @@ def fcff(
 
     Give ``wacc`` (one rate, also used for the terminal value) or ``wacc_per_period`` with
     ``terminal_wacc``. Under ``timing="mid_period"`` give ``terminal_discount_time``.
+    When ``cash_flow_terms`` and ``discount_rate_terms`` differ, give expected inflation
+    (``inflation``, or ``inflation_per_period`` with ``terminal_inflation``): every discount
+    rate is converted to the terms of the cash flows by the exact Fisher relation, the cash
+    flows never are; with equal terms, inflation only restates the perpetual growth in the
+    other terms (``result.value["terms"]``).
     Stages built with :func:`given_lines` take ``notional_tax_rate`` with ``negative_ebit``,
     or ``operating_taxes`` in every line.
     ``terminal`` is built by ``gordon``, ``h_model``, ``value_driver``, ``exit_multiple``,
@@ -258,6 +266,11 @@ def fcff(
         "wacc": wacc,
         "wacc_per_period": None if wacc_per_period is None else list(wacc_per_period),
         "terminal_wacc": terminal_wacc,
+        "inflation": inflation,
+        "inflation_per_period": (
+            None if inflation_per_period is None else list(inflation_per_period)
+        ),
+        "terminal_inflation": terminal_inflation,
         "terminal_discount_time": terminal_discount_time,
         "base_flow": base_flow,
         "net_financial_position": (

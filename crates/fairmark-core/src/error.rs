@@ -108,21 +108,36 @@ pub enum FairmarkError {
     RoundingTooCoarse(String),
 
     #[error(
-        "`{field}` is {rate}: a rate must be greater than -1 (-100%); rates are decimal \
-         fractions, 10% is 0.10"
+        "`{field}`{} is {rate}: a rate must be greater than -1 (-100%); rates are decimal \
+         fractions, 10% is 0.10{}",
+        converted_note(.converted_with),
+        inflation_fix(.converted_with)
     )]
-    DiscountRateOutOfRange { field: String, rate: Decimal },
+    DiscountRateOutOfRange {
+        /// JSON pointer of the rate as given.
+        field: String,
+        rate: Decimal,
+        /// JSON pointer of the expected inflation the rate was converted with, if it was
+        /// (SPEC-0001 R16); `None` for a rate used as given.
+        converted_with: Option<Box<str>>,
+    },
 
     #[error(
-        "`{growth_field}` ({growth}) must be lower than the discount rate `{rate_field}` \
+        "`{growth_field}` ({growth}) must be lower than the discount rate `{rate_field}`{} \
          ({rate}): a perpetual growth at or above the rate has no finite value; lower the \
-         growth or check the rate"
+         growth or check the rate{}",
+        converted_note(.converted_with),
+        inflation_fix(.converted_with)
     )]
     GrowthNotBelowTerminalRate {
         growth_field: String,
         growth: Decimal,
+        /// JSON pointer of the rate as given.
         rate_field: String,
         rate: Decimal,
+        /// JSON pointer of the expected inflation the rate was converted with, if it was
+        /// (SPEC-0001 R16); `None` for a rate used as given.
+        converted_with: Option<Box<str>>,
     },
 
     #[error("terms of cash flows and discount rates differ: {0}")]
@@ -130,6 +145,22 @@ pub enum FairmarkError {
 
     #[error("count inconsistent with the stages: {0}")]
     CountMismatch(String),
+}
+
+/// " (converted with `/inflation`)" when the rate was converted with expected inflation.
+fn converted_note(converted_with: &Option<Box<str>>) -> String {
+    converted_with
+        .as_ref()
+        .map(|p| format!(" (converted to the terms of the cash flows with `{p}`)"))
+        .unwrap_or_default()
+}
+
+/// The fix that applies to a converted rate: the expected inflation may be the wrong input.
+fn inflation_fix(converted_with: &Option<Box<str>>) -> String {
+    converted_with
+        .as_ref()
+        .map(|p| format!(", or check the expected inflation `{p}`"))
+        .unwrap_or_default()
 }
 
 impl FairmarkError {

@@ -1,0 +1,48 @@
+method: dcf.fcff
+description: "Nominal flows and nominal WACC with expected inflation: no conversion (R18); the perpetual growth restated in real terms, negative because it is below inflation, reported as a warning (R17)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R16 and R17, sharing no code with the engine: rates restated by the exact Fisher
+  relation written in the script, not through rates.real_nominal).
+input:
+  stages: [{"periods": 3, "projection": "given", "flows": ["80", "84", "88"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.09"
+  inflation: "0.03"
+  timing: "end_of_period"
+  terminal: {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}
+expect:
+  /periods/0/flow: "80"
+  /periods/0/discount_rate: "0.09"
+  /periods/0/rate_used: "0.09"
+  /periods/0/discount_factor: "0.9174311926605504587155963303"
+  /periods/0/present_value: "73.39449541284403669724770642"
+  /periods/1/flow: "84"
+  /periods/1/discount_rate: "0.09"
+  /periods/1/rate_used: "0.09"
+  /periods/1/discount_factor: "0.8416799932665600538675195691"
+  /periods/1/present_value: "70.70111943439104452487164380"
+  /periods/2/flow: "88"
+  /periods/2/discount_rate: "0.09"
+  /periods/2/rate_used: "0.09"
+  /periods/2/discount_factor: "0.7721834800610642696032289624"
+  /periods/2/present_value: "67.95214624537365572508414869"
+  /pv_explicit_period: "212.0477610926087369472034989"
+  /terminal/rate: "0.09"
+  /terminal/terminal_value: "1282.285714285714285714285714"
+  /terminal/discount_factor: "0.7721834800610642696032289624"
+  /terminal/present_value: "990.1598452897304119940833096"
+  /value_of_operations: "1202.207606382339148941286808"
+  /enterprise_value: "1202.207606382339148941286808"
+  /equity_value: "1202.207606382339148941286808"
+  /terminal_value_weight: "0.8236180174148964751791479297"
+  /terms/terminal_rate_given: "0.09"
+  /terms/terminal_rate_used: "0.09"
+  /terms/terminal_inflation: "0.03"
+  /terms/perpetual_growth: "0.02"
+  /terms/perpetual_growth_other_terms: "-0.009708737864077669902912621359"
+  /terms/conversion: "none"
+  /periods/0/inflation: "null"
+  /periods/2/inflation: "null"
+tolerance: "0.00000000000000000001"

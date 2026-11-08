@@ -409,3 +409,112 @@ def test_ac11_h_model_on_a_normalised_base_flow(
         "tv.h_model", standalone_input("tv.h_model", terms, rate, dcf["periods"][-1]["flow"])
     )
     assert dcf["terminal"]["output"] == alone["value"]
+
+
+# ---------------------------------------------------------------- nominal and real terms (#166)
+
+INFLATION_FORMS: list[dict[str, Any]] = [
+    {"inflation": "0.025"},
+    {"inflation": "-0.01"},
+    {
+        "inflation_per_period": ["0.04", "0.03", "0.035", "0.02", "0.015", "0.02", "0.02"],
+        "terminal_inflation": "0.018",
+    },
+]
+TERMS = [("real", "nominal"), ("nominal", "real"), ("nominal", "nominal"), ("real", "real")]
+
+
+@pytest.mark.parametrize(
+    ("terms", "inflation", "timing"), list(product(TERMS, INFLATION_FORMS, TIMINGS)), ids=str
+)
+def test_engine_matches_reference_with_inflation(
+    terms: tuple[str, str], inflation: dict[str, Any], timing: tuple[str, str | None]
+) -> None:
+    """R16 to R18: rates converted to the terms of the flows when the terms differ, no
+    conversion when they are equal; the perpetual growth restated in the other terms."""
+    payload: dict[str, Any] = {
+        "stages": STAGES[2],
+        "cash_flow_terms": terms[0],
+        "discount_rate_terms": terms[1],
+        "wacc": "0.09",
+        "timing": timing[0],
+        "terminal": {"tv.gordon": {"growth": "0.015", "first_flow": "last_flow_grown"}},
+        **inflation,
+    }
+    if timing[1]:
+        payload["terminal_discount_time"] = timing[1]
+    got, want = run(payload), ref.dcf_fcff(payload)
+    for key, value in want.items():
+        assert close(pointer(got, key), value, timing[0]), key
+    expected = "none" if terms[0] == terms[1] else f"to_{terms[0]}"
+    assert got["terms"]["conversion"] == expected
+
+
+@pytest.mark.parametrize("inflation", INFLATION_FORMS, ids=str)
+@pytest.mark.parametrize("timing", TIMINGS, ids=str)
+def test_ac9_conversion_equals_the_rates_of_rates_real_nominal(
+    inflation: dict[str, Any], timing: tuple[str, str | None]
+) -> None:
+    """AC9: real flows at nominal rates with inflation give exactly the result of the same flows
+    at the real rates computed by `rates.real_nominal`, given directly as real rates."""
+    n = 7
+    nominal = ["0.11", "0.1", "0.095", "0.09", "0.0875", "0.085", "0.085"]
+    common: dict[str, Any] = {
+        "stages": STAGES[2],
+        "cash_flow_terms": "real",
+        "timing": timing[0],
+        "terminal": {"tv.gordon": {"growth": "0.01", "first_flow": "last_flow_grown"}},
+    }
+    if timing[1]:
+        common["terminal_discount_time"] = timing[1]
+    per_period = inflation.get("inflation_per_period", [inflation.get("inflation")] * n)
+    terminal_inflation = inflation.get("terminal_inflation", inflation.get("inflation"))
+
+    def real(rate: str, i: str) -> str:
+        out = fm.run_json(
+            "rates.real_nominal", {"rate": rate, "inflation": i, "direction": "to_real"}
+        )["value"]
+        return str(out["rate"])
+
+    converted = run(
+        {
+            **common,
+            "discount_rate_terms": "nominal",
+            "wacc_per_period": nominal,
+            "terminal_wacc": "0.08",
+            **inflation,
+        }
+    )
+    direct = run(
+        {
+            **common,
+            "discount_rate_terms": "real",
+            "wacc_per_period": [real(r, i) for r, i in zip(nominal, per_period, strict=True)],
+            "terminal_wacc": real("0.08", terminal_inflation),
+        }
+    )
+    assert converted["value_of_operations"] == direct["value_of_operations"]
+    assert converted["terminal"] == direct["terminal"]
+    for a, b in zip(converted["periods"], direct["periods"], strict=True):
+        for field in ("flow", "rate_used", "discount_factor", "present_value"):
+            assert a[field] == b[field], field
+
+
+@pytest.mark.parametrize("inflation", INFLATION_FORMS, ids=str)
+def test_ac9_real_flows_equal_the_inflated_nominal_flows(inflation: dict[str, Any]) -> None:
+    """AC9: under end-of-period timing, real flows at nominal rates converted with inflation
+    value like the independently inflated nominal flows at the nominal rates (1e-20 relative)."""
+    payload: dict[str, Any] = {
+        "stages": STAGES[2],
+        "cash_flow_terms": "real",
+        "discount_rate_terms": "nominal",
+        "wacc": "0.095",
+        "timing": "end_of_period",
+        "terminal": {"tv.gordon": {"growth": "0.012", "first_flow": "last_flow_grown"}},
+        **inflation,
+    }
+    nominal = ref.inflated_input(payload)
+    want = ref.dcf_fcff(nominal)["/value_of_operations"]
+    assert abs(ref.dcf_fcff(payload)["/value_of_operations"] - want) <= D("1e-40") * want
+    for got in (run(payload), run(nominal)):
+        assert abs(D(got["value_of_operations"]) - want) <= D("1e-20") * abs(want)

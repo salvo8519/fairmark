@@ -1,0 +1,46 @@
+method: dcf.fcff
+description: "The valuation of terms-converted-rate-exact with the real WACC 0.08 given directly: identical expected values (AC9)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R16 and R17, sharing no code with the engine: rates restated by the exact Fisher
+  relation written in the script, not through rates.real_nominal).
+input:
+  stages: [{"periods": 3, "projection": "given", "flows": ["150", "155", "161"]}, {"periods": 2, "projection": "constant_growth", "growth": "0.02"}]
+  cash_flow_terms: "real"
+  discount_rate_terms: "real"
+  wacc: "0.08"
+  timing: "mid_period"
+  terminal_discount_time: "horizon"
+  terminal: {"tv.h_model": {"short_term_growth": "0.04", "long_term_growth": "0.01", "half_life": "3", "first_flow": "last_flow_grown"}}
+expect:
+  /periods/0/flow: "150"
+  /periods/0/rate_used: "0.08"
+  /periods/0/discount_factor: "0.9622504486493762741819146342"
+  /periods/0/present_value: "144.3375672974064411272871951"
+  /periods/1/flow: "155"
+  /periods/1/rate_used: "0.08"
+  /periods/1/discount_factor: "0.8909726376383113649832542909"
+  /periods/1/present_value: "138.1007588339382615724044151"
+  /periods/2/flow: "161"
+  /periods/2/rate_used: "0.08"
+  /periods/2/discount_factor: "0.8249746644799179305400502694"
+  /periods/2/present_value: "132.8209209812667868169480934"
+  /periods/3/flow: "164.22"
+  /periods/3/rate_used: "0.08"
+  /periods/3/discount_factor: "0.7638654300739980838333798790"
+  /periods/3/present_value: "125.4419809267519653271176437"
+  /periods/4/flow: "167.5044"
+  /periods/4/rate_used: "0.08"
+  /periods/4/discount_factor: "0.7072828056240722998457221102"
+  /periods/4/present_value: "118.4729819863768561422777746"
+  /pv_explicit_period: "659.1742100257403109860351220"
+  /terminal/rate: "0.08"
+  /terminal/terminal_value: "2632.2120"
+  /terminal/discount_factor: "0.6805831970337531632200278391"
+  /terminal/present_value: "1791.439258230609481265715918"
+  /value_of_operations: "2450.613468256349792251751040"
+  /terminal_value_weight: "0.7310166541707806830009905726"
+  /terms/terminal_rate_used: "0.08"
+  /terms/terminal_rate_given: "0.08"
+  /terms/conversion: "none"
+tolerance: "0.00000000000000000001"

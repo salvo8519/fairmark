@@ -854,7 +854,30 @@
     },
     "discount_rate_terms": {
       "$ref": "#/$defs/Terms",
-      "description": "`nominal` or `real`: the terms of the discount rates. They must equal\n`cash_flow_terms`."
+      "description": "`nominal` or `real`: the terms of the discount rates. When they differ from\n`cash_flow_terms`, expected inflation is required (`inflation`, or\n`inflation_per_period` with `terminal_inflation`) and every rate is converted to the\nterms of the cash flows; the cash flows are never converted."
+    },
+    "inflation": {
+      "description": "Expected inflation, decimal fraction per period (0.02 = 2%), greater than -1, for every\nexplicit period and for the terminal phase. Give this or `inflation_per_period`, or\nneither. With different terms it converts the discount rates by the exact Fisher\nrelation; with equal terms it only restates the perpetual growth in the other terms.\nDefault: none.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "inflation_per_period": {
+      "description": "Expected inflation per period of the explicit horizon, decimal fractions, exactly N of\nthem, each greater than -1; requires `terminal_inflation`. Give this or `inflation`,\nnot both. Default: none.",
+      "items": {
+        "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+        "type": [
+          "string",
+          "number"
+        ]
+      },
+      "type": [
+        "array",
+        "null"
+      ]
     },
     "negative_ebit": {
       "anyOf": [
@@ -916,6 +939,15 @@
         }
       ],
       "description": "With `mid_period` timing, required: `horizon` (terminal value at t = N) or\n`mid_period` (t = N − 0.5). Refused with `end_of_period`."
+    },
+    "terminal_inflation": {
+      "description": "Expected inflation of the terminal phase, decimal fraction per period, greater than -1;\nrequired with `inflation_per_period`, refused otherwise.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
     },
     "terminal_wacc": {
       "description": "WACC of the terminal phase, decimal fraction per period; required with\n`wacc_per_period`, refused with `wacc`.",

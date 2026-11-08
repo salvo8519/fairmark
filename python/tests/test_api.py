@@ -157,3 +157,30 @@ def test_dcf_terminal_helpers_build_each_technique() -> None:
         (technique,) = terminal
         assert r.terminal["technique"] == technique
         assert r.value_of_operations > 0
+
+
+def test_dcf_converts_rates_with_inflation() -> None:
+    """SPEC-0001 R16: real flows at a nominal WACC with expected inflation; the helper passes
+    one inflation, or one per period with a terminal inflation."""
+    one = fm.dcf.fcff(
+        [fm.dcf.given([100, 110])],
+        cash_flow_terms="real",
+        discount_rate_terms="nominal",
+        wacc="0.1016",
+        inflation="0.02",
+        timing="end_of_period",
+        terminal=fm.dcf.gordon("0.01", first_flow="last_flow_grown"),
+    )
+    per = fm.dcf.fcff(
+        [fm.dcf.given([100, 110])],
+        cash_flow_terms="real",
+        discount_rate_terms="nominal",
+        wacc="0.1016",
+        inflation_per_period=["0.02", "0.02"],
+        terminal_inflation="0.02",
+        timing="end_of_period",
+        terminal=fm.dcf.gordon("0.01", first_flow="last_flow_grown"),
+    )
+    assert one.value["terms"]["conversion"] == "to_real"
+    assert one.terminal["rate"] == Decimal("0.08")
+    assert one.value_of_operations == per.value_of_operations

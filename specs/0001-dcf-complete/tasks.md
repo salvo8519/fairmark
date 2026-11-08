@@ -135,3 +135,38 @@ properties of the `terminal` object (additive to version 3).
 ### Verification
 - [ ] T23 `numerical-auditor` review, `code-reviewer` review, open questions of plan.md
   (issue #43) answered, acceptance criteria AC11 and AC12 ticked in spec.md (maintainer)
+
+## Issue #166 — Nominal and real terms: basis check and rate conversion
+
+Plan: `plan.md`, section "Issue #166". Additive to `dcf.fcff` version 3.
+
+### Tests (write first, they must fail)
+- [x] N1 [P] Reference `scripts/reference_dcf.py` extended with the rate conversion (R16), the
+  perpetual growth in the other terms (R17) and the inflated-flows restatement for AC9
+  [R16, R17; AC9]
+- [x] N2 [P] Golden cases `tests/golden/dcf.fcff/terms-*.yaml` and `error-terms-*.yaml`: real
+  flows with a nominal rate, nominal flows with a real rate, inflation per period, equal terms
+  with inflation, a converted rate equal to the rate given directly, errors [R13, R15 to R18;
+  AC6, AC8, AC9]
+- [x] N3 [P] Python: grid against the reference with conversion, AC9 exact equality and the
+  inflated-flows equivalence [AC9]
+
+### Implementation
+- [x] N4 `dcf/engine.rs`: inflation forms, conversion through `rates::real_nominal`,
+  `rate_used`, `inflation` per period, `terms` output, R17 restatement and warning, `FM-E024`
+  message with both fixes; `dcf/fcff.rs`: the three optional fields; unit tests
+  [R13 to R18, R27, R28; AC8, AC10, AC14]
+- [x] N5 `uv run just generate`: `dcf.fcff/v3.json` changed additively only
+  (`scripts/schema_snapshots.py --diff-against` the schemas of main), methods reference
+
+### Adapters and docs
+- [x] N6 [P] Python helper: `inflation`, `inflation_per_period`, `terminal_inflation` on
+  `fm.dcf.fcff`
+- [x] N7 [P] Methodology page `docs/en/methods/dcf-fcff.md` (terms and inflation),
+  `docs/en/reference/errors.md` (`FM-E024` fixes), release note `changes/166.feature.md`
+- [x] N8 Italian edition; roadmap #166 done; `uv run just check`
+
+### Verification
+- [x] N9 `numerical-auditor` (numerically sound) and `code-reviewer` (approve) reviews, their
+  findings applied; open questions of plan.md (issue #166) resolved by Decisions 18 to 20;
+  AC8 and AC9 ticked in spec.md (maintainer, 2026-11-08)
