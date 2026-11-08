@@ -222,6 +222,9 @@ terms:
   change in net working capital: variazione del capitale circolante netto
   interest expense: oneri finanziari
   non-controlling interests: partecipazioni di minoranza
+  available (method status): disponibile
+  preview (method status): anteprima
+  promotion rule (method status): regola di promozione
 keep_in_english:
   - Fairmark
   - explain
