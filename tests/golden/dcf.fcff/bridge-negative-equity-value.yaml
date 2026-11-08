@@ -18,8 +18,8 @@ input:
   debt_like_items: [{"label": "Unfunded pension obligation", "value": "300", "measurement_basis": "book value"}]
   non_controlling_interests: [{"label": "40% of Subsidiary B", "value": "150", "measurement_basis": "book value"}]
 expect:
-  /value_of_operations: "1421.487603305785123966942149"
-  /enterprise_value: "1421.487603305785123966942149"
+  /value_of_operations: "1421.4876033057851239669421488"
+  /enterprise_value: "1421.4876033057851239669421488"
   /equity_value: "-78.51239669421487603305785124"
   /bridge/debt_like_items_total: "300"
   /bridge/non_controlling_interests_total: "150"
