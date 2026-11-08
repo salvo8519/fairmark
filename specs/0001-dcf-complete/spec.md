@@ -552,7 +552,6 @@ the source verification.
       terminal phase (`inflation`, or `terminal_inflation`), since the perpetual growth applies
       after N. (c) No warning is reported with real flows: the restated nominal growth is
       reported only.
-
 - [x] **21. Measurement basis of the bridge claims** (approved by the maintainer on
       2026-11-08, issue #44). (1) Each debt-like item and each non-controlling interest states
       its `measurement_basis`, a required enumeration `MeasurementBasis`: `book_value` (book
