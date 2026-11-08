@@ -75,7 +75,7 @@ SPEC-0002); estimating the inputs (normalised flows, multiples from comparables)
 | Multiple metric | ebitda, ebit, revenue, earnings, book_value | required |
 
 ## Acceptance criteria
-- **AC1** (R1, R2) — Published worked examples (Damodaran's public lecture material on stable
+- [x] **AC1** (R1, R2) — Published worked examples (Damodaran's public lecture material on stable
   growth and on reinvestment g / ROC) match at their published precision.
 - **AC2** (R2) — Property: with RONIC = r, TV does not change with g.
 - **AC3** (R3) — With g_s = g_l the H-model equals the Gordon model (property).
@@ -110,3 +110,12 @@ published.
 - [x] Liquidation taxes stay a given amount in version 1; jurisdiction profiles come later.
 - [x] Golden tolerance: every new `tv.*` case uses the tightest tolerance it supports (1e-20
       where the magnitude of the value allows, otherwise the reason is stated in the case).
+
+Decided under the maintainer's instruction of 2026-11-08 (stability, no silent defaults):
+- [x] Inside `tv.compare`, `tv.normalised_income` keeps its own capitalisation rate; it is not
+      the shared discount rate, and `explain.conventions` states it.
+- [x] `tv.liquidation` takes a required `basis` input (`enterprise` or `equity`, no default),
+      reported in the output and in `explain.conventions`; `tv.compare` returns `FM-E019` when
+      it differs from the basis of the comparison.
+- [x] AC1 needs no second example: the maintainer's session verified the values of slide 203
+      (833, 917, 1000, 1122, 1071) against the published PDF; AC1 is satisfied.

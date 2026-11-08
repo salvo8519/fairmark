@@ -1,6 +1,6 @@
 method: tv.value_driver
 description: Damodaran table cell growth 2.0%, return on capital 6%, NOPAT 100, rate 10% (AC1)
-source: "Damodaran, NYU Stern valuation lectures (undergraduate, spring 2020), session 11 slides, table 'The Big Assumption': terminal value for after-tax operating income of 100 in year n+1 and a cost of capital of 10%, rounded to units (pages.stern.nyu.edu/~adamodar/podcasts/valUGspr20/session11slides.pdf); cell growth 2.0%, return on capital 6% = 833"
+source: "Damodaran, NYU Stern valuation lectures (undergraduate, spring 2020), session 11 slides, table 'The Big Assumption': terminal value for after-tax operating income of 100 in year n+1 and a cost of capital of 10%, rounded to units (pages.stern.nyu.edu/~adamodar/podcasts/valUGspr20/session11slides.pdf); cell growth 2.0%, return on capital 6% = 833. Source check: the maintainer's session of 2026-11-08 verified the slide 203 values (833, 917, 1000, 1122, 1071) against the published PDF"
 input: { nopat_next: "100", growth: "0.02", ronic: "0.06", rate: "0.10" }
 expect: { terminal_value: "833" }
 tolerance: "0.5"  # the published table is rounded to units; exact values are pinned by the reference cases

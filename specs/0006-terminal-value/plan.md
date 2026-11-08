@@ -36,7 +36,7 @@ SPEC-0001 (typed composition, ADR 0009; not the registry path of ADR 0010).
 | `tv.exit_multiple` | `multiple`, `metric` (`ebitda`, `ebit`, `revenue`, `earnings`), `metric_value`; optional `rate` with `next_flow` (both or neither); optional `growth_cap` (needs `rate` and `next_flow`) |
 | `tv.limited_horizon` | `flow` (first flow, at N + 1), `rate`, `periods` (n), optional `growth` (default 0), optional `residual_value` at N + n (default 0), optional `growth_cap` |
 | `tv.normalised_income` | `income`, `capitalisation_rate`, `basis` (`enterprise` or `equity`, required, no default), optional `growth` (default: none, R / i), optional `growth_cap` |
-| `tv.liquidation` | `assets`, `liabilities`, `liquidation_costs` (lists of `{label, value}`), `tax_on_gains` (amount) |
+| `tv.liquidation` | `assets`, `liabilities`, `liquidation_costs` (lists of `{label, value}`), `tax_on_gains` (amount), `basis` (`enterprise` or `equity`, required, no default) |
 | `tv.compare` | `rate`, `basis` (`enterprise` or `equity`), optional `growth_cap`, `techniques`: a list of `{"tv.<name>": {terms}}` where the terms are the method's own fields without `rate` and `growth_cap` |
 
 Choices that follow from the spec text and the maintainer decisions:
@@ -69,8 +69,10 @@ Choices that follow from the spec text and the maintainer decisions:
   cap are given once and passed to every technique that uses them; `basis` is declared once
   and an exit multiple of the other basis is `FM-E019` (decision 2: never mixed).
   `tv.normalised_income` declares a required `basis` and is checked in the same way
-  (`FM-E019`, decision 3 of 2026-11-08). Its capitalisation rate stays a technique term (open
-  question 1).
+  (`FM-E019`, decision 3 of 2026-11-08), and so does `tv.liquidation`, which also takes a
+  required `basis`. `tv.normalised_income` keeps its own capitalisation rate, not the shared
+  discount rate, stated in `explain.conventions` (both decided under the maintainer's
+  instruction of 2026-11-08).
   The first technique that fails returns its error; there are no partial results. Each row
   records the `method_version` of its technique: a numerical change in any `tv.*` method
   requires a new version of `tv.compare`, and a unit test pins the technique versions together
@@ -92,7 +94,7 @@ Choices that follow from the spec text and the maintainer decisions:
 | --- | --- |
 | g ≥ r (Gordon, value driver, H-model on g_l), g ≥ i (normalised income) | `FM-E004` (existing) |
 | RONIC ≤ 0; capitalisation rate ≤ 0; multiple ≤ 0; metric ≤ 0; n outside 1 to 10,000; H < 0; a negative asset value, liability, cost or tax on gains | `FM-E018` (new) |
-| Exit multiple or normalised income of one basis inside a comparison declared on the other | `FM-E019` (new) |
+| Exit multiple, normalised income or liquidation of one basis inside a comparison declared on the other | `FM-E019` (new) |
 | Missing or conflicting flow fields, a growth of −100% or lower (as in `tvm.perpetuity`), empty label, empty asset list, empty technique list, a technique entry with several keys | `FM-E001` (existing) |
 | The rate of the limited horizon at or below −100% | `FM-E003` (existing, from the shared annuity factor) |
 
@@ -155,10 +157,12 @@ Recorded in spec.md, "Decisions (maintainer, 2026-11-08)":
   1e-22 or tighter near 1e3, 1e-18 near 1e10 (28 significant digits), 0.5 only where the
   published source is rounded to units; the reason is written in each case looser than 1e-20.
 
+Decided under the maintainer's instruction of 2026-11-08 (stability, no silent defaults):
+- Inside `tv.compare`, `tv.normalised_income` keeps its own capitalisation rate; it is not the
+  shared discount rate.
+- `tv.liquidation` takes a required `basis`, checked by `tv.compare` (`FM-E019`).
+- AC1 needs no second example: the maintainer's session verified the slide 203 values (833,
+  917, 1000, 1122, 1071) against the published PDF; AC1 is ticked in spec.md.
+
 ## Open questions for the maintainer
-1. In `tv.compare`, should `tv.normalised_income` use the shared terminal-phase rate as its
-   capitalisation rate, or keep its own (current choice)?
-2. In `tv.compare`, which basis does `tv.liquidation` carry? Currently the analyst declares the
-   basis and chooses the liabilities accordingly (financial debt included for equity).
-3. AC1 for `tv.gordon` and `tv.value_driver` uses one published table; a second published
-   stable-growth example with more digits would strengthen it.
+None.

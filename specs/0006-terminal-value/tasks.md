@@ -20,6 +20,9 @@ parallel; tick a task only when `just check` passes.
 - [x] T8 `tv.exit_multiple` with unit tests [R4, R8; AC4], including `book_value` (P/BV)
 - [x] T8b Maintainer decisions of 2026-11-08: P/BV metric, required `basis` of
   `tv.normalised_income` checked by `tv.compare`, tightest golden tolerances [R4, R6, R9]
+- [x] T8c Decided under the maintainer's instruction of 2026-11-08: required `basis` of
+  `tv.liquidation` checked by `tv.compare`, own capitalisation rate of normalised income
+  stated, AC1 source check recorded [R7, R9; AC1]
 - [x] T9 `tv.limited_horizon` and `tv.normalised_income` with unit tests [R5, R6, R8; AC5]
 - [x] T10 `tv.liquidation` with unit tests [R7; AC6]
 - [x] T11 `tv.compare` with unit tests [R9]
