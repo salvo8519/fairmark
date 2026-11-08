@@ -214,7 +214,7 @@ milestones:
         tasks:
           - { issue: 50, title: "methods / schema / run / verify", status: done }
           - { issue: 51, title: "Markdown output and batch mode", tags: [parallel], status: open }
-          - { issue: 191, title: "CLI exits cleanly when the output pipe is closed", status: open }
+          - { issue: 191, title: "CLI exits cleanly when the output pipe is closed", status: done }
       - title: "MCP and function calling"
         issue: 52
         labels: ["area:mcp"]

@@ -1,11 +1,25 @@
 ---
 source: guides/cli.md
-source_hash: 563724ffc92f
+source_hash: 52c142b298d4
 ---
 # Riga di comando
 
 Il binario `fairmark` legge JSON e scrive JSON. Gli errori vanno su stderr come JSON, con un
 codice di uscita diverso da zero.
+
+Codici di uscita:
+
+| Codice | Significato |
+| --- | --- |
+| `0` | Successo: il risultato è stato scritto su stdout, oppure il lettore ha chiuso la pipe in anticipo |
+| `1` | Errore: il report JSON su stderr riporta il codice e il messaggio; `verify` esce con `1` anche quando il risultato non coincide |
+| `2` | Riga di comando non valida (sottocomando od opzione sconosciuti); il messaggio è quello del parser degli argomenti |
+
+Quando il programma che legge l'output si ferma prima, come in `fairmark methods | head -1`,
+`fairmark` smette di scrivere ed esce con `0`, senza nulla su stderr. È il lettore ad aver
+scelto di fermarsi, quindi non è un errore, e gli script con `set -o pipefail` non falliscono
+per questo. Il comportamento è diverso da quello di strumenti C come `cat`, che vengono
+terminati dal segnale `SIGPIPE` e nella shell riportano `141`.
 
 ```bash
 fairmark methods                                   # elenca i metodi, con versione e stato
