@@ -445,6 +445,30 @@ fn a_default_destination_of_an_aggregate_not_given_is_not_listed() {
     );
 }
 
+/// Review of PR 1: a default destination is listed only when its aggregate is given, not when
+/// the node holds only a part of it.
+#[test]
+fn a_node_without_its_aggregate_lists_no_default_destination() {
+    let input = json!({"years": [{"statutory": {"balance_sheet": {
+        "receivables": {"trade": "5"},
+        "provisions": {"beyond_one_year": "1"},
+        "intangible_assets": {"gross": "10", "accumulated": "4"},
+        "tangible_assets": {"gross": "10"}}}}],
+        "treatments": {"write_downs_of_receivables": "investing"}});
+    let out = run(&input);
+    let destinations: Vec<&str> = out["meta"]["defaults_applied"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|d| d["value"] != "0")
+        .map(|d| d["field"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        destinations,
+        ["/years/0/statutory/balance_sheet/intangible_assets"]
+    );
+}
+
 /// D1, D2 of 2026-11-08: item A and the "of which" parts not given are zero, each listed in
 /// `meta.defaults_applied` after the destinations and the input default, also when the parent
 /// node is absent.

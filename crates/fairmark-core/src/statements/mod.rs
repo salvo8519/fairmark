@@ -513,12 +513,12 @@ impl Method for Reorganise {
         for (i, y) in input.years.iter().enumerate() {
             let Some(st) = &y.statutory else { continue };
             if let Some(bs) = &st.balance_sheet {
-                for (key, destination, reason) in BALANCE_SHEET_DEFAULTS {
-                    if bs.has(key) {
+                for row in BALANCE_SHEET_DEFAULTS {
+                    if (row.given)(bs).is_some() {
                         out.push(DefaultApplied::destination(
-                            format!("/years/{i}/statutory/balance_sheet/{key}"),
-                            destination,
-                            reason,
+                            format!("/years/{i}/statutory/balance_sheet/{}", row.key),
+                            row.destination.id(),
+                            row.reason,
                         ));
                     }
                 }

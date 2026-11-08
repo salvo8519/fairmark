@@ -18,6 +18,8 @@ use crate::dcf::BridgeClaim;
 use crate::ratios::NetFinancialPosition;
 use crate::tv::Line;
 
+use super::Destination;
+
 /// Input of `statements.reorganise` (version 1).
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -956,72 +958,99 @@ impl<'de> Deserialize<'de> for Adjustment {
 
 // ---------------------------------------------------------------- Appendix A, choice D
 
-/// The statutory aggregates whose destination is a `default` of Appendix A (choice D), with
-/// the destination and its reason. One table, read by `apply_defaults` (for
-/// `meta.defaults_applied`) and by the computation (R8): the two cannot drift.
-pub(crate) const BALANCE_SHEET_DEFAULTS: &[(&str, &str, &str)] = &[
-    (
-        "intangible_assets",
-        "operating_fixed_assets",
-        "Appendix A.1, B.I: operating fixed assets by default; a part moves to non-operating \
-         assets only by a `non_operating_asset` adjustment (SPEC-0005 R8)",
-    ),
-    (
-        "tangible_assets",
-        "operating_fixed_assets",
-        "Appendix A.1, B.II: operating fixed assets by default; a part moves only by a \
-         `non_operating_asset` or `lease` adjustment (SPEC-0005 R8)",
-    ),
-    (
-        "receivables",
-        "operating_working_capital",
-        "Appendix A.1, C.II: operating working capital by default; financial or non-operating \
-         parts move only by a `financial_receivable` or `non_operating_asset` adjustment \
-         (SPEC-0005 R8)",
-    ),
-    (
-        "current_financial_assets",
-        "net_financial_position_other_financial_asset",
-        "Appendix A.1, C.III: an other financial asset of the net financial position by \
-         default (Decision 11); a part moves only by a `non_operating_asset` adjustment",
-    ),
-    (
-        "cash",
-        "net_financial_position_cash",
-        "Appendix A.1, C.IV: all cash in the net financial position (Decision 11); operating \
-         cash moves only by an `operating_cash` adjustment",
-    ),
-    (
-        "prepayments_and_accrued_income",
-        "operating_working_capital",
-        "Appendix A.1, assets D: operating working capital by default (SPEC-0005 R8)",
-    ),
-    (
-        "provisions",
-        "operating_provisions",
-        "Appendix A.1, provisions B: operating provisions by default, never in the net \
-         financial position (Decision 5; ESMA32-382-1138 guideline 39); debt-like only by a \
-         `debt_like_provision` adjustment",
-    ),
-    (
-        "employee_severance_indemnity",
-        "operating_provisions",
-        "Appendix A.1, employee severance indemnity C: operating provisions by default \
-         (Decision 5); debt-like only by a `debt_like_provision` adjustment",
-    ),
-    (
-        "payables",
-        "operating_working_capital",
-        "Appendix A.1, payables D less financial debt and shareholder loans: operating \
-         working capital by default; parts move only by a `tax_instalments` or \
-         `non_current_trade_payables` adjustment (SPEC-0005 R8)",
-    ),
-    (
-        "accruals_and_deferred_income",
-        "operating_working_capital",
-        "Appendix A.1, liabilities E: operating working capital by default; accrued interest \
-         moves only by an `accrued_interest` adjustment (SPEC-0005 R8)",
-    ),
+/// A statutory aggregate whose destination is a `default` of Appendix A (choice D).
+pub(crate) struct DefaultDestination {
+    /// Pointer of the aggregate below the balance sheet.
+    pub key: &'static str,
+    pub destination: Destination,
+    /// The Appendix A row and its decision.
+    pub reason: &'static str,
+    /// The aggregate's amount when it is given (its total, or for B.I and B.II gross less
+    /// accumulated); `None` when it is not, even if its node holds a part of it.
+    pub given: fn(&StatutoryBalanceSheet) -> Option<Decimal>,
+}
+
+fn net_given(node: &Option<NetFixedAsset>) -> Option<Decimal> {
+    let n = node.as_ref()?;
+    n.total.or_else(|| n.gross?.checked_sub(n.accumulated?))
+}
+
+/// The `default` destinations of Appendix A.1, one row per aggregate, read by `apply_defaults`
+/// for `meta.defaults_applied` (R8). Typed rows: a misspelt key or destination cannot compile
+/// or silently drop a default.
+pub(crate) const BALANCE_SHEET_DEFAULTS: &[DefaultDestination] = &[
+    DefaultDestination {
+        key: "intangible_assets",
+        destination: Destination::OperatingFixedAssets,
+        reason: "Appendix A.1, B.I: operating fixed assets by default; a part moves to \
+                 non-operating assets only by a `non_operating_asset` adjustment (SPEC-0005 R8)",
+        given: |bs| net_given(&bs.intangible_assets),
+    },
+    DefaultDestination {
+        key: "tangible_assets",
+        destination: Destination::OperatingFixedAssets,
+        reason: "Appendix A.1, B.II: operating fixed assets by default; a part moves only by a \
+                 `non_operating_asset` or `lease` adjustment (SPEC-0005 R8)",
+        given: |bs| net_given(&bs.tangible_assets),
+    },
+    DefaultDestination {
+        key: "receivables",
+        destination: Destination::OperatingWorkingCapital,
+        reason: "Appendix A.1, C.II: operating working capital by default; financial or \
+                 non-operating parts move only by a `financial_receivable` or \
+                 `non_operating_asset` adjustment (SPEC-0005 R8)",
+        given: |bs| bs.receivables.as_ref()?.total,
+    },
+    DefaultDestination {
+        key: "current_financial_assets",
+        destination: Destination::NetFinancialPositionOtherFinancialAsset,
+        reason: "Appendix A.1, C.III: an other financial asset of the net financial position by \
+                 default (Decision 11); a part moves only by a `non_operating_asset` adjustment",
+        given: |bs| bs.current_financial_assets,
+    },
+    DefaultDestination {
+        key: "cash",
+        destination: Destination::NetFinancialPositionCash,
+        reason: "Appendix A.1, C.IV: all cash in the net financial position (Decision 11); \
+                 operating cash moves only by an `operating_cash` adjustment",
+        given: |bs| bs.cash,
+    },
+    DefaultDestination {
+        key: "prepayments_and_accrued_income",
+        destination: Destination::OperatingWorkingCapital,
+        reason: "Appendix A.1, assets D: operating working capital by default (SPEC-0005 R8)",
+        given: |bs| bs.prepayments_and_accrued_income.as_ref()?.total,
+    },
+    DefaultDestination {
+        key: "provisions",
+        destination: Destination::OperatingProvisions,
+        reason: "Appendix A.1, provisions B: operating provisions by default, never in the net \
+                 financial position (Decision 5; ESMA32-382-1138 guideline 39); debt-like only \
+                 by a `debt_like_provision` adjustment",
+        given: |bs| bs.provisions.as_ref()?.total,
+    },
+    DefaultDestination {
+        key: "employee_severance_indemnity",
+        destination: Destination::OperatingProvisions,
+        reason: "Appendix A.1, employee severance indemnity C: operating provisions by default \
+                 (Decision 5); debt-like only by a `debt_like_provision` adjustment",
+        given: |bs| bs.employee_severance_indemnity.as_ref()?.total,
+    },
+    DefaultDestination {
+        key: "payables",
+        destination: Destination::OperatingWorkingCapital,
+        reason: "Appendix A.1, payables D less financial debt and shareholder loans: operating \
+                 working capital by default; parts move only by a `tax_instalments` or \
+                 `non_current_trade_payables` adjustment (SPEC-0005 R8)",
+        given: |bs| bs.payables.as_ref()?.total,
+    },
+    DefaultDestination {
+        key: "accruals_and_deferred_income",
+        destination: Destination::OperatingWorkingCapital,
+        reason: "Appendix A.1, liabilities E: operating working capital by default; accrued \
+                 interest moves only by an `accrued_interest` adjustment (SPEC-0005 R8)",
+        given: |bs| bs.accruals_and_deferred_income.as_ref()?.total,
+    },
 ];
 
 /// The income statement aggregates with a `default` layer of Appendix A.2.
@@ -1136,25 +1165,6 @@ pub(crate) const TAKEN_AS_ZERO: &[TakenAsZero] = &[
                  `payables/accruals_and_deferred_income`: no separate line E",
     },
 ];
-
-impl StatutoryBalanceSheet {
-    /// Whether the aggregate `key` of [`BALANCE_SHEET_DEFAULTS`] is given.
-    pub(crate) fn has(&self, key: &str) -> bool {
-        match key {
-            "intangible_assets" => self.intangible_assets.is_some(),
-            "tangible_assets" => self.tangible_assets.is_some(),
-            "receivables" => self.receivables.is_some(),
-            "current_financial_assets" => self.current_financial_assets.is_some(),
-            "cash" => self.cash.is_some(),
-            "prepayments_and_accrued_income" => self.prepayments_and_accrued_income.is_some(),
-            "provisions" => self.provisions.is_some(),
-            "employee_severance_indemnity" => self.employee_severance_indemnity.is_some(),
-            "payables" => self.payables.is_some(),
-            "accruals_and_deferred_income" => self.accruals_and_deferred_income.is_some(),
-            _ => false,
-        }
-    }
-}
 
 impl StatutoryIncomeStatement {
     /// Whether the aggregate `key` of [`INCOME_STATEMENT_DEFAULTS`] is given.

@@ -383,6 +383,17 @@ DEFAULT_ROWS_IS = [
 ]
 
 
+def aggregate_given(bs: dict[str, Any], key: str) -> bool:
+    """The aggregate itself is given: a leaf, a node's total, or B.I and B.II gross and
+    accumulated; a node holding only a part of the aggregate does not count."""
+    v = bs.get(key)
+    if v is None:
+        return False
+    if not isinstance(v, dict):
+        return True
+    return "total" in v or ("gross" in v and "accumulated" in v)
+
+
 def defaults_applied(inp: dict[str, Any]) -> list[tuple[str, str]]:
     """(pointer, destination) of every default applied (R8 as clarified; R17), years first."""
     out: list[tuple[str, str]] = []
@@ -394,7 +405,7 @@ def defaults_applied(inp: dict[str, Any]) -> list[tuple[str, str]]:
         bs = st.get("balance_sheet") or {}
         base = f"/years/{i}/statutory/balance_sheet"
         for key, dest in DEFAULT_ROWS_BS:
-            if key in bs:
+            if aggregate_given(bs, key):
                 out.append((f"{base}/{key}", dest))
         inc = st.get("income_statement") or {}
         ibase = f"/years/{i}/statutory/income_statement"
