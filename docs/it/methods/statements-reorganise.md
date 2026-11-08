@@ -1,6 +1,6 @@
 ---
 source: methods/statements-reorganise.md
-source_hash: fc02231b3719
+source_hash: a537b5dc2da9
 ---
 # Bilancio riclassificato (`statements.reorganise`)
 
@@ -11,13 +11,16 @@ del Codice civile, bilancio in forma ordinaria o in forma abbreviata, art. 2435-
 totali già riclassificati, per esempio da una banca. Il risultato ha le forme che
 [`dcf.fcff`](dcf-fcff.md) e i gruppi `ratios.*` accettano senza modifiche.
 
-Questa versione restituisce il **reorganised balance sheet** (stato patrimoniale riclassificato
-in area operativa, non operativa e finanziaria): capitale investito,
+Questa versione restituisce, per ogni esercizio, il **reorganised balance sheet** (stato
+patrimoniale riclassificato in area operativa, non operativa e finanziaria: capitale investito,
 attività non operative, patrimonio netto, quasi-equity items, posizione finanziaria netta con
-composizione e scadenze, debt-like items e importi correnti e non correnti. Le voci del conto
-economico sono lette, validate e verificate rispetto ai loro totali; la loro riclassificazione
-non è ancora restituita (si veda la
-[roadmap](https://salvo8519.github.io/fairmark/project/roadmap/), in inglese).
+composizione e scadenze, debt-like items e importi correnti e non correnti) e il **conto
+economico** per natura dell'art. 2425 riclassificato (valore della produzione, value added,
+margine operativo lordo, reddito operativo, investing result, reddito operativo aziendale,
+componenti non ricorrenti, financing result, risultato prima delle imposte, imposte sul reddito e
+utile netto), con la riconciliazione dei suoi due subtotali allineati a IFRS 18
+con A − B. Le variazioni esatte tra esercizi consecutivi arrivano con una versione successiva
+(si veda la [roadmap](https://salvo8519.github.io/fairmark/project/roadmap/), in inglese).
 
 ## Calcolo sui dati disponibili
 
@@ -95,6 +98,69 @@ della posizione finanziaria netta.
 Una posizione finanziaria netta positiva è indebitamento netto. Il suo totale è calcolato dalla
 funzione degli indici (SPEC-0007), quindi coincide con il totale dell'oggetto restituito.
 
+### Conto economico (Appendice B.2)
+
+$$
+\text{MOL} = \text{value added} - \text{costi per il personale}
+$$
+
+$$
+\text{reddito operativo aziendale} = \text{reddito operativo} + \text{investing result}
+$$
+
+$$
+\text{risultato prima delle imposte} = \text{reddito operativo aziendale} + \text{componenti non ricorrenti} + \text{financing result}
+$$
+
+con, per un esercizio in forma civilistica:
+
+- valore della produzione = A1 + A2 e A3 + A4 + A5, parte caratteristica (al netto delle parti
+  spostate dalle rettifiche `investing` e `non_recurring`); il totale A è usato quando fornito;
+- value added (valore aggiunto) = valore della produzione − (B6 + B11 + B7 + B8 + B14), ciascuna
+  parte caratteristica; `materials_consumed` = B6 + B11;
+- margine operativo lordo (MOL, EBITDA) = value added − B9; ammortamenti e svalutazioni (B10),
+  accantonamenti (B12, B13), investing result, financing result e componenti non ricorrenti sono
+  sotto di esso. La definizione è restituita a parole in `ebitda_definition`, pronta per i
+  gruppi `ratios.*`;
+- reddito operativo della gestione caratteristica (margine operativo netto, MON) = MOL −
+  ammortamenti (B10 a e b, più l'ammortamento dei beni in leasing) − B12 − B13, e − B10 d con
+  la classificazione `write_downs_of_receivables: operating`;
+- investing result (risultato della gestione accessoria) = parti `investing` di A5 − parti
+  `investing` di B14 + C15 + C16 + (D18 − D19) − B10 c − B10 d (salvo `operating`); il totale D
+  è usato quando fornito;
+- reddito operativo aziendale (EBIT nella prassi italiana) = reddito operativo + investing
+  result;
+- componenti non ricorrenti = Σ proventi non ricorrenti − Σ oneri non ricorrenti, dalle
+  rettifiche `non_recurring` (zero se assenti);
+- financing result (risultato della gestione finanziaria) = C17-bis − C17 (C17 più gli
+  interessi dei beni in leasing, restituito come `interest_and_other_financial_charges`);
+- utile netto = risultato prima delle imposte − voce 20, imposte come fornite.
+
+I due subtotali hanno il contenuto dei subtotali richiesti da IFRS 18, "operating profit or
+loss" e "profit or loss before financing and income taxes": IFRS 18 si applica a chi redige il
+bilancio secondo gli IFRS e l'art. 2425 a chi applica gli OIC, e la riclassificazione riconduce
+entrambi agli stessi subtotali. `operating_profit` esclude tutto ciò che è fuori dalla gestione
+caratteristica: l'area degli investimenti (proventi da partecipazioni e da liquidità,
+svalutazioni e rivalutazioni) e le componenti non ricorrenti.
+
+**Svalutazioni e rivalutazioni** (Decision 17 di SPEC-0005) sono extra-caratteristiche: D18 e
+D19 (attività finanziarie), B10 c (immobilizzazioni) e B10 d (crediti dell'attivo circolante e
+disponibilità liquide) sono nell'investing result, sotto il reddito operativo e sopra il reddito
+operativo aziendale. Una svalutazione misura una variazione del valore di un'attività, non il
+risultato della gestione caratteristica dell'esercizio. Per la sola B10 d, la classificazione
+`write_downs_of_receivables: operating` la colloca nel reddito operativo, sotto il MOL, come fa
+la prassi IFRS 18 per la svalutazione dei crediti commerciali. Il MOL è lo stesso in entrambi i
+casi. Nessuna rettifica sposta D18 o D19. B10 a-c fornita come importo unico (bilancio in forma
+abbreviata, art. 2435-bis) senza la sua parte B10 c è letta come ammortamenti, e le convenzioni
+lo indicano; fornire la parte B10 c per collocarla nell'investing result (Decision 8).
+
+**Riconciliazioni** (R19). `reconciliations.operating_profit` e
+`reconciliations.profit_before_financing_and_taxes` partono da A − B del conto economico
+civilistico, elencano ogni importo spostato (svalutazioni, parti `investing` e `non_recurring`,
+righe del leasing, C15, C16 e D) con il pointer della sua origine, e arrivano al subtotale, in
+modo esatto. Senza leasing, il risultato prima delle imposte è uguale ad A − B ± C ± D e l'utile
+netto alla voce 21.
+
 ## Esempio
 
 ```python
@@ -146,6 +212,58 @@ nfp = bs["sources"]["net_financial_position"]
 assert nfp["total"] == Decimal("710000")  # 1000000 − 240000 − 60000 + 10000
 assert (nfp["current"], nfp["non_current"]) == (Decimal("100000"), Decimal("610000"))
 assert bs["total_funds_invested"] == bs["sources"]["total_sources"] == Decimal("1610000")
+```
+
+Il conto economico della stessa impresa (forma ordinaria, art. 2425):
+
+```python
+from decimal import Decimal
+
+import fairmark as fm
+
+r = fm.statements.reorganise(
+    [
+        {
+            "label": "2024",
+            "statutory": {
+                "income_statement": {
+                    "revenue": "5000000",
+                    "change_in_product_inventories": "40000",
+                    "own_work_capitalised": "10000",
+                    "other_revenue_and_income": "50000",
+                    "purchases": "2200000",
+                    "services": "1244000",
+                    "use_of_third_party_assets": "150000",
+                    "personnel_costs": "1000000",
+                    "depreciation_and_write_downs": {
+                        "depreciation_and_amortisation": "180000",
+                        "write_downs_of_fixed_assets": "20000",
+                        "write_downs_of_receivables": "15000",
+                    },
+                    "change_in_raw_material_inventories": "-30000",
+                    "provisions_for_risks": "10000",
+                    "other_provisions": "5000",
+                    "other_operating_expenses": "40000",
+                    "income_from_equity_investments": "12000",
+                    "other_financial_income": "3000",
+                    "interest_and_other_financial_charges": "60000",
+                    "exchange_gains_and_losses": "-1000",
+                    "revaluations_of_financial_assets": "2000",
+                    "write_downs_of_financial_assets": "8000",
+                    "income_taxes": "64000",
+                    "profit_or_loss_for_the_year": "150000",
+                }
+            },
+        }
+    ]
+)
+inc = r.years[0]["income_statement"]
+assert inc["ebitda"] == Decimal("496000")  # 5100000 − 3604000 − 1000000
+assert inc["operating_profit"] == Decimal("301000")  # 496000 − 180000 − 10000 − 5000
+assert inc["investing_result"] == Decimal("-26000")  # 12000 + 3000 − 6000 − 20000 − 15000
+assert inc["profit_before_financing_and_taxes"] == Decimal("275000")
+assert inc["net_income"] == Decimal("150000")  # voce 21
+assert inc["reconciliations"]["operating_profit"]["start"] == Decimal("266000")  # A − B
 ```
 
 ## Input
@@ -210,6 +328,45 @@ netta richiedono la forma civilistica: in un esercizio riclassificato sono elenc
 `not_computed` senza un pointer da fornire, e una convenzione lo indica. Le rimanenze sono tratte
 da `operating_working_capital.inventories`.
 
+### Conto economico civilistico (Appendice A.2)
+
+| Riferimento | Campo | Livello | Scelta |
+| --- | --- | --- | --- |
+| A1 | `revenue` | valore della produzione | fissa |
+| A2, A3 | `change_in_product_inventories` (con segno, positiva per un aumento) | valore della produzione | fissa |
+| A4 | `own_work_capitalised` | valore della produzione | fissa |
+| A5 | `other_revenue_and_income` | valore della produzione, parte caratteristica | predefinita |
+| B6, B11 | `purchases`, `change_in_raw_material_inventories` (con segno, positiva per una diminuzione) | value added (`materials_consumed`) | fissa |
+| B7, B8 | `services`, `use_of_third_party_assets` | value added | fissa |
+| B9 | `personnel_costs` | MOL | fissa |
+| B10 a, b | `depreciation_and_write_downs.depreciation_and_amortisation` (oppure `value_adjustments_of_fixed_assets`, B10 a-c, al netto di B10 c) | reddito operativo | fissa |
+| B10 c | `depreciation_and_write_downs.write_downs_of_fixed_assets` | investing result | fissa |
+| B10 d | `depreciation_and_write_downs.write_downs_of_receivables` | investing result, oppure reddito operativo con la classificazione `operating` | predefinita |
+| B12, B13 | `provisions_for_risks`, `other_provisions` | reddito operativo | fissa |
+| B14 | `other_operating_expenses` | value added, parte caratteristica | predefinita |
+| C15, C16 | `income_from_equity_investments`, `other_financial_income` | investing result | fissa |
+| C17, C17-bis | `interest_and_other_financial_charges`, `exchange_gains_and_losses` (con segno, positiva per un utile netto) | financing result | fissa |
+| D18, D19 | `revaluations_of_financial_assets`, `write_downs_of_financial_assets` | investing result | fissa |
+| 20, 21 | `income_taxes` (con segno), `profit_or_loss_for_the_year` (con segno) | imposte come fornite; verifica | fissa |
+
+I totali `value_of_production` (A), `costs_of_production` (B), il `total` di B10,
+`difference_between_value_and_costs_of_production` (A − B), `financial_income_and_charges` (C),
+`value_adjustments_of_financial_assets` (D) e `profit_before_tax` sono facoltativi, con segno e
+verificati. Il totale A sostituisce le sue voci nel valore della produzione, e il totale D le
+voci D18 e D19 nell'investing result, quando le voci non sono fornite.
+
+### Conto economico riclassificato (Appendice B.2)
+
+`revenue`, `value_of_production`, `purchases`, `materials_consumed`, `value_added`,
+`personnel_costs`, `ebitda`, `depreciation_and_amortisation`, `operating_profit`,
+`investing_result`, `profit_before_financing_and_taxes`, `non_recurring_result`,
+`financing_result`, `interest_and_other_financial_charges`, `profit_before_tax`,
+`income_taxes` e `net_income`, tutti facoltativi. MOL (value added − costi per il personale),
+reddito operativo aziendale (reddito operativo + investing result), risultato prima delle
+imposte e utile netto sono derivati quando non forniti e verificati in modo esatto quando
+forniti. Le riconciliazioni con A − B richiedono la forma civilistica e sono elencate in
+`not_computed` senza un pointer da fornire.
+
 ## Classificazioni
 
 Indicate una volta in `treatments` e applicate a ogni esercizio in forma civilistica. Una
@@ -222,7 +379,7 @@ indica la classificazione e le destinazioni ammesse.
 | `financial_fixed_assets` | `operating`, `non_operating`, `financial_asset` | nessuno |
 | `shareholder_loans` | `financial_debt`, `quasi_equity` | nessuno |
 | `derivative_liabilities` | `financial_liability`, `operating_provision` | nessuno |
-| `write_downs_of_receivables` | `investing`, `operating` (usata dal conto economico) | `investing` |
+| `write_downs_of_receivables` | `investing` (B10 d nell'investing result), `operating` (B10 d nel reddito operativo, sotto il MOL) | `investing` |
 
 I `treatment_overrides` di un esercizio accettano solo `financial_fixed_assets` e
 `shareholder_loans`, come `{"destination": ...}` oppure
@@ -250,9 +407,26 @@ superiore a quanto resta nella voce di origine è `FM-E026`.
 | `non_current_trade_payables` | debiti D (resto) | PFN, altra passività finanziaria | nessuno |
 | `debt_like_provision` | B o C (operativi) | debt-like items | `aggregate` |
 | `dividends_declared` | patrimonio netto | debt-like items | nessuno |
+| `investing` | A5 o B14 | investing result | `aggregate`; `related_non_operating_asset` facoltativo (riportato) |
+| `non_recurring` | ogni aggregato del conto economico dell'Appendice A.2 salvo D18 e D19 | componenti non ricorrenti | `aggregate` |
+| `lease` | scrittura doppia (sotto) | operating fixed assets, PFN, patrimonio netto; B8, B10, C17 | `amounts`: `asset`, `liability`, `liability_current`, `prepayment`, `payments`, `depreciation`, `interest` |
 
-I tipi `lease`, `investing` e `non_recurring` rettificano il conto economico; questa versione li
-rifiuta con `FM-E001` invece di ignorarli.
+Una rettifica `non_recurring` indica una parte di entità o incidenza eccezionale (art. 2427 n. 13,
+OIC 12): esce dal suo aggregato e dai subtotali superiori ed entra nelle componenti non
+ricorrenti. Una rettifica `investing` sposta proventi od oneri di un'attività non operativa (per
+esempio l'affitto di un immobile non strumentale) da A5 o B14 all'investing result.
+
+Una rettifica `lease` rappresenta un leasing con il metodo finanziario (art. 2427 n. 22): il
+bene entra negli operating fixed assets; il debito entra nella posizione finanziaria netta come
+altra passività finanziaria, con la parte `liability_current` corrente; il maxicanone
+(`prepayment`) esce dalla voce D dell'attivo (la voce separata quando fornita, altrimenti la
+parte esposta in C.II, che esce allora da C.II); bene − debito − maxicanone è l'effetto sul
+patrimonio netto, aggiunto al patrimonio netto con la sua formula nell'explain. Nel conto
+economico i canoni escono da B8, l'ammortamento si aggiunge agli ammortamenti e gli interessi a
+C17. Non sono calcolate imposte differite, quindi il risultato prima delle imposte e l'utile
+netto differiscono dagli importi civilistici per canoni − ammortamento − interessi, una riga di
+ciascuna riconciliazione. Ogni importo spostato è elencato in `adjustments_applied` con la sua
+`line`.
 
 ## Output
 
@@ -267,8 +441,9 @@ Per esercizio: `label`, `date`, `form`, `layout`, poi:
 | `balance_sheet.sources.net_financial_position` | `position` (tipo di SPEC-0007), `total`, `current`, `non_current`, `composition` per origine |
 | `balance_sheet.excess_cash` | C.IV al netto della liquidità operativa |
 | `current_non_current` | `fixed_assets`, `current_assets`, `inventories`, `cash`, `total_assets` (al netto della voce A), `current_liabilities`, `non_current_liabilities`; dai totali B, C e dal totale attivo quando forniti |
+| `income_statement` | I livelli dell'Appendice B.2 (si veda [Formula](#conto-economico-appendice-b2)), `ebitda_definition` e `reconciliations`; le voci che portano il nome di una voce civilistica (`revenue`, `purchases`, `materials_consumed`, `personnel_costs`, `depreciation_and_amortisation`, `interest_and_other_financial_charges`) sono importi della parte caratteristica, dopo le rettifiche |
 | `assignments` | Ogni aggregato fornito: riferimento, pointer, importo, destinazione, origine (`mapping` o `analyst`) |
-| `adjustments_applied` | Ogni rettifica: tipo, etichetta, importo, motivo, origine, destinazione |
+| `adjustments_applied` | Ogni rettifica: tipo, etichetta, importo, motivo, origine, destinazione; per un leasing, una voce per importo con la sua `line` |
 | `checks` | Ogni relazione per identificativo: `reconciled` o `not_checked`, con i suoi pointer |
 | `not_computed` | Per blocco, ogni output mancante con i pointer degli input mancanti e, per una classificazione mancante, le destinazioni ammesse; la voce ha la stessa forma dei metodi `ratios.*` (`output`, `missing`, `permitted`) |
 
@@ -279,26 +454,32 @@ Per esercizio: `label`, `date`, `form`, `layout`, poi:
 | `debt_like_items` | `debt_like_items` di `dcf.fcff` |
 | `current_non_current` | `ratios.liquidity` e `ratios.capital_structure` |
 | `invested_capital` | `invested_capital` di `ratios.profitability` |
+| `operating_profit` | `ebit` di `dcf.free_cash_flows`; `ebit` di `ratios.profitability` per il ROI sul capitale investito (le attività non operative entrano nel bridge al loro valore e sono escluse dal capitale investito) |
+| `profit_before_financing_and_taxes` | `ebit` di `ratios.debt_service` (coperture degli oneri finanziari) e di `ratios.profitability` per il ROA sul totale attivo |
+| `depreciation_and_amortisation` | `depreciation_and_amortisation` di `dcf.free_cash_flows` |
+| `revenue`, `ebitda` con `ebitda_definition`, `net_income` | `ratios.profitability`; `ebitda` anche `ratios.debt_service` |
+| `interest_and_other_financial_charges` | `interest` di `ratios.debt_service` |
+| `purchases` | `purchases` di `ratios.working_capital`; `cost_of_sales` non è restituito (Decision 13): un conto economico per natura non lo contiene |
 
 ## Valori predefiniti
 
 Ogni valore predefinito è elencato in `meta.defaults_applied` e in `explain.conventions`, in
 quest'ordine:
 
-1. ogni aggregato civilistico fornito la cui destinazione è una predefinita dell'Appendice A
-   (B.I, B.II, C.II, C.III, C.IV, voce D dell'attivo, fondi per rischi e oneri B, trattamento di
-   fine rapporto C, debiti D, voce E del passivo): `field` è il pointer della voce, `value` la
-   destinazione, e la convenzione riporta "assigned to". Un aggregato è fornito quando è fornito
-   il suo importo: un nodo che ne contiene solo una parte (per esempio `receivables.trade`) non
-   basta;
+1. per esercizio, ogni aggregato civilistico fornito la cui destinazione è una predefinita
+   dell'Appendice A (B.I, B.II, C.II, C.III, C.IV, voce D dell'attivo, fondi per rischi e oneri B,
+   trattamento di fine rapporto C, debiti D, voce E del passivo; poi A5 verso
+   `value_of_production`, B14 verso `value_added` e B10 d verso `investing_result` finché la
+   classificazione `write_downs_of_receivables` non è fornita): `field` è il pointer della voce,
+   `value` la destinazione, e la convenzione riporta "assigned to". Un aggregato è fornito quando
+   è fornito il suo importo: un nodo che ne contiene solo una parte (per esempio
+   `receivables.trade`) non basta;
 2. `treatments.write_downs_of_receivables`, `investing` se non fornita;
 3. ogni voce considerata pari a zero perché non fornita ([Calcolo sui dati
    disponibili](#calcolo-sui-dati-disponibili)): `value` è `"0"` e la convenzione riporta "not
    given, set to".
 
-Le destinazioni fisse non sono valori predefiniti e non sono elencate. Le destinazioni
-predefinite del conto economico (A5, B14, B10 d) sono elencate dalla versione che lo
-riclassifica.
+Le destinazioni fisse non sono valori predefiniti e non sono elencate.
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
 
@@ -315,6 +496,14 @@ riclassifica.
 | Voce A non fornita | zero, lo stesso importo per patrimonio netto e totale attivo | predefinito, elencato (D1) |
 | Parti "di cui" non fornite | assenti nel loro aggregato, anche quando l'aggregato non è fornito | predefinito, elencato (D2) |
 | Derivati | passivi classificati come finanziari: non correnti nella posizione finanziaria netta; attivi secondo B.III (non correnti) o C.III (correnti) | fisso, indicato (D3) |
+| A5, B14 | parte caratteristica; parti `investing` e non ricorrenti tramite rettifica | predefinito, elencato (Decision 7) |
+| C15, C16, D18, D19 | investing result | fisso |
+| C17, C17-bis | financing result | fisso |
+| MOL | value added − costi per il personale, restituito come `ebitda_definition` | fisso (Decision 8) |
+| Svalutazioni e rivalutazioni | D18, D19, B10 c, B10 d nell'investing result; per la sola B10 d, `operating` (sotto il MOL) | `investing`, elencato (Decision 17) |
+| B10 a-c come importo unico | ammortamenti salvo che sia fornita la sua parte B10 c | fisso, indicato (Decision 8) |
+| Leasing | come esposti; metodo finanziario tramite rettifica, senza imposte differite | come esposti (Decision 9) |
+| Imposte | voce 20 come fornita; nessun calcolo di IRES, IRAP, imposte differite o NOPAT | fisso |
 
 ## Verifiche
 
@@ -332,11 +521,18 @@ netto, totale attivo e totale passivo e patrimonio netto rispetto alle loro voci
 = totale passivo e patrimonio netto; parti esigibili oltre l'esercizio e parti "di cui" entro il
 loro aggregato; utile di A.IX = voce 21; ripartizione di un override = aggregato dell'esercizio;
 le scadenze di una ripartizione dei debiti verso soci per finanziamenti (si veda
-[Classificazioni](#classificazioni)); i totali del conto economico (A, B, B10, A − B, C, D,
-risultato prima delle imposte, voce 21). Forma riclassificata: operating working capital,
-capitale investito, total funds invested, posizione finanziaria netta (rispetto alla sua
-composizione e alle sue scadenze) e total sources rispetto alle loro componenti, e total funds
-invested = total sources.
+[Classificazioni](#classificazioni)); i totali del conto economico (A, B, B10 a-c, B10, A − B,
+C, D, risultato prima delle imposte, voce 21); la parte corrente di una passività per leasing
+entro la passività. Forma riclassificata: operating working capital, capitale investito, total
+funds invested, posizione finanziaria netta (rispetto alla sua composizione e alle sue scadenze)
+e total sources rispetto alle loro componenti, e total funds invested = total sources; MOL,
+reddito operativo aziendale, risultato prima delle imposte e utile netto rispetto alla loro
+derivazione secondo l'Appendice B.2.
+
+I livelli del conto economico civilistico sono costruiti con le stesse voci dei suoi totali,
+quindi il risultato prima delle imposte è uguale ad A − B ± C ± D e l'utile netto alla voce 21,
+salvo le rappresentazioni dei leasing, e ogni riconciliazione quadra in modo esatto; una
+differenza è un difetto (`FM-E012`).
 
 Nella forma civilistica total funds invested è uguale alle fonti ogni volta che tutte le voci
 sono fornite, perché l'identità discende dalle relazioni precedenti. Quando differiscono, le
@@ -356,11 +552,11 @@ riserve (A.VI), in modo che i totali quadrino esattamente.
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | Entrambe le forme in una voce; date non distanti un esercizio o dalla più recente; un importo negativo dove lo schema non lo prevede; un override di un altro aggregato; `beyond_one_year` su una parte `quasi_equity` di una ripartizione; una lista `amounts` di lunghezza diversa; un'etichetta o un motivo vuoti; una rettifica su un esercizio riclassificato; una rettifica del conto economico in questa versione; un campo o un valore sconosciuti |
+| `FM-E001` | Entrambe le forme in una voce; date non distanti un esercizio o dalla più recente; un importo negativo dove lo schema non lo prevede (compreso un importo di un leasing); un override di un altro aggregato; `beyond_one_year` su una parte `quasi_equity` di una ripartizione; una lista `amounts` di lunghezza diversa; un'etichetta, un motivo o un `related_non_operating_asset` vuoti; una rettifica su un esercizio riclassificato; una rettifica `non_recurring` di D18 o D19; una rettifica `investing` di un aggregato diverso da A5 o B14; un campo o un valore sconosciuti |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 | `FM-E009` | Una data inesistente o fuori dall'intervallo 1900-2199 |
-| `FM-E012` | Difetto: total funds invested diverso dalle fonti di un esercizio civilistico con tutte le voci fornite |
-| `FM-E026` | Una relazione del bilancio non quadra; total funds invested di un esercizio civilistico diverso dalle fonti una volta contate le voci separate considerate pari a zero (indicate nel messaggio); oppure una rettifica supera la sua voce di origine |
+| `FM-E012` | Difetto: total funds invested diverso dalle fonti di un esercizio civilistico con tutte le voci fornite; una riconciliazione con A − B che non quadra; il risultato riclassificato diverso da quello civilistico per una causa diversa dai leasing |
+| `FM-E026` | Una relazione del bilancio non quadra; total funds invested di un esercizio civilistico diverso dalle fonti una volta contate le voci separate considerate pari a zero (indicate nel messaggio); una rettifica supera quanto resta nella sua voce di origine; oppure la parte corrente di una passività per leasing supera la passività |
 
 ## Limiti e note di prassi
 
@@ -387,6 +583,15 @@ riserve (A.VI), in modo che i totali quadrino esattamente.
   D6 del 2026-11-08; issue separata). Quando una loro parte è finanziamento, fornirla in
   `payables.financial_debt`, oppure spostarla con una rettifica `non_current_trade_payables`, e
   indicarne il motivo.
+- **Conto economico riclassificato.** I campi `external_costs` e `other_charges_below_ebitda`
+  (decisione D4) non sono in questa versione: la loro definizione attende il maintainer. Fino ad
+  allora un esercizio riclassificato deriva il MOL da value added e costi per il personale, ma
+  non il value added dal valore della produzione né il reddito operativo dal MOL; fornirli come
+  totali.
+- **Differenze di cambio.** Una rettifica `non_recurring` di C17-bis sposta una parte di un utile
+  netto su cambi; una perdita su cambi non ricorrente non è rappresentabile in questa versione.
+- **Leasing** sono rappresentati senza imposte differite (Decision 9): l'effetto fiscale della
+  rappresentazione resta nella voce 20 come esposta.
 
 ## Accuratezza
 
@@ -396,22 +601,40 @@ arrotondamento.
 ## Verificato con
 
 - Golden case in `tests/golden/statements.reorganise/` (lo stesso bilancio in forma ordinaria e
-  abbreviata con output identici, una classificazione mancante, classificazioni e override su
-  più esercizi, un caso per ogni tipo di rettifica dello stato patrimoniale, crediti verso soci
-  per versamenti ancora dovuti, dividendi deliberati, date in anni bisestili e di fine mese, la
-  forma riclassificata dello stesso bilancio, un caso `FM-E026` per relazione con il suo gemello
-  non verificato, e gli errori di input), i cui valori attesi provengono da
-  `scripts/reference_statements.py`, un riferimento decimale esatto a 50 cifre scritto dalle
-  appendici di SPEC-0005 senza leggere il motore.
+  abbreviata con output identici, per lo stato patrimoniale e per entrambi i prospetti, una
+  classificazione mancante, pochi totali soltanto, classificazioni e override su più esercizi,
+  un caso per ogni tipo di rettifica, crediti verso soci per versamenti ancora dovuti, dividendi
+  deliberati, la rappresentazione di un leasing, le svalutazioni con entrambe le
+  classificazioni, un esercizio in perdita, gli ammortamenti raggruppati, date in anni
+  bisestili e di fine mese, la forma riclassificata dello stesso bilancio, un caso `FM-E026` per
+  relazione con il suo gemello non verificato, e gli errori di input), i cui valori attesi
+  provengono da `scripts/reference_statements.py`, un riferimento decimale esatto a 50 cifre
+  scritto dalle appendici di SPEC-0005 senza leggere il motore; la sua sezione sul conto
+  economico è stata scritta prima di quella del motore.
 - `python/tests/test_reference_statements.py`: il motore rispetto a quel riferimento su 400
-  chiamate casuali con seme fisso nelle due forme, per ogni output, verifica, valore predefinito
-  e voce di `not_computed`, comprese le voci considerate pari a zero, le ripartizioni dei debiti
-  verso soci per finanziamenti con scadenze e le posizioni finanziarie nette riclassificate
-  fornite per parti.
+  chiamate casuali con seme fisso nelle due forme, per ogni output, riconciliazione, verifica,
+  valore predefinito e voce di `not_computed`, comprese le voci considerate pari a zero, le
+  ripartizioni dei debiti verso soci per finanziamenti con scadenze, le posizioni finanziarie
+  nette riclassificate fornite per parti, ogni tipo di rettifica e la scrittura doppia del
+  leasing.
+- Proprietà in Rust: total funds invested è uguale alle fonti; il reddito operativo aziendale è
+  uguale a reddito operativo + investing result; il risultato prima delle imposte ad A − B ± C ±
+  D; l'utile netto alla voce 21; le riconciliazioni quadrano; la classificazione `operating` non
+  cambia né il MOL né il reddito operativo aziendale.
 
 ## Fonti
 
-- Codice civile, art. 2423-ter, 2424, 2425, 2435-bis e 2435-ter (schemi e dati comparativi).
+- Codice civile, art. 2423-ter, 2424, 2425, 2435-bis e 2435-ter (schemi e dati comparativi);
+  art. 2427, comma 1, n. 13 (elementi di entità o incidenza eccezionali) e n. 22 (leasing,
+  metodo finanziario).
+- IFRS 18 *Presentation and Disclosure in Financial Statements* (in vigore dal 2027): i
+  subtotali "operating profit or loss" (paragrafo 69(a)) e "profit or loss before financing and
+  income taxes"; partecipazioni valutate con il metodo del patrimonio netto nella categoria
+  investing (paragrafi 53(a), 54(a)).
+- Banca d'Italia, analisi della stabilità finanziaria delle imprese (MOL); EBA/GL/2020/06,
+  allegato 3 (EBITDA nella concessione del credito).
+- Manuali italiani di analisi di bilancio (Modugno; Trieste): MOL, reddito operativo ed EBIT come
+  margini distinti; edizione e pagina da completare.
 - OIC 12 (composizione e schemi del bilancio d'esercizio); D.Lgs. 139/2015 (azioni proprie
   dedotte dal patrimonio netto dal 2016).
 - Borsa Italiana, *Guida alla Valutazione* (trattamento delle imposte anticipate nella prassi).
