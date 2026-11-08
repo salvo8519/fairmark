@@ -1,6 +1,6 @@
 ---
 source: methods/index.md
-source_hash: 7a1d10a572d8
+source_hash: 1d2e9834bcfe
 ---
 # Metodi
 
