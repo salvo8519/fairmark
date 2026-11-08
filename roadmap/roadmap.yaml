@@ -124,6 +124,7 @@ milestones:
           - { issue: 190, title: "IRR and XIRR refuse a guess at or below -1", spec: "0002", status: done }
           - { issue: 217, title: "Rate domain checks without rounding in rates and the rate solver", status: open }
           - { issue: 222, title: "Capital budgeting indicators: payback, profitability index, XMIRR, EAA", tags: [needs-methodology, parallel], status: open }
+          - { issue: 243, title: "Precision wording of the loans rounding convention", status: open }
       - title: "Explain and audit trail"
         issue: 25
         labels: ["area:core"]
