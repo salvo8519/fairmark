@@ -136,6 +136,56 @@
         }
       }
     },
+    "ratios.capital_structure": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "ratios.capital_structure/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "86a9ef31d167a047893507837e85780e56deac3e662d61faab00d02076dae7ec"
+        }
+      }
+    },
+    "ratios.debt_service": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "ratios.debt_service/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "6a94d9287fa55d665cccb7a23e3b572b94556383f7901d2947c7d52147adce7b"
+        }
+      }
+    },
+    "ratios.liquidity": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "ratios.liquidity/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "606b1e97ae4193aef5babaa8052322757e27fb30875e0bb7d409235dcd52b7dd"
+        }
+      }
+    },
+    "ratios.profitability": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "ratios.profitability/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "f8cb412d80dd5c7b82e40d9695d5f79ad91d5976e47d6a4d51aa2ff95d14b2b4"
+        }
+      }
+    },
+    "ratios.working_capital": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "ratios.working_capital/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "b90dfe455ca0d4adaa88d071f21bac192a14da2558a78f7398da4e96a1f74c21"
+        }
+      }
+    },
     "tvm.annuity": {
       "current": "1",
       "versions": {

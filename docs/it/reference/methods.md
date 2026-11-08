@@ -235,6 +235,74 @@ Enterprise and equity value from explicit FCFF forecasts discounted at WACC, wit
 | `net_debt` | decimale | no | `"0"` | Net financial position: debt minus cash. Negative if net cash. Default 0. |
 | `non_operating_assets` | decimale | no | `"0"` | Non-operating (surplus) assets added to equity value. Default 0. |
 
+## `ratios.profitability`
+
+**Ratios — profitability** · versione del metodo 1 · tool `fairmark_ratios_profitability`
+
+ROE, ROI, ROS, EBITDA and EBIT margins, capital turnover and the three-factor ROE decomposition, on closing or average balances. A ratio that cannot be computed is reported as not defined with the reason.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `balances` | `closing` \| `average` | sì |  | Balances used by the ratios: `closing`, or `average` of opening and closing. |
+| `operating_return_base` | `invested_capital` \| `total_assets` | sì |  | Capital on which ROI and the capital turnover are measured. |
+| `ebitda_definition` | string | sì |  | How EBITDA was measured, in words (for example "reported EBITDA, no adjustments"); echoed in the conventions. |
+| `income_statement` | object | sì |  | Flows of the period. |
+| `closing` | object | sì |  | Balance sheet at the end of the period. |
+| `opening` |  | no |  | Balance sheet at the start of the period. Required with average balances; not used with closing balances. |
+
+## `ratios.capital_structure`
+
+**Ratios — capital structure** · versione del metodo 1 · tool `fairmark_ratios_capital_structure`
+
+Debt to equity, net financial position to equity, equity ratio, primary and secondary structure margins and fixed-asset coverage, with the net financial position and its composition stated. A ratio that cannot be computed is reported as not defined with the reason.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `balances` | `closing` \| `average` | sì |  | Balances used by the ratios: `closing`, or `average` of opening and closing. |
+| `closing` | object | sì |  | Balance sheet at the end of the period. |
+| `opening` |  | no |  | Balance sheet at the start of the period. Required with average balances; not used with closing balances. |
+
+## `ratios.liquidity`
+
+**Ratios — liquidity** · versione del metodo 1 · tool `fairmark_ratios_liquidity`
+
+Current, quick and cash ratios, net working capital and treasury margin, on closing or average balances. A ratio that cannot be computed is reported as not defined with the reason.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `balances` | `closing` \| `average` | sì |  | Balances used by the ratios: `closing`, or `average` of opening and closing. |
+| `closing` | object | sì |  | Balance sheet at the end of the period. |
+| `opening` |  | no |  | Balance sheet at the start of the period. Required with average balances; not used with closing balances. |
+
+## `ratios.working_capital`
+
+**Ratios — working capital** · versione del metodo 1 · tool `fairmark_ratios_working_capital`
+
+Days sales outstanding, days inventory outstanding, days payable outstanding and the cash conversion cycle, on closing or average balances and a 360 or 365-day basis. A ratio that cannot be computed is reported as not defined with the reason.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `balances` | `closing` \| `average` | sì |  | Balances used by the ratios: `closing`, or `average` of opening and closing. |
+| `day_basis` | `360` \| `365` | sì |  | Days in the year: "360" or "365". |
+| `income_statement` | object | sì |  | Flows of the period (one year). |
+| `closing` | object | sì |  | Balance sheet at the end of the period. |
+| `opening` |  | no |  | Balance sheet at the start of the period. Required with average balances; not used with closing balances. |
+
+## `ratios.debt_service`
+
+**Ratios — debt service** · versione del metodo 1 · tool `fairmark_ratios_debt_service`
+
+Interest cover on EBIT and EBITDA, net financial position to EBITDA, DSCR per period and LLCR on a loan schedule with an explicit discount rate. A ratio that cannot be computed is reported as not defined with the reason.
+
+| Input | Tipo | Obbligatorio | Default | Descrizione |
+| --- | --- | --- | --- | --- |
+| `balances` | `closing` \| `average` | sì |  | Balances used by the ratios: `closing`, or `average` of opening and closing. |
+| `ebitda_definition` | string | sì |  | How EBITDA was measured, in words (for example "reported EBITDA, no adjustments"); echoed in the conventions. |
+| `income_statement` | object | sì |  | Flows of the period. |
+| `closing` | object | sì |  | Balance sheet at the end of the period. |
+| `opening` |  | no |  | Balance sheet at the start of the period. Required with average balances; not used with closing balances. |
+| `debt_schedule` | object | sì |  | Loan schedule for DSCR and LLCR. |
+
 ## `analysis.goal_seek`
 
 **Goal seek** · versione del metodo 1 · tool `fairmark_analysis_goal_seek`

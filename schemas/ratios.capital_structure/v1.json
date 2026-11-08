@@ -1,0 +1,160 @@
+{
+  "$defs": {
+    "Balances": {
+      "description": "Which balance-sheet amounts the ratios use (SPEC-0007 R2). No default: the analyst chooses.",
+      "oneOf": [
+        {
+          "const": "closing",
+          "description": "Balances at the end of the period (`closing`).",
+          "type": "string"
+        },
+        {
+          "const": "average",
+          "description": "Average of the opening and closing balances: (opening + closing) / 2. Needs `opening`.",
+          "type": "string"
+        }
+      ]
+    },
+    "CapitalStructureBalances": {
+      "additionalProperties": false,
+      "description": "Balance-sheet amounts at one date, in currency units.",
+      "properties": {
+        "equity": {
+          "description": "Shareholders' equity, in currency units. May be negative.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "fixed_assets": {
+          "description": "Fixed (non-current) assets, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "net_financial_position": {
+          "$ref": "#/$defs/NetFinancialPosition",
+          "description": "Net financial position with its composition, in currency units."
+        },
+        "non_current_liabilities": {
+          "description": "Non-current (medium and long-term) liabilities, financial and operating, in currency\nunits.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "total_assets": {
+          "description": "Total assets, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "equity",
+        "total_assets",
+        "fixed_assets",
+        "non_current_liabilities",
+        "net_financial_position"
+      ],
+      "type": "object"
+    },
+    "NetFinancialPosition": {
+      "additionalProperties": false,
+      "description": "The net financial position with its composition (SPEC-0007 R6). Fairmark adds what is\ngiven and does not choose which items are included.",
+      "properties": {
+        "cash": {
+          "description": "Cash and cash equivalents, in currency units, subtracted from the gross debt.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "gross_debt": {
+          "description": "Gross financial debt (bank loans, bonds and other borrowings), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "other_items": {
+          "default": [],
+          "description": "Other items included by the analyst, each added with its sign. Default: none.",
+          "items": {
+            "$ref": "#/$defs/NfpItem"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "gross_debt",
+        "cash"
+      ],
+      "type": "object"
+    },
+    "NfpItem": {
+      "additionalProperties": false,
+      "description": "One item of the net financial position other than gross debt and cash.",
+      "properties": {
+        "amount": {
+          "description": "Amount in currency units, added to the net financial position: positive for debt-like\nitems, negative for financial assets.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "name": {
+          "description": "What the item is, for example \"lease liabilities\" or \"derivative assets\".",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "amount"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:ratios.capital_structure:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `ratios.capital_structure`.",
+  "properties": {
+    "balances": {
+      "$ref": "#/$defs/Balances",
+      "description": "Balances used by the ratios: `closing`, or `average` of opening and closing."
+    },
+    "closing": {
+      "$ref": "#/$defs/CapitalStructureBalances",
+      "description": "Balance sheet at the end of the period."
+    },
+    "opening": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CapitalStructureBalances"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Balance sheet at the start of the period. Required with average balances; not used\nwith closing balances."
+    }
+  },
+  "required": [
+    "balances",
+    "closing"
+  ],
+  "title": "CapitalStructureInput",
+  "type": "object",
+  "x-fairmark-method": "ratios.capital_structure",
+  "x-fairmark-method-version": "1"
+}

@@ -1,0 +1,163 @@
+{
+  "$defs": {
+    "Balances": {
+      "description": "Which balance-sheet amounts the ratios use (SPEC-0007 R2). No default: the analyst chooses.",
+      "oneOf": [
+        {
+          "const": "closing",
+          "description": "Balances at the end of the period (`closing`).",
+          "type": "string"
+        },
+        {
+          "const": "average",
+          "description": "Average of the opening and closing balances: (opening + closing) / 2. Needs `opening`.",
+          "type": "string"
+        }
+      ]
+    },
+    "OperatingReturnBase": {
+      "description": "The capital on which the operating return (ROI) and the capital turnover are measured.",
+      "oneOf": [
+        {
+          "const": "invested_capital",
+          "description": "Operating invested capital (`invested_capital` in the balance sheets).",
+          "type": "string"
+        },
+        {
+          "const": "total_assets",
+          "description": "Total assets (`total_assets` in the balance sheets).",
+          "type": "string"
+        }
+      ]
+    },
+    "ProfitabilityBalances": {
+      "additionalProperties": false,
+      "description": "Balance-sheet amounts at one date, in currency units.",
+      "properties": {
+        "equity": {
+          "description": "Shareholders' equity, in currency units. May be negative.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "invested_capital": {
+          "description": "Operating invested capital, in currency units. Required when `operating_return_base` is\n`invested_capital`; not used otherwise.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "total_assets": {
+          "description": "Total assets, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "equity",
+        "total_assets"
+      ],
+      "type": "object"
+    },
+    "ProfitabilityIncome": {
+      "additionalProperties": false,
+      "description": "Flows of the period, in currency units.",
+      "properties": {
+        "ebit": {
+          "description": "EBIT (operating result) of the period, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "ebitda": {
+          "description": "EBITDA of the period, in currency units, as defined in `ebitda_definition`.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "net_income": {
+          "description": "Net income of the period, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "revenue": {
+          "description": "Revenue of the period, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "revenue",
+        "ebitda",
+        "ebit",
+        "net_income"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:ratios.profitability:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `ratios.profitability`.",
+  "properties": {
+    "balances": {
+      "$ref": "#/$defs/Balances",
+      "description": "Balances used by the ratios: `closing`, or `average` of opening and closing."
+    },
+    "closing": {
+      "$ref": "#/$defs/ProfitabilityBalances",
+      "description": "Balance sheet at the end of the period."
+    },
+    "ebitda_definition": {
+      "description": "How EBITDA was measured, in words (for example \"reported EBITDA, no adjustments\");\nechoed in the conventions.",
+      "type": "string"
+    },
+    "income_statement": {
+      "$ref": "#/$defs/ProfitabilityIncome",
+      "description": "Flows of the period."
+    },
+    "opening": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProfitabilityBalances"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Balance sheet at the start of the period. Required with average balances; not used\nwith closing balances."
+    },
+    "operating_return_base": {
+      "$ref": "#/$defs/OperatingReturnBase",
+      "description": "Capital on which ROI and the capital turnover are measured."
+    }
+  },
+  "required": [
+    "balances",
+    "operating_return_base",
+    "ebitda_definition",
+    "income_statement",
+    "closing"
+  ],
+  "title": "ProfitabilityInput",
+  "type": "object",
+  "x-fairmark-method": "ratios.profitability",
+  "x-fairmark-method-version": "1"
+}
