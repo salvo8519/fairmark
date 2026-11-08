@@ -10,6 +10,7 @@ use super::engine::{
     self, EngineInput, PeriodRow, RateFields, RateInput, Stage, Terminal, TerminalDiscountTime,
     TerminalOutput, Terms,
 };
+use super::free_cash_flows::{NegativeEbit, TaxChoice};
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
 use crate::method::Method;
@@ -31,6 +32,15 @@ pub struct DcfFcffInput {
     /// `constant_growth` or `linear_decline`, refused when it is `given`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_flow: Option<Decimal>,
+    /// For stages with `lines`: tax rate applied to EBIT, decimal fraction from 0 to below 1
+    /// (0.24 = 24%). Give this, or `operating_taxes` in every line, not both; refused when no
+    /// stage has `lines`. Default: none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notional_tax_rate: Option<Decimal>,
+    /// For stages with `lines` and `notional_tax_rate`: treatment of a negative EBIT, `credit`
+    /// (taxes = rate × EBIT) or `zero` (no tax); required with `notional_tax_rate`, no default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub negative_ebit: Option<NegativeEbit>,
     /// `nominal` or `real`: the terms of every amount and growth rate of the input.
     pub cash_flow_terms: Terms,
     /// `nominal` or `real`: the terms of the discount rates. They must equal
@@ -117,6 +127,11 @@ pub fn fcff(input: &DcfFcffInput) -> Result<(DcfFcffOutput, Explain)> {
     let mut ex = Explain::new("dcf.fcff", FORMULA);
     ex.convention("basis: enterprise, free cash flows to the firm (FCFF) discounted at the WACC");
     let engine_input = EngineInput {
+        taxes: TaxChoice {
+            notional_tax_rate: input.notional_tax_rate,
+            negative_ebit: input.negative_ebit,
+            interest_tax_rate: None,
+        },
         basis: TerminalBasis::Enterprise,
         stages: &input.stages,
         base_flow: input.base_flow,
@@ -296,6 +311,55 @@ mod tests {
     fn conventions(v: &Value) -> Vec<String> {
         let out = run("dcf.fcff", &v.to_string()).unwrap();
         serde_json::from_value(out["explain"]["conventions"].clone()).unwrap()
+    }
+
+    /// R7 (#38): a `given` stage with build-up lines values exactly like the same stage with
+    /// the built-up flows; the build-up is in the explain and errors point into the lines.
+    #[test]
+    fn lines_equal_the_built_up_flows() {
+        let lines = json!([
+            {"ebit": "100", "depreciation_and_amortisation": "20", "capital_expenditure": "15",
+             "change_in_net_working_capital": "5"},
+            {"ebit": "-10", "depreciation_and_amortisation": "20", "capital_expenditure": "15",
+             "change_in_net_working_capital": "-5"},
+            {"ebit": "130", "depreciation_and_amortisation": "22", "capital_expenditure": "18",
+             "change_in_net_working_capital": "4"}
+        ]);
+        let built = with(base(), |m| {
+            m.insert(
+                "stages".into(),
+                json!([{"periods": 3, "projection": "given", "lines": lines}]),
+            );
+            m.insert("notional_tax_rate".into(), json!("0.24"));
+            m.insert("negative_ebit".into(), json!("credit"));
+        });
+        // 100 − 24 + 20 − 15 − 5; −10 + 2.4 + 20 − 15 + 5; 130 − 31.2 + 22 − 18 − 4.
+        let flows = with(base(), |m| {
+            m.insert(
+                "stages".into(),
+                json!([{"periods": 3, "projection": "given",
+                        "flows": ["76.00", "2.40", "98.80"]}]),
+            );
+        });
+        let a = run("dcf.fcff", &built.to_string()).unwrap();
+        let b = run("dcf.fcff", &flows.to_string()).unwrap();
+        assert_eq!(a["value"], b["value"]);
+        let steps = a["explain"]["steps"].as_array().unwrap();
+        assert!(steps
+            .iter()
+            .any(|s| s["label"] == "Build-up: FCFF, period 2"));
+        assert!(conventions(&built).iter().any(|c| c.starts_with(
+            "free cash flow build-up (dcf.free_cash_flows v1): tax form: rate on EBIT"
+        )));
+        let mut bad = built.clone();
+        bad["stages"][0]["lines"][1]["capital_expenditure"] = json!("-1");
+        let e = err(&bad);
+        assert_eq!(e.code(), "FM-E001");
+        assert!(
+            e.to_string()
+                .contains("`/stages/0/lines/1/capital_expenditure` (period 2)"),
+            "{e}"
+        );
     }
 
     /// AC14 (R27): every error raised by the engine names its field by a JSON pointer and

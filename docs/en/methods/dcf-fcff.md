@@ -30,7 +30,7 @@ flows of each stage are:
 
 | Projection | Flow of period k of the stage (m periods) |
 | --- | --- |
-| `given` | as given, one per period |
+| `given` | as given in `flows`, one per period, or built up from the line items in `lines` as in [`dcf.free_cash_flows`](dcf-free-cash-flows.md) |
 | `constant_growth` | $CF_k = CF_{k-1} (1 + g)$ |
 | `linear_decline` | $CF_k = CF_{k-1} (1 + g_k)$, with $g_k = g_{from} + (g_{to} - g_{from}) \, k / m$ |
 
@@ -38,6 +38,15 @@ A generated stage starts from the last flow of the previous stage, or from the b
 $CF_0$ when it is the first stage. In a linear decline, $g_{from}$ is the growth before the
 stage and $g_{to}$ is reached in the last period: "from 10% to 3% over 5 years" gives 8.6%,
 7.2%, 5.8%, 4.4% and 3.0%.
+
+A `given` stage can take its flows as line items instead of amounts: `lines` holds one object
+per period with `ebit`, `depreciation_and_amortisation`, `capital_expenditure`,
+`change_in_net_working_capital`, optional `other_adjustments` and, in the amounts form,
+`operating_taxes`. The FCFF of each period is built up as in
+[`dcf.free_cash_flows`](dcf-free-cash-flows.md), with the taxes on EBIT from
+`notional_tax_rate` and `negative_ebit`, or from `operating_taxes` in every line. Interest
+expense and net borrowing are refused: FCFF is before financing. Every step of the build-up is
+in the explain, prefixed "Build-up:".
 
 Under mid-period timing the flow of period k is discounted half a period earlier,
 $DF_k = DF_{k-1} (1 + r_k)^{-0.5}$. The terminal value
@@ -104,8 +113,10 @@ print(r.terminal["discount_time"])  # 6
 
 | Field | Meaning | Default |
 | --- | --- | --- |
-| `stages` | One to three stages, in order: `{"periods", "projection", ...}` with `flows` (`given`), `growth` (`constant_growth`) or `from_growth` and `to_growth` (`linear_decline`) | required |
+| `stages` | One to three stages, in order: `{"periods", "projection", ...}` with `flows` or `lines` (`given`), `growth` (`constant_growth`) or `from_growth` and `to_growth` (`linear_decline`) | required |
 | `base_flow` | FCFF of the base period $CF_0$, when the first stage is generated | required for a generated first stage; refused otherwise |
+| `notional_tax_rate` | Tax rate on EBIT for the stages with `lines`, decimal fraction from 0 to below 1; give this or `operating_taxes` in every line | none; refused without `lines` |
+| `negative_ebit` | `credit` or `zero`, for the stages with `lines` and `notional_tax_rate` | required with `notional_tax_rate`; refused otherwise |
 | `cash_flow_terms` | `nominal` or `real`: terms of every amount and growth rate | required |
 | `discount_rate_terms` | `nominal` or `real`: terms of the discount rates; must equal `cash_flow_terms` | required |
 | `wacc` | One WACC for every period and for the terminal value, decimal fraction | give this or `wacc_per_period` |
@@ -136,6 +147,7 @@ print(r.terminal["discount_time"])  # 6
 | --- | --- | --- |
 | Basis | enterprise: FCFF discounted at the WACC | fixed by the method |
 | Stage projection | `given`, `constant_growth`, `linear_decline` | required per stage |
+| Flows of a `given` stage | amounts (`flows`) or line items (`lines`), with the tax conventions of `dcf.free_cash_flows` | one of the two required |
 | Linear decline step | $g_k = g_{from} + (g_{to} - g_{from}) \, k / m$, $g_{to}$ reached in the last period | fixed |
 | Discount rate | one rate (also used for the terminal value), or one per period with a terminal rate | required |
 | Terms of flows and rates | `nominal`, `real`; different terms are refused | required, each |
@@ -156,12 +168,12 @@ on long-term assumptions.
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | A field is missing, unknown or not used by the chosen option; no stage or more than three; stages adding up to more than 10,000 periods; a growth of −100% or lower; a terminal rate with one rate, or none with rates per period; a terminal discounting time missing under mid-period timing or given at end of period; a negative non-operating asset, or one with an empty label |
+| `FM-E001` | A field is missing, unknown or not used by the chosen option; no stage or more than three; stages adding up to more than 10,000 periods; a growth of −100% or lower; a terminal rate with one rate, or none with rates per period; a terminal discounting time missing under mid-period timing or given at end of period; a negative non-operating asset, or one with an empty label; a `given` stage with both or neither of `flows` and `lines`, `lines` on a generated stage, tax fields without `lines`, interest expense or net borrowing in `lines`, and every refusal of [`dcf.free_cash_flows`](dcf-free-cash-flows.md) for the lines, named by pointer (for example `/stages/0/lines/2/capital_expenditure`) |
 | `FM-E003` | A discount rate is −100% or lower; the message names the field and the period |
 | `FM-E004` | The perpetual growth is equal to or greater than the terminal rate |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 | `FM-E024` | `cash_flow_terms` and `discount_rate_terms` differ |
-| `FM-E025` | A `given` stage with more or fewer flows than its periods, rates per period not one per period, a base flow missing for a generated first stage or given for a `given` one |
+| `FM-E025` | A `given` stage with more or fewer flows or lines than its periods, rates per period not one per period, a base flow missing for a generated first stage or given for a `given` one |
 
 Validation errors name the field by its JSON pointer, for example `/stages/1/flows`, and state
 the fix; errors raised while reading the input (a missing or unknown field, a wrong type) report
@@ -187,5 +199,7 @@ golden cases from the reference are checked to $10^{-20}$.
   `tests/golden/dcf.fcff/`, and properties: a constant growth stage equals the same flows
   given; a linear decline with equal growths equals constant growth; discount factors equal
   those of [`tvm.present_value`](tvm-present-value.md).
+- Stages with `lines`: the 50-digit build-up of `scripts/reference_free_cash_flows.py`
+  composed with `scripts/reference_dcf.py` (`stage-with-build-up-lines*.yaml`).
 - numpy-financial NPV of the explicit flows plus the Gordon value, in binary floating point
   (agreement of conventions, not of digits).

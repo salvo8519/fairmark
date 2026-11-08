@@ -79,6 +79,10 @@ parallel; tick a task only when `just check` passes.
   `zero` treatment applies; reference, golden cases (net-income route, positive EBIT below the
   interest), unit and property tests, conventions, docs in English and Italian; R29
   interpretation of the presence-based tax form recorded in the spec [R3, R4, R29]
+- [x] F11 R7 extension point of #110: `lines` on `given` stages of the shared engine,
+  `notional_tax_rate` and `negative_ebit` on `dcf.fcff` (additive to version 3), golden and
+  error cases from the composed references, unit test, Python `given_lines`, `dcf-fcff`
+  pages in English and Italian [R7, AC6]
 
 ### Verification
 - [ ] F9 `uv run just check` green (done); `numerical-auditor` and `code-reviewer` reviews

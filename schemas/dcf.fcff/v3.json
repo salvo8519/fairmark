@@ -1,5 +1,28 @@
 {
   "$defs": {
+    "Adjustment": {
+      "additionalProperties": false,
+      "description": "A signed, labelled amount added to the free cash flow of a period.",
+      "properties": {
+        "label": {
+          "description": "What the amount is, for example \"Disposal of a warehouse\". Not empty.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Amount in currency units: positive for an inflow (for example proceeds from a disposal),\nnegative for an outflow.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    },
     "FirstTerminalFlow": {
       "description": "The flow at N + 1 of a technique that grows the last explicit flow (R20).",
       "oneOf": [
@@ -14,6 +37,86 @@
           "type": "string"
         }
       ]
+    },
+    "FreeCashFlowLines": {
+      "additionalProperties": false,
+      "description": "The line items of one period, after reclassification (SPEC-0005).",
+      "properties": {
+        "capital_expenditure": {
+          "description": "Capital expenditure of the period, in currency units, zero or more; subtracted.\nDisposals go in `other_adjustments` with a positive sign.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "change_in_net_working_capital": {
+          "description": "Change in net working capital of the period, in currency units: positive for an\nincrease, which absorbs cash and is subtracted; negative for a decrease.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "depreciation_and_amortisation": {
+          "description": "Depreciation and amortisation of the period, in currency units, zero or more; added back.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "ebit": {
+          "description": "EBIT (earnings before interest and taxes) of the period, in currency units; any sign.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "interest_expense": {
+          "description": "Interest expense of the period, in currency units, zero or more. Give it with\n`net_borrowing`, for every period or for none, to obtain the FCFE. Default: none.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "net_borrowing": {
+          "description": "Net borrowing of the period, in currency units: positive for new borrowing, negative for\nnet repayment. Give it with `interest_expense`. Default: none.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "operating_taxes": {
+          "description": "Taxes on EBIT of the period, in currency units, positive for a tax paid (amounts form).\nGive it for every period and omit `notional_tax_rate`, or omit it everywhere and give\n`notional_tax_rate`. Default: none.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "other_adjustments": {
+          "default": [],
+          "description": "Other labelled adjustments, each positive for an inflow and negative for an outflow.\nDefault: none.",
+          "items": {
+            "$ref": "#/$defs/Adjustment"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "ebit",
+        "depreciation_and_amortisation",
+        "capital_expenditure",
+        "change_in_net_working_capital"
+      ],
+      "type": "object"
     },
     "GordonTerminal": {
       "additionalProperties": false,
@@ -79,6 +182,21 @@
       ],
       "type": "object"
     },
+    "NegativeEbit": {
+      "description": "Tax on a negative EBIT when the taxes are computed from a rate (SPEC-0001 R4).",
+      "oneOf": [
+        {
+          "const": "credit",
+          "description": "Taxes = rate × EBIT also when EBIT is negative: a tax saving that raises the flow.",
+          "type": "string"
+        },
+        {
+          "const": "zero",
+          "description": "No tax when EBIT is negative.",
+          "type": "string"
+        }
+      ]
+    },
     "NetFinancialPosition": {
       "additionalProperties": false,
       "description": "The net financial position with its composition (SPEC-0007 R6). Fairmark adds what is\ngiven and does not choose which items are included.",
@@ -142,7 +260,7 @@
       "oneOf": [
         {
           "const": "given",
-          "description": "The flows are given, one per period, in `flows`.",
+          "description": "The flows are given, one per period, in `flows`, or built up from line items in\n`lines` (exactly one of the two).",
           "type": "string"
         },
         {
@@ -159,7 +277,7 @@
     },
     "Stage": {
       "additionalProperties": false,
-      "description": "One explicit stage: a number of periods and how its flows are obtained. Each projection\ntakes only its own fields: `flows` for `given`, `growth` for `constant_growth`,\n`from_growth` and `to_growth` for `linear_decline`.",
+      "description": "One explicit stage: a number of periods and how its flows are obtained. Each projection\ntakes only its own fields: `flows` or `lines` for `given`, `growth` for `constant_growth`,\n`from_growth` and `to_growth` for `linear_decline`.",
       "properties": {
         "flows": {
           "description": "For `given`: the flows of the stage in currency units, exactly one per period, in the\nterms of `cash_flow_terms`.",
@@ -190,6 +308,16 @@
           "type": [
             "string",
             "number",
+            "null"
+          ]
+        },
+        "lines": {
+          "description": "For `given`, instead of `flows`: the line items of each period (EBIT, taxes on EBIT,\ndepreciation and amortisation, capital expenditure, change in net working capital,\nadjustments), exactly one per period, in currency units in the terms of\n`cash_flow_terms`; the flow of each period is built up as in `dcf.free_cash_flows`, with\nthe tax fields of the method (SPEC-0001 R7).",
+          "items": {
+            "$ref": "#/$defs/FreeCashFlowLines"
+          },
+          "type": [
+            "array",
             "null"
           ]
         },
@@ -307,6 +435,17 @@
       "$ref": "#/$defs/Terms",
       "description": "`nominal` or `real`: the terms of the discount rates. They must equal\n`cash_flow_terms`."
     },
+    "negative_ebit": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NegativeEbit"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "For stages with `lines` and `notional_tax_rate`: treatment of a negative EBIT, `credit`\n(taxes = rate × EBIT) or `zero` (no tax); required with `notional_tax_rate`, no default."
+    },
     "net_financial_position": {
       "anyOf": [
         {
@@ -324,6 +463,15 @@
         "$ref": "#/$defs/Line"
       },
       "type": "array"
+    },
+    "notional_tax_rate": {
+      "description": "For stages with `lines`: tax rate applied to EBIT, decimal fraction from 0 to below 1\n(0.24 = 24%). Give this, or `operating_taxes` in every line, not both; refused when no\nstage has `lines`. Default: none.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
     },
     "stages": {
       "description": "One to three explicit stages, in order; the explicit horizon N is the sum of their\nperiods. Each stage is `{\"periods\", \"projection\", ...}` with the fields of its\nprojection.",

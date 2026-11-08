@@ -411,6 +411,8 @@ Value of operations, enterprise value and equity value from FCFF discounted at t
 | --- | --- | --- | --- | --- |
 | `stages` | list of object | yes |  | One to three explicit stages, in order; the explicit horizon N is the sum of their periods. Each stage is `{"periods", "projection", ...}` with the fields of its projection. |
 | `base_flow` | decimal | no |  | FCFF of the base period CF_0, in currency units: required when the first stage is `constant_growth` or `linear_decline`, refused when it is `given`. |
+| `notional_tax_rate` | decimal | no |  | For stages with `lines`: tax rate applied to EBIT, decimal fraction from 0 to below 1 (0.24 = 24%). Give this, or `operating_taxes` in every line, not both; refused when no stage has `lines`. Default: none. |
+| `negative_ebit` |  | no |  | For stages with `lines` and `notional_tax_rate`: treatment of a negative EBIT, `credit` (taxes = rate × EBIT) or `zero` (no tax); required with `notional_tax_rate`, no default. |
 | `cash_flow_terms` | `nominal` \| `real` | yes |  | `nominal` or `real`: the terms of every amount and growth rate of the input. |
 | `discount_rate_terms` | `nominal` \| `real` | yes |  | `nominal` or `real`: the terms of the discount rates. They must equal `cash_flow_terms`. |
 | `wacc` | decimal | no |  | One WACC for every period and for the terminal value, decimal fraction per period (0.09 = 9%), greater than -1. Give this or `wacc_per_period`, not both. |

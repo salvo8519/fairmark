@@ -1,0 +1,17 @@
+method: dcf.fcff
+description: "The same plan with the taxes on EBIT given as amounts equal to the taxes of the rate form: same flows and values (R7, R2)"
+source: "Independent 50-digit references composed: scripts/reference_free_cash_flows.py builds the FCFF of the stages with lines (SPEC-0001 R2, R4), scripts/reference_dcf.py values the resulting flows (R6 to R12, R19 to R23); neither shares code with the engine"
+input: {"stages": [{"periods": 3, "projection": "given", "lines": [{"ebit": "1200", "depreciation_and_amortisation": "350", "capital_expenditure": "420", "change_in_net_working_capital": "65", "operating_taxes": "288"}, {"ebit": "-80", "depreciation_and_amortisation": "372.25", "capital_expenditure": "460", "change_in_net_working_capital": "-12.4", "other_adjustments": [{"label": "Disposal of a warehouse", "value": "60"}], "operating_taxes": "0"}, {"ebit": "1401.37", "depreciation_and_amortisation": "390", "capital_expenditure": "395.8", "change_in_net_working_capital": "48.03", "operating_taxes": "336.3288"}]}, {"periods": 2, "projection": "linear_decline", "from_growth": "0.06", "to_growth": "0.02"}], "cash_flow_terms": "nominal", "discount_rate_terms": "nominal", "wacc": "0.09", "timing": "end_of_period", "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}, "net_financial_position": {"gross_debt": "900", "cash": "150"}}
+expect:
+  /periods/0/flow: "777"
+  /periods/1/flow: "-95.35"
+  /periods/2/flow: "1011.2112"
+  /periods/3/flow: "1051.659648"
+  /periods/4/flow: "1072.69284096"
+  /periods/3/growth: "0.04"
+  /periods/4/growth: "0.02"
+  /pv_explicit_period: "2855.6293861325998519328005556713693928983036919439"
+  /terminal/terminal_value: "15630.667111131428571428571428571428571428571428571"
+  /value_of_operations: "13014.490530438204196861338902173508966098166803325"
+  /equity_value: "12264.490530438204196861338902173508966098166803325"
+tolerance: "0.00000000000000000001"

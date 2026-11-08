@@ -176,7 +176,8 @@ R29 for the fields of the build-up; acceptance criteria AC1, AC2, AC3 and the bu
 | File | Content |
 | --- | --- |
 | `src/dcf/free_cash_flows.rs` (new) | `FreeCashFlowsInput`, `FreeCashFlowLines`, `Adjustment`, `NegativeEbit`, `TaxForm`, `FreeCashFlowsOutput`, `FreeCashFlowPeriod`; `pub fn free_cash_flows`; unit type `FreeCashFlows` implementing `Method` (id `dcf.free_cash_flows`, version 1); unit tests |
-| `src/dcf.rs` | Two lines only: `pub mod free_cash_flows;` and the re-export of the public items. `dcf.fcff` is not changed |
+| `src/dcf.rs` | `pub mod free_cash_flows;` and the re-export of the public items, in the module list of #110 |
+| `src/dcf/engine.rs`, `src/dcf/fcff.rs` | The extension point of #110 for #38: `lines` on a `given` stage and the tax fields of `dcf.fcff` (see "Lines on `given` stages") |
 | `src/registry.rs` | One line, `dcf::FreeCashFlows`, in the `dcf` group |
 | `src/error.rs` | Unchanged: every refusal of the build-up is `FM-E001` (R5, R27); no new code |
 
@@ -240,6 +241,35 @@ and conventions are appended to the engine's explain. The engine takes
 are at the root of the input (`/notional_tax_rate`, `/negative_ebit`, `/interest_tax_rate`). The types are public and
 re-exported from `dcf`; the count check of R7 (`FM-E025`) stays in the engine.
 
+### Lines on `given` stages (R7, extension point of #110)
+R7: "WHEN a stage's projection is `given`, THE ENGINE SHALL take its flows either as amounts or
+as build-up lines (R2, R3); IF the number of flows or lines differs from the stage's periods,
+THEN it SHALL return `FM-E025` naming the stage, the expected and the actual count." The #110
+plan assigns this to #38 ("a `given` stage accepts build-up lines through a new optional field
+`lines` next to `flows` (exactly one of the two), resolved by `check_stages` into a new
+`StageKind` variant that becomes amounts before projection"). Implemented as follows:
+- `Stage.lines: Option<Vec<FreeCashFlowLines>>`, exactly one of `flows` and `lines` on a
+  `given` stage (`FM-E001`), refused on a generated stage (`FM-E001`); a count different from
+  the periods is `FM-E025` naming `/stages/i/lines`.
+- `dcf.fcff` gains the optional `notional_tax_rate` and `negative_ebit`; they are refused when
+  no stage has `lines`. `interest_tax_rate` is not a field of `dcf.fcff`: interest expense and
+  net borrowing are refused in the lines of the enterprise basis, because FCFF is before
+  financing. `dcf.fcfe` (#165) adds `interest_tax_rate` and takes the FCFE of the lines; the
+  engine already selects the FCFE on the equity basis.
+- `check_stages` resolves the stage to `StageKind::Lines`; `build_up_stages` calls `build_up`
+  with `Location { "/stages/i/lines", first period of the stage }` and replaces it with
+  `StageKind::Given` of the built-up flows before projection. The steps of the build-up are in
+  the explain with the prefix "Build-up:"; its conventions are reported once, prefixed
+  "free cash flow build-up (dcf.free_cash_flows v1):"; the period table says the flows were
+  built up from line items.
+- Schema: additive to `dcf.fcff` version 3 (`scripts/schema_snapshots.py --diff-against` the
+  schemas of main: "Schema changes are additive, new versions, or none"); version 3 is not
+  released, no version bump.
+- Golden cases `tests/golden/dcf.fcff/stage-with-build-up-lines*.yaml` from the two 50-digit
+  references composed (`reference_free_cash_flows.stages_with_flows`, then
+  `reference_dcf.dcf_fcff`), and error cases; a unit test checks that lines value exactly
+  like the built-up flows.
+
 ### Explain
 Per period: taxes on EBIT (formula with the rate substituted, or "given"), EBIT after taxes,
 each labelled adjustment and their sum, FCFF with every component substituted, and for FCFE
@@ -267,7 +297,8 @@ values appear in parentheses in every formula.
 ### Schema changes
 Additive: new method `dcf.free_cash_flows` version 1, snapshot
 `schemas/dcf.free_cash_flows/v1.json`, entry in `schemas/index.json` with
-`introduced_in: unreleased`. `dcf.fcff` is unchanged.
+`introduced_in: unreleased`. `dcf.fcff` version 3 gains the optional `stages[].lines`,
+`notional_tax_rate` and `negative_ebit` (additive, see above).
 
 ### Documentation
 `docs/en/methods/dcf-free-cash-flows.md` and the Italian edition
