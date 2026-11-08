@@ -1,0 +1,11 @@
+method: dcf.fcff
+description: Perpetual growth equal to the terminal rate has no finite terminal value
+source: SPEC-0001 R19, SPEC-0006 R10
+input:
+  stages: [{ periods: 2, projection: given, flows: ["100", "110"] }]
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  wacc: "0.10"
+  timing: end_of_period
+  terminal: { "tv.gordon": { growth: "0.10", first_flow: last_flow_grown } }
+expect_error: FM-E004

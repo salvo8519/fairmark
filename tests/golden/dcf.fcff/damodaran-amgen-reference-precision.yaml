@@ -1,0 +1,57 @@
+method: dcf.fcff
+description: "Damodaran Illustration 15.3 (Amgen) inputs, printed values, at the precision of the 50-digit reference (AC4)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001, sharing no code with the engine), on the printed inputs of Damodaran,
+  Investment Valuation, 2nd edition, chapter 15, Illustration 15.3, Table 15.6
+  (pages.stern.nyu.edu/~adamodar/pdfiles/valn2ed/ch15.pdf). The comparison with the published
+  results is in damodaran-amgen-published-*.yaml.
+input:
+  stages: [{"periods": 5, "projection": "given", "flows": ["719", "813", "919", "1040", "1176"]}, {"periods": 5, "projection": "given", "flows": ["1498", "1851", "2226", "2611", "2991"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc_per_period: ["0.1076", "0.1076", "0.1076", "0.1076", "0.1076", "0.1038", "0.1000", "0.0962", "0.0924", "0.0886"]
+  terminal_wacc: "0.0886"
+  timing: "end_of_period"
+  terminal: {"tv.gordon": {"growth": "0.05", "first_flow": "normalised_next_flow", "normalised_next_flow": "3140"}}
+  net_financial_position: {"gross_debt": "323", "cash": "2029"}
+expect:
+  /periods/0/flow: "719"
+  /periods/0/discount_factor: "0.9028530155290718671000361"
+  /periods/0/present_value: "649.1513181654026724449259661"
+  /periods/1/flow: "813"
+  /periods/1/discount_factor: "0.8151435676499384860058109"
+  /periods/1/present_value: "662.7117204993999891227242333"
+  /periods/2/flow: "919"
+  /periods/2/discount_factor: "0.7359548281418729559460192"
+  /periods/2/present_value: "676.3424870623812465143916441"
+  /periods/3/flow: "1040"
+  /periods/3/discount_factor: "0.6644590358810698410491325"
+  /periods/3/present_value: "691.0373973163126346910978396"
+  /periods/4/flow: "1176"
+  /periods/4/discount_factor: "0.5999088442407636701418676"
+  /periods/4/present_value: "705.492800827138076086836281"
+  /periods/5/flow: "1498"
+  /periods/5/discount_factor: "0.5434941513324548560806918"
+  /periods/5/present_value: "814.1542386960173744088762852"
+  /periods/6/flow: "1851"
+  /periods/6/discount_factor: "0.4940855921204135055279016"
+  /periods/6/present_value: "914.5524310148853987321458939"
+  /periods/7/flow: "2226"
+  /periods/7/discount_factor: "0.4507257727790672372996731"
+  /periods/7/present_value: "1003.31557020620367022907225"
+  /periods/8/flow: "2611"
+  /periods/8/discount_factor: "0.4126014031298674819660134"
+  /periods/8/present_value: "1077.3022635720839954132610594"
+  /periods/9/flow: "2991"
+  /periods/9/discount_factor: "0.3790202123184525831030805"
+  /periods/9/present_value: "1133.6494550444916760613137625"
+  /pv_explicit_period: "8327.709682404316733704645215"
+  /terminal/terminal_value: "81347.1502590673575129533678756"
+  /terminal/discount_factor: "0.3790202123184525831030805"
+  /terminal/present_value: "30832.214162692774894913801978"
+  /value_of_operations: "39159.923845097091628618447193"
+  /enterprise_value: "39159.923845097091628618447193"
+  /equity_value: "40865.923845097091628618447193"
+  /terminal_value_weight: "0.7873410143659673062765863"
+tolerance: "0.00000000000000000001"

@@ -1,0 +1,49 @@
+method: dcf.fcff
+description: "Two generated stages from a base flow of 80, rates per period, mid-period timing with the terminal value discounted at the horizon (AC4, AC7)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R6 to R12 and R21, sharing no code with the engine).
+input:
+  stages: [{"periods": 3, "projection": "constant_growth", "growth": "0.10"}, {"periods": 3, "projection": "linear_decline", "from_growth": "0.10", "to_growth": "0.025"}]
+  base_flow: "80"
+  cash_flow_terms: "real"
+  discount_rate_terms: "real"
+  wacc_per_period: ["0.11", "0.11", "0.105", "0.10", "0.095", "0.09"]
+  terminal_wacc: "0.09"
+  timing: "mid_period"
+  terminal_discount_time: "horizon"
+  terminal: {"tv.gordon": {"growth": "0.025", "first_flow": "last_flow_grown"}}
+expect:
+  /periods/0/flow: "88"
+  /periods/0/growth: "0.1"
+  /periods/0/discount_factor: "0.9491579957524989953514779"
+  /periods/0/present_value: "83.525903626219911590930055"
+  /periods/1/flow: "96.8"
+  /periods/1/growth: "0.1"
+  /periods/1/discount_factor: "0.8550972934707198156319621"
+  /periods/1/present_value: "82.7734180079656781531739284"
+  /periods/2/flow: "106.48"
+  /periods/2/growth: "0.1"
+  /periods/2/discount_factor: "0.7720988461236816474694037"
+  /periods/2/present_value: "82.2130851352496218225421109"
+  /periods/3/flow: "114.466"
+  /periods/3/growth: "0.075"
+  /periods/3/discount_factor: "0.7003182141997144377691444"
+  /periods/3/present_value: "80.1626247065845128336828838"
+  /periods/4/flow: "120.1893"
+  /periods/4/growth: "0.05"
+  /periods/4/discount_factor: "0.6381048119628359980691621"
+  /periods/4/present_value: "76.6933706764448846227339487"
+  /periods/5/flow: "123.1940325"
+  /periods/5/growth: "0.025"
+  /periods/5/discount_factor: "0.5840791603405066609081055"
+  /periods/5/present_value: "71.9550670615610886503796238"
+  /pv_explicit_period: "477.3234692140256976734425505"
+  /terminal/terminal_value: "1942.6751278846153846153846154"
+  /terminal/discount_factor: "0.5594463724240367497556926"
+  /terminal/present_value: "1086.8225530934497585978782552"
+  /value_of_operations: "1564.1460223074754562713208057"
+  /enterprise_value: "1564.1460223074754562713208057"
+  /equity_value: "1564.1460223074754562713208057"
+  /terminal_value_weight: "0.6948344576487406856054364"
+tolerance: "0.00000000000000000001"

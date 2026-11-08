@@ -1,0 +1,24 @@
+method: dcf.fcff
+description: Damodaran Illustration 15.3 (Amgen), terminal value in year 10 at the precision of the printed FCFF of year 11 (AC4, Decision 12)
+source: >
+  Damodaran, Investment Valuation, 2nd edition, chapter 15, Illustration 15.3 (Amgen, May 2001),
+  Table 15.6 (pages.stern.nyu.edu/~adamodar/pdfiles/valn2ed/ch15.pdf): terminal value in year 10
+  of 81,364 = FCFF of year 11 / (8.86% - 5%). The printed FCFF of year 11 is 3,140, which gives
+  3,140 / 0.0386 = 81,347.15; the published 81,364 implies an unrounded flow of 81,364 x 0.0386
+  = 3,140.65. The tolerance of 20 (0.025% of the value) covers that rounding of the printed
+  flow, and nothing else: the formula is exact. Source check against the published PDF on
+  2026-11-08.
+input:
+  stages:
+    - { periods: 5, projection: given, flows: ["719", "813", "919", "1040", "1176"] }
+    - { periods: 5, projection: given, flows: ["1498", "1851", "2226", "2611", "2991"] }
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  wacc_per_period: ["0.1076", "0.1076", "0.1076", "0.1076", "0.1076", "0.1038", "0.1000", "0.0962", "0.0924", "0.0886"]
+  terminal_wacc: "0.0886"
+  timing: end_of_period
+  terminal: { "tv.gordon": { growth: "0.05", first_flow: normalised_next_flow, normalised_next_flow: "3140" } }
+  net_financial_position: { gross_debt: "323", cash: "2029" }
+expect:
+  /terminal/terminal_value: "81364"
+tolerance: "20"

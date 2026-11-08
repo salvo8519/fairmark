@@ -163,6 +163,29 @@ def test_sensitivity_table_agrees_with_numpy_financial() -> None:
             assert close(Decimal(str(cell["value"])), explicit + terminal)
 
 
+DCF_RNG = random.Random(20261109)  # SPEC-0001: its own seed, independent of the cases above
+
+
+def test_dcf_fcff_agrees_with_numpy_financial() -> None:
+    """SPEC-0001 (#110), cross-check only: the explicit flows of dcf.fcff discounted by
+    numpy-financial NPV plus the Gordon value at the horizon, in binary floating point."""
+    for _ in range(200):
+        flows = [DCF_RNG.randrange(-50, 500) for _ in range(DCF_RNG.randrange(1, 15))]
+        rate = DCF_RNG.randrange(300, 1500) / 10_000
+        growth = DCF_RNG.randrange(-200, 250) / 10_000
+        r = fm.dcf.fcff(
+            [fm.dcf.given(flows)],
+            cash_flow_terms="nominal",
+            discount_rate_terms="nominal",
+            wacc=str(rate),
+            timing="end_of_period",
+            terminal=fm.dcf.gordon(str(growth), first_flow="last_flow_grown"),
+        )
+        explicit = npf.npv(rate, [0.0, *flows])  # npv discounts from t = 0
+        terminal = flows[-1] * (1 + growth) / (rate - growth) / (1 + rate) ** len(flows)
+        assert close(r.value_of_operations, explicit + terminal)
+
+
 LOANS_RNG = random.Random(20261108)  # SPEC-0009: its own seed, independent of the cases above
 
 

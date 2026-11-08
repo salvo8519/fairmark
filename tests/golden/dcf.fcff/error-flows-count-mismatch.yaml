@@ -1,0 +1,11 @@
+method: dcf.fcff
+description: A given stage with fewer flows than its periods (AC6)
+source: SPEC-0001 R7
+input:
+  stages: [{ periods: 3, projection: given, flows: ["100", "110"] }]
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  wacc: "0.10"
+  timing: end_of_period
+  terminal: { "tv.gordon": { growth: "0.02", first_flow: last_flow_grown } }
+expect_error: FM-E025
