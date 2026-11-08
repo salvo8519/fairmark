@@ -142,14 +142,17 @@ def test_sensitivity_table_agrees_with_numpy_financial() -> None:
     table = fm.analysis.sensitivity(
         "dcf.fcff",
         {
-            "free_cash_flows": flows,
-            "discount_rate": "0.09",
-            "terminal_growth": "0.02",
-            "net_debt": 300,
+            "stages": [{"periods": len(flows), "projection": "given", "flows": flows}],
+            "cash_flow_terms": "nominal",
+            "discount_rate_terms": "nominal",
+            "wacc": "0.09",
+            "timing": "end_of_period",
+            "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}},
+            "net_financial_position": {"gross_debt": 300, "cash": 0},
         },
-        output="/enterprise_value",
-        rows=("/discount_rate", rates),
-        columns=("/terminal_growth", growths),
+        output="/value_of_operations",
+        rows=("/wacc", rates),
+        columns=("/terminal/tv.gordon/growth", growths),
     )
     for i, r in enumerate(rates):
         for j, g in enumerate(growths):

@@ -21,7 +21,14 @@ assert _spec and _spec.loader
 ref = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ref)
 
-DCF = {"free_cash_flows": [100, 110, 120], "discount_rate": "0.10", "terminal_growth": "0.02"}
+DCF = {  # dcf.fcff version 3: one given stage, one rate, Gordon on the last flow grown
+    "stages": [{"periods": 3, "projection": "given", "flows": [100, 110, 120]}],
+    "cash_flow_terms": "nominal",
+    "discount_rate_terms": "nominal",
+    "wacc": "0.10",
+    "timing": "end_of_period",
+    "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}},
+}
 FLOWS = [D(-1000), D(300), D(400), D(500)]
 MULTIPLE_IRR = [D(1000), D(-3600), D(4310), D(-1716)]  # IRRs 0.1, 0.2 and 0.3
 
@@ -29,8 +36,8 @@ CASES = [
     # (method, base input, variable, output, target, bracket, tolerance, reference function)
     (
         "dcf.fcff",
-        {**DCF, "net_debt": 200},
-        "/discount_rate",
+        {**DCF, "net_financial_position": {"gross_debt": 200, "cash": 0}},
+        "/wacc",
         "/enterprise_value",
         "1300",
         ("0.05", "0.5"),
@@ -116,10 +123,10 @@ def test_tornado_golden_is_reproduced_by_the_reference() -> None:
     ranking = ref.tornado_ranking(base, flows, shocks)
     expect = _expect("analysis.tornado/dcf-four-drivers.yaml")
     pointers = {
-        "net_debt": "/net_debt",
-        "flow:0": "/free_cash_flows/0",
-        "terminal_growth": "/terminal_growth",
-        "discount_rate": "/discount_rate",
+        "net_debt": "/net_financial_position/gross_debt",
+        "flow:0": "/stages/0/flows/0",
+        "terminal_growth": "/terminal/tv.gordon/growth",
+        "discount_rate": "/wacc",
     }
     for k, (name, low, high, swing) in enumerate(ranking):
         assert expect[f"/ranking/{k}/variable"] == pointers[name]
