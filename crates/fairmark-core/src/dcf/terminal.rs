@@ -651,10 +651,8 @@ pub(crate) fn check<'a>(
             format!("{} (declared)", q.basis.name()),
             basis,
         )?,
-        // Its terms are NOPAT and RONIC, enterprise measures. Its equity form (net income and
-        // return on equity) is an open question for the maintainer (plan.md, issue #165):
-        // refused on the equity basis until decided, so that no number rests on an undecided
-        // reading.
+        // SPEC-0001 Decision 23: NOPAT and RONIC are firm-level (asset side) quantities, so the
+        // value driver formula is not accepted practice on the equity basis (R19, AC11).
         Technique::ValueDriver(_) if basis == TerminalBasis::Equity => {
             return Err(FairmarkError::MixedBasis(format!(
                 "`{at}` states NOPAT and the return on new invested capital (RONIC), measures \

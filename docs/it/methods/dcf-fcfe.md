@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcfe.md
-source_hash: 733fb7f8e89e
+source_hash: c18c1a9ebc58
 ---
 # DCF, flussi di cassa disponibili per gli azionisti (`dcf.fcfe`)
 
@@ -81,7 +81,7 @@ side:
 | [`tv.exit_multiple`](tv-exit-multiple.md) | `earnings` (P/E) o `book_value` (P/BV); `ebitda`, `ebit` e `revenue` sono multipli asset side e sono rifiutati con `FM-E019` |
 | [`tv.normalised_income`](tv-normalised-income.md) | Un utile netto normalizzato con `basis` `equity`; `enterprise` è rifiutato con `FM-E019` |
 | [`tv.liquidation`](tv-liquidation.md) | `basis` `equity`, con i debiti finanziari tra le passività; `enterprise` è rifiutato con `FM-E019` |
-| [`tv.value_driver`](tv-value-driver.md) | Rifiutato con `FM-E019` nella versione 1: i suoi parametri sono il NOPAT e il rendimento del nuovo capitale investito (RONIC), grandezze asset side; la sua forma equity side (utile netto e ROE) è una questione aperta della specifica |
+| [`tv.value_driver`](tv-value-driver.md) | Rifiutato con `FM-E019`: i suoi parametri, il NOPAT e il rendimento del nuovo capitale investito (RONIC), sono grandezze a livello d'impresa (asset side), quindi la formula del value driver non è prassi accettata con approccio equity side (SPEC-0001 Decision 23); usare `tv.gordon` con un flusso normalizzato in N + 1, oppure un multiplo di uscita sugli utili o sul valore contabile del capitale proprio |
 
 Un valore terminale di Gordon sull'ultimo FCFE fatto crescere porta in perpetuo il net
 borrowing di quel flusso. Nella fase di crescita stabile il net borrowing dovrebbe essere
@@ -254,7 +254,7 @@ come avvertenza, mai riportato a zero.
 | `FM-E004` | La crescita perpetua è pari o superiore al costo del capitale proprio della fase terminale nei termini dei flussi di cassa |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 | `FM-E018` | Un parametro della tecnica del valore terminale è fuori dal suo dominio, come in `dcf.fcff` |
-| `FM-E019` | È fornita una `net_financial_position`; oppure la tecnica del valore terminale segue l'approccio asset side: un multiplo di uscita su `ebitda`, `ebit` o `revenue`, un reddito normalizzato o una liquidazione con `basis` enterprise, oppure `tv.value_driver`, che non è disponibile con approccio equity side nella versione 1 |
+| `FM-E019` | È fornita una `net_financial_position`; oppure la tecnica del valore terminale segue l'approccio asset side: un multiplo di uscita su `ebitda`, `ebit` o `revenue`, un reddito normalizzato o una liquidazione con `basis` enterprise, oppure `tv.value_driver`, il cui NOPAT e il cui RONIC sono grandezze a livello d'impresa (Decision 23) |
 | `FM-E024` | `cash_flow_terms` e `discount_rate_terms` sono diversi e non è fornita l'inflazione attesa |
 | `FM-E025` | Un conteggio non corrisponde agli stage: flussi o voci, costi del capitale proprio o inflazione per periodo, oppure un base flow fuori posto |
 

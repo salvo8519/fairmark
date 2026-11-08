@@ -73,7 +73,7 @@ of equity. The technique must be on the equity basis:
 | [`tv.exit_multiple`](tv-exit-multiple.md) | `earnings` (P/E) or `book_value` (P/BV); `ebitda`, `ebit` and `revenue` are enterprise multiples and are refused with `FM-E019` |
 | [`tv.normalised_income`](tv-normalised-income.md) | A normalised net income with `basis` `equity`; `enterprise` is refused with `FM-E019` |
 | [`tv.liquidation`](tv-liquidation.md) | `basis` `equity`, with the financial debt among the liabilities; `enterprise` is refused with `FM-E019` |
-| [`tv.value_driver`](tv-value-driver.md) | Refused with `FM-E019` in version 1: its terms are NOPAT and the return on new invested capital, enterprise measures; its equity form (net income and return on equity) is an open question of the specification |
+| [`tv.value_driver`](tv-value-driver.md) | Refused with `FM-E019`: its terms, NOPAT and the return on new invested capital, are firm-level (enterprise) quantities, so the value driver formula is not accepted practice on the equity basis (SPEC-0001 Decision 23); use `tv.gordon` with a normalised next flow, or an exit multiple on earnings or book value |
 
 A Gordon terminal value on the last FCFE grown carries that flow's net borrowing into
 perpetuity. In stable growth the net borrowing should be the one that keeps the debt ratio
@@ -239,7 +239,7 @@ negative equity value is reported as a warning, never floored at zero.
 | `FM-E004` | The perpetual growth is equal to or greater than the terminal cost of equity in the terms of the cash flows |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 | `FM-E018` | A term of the terminal technique outside its domain, as in `dcf.fcff` |
-| `FM-E019` | A `net_financial_position` is given; or the terminal technique is on the enterprise basis: an exit multiple on `ebitda`, `ebit` or `revenue`, a normalised income or a liquidation with `basis` enterprise, or `tv.value_driver`, which is not available on the equity basis in version 1 |
+| `FM-E019` | A `net_financial_position` is given; or the terminal technique is on the enterprise basis: an exit multiple on `ebitda`, `ebit` or `revenue`, a normalised income or a liquidation with `basis` enterprise, or `tv.value_driver`, whose NOPAT and RONIC are firm-level quantities (Decision 23) |
 | `FM-E024` | `cash_flow_terms` and `discount_rate_terms` differ and no expected inflation is given |
 | `FM-E025` | A count does not match the stages: flows or lines, costs of equity or inflation per period, or a misplaced base flow |
 

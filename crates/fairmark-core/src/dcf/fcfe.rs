@@ -63,8 +63,8 @@ dcf_input! {
         /// id, for example `{"tv.gordon": {"growth", "first_flow", ...}}`: `tv.gordon`,
         /// `tv.h_model` or `tv.limited_horizon` on the FCFE, `tv.exit_multiple` on `earnings`
         /// (P/E) or `book_value` (P/BV), `tv.normalised_income` or `tv.liquidation` declared on
-        /// the `equity` basis. `tv.value_driver` is not available on the equity basis in version
-        /// 1.
+        /// the `equity` basis. `tv.value_driver` is refused: its NOPAT and RONIC are firm-level
+        /// quantities (SPEC-0001 Decision 23).
         terminal,
         bridge {
             /// Not used on the equity basis and refused (`FM-E019`): debt is already in the FCFE,
@@ -630,11 +630,10 @@ mod tests {
             .contains("equity value is negative"));
     }
 
-    /// Open question of plan.md (#165): `tv.value_driver` states NOPAT and RONIC, enterprise
-    /// measures; until the maintainer decides its equity form it is refused on the equity
-    /// basis, so that no number is produced on an undecided reading.
+    /// R19, AC11, Decision 23: `tv.value_driver` states NOPAT and RONIC, firm-level
+    /// quantities; it is refused on the equity basis with FM-E019.
     #[test]
-    fn value_driver_is_refused_on_the_equity_basis_until_decided() {
+    fn value_driver_is_refused_on_the_equity_basis() {
         let v = with(base(), |m| {
             m.insert(
                 "terminal".into(),

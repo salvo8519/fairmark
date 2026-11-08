@@ -366,10 +366,11 @@ def fcfe(
     ``cost_of_equity_per_period`` with ``terminal_cost_of_equity``. Stages, terms, inflation,
     timing and ``terminal`` work as in :func:`fcff`; the terminal technique must be on the
     equity basis (``exit_multiple`` on ``earnings`` or ``book_value``, ``normalised_income``
-    or ``liquidation`` with ``basis="equity"``); ``value_driver`` is not available on the
-    equity basis in version 1. Stages built with :func:`given_lines` need
-    ``interest_expense`` and ``net_borrowing`` in every line, and take ``notional_tax_rate``
-    with ``negative_ebit``, or ``operating_taxes`` in every line with ``interest_tax_rate``.
+    or ``liquidation`` with ``basis="equity"``); ``value_driver`` is refused, its NOPAT and
+    RONIC being firm-level quantities (SPEC-0001 Decision 23). Stages built with
+    :func:`given_lines` need ``interest_expense`` and ``net_borrowing`` in every line, and take
+    ``notional_tax_rate`` with ``negative_ebit``, or ``operating_taxes`` in every line with
+    ``interest_tax_rate``.
 
     Equity value = present value of the FCFE and of the terminal value +
     ``non_operating_assets`` (for example cash not reflected in the FCFE) -

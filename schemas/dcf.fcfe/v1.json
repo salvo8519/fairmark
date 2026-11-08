@@ -1038,7 +1038,7 @@
     },
     "terminal": {
       "$ref": "#/$defs/Terminal",
-      "description": "The terminal technique on the equity basis, an object with exactly one key, the method\nid, for example `{\"tv.gordon\": {\"growth\", \"first_flow\", ...}}`: `tv.gordon`,\n`tv.h_model` or `tv.limited_horizon` on the FCFE, `tv.exit_multiple` on `earnings`\n(P/E) or `book_value` (P/BV), `tv.normalised_income` or `tv.liquidation` declared on\nthe `equity` basis. `tv.value_driver` is not available on the equity basis in version\n1."
+      "description": "The terminal technique on the equity basis, an object with exactly one key, the method\nid, for example `{\"tv.gordon\": {\"growth\", \"first_flow\", ...}}`: `tv.gordon`,\n`tv.h_model` or `tv.limited_horizon` on the FCFE, `tv.exit_multiple` on `earnings`\n(P/E) or `book_value` (P/BV), `tv.normalised_income` or `tv.liquidation` declared on\nthe `equity` basis. `tv.value_driver` is refused: its NOPAT and RONIC are firm-level\nquantities (SPEC-0001 Decision 23)."
     },
     "terminal_cost_of_equity": {
       "description": "Cost of equity of the terminal phase, decimal fraction per period, greater than -1;\nrequired with `cost_of_equity_per_period`, refused with `cost_of_equity`.",
