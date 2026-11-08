@@ -20,6 +20,92 @@ pub struct MethodInfo {
     pub title: &'static str,
     pub description: &'static str,
     pub version: &'static str,
+    /// `available` or `preview`; see [`Status`].
+    pub status: Status,
+}
+
+/// How far a method has been verified (ADR 0011). Defined, with the promotion rule, in
+/// `docs/en/project/releases.md`; both statuses follow the versioning rules of ADR 0009.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Status {
+    /// Meets the promotion rule: approved spec, independent audit and review recorded.
+    Available,
+    /// Implemented, tested and documented, not yet promoted: tell users so.
+    Preview,
+}
+
+/// Methods promoted to available (ADR 0011). Every other method is preview, so a new method
+/// is preview until it is listed here; `scripts/method_status.py` checks each entry against
+/// the evidence in `specs/method-evidence.yaml`.
+const AVAILABLE: &[&str] = &[
+    "dates.year_fraction",
+    "rates.convert",
+    "rates.real_nominal",
+    "tvm.npv",
+    "tvm.present_value",
+    "tvm.xnpv",
+    "tvm.irr",
+    "tvm.xirr",
+    "tvm.mirr",
+    "tvm.annuity",
+    "tvm.perpetuity",
+    "tvm.future_value",
+    "loans.instalment",
+    "loans.number_of_instalments",
+    "loans.amortisation_schedule",
+    "coc.cost_of_equity",
+    "coc.beta_relever",
+    "coc.beta_peers",
+    "coc.cost_of_debt",
+    "coc.wacc",
+    "tv.gordon",
+    "tv.value_driver",
+    "tv.h_model",
+    "tv.exit_multiple",
+    "tv.limited_horizon",
+    "tv.normalised_income",
+    "tv.liquidation",
+    "tv.compare",
+    "analysis.goal_seek",
+    "analysis.sensitivity",
+    "analysis.scenarios",
+    "analysis.tornado",
+];
+
+/// Byte-wise string equality usable in constant evaluation.
+const fn same(a: &str, b: &str) -> bool {
+    let (a, b) = (a.as_bytes(), b.as_bytes());
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut i = 0;
+    while i < a.len() {
+        if a[i] != b[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+
+const fn is_listed(id: &str, list: &[&str]) -> bool {
+    let mut i = 0;
+    while i < list.len() {
+        if same(id, list[i]) {
+            return true;
+        }
+        i += 1;
+    }
+    false
+}
+
+const fn status_of(id: &str) -> Status {
+    if is_listed(id, AVAILABLE) {
+        Status::Available
+    } else {
+        Status::Preview
+    }
 }
 
 /// Builds the catalogue, the schema lookup and the dispatch from one list of [`Method`] types.
@@ -39,8 +125,19 @@ macro_rules! registry {
                 title: <$m as Method>::TITLE,
                 description: <$m as Method>::DESCRIPTION,
                 version: <$m as Method>::VERSION,
+                status: status_of(<$m as Method>::ID),
             },
         )+];
+
+        /// Every id promoted in `AVAILABLE` is a registered method (ADR 0011).
+        const _: () = {
+            let ids: &[&str] = &[$(<$m as Method>::ID),+];
+            let mut i = 0;
+            while i < AVAILABLE.len() {
+                assert!(is_listed(AVAILABLE[i], ids), "AVAILABLE names an unregistered method");
+                i += 1;
+            }
+        };
 
         /// `(id, Rust type path)` of every method, to check that each lives in its theme module.
         /// `type_name` is best-effort by documentation but stable in practice for plain paths;
@@ -219,6 +316,38 @@ mod tests {
                 "{id} is implemented by {path}, outside the module of its theme"
             );
         }
+    }
+
+    /// ADR 0011: methods not promoted in `AVAILABLE` are preview, and the status is part of
+    /// the catalogue every adapter serialises.
+    #[test]
+    fn status_comes_from_the_promotion_list() {
+        for m in METHODS {
+            let expected = if AVAILABLE.contains(&m.id) {
+                Status::Available
+            } else {
+                Status::Preview
+            };
+            assert_eq!(m.status, expected, "{}", m.id);
+        }
+        assert_eq!(method("dcf.fcff").unwrap().status, Status::Preview);
+        assert_eq!(method("tvm.npv").unwrap().status, Status::Available);
+        let json = serde_json::to_value(method("dcf.fcff").unwrap()).unwrap();
+        assert_eq!(json["status"], "preview");
+        let json = serde_json::to_value(method("tvm.npv").unwrap()).unwrap();
+        assert_eq!(json["status"], "available");
+    }
+
+    #[test]
+    fn promotion_list_names_registered_methods_once() {
+        let mut seen = std::collections::BTreeSet::new();
+        for id in AVAILABLE {
+            assert!(seen.insert(id), "{id} is listed twice");
+            assert!(method(id).is_ok(), "{id} is not registered");
+        }
+        assert!(is_listed("tvm.npv", AVAILABLE));
+        assert!(!is_listed("tvm.np", AVAILABLE));
+        assert!(!is_listed("tvm.npvx", AVAILABLE));
     }
 
     #[test]

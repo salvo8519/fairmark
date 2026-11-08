@@ -40,7 +40,7 @@ pub mod types;
 
 pub use error::{FairmarkError, Result};
 pub use method::Method;
-pub use registry::{input_schema, method, run, MethodInfo, METHODS};
+pub use registry::{input_schema, method, run, MethodInfo, Status, METHODS};
 
 /// Version of the engine, stamped into every result.
 pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
