@@ -316,7 +316,7 @@ pub fn reorganise(input: &ReorganiseInput) -> Result<(ReorganiseOutput, Explain)
 fn compute(input: &ReorganiseInput) -> Result<(ReorganiseOutput, Explain)> {
     validate::validate(input)?;
     let mut ex = Explain::new(Reorganise::ID, FORMULA);
-    let statutory = input.years.iter().any(|y| y.reclassified.is_none());
+    let statutory = input.years.iter().any(|y| y.statutory.is_some());
     ex.convention(
         "missing inputs are never taken as zero: an output whose inputs are missing is null and \
          listed in `not_computed` with the pointers of the missing inputs (R6)",

@@ -1025,6 +1025,88 @@ fn conventions_state_the_order_assumed_and_the_treatment_not_needed() {
     }
 }
 
+/// AC13, review of PR 1 (item 7): every row of the conventions table that applies to a call
+/// appears in `explain.conventions`: a statutory year with its layout, item A and the "of which"
+/// parts not given, the R15 readings, an adjustment whose source is missing, and a reclassified
+/// year.
+#[test]
+fn every_applicable_convention_is_stated() {
+    let mut statutory = golden_input("balance-sheet-ordinary")["years"][0].clone();
+    statutory["label"] = json!("2023");
+    statutory["date"] = json!("2023-12-31");
+    let bs = statutory["statutory"]["balance_sheet"]
+        .as_object_mut()
+        .unwrap();
+    bs.remove("cash");
+    bs.remove("subscribed_capital_unpaid");
+    bs.remove("current_assets");
+    bs.remove("total_assets");
+    let reclassified = golden_input("reclassified-balance-sheet")["years"][0].clone();
+    let input = json!({
+        "years": [statutory, reclassified],
+        "treatments": golden_input("balance-sheet-ordinary")["treatments"],
+        "adjustments": [{"kind": "operating_cash", "label": "Minimum cash",
+            "reason": "Operations", "amounts": ["10", null]}],
+    });
+    let out = run(&input);
+    let conv = conventions(&out);
+    let b = "/years/0/statutory/balance_sheet";
+    for text in [
+        // Years, forms and layout (R2, Decision 1).
+        "year 2023: statutory form",
+        "year 2024: reclassified form",
+        "year 2023: layout `ordinary` echoed; no number depends on it",
+        // Best effort, checks and signs (R3, R6, R7).
+        "missing inputs are never taken as zero",
+        "checks are exact, with no tolerance",
+        "amounts as presented in the statutory layouts",
+        // Defaults (R8, D1, D2, R17).
+        &format!("default: `{b}/subscribed_capital_unpaid` not given, set to"),
+        &format!("default: `{b}/receivables/prepayments_and_accrued_income` not given, set to"),
+        &format!("default: `{b}/provisions` assigned to"),
+        "default: `/treatments/write_downs_of_receivables` not given, set to",
+        "deducted from equity (Decision 14); not given, it is zero (D1)",
+        // Net financial position and bridge items (Decisions 11, 15; D3; SPEC-0007).
+        "net financial position = gross debt − cash + other items",
+        "C.III and all of C.IV inside, operating cash out only by an `operating_cash` \
+         adjustment (Decision 11)",
+        "measurement basis `book_value` (Decision 15)",
+        "are non-current in the net financial position (D3)",
+        "derivative assets are not given separately and follow their aggregate (D3)",
+        // Current and non-current (R15).
+        "read as twelve months (R15)",
+        "year 2023: provisions (B) read as non-current: the part beyond one year is not given",
+        "year 2023: employee severance indemnity (C) read as non-current",
+        "year 2023: prepayments and accrued income (assets D) read as current",
+        "year 2023: accruals and deferred income (liabilities E) read as current",
+        // Adjustments (R10) and the reclassified form (R5).
+        &format!(
+            "adjustment 0 'Minimum cash' not applied to 2023: its source `{b}/cash` is missing"
+        ),
+        "treatments and adjustments do not apply to the reclassified entries: 2024",
+        "year 2024: the current and non-current block (except inventories)",
+        // The income statement of this build (plan, "Behaviour between pull requests").
+        "the income statement is not reorganised in this build",
+    ] {
+        assert!(conv.contains(text), "missing '{text}' in {conv}");
+    }
+}
+
+/// Review of PR 1 (nit): an entry with no form is not a statutory entry, so the conventions of
+/// the statutory form are not stated for it.
+#[test]
+fn an_entry_with_no_form_states_no_statutory_convention() {
+    let out = run(&json!({"years": [{"label": "2024"}]}));
+    let conv = conventions(&out);
+    for text in [
+        "amounts as presented in the statutory layouts",
+        "the income statement is not reorganised in this build",
+        "(Decision 11)",
+    ] {
+        assert!(!conv.contains(text), "'{text}' in {conv}");
+    }
+}
+
 #[test]
 fn an_adjustment_that_does_not_apply_to_a_year_is_reported() {
     let out = run(&golden_input("adjustment-dividends-declared"));
