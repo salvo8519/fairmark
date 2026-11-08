@@ -455,20 +455,21 @@ Annex VI part of V19 are no longer cited.
     shareholder loans, leases, tax debts in instalments, quasi-equity.
 
 ## Open questions
+Questions 1 to 3 and 12 to 16 are resolved with the recommendation stated, under the delegation the maintainer gave on 2026-11-08 (decide as a bank credit analyst and an asset management analyst would, aligned with CFA, IFRS and EBA practice); they are listed for his confirmation when the spec is submitted for approval.
 Each lists options and a recommendation. **[bank]** marks questions that need the maintainer's
 bank-practice judgement.
 
-- [ ] **1. Method ids.** (a) One method `statements.reorganise` with optional balance sheet and
+- [x] **1. Method ids.** (a) One method `statements.reorganise` with optional balance sheet and
       income statement; (b) two methods, `statements.reorganise_balance_sheet` and
       `statements.reorganise_income_statement`. Recommendation: (a). Leases and the profit
       cross-check touch both statements, so one call keeps them consistent and needs no
       duplicated adjustments; agents learn one tool and one schema; reconciliation errors come
       first in one place. The cost is one version for both statements, acceptable while the
       method is preview. Choose (b) if schema size for function calling becomes a problem.
-- [ ] **2. Balance check.** (a) Exact equality; (b) an explicit tolerance in currency units.
+- [x] **2. Balance check.** (a) Exact equality; (b) an explicit tolerance in currency units.
       Recommendation: (a). Filed statements in euro units balance exactly; a difference is an
       extraction error to fix.
-- [ ] **3. Signs.** (a) As presented in the statutory layouts (R5); (b) signed by effect on the
+- [x] **3. Signs.** (a) As presented in the statutory layouts (R5); (b) signed by effect on the
       result. Recommendation: (a): an agent copies the filing as printed. B11 is the trap
       (positive is a decrease); the schema and page say so.
 - [x] **4. Payables D by nature. [bank]** Resolved 2026-11-08: option (a), approved by the maintainer. The abridged layout shows D as one total with the
@@ -488,20 +489,20 @@ bank-practice judgement.
       net financial position), or a split (for example the postponed part); (b) default
       financial debt. Recommendation: (a). Credit analysis often treats postponed loans as
       quasi-equity, valuation as debt; statutory equity is never changed.
-- [ ] **7. A5, B14 and non-recurring items. [bank]** (a) Operating by default, with labelled
+- [x] **7. A5, B14 and non-recurring items. [bank]** Resolved 2026-11-08: option (a). The maintainer asked (2026-11-08) to decide as a credit analyst of a bank or a financial intermediary and as an analyst of an asset management firm would, aligned with CFA, IFRS and EBA practice, classifying items by financial pertinence and risk, because the output serves to judge the financial health of the company. Credit analysis (EBA/GL/2020/06, sustainable cash flows) and OIC 12 (former extraordinary items in A5 and B14, disclosure under art. 2427 n. 13) both support filed totals as operating with visible, reasoned normalisations. (a) Operating by default, with labelled
       adjustments for non-operating and non-recurring parts of any aggregate; (b) a required
       classification of A5 and B14 when not zero. Recommendation: (a). It keeps the input to the
       filed totals and puts every normalisation in a reasoned, visible adjustment; the page
       warns, as the ESMA APM guidelines do, against recurring items labelled non-recurring.
-- [ ] **8. EBITDA scope and grouped B10. [bank]** (a) B10 d, B12, B13 below EBITDA; B10 a to c
+- [x] **8. EBITDA scope and grouped B10. [bank]** Resolved 2026-11-08: option (a), the definition used in Italian credit analysis and in bank covenants. The maintainer asked (2026-11-08) to decide as a credit analyst of a bank or a financial intermediary and as an analyst of an asset management firm would, aligned with CFA, IFRS and EBA practice, classifying items by financial pertinence and risk, because the output serves to judge the financial health of the company. (a) B10 d, B12, B13 below EBITDA; B10 a to c
       (grouped in the abridged layout) as depreciation and amortisation, impairments by
       adjustment; (b) required statement of the impairment part of B10 a to c and of the place
       of B10 d. Recommendation: (a), the usual Italian definition of MOL, reported in words.
-- [ ] **9. Leases. [bank]** (a) As reported only; (b) optional financial-method adjustment
+- [x] **9. Leases. [bank]** Resolved 2026-11-08: option (b). The maintainer asked (2026-11-08) to decide as a credit analyst of a bank or a financial intermediary and as an analyst of an asset management firm would, aligned with CFA, IFRS and EBA practice, classifying items by financial pertinence and risk, because the output serves to judge the financial health of the company. Lease obligations are financial in pertinence and risk; the optional financial-method adjustment makes EBITDA and the net financial position comparable between OIC and IFRS 16 preparers, from the data of art. 2427 n. 22. (a) As reported only; (b) optional financial-method adjustment
       (R23) in version 1, no deferred taxes; (c) (b) deferred to a later version.
       Recommendation: (b). Bank practice restates leases so that EBITDA and the net financial
       position compare between OIC and IFRS 16 preparers; the adjustment is optional.
-- [ ] **10. Financial fixed assets B.III.** (a) Required treatment when not zero: operating,
+- [x] **10. Financial fixed assets B.III.** Resolved 2026-11-08: option (a), required treatment when not zero, because the aggregate mixes items of different pertinence and risk. The maintainer asked (2026-11-08) to decide as a credit analyst of a bank or a financial intermediary and as an analyst of an asset management firm would, aligned with CFA, IFRS and EBA practice, classifying items by financial pertinence and risk, because the output serves to judge the financial health of the company. (a) Required treatment when not zero: operating,
       non-operating or financial asset, or a split; (b) default non-operating. Recommendation:
       (a): the aggregate mixes strategic stakes, surplus investments and loans.
 - [x] **11. Net financial position composition. [bank]** Resolved 2026-11-08: option (a), approved by the maintainer. (a) SPEC-0007 structure with
@@ -511,22 +512,22 @@ bank-practice judgement.
       default as a percentage of revenue (Koller practice). Recommendation: (a). Italian and
       ESMA practice deduct all cash; a percentage rule would be a hidden parameter; the analyst
       states operating cash as an amount with a reason, and `excess_cash` is reported.
-- [ ] **12. Current and non-current block.** (a) Keep it (R16) with the stated defaults, because
+- [x] **12. Current and non-current block.** (a) Keep it (R16) with the stated defaults, because
       `ratios.liquidity` and `ratios.capital_structure` need it; (b) drop it and let the analyst
       compute the inputs. Recommendation: (a). It costs a few documented defaults and avoids
       arithmetic in agents.
-- [ ] **13. Cost of sales for `ratios.working_capital`.** (a) Not returned; `purchases` and
+- [x] **13. Cost of sales for `ratios.working_capital`.** (a) Not returned; `purchases` and
       `materials_consumed` returned under their own names, and the analyst supplies cost of sales
       to the ratio; (b) return `materials_consumed` as `cost_of_sales`. Recommendation: (a): (b)
       would give one name two meanings.
-- [ ] **14. Subscribed capital unpaid and dividends declared.** (a) Capital unpaid deducted from
+- [x] **14. Subscribed capital unpaid and dividends declared.** (a) Capital unpaid deducted from
       equity; dividends declared by adjustment to debt-like items; (b) both by adjustment only.
       Recommendation: (a): unpaid capital does not fund the company until paid.
-- [ ] **15. Measurement basis of bridge items.** (a) Carrying amount, stated with the
+- [x] **15. Measurement basis of bridge items.** (a) Carrying amount, stated with the
       `MeasurementBasis` of SPEC-0001 Decision 21; (b) an optional market value per item in
       this method. Recommendation: (a): market values belong to the bridge, where the analyst
       restates them.
-- [ ] **16. Golden sources.** (a) Exact reference script `scripts/reference_statements.py`
+- [x] **16. Golden sources.** (a) Exact reference script `scripts/reference_statements.py`
       written from Appendix A to C; (b) published worked examples named by the maintainer (V27);
       (c) two or three anonymised practitioner cases, at least one abridged. Recommendation: all
       three; (b) and (c) are needed for AC13 and for promotion to available.
