@@ -583,7 +583,7 @@ mod tests {
             .iter()
             .any(|s| s["label"] == "Build-up: FCFF, period 2"));
         assert!(conventions(&built).iter().any(|c| c.starts_with(
-            "free cash flow build-up (dcf.free_cash_flows v1): tax form: rate on EBIT"
+            "free cash flow build-up (dcf.free_cash_flows v2): tax form: rate on EBIT"
         )));
         let mut bad = built.clone();
         bad["stages"][0]["lines"][1]["capital_expenditure"] = json!("-1");

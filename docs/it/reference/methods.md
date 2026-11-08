@@ -432,7 +432,7 @@ Value of operations, enterprise value and equity value from FCFF discounted at t
 
 ## `dcf.free_cash_flows`
 
-**Free cash flow build-up (FCFF and FCFE)** · versione del metodo 1 · stato anteprima · tool `fairmark_dcf_free_cash_flows`
+**Free cash flow build-up (FCFF and FCFE)** · versione del metodo 2 · stato anteprima · tool `fairmark_dcf_free_cash_flows`
 
 FCFF per period from EBIT, taxes on EBIT (a rate or amounts), depreciation and amortisation, capital expenditure, change in net working capital and labelled adjustments; FCFE when interest expense and net borrowing are given. Not discounted.
 
@@ -440,7 +440,7 @@ FCFF per period from EBIT, taxes on EBIT (a rate or amounts), depreciation and a
 | --- | --- | --- | --- | --- |
 | `periods` | lista di object | sì |  | Line items of periods 1..n, in order; at least one period. |
 | `notional_tax_rate` | decimale | no |  | Tax rate applied to EBIT, decimal fraction from 0 to below 1 (0.24 = 24%) (rate form). Give this or `operating_taxes` in every period, not both. Default: none. |
-| `negative_ebit` |  | no |  | Treatment of a negative EBIT in the rate form: `credit` (taxes = rate × EBIT) or `zero` (no tax). Required with `notional_tax_rate`, there is no default; not accepted with `operating_taxes`. Tax loss carry-forwards are not modelled. |
+| `negative_ebit` |  | no |  | Treatment of a negative EBIT in the rate form: `credit` (taxes = rate × EBIT) or `zero` (no tax; with the financing lines the interest tax shield is limited to the taxable income available, rate × min(interest, max(EBIT, 0)), so the taxes never fall below zero). Required with `notional_tax_rate`, there is no default; not accepted with `operating_taxes`. Tax loss carry-forwards are not modelled. |
 | `interest_tax_rate` | decimale | no |  | Tax rate t of the interest tax shield in the FCFE, decimal fraction from 0 to below 1. Required when the taxes are given as `operating_taxes` and the financing lines are given; not accepted otherwise (with `notional_tax_rate` the shield uses that rate). |
 
 ## `ratios.profitability`

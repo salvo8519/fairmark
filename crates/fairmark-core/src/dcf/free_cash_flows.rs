@@ -2,8 +2,10 @@
 //! R5).
 //!
 //! FCFF_t = EBIT_t − taxes on EBIT_t + D&A_t − capex_t − ΔNWC_t + Σ adjustments_t and, with the
-//! financing lines, FCFE_t = FCFF_t − interest_t × (1 − t) + net borrowing_t. Amounts are in
-//! currency units per period and are not discounted.
+//! financing lines, FCFE_t = FCFF_t − interest_t + interest tax shield_t + net borrowing_t, the
+//! shield being t × interest_t, limited to t × min(interest_t, max(EBIT_t, 0)) under the `zero`
+//! treatment (SPEC-0001 Decision 22). Amounts are in currency units per period and are not
+//! discounted.
 //!
 //! The types and [`free_cash_flows`] are public so that the shared DCF engine reuses the
 //! build-up for a `given` stage through a typed call (ADR 0009).
@@ -101,7 +103,9 @@ pub struct FreeCashFlowsInput {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notional_tax_rate: Option<Decimal>,
     /// Treatment of a negative EBIT in the rate form: `credit` (taxes = rate × EBIT) or `zero`
-    /// (no tax). Required with `notional_tax_rate`, there is no default; not accepted with
+    /// (no tax; with the financing lines the interest tax shield is limited to the taxable
+    /// income available, rate × min(interest, max(EBIT, 0)), so the taxes never fall below
+    /// zero). Required with `notional_tax_rate`, there is no default; not accepted with
     /// `operating_taxes`. Tax loss carry-forwards are not modelled.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub negative_ebit: Option<NegativeEbit>,
@@ -140,7 +144,11 @@ pub struct FreeCashFlowPeriod {
     /// Rate t of the interest tax shield applied in this period: 0 where the `zero` treatment
     /// of a negative EBIT applies (SPEC-0001 amendment 14); `null` without financing lines.
     pub interest_tax_rate: Option<Decimal>,
-    /// Interest expense × (1 − t); `null` without financing lines.
+    /// Interest tax shield of the period: t × interest expense; under the `zero` treatment
+    /// t × min(interest expense, max(EBIT, 0)), the deduction limited to the taxable income
+    /// available (SPEC-0001 Decision 22); `null` without financing lines.
+    pub interest_tax_shield: Option<Decimal>,
+    /// Interest expense − interest tax shield; `null` without financing lines.
     pub interest_after_taxes: Option<Decimal>,
     /// Net borrowing as given; `null` without financing lines.
     pub net_borrowing: Option<Decimal>,
@@ -403,7 +411,8 @@ fn validate(
 
 pub(crate) const FORMULA_FCFF: &str =
     "FCFF_t = EBIT_t − taxes on EBIT_t + D&A_t − capex_t − ΔNWC_t + Σ adjustments_t";
-const FORMULA_FCFE: &str = "FCFE_t = FCFF_t − interest_t × (1 − t) + net borrowing_t";
+const FORMULA_FCFE: &str =
+    "FCFE_t = FCFF_t − (interest_t − interest tax shield_t) + net borrowing_t";
 
 /// Builds FCFF, and FCFE when the financing lines are given, for every period.
 pub fn free_cash_flows(input: &FreeCashFlowsInput) -> Result<(FreeCashFlowsOutput, Explain)> {
@@ -475,9 +484,10 @@ pub fn build_up(
         }
         (Taxes::Rate(_, NegativeEbit::Zero), Some(t)) => {
             ex.convention(format!(
-                "interest tax shield at the tax rate on EBIT {t}: interest after taxes = \
-                 interest × (1 − {t}); zero in a period with a negative EBIT (treatment zero): \
-                 the interest is subtracted in full, as in the net-income route"
+                "interest tax shield at the tax rate on EBIT {t}, limited to the taxable income \
+                 available (treatment zero): shield = {t} × min(interest, max(EBIT, 0)), so the \
+                 taxes never fall below zero; zero in a period with a negative EBIT, where the \
+                 interest is subtracted in full, as in the net-income route"
             ));
         }
         (Taxes::Amounts, Some(t)) => {
@@ -495,6 +505,7 @@ pub fn build_up(
     let mut periods = Vec::with_capacity(lines.len());
     let mut negative = Vec::new();
     let mut no_shield_periods: Vec<String> = Vec::new();
+    let mut limited_shields: Vec<String> = Vec::new();
     for (i, l) in lines.iter().enumerate() {
         let n = at.period(i)?;
         let ebit = l.ebit;
@@ -573,29 +584,60 @@ pub fn build_up(
             ),
             fcff,
         );
-        let (period_shield, interest_after, fcfe) =
+        let (period_shield, tax_shield, interest_after, fcfe) =
             match (l.interest_expense, l.net_borrowing, shield) {
                 (Some(interest), Some(borrowing), Some(shield_rate)) => {
-                    // Amendment 14: no shield where the `zero` treatment applies.
-                    let no_shield =
-                        matches!(taxes, Taxes::Rate(_, NegativeEbit::Zero)) && ebit < Decimal::ZERO;
-                    let t = if no_shield {
+                    let zero = matches!(taxes, Taxes::Rate(_, NegativeEbit::Zero));
+                    let (t, tax_shield) = if zero && ebit < Decimal::ZERO {
+                        // Amendment 14: no shield where the `zero` treatment applies.
                         no_shield_periods.push(n.to_string());
-                        Decimal::ZERO
+                        ex.step(
+                            format!("Interest tax shield, period {n}"),
+                            format!(
+                                "0 (EBIT {} negative, treatment zero: no tax shield)",
+                                term(ebit)
+                            ),
+                            Decimal::ZERO,
+                        );
+                        (Decimal::ZERO, Decimal::ZERO)
+                    } else if zero {
+                        // Decision 22: the deduction is limited to the taxable income available.
+                        let deductible = interest.min(ebit);
+                        let tax_shield = mul(shield_rate, deductible)?;
+                        ex.step(
+                            format!("Interest tax shield, period {n}"),
+                            format!(
+                                "{shield_rate} × min({}, max({}, 0)) (treatment zero: shield \
+                                 limited to the taxable income available)",
+                                term(interest),
+                                term(ebit)
+                            ),
+                            tax_shield,
+                        );
+                        if ebit < interest {
+                            limited_shields.push(format!(
+                                "interest tax shield limited to the taxable income in period {n} \
+                                 (EBIT {} below interest {}, treatment zero): shield = \
+                                 {shield_rate} × {}",
+                                term(ebit),
+                                term(interest),
+                                term(ebit)
+                            ));
+                        }
+                        (shield_rate, tax_shield)
                     } else {
-                        shield_rate
+                        let tax_shield = mul(shield_rate, interest)?;
+                        ex.step(
+                            format!("Interest tax shield, period {n}"),
+                            format!("{shield_rate} × {}", term(interest)),
+                            tax_shield,
+                        );
+                        (shield_rate, tax_shield)
                     };
-                    let after_tax = mul(interest, sub(Decimal::ONE, t)?)?;
+                    let after_tax = sub(interest, tax_shield)?;
                     ex.step(
                         format!("Interest after taxes, period {n}"),
-                        if no_shield {
-                            format!(
-                                "{} × (1 − 0) (EBIT negative, treatment zero: no tax shield)",
-                                term(interest)
-                            )
-                        } else {
-                            format!("{} × (1 − {t})", term(interest))
-                        },
+                        format!("{} − {}", term(interest), term(tax_shield)),
                         after_tax,
                     );
                     let fcfe = add(sub(fcff, after_tax)?, borrowing)?;
@@ -604,9 +646,9 @@ pub fn build_up(
                         format!("{} − {} + {}", term(fcff), term(after_tax), term(borrowing)),
                         fcfe,
                     );
-                    (Some(t), Some(after_tax), Some(fcfe))
+                    (Some(t), Some(tax_shield), Some(after_tax), Some(fcfe))
                 }
-                _ => (None, None, None),
+                _ => (None, None, None, None),
             };
         periods.push(FreeCashFlowPeriod {
             period: n,
@@ -622,6 +664,7 @@ pub fn build_up(
             // `validate` has checked that every period or none carries the financing lines.
             interest_expense: l.interest_expense,
             interest_tax_rate: period_shield,
+            interest_tax_shield: tax_shield,
             interest_after_taxes: interest_after,
             net_borrowing: l.net_borrowing,
             free_cash_flow_to_equity: fcfe,
@@ -642,6 +685,9 @@ pub fn build_up(
             "no interest tax shield in period {} (negative EBIT, treatment zero)",
             no_shield_periods.join(", ")
         ));
+    }
+    for limited in limited_shields {
+        ex.convention(limited);
     }
 
     let fcff: Vec<Decimal> = periods.iter().map(|p| p.free_cash_flow_to_firm).collect();
@@ -673,7 +719,9 @@ impl Method for FreeCashFlows {
         "FCFF per period from EBIT, taxes on EBIT (a rate or amounts), depreciation and \
         amortisation, capital expenditure, change in net working capital and labelled \
         adjustments; FCFE when interest expense and net borrowing are given. Not discounted.";
-    const VERSION: &'static str = "1";
+    // Version 2: the interest tax shield of the `zero` treatment is limited to the taxable income
+    // available (SPEC-0001 Decision 22).
+    const VERSION: &'static str = "2";
     type Input = FreeCashFlowsInput;
     type Output = FreeCashFlowsOutput;
 
@@ -950,13 +998,131 @@ mod tests {
             .any(|c| c == "no interest tax shield in period 1 (negative EBIT, treatment zero)"));
         let (credit, _) = free_cash_flows(&rate_form(vec![l], NegativeEbit::Credit)).unwrap();
         assert_eq!(credit.periods[0].interest_tax_rate, Some(d("0.24")));
+        assert_eq!(credit.periods[0].interest_tax_shield, Some(d("12.00")));
         assert_eq!(credit.periods[0].interest_after_taxes, Some(d("38.00")));
-        // A positive EBIT below the interest keeps the shield under `zero`.
-        let mut low = lines("30");
-        low.interest_expense = Some(d("50"));
-        low.net_borrowing = Some(d("0"));
-        let (out, _) = free_cash_flows(&rate_form(vec![low], NegativeEbit::Zero)).unwrap();
-        assert_eq!(out.periods[0].interest_after_taxes, Some(d("38.00")));
+    }
+
+    fn financed(ebit: &str, interest: &str) -> FreeCashFlowLines {
+        let mut l = lines(ebit);
+        l.interest_expense = Some(d(interest));
+        l.net_borrowing = Some(d("0"));
+        l
+    }
+
+    /// Decision 22: under `zero` the shield is t × min(interest, max(EBIT, 0)), so the total
+    /// taxes are never below zero; `credit` keeps the full shield.
+    #[test]
+    fn zero_treatment_limits_the_shield_to_ebit() {
+        let (out, ex) =
+            free_cash_flows(&rate_form(vec![financed("30", "50")], NegativeEbit::Zero)).unwrap();
+        let p = &out.periods[0];
+        assert_eq!(p.interest_tax_rate, Some(d("0.24")));
+        assert_eq!(p.interest_tax_shield, Some(d("7.20")));
+        assert_eq!(p.interest_after_taxes, Some(d("42.80")));
+        // 30 − 7.20 + 10 − 12 − 3 − 42.80; net income −20 + 10 − 12 − 3 = −25.
+        assert_eq!(p.free_cash_flow_to_equity, Some(d("-25")));
+        assert_eq!(
+            p.operating_taxes - p.interest_tax_shield.unwrap(),
+            Decimal::ZERO
+        );
+        let formula = |label: &str| {
+            ex.steps
+                .iter()
+                .find(|s| s.label == label)
+                .unwrap_or_else(|| panic!("{label}: {:?}", ex.steps))
+                .formula
+                .clone()
+        };
+        assert_eq!(
+            formula("Interest tax shield, period 1"),
+            "0.24 × min(50, max(30, 0)) (treatment zero: shield limited to the taxable income \
+             available)"
+        );
+        assert_eq!(formula("Interest after taxes, period 1"), "50 − 7.20");
+        assert!(
+            ex.conventions.iter().any(|c| c
+                == "interest tax shield limited to the taxable income in period 1 (EBIT 30 \
+                    below interest 50, treatment zero): shield = 0.24 × 30"),
+            "{:?}",
+            ex.conventions
+        );
+        assert!(
+            ex.conventions
+                .iter()
+                .any(|c| c.contains("0.24 × min(interest, max(EBIT, 0))")),
+            "{:?}",
+            ex.conventions
+        );
+
+        // `credit`: the full shield also when EBIT is below the interest.
+        let (credit, ex) =
+            free_cash_flows(&rate_form(vec![financed("30", "50")], NegativeEbit::Credit)).unwrap();
+        assert_eq!(credit.periods[0].interest_tax_shield, Some(d("12.00")));
+        assert_eq!(credit.periods[0].interest_after_taxes, Some(d("38.00")));
+        assert!(
+            !ex.conventions.iter().any(|c| c.contains("limited")),
+            "{:?}",
+            ex.conventions
+        );
+
+        // EBIT at or above the interest: the full shield under both treatments.
+        for treatment in [NegativeEbit::Credit, NegativeEbit::Zero] {
+            for ebit in ["50", "80"] {
+                let (out, ex) =
+                    free_cash_flows(&rate_form(vec![financed(ebit, "50")], treatment)).unwrap();
+                assert_eq!(out.periods[0].interest_tax_shield, Some(d("12.00")));
+                assert_eq!(out.periods[0].interest_after_taxes, Some(d("38.00")));
+                assert!(!ex
+                    .conventions
+                    .iter()
+                    .any(|c| c.contains("limited to the taxable income in")));
+            }
+        }
+
+        // EBIT zero: no taxable income, no shield; the rate stays t (EBIT is not negative).
+        let (out, _) =
+            free_cash_flows(&rate_form(vec![financed("0", "50")], NegativeEbit::Zero)).unwrap();
+        assert_eq!(out.periods[0].interest_tax_rate, Some(d("0.24")));
+        assert_eq!(out.periods[0].interest_tax_shield, Some(Decimal::ZERO));
+        assert_eq!(out.periods[0].interest_after_taxes, Some(d("50")));
+
+        // Interest zero: no shield and no limitation reported.
+        let (out, ex) =
+            free_cash_flows(&rate_form(vec![financed("30", "0")], NegativeEbit::Zero)).unwrap();
+        assert_eq!(out.periods[0].interest_tax_shield, Some(Decimal::ZERO));
+        assert_eq!(out.periods[0].interest_after_taxes, Some(Decimal::ZERO));
+        assert!(!ex
+            .conventions
+            .iter()
+            .any(|c| c.contains("limited to the taxable income in")));
+    }
+
+    /// Decision 22: the total taxes are never below zero under `zero`, for any EBIT and
+    /// interest.
+    #[test]
+    fn zero_treatment_total_taxes_never_below_zero() {
+        for ebit in [
+            "-80", "-0.01", "0", "0.01", "29.99", "30", "49.99", "50", "50.01", "900",
+        ] {
+            for interest in ["0", "0.01", "30", "50", "1000"] {
+                let (out, _) = free_cash_flows(&rate_form(
+                    vec![financed(ebit, interest)],
+                    NegativeEbit::Zero,
+                ))
+                .unwrap();
+                let p = &out.periods[0];
+                let shield = p.interest_tax_shield.unwrap();
+                assert!(
+                    p.operating_taxes - shield >= Decimal::ZERO,
+                    "{ebit} {interest}"
+                );
+                assert_eq!(
+                    p.interest_after_taxes.unwrap() + shield,
+                    d(interest),
+                    "{ebit} {interest}"
+                );
+            }
+        }
     }
 
     /// Negative values appear in parentheses in every formula.
