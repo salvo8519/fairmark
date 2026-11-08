@@ -99,7 +99,7 @@ except fm.FairmarkError as err:
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | The list of techniques is empty, an entry has more than one key, a technique id is unknown, or a field is missing or unknown |
+| `FM-E001` | The list of techniques is empty, an entry has more than one distinct key, a technique id is unknown, or a field is missing or unknown; the message names the field by its JSON pointer, for example `/techniques/1/tv.gordon/next_flow` or `/techniques/0/tv.gordo` for an unknown id. In version 1 a key repeated within one entry is accepted and its last value is used |
 | `FM-E019` | An exit multiple, a normalised income or a liquidation is on the other basis than the one declared |
 | Any code of a technique | The first technique that fails returns its own error (for example `FM-E004`, `FM-E018`) |
 

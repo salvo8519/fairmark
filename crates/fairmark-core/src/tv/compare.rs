@@ -31,9 +31,13 @@ use crate::explain::Explain;
 use crate::method::Method;
 
 /// A technique entry as written in the input: an object with exactly one key, the method id.
-/// Read in one pass from the input, so an error inside the terms keeps its JSON pointer
-/// (`/techniques/0/tv.gordon/next_flow`, issue #174), and an entry with several keys gets a
-/// message that lists them.
+///
+/// The entry is read as `tv.compare` version 1 has always read it: its keys are collected
+/// first, a key repeated in the entry keeps its last value (earlier values are not read), and
+/// an entry with two distinct keys is refused before any terms are read. Only then are the
+/// terms of the single key read, with their JSON pointer kept in any error
+/// (`/techniques/0/tv.gordon/next_flow`, issue #174). Refusing a repeated key is planned, but
+/// it would refuse inputs accepted today, so it needs a new version of `tv.compare`.
 #[derive(Debug, Clone)]
 pub struct TechniqueEntry(pub Technique);
 
@@ -66,101 +70,40 @@ impl<'de> serde::de::Visitor<'de> for EntryVisitor {
         self,
         mut map: A,
     ) -> std::result::Result<TechniqueEntry, A::Error> {
-        use serde::de::{Error, IgnoredAny};
-        let Some(id) = map.next_key::<String>()? else {
-            return Err(A::Error::custom(format!("{ONE_KEY} (got an empty object)")));
-        };
-        let technique = Technique::deserialize(OneKey {
-            id: id.clone(),
-            map: &mut map,
-        })?;
-        let mut keys = vec![id];
+        use serde::de::Error;
+        // Numbers keep their exact text in a `Value` (`serde_json` is built with
+        // `arbitrary_precision`).
+        let mut entries: Vec<(String, serde_json::Value)> = Vec::new();
         while let Some(key) = map.next_key::<String>()? {
-            map.next_value::<IgnoredAny>()?;
-            keys.push(key);
+            let value = map.next_value()?;
+            match entries.iter_mut().find(|(k, _)| *k == key) {
+                Some(entry) => entry.1 = value,
+                None => entries.push((key, value)),
+            }
         }
-        if keys.len() > 1 {
-            return Err(A::Error::custom(format!(
-                "{ONE_KEY} (got {} keys: {})",
-                keys.len(),
-                keys.join(", ")
-            )));
-        }
-        Ok(TechniqueEntry(technique))
-    }
-}
-
-/// The key already read from an entry and the map it came from, seen as an externally tagged
-/// enum: the key is the variant, its value the terms. Reading the value through the map keeps
-/// the key in the JSON pointer of any error inside the terms.
-struct OneKey<'a, A> {
-    id: String,
-    map: &'a mut A,
-}
-
-impl<'de, A: serde::de::MapAccess<'de>> serde::Deserializer<'de> for OneKey<'_, A> {
-    type Error = A::Error;
-
-    fn deserialize_any<V: serde::de::Visitor<'de>>(
-        self,
-        visitor: V,
-    ) -> std::result::Result<V::Value, A::Error> {
-        visitor.visit_enum(self)
-    }
-
-    serde::forward_to_deserialize_any! {
-        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string bytes byte_buf
-        option unit unit_struct newtype_struct seq tuple tuple_struct map struct enum
-        identifier ignored_any
-    }
-}
-
-impl<'de, 'a, A: serde::de::MapAccess<'de>> serde::de::EnumAccess<'de> for OneKey<'a, A> {
-    type Error = A::Error;
-    type Variant = Terms<'a, A>;
-
-    fn variant_seed<V: serde::de::DeserializeSeed<'de>>(
-        self,
-        seed: V,
-    ) -> std::result::Result<(V::Value, Terms<'a, A>), A::Error> {
-        use serde::de::IntoDeserializer;
-        let variant = seed.deserialize(self.id.into_deserializer())?;
-        Ok((variant, Terms(self.map)))
-    }
-}
-
-/// The terms of a technique: the value of the entry's only key.
-struct Terms<'a, A>(&'a mut A);
-
-impl<'de, A: serde::de::MapAccess<'de>> serde::de::VariantAccess<'de> for Terms<'_, A> {
-    type Error = A::Error;
-
-    fn unit_variant(self) -> std::result::Result<(), A::Error> {
-        self.0.next_value::<serde::de::IgnoredAny>().map(|_| ())
-    }
-
-    fn newtype_variant_seed<T: serde::de::DeserializeSeed<'de>>(
-        self,
-        seed: T,
-    ) -> std::result::Result<T::Value, A::Error> {
-        self.0.next_value_seed(seed)
-    }
-
-    // Every technique is a newtype variant; these forms are never requested by `Technique`.
-    fn tuple_variant<V: serde::de::Visitor<'de>>(
-        self,
-        _len: usize,
-        _visitor: V,
-    ) -> std::result::Result<V::Value, A::Error> {
-        Err(serde::de::Error::custom(ONE_KEY))
-    }
-
-    fn struct_variant<V: serde::de::Visitor<'de>>(
-        self,
-        _fields: &'static [&'static str],
-        _visitor: V,
-    ) -> std::result::Result<V::Value, A::Error> {
-        Err(serde::de::Error::custom(ONE_KEY))
+        let (id, terms) = match entries.len() {
+            0 => return Err(A::Error::custom(format!("{ONE_KEY} (got an empty object)"))),
+            1 => entries.remove(0),
+            n => {
+                let keys: Vec<&str> = entries.iter().map(|(k, _)| k.as_str()).collect();
+                return Err(A::Error::custom(format!(
+                    "{ONE_KEY} (got {n} keys: {})",
+                    keys.join(", ")
+                )));
+            }
+        };
+        let mut entry = serde_json::Map::new();
+        entry.insert(id.clone(), terms);
+        serde_path_to_error::deserialize(serde_json::Value::Object(entry))
+            .map(TechniqueEntry)
+            .map_err(|e| {
+                // An unknown method id is reported at its key, as `dcf.fcff` reports
+                // `/terminal/tv.gordo`.
+                let unknown_id = e.path().iter().next().is_none()
+                    && e.inner().to_string().starts_with("unknown variant");
+                let relative = if unknown_id { vec![id] } else { Vec::new() };
+                A::Error::custom(crate::registry::nested_error(&relative, e))
+            })
     }
 }
 

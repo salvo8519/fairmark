@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: 7a6467110789
+source_hash: c379acc6dbaf
 ---
 # Codici di errore
 
@@ -13,7 +13,7 @@ correzione da apportare. Per un metodo valutato da un'analisi, il pointer è rel
 
 | Codice | Significato | Correzione tipica |
 | --- | --- | --- |
-| `FM-E001` | Input non valido: tipo errato, campo obbligatorio mancante, campo sconosciuto, valore sconosciuto di una scelta; il messaggio indica il campo con il suo JSON Pointer e riporta i valori ammessi, per esempio ``invalid input at `/terminal/tv.gordon/first_flow`: missing required field `first_flow`; add it`` o ``invalid input at `/stages/0/projection`: unknown variant `constant`, expected one of `given`, `constant_growth`, `linear_decline` ``; solo un testo JSON malformato (un errore di sintassi, un input troncato) indica invece la riga e la colonna | Correggi il campo indicato dal pointer: aggiungi un campo mancante, elimina o rinomina un campo sconosciuto, usa uno dei valori elencati; `fairmark schema <method>` fornisce l'input completo |
+| `FM-E001` | Input non valido: tipo errato, campo obbligatorio mancante, campo sconosciuto, campo indicato due volte, valore sconosciuto di una scelta; il messaggio indica il campo con il suo JSON Pointer e riporta i valori ammessi, per esempio ``invalid input at `/terminal/tv.gordon/first_flow`: missing required field `first_flow`; add it`` o ``invalid input at `/stages/0/projection`: unknown variant `constant`, expected one of `given`, `constant_growth`, `linear_decline` ``; solo un testo JSON malformato (un errore di sintassi, un input troncato) indica invece la riga e la colonna | Correggi il campo indicato dal pointer: aggiungi un campo mancante, elimina o rinomina un campo sconosciuto, usa uno dei valori elencati; `fairmark schema <method>` fornisce l'input completo |
 | `FM-E002` | Serie di flussi di cassa vuota | Fornisci almeno un flusso di cassa |
 | `FM-E003` | Tasso fuori intervallo: il tasso per periodo, o per periodo di capitalizzazione, è pari o inferiore a −100%; il messaggio indica il tasso con il suo JSON Pointer, per esempio `/wacc_per_period/3` o `/inflation` nel DCF o `/finance_rate` in `tvm.mirr`; nel DCF un tasso convertito con l'inflazione attesa che raggiunge −100% (possibile solo al limite dell'intervallo dei decimali) mantiene il pointer del tasso fornito e aggiunge l'inflazione con cui è stato convertito; per un tasso nominale con $m$ periodi di capitalizzazione all'anno (`rates.convert`, `tvm.xnpv`, `loans.*`) il messaggio indica il tasso, per esempio `/rate`, e la regola applicabile: il tasso per periodo di capitalizzazione $r/m$ deve essere maggiore di −1, quindi il tasso deve essere maggiore di $-m$ | I tassi sono frazioni decimali: 10% è `0.10`; un tasso nominale con capitalizzazione è verificato per periodo di capitalizzazione ($r/m$) |
 | `FM-E004` | Crescita ≥ tasso di attualizzazione (valore terminale, rendita perpetua); nel DCF e in `tvm.perpetuity` il messaggio indica la crescita e il tasso con i loro JSON Pointer; nel DCF, quando il tasso terminale è stato convertito con l'inflazione attesa, indica anche il campo dell'inflazione | Il modello di Gordon richiede g < r; per un tasso terminale convertito, verificare anche l'inflazione attesa |

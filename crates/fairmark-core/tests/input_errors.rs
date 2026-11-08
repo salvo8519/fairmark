@@ -351,13 +351,122 @@ fn compare_errors_inside_a_technique_entry() {
         "basis": "enterprise",
         "techniques": [{"tv.gordo": {"growth": "0.02"}}]
     });
+    // The unknown key is named as in `dcf.fcff` (`/terminal/tv.gordo`).
     assert_error(
         "tv.compare",
         &unknown,
         "FM-E001",
-        "/techniques/0",
+        "/techniques/0/tv.gordo",
         &["unknown variant `tv.gordo`", "`tv.gordon`"],
     );
+    let missing = json!({
+        "rate": "0.09",
+        "basis": "enterprise",
+        "techniques": [{"tv.gordon": {"growth": "0.02", "next_flow": "1"}},
+                       {"tv.value_driver": {"growth": "0.02", "ronic": "0.1"}}]
+    });
+    assert_error(
+        "tv.compare",
+        &missing,
+        "FM-E001",
+        "/techniques/1/tv.value_driver/nopat_next",
+        &["missing required field `nopat_next`"],
+    );
+}
+
+/// `tv.compare` is available: reading entries in one pass must not change which inputs it
+/// accepts. A key repeated in one entry is accepted and the last occurrence wins, even when an
+/// earlier one is invalid; with two distinct keys the entry is refused before any terms are
+/// read, so an error inside the first terms does not hide the "one key" message.
+#[test]
+fn compare_entries_keep_their_behaviour() {
+    let text = |entry: &str| {
+        format!(r#"{{"rate": "0.09", "basis": "enterprise", "techniques": [{entry}]}}"#)
+    };
+    let last = run(
+        "tv.compare",
+        &text(r#"{"tv.gordon": {"growth": "x"}, "tv.gordon": {"growth": "0.02", "next_flow": "100"}}"#),
+    )
+    .expect("a repeated key is accepted, the last one wins");
+    let once = run(
+        "tv.compare",
+        &text(r#"{"tv.gordon": {"growth": "0.02", "next_flow": "100"}}"#),
+    )
+    .unwrap();
+    assert_eq!(last["value"], once["value"]);
+    assert_eq!(last["meta"]["input_hash"], once["meta"]["input_hash"]);
+
+    let err = run(
+        "tv.compare",
+        &text(r#"{"tv.gordon": {"growth": "x"}, "tv.h_model": {}}"#),
+    )
+    .unwrap_err();
+    assert_eq!(err.code(), "FM-E001");
+    let m = err.to_string();
+    assert!(m.contains("`/techniques/0`"), "{m}");
+    assert!(m.contains("got 2 keys: tv.gordon, tv.h_model"), "{m}");
+}
+
+#[test]
+fn a_repeated_field_is_named() {
+    // serde refuses a repeated struct field (as before); the message now names it.
+    let err = run(
+        "tvm.irr",
+        r#"{"cash_flows": [-100, 110], "guess": "0.1", "guess": "0.2"}"#,
+    )
+    .unwrap_err();
+    let m = err.to_string();
+    assert_eq!(err.code(), "FM-E001", "{m}");
+    assert!(m.contains("`/guess`"), "{m}");
+    assert!(m.contains("appears more than once; keep one"), "{m}");
+    let err = run(
+        "ratios.covenants",
+        &covenants().to_string().replacen(
+            r#""operator":"at_most""#,
+            r#""operator":"at_most","operator":"at_most""#,
+            1,
+        ),
+    )
+    .unwrap_err();
+    let m = err.to_string();
+    assert!(m.contains("`/covenants/0/operator`"), "{m}");
+}
+
+#[test]
+fn rust_type_names_are_not_shown() {
+    // An object is expected where a string is given: no Rust struct name in the message.
+    let mut input = dcf();
+    input["stages"][0] = json!("given");
+    let (code, m) = error("dcf.fcff", &input);
+    assert_eq!(code, "FM-E001");
+    assert!(m.contains("`/stages/0`"), "{m}");
+    assert!(m.contains("expected an object"), "{m}");
+    assert!(!m.contains("struct"), "{m}");
+}
+
+#[test]
+fn every_decimal_error_uses_the_same_wording() {
+    const DECIMAL: &str = r#"expected a decimal number (a JSON number or a string such as "0.10")"#;
+    for (value, kind) in [
+        (json!(true), "invalid type: boolean `true`"),
+        (json!("ten"), "invalid value: string \"ten\""),
+        (json!({}), "invalid type: map"),
+        (json!({"amount": 1}), "invalid type: map"),
+        (json!(null), "invalid type: null"),
+    ] {
+        let (code, m) = error("tvm.irr", &json!({"cash_flows": [-100, value]}));
+        assert_eq!(code, "FM-E001", "{m}");
+        assert!(m.contains("`/cash_flows/1`"), "{m}");
+        assert!(m.contains(kind), "{kind}: {m}");
+        assert!(m.contains(DECIMAL), "{m}");
+        assert!(!m.contains("fixed-point"), "{m}");
+    }
+    // Optional decimals use another visitor in rust_decimal: same wording.
+    let (_, m) = error(
+        "tvm.irr",
+        &json!({"cash_flows": [-100, 110], "guess": true}),
+    );
+    assert!(m.contains("`/guess`") && m.contains(DECIMAL), "{m}");
 }
 
 // ---------------------------------------------------------------- pointers and syntax
