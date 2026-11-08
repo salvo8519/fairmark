@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-sensitivity.md
-source_hash: 50dde6b88a10
+source_hash: afe2333b74fb
 ---
 # Tabella di sensitività (`analysis.sensitivity`)
 

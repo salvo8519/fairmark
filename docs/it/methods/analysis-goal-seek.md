@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-goal-seek.md
-source_hash: 55d601e9024c
+source_hash: c48f47d98f73
 ---
 # Ricerca obiettivo (`analysis.goal_seek`)
 

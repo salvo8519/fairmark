@@ -330,6 +330,9 @@ mod tests {
         assert_eq!(json["status"], "available");
     }
 
+    /// A two-period dcf.fcff version 3 input, valued with a Gordon terminal value.
+    const DCF_V3: &str = r#"{"stages": [{"periods": 2, "projection": "given", "flows": [100, 110]}], "cash_flow_terms": "nominal", "discount_rate_terms": "nominal", "wacc": "0.09", "timing": "end_of_period", "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}, "net_financial_position": {"gross_debt": 0, "cash": 0}}"#;
+
     /// ADR 0012: every result states the status of the method that produced it.
     #[test]
     fn results_report_the_method_status() {
@@ -342,11 +345,8 @@ mod tests {
         assert!(tv["meta"].get("evaluated_method_status").is_none());
         let npv = run("tvm.npv", r#"{"rate": 0.1, "cash_flows": [-100, 60, 60]}"#).unwrap();
         assert_eq!(npv["meta"]["method_status"], "preview");
-        let dcf = run(
-            "dcf.fcff",
-            r#"{"free_cash_flows": [100], "discount_rate": "0.1", "terminal_growth": "0.02"}"#,
-        )
-        .unwrap();
+        // dcf.fcff version 3 input (SPEC-0001).
+        let dcf = run("dcf.fcff", DCF_V3).unwrap();
         assert_eq!(dcf["meta"]["method_status"], "preview");
     }
 
@@ -364,12 +364,7 @@ mod tests {
             )
             .unwrap()
         };
-        let preview = table(
-            "dcf.fcff",
-            r#"{"free_cash_flows": [100, 110], "discount_rate": "0.09", "terminal_growth": "0.02"}"#,
-            "/discount_rate",
-            "/enterprise_value",
-        );
+        let preview = table("dcf.fcff", DCF_V3, "/wacc", "/enterprise_value");
         assert_eq!(preview["meta"]["method_status"], "available");
         assert_eq!(preview["meta"]["evaluated_method_status"], "preview");
         let conventions = preview["explain"]["conventions"].as_array().unwrap();

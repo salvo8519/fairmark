@@ -1,6 +1,6 @@
 ---
 source: guides/cli.md
-source_hash: b05264e6d6e9
+source_hash: 563724ffc92f
 ---
 # Riga di comando
 

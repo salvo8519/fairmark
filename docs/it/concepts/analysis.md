@@ -1,6 +1,6 @@
 ---
 source: concepts/analysis.md
-source_hash: b8e07fcfef10
+source_hash: eb98f21da821
 ---
 # Metodi di analisi
 

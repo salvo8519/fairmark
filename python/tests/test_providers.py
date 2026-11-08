@@ -2,11 +2,15 @@
 
 import json
 import logging
+from pathlib import Path
 
 import pytest
+import yaml
 
 import fairmark as fm
 from fairmark._logging import JsonFormatter, log_event
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def walk(node, visit):
@@ -139,17 +143,14 @@ def test_results_report_the_method_status() -> None:
         ]
         == "available"
     )
-    out = fm.tools.dispatch(
-        "fairmark_analysis_sensitivity",
-        {
-            "method": "dcf.fcff",
-            "base_input": {
-                "free_cash_flows": [100],
-                "discount_rate": "0.1",
-                "terminal_growth": "0",
-            },
-            "output": "/enterprise_value",
-            "rows": {"variable": "/discount_rate", "values": ["0.09", "0.1"]},
-        },
+    # The inner input of the golden case, dcf.fcff version 3.
+    case = yaml.safe_load(
+        (ROOT / "tests/golden/analysis.sensitivity/wacc-one-way.yaml").read_text()
     )
+    out = fm.tools.dispatch("fairmark_analysis_sensitivity", case["input"])
+    assert "error" not in out, out
+    assert out["meta"]["method_status"] == "available"
     assert out["meta"]["evaluated_method_status"] == "preview"
+    assert "Evaluated method dcf.fcff is preview" in " ".join(out["explain"]["conventions"])
+    inner = fm.run("dcf.fcff", case["input"]["base_input"])
+    assert inner.meta["method_status"] == "preview" and inner.meta["method_version"] == "3"

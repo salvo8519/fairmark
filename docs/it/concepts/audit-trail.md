@@ -1,6 +1,6 @@
 ---
 source: concepts/audit-trail.md
-source_hash: 56e2b3cfdbcf
+source_hash: a17757206014
 ---
 # La tracciabilità del calcolo (audit trail)
 

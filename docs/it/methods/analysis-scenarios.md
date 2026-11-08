@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-scenarios.md
-source_hash: a5e2c8141718
+source_hash: 5ce282c0f0c4
 ---
 # Analisi di scenario (`analysis.scenarios`)
 

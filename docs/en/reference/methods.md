@@ -9,7 +9,7 @@ Decimals may be passed as JSON numbers or strings and are returned as strings.
 
 ## `dates.year_fraction`
 
-**Year fraction (day count)** · method version 1 · tool `fairmark_dates_year_fraction`
+**Year fraction (day count)** · method version 1 · status preview · tool `fairmark_dates_year_fraction`
 
 Fraction of a year between two dates under an ISDA 2006 day-count convention: Actual/365 Fixed, Actual/360, Actual/Actual ISDA, 30/360, 30E/360.
 
@@ -21,7 +21,7 @@ Fraction of a year between two dates under an ISDA 2006 day-count convention: Ac
 
 ## `rates.convert`
 
-**Rate conversion between compounding conventions** · method version 1 · tool `fairmark_rates_convert`
+**Rate conversion between compounding conventions** · method version 1 · status preview · tool `fairmark_rates_convert`
 
 Equivalent annual rate under another compounding (annual, semi-annual, quarterly, monthly, continuous).
 
@@ -33,7 +33,7 @@ Equivalent annual rate under another compounding (annual, semi-annual, quarterly
 
 ## `rates.real_nominal`
 
-**Real and nominal rates (Fisher)** · method version 1 · tool `fairmark_rates_real_nominal`
+**Real and nominal rates (Fisher)** · method version 1 · status preview · tool `fairmark_rates_real_nominal`
 
 Converts a nominal rate to a real rate, or the reverse, with the exact Fisher relation.
 
@@ -45,7 +45,7 @@ Converts a nominal rate to a real rate, or the reverse, with the exact Fisher re
 
 ## `tvm.npv`
 
-**Net present value** · method version 2 · tool `fairmark_tvm_npv`
+**Net present value** · method version 2 · status preview · tool `fairmark_tvm_npv`
 
 Net present value of a cash flow series; the first flow is at t = 0.
 
@@ -56,7 +56,7 @@ Net present value of a cash flow series; the first flow is at t = 0.
 
 ## `tvm.present_value`
 
-**Present value with a constant or time-varying rate** · method version 1 · tool `fairmark_tvm_present_value`
+**Present value with a constant or time-varying rate** · method version 1 · status preview · tool `fairmark_tvm_present_value`
 
 Present value of periodic flows for periods 1..n with one rate or one rate per period, at end, mid or beginning of period. Returns every discount factor.
 
@@ -69,7 +69,7 @@ Present value of periodic flows for periods 1..n with one rate or one rate per p
 
 ## `tvm.xnpv`
 
-**Net present value of dated cash flows (XNPV)** · method version 1 · tool `fairmark_tvm_xnpv`
+**Net present value of dated cash flows (XNPV)** · method version 1 · status preview · tool `fairmark_tvm_xnpv`
 
 Present value of dated flows at a valuation date, with explicit day count and compounding (defaults as in ECMA-376 XNPV).
 
@@ -83,7 +83,7 @@ Present value of dated flows at a valuation date, with explicit day count and co
 
 ## `tvm.irr`
 
-**Internal rate of return** · method version 2 · tool `fairmark_tvm_irr`
+**Internal rate of return** · method version 2 · status preview · tool `fairmark_tvm_irr`
 
 Rate at which the NPV of a periodic cash flow series is zero, solved deterministically; refuses inputs with more than one IRR.
 
@@ -94,7 +94,7 @@ Rate at which the NPV of a periodic cash flow series is zero, solved determinist
 
 ## `tvm.xirr`
 
-**Internal rate of return of dated cash flows (XIRR)** · method version 1 · tool `fairmark_tvm_xirr`
+**Internal rate of return of dated cash flows (XIRR)** · method version 1 · status preview · tool `fairmark_tvm_xirr`
 
 Annual rate at which the XNPV of dated flows is zero, solved deterministically; refuses inputs with more than one rate.
 
@@ -107,7 +107,7 @@ Annual rate at which the XNPV of dated flows is zero, solved deterministically; 
 
 ## `tvm.mirr`
 
-**Modified internal rate of return (MIRR)** · method version 1 · tool `fairmark_tvm_mirr`
+**Modified internal rate of return (MIRR)** · method version 1 · status preview · tool `fairmark_tvm_mirr`
 
 Rate of return with negative flows financed at a finance rate and positive flows reinvested at a reinvestment rate (ECMA-376 MIRR).
 
@@ -119,7 +119,7 @@ Rate of return with negative flows financed at a finance rate and positive flows
 
 ## `tvm.annuity`
 
-**Annuity (level or growing, ordinary or due)** · method version 1 · tool `fairmark_tvm_annuity`
+**Annuity (level or growing, ordinary or due)** · method version 1 · status preview · tool `fairmark_tvm_annuity`
 
 Present and future value of a finite series of level or growing payments.
 
@@ -133,7 +133,7 @@ Present and future value of a finite series of level or growing payments.
 
 ## `tvm.perpetuity`
 
-**Perpetuity (level or growing)** · method version 1 · tool `fairmark_tvm_perpetuity`
+**Perpetuity (level or growing)** · method version 1 · status preview · tool `fairmark_tvm_perpetuity`
 
 Present value of a level or growing perpetuity (Gordon), ordinary or due.
 
@@ -146,7 +146,7 @@ Present value of a level or growing perpetuity (Gordon), ordinary or due.
 
 ## `tvm.future_value`
 
-**Future value of a present amount and level payments** · method version 1 · tool `fairmark_tvm_future_value`
+**Future value of a present amount and level payments** · method version 1 · status available · tool `fairmark_tvm_future_value`
 
 Value at the end of n periods of a present amount and a level series of payments, ordinary or due, at a rate per period.
 
@@ -160,7 +160,7 @@ Value at the end of n periods of a present amount and a level series of payments
 
 ## `loans.instalment`
 
-**Loan instalment (constant instalment, optional balloon)** · method version 1 · tool `fairmark_loans_instalment`
+**Loan instalment (constant instalment, optional balloon)** · method version 1 · status available · tool `fairmark_loans_instalment`
 
 Constant instalment of a loan from its principal, rate, number of instalments and timing, with an optional balloon amount and an explicit rounding.
 
@@ -178,7 +178,7 @@ Constant instalment of a loan from its principal, rate, number of instalments an
 
 ## `loans.number_of_instalments`
 
-**Number of instalments of a loan** · method version 1 · tool `fairmark_loans_number_of_instalments`
+**Number of instalments of a loan** · method version 1 · status available · tool `fairmark_loans_number_of_instalments`
 
 Number of instalments needed to repay a loan with a given instalment, the exact number of periods and the final instalment.
 
@@ -194,7 +194,7 @@ Number of instalments needed to repay a loan with a given instalment, the exact 
 
 ## `loans.amortisation_schedule`
 
-**Amortisation schedule (French, constant principal, bullet)** · method version 1 · tool `fairmark_loans_amortisation_schedule`
+**Amortisation schedule (French, constant principal, bullet)** · method version 1 · status available · tool `fairmark_loans_amortisation_schedule`
 
 Period-by-period schedule of a loan with instalment, interest portion, principal portion and outstanding balance; French, fixed amortisation schedule or bullet, with an optional grace period, balloon amount and rounding.
 
@@ -214,7 +214,7 @@ Period-by-period schedule of a loan with instalment, interest portion, principal
 
 ## `coc.cost_of_equity`
 
-**Cost of equity (CAPM with explicit premia)** · method version 1 · tool `fairmark_coc_cost_of_equity`
+**Cost of equity (CAPM with explicit premia)** · method version 1 · status available · tool `fairmark_coc_cost_of_equity`
 
 Cost of equity from risk-free rate, levered or relevered beta and equity risk premium, plus optional country, size and specific premia, each reported.
 
@@ -232,7 +232,7 @@ Cost of equity from risk-free rate, levered or relevered beta and equity risk pr
 
 ## `coc.beta_relever`
 
-**Beta unlevering and relevering** · method version 1 · tool `fairmark_coc_beta_relever`
+**Beta unlevering and relevering** · method version 1 · status available · tool `fairmark_coc_beta_relever`
 
 Converts an unlevered beta to a levered beta at a target D/E, or the reverse, with the Hamada or Harris-Pringle formula and an optional debt beta.
 
@@ -247,7 +247,7 @@ Converts an unlevered beta to a levered beta at a target D/E, or the reverse, wi
 
 ## `coc.beta_peers`
 
-**Beta from comparable companies** · method version 1 · tool `fairmark_coc_beta_peers`
+**Beta from comparable companies** · method version 1 · status available · tool `fairmark_coc_beta_peers`
 
 Unlevers the betas of comparable companies, takes the mean or median and relevers it to the target capital structure.
 
@@ -262,7 +262,7 @@ Unlevers the betas of comparable companies, takes the mean or median and relever
 
 ## `coc.cost_of_debt`
 
-**Cost of debt** · method version 1 · tool `fairmark_coc_cost_of_debt`
+**Cost of debt** · method version 1 · status available · tool `fairmark_coc_cost_of_debt`
 
 Pre-tax cost of debt, given or as risk-free rate plus credit spread, and the after-tax cost of debt.
 
@@ -275,7 +275,7 @@ Pre-tax cost of debt, given or as risk-free rate plus credit spread, and the aft
 
 ## `coc.wacc`
 
-**Weighted average cost of capital (WACC)** · method version 1 · tool `fairmark_coc_wacc`
+**Weighted average cost of capital (WACC)** · method version 1 · status available · tool `fairmark_coc_wacc`
 
 WACC from cost of equity, cost of debt, tax rate and target weights (D/E or D/(D+E)).
 
@@ -289,7 +289,7 @@ WACC from cost of equity, cost of debt, tax rate and target weights (D/E or D/(D
 
 ## `tv.gordon`
 
-**Terminal value, stable growth (Gordon)** · method version 1 · tool `fairmark_tv_gordon`
+**Terminal value, stable growth (Gordon)** · method version 1 · status available · tool `fairmark_tv_gordon`
 
 Terminal value at the horizon N of a flow growing at g forever, CF_{N+1} / (r − g), from the next flow or the last flow grown by g; not discounted.
 
@@ -303,7 +303,7 @@ Terminal value at the horizon N of a flow growing at g forever, CF_{N+1} / (r �
 
 ## `tv.value_driver`
 
-**Terminal value, value driver (growth from reinvestment)** · method version 1 · tool `fairmark_tv_value_driver`
+**Terminal value, value driver (growth from reinvestment)** · method version 1 · status available · tool `fairmark_tv_value_driver`
 
 Terminal value at the horizon N with growth earned by reinvesting g / RONIC of NOPAT: NOPAT_{N+1} × (1 − g / RONIC) / (r − g); reports the reinvestment rate and whether growth creates value.
 
@@ -317,7 +317,7 @@ Terminal value at the horizon N with growth earned by reinvesting g / RONIC of N
 
 ## `tv.h_model`
 
-**Terminal value, H-model (declining growth)** · method version 1 · tool `fairmark_tv_h_model`
+**Terminal value, H-model (declining growth)** · method version 1 · status available · tool `fairmark_tv_h_model`
 
 Terminal value at the horizon N when growth declines linearly from g_s to g_l over 2H periods: CF_N × [(1 + g_l) + H × (g_s − g_l)] / (r − g_l), an approximation.
 
@@ -332,7 +332,7 @@ Terminal value at the horizon N when growth declines linearly from g_s to g_l ov
 
 ## `tv.exit_multiple`
 
-**Terminal value, exit multiple** · method version 1 · tool `fairmark_tv_exit_multiple`
+**Terminal value, exit multiple** · method version 1 · status available · tool `fairmark_tv_exit_multiple`
 
 Terminal value at the horizon N as a multiple of EBITDA, EBIT, revenue (enterprise basis), earnings or book value of equity (equity basis); with a rate and the next flow, reports the implied perpetual growth.
 
@@ -347,7 +347,7 @@ Terminal value at the horizon N as a multiple of EBITDA, EBIT, revenue (enterpri
 
 ## `tv.limited_horizon`
 
-**Terminal value, finite horizon** · method version 1 · tool `fairmark_tv_limited_horizon`
+**Terminal value, finite horizon** · method version 1 · status available · tool `fairmark_tv_limited_horizon`
 
 Terminal value at the horizon N of a flow lasting n more periods, constant or growing, plus a residual value at N + n (Italian practice); reuses the annuity factor of tvm.annuity.
 
@@ -362,7 +362,7 @@ Terminal value at the horizon N of a flow lasting n more periods, constant or gr
 
 ## `tv.normalised_income`
 
-**Terminal value, capitalised normalised income** · method version 1 · tool `fairmark_tv_normalised_income`
+**Terminal value, capitalised normalised income** · method version 1 · status available · tool `fairmark_tv_normalised_income`
 
 Terminal value at the horizon N as a normalised income capitalised at a rate i, R / i, or R / (i − g) with growth (Italian practice).
 
@@ -376,7 +376,7 @@ Terminal value at the horizon N as a normalised income capitalised at a rate i, 
 
 ## `tv.liquidation`
 
-**Terminal value, liquidation** · method version 1 · tool `fairmark_tv_liquidation`
+**Terminal value, liquidation** · method version 1 · status available · tool `fairmark_tv_liquidation`
 
 Net liquidation value at the horizon N: realisable values of labelled assets less labelled liabilities, liquidation costs and the tax on gains, every line in explain.
 
@@ -390,7 +390,7 @@ Net liquidation value at the horizon N: realisable values of labelled assets les
 
 ## `tv.compare`
 
-**Terminal value, comparison of techniques** · method version 1 · tool `fairmark_tv_compare`
+**Terminal value, comparison of techniques** · method version 1 · status available · tool `fairmark_tv_compare`
 
 Runs several terminal value techniques on one rate, growth cap and basis and returns each terminal value at the horizon N with its implied assumptions, side by side.
 
@@ -403,7 +403,7 @@ Runs several terminal value techniques on one rate, growth cap and basis and ret
 
 ## `dcf.fcff`
 
-**DCF — unlevered free cash flow** · method version 3 · tool `fairmark_dcf_fcff`
+**DCF — unlevered free cash flow** · method version 3 · status preview · tool `fairmark_dcf_fcff`
 
 Value of operations, enterprise value and equity value from FCFF discounted at the WACC over one to three explicit stages (given flows, constant growth, linear decline of growth) and a terminal value. Returns every period and step for audit.
 
@@ -424,7 +424,7 @@ Value of operations, enterprise value and equity value from FCFF discounted at t
 
 ## `ratios.profitability`
 
-**Ratios — profitability** · method version 1 · tool `fairmark_ratios_profitability`
+**Ratios — profitability** · method version 1 · status preview · tool `fairmark_ratios_profitability`
 
 ROE, ROI, ROA, ROS, EBITDA and EBIT margins, capital turnover and the ROE decomposition in three factors and in the leverage form, on closing or average balances. A ratio that cannot be computed is reported as not defined with the reason.
 
@@ -440,7 +440,7 @@ ROE, ROI, ROA, ROS, EBITDA and EBIT margins, capital turnover and the ROE decomp
 
 ## `ratios.capital_structure`
 
-**Ratios — capital structure** · method version 1 · tool `fairmark_ratios_capital_structure`
+**Ratios — capital structure** · method version 1 · status preview · tool `fairmark_ratios_capital_structure`
 
 Debt to equity, net financial position to equity, equity ratio, primary and secondary structure margins and fixed-asset coverage, with the net financial position and its composition stated. A ratio that cannot be computed is reported as not defined with the reason.
 
@@ -452,7 +452,7 @@ Debt to equity, net financial position to equity, equity ratio, primary and seco
 
 ## `ratios.liquidity`
 
-**Ratios — liquidity** · method version 1 · tool `fairmark_ratios_liquidity`
+**Ratios — liquidity** · method version 1 · status preview · tool `fairmark_ratios_liquidity`
 
 Current, quick and cash ratios, net working capital and treasury margin, on closing or average balances. A ratio that cannot be computed is reported as not defined with the reason.
 
@@ -464,7 +464,7 @@ Current, quick and cash ratios, net working capital and treasury margin, on clos
 
 ## `ratios.working_capital`
 
-**Ratios — working capital** · method version 1 · tool `fairmark_ratios_working_capital`
+**Ratios — working capital** · method version 1 · status preview · tool `fairmark_ratios_working_capital`
 
 Days sales outstanding, days inventory outstanding, days payable outstanding and the cash conversion cycle, on closing or average balances and a 360 or 365-day basis. A ratio that cannot be computed is reported as not defined with the reason.
 
@@ -478,7 +478,7 @@ Days sales outstanding, days inventory outstanding, days payable outstanding and
 
 ## `ratios.debt_service`
 
-**Ratios — debt service** · method version 1 · tool `fairmark_ratios_debt_service`
+**Ratios — debt service** · method version 1 · status preview · tool `fairmark_ratios_debt_service`
 
 Interest cover on EBIT and EBITDA, net financial position to EBITDA, DSCR per period and LLCR on a loan schedule with an explicit discount rate. A ratio that cannot be computed is reported as not defined with the reason.
 
@@ -494,7 +494,7 @@ Interest cover on EBIT and EBITDA, net financial position to EBITDA, DSCR per pe
 
 ## `ratios.covenants`
 
-**Ratios — covenants** · method version 1 · tool `fairmark_ratios_covenants`
+**Ratios — covenants** · method version 1 · status preview · tool `fairmark_ratios_covenants`
 
 Tests financial covenants on the numerator and denominator defined by the loan agreement, against a threshold with an explicit operator (at most, less than, at least, greater than) at a test date. The agreement's own rules are explicit inputs: the outcome when the denominator is zero or negative, and the rounding of the tested value. Returns for each covenant the outcome (passed, breached, or not tested with a code and the reason), decided exactly, the tested value and the headroom, absolute and relative to the threshold.
 
@@ -504,7 +504,7 @@ Tests financial covenants on the numerator and denominator defined by the loan a
 
 ## `analysis.goal_seek`
 
-**Goal seek** · method version 1 · tool `fairmark_analysis_goal_seek`
+**Goal seek** · method version 1 · status available · tool `fairmark_analysis_goal_seek`
 
 Value of one decimal input of any method at which one of its outputs equals a target, found with Brent's method in an explicit bracket; every evaluation is reported.
 
@@ -521,7 +521,7 @@ Value of one decimal input of any method at which one of its outputs equals a ta
 
 ## `analysis.sensitivity`
 
-**Sensitivity table** · method version 1 · tool `fairmark_analysis_sensitivity`
+**Sensitivity table** · method version 1 · status available · tool `fairmark_analysis_sensitivity`
 
 One output of any method across a one-way or two-way table of input values, with the base case; a combination the method refuses is recorded in its cell.
 
@@ -535,7 +535,7 @@ One output of any method across a one-way or two-way table of input values, with
 
 ## `analysis.scenarios`
 
-**Scenario analysis** · method version 1 · tool `fairmark_analysis_scenarios`
+**Scenario analysis** · method version 1 · status available · tool `fairmark_analysis_scenarios`
 
 Outputs of any method under named sets of input changes, with deltas and relative deltas against the base case; a scenario the method refuses is recorded.
 
@@ -548,7 +548,7 @@ Outputs of any method under named sets of input changes, with deltas and relativ
 
 ## `analysis.tornado`
 
-**Tornado** · method version 1 · tool `fairmark_analysis_tornado`
+**Tornado** · method version 1 · status available · tool `fairmark_analysis_tornado`
 
 Which inputs move one output of any method the most: each input varied alone between explicit low and high values, ranked by the absolute swing of the output.
 

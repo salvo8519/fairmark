@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-tornado.md
-source_hash: db38cf097049
+source_hash: a54e4db3e760
 ---
 # Tornado (`analysis.tornado`)
 
