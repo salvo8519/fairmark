@@ -1,0 +1,11 @@
+method: dcf.fcff
+description: "A liquidation declared on the equity basis inside the enterprise DCF (R19)"
+source: SPEC-0001 R19
+input:
+  stages: [{"periods": 2, "projection": "given", "flows": ["100", "110"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.10"
+  timing: "end_of_period"
+  terminal: {"tv.liquidation": {"assets": [{"label": "Plant", "value": "500"}], "liabilities": [], "liquidation_costs": [], "tax_on_gains": "0", "basis": "equity"}}
+expect_error: FM-E019

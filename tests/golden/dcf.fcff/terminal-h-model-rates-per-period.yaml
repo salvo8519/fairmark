@@ -1,0 +1,27 @@
+method: dcf.fcff
+description: "tv.h_model on the last explicit flow at the terminal WACC, rates per period, end-of-period timing (R19, R20; AC11)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R19 to R22 and SPEC-0006, sharing no code with the engine).
+input:
+  stages: [{"periods": 2, "projection": "given", "flows": ["80", "88"]}, {"periods": 3, "projection": "constant_growth", "growth": "0.06"}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc_per_period: ["0.11", "0.105", "0.10", "0.095", "0.09"]
+  terminal_wacc: "0.085"
+  timing: "end_of_period"
+  terminal: {"tv.h_model": {"short_term_growth": "0.06", "long_term_growth": "0.02", "half_life": "4", "first_flow": "last_flow_grown"}}
+expect:
+  /terminal/technique: "tv.h_model"
+  /periods/4/flow: "104.809408"
+  /terminal/output/stable_growth_value: "1644.701479384615384615384615"
+  /terminal/output/extra_growth_value: "257.9923889230769230769230769"
+  /pv_explicit_period: "344.9673078634629322517900093"
+  /terminal/terminal_value: "1902.693868307692307692307692"
+  /terminal/discount_factor: "0.6209854733906807922288188"
+  /terminal/present_value: "1181.545252528597965070134201"
+  /value_of_operations: "1526.512560392060897321924210"
+  /enterprise_value: "1526.512560392060897321924210"
+  /equity_value: "1526.512560392060897321924210"
+  /terminal_value_weight: "0.7740160698220108521047003"
+tolerance: "0.00000000000000000001"

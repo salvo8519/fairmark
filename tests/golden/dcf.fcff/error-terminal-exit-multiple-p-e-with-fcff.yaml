@@ -1,0 +1,11 @@
+method: dcf.fcff
+description: "An exit multiple on earnings (P/E, equity basis) inside the enterprise DCF (R19; AC11)"
+source: SPEC-0001 R19, AC11
+input:
+  stages: [{"periods": 2, "projection": "given", "flows": ["100", "110"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.10"
+  timing: "end_of_period"
+  terminal: {"tv.exit_multiple": {"multiple": "12", "metric": "earnings", "metric_value": "90"}}
+expect_error: FM-E019

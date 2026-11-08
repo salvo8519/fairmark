@@ -1,0 +1,26 @@
+method: dcf.fcff
+description: "tv.value_driver inside the DCF at the single WACC, end-of-period timing (R19, R22; AC11)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R19 to R22 and SPEC-0006, sharing no code with the engine).
+input:
+  stages: [{"periods": 3, "projection": "given", "flows": ["120", "130", "138"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.09"
+  timing: "end_of_period"
+  terminal: {"tv.value_driver": {"nopat_next": "200", "growth": "0.025", "ronic": "0.12"}}
+  net_financial_position: {"gross_debt": "400", "cash": "50"}
+expect:
+  /terminal/technique: "tv.value_driver"
+  /terminal/output/reinvestment_rate: "0.2083333333333333333333333"
+  /terminal/output/next_free_cash_flow: "158.3333333333333333333333333"
+  /pv_explicit_period: "326.0714624923457312538947004"
+  /terminal/terminal_value: "2435.897435897435897435897436"
+  /terminal/discount_factor: "0.772183480061064269603229"
+  /terminal/present_value: "1880.959759123105272110429524"
+  /value_of_operations: "2207.031221615451003364324224"
+  /enterprise_value: "2207.031221615451003364324224"
+  /equity_value: "1857.031221615451003364324224"
+  /terminal_value_weight: "0.8522578841210612408472886"
+tolerance: "0.00000000000000000001"

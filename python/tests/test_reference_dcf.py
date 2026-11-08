@@ -38,6 +38,14 @@ def pointer(value: Any, path: str) -> Any:
     return value
 
 
+def is_decimal(value: Any) -> bool:
+    try:
+        D(str(value))
+    except ArithmeticError:
+        return False
+    return True
+
+
 def reference_cases() -> list[Path]:
     out = []
     for path in GOLDEN:
@@ -54,6 +62,8 @@ def test_golden_values_are_the_reference_values(path: Path) -> None:
     case = yaml.safe_load(path.read_text(encoding="utf-8"))
     values = ref.dcf_fcff(case["input"])
     for key, expected in case["expect"].items():
+        if not is_decimal(expected):
+            continue  # names and nulls are compared exactly by the golden runner
         want = D(str(expected))
         got = values[key if key.startswith("/") else f"/{key}"]
         assert abs(got - want) <= D(1).scaleb(want.as_tuple().exponent), key  # type: ignore[arg-type]
@@ -239,3 +249,130 @@ def test_long_horizons_keep_full_precision(
     got = D(run(payload)["value_of_operations"])
     want = ref.dcf_fcff(payload)["/value_of_operations"]
     assert abs(got - want) <= D("1e-24") * abs(want)
+
+
+# Issue #43: every terminal technique inside the DCF (R19 to R22; AC11, AC12).
+TECHNIQUES: dict[str, dict[str, Any]] = {
+    "tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown", "growth_cap": "0.025"},
+    "tv.h_model": {
+        "short_term_growth": "0.07",
+        "long_term_growth": "0.02",
+        "half_life": "3.5",
+        "first_flow": "last_flow_grown",
+        "growth_cap": "0.015",
+    },
+    "tv.value_driver": {"nopat_next": "180", "growth": "0.03", "ronic": "0.14"},
+    "tv.exit_multiple": {
+        "multiple": "8.25",
+        "metric": "ebitda",
+        "metric_value": "230",
+        "next_flow": "120",
+        "growth_cap": "0.02",
+    },
+    "tv.limited_horizon": {
+        "flow": "95",
+        "periods": 12,
+        "growth": "-0.015",
+        "residual_value": "250",
+        "growth_cap": "0.01",
+    },
+    "tv.liquidation": {
+        "assets": [{"label": "Plant", "value": "700"}, {"label": "Stock", "value": "150"}],
+        "liabilities": [{"label": "Payables", "value": "120"}],
+        "liquidation_costs": [{"label": "Closure", "value": "60"}],
+        "tax_on_gains": "25",
+        "basis": "enterprise",
+    },
+}
+RATE_FORMS: list[dict[str, Any]] = [
+    {"wacc": "0.095"},
+    {"wacc_per_period": ["0.12", "0.11", "0.10", "0.09"], "terminal_wacc": "0.085"},
+]
+
+
+def terminal_payload(
+    technique: str, rates: dict[str, Any], timing: tuple[str, str | None]
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "stages": [
+            {"periods": 2, "projection": "given", "flows": ["70", "76"]},
+            {"periods": 2, "projection": "constant_growth", "growth": "0.04"},
+        ],
+        "cash_flow_terms": "nominal",
+        "discount_rate_terms": "nominal",
+        **rates,
+        "timing": timing[0],
+        "terminal": {technique: TECHNIQUES[technique]},
+        "net_financial_position": {"gross_debt": "300", "cash": "40"},
+    }
+    if timing[1]:
+        payload["terminal_discount_time"] = timing[1]
+    return payload
+
+
+@pytest.mark.parametrize(
+    ("technique", "rates", "timing"),
+    list(product(TECHNIQUES, RATE_FORMS, TIMINGS)),
+    ids=str,
+)
+def test_every_terminal_technique_matches_reference(
+    technique: str, rates: dict[str, Any], timing: tuple[str, str | None]
+) -> None:
+    """R19, R21, R22: each technique, each rate form and each timing against the reference."""
+    payload = terminal_payload(technique, rates, timing)
+    got, want = run(payload), ref.dcf_fcff(payload)
+    assert got["terminal"]["technique"] == technique
+    for key, value in want.items():
+        assert close(pointer(got, key), value, timing[0]), key
+
+
+def standalone_input(technique: str, terms: dict[str, Any], rate: str, last_flow: str) -> Any:
+    """The input of the `tv.*` method run alone with the same terms, at the terminal rate."""
+    t = dict(terms)
+    if technique == "tv.gordon":
+        t.pop("first_flow")
+        return {**t, "rate": rate, "last_flow": last_flow}
+    if technique == "tv.h_model":
+        t.pop("first_flow")
+        return {**t, "rate": rate, "last_flow": last_flow}
+    if technique == "tv.exit_multiple":
+        return {**t, "rate": rate} if "next_flow" in t else t
+    if technique == "tv.liquidation":
+        return t
+    return {**t, "rate": rate}
+
+
+@pytest.mark.parametrize(
+    ("technique", "rates", "timing"),
+    list(product(TECHNIQUES, RATE_FORMS, TIMINGS)),
+    ids=str,
+)
+def test_ac11_terminal_value_equals_the_standalone_method(
+    technique: str, rates: dict[str, Any], timing: tuple[str, str | None]
+) -> None:
+    """AC11: the terminal value inside the DCF, and the technique's whole output, equal the
+    `tv.*` method run alone on the same terms and the terminal rate; its present value is that
+    value discounted at the terminal discounting time."""
+    payload = terminal_payload(technique, rates, timing)
+    dcf = run(payload)
+    rate = rates.get("wacc", rates.get("terminal_wacc"))
+    last_flow = dcf["periods"][-1]["flow"]
+    alone = fm.run_json(
+        technique, standalone_input(technique, TECHNIQUES[technique], rate, last_flow)
+    )
+    assert alone["meta"]["method_version"] == dcf["terminal"]["technique_version"]
+    assert dcf["terminal"]["terminal_value"] == alone["value"]["terminal_value"]
+    assert dcf["terminal"]["output"] == alone["value"]
+
+    period_rates = rates.get("wacc_per_period") or [rates["wacc"]] * len(dcf["periods"])
+    compounding = D(1)
+    for r in period_rates:
+        compounding *= 1 + D(r)
+    tv = D(alone["value"]["terminal_value"])
+    if timing[1] == "mid_period":
+        want = tv * (1 + D(period_rates[-1])).sqrt() / compounding
+        assert D(dcf["terminal"]["discount_time"]) == len(period_rates) - D("0.5")
+    else:
+        want = tv / compounding
+        assert D(dcf["terminal"]["discount_time"]) == len(period_rates)
+    assert close(dcf["terminal"]["present_value"], want, timing[0])
