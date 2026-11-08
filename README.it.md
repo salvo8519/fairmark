@@ -181,6 +181,11 @@ fairmark verify result.json --input company.json  # riproduce un risultato bit p
 | `coc.cost_of_debt` | Disponibile | Cost of debt |
 | `coc.wacc` | Disponibile | Weighted average cost of capital (WACC) |
 | `dcf.fcff` | Anteprima | DCF — unlevered free cash flow |
+| `ratios.profitability` | Anteprima | Ratios — profitability |
+| `ratios.capital_structure` | Anteprima | Ratios — capital structure |
+| `ratios.liquidity` | Anteprima | Ratios — liquidity |
+| `ratios.working_capital` | Anteprima | Ratios — working capital |
+| `ratios.debt_service` | Anteprima | Ratios — debt service |
 | `analysis.goal_seek` | Disponibile | Goal seek |
 | `analysis.sensitivity` | Disponibile | Sensitivity table |
 | `analysis.scenarios` | Disponibile | Scenario analysis |
