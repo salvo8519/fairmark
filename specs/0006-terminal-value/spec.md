@@ -48,7 +48,7 @@ SPEC-0002); estimating the inputs (normalised flows, multiples from comparables)
   half-life H, THE ENGINE SHALL return TV_N = CF_N × [(1 + g_l) + H × (g_s − g_l)] / (r − g_l)
   and state that it is an approximation of linearly declining growth.
 - **R4** — `tv.exit_multiple`: WHEN given a multiple and the metric it applies to (EBITDA, EBIT,
-  revenue, earnings, book value), THE ENGINE SHALL return TV_N = multiple × metric_N; WHEN also
+  revenue, earnings, book value of equity as P/BV), THE ENGINE SHALL return TV_N = multiple × metric_N; WHEN also
   given r and the next flow, it SHALL report the implied perpetual growth g = r − CF_{N+1} / TV_N.
 - **R5** — `tv.limited_horizon`: WHEN given a flow, r, a number of periods n (and optionally a
   growth and a residual value at N + n), THE ENGINE SHALL return the present value at N of the
@@ -97,3 +97,16 @@ SPEC-0002); estimating the inputs (normalised flows, multiples from comparables)
 - [x] Stage lengths, growth and inflation in multi-stage models are tracked separately in the
       issue on parametric stages (explicit periods per stage, optional growth and inflation
       switches, nominal and real conversions through `rates.real_nominal`).
+
+## Decisions (maintainer, 2026-11-08)
+Recorded maintainer amendment, approved on 2026-11-08 before version 1 of the `tv.*` schemas is
+published.
+- [x] The `book_value` exit metric is P/BV: price to book value of equity, on the equity basis.
+- [x] Economically inconsistent inputs (implied growth not below the rate; RONIC below growth)
+      are reported in `explain.conventions` as warnings, not refused.
+- [x] `tv.normalised_income` takes a required `basis` input (`enterprise` or `equity`, no
+      default); `tv.compare` applies its basis check to it as to the multiples (`FM-E019` when
+      mixed).
+- [x] Liquidation taxes stay a given amount in version 1; jurisdiction profiles come later.
+- [x] Golden tolerance: every new `tv.*` case uses the tightest tolerance it supports (1e-20
+      where the magnitude of the value allows, otherwise the reason is stated in the case).
