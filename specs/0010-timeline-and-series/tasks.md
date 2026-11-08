@@ -49,7 +49,7 @@ golden file is edited; if a task would change one, stop and ask the maintainer.
       `schemas/index.json` (R22, AC15); otherwise stop and ask the maintainer. Updated
       methodology pages of the affected methods in the same commit (docs-sync impact). Every
       existing golden case passes unchanged.
-- [ ] T9 [P] ADR 0008 amendment note on §4: the compounding list gains `bimonthly` and
+- [x] T9 [P] ADR 0008 amendment note on §4: the compounding list gains `bimonthly` and
       `four_monthly`, defined once with the schedule frequencies (SPEC-0010 R20, Decision 5).
 - [ ] T10 `dates.schedule` types in `dates.rs`: `ScheduleInput`, `ScheduleOutput`, doc comment
       on every field with units and the [start, end) phrases, the name-to-tenor mapping in the
