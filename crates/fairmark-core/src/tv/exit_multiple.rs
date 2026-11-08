@@ -160,7 +160,7 @@ pub(crate) fn check(input: &ExitMultipleInput) -> Checked {
 
 /// TV_N = multiple × metric_N; implied growth g = r − CF_{N+1} / TV_N.
 pub fn exit_multiple(input: &ExitMultipleInput) -> Result<(ExitMultipleOutput, Explain)> {
-    check(input).map_err(|e| e.error)?;
+    check(input).map_err(super::FieldError::into_error)?;
     let (m, x, metric) = (input.multiple, input.metric_value, input.metric);
     let pair = input.rate.zip(input.next_flow);
     let basis = metric.basis();

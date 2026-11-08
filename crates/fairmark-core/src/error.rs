@@ -122,6 +122,22 @@ pub enum FairmarkError {
         converted_with: Option<Box<str>>,
     },
 
+    /// A nominal rate whose rate per compounding period is −100% or lower, named by its JSON
+    /// pointer (issue #174). With one compounding period a year it is `DiscountRateOutOfRange`.
+    #[error(
+        "`{field}` is {rate}: with {periods_per_year} compounding periods a year, the rate per \
+         compounding period ({rate} / {periods_per_year}) must be greater than -1 (-100%), so \
+         the rate must be greater than -{periods_per_year}; rates are decimal fractions, 10% is \
+         0.10"
+    )]
+    CompoundedRateOutOfRange {
+        /// JSON pointer of the rate as given.
+        field: String,
+        rate: Decimal,
+        /// Compounding periods a year, 2 or more.
+        periods_per_year: u32,
+    },
+
     #[error(
         "`{growth_field}` ({growth}) must be lower than the discount rate `{rate_field}`{} \
          ({rate}): a perpetual growth at or above the rate has no finite value; lower the \
@@ -182,6 +198,32 @@ fn inflation_fix(converted_with: &Option<Box<str>>) -> String {
         .unwrap_or_default()
 }
 
+/// Names the rate field in an `FM-E003` raised by a shared helper, which knows only the value
+/// (issues #174, #176): the method knows the field and the compounding of the rate.
+/// `periods_per_year` is that of the rate's compounding: `None` (continuous) or `Some(1)` gives
+/// the rule for a rate per period, more periods the rule per compounding period. Every other
+/// error passes unchanged.
+pub(crate) fn rate_field(
+    field: &str,
+    periods_per_year: Option<u32>,
+) -> impl Fn(FairmarkError) -> FairmarkError + '_ {
+    move |e| match e {
+        FairmarkError::RateOutOfRange(rate) => match periods_per_year {
+            Some(m) if m > 1 => FairmarkError::CompoundedRateOutOfRange {
+                field: field.to_owned(),
+                rate,
+                periods_per_year: m,
+            },
+            _ => FairmarkError::DiscountRateOutOfRange {
+                field: field.to_owned(),
+                rate,
+                converted_with: None,
+            },
+        },
+        other => other,
+    }
+}
+
 impl FairmarkError {
     /// Stable machine-readable code, e.g. `FM-E004`.
     pub fn code(&self) -> &'static str {
@@ -212,6 +254,7 @@ impl FairmarkError {
             // Same meanings as `RateOutOfRange` and `GrowthNotBelowRate`, with the JSON pointer
             // of the field in the message (SPEC-0001 R27).
             Self::DiscountRateOutOfRange { .. } => "FM-E003",
+            Self::CompoundedRateOutOfRange { .. } => "FM-E003",
             Self::GrowthNotBelowTerminalRate { .. } => "FM-E004",
             // Same meanings as `InvalidInput` and `InvalidDate`, with the JSON pointer of the
             // field that could not be read (issue #174).

@@ -106,7 +106,7 @@ fn total(ex: &mut Explain, group: &str, lines: &[Line]) -> Result<Decimal> {
 
 /// Net liquidation value = Σ assets − Σ liabilities − Σ liquidation costs − tax on gains.
 pub fn liquidation(input: &LiquidationInput) -> Result<(LiquidationOutput, Explain)> {
-    check(input).map_err(|e| e.error)?;
+    check(input).map_err(super::FieldError::into_error)?;
     let tax = input.tax_on_gains;
     let mut ex = Explain::new(
         "tv.liquidation",

@@ -92,7 +92,7 @@ value whenever the spreadsheet accepts the input.
 | --- | --- |
 | `FM-E001` | A field is missing or unknown, or a convention is not one of the listed options |
 | `FM-E002` | `cash_flows` is empty |
-| `FM-E003` | The rate per compounding period, $r/m$, is −100% or lower |
+| `FM-E003` | The rate per compounding period, $r/m$, is −100% or lower; the message names `/rate` and, with more than one compounding period a year, the bound $-m$ |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 | `FM-E009` | A date is malformed, does not exist or is outside 1900-01-01 to 2199-12-31 |
 | `FM-E010` | A flow is dated before the valuation date |

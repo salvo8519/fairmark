@@ -106,7 +106,7 @@ Ratios are objects `{"value": ..., "not_defined": ...}`, as in every ratio group
 | --- | --- |
 | `FM-E001` | Average balances without `opening`; an empty or blank `ebitda_definition` or `interest_definition`; a field is missing or unknown |
 | `FM-E002` | A debt schedule is given with no periods |
-| `FM-E003` | Discount rate at or below −100% per period |
+| `FM-E003` | Discount rate at or below −100% per period; the message names `/debt_schedule/discount_rate` |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 
 ## Accuracy

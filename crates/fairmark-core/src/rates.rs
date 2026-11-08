@@ -10,7 +10,7 @@ use rust_decimal::{Decimal, MathematicalOps};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{FairmarkError, Result};
+use crate::error::{rate_field, FairmarkError, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num;
@@ -200,7 +200,8 @@ pub fn convert(input: &ConvertInput) -> Result<(ConvertOutput, Explain)> {
     );
     ex.convention(format!("from: {}", input.from.label()));
     ex.convention(format!("to: {}", input.to.label()));
-    let g = growth_factor(input.rate, input.from, Decimal::ONE)?;
+    let g = growth_factor(input.rate, input.from, Decimal::ONE)
+        .map_err(rate_field("/rate", input.from.per_year()))?;
     ex.step(
         "Growth over one year",
         growth_formula(input.rate, input.from),

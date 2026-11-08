@@ -102,7 +102,7 @@ pub(crate) fn check(input: &GordonInput) -> Checked {
 
 /// TV_N = CF_{N+1} / (r − g).
 pub fn gordon(input: &GordonInput) -> Result<(GordonOutput, Explain)> {
-    check(input).map_err(|e| e.error)?;
+    check(input).map_err(super::FieldError::into_error)?;
     let (r, g) = (input.rate, input.growth);
     let mut ex = Explain::new("tv.gordon", "TV_N = CF_{N+1} / (r − g)");
     ex.convention(NOT_DISCOUNTED);

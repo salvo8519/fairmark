@@ -151,7 +151,7 @@ adjustment, and the totals. The rows carry the numbers of every period.
 | Code | When |
 | --- | --- |
 | `FM-E001` | Timing `due`, principal 0 or negative, `number_of_instalments` 0 or above 10000, an incomplete or double rate form, rounding without a mode or with more than 6 decimal places, or a field missing or unknown |
-| `FM-E003` | The periodic rate is −100% or lower |
+| `FM-E003` | `periodic_rate` is −100% or lower, or `rate` is at or below −100% per compounding period ($r/m$); the message names the field, `/periodic_rate` or `/rate` |
 | `FM-E020` | The balloon amount is negative, not lower than the principal, or given with `bullet` |
 | `FM-E022` | The grace period is not lower than the number of instalments, or is given with `bullet` |
 | `FM-E023` | With rounding, the balance would become negative before the last period, or the last principal portion or instalment would be negative (rounding too coarse for the loan) |

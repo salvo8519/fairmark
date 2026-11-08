@@ -8,7 +8,7 @@ use super::{
     both_positive, over_positive, require_definition, term, BalanceBasis, Balances,
     NetFinancialPosition, Ratio, RatioValue, NFP_CONVENTION,
 };
-use crate::error::{FairmarkError, Result};
+use crate::error::{rate_field, FairmarkError, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num;
@@ -221,7 +221,8 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
             term("debt service", p.debt_service),
         );
         dscr.push(Labelled(&label, &ratio).evaluate(&mut ex)?);
-        let df = discount_factor(r, Decimal::from(t as u64))?;
+        let df = discount_factor(r, Decimal::from(t as u64))
+            .map_err(rate_field("/debt_schedule/discount_rate", None))?;
         let pv_t = num::mul(p.cfads, df)?;
         ex.step(
             format!("Present value of CFADS, period {t}"),

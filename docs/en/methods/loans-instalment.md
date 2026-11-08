@@ -110,7 +110,7 @@ that final-period adjustment. `total_paid` here uses the rounded instalment for 
 | Code | When |
 | --- | --- |
 | `FM-E001` | Principal 0 or negative, `number_of_instalments` 0 or above 10000, both rate forms, neither, form (a) incomplete, `decimal_places` above 6, rounding without a mode, or a field missing or unknown |
-| `FM-E003` | The periodic rate is −100% or lower |
+| `FM-E003` | `periodic_rate` is −100% or lower, or `rate` is at or below −100% per compounding period ($r/m$); the message names the field, `/periodic_rate` or `/rate` |
 | `FM-E020` | The balloon amount is negative or not lower than the principal |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 
