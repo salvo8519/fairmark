@@ -1,6 +1,6 @@
 ---
 source: guides/mcp.md
-source_hash: 3a95dc1aadf2
+source_hash: 1c5556b92434
 ---
 # Server MCP
 
@@ -44,8 +44,9 @@ finanziari.
 
 - Un tool per metodo (`fairmark_dcf_fcff`, `fairmark_tvm_npv`, ...), con lo schema di input
   completo, marcato come di sola lettura e idempotente.
-- Istruzioni del server che chiedono al modello di usare i tool per ogni numero e di citare
-  `explain.steps`.
+- Istruzioni del server che chiedono al modello di usare i tool per ogni numero, di citare
+  `explain.steps` e di presentare ogni risultato come un calcolo sotto la responsabilità
+  dell'utilizzatore, mai come una consulenza (vedi le [avvertenze legali](../disclaimer.md)).
 - Risultati come contenuto strutturato (la busta JSON completa) e come testo.
 - Errori segnalati con `isError` e un codice stabile, così il modello può correggere la
   chiamata.

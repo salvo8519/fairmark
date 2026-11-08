@@ -1,5 +1,5 @@
 [files]
-extend-exclude = ["uv.lock", "docs/_shared/vendor/**", "*.svg", "schemas/**", "docs/it/**", "README.it.md", "i18n/**", "CLAUDE.local.md.example", "scripts/gen_reference.py"]
+extend-exclude = ["uv.lock", "docs/_shared/vendor/**", "*.svg", "schemas/**", "docs/it/**", "README.it.md", "DISCLAIMER.it.md", "i18n/**", "CLAUDE.local.md.example", "scripts/gen_reference.py"]
 
 [default.extend-words]
 # Domain terms and Italian accounting acronyms

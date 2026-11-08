@@ -1,12 +1,16 @@
 ---
 source: methods/index.md
-source_hash: 3bc26225ff16
+source_hash: 29504fb61a41
 ---
 # Metodi
 
 Ogni metodo ha un identificativo stabile, un'implementazione versionata, casi di
 riferimento e una pagina metodologica. Il [riferimento dei metodi](../reference/methods.md)
 elenca tutti gli input.
+
+Un metodo calcola la conseguenza degli input e delle convenzioni che riceve; la scelta del
+metodo, delle convenzioni e degli input, e la verifica del risultato, spettano
+all'utilizzatore. Vedi le [avvertenze legali](../disclaimer.md).
 
 | Metodo | Stato | Che cosa calcola |
 | --- | --- | --- |

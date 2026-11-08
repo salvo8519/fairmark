@@ -1,4 +1,4 @@
-"""Track translations of the documentation and README against their English source.
+"""Track translations of the documentation and root documents against their English source.
 
 Every translated file starts with front matter naming its source and the hash of the source
 it was translated from:
@@ -14,8 +14,8 @@ it was translated from:
                                                     # after (re)translating a page
     uv run python scripts/i18n.py todo              # stale and missing pages, one per line
 
-README translations (README.<lang>.md) carry the same data in an HTML comment on the first
-line, because GitHub would render front matter:
+Translations of root documents (README.<lang>.md, DISCLAIMER.<lang>.md) carry the same data in
+an HTML comment on the first line, because GitHub would render front matter:
 
     <!-- i18n source: README.md source_hash: 3f9a1c0b7d2e -->
 """
@@ -34,6 +34,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 EN = ROOT / "docs" / "en"
 FRONT = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
+# Documents at the repository root translated as <NAME>.<lang>.md, tracked with a comment line.
+ROOT_DOCUMENTS = ("README.md", "DISCLAIMER.md")
 COMMENT = re.compile(r"\A<!-- i18n source: (\S+) source_hash: (\S+) -->\n")
 
 
@@ -75,7 +77,9 @@ def pairs(lang: str, cfg: dict[str, list[str]]) -> list[tuple[str, Path, Path, b
             continue
         required = any(fnmatch.fnmatch(rel, p) for p in cfg.get("required", []))
         out.append((rel, src, ROOT / "docs" / lang / rel, required))
-    out.append(("README.md", ROOT / "README.md", ROOT / f"README.{lang}.md", True))
+    for name in ROOT_DOCUMENTS:
+        stem = name.removesuffix(".md")
+        out.append((name, ROOT / name, ROOT / f"{stem}.{lang}.md", True))
     return out
 
 
@@ -96,11 +100,21 @@ def evaluate() -> list[tuple[str, str, str, bool]]:
 def stamp(path: Path) -> None:
     path = path.resolve()
     text = path.read_text(encoding="utf-8")
-    if path.name.startswith("README."):
+    if path.parent == ROOT and path.name in ROOT_DOCUMENTS:
+        sys.exit(f"{path.name} is an English source: stamp its translation instead.")
+    root_source = next(
+        (
+            n
+            for n in ROOT_DOCUMENTS
+            if path.parent == ROOT and re.fullmatch(rf"{n[:-3]}\.[a-z]{{2}}\.md", path.name)
+        ),
+        None,
+    )
+    if root_source:
         body = COMMENT.sub("", text, count=1)
-        line = f"<!-- i18n source: README.md source_hash: {digest(ROOT / 'README.md')} -->\n"
+        line = f"<!-- i18n source: {root_source} source_hash: {digest(ROOT / root_source)} -->\n"
         path.write_text(line + body, encoding="utf-8")
-        print(f"Stamped {path.relative_to(ROOT)} against README.md.")
+        print(f"Stamped {path.relative_to(ROOT)} against {root_source}.")
         return
     else:
         lang = path.relative_to(ROOT / "docs").parts[0]

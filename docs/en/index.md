@@ -84,3 +84,9 @@ flowchart LR
 !!! note "Status: pre-alpha"
     Fairmark is under active development. NPV, IRR and DCF (FCFF) are available today;
     see the [roadmap](project/roadmap.md) for what comes next.
+
+!!! warning "A calculation tool, not advice"
+    Fairmark computes; the user decides. Every decision taken with its results, and every use
+    of them, belongs to the user, who verifies them before relying on them. Fairmark gives no
+    investment, financial, accounting, tax or legal advice. Read the
+    [disclaimer](disclaimer.md).

@@ -3,6 +3,7 @@
 language: it
 name: Italiano
 site_description: "Motore di valutazione deterministico per analisti e agenti AI."
+copyright: "Copyright &copy; 2026 The Fairmark Authors &middot; Uno strumento di calcolo, non una consulenza: <a href=\"https://salvo8519.github.io/fairmark/it/disclaimer/\">avvertenze legali</a>"
 sections:
   Home: Home
   Getting started: Per iniziare
@@ -20,6 +21,7 @@ required:
   - methods/*.md
   - concepts/*.md
   - reference/*.md
+  - disclaimer.md
 # Pages kept in English only: the Italian site links to the English version
 english_only:
   - project/*.md

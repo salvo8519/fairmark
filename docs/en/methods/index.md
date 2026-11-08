@@ -3,6 +3,10 @@
 Each method has a stable id, a versioned implementation, golden test cases and a methodology
 page. The [methods reference](../reference/methods.md) lists every input.
 
+A method computes the consequence of the inputs and conventions it receives; choosing the
+method, the conventions and the inputs, and verifying the result, belong to the user. See the
+[disclaimer](../disclaimer.md).
+
 | Method | Status | What it computes |
 | --- | --- | --- |
 | [`dates.year_fraction`](dates-year-fraction.md) | available | Year fraction between two dates under an ISDA day count |

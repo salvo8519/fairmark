@@ -263,5 +263,11 @@ by AI reviewers with the project's own standards ([`AGENTS.md`](AGENTS.md)).
 [Apache-2.0](LICENSE). The license covers the code; it grants no rights to use the Fairmark
 name or logo (Apache-2.0, section 6).
 
-<sub>Fairmark computes what you ask it to compute. It is not investment, accounting or legal
-advice; the choice of method and inputs remains the analyst's responsibility.</sub>
+## Disclaimer
+
+Fairmark is a calculation tool, not an advisor: it computes, the user decides. Every decision
+taken with the help of Fairmark, and every use of its results, belongs exclusively to the user,
+who chooses the method and the inputs, directly or through an AI agent, and verifies the
+results before relying on them. Fairmark provides no investment, financial, accounting, tax or
+legal advice, and is provided without warranty of any kind under the Apache License 2.0.
+Read the full [disclaimer](DISCLAIMER.md).

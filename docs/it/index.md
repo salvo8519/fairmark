@@ -3,7 +3,7 @@ hide:
 - navigation
 - toc
 source: index.md
-source_hash: cbca9a305de4
+source_hash: 18028615c3d1
 ---
 <div class="fm-hero" markdown>
 
@@ -86,3 +86,9 @@ flowchart LR
 !!! note "Stato: pre-alpha"
     Fairmark è in sviluppo attivo. Oggi sono disponibili VAN, TIR e DCF (FCFF); la
     [roadmap](https://salvo8519.github.io/fairmark/project/roadmap/) (in inglese) descrive i prossimi passi.
+
+!!! warning "Uno strumento di calcolo, non una consulenza"
+    Fairmark calcola; l'utilizzatore decide. Ogni decisione presa con i suoi risultati, e ogni
+    loro uso, appartiene all'utilizzatore, che li verifica prima di farvi affidamento. Fairmark
+    non fornisce consulenza in materia di investimenti, finanziaria, contabile, fiscale o
+    legale. Leggi le [avvertenze legali](disclaimer.md).

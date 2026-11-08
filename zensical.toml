@@ -12,7 +12,7 @@ site_dir = "site"
 repo_url = "https://github.com/salvo8519/fairmark"
 repo_name = "salvo8519/fairmark"
 edit_uri = "edit/main/docs/en/"
-copyright = "Copyright &copy; 2026 The Fairmark Authors"
+copyright = "Copyright &copy; 2026 The Fairmark Authors &middot; A calculation tool, not advice: <a href=\"https://salvo8519.github.io/fairmark/disclaimer/\">disclaimer</a>"
 # KaTeX is vendored (docs/vendor/katex, MIT): the site loads no third-party CDN.
 extra_css = ["vendor/katex/katex.min.css", "stylesheets/extra.css"]
 extra_javascript = [
@@ -90,6 +90,7 @@ nav = [
   ] },
   { "Project" = [
     "project/vision.md",
+    "disclaimer.md",
     "project/brand.md",
     "project/roadmap.md",
     "project/releases.md",

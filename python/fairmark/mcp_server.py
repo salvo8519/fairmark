@@ -25,7 +25,10 @@ INSTRUCTIONS = (
     "Fairmark is a deterministic valuation engine. Use its tools for every number in a "
     "valuation (NPV, IRR, DCF). Never compute these values yourself. Rates are decimal "
     "fractions (0.09 = 9%). Pass amounts as strings or numbers. When you report results, "
-    "cite explain.steps and keep the returned values unchanged."
+    "cite explain.steps and keep the returned values unchanged. Present every result as a "
+    "calculation from the method, conventions and inputs you used, never as advice or a "
+    "recommendation: decisions belong to the user, who verifies the results before relying "
+    "on them (https://salvo8519.github.io/fairmark/disclaimer/)."
 )
 
 logger = logging.getLogger("fairmark.mcp")

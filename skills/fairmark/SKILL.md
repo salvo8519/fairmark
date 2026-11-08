@@ -25,6 +25,14 @@ report its results.
    - state the inputs you used and where each one came from;
    - include `meta.input_hash` and engine version for reproducibility.
 
+## Calculations, not advice
+
+Fairmark is a calculation tool: it computes, the user decides. Present every result as the
+calculation of the method, conventions and inputs you used, never as investment, financial,
+accounting, tax or legal advice, and never as a recommendation to buy, sell, lend or invest.
+Say that the user should verify the inputs and the `explain` before relying on the result.
+Every decision taken with the results belongs to the user (see `DISCLAIMER.md`).
+
 ## Errors
 
 Errors come back as `{"error": {"code": "FM-E00x", "message": ...}}`. Read the message, fix the
