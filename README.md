@@ -196,7 +196,7 @@ fairmark verify result.json --input company.json  # reproduce a result bit for b
 | `ratios.liquidity` | Preview | Ratios — liquidity |
 | `ratios.working_capital` | Preview | Ratios — working capital |
 | `ratios.debt_service` | Preview | Ratios — debt service |
-| `ratios.covenants` |  | Ratios — covenants |
+| `ratios.covenants` | Preview | Ratios — covenants |
 | `analysis.goal_seek` | Available | Goal seek |
 | `analysis.sensitivity` | Available | Sensitivity table |
 | `analysis.scenarios` | Available | Scenario analysis |

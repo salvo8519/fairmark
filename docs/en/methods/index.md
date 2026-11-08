@@ -39,6 +39,7 @@ page. The [methods reference](../reference/methods.md) lists every input.
 | [`ratios.liquidity`](ratios-liquidity.md) | preview | Current, quick and cash ratios, net working capital and treasury margin |
 | [`ratios.working_capital`](ratios-working-capital.md) | preview | Days sales, inventory and payable outstanding and the cash conversion cycle |
 | [`ratios.debt_service`](ratios-debt-service.md) | preview | Interest cover, net financial position to EBITDA, DSCR per period and LLCR |
+| [`ratios.covenants`](ratios-covenants.md) | preview | Covenant tests on the definitions of the loan agreement: outcome, tested value and headroom per covenant |
 | [`analysis.goal_seek`](analysis-goal-seek.md) | available | Value of one input of any method at which one of its outputs equals a target |
 | [`analysis.sensitivity`](analysis-sensitivity.md) | available | One output of any method across a one-way or two-way table of input values |
 | [`analysis.scenarios`](analysis-scenarios.md) | available | Outputs of any method under named cases, with deltas against the base case |

@@ -1,6 +1,6 @@
 ---
 source: methods/index.md
-source_hash: 84effb6a782e
+source_hash: 3bc26225ff16
 ---
 # Metodi
 
@@ -44,6 +44,7 @@ elenca tutti gli input.
 | [`ratios.liquidity`](ratios-liquidity.md) | Anteprima | Indice di disponibilità, indice di liquidità primaria, cash ratio, capitale circolante netto e margine di tesoreria |
 | [`ratios.working_capital`](ratios-working-capital.md) | Anteprima | Giorni medi di incasso, di giacenza e di pagamento e ciclo monetario |
 | [`ratios.debt_service`](ratios-debt-service.md) | Anteprima | Copertura degli oneri finanziari, PFN su EBITDA, DSCR per periodo e LLCR |
+| [`ratios.covenants`](ratios-covenants.md) | Anteprima | Verifica dei covenant sulle definizioni del contratto di finanziamento: esito, valore verificato e headroom per ogni covenant |
 | [`analysis.goal_seek`](analysis-goal-seek.md) | Disponibile | Valore di un input di qualsiasi metodo al quale uno dei suoi output è pari a un valore obiettivo |
 | [`analysis.sensitivity`](analysis-sensitivity.md) | Disponibile | Un output di qualsiasi metodo in una tabella di valori degli input a una o a due variabili |
 | [`analysis.scenarios`](analysis-scenarios.md) | Disponibile | Output di qualsiasi metodo in scenari nominati, con gli scostamenti rispetto al caso base |
