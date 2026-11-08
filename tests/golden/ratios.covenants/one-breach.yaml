@@ -1,0 +1,58 @@
+method: ratios.covenants
+description: 'AC5: a covenant set with one breach reports the breach and the headroom of the others'
+source: 'scripts/reference_ratios.py, covenants (Python decimal, 50 digits, local context), written from
+  the covenant rules in specs/0007-ratios-covenants/plan.md. Closed form: net leverage 1900 / 600 = 3.1666...,
+  at most 3.5, headroom 3.5 - 3.1666... = 0.3333..., relative 0.3333... / 3.5; interest cover 600 / 175
+  = 3.428571..., at least 4, headroom 3.428571... - 4 = -0.571428... (breach); DSCR 700 / 530 = 1.320754...,
+  at least 1.2, headroom 0.120754...'
+input:
+  covenants:
+  - name: net leverage
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '1900'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '600'
+    operator: at_most
+    threshold: '3.5'
+  - name: interest cover
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '600'
+    denominator:
+      definition: net finance charges for the 12 months ending on the test date
+      amount: '175'
+    operator: at_least
+    threshold: '4'
+  - name: debt service cover
+    test_date: '2026-12-31'
+    numerator:
+      definition: cash flow available for debt service for the 12 months ending on the test date
+      amount: '700'
+    denominator:
+      definition: debt service for the 12 months ending on the test date
+      amount: '530'
+    operator: at_least
+    threshold: '1.2'
+expect:
+  /covenants/0/outcome: passed
+  /covenants/0/value: '3.1666666666666666666666666666666666666666666666667'
+  /covenants/0/headroom: '0.3333333333333333333333333333333333333333333333333'
+  /covenants/0/headroom_relative/value: '0.095238095238095238095238095238095238095238095238086'
+  /covenants/1/outcome: breached
+  /covenants/1/value: '3.4285714285714285714285714285714285714285714285714'
+  /covenants/1/headroom: '-0.5714285714285714285714285714285714285714285714286'
+  /covenants/1/headroom_relative/value: '-0.14285714285714285714285714285714285714285714285715'
+  /covenants/2/outcome: passed
+  /covenants/2/value: '1.3207547169811320754716981132075471698113207547170'
+  /covenants/2/headroom: '0.1207547169811320754716981132075471698113207547170'
+  /covenants/2/headroom_relative/value: '0.10062893081761006289308176100628930817610062893083'
+  /summary/passed: '2'
+  /summary/breached: '1'
+  /summary/not_tested: '0'
+  /covenants/1/not_tested_reason: 'null'
+  /covenants/0/headroom_relative/not_defined: 'null'
+tolerance: '0.00000000000000000001'

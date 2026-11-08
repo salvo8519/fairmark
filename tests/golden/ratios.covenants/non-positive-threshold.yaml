@@ -1,0 +1,45 @@
+method: ratios.covenants
+description: A zero or negative threshold leaves the relative headroom not defined; outcome and headroom
+  are reported
+source: 'scripts/reference_ratios.py, covenants (Python decimal, 50 digits, local context), written from
+  the covenant rules in specs/0007-ratios-covenants/plan.md. Exact: -200 / 800 = -0.25, at most 0, headroom
+  0.25; -400 / 800 = -0.5, at most -0.25, headroom -0.25 + 0.5 = 0.25. Relative headroom: threshold zero,
+  and a negative threshold is an open question of plan.md.'
+input:
+  covenants:
+  - name: net financial position to EBITDA, net cash required
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '-200'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '800'
+    operator: at_most
+    threshold: '0'
+  - name: net financial position to EBITDA, minimum net cash
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '-400'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '800'
+    operator: at_most
+    threshold: '-0.25'
+expect:
+  /covenants/0/outcome: passed
+  /covenants/0/value: '-0.25'
+  /covenants/0/headroom: '0.25'
+  /covenants/0/headroom_relative/value: 'null'
+  /covenants/1/outcome: passed
+  /covenants/1/value: '-0.5'
+  /covenants/1/headroom: '0.25'
+  /covenants/1/headroom_relative/value: 'null'
+  /summary/passed: '2'
+  /summary/breached: '0'
+  /summary/not_tested: '0'
+  /covenants/0/headroom_relative/not_defined: threshold is zero
+  /covenants/1/headroom_relative/not_defined: threshold is negative (-0.25); the relative headroom on
+    a negative threshold is not specified
+tolerance: '0'

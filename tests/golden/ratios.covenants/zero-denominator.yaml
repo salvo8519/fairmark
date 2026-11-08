@@ -1,0 +1,45 @@
+method: ratios.covenants
+description: 'Decision 1 (2026-11-08): a ratio that cannot be computed is not tested, never a breach;
+  the others are tested'
+source: 'scripts/reference_ratios.py, covenants (Python decimal, 50 digits, local context), written from
+  the covenant rules in specs/0007-ratios-covenants/plan.md. Net leverage over a zero EBITDA cannot be
+  computed: not tested, with the reason; interest cover 600 / 175 = 3.428571..., at least 3, headroom
+  0.428571...'
+input:
+  covenants:
+  - name: net leverage
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '1900'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '0'
+    operator: at_most
+    threshold: '3.5'
+  - name: interest cover
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '600'
+    denominator:
+      definition: net finance charges for the 12 months ending on the test date
+      amount: '175'
+    operator: at_least
+    threshold: '3'
+expect:
+  /covenants/0/outcome: not_tested
+  /covenants/0/value: 'null'
+  /covenants/0/headroom: 'null'
+  /covenants/0/headroom_relative/value: 'null'
+  /covenants/1/outcome: passed
+  /covenants/1/value: '3.4285714285714285714285714285714285714285714285714'
+  /covenants/1/headroom: '0.4285714285714285714285714285714285714285714285714'
+  /covenants/1/headroom_relative/value: '0.14285714285714285714285714285714285714285714285713'
+  /summary/passed: '1'
+  /summary/breached: '0'
+  /summary/not_tested: '1'
+  /covenants/0/not_tested_reason: 'denominator is zero: consolidated EBITDA for the 12 months ending on
+    the test date'
+  /covenants/0/headroom_relative/not_defined: covenant not tested
+tolerance: '0.00000000000000000001'

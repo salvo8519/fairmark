@@ -1,0 +1,17 @@
+method: ratios.covenants
+description: A negative denominator is refused until the maintainer decides its treatment
+source: Constructed. Open question 1 of the covenant section of specs/0007-ratios-covenants/plan.md; the
+  method refuses the input instead of choosing a methodology (FM-E001).
+input:
+  covenants:
+  - name: net leverage
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '1900'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '-600'
+    operator: at_most
+    threshold: '3.5'
+expect_error: FM-E001

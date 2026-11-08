@@ -237,6 +237,49 @@ def debt_service(
     return out
 
 
+class NegativeDenominator(ValueError):
+    """A covenant over a negative denominator: refused, the treatment is not decided."""
+
+
+@at_50_digits
+def covenants(items: list[dict[str, Any]]) -> dict[str, Any]:
+    """Covenant tests on contractual definitions (SPEC-0007 R5, decision 1 of 2026-11-08).
+
+    Each item: numerator, denominator (amounts), operator (at_most, less_than, at_least,
+    greater_than), threshold. Tested value = numerator / denominator, not rounded. Zero
+    denominator: not tested. Negative denominator: refused. Headroom is positive on the
+    compliant side; relative headroom = headroom / threshold, None for a threshold <= 0.
+    """
+    out: dict[str, Any] = {}
+    counts = {"passed": 0, "breached": 0, "not_tested": 0}
+    for i, c in enumerate(items):
+        num, den, op, limit = c["numerator"], c["denominator"], c["operator"], c["threshold"]
+        if den < 0:
+            raise NegativeDenominator(i)
+        if den == 0:
+            outcome, value, headroom, relative = "not_tested", None, None, None
+        else:
+            value = num / den
+            is_max = op in ("at_most", "less_than")
+            headroom = limit - value if is_max else value - limit
+            passed = {
+                "at_most": value <= limit,
+                "less_than": value < limit,
+                "at_least": value >= limit,
+                "greater_than": value > limit,
+            }[op]
+            outcome = "passed" if passed else "breached"
+            relative = headroom / limit if limit > 0 else None
+        counts[outcome] += 1
+        out[f"covenants.{i}.outcome"] = outcome
+        out[f"covenants.{i}.value"] = value
+        out[f"covenants.{i}.headroom"] = headroom
+        out[f"covenants.{i}.headroom_relative.value"] = relative
+    for k, v in counts.items():
+        out[f"summary.{k}"] = v
+    return out
+
+
 @at_50_digits
 def level_llcr(cfads: D, rate: D, periods: int, debt: D) -> D:
     """LLCR of a level CFADS in closed form: C * (1 - (1 + r)^-n) / r / debt."""
@@ -310,6 +353,42 @@ ZERO_SERVICE_SCHEDULE = {
         {"cfads": D(150), "debt_service": D(100)},
     ],
 }
+
+
+def cov(name: str, num: int | str, den: int | str, op: str, limit: str) -> dict[str, Any]:
+    return {
+        "name": name,
+        "numerator": D(num),
+        "denominator": D(den),
+        "operator": op,
+        "threshold": D(limit),
+    }
+
+
+# AC5: one breach (interest cover) among three covenants on the same test date.
+COVENANTS_ONE_BREACH = [
+    cov("net leverage", 1900, 600, "at_most", "3.5"),
+    cov("interest cover", 600, 175, "at_least", "4"),
+    cov("debt service cover", 700, 530, "at_least", "1.2"),
+]
+COVENANTS_ZERO_DENOMINATOR = [
+    cov("net leverage", 1900, 0, "at_most", "3.5"),
+    cov("interest cover", 600, 175, "at_least", "3"),
+]
+COVENANTS_AT_THRESHOLD = [
+    cov("leverage, inclusive maximum", 1750, 500, "at_most", "3.5"),
+    cov("leverage, strict maximum", 1750, 500, "less_than", "3.5"),
+    cov("cover, inclusive minimum", 1200, 300, "at_least", "4"),
+    cov("cover, strict minimum", 1200, 300, "greater_than", "4"),
+]
+COVENANTS_NEGATIVE_NUMERATOR = [
+    cov("net leverage, net cash", -300, 700, "at_most", "3"),
+    cov("interest cover, negative EBITDA", -150, 90, "at_least", "2.5"),
+]
+COVENANTS_NON_POSITIVE_THRESHOLD = [
+    cov("net financial position to EBITDA, net cash required", -200, 800, "at_most", "0"),
+    cov("net financial position to EBITDA, minimum net cash", -400, 800, "at_most", "-0.25"),
+]
 
 
 def cases() -> dict[str, dict[str, Opt]]:
@@ -444,11 +523,18 @@ def cases() -> dict[str, dict[str, Opt]]:
             {**LEVEL_SCHEDULE, "reserve_balance": D(100)},
             average=False,
         ),
+        "ratios.covenants/one-breach": covenants(COVENANTS_ONE_BREACH),
+        "ratios.covenants/zero-denominator": covenants(COVENANTS_ZERO_DENOMINATOR),
+        "ratios.covenants/at-the-threshold": covenants(COVENANTS_AT_THRESHOLD),
+        "ratios.covenants/negative-numerator": covenants(COVENANTS_NEGATIVE_NUMERATOR),
+        "ratios.covenants/non-positive-threshold": covenants(COVENANTS_NON_POSITIVE_THRESHOLD),
     }
 
 
-def text(v: Opt) -> str:
-    return "null" if v is None else format(v, "f")
+def text(v: Any) -> str:
+    if v is None:
+        return "null"
+    return v if isinstance(v, str | int) and not isinstance(v, D) else format(v, "f")
 
 
 if __name__ == "__main__":

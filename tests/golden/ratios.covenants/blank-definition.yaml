@@ -1,0 +1,17 @@
+method: ratios.covenants
+description: A denominator definition made only of blanks is refused
+source: Constructed. Decision 1 (2026-11-08) tests the definitions of the loan agreement; a blank text
+  states no definition (FM-E001).
+input:
+  covenants:
+  - name: net leverage
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '1900'
+    denominator:
+      definition: ' '
+      amount: '600'
+    operator: at_most
+    threshold: '3.5'
+expect_error: FM-E001

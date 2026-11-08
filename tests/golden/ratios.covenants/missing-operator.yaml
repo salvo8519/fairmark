@@ -1,0 +1,16 @@
+method: ratios.covenants
+description: A covenant without its comparison operator is refused, there is no default
+source: Constructed. The operator (at_most, less_than, at_least, greater_than) is a required choice
+  (FM-E001).
+input:
+  covenants:
+  - name: net leverage
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '1900'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '600'
+    threshold: '3.5'
+expect_error: FM-E001

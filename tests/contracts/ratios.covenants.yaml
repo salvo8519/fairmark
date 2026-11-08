@@ -1,0 +1,91 @@
+# Contract cases for ratios.covenants: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: ratios.covenants
+extreme_inputs:
+- covenants:
+  - name: extreme
+    test_date: '1900-01-01'
+    numerator: {definition: extreme, amount: MAX}
+    denominator: {definition: extreme, amount: '0.0000000000000000000000000001'}
+    operator: at_most
+    threshold: MIN
+- covenants:
+  - name: extreme
+    test_date: '2199-12-31'
+    numerator: {definition: extreme, amount: MIN}
+    denominator: {definition: extreme, amount: MAX}
+    operator: greater_than
+    threshold: MAX
+  - name: extreme
+    test_date: '2199-12-31'
+    numerator: {definition: extreme, amount: MAX}
+    denominator: {definition: extreme, amount: '1'}
+    operator: at_least
+    threshold: MIN
+- covenants:
+  - name: extreme
+    test_date: '2026-12-31'
+    numerator: {definition: extreme, amount: '1'}
+    denominator: {definition: extreme, amount: MAX}
+    operator: less_than
+    threshold: '0.0000000000000000000000000001'
+  - name: extreme
+    test_date: '2026-12-31'
+    numerator: {definition: extreme, amount: MIN}
+    denominator: {definition: extreme, amount: '0'}
+    operator: at_least
+    threshold: MAX
+- covenants:
+  - name: extreme
+    test_date: '2026-12-31'
+    numerator: {definition: extreme, amount: MAX}
+    denominator: {definition: extreme, amount: MIN}
+    operator: at_most
+    threshold: '0'
+conventions:
+- input:
+    covenants:
+    - name: net leverage
+      test_date: '2026-12-31'
+      numerator: {definition: consolidated net financial debt at the test date, amount: '1900'}
+      denominator: {definition: consolidated EBITDA for the 12 months ending on the test date, amount: '600'}
+      operator: at_most
+      threshold: '3.5'
+    - name: interest cover
+      test_date: '2026-12-31'
+      numerator: {definition: consolidated EBITDA for the 12 months ending on the test date, amount: '600'}
+      denominator: {definition: net finance charges for the 12 months ending on the test date, amount: '175'}
+      operator: greater_than
+      threshold: '4'
+  expect:
+  - tested value = numerator / denominator, each as defined by the loan agreement and given as an amount; no standard ratio is substituted
+  - the amounts of each covenant refer to the period ending on its test date
+  - tested value compared with the threshold exactly, without rounding
+  - 'headroom positive on the compliant side and negative on the breach side: threshold − tested value for a maximum, tested value − threshold for a minimum'
+  - relative headroom = headroom / threshold, a decimal fraction; not defined when the threshold is zero or negative
+  - a covenant whose tested value cannot be computed (zero denominator) is not tested, never breached
+  - 'net leverage (2026-12-31): passes when the tested value ≤ 3.5 (maximum, inclusive)'
+  - 'interest cover (2026-12-31): passes when the tested value > 4 (minimum, strict)'
+- input:
+    covenants:
+    - name: net leverage
+      test_date: '2026-12-31'
+      numerator: {definition: consolidated net financial debt at the test date, amount: '1900'}
+      denominator: {definition: consolidated EBITDA for the 12 months ending on the test date, amount: '0'}
+      operator: less_than
+      threshold: '0'
+  expect:
+  - 'net leverage (2026-12-31): passes when the tested value < 0 (maximum, strict)'
+  - 'net leverage (2026-12-31) not tested: denominator is zero: consolidated EBITDA for the 12 months ending on the test date'
+- input:
+    covenants:
+    - name: equity ratio
+      test_date: '2026-06-30'
+      numerator: {definition: tangible net worth at the test date, amount: '-50'}
+      denominator: {definition: total assets at the test date, amount: '1000'}
+      operator: at_least
+      threshold: '0'
+  expect:
+  - 'equity ratio (2026-06-30): passes when the tested value ≥ 0 (minimum, inclusive)'
+  - 'equity ratio (2026-06-30) relative headroom not defined: threshold is zero'

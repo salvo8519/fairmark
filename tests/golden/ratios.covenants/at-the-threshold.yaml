@@ -1,0 +1,69 @@
+method: ratios.covenants
+description: A tested value equal to the threshold passes an inclusive operator and breaches a strict
+  one, with zero headroom
+source: 'scripts/reference_ratios.py, covenants (Python decimal, 50 digits, local context), written from
+  the covenant rules in specs/0007-ratios-covenants/plan.md. Exact: 1750 / 500 = 3.5 and 1200 / 300 =
+  4; headroom 0 in every covenant.'
+input:
+  covenants:
+  - name: leverage, inclusive maximum
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '1750'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '500'
+    operator: at_most
+    threshold: '3.5'
+  - name: leverage, strict maximum
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '1750'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '500'
+    operator: less_than
+    threshold: '3.5'
+  - name: cover, inclusive minimum
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '1200'
+    denominator:
+      definition: net finance charges for the 12 months ending on the test date
+      amount: '300'
+    operator: at_least
+    threshold: '4'
+  - name: cover, strict minimum
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '1200'
+    denominator:
+      definition: net finance charges for the 12 months ending on the test date
+      amount: '300'
+    operator: greater_than
+    threshold: '4'
+expect:
+  /covenants/0/outcome: passed
+  /covenants/0/value: '3.5'
+  /covenants/0/headroom: '0.0'
+  /covenants/0/headroom_relative/value: '0'
+  /covenants/1/outcome: breached
+  /covenants/1/value: '3.5'
+  /covenants/1/headroom: '0.0'
+  /covenants/1/headroom_relative/value: '0'
+  /covenants/2/outcome: passed
+  /covenants/2/value: '4'
+  /covenants/2/headroom: '0'
+  /covenants/2/headroom_relative/value: '0'
+  /covenants/3/outcome: breached
+  /covenants/3/value: '4'
+  /covenants/3/headroom: '0'
+  /covenants/3/headroom_relative/value: '0'
+  /summary/passed: '2'
+  /summary/breached: '2'
+  /summary/not_tested: '0'
+tolerance: '0'
