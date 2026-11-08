@@ -1,0 +1,50 @@
+method: statements.reorganise
+description: 'AC4, R7: the inputs of reconcile-profit-before-tax-total with profit before tax removed
+  pass, the relation is reported as not checked, and the layers are computed from the items'
+source: scripts/reference_statements.py (Python decimal, 50 digits, local context); its income statement
+  section was written from Appendices A.2, B.2 and C of specs/0005-statements-reclassification/spec.md,
+  R16 to R21 and Decision 17 before the engine's income statement code existed.
+input:
+  years:
+  - label: '2024'
+    date: '2024-12-31'
+    statutory:
+      layout: ordinary
+      income_statement:
+        value_of_production: '5100000'
+        revenue: '5000000'
+        change_in_product_inventories: '40000'
+        own_work_capitalised: '10000'
+        other_revenue_and_income: '50000'
+        costs_of_production: '4834000'
+        purchases: '2200000'
+        services: '1244000'
+        use_of_third_party_assets: '150000'
+        personnel_costs: '1000000'
+        depreciation_and_write_downs:
+          total: '215000'
+          value_adjustments_of_fixed_assets: '200000'
+          depreciation_and_amortisation: '180000'
+          write_downs_of_fixed_assets: '20000'
+          write_downs_of_receivables: '15000'
+        change_in_raw_material_inventories: '-30000'
+        provisions_for_risks: '10000'
+        other_provisions: '5000'
+        other_operating_expenses: '40000'
+        difference_between_value_and_costs_of_production: '266000'
+        financial_income_and_charges: '-46000'
+        income_from_equity_investments: '12000'
+        other_financial_income: '3000'
+        interest_and_other_financial_charges: '60000'
+        exchange_gains_and_losses: '-1000'
+        value_adjustments_of_financial_assets: '-6000'
+        revaluations_of_financial_assets: '2000'
+        write_downs_of_financial_assets: '8000'
+        income_taxes: '64000'
+        profit_or_loss_for_the_year: '150000'
+expect:
+  /years/0/checks/profit_before_tax_total/status: not_checked
+  /years/0/form: statutory
+  /years/0/income_statement/operating_profit: '301000'
+  /years/0/income_statement/net_income: '150000'
+tolerance: '0'
