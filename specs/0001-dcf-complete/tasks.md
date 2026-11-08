@@ -239,10 +239,15 @@ version 3 unchanged.
 - [x] E7 [P] Python helper `fm.dcf.fcfe`
 - [x] E8 [P] Methodology page `docs/en/methods/dcf-fcfe.md`, nav, index, errors reference,
   release note `changes/165.feature.md`, method evidence, Italian method title
-- [x] E9 Italian edition; roadmap #165 done; `uv run just check`
+- [x] E9 Italian edition; `uv run just check`. Roadmap #165 stays open until the maintainer
+  records the decision on `tv.value_driver` (plan.md, open questions)
 
 ### Verification
 - [ ] E10 Damodaran FCFE illustration re-derived as a golden case (pending the source text,
   plan.md open questions)
+- [x] E12 Findings of the code review and the numerical audit applied: shared input
+  declaration (`dcf_input!`), terminal value weight and output fields, Python payload builder,
+  equity-basis AC11 test, pointers and documentation nits; `dcf.fcff` v3 changed in
+  descriptions only, its output byte-identical [R19, R21, R27, R29; AC11]
 - [ ] E11 `numerical-auditor` review, `code-reviewer` review, open questions of plan.md
   (issue #165) answered, the FCFE part of AC13 ticked in spec.md (maintainer)
