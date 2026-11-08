@@ -1,0 +1,4 @@
+# When a dependency is added or updated, prefer versions whose rust-version is compatible with
+# the workspace MSRV (`rust-version` in Cargo.toml, checked by the CI job "Rust · MSRV").
+[resolver]
+incompatible-rust-versions = "fallback"

@@ -9,6 +9,8 @@ dist/
 .ruff_cache/
 site/
 .generated/
+# proptest regression files (persistence is disabled in our tests; ignored as a safeguard)
+proptest-regressions/
 
 # Shared docs assets are copied into each language at build time (scripts/docs.py)
 /docs/en/assets/
