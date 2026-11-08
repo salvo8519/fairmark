@@ -9,5 +9,8 @@ tfr = "tfr"
 pfn = "pfn"
 # Italian words quoted from official sources in specs
 semestre = "semestre"
+fase = "fase"
+correnti = "correnti"
+momento = "momento"
 # DuPont decomposition of ROE (ratios.profitability)
 pont = "pont"
