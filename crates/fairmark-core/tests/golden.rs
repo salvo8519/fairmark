@@ -77,7 +77,7 @@ fn golden_cases() {
         {
             failures.push(format!("{}: no conventions reported", file.display()));
         }
-        let tol = Decimal::from_str(case.tolerance.as_deref().expect("tolerance")).unwrap();
+        let tolerance = case.tolerance.as_deref().expect("tolerance");
         for (field, expected) in &case.expect {
             // A key starting with '/' is an RFC 6901 pointer into `value` (tables, nested
             // results); any other key is a top-level field.
@@ -126,9 +126,9 @@ fn golden_cases() {
                 ));
                 continue;
             };
-            if (got - want).abs() > tol {
+            if !within(&got.to_string(), expected, tolerance) {
                 failures.push(format!(
-                    "{} [{}] {field}: got {got}, want {want}",
+                    "{} [{}] {field}: got {got}, want {expected}",
                     file.display(),
                     case.description
                 ));
@@ -211,4 +211,122 @@ fn analysis_results_are_deterministic_and_name_their_inner_method() {
         checked += 1;
     }
     assert!(checked >= 8, "only {checked} analysis golden cases checked");
+}
+
+/// Exact decimal comparison `|got - want| <= tol` on the decimal strings themselves.
+///
+/// `Decimal::from_str` rounds a string with more than 28 significant digits, so the expected
+/// value is never parsed into a `Decimal`: it is compared digit by digit, as Python's `decimal`
+/// does in the Python runner (SPEC: issue 148). Inputs are plain decimals (`-12.345`), no
+/// exponent.
+fn within(got: &str, want: &str, tol: &str) -> bool {
+    // (negative, digits of the integer value, scale): value = (-1)^neg * digits / 10^scale.
+    fn parse(s: &str) -> (bool, Vec<u8>, usize) {
+        let s = s.trim();
+        let (neg, s) = match s.strip_prefix('-') {
+            Some(rest) => (true, rest),
+            None => (false, s.strip_prefix('+').unwrap_or(s)),
+        };
+        assert!(
+            !s.contains(['e', 'E']),
+            "golden values are written without exponent: {s}"
+        );
+        let (int, frac) = s.split_once('.').unwrap_or((s, ""));
+        let digits: Vec<u8> = int.bytes().chain(frac.bytes()).map(|b| b - b'0').collect();
+        assert!(digits.iter().all(|d| *d < 10), "not a decimal: {s}");
+        (neg, digits, frac.len())
+    }
+    fn scaled(mut d: Vec<u8>, from: usize, to: usize) -> Vec<u8> {
+        d.extend(std::iter::repeat_n(0, to - from));
+        let first = d.iter().position(|x| *x != 0).unwrap_or(d.len());
+        d.split_off(first)
+    }
+    fn cmp(a: &[u8], b: &[u8]) -> std::cmp::Ordering {
+        a.len().cmp(&b.len()).then_with(|| a.cmp(b))
+    }
+    fn add(a: &[u8], b: &[u8]) -> Vec<u8> {
+        let (mut out, mut carry) = (Vec::new(), 0u8);
+        let (mut i, mut j) = (a.len(), b.len());
+        while i > 0 || j > 0 || carry > 0 {
+            let x = if i > 0 {
+                i -= 1;
+                a[i]
+            } else {
+                0
+            };
+            let y = if j > 0 {
+                j -= 1;
+                b[j]
+            } else {
+                0
+            };
+            let t = x + y + carry;
+            out.push(t % 10);
+            carry = t / 10;
+        }
+        out.reverse();
+        scaled(out, 0, 0)
+    }
+    // a - b with a >= b.
+    fn sub(a: &[u8], b: &[u8]) -> Vec<u8> {
+        let (mut out, mut borrow) = (Vec::new(), 0i8);
+        let mut j = b.len();
+        for i in (0..a.len()).rev() {
+            let y = if j > 0 {
+                j -= 1;
+                b[j] as i8
+            } else {
+                0
+            };
+            let mut t = a[i] as i8 - y - borrow;
+            borrow = i8::from(t < 0);
+            if t < 0 {
+                t += 10;
+            }
+            out.push(t as u8);
+        }
+        out.reverse();
+        scaled(out, 0, 0)
+    }
+    let (gn, g, gs) = parse(got);
+    let (wn, w, ws) = parse(want);
+    let (tn, t, ts) = parse(tol);
+    assert!(!tn, "tolerance must not be negative: {tol}");
+    let scale = gs.max(ws).max(ts);
+    let (g, w, t) = (
+        scaled(g, gs, scale),
+        scaled(w, ws, scale),
+        scaled(t, ts, scale),
+    );
+    let diff = if gn == wn {
+        if cmp(&g, &w).is_ge() {
+            sub(&g, &w)
+        } else {
+            sub(&w, &g)
+        }
+    } else {
+        add(&g, &w)
+    };
+    cmp(&diff, &t).is_le()
+}
+
+#[test]
+fn exact_comparison_does_not_round_the_expected_value() {
+    // 32 significant digits: Decimal::from_str would round the expected value to 28.
+    let want = "9999999999.9999999999999985398788";
+    assert!(within(
+        "9999999999.999999999999998540",
+        want,
+        "0.000000000000000001"
+    ));
+    assert!(!within(
+        "9999999999.999999999999998540",
+        want,
+        "0.0000000000000000001"
+    ));
+    assert!(within("-1.5", "-1.25", "0.25"));
+    assert!(!within("-1.5", "1.25", "2.7"));
+    assert!(within("1.5", "-1.25", "2.75"));
+    assert!(within("0", "0.000", "0"));
+    assert!(within("100", "100.0", "0"));
 }
