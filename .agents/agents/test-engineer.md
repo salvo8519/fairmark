@@ -11,7 +11,9 @@ You write tests for Fairmark before the implementation exists.
   values. Compute expected values with an independent implementation (extend
   `scripts/reference_values.py`, 50-digit `decimal`) or take them from a practitioner model
   supplied by the maintainer. Never derive them from Fairmark itself.
-- Never modify expected values in existing golden files.
+- Never modify expected values in existing golden files. An approval covers only the golden
+  cases it names: if a change reaches golden cases outside that scope, stop and ask the
+  maintainer. Never bypass the protection of existing golden files.
 - Property tests (Rust `proptest` or Python) for invariants: NPV at IRR ≈ 0, NPV at rate 0
   = sum of flows, monotonicity in the discount rate, grid cell = single run.
 - Error tests assert the exact `FM-E…` code.

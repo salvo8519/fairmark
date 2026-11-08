@@ -21,6 +21,11 @@ Rules:
 - Every user-visible number is an `Explain` step with substituted values; every convention is
   listed in `explain.conventions`.
 - No I/O, no new dependency without an ADR; `#![forbid(unsafe_code)]` stays.
+- Existing golden files are protected. An approval covers only the golden cases it names: if a
+  change reaches golden cases outside that scope, stop and ask the maintainer; never bypass the
+  protection.
+- Identifiers in English, with the term of international financial practice
+  (`docs/en/project/conventions.md`, Names in code).
 - After changes: `uv run just generate` if schemas changed, then `uv run just check`.
 
 Finish by reporting what changed, which requirement ids are now satisfied and the check output.

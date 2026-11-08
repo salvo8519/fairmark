@@ -62,6 +62,7 @@ milestones:
           - { issue: 143, title: "Release notes and changelog on the site: undated draft, numerical changes name the method versions", tags: [parallel], status: done }
           - { issue: 157, title: "Commit scope for the loans theme", status: done }
           - { issue: 159, title: "Roadmap page generated at build time instead of committed", status: done }
+          - { issue: 173, title: "Agents stop when an approved change reaches golden cases outside its scope", status: done }
       - title: "CI/CD"
         issue: 10
         labels: ["area:infra"]
@@ -103,6 +104,8 @@ milestones:
           - { issue: 135, title: "Draft spec for loans: payment, number of periods, future value and amortisation schedules", spec: "0009", status: done }
           - { issue: 136, title: "Loan instalment, number of instalments and future value", spec: "0009", status: done }
           - { issue: 137, title: "Amortisation schedules: French, fixed amortisation schedule, bullet, principal grace period", spec: "0009", status: done }
+          - { issue: 175, title: "Full precision of present values at long horizons in tvm", status: open }
+          - { issue: 176, title: "Code review of the time value foundations for promotion to available", spec: "0002", status: open }
       - title: "Explain and audit trail"
         issue: 25
         labels: ["area:core"]
@@ -116,6 +119,7 @@ milestones:
           - { issue: 29, title: "Typed errors with stable codes and catalogue", tags: [gfi], status: done }
           - { issue: 30, title: "Schema versioning and changelog of schema changes", status: done }
           - { issue: 103, title: "Method trait per theme, single registry list, versioned input schemas", status: done }
+          - { issue: 174, title: "Every error names the input field by its JSON pointer", status: open }
       - title: "Test harness"
         issue: 31
         labels: ["area:core"]

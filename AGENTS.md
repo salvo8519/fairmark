@@ -58,6 +58,14 @@ changing anything: its principles override convenience.
 - **Never modify expected values of an existing golden case.** If a result must change it is
   a `numerical-change`: stop and ask the maintainer. New golden cases need an independent
   source noted in the file.
+- **An approval covers only the golden cases it names.** When an approved change would also
+  modify golden cases outside the scope named in its approval (inputs, expected values or
+  expected names), stop and ask the maintainer to extend the approval first. Never bypass the
+  protection of existing golden files, by any means.
+- **Code identifiers are always English**, using the term of international financial practice
+  (method ids, fields, enum values, types, messages). Italian names of Italian methods appear
+  only in the Italian documentation and in `i18n/glossary.yaml`; an internationally recognised
+  acronym (for example `mixed.uec`) may be kept.
 - Never commit real client data. Anonymise or reconstruct.
 - Names follow `docs/en/project/conventions.md`, enforced by `scripts/conventions.py`:
   branch `<type>/<issue>-<slug>`; commit and pull request title `<type>(<scope>): <subject>`
