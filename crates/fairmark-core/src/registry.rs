@@ -322,6 +322,16 @@ pub(crate) fn nested_error(
     )
 }
 
+/// The text of a custom error raised by a type that reads a buffered value itself, located at
+/// `relative` within that value (for example the `kind` of an adjustment of
+/// `statements.reorganise`): read by [`input_error`] like [`nested_error`].
+pub(crate) fn nested_error_text(relative: &[String], message: &str) -> String {
+    format!(
+        "{NESTED}{}{NESTED}{message}",
+        pointer(relative).unwrap_or_default()
+    )
+}
+
 fn input_error(e: serde_path_to_error::Error<serde_json::Error>) -> FairmarkError {
     let mut tokens = path_tokens(e.path());
     let inner = e.into_inner();

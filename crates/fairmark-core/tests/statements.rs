@@ -88,14 +88,20 @@ fn current_non_current_feeds_liquidity_and_capital_structure() {
         "current_assets": cnc["current_assets"], "inventories": cnc["inventories"],
         "cash": cnc["cash"], "current_liabilities": cnc["current_liabilities"]}});
     let l = fairmark_core::run("ratios.liquidity", &liquidity.to_string()).unwrap();
-    assert_eq!(dec(&l["value"]["net_working_capital"]), Decimal::from(530000));
+    assert_eq!(
+        dec(&l["value"]["net_working_capital"]),
+        Decimal::from(530000)
+    );
     let capital = json!({"balances": "closing", "closing": {
         "equity": y["balance_sheet"]["sources"]["equity"],
         "total_assets": cnc["total_assets"], "fixed_assets": cnc["fixed_assets"],
         "non_current_liabilities": cnc["non_current_liabilities"],
         "net_financial_position": y["balance_sheet"]["sources"]["net_financial_position"]["position"]}});
     let c = fairmark_core::run("ratios.capital_structure", &capital.to_string()).unwrap();
-    assert_eq!(dec(&c["value"]["net_financial_position"]), Decimal::from(710000));
+    assert_eq!(
+        dec(&c["value"]["net_financial_position"]),
+        Decimal::from(710000)
+    );
     assert_eq!(
         dec(&c["value"]["primary_structure_margin"]),
         Decimal::from(900000 - 1220000)
@@ -251,7 +257,8 @@ proptest! {
 /// Every refusal names the field by its JSON pointer and states the fix.
 #[test]
 fn every_error_names_a_pointer_and_the_fix() {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden/statements.reorganise");
+    let dir =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden/statements.reorganise");
     let mut seen = 0;
     for entry in std::fs::read_dir(dir).unwrap() {
         let path = entry.unwrap().path();
@@ -261,7 +268,11 @@ fn every_error_names_a_pointer_and_the_fix() {
         }
         let e = err(&case["input"]);
         let msg = e.to_string();
-        assert!(msg.contains("`/"), "{}: no JSON pointer in {msg}", path.display());
+        assert!(
+            msg.contains("`/"),
+            "{}: no JSON pointer in {msg}",
+            path.display()
+        );
         assert!(
             msg.contains("; ") || msg.contains(": "),
             "{}: no fix in {msg}",
@@ -296,7 +307,8 @@ fn an_override_of_another_aggregate_is_refused_at_its_pointer() {
     let e = err(&input);
     assert_eq!(e.code(), "FM-E001");
     assert!(
-        e.to_string().contains("/years/0/treatment_overrides/provisions"),
+        e.to_string()
+            .contains("/years/0/treatment_overrides/provisions"),
         "{e}"
     );
 }
@@ -395,7 +407,10 @@ fn every_default_destination_is_listed_and_no_fixed_one() {
         "financial_fixed_assets",
         "subscribed_capital_unpaid",
     ] {
-        assert!(!fields.contains(&format!("{base}/{fixed}").as_str()), "{fixed}");
+        assert!(
+            !fields.contains(&format!("{base}/{fixed}").as_str()),
+            "{fixed}"
+        );
     }
     assert!(fields.contains(&"/treatments/write_downs_of_receivables"));
     for d in defaults {
@@ -470,10 +485,12 @@ fn not_computed_lists_exactly_the_outputs_that_need_the_missing_treatment() {
             format!("{b}/total_funds_invested"),
         ]
     );
-    assert!(out["value"]["years"][0]["not_computed"]["current_non_current"]
-        .as_array()
-        .unwrap()
-        .is_empty());
+    assert!(
+        out["value"]["years"][0]["not_computed"]["current_non_current"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
 }
 
 /// Every null output is listed, and no listed output has a value (R6).
@@ -500,7 +517,11 @@ fn every_null_output_is_listed_and_none_is_zero_for_lack_of_input() {
         }
     }
     let mut found = Vec::new();
-    nulls(&y["balance_sheet"], "/years/0/balance_sheet".into(), &mut found);
+    nulls(
+        &y["balance_sheet"],
+        "/years/0/balance_sheet".into(),
+        &mut found,
+    );
     nulls(
         &y["current_non_current"],
         "/years/0/current_non_current".into(),
@@ -521,7 +542,11 @@ fn an_entry_with_no_form_computes_nothing_and_says_so() {
     let y = &out["value"]["years"][0];
     assert!(y["form"].is_null());
     assert!(y["balance_sheet"]["operating"]["invested_capital"].is_null());
-    assert!(conventions(&out).contains("no form given"), "{}", conventions(&out));
+    assert!(
+        conventions(&out).contains("no form given"),
+        "{}",
+        conventions(&out)
+    );
 }
 
 // ---------------------------------------------------------------- conventions (AC13)
@@ -529,10 +554,7 @@ fn an_entry_with_no_form_computes_nothing_and_says_so() {
 #[test]
 fn conventions_state_the_order_assumed_and_the_treatment_not_needed() {
     let mut input = golden_input("balance-sheet-ordinary");
-    input["years"][0]
-        .as_object_mut()
-        .unwrap()
-        .remove("date");
+    input["years"][0].as_object_mut().unwrap().remove("date");
     input["years"][0]["statutory"]["balance_sheet"]["financial_fixed_assets"] = json!("0");
     input["years"][0]["statutory"]["balance_sheet"]["fixed_assets"] = json!("1020000");
     input["years"][0]["statutory"]["balance_sheet"]["total_assets"] = json!("2700000");

@@ -195,24 +195,29 @@ pub enum FairmarkError {
 
     /// Two sides of a relation of the financial statements differ (SPEC-0005 R7, R10, R12): a
     /// total and its components, a split and its aggregate, an adjustment and what remains in
-    /// its source. Each side is named with its JSON pointers; the comparison is exact.
+    /// its source. Each side is named with its JSON pointers; the comparison is exact. Boxed,
+    /// so that every `Result` of the engine stays small.
     #[error(
-        "statements do not reconcile: {left_name} is {left}, while {right_name} is {right} \
-         (difference {difference}); {fix}"
+        "statements do not reconcile: {} is {}, while {} is {} (difference {}); {}",
+        .0.left_name, .0.left, .0.right_name, .0.right, .0.difference, .0.fix
     )]
-    StatementsDoNotReconcile {
-        /// The first side, with its JSON pointer and the year, for example "`/years/0/statutory/
-        /// balance_sheet/fixed_assets` (total B, year 2024)".
-        left_name: String,
-        left: Decimal,
-        /// The second side, with the pointers of its components.
-        right_name: String,
-        right: Decimal,
-        /// `left − right`.
-        difference: Decimal,
-        /// How to correct the input.
-        fix: String,
-    },
+    StatementsDoNotReconcile(Box<Reconciliation>),
+}
+
+/// The two sides of a relation of the financial statements that differ (`FM-E026`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Reconciliation {
+    /// The first side, with its JSON pointers and the year, for example "total B, fixed
+    /// assets (`/years/0/statutory/balance_sheet/fixed_assets`, 2024)".
+    pub left_name: String,
+    pub left: Decimal,
+    /// The second side, with the pointers of its components.
+    pub right_name: String,
+    pub right: Decimal,
+    /// `left − right`.
+    pub difference: Decimal,
+    /// How to correct the input.
+    pub fix: String,
 }
 
 /// " (converted with `/inflation`)" when the rate was converted with expected inflation.
@@ -301,7 +306,7 @@ impl FairmarkError {
             Self::InvalidDateAt { .. } => "FM-E009",
             Self::TermsMismatch(_) => "FM-E024",
             Self::CountMismatch(_) => "FM-E025",
-            Self::StatementsDoNotReconcile { .. } => "FM-E026",
+            Self::StatementsDoNotReconcile(_) => "FM-E026",
         }
     }
 
@@ -329,14 +334,14 @@ mod tests {
     /// SPEC-0005 R24: `FM-E026` names both sides, both amounts, the difference and the fix.
     #[test]
     fn statements_do_not_reconcile_is_fm_e026_with_both_sides() {
-        let e = FairmarkError::StatementsDoNotReconcile {
+        let e = FairmarkError::StatementsDoNotReconcile(Box::new(Reconciliation {
             left_name: "`/years/0/statutory/balance_sheet/fixed_assets` (total B, 2024)".into(),
             left: Decimal::from(1_170_001),
             right_name: "B.I + B.II + B.III".into(),
             right: Decimal::from(1_170_000),
             difference: Decimal::ONE,
             fix: "correct the total or the items".into(),
-        };
+        }));
         assert_eq!(e.code(), "FM-E026");
         assert_eq!(
             e.to_string(),

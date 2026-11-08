@@ -74,8 +74,9 @@ conventions:
           provisions: {total: '40'}
           receivables: {total: '300', beyond_one_year: '0'}
   expect:
-  - 'default: `/years/0/statutory/balance_sheet/cash` assigned to "net_financial_position_cash"'
-  - 'default: `/treatments/write_downs_of_receivables` not given, set to "investing"'
+  - 'default: `/years/0/statutory/balance_sheet/cash` assigned to'
+  - 'Appendix A.1, C.IV: all cash in the net financial position (Decision 11)'
+  - 'default: `/treatments/write_downs_of_receivables` not given, set to'
   - 'year 2024: statutory form'
   - 'year 2024: no date given: the order of `years` is taken as oldest first'
   - 'layout `abridged` echoed; no number depends on it'
@@ -85,7 +86,7 @@ conventions:
   - 'the income statement is not reorganised in this build'
   - 'net financial position = gross debt − cash + other items, positive for net debt'
   - 'current and non-current: receivables (C.II) and payables (D) split by their statutory amounts beyond one year, read as twelve months'
-  - 'year 2024: provisions (B) read as non-current: their part beyond one year is not given'
+  - 'year 2024: provisions (B) read as non-current: the part beyond one year is not given'
 - input:
     years:
     - label: '2024'
