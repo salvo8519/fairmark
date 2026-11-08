@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-covenants.md
-source_hash: eb490b5ccc73
+source_hash: 445186b08742
 ---
 # Verifica dei covenant (`ratios.covenants`)
 
@@ -198,7 +198,8 @@ negativo dà una copertura negativa, che viola un minimo.
 ## Non coperto
 
 - I covenant su un singolo importo (patrimonio netto minimo, investimenti massimi) non hanno
-  denominatore e non sono verificati da questo metodo; sono previsti come attività separata.
+  denominatore e non sono verificati da questo metodo; si veda la
+  [roadmap](https://salvo8519.github.io/fairmark/project/roadmap/) (in inglese).
 - L'equity cure non è modellata nella versione 1.
 - Gli step-down (riduzione programmata della soglia) si esprimono con un covenant per ogni data
   di verifica, ciascuno con la propria soglia.

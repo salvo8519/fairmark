@@ -190,7 +190,7 @@ a maximum; a negative EBITDA gives a negative cover, which breaches a minimum.
 ## Not covered
 
 - Covenants on a single amount (minimum net worth, maximum capital expenditure) have no
-  denominator and are not tested by this method; they are planned as a separate task.
+  denominator and are not tested by this method; see the [roadmap](../project/roadmap.md).
 - Equity cures are not modelled in version 1.
 - Step-down schedules are expressed as one covenant per test date, each with its own threshold.
 - The relative headroom on a negative threshold is not defined.
