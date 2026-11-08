@@ -1157,6 +1157,13 @@ pub(crate) fn statutory(
             _ => {}
         }
     }
+    let mut gross_terms: Vec<(Sign, &str, &Partial)> = vec![(Plus, "Financial debt (D)", &fd)];
+    gross_terms.extend(
+        sls.iter()
+            .filter(|s| s.destination == Destination::NetFinancialPositionGrossDebt)
+            .map(|s| (Plus, s.label.as_str(), &s.amount)),
+    );
+    let gross = total(ex, &format!("Gross debt ({year})"), &gross_terms)?;
     let nfp_total = Partial::plus_all(comps.iter().map(|c| &c.amount))?;
     let parts = |part: fn(&Component) -> &Partial| -> Vec<(Sign, &str, &Partial)> {
         comps
@@ -1174,13 +1181,6 @@ pub(crate) fn statutory(
         &format!("Net financial position, non-current ({year})"),
         &parts(|c| &c.non_current),
     )?;
-    let mut gross_terms: Vec<(Sign, &str, &Partial)> = vec![(Plus, "Financial debt (D)", &fd)];
-    gross_terms.extend(
-        sls.iter()
-            .filter(|s| s.destination == Destination::NetFinancialPositionGrossDebt)
-            .map(|s| (Plus, s.label.as_str(), &s.amount)),
-    );
-    let gross = total(ex, &format!("Gross debt ({year})"), &gross_terms)?;
     let (position, composition) = match nfp_total.value() {
         Some(expected) => {
             let position = NetFinancialPosition {
@@ -1243,6 +1243,9 @@ pub(crate) fn statutory(
             if uses != sources {
                 return Err(identity_error(&bs, &base, year, uses, sources)?);
             }
+            // Both sides are outputs computed from every item of the year, not inputs, so the
+            // relation names no pointer; its status counts the items taken as zero listed in
+            // `meta.defaults_applied` (D1, M2), as the computation does.
             checks.map.insert(
                 "funds_invested_equals_sources",
                 checks::Check {

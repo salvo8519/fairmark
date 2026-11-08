@@ -26,7 +26,9 @@ pub enum CheckStatus {
 pub struct Check {
     /// `reconciled` or `not_checked`.
     pub status: CheckStatus,
-    /// JSON pointers of the inputs on both sides of the relation.
+    /// JSON pointers of the inputs on both sides of the relation: for a relation checked, the
+    /// items read. Empty for `funds_invested_equals_sources` of a statutory year, whose sides
+    /// are computed outputs; its status counts the items taken as zero (D1, M2).
     pub pointers: Vec<String>,
 }
 

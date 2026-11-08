@@ -487,6 +487,15 @@ fn the_net_financial_position_shows_every_part_substituted() {
         assert_eq!(s["formula"], formula, "{label}");
         assert_eq!(s["value"], value, "{label}");
     }
+    // Review round 2 (nit): gross debt is explained before the parts of the position.
+    let labels: Vec<&str> = out["explain"]["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["label"].as_str().unwrap())
+        .collect();
+    let at = |l: &str| labels.iter().position(|x| *x == l).unwrap();
+    assert!(at("Gross debt (2024)") < at("Net financial position, current (2024)"));
 }
 
 /// Review of PR 1 (item 3): in the reclassified form, the totals of the lists and the excess
