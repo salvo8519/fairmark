@@ -331,10 +331,11 @@ pub struct TerminalOutput {
     pub rate: Option<Decimal>,
     /// Terminal value at the horizon N, not discounted, in currency units.
     pub terminal_value: Decimal,
-    /// Time at which the terminal value is discounted, in periods: N, or N − 0.5.
-    pub discount_time: Decimal,
-    /// Discount factor applied to the terminal value.
-    pub discount_factor: Decimal,
+    /// Time at which the terminal value is discounted, in periods: N, or N − 0.5; `null` with
+    /// no terminal value (`none`).
+    pub discount_time: Option<Decimal>,
+    /// Discount factor applied to the terminal value; `null` with no terminal value (`none`).
+    pub discount_factor: Option<Decimal>,
     /// Present value of the terminal value, in currency units.
     pub present_value: Decimal,
     /// The technique's own output, with its implied assumptions; `null` for `given` and `none`.
@@ -441,19 +442,46 @@ impl TerminalChoice<'_> {
         }
     }
 
-    /// Whether a terminal rate is used: by every technique; by a given value only for the
-    /// half-period shift (Decision 16); never with no terminal value.
-    pub(crate) fn uses_terminal_rate(
+    /// Whether and why a terminal rate is used: by every technique; by a given value only for
+    /// the half-period shift (Decision 16); never with no terminal value (Decision 24).
+    pub(crate) fn terminal_rate_use(
         self,
         timing: Timing,
         time: Option<TerminalDiscountTime>,
-    ) -> bool {
+    ) -> TerminalRateUse {
         match self {
-            Self::Technique(_) => true,
-            Self::Given(_) => {
-                timing == Timing::MidPeriod && time == Some(TerminalDiscountTime::MidPeriod)
+            Self::Technique(_) => TerminalRateUse::Technique,
+            Self::Given(_)
+                if timing == Timing::MidPeriod && time == Some(TerminalDiscountTime::MidPeriod) =>
+            {
+                TerminalRateUse::HalfPeriodShift
             }
-            Self::None => false,
+            Self::Given(_) | Self::None => TerminalRateUse::NotUsed,
+        }
+    }
+}
+
+/// What uses the terminal rate (Decision 24), for the checks of the rates and the inflation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TerminalRateUse {
+    /// A `tv.*` technique computes the terminal value at the terminal rate.
+    Technique,
+    /// A given terminal value is discounted at N − 0.5 with the half-period shift (Decision 16).
+    HalfPeriodShift,
+    /// No terminal value, or a given terminal value discounted at N.
+    NotUsed,
+}
+
+impl TerminalRateUse {
+    pub(crate) fn is_used(self) -> bool {
+        self != Self::NotUsed
+    }
+
+    /// Added to a message that requires the terminal rate, so that it says why.
+    pub(crate) fn note(self) -> &'static str {
+        match self {
+            Self::HalfPeriodShift => " (the half-period shift of the given terminal value uses it)",
+            _ => "",
         }
     }
 }
@@ -667,6 +695,16 @@ pub(crate) fn choose(t: &Terminal) -> Result<TerminalChoice<'_>> {
         [one] => Ok(*one),
         many => {
             let ids: Vec<&str> = many.iter().map(|t| t.id()).collect();
+            let option = |t: &TerminalChoice<'_>| !matches!(t, TerminalChoice::Technique(_));
+            // The text for techniques only is kept as it was before Decision 24.
+            if many.iter().any(option) {
+                return Err(invalid(format!(
+                    "`/terminal` names {} terminal options ({}); give exactly one terminal \
+                     option: a `tv.*` technique, `given` (a terminal value at N) or `none`",
+                    ids.len(),
+                    ids.join(", ")
+                )));
+            }
             Err(invalid(format!(
                 "`/terminal` names {} techniques ({}); give exactly one terminal technique",
                 ids.len(),
@@ -933,8 +971,8 @@ fn no_terminal_value(ex: &mut Explain, c: &TerminalContext<'_>) -> TerminalOutpu
         technique_version: None,
         rate: None,
         terminal_value: Decimal::ZERO,
-        discount_time: Decimal::from(n as u64),
-        discount_factor: c.ends[n - 1],
+        discount_time: None,
+        discount_factor: None,
         present_value: Decimal::ZERO,
         output: None,
     }
@@ -962,6 +1000,10 @@ pub(crate) fn value(ex: &mut Explain, c: &TerminalContext<'_>) -> Result<Termina
                     "warning: the given terminal value {v} is negative (for example a \
                      decommissioning cost); it is discounted as given"
                 ));
+                ex.convention(
+                    "warning: the terminal value is negative, so the terminal value weight is \
+                     not meaningful as a share of the value",
+                );
             }
             ex.step("Terminal value at N", "as given", v);
             (v, None, "given", None)
@@ -1048,16 +1090,17 @@ fn discount(
                 "terminal discounting time: mid_period, t = N − 0.5, factor DF_N × (1 + r_T)^0.5; \
                  the half-period shift uses the terminal rate r_T = {r_t} (R21, Decision 16)"
             ));
+            // Decisions 6, 17 and 24: an amount stated at a date, moved half a period earlier.
             let price_at_date = match c.choice {
-                TerminalChoice::Technique(t) => t.price_at_date(),
+                TerminalChoice::Technique(t) => t.price_at_date().map(|w| format!("{id} {w}")),
                 TerminalChoice::Given(_) => {
-                    Some("is an amount at the horizon N given by the analyst")
+                    Some("given: the analyst's terminal value at the horizon N".to_owned())
                 }
                 TerminalChoice::None => None,
             };
             if let Some(what) = price_at_date {
                 ex.convention(format!(
-                    "warning: {id} {what}; discounting it at N − 0.5 brings it forward half a \
+                    "warning: {what}; discounting it at N − 0.5 brings it forward half a \
                      period; it is discounted at N − 0.5 as chosen"
                 ));
             }
@@ -1137,8 +1180,8 @@ fn discount(
         technique_version: version.map(str::to_owned),
         rate: c.rate,
         terminal_value: tv_n,
-        discount_time: time,
-        discount_factor: df,
+        discount_time: Some(time),
+        discount_factor: Some(df),
         present_value: pv,
         output,
     })

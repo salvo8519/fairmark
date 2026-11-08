@@ -133,7 +133,8 @@ const FORMULA: &str = "Value of operations = Σ FCFF_k × DF_k + TV_N × DF_TV; 
 /// `dcf.fcff` through a typed call (ADR 0009): the documented defaults are filled in and
 /// reported first in the conventions, as through the registry (SPEC-0001 R31).
 pub fn fcff(input: &DcfFcffInput) -> Result<(DcfFcffOutput, Explain)> {
-    engine::typed_call(input, DcfFcffInput::apply_defaults, fcff_with_defaults)
+    let mut input = input.clone();
+    Fcff::run_typed(&mut input).map(|(output, explain, _)| (output, explain))
 }
 
 /// The calculation on an input whose defaults were filled in; `defaults` names them, for the

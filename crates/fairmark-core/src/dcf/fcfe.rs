@@ -148,7 +148,8 @@ const FORMULA: &str = "Equity value = Σ FCFE_k × DF_k + TV_N × DF_TV + Σ non
 /// `dcf.fcfe` through a typed call (ADR 0009): the documented defaults are filled in and
 /// reported first in the conventions, as through the registry (SPEC-0001 R31).
 pub fn fcfe(input: &DcfFcfeInput) -> Result<(DcfFcfeOutput, Explain)> {
-    engine::typed_call(input, DcfFcfeInput::apply_defaults, fcfe_with_defaults)
+    let mut input = input.clone();
+    Fcfe::run_typed(&mut input).map(|(output, explain, _)| (output, explain))
 }
 
 /// The calculation on an input whose defaults were filled in; `defaults` names them, for the
