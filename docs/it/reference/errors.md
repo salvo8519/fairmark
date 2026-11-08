@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: 3765e4ae3f7b
+source_hash: 1de67c98d495
 ---
 # Codici di errore
 
@@ -12,7 +12,7 @@ adattatore (Python, CLI, MCP, function calling) riporta gli errori come
 | --- | --- | --- |
 | `FM-E001` | Input non valido: tipo errato, campo obbligatorio mancante, campo sconosciuto | Controlla l'input con `fairmark schema <method>` |
 | `FM-E002` | Serie di flussi di cassa vuota | Fornisci almeno un flusso di cassa |
-| `FM-E003` | Tasso fuori intervallo: il tasso per periodo, o per periodo di capitalizzazione, è pari o inferiore a −100%; il messaggio indica il tasso con il suo JSON Pointer, per esempio `/wacc_per_period/3` nel DCF o `/finance_rate` in `tvm.mirr`; nel DCF un tasso convertito con l'inflazione attesa che raggiunge −100% (possibile solo al limite dell'intervallo dei decimali) mantiene il pointer del tasso fornito e aggiunge l'inflazione con cui è stato convertito; `rates.convert`, `tvm.xnpv` e `loans.*` indicano il valore e la regola per cui uno più il tasso per periodo di capitalizzazione ($1 + r/m$) deve essere positivo, senza indicare il campo | I tassi sono frazioni decimali: 10% è `0.10`; un tasso nominale con capitalizzazione è verificato per periodo di capitalizzazione ($r/m$) |
+| `FM-E003` | Tasso fuori intervallo: il tasso per periodo, o per periodo di capitalizzazione, è pari o inferiore a −100%; il messaggio indica il tasso con il suo JSON Pointer, per esempio `/wacc_per_period/3` o `/inflation` nel DCF o `/finance_rate` in `tvm.mirr`; nel DCF un tasso convertito con l'inflazione attesa che raggiunge −100% (possibile solo al limite dell'intervallo dei decimali) mantiene il pointer del tasso fornito e aggiunge l'inflazione con cui è stato convertito; `rates.convert`, `tvm.xnpv` e `loans.*` indicano il valore e la regola per cui uno più il tasso per periodo di capitalizzazione ($1 + r/m$) deve essere positivo, senza indicare il campo | I tassi sono frazioni decimali: 10% è `0.10`; un tasso nominale con capitalizzazione è verificato per periodo di capitalizzazione ($r/m$) |
 | `FM-E004` | Crescita ≥ tasso di attualizzazione (valore terminale, rendita perpetua); nel DCF e in `tvm.perpetuity` il messaggio indica la crescita e il tasso con i loro JSON Pointer; nel DCF, quando il tasso terminale è stato convertito con l'inflazione attesa, indica anche il campo dell'inflazione | Il modello di Gordon richiede g < r; per un tasso terminale convertito, verificare anche l'inflazione attesa |
 | `FM-E005` | L'algoritmo del TIR o dell'XIRR non converge; il messaggio indica l'algoritmo | Il tasso può trovarsi fuori dall'intervallo dei decimali o lontano da `guess`: indica un `guess` vicino al tasso atteso |
 | `FM-E006` | `cash_flows` non contiene alcun importo positivo o alcun importo negativo | TIR, XIRR e MIRR richiedono sia uscite sia entrate |

@@ -527,7 +527,9 @@ impl Inflation {
 }
 
 /// R16: one expected inflation for every period and the terminal phase, or one per period with
-/// a terminal inflation, or none; each greater than -1. Checked whenever given (R18 too).
+/// a terminal inflation, or none; each greater than -1 (`FM-E003` otherwise, Decision 19).
+/// Checked whenever given (R18 too). A terminal inflation next to one inflation is refused
+/// (Decision 18).
 fn resolve_inflation(i: &InflationInput<'_>, n: usize) -> Result<Option<Inflation>> {
     let resolved =
         match (i.single, i.per_period, i.terminal) {
@@ -588,11 +590,12 @@ fn resolve_inflation(i: &InflationInput<'_>, n: usize) -> Result<Option<Inflatio
         .chain(std::iter::once((None, resolved.terminal)));
     for (k, v) in values {
         if v <= -Decimal::ONE {
-            return Err(invalid(format!(
-                "`{}` is {v}; expected inflation must be greater than -1 (-100%); rates are \
-                 decimal fractions, 2% is 0.02",
-                resolved.field(k)
-            )));
+            // Decision 19: the code of `rates.real_nominal` for the same value (FM-E003).
+            return Err(FairmarkError::DiscountRateOutOfRange {
+                field: resolved.field(k),
+                rate: v,
+                converted_with: None,
+            });
         }
     }
     Ok(Some(resolved))
