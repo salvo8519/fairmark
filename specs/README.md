@@ -35,6 +35,11 @@ specs/
    defaults.
 5. **PR titles and descriptions cite the spec** (`feat(dcf): FCFF build-up [SPEC-0001 R3]`).
 6. Changing an `Approved` spec requires a PR that edits the spec first.
+7. **Names come from financial practice.** Method, field and value names use the terminology
+   of international and European financial practice (regulation, central banks, supervisors,
+   professional curricula), each verified on a recognised source cited in the spec's
+   "Terminology and sources" section with its Italian equivalent. Spreadsheet function names
+   are not used as names, and terms are never invented.
 
 ## Agent workflow
 
