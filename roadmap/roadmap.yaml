@@ -150,7 +150,7 @@ milestones:
           - { issue: 44, title: "EV to equity: minorities, surplus assets, debt-like items", tags: [parallel], status: open }
           - { issue: 45, title: "Deterministic WACC × g sensitivity grid", tags: [gfi], spec: "0008", status: done }
           - { issue: 101, title: "Draft specs for terminal value methods and financial ratios with covenants", spec: "0006", status: done }
-          - { issue: 115, title: "Terminal value building blocks tv.* (SPEC-0006)", spec: "0006", status: open }
+          - { issue: 115, title: "Terminal value building blocks tv.* (SPEC-0006)", spec: "0006", status: done }
       - title: "Analysis: goal seek, sensitivity, scenarios, tornado"
         labels: ["area:core"]
         tasks:
