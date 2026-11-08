@@ -1430,7 +1430,7 @@ def finish(
 
 # ---------------------------------------------------------------- statutory income statement
 EBITDA_DEFINITION = (
-    "EBITDA (margine operativo lordo, MOL) = value added − personnel costs (B9): value of "
+    "EBITDA (margine operativo lordo, MOL) = value added \u2212 personnel costs (B9): value of "
     "production (A1 to A5, core) less raw materials, services, use of third-party assets, change "
     "in raw material inventories and other operating expenses (B6, B7, B8, B11, B14, core) and "
     "personnel costs (B9); before depreciation, amortisation and write-downs (B10), provisions "
@@ -1737,7 +1737,7 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
         ),
         (
             -1,
-            "D18 − D19, value adjustments of financial assets (investing result)",
+            "D18 \u2212 D19, value adjustments of financial assets (investing result)",
             f"{base}/value_adjustments_of_financial_assets"
             if "value_adjustments_of_financial_assets" in inc
             else f"{base}/revaluations_of_financial_assets",
