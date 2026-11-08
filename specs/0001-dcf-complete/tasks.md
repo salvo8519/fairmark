@@ -30,9 +30,8 @@ parallel; tick a task only when `just check` passes.
   index, methods reference)
 - [x] T8 Version 2 golden cases re-expressed in version 3 with identical expected values,
   version 2 files retired; analysis golden cases with `dcf.fcff` inner inputs re-expressed;
-  commit with `Numerical-change: dcf.fcff v2 -> v3` [R30; AC15]. Needs the maintainer's review
-  with the `numerical-change` label: the analysis cases are outside `tests/golden/dcf.fcff/`
-  and the tornado case names its variables by the new pointers
+  commit with `Numerical-change: dcf.fcff v2 -> v3` [R30; AC15]. Analysis cases approved by
+  the maintainer on 2026-11-08 and recorded in spec.md
 
 ### Adapters and docs
 - [x] T9 [P] Python helper `python/fairmark/dcf.py` for version 3

@@ -182,8 +182,7 @@ golden cases from the reference are checked to $10^{-20}$.
   three-stage FCFF with costs of capital changing every year): present value of the explicit
   period 8,327, value of the operating assets 39,161, equity value 40,867 and terminal value
   81,364 are matched within 2 (terminal value: 20) of the published figures, which come from
-  rounded inputs; the golden files decompose the differences. These tolerances await the
-  maintainer's acceptance.
+  rounded inputs; the golden files decompose the differences.
 - An independent 50-digit implementation, `scripts/reference_dcf.py`, for every golden case in
   `tests/golden/dcf.fcff/`, and properties: a constant growth stage equals the same flows
   given; a linear decline with equal growths equals constant growth; discount factors equal

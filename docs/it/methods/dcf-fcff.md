@@ -192,7 +192,6 @@ $10^{-20}$.
   esplicito 8.327, valore delle attività operative 39.161, equity value 40.867 e valore
   terminale 81.364 sono riprodotti entro 2 (valore terminale: 20) dai valori pubblicati, che
   derivano da input arrotondati; i file dei casi di riferimento scompongono le differenze.
-  Queste tolleranze sono in attesa di approvazione del maintainer.
 - Un'implementazione indipendente a 50 cifre, `scripts/reference_dcf.py`, per ogni caso di
   riferimento (golden case) in `tests/golden/dcf.fcff/`, e le proprietà: uno stage a crescita
   costante equivale agli stessi flussi forniti; una riduzione lineare con crescite uguali

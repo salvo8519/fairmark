@@ -155,8 +155,8 @@ Each is additive to version 3 under the schema checker.
 - **Terms without inflation**: the two required terms are in version 3 now, so that #166 adds
   only optional fields; a mismatch is refused with `FM-E024` (R15) until then.
 - **Analysis golden cases** use `dcf.fcff` as their inner method with version 2 inputs; they
-  are re-expressed in version 3 with identical expected values in the migration commit and
-  need the maintainer's review with the `numerical-change` label.
+  are re-expressed in version 3 with identical expected values in the migration commit;
+  approved by the maintainer on 2026-11-08 (spec, "Recorded approval of the numerical change").
 
 ## Open questions for the maintainer
 - **Implied growth of a given last stage (R11).** The warning for a growth discontinuity is
@@ -165,7 +165,3 @@ Each is additive to version 3 under the schema checker.
   CF_N / CF_{N−1} − 1, could be compared with the perpetual growth too. Not implemented: the
   spec does not say whether an implied growth counts as "the growth of the last explicit
   period".
-- **Analysis golden cases** re-expressed in version 3 (see "Risks and alternatives"): awaiting
-  explicit approval.
-- **Tolerances of the Amgen published-precision cases** (2, and 20 for the terminal value):
-  awaiting acceptance; the golden files decompose the differences.

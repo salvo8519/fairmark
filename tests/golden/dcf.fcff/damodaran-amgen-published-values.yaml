@@ -14,8 +14,8 @@ source: >
   of three effects of rounded printed inputs (independent numerical audit of 2026-11-08): the
   rounded FCFF of year 11, 3,140 instead of about 3,140.65 (-6.386; see
   damodaran-amgen-published-terminal-value.yaml); the costs of capital printed to two decimals
-  of a percent (+4.601); the explicit FCFF printed to units (+0.710). The tolerance is pending
-  the maintainer's acceptance. Source check against the published PDF on 2026-11-08.
+  of a percent (+4.601); the explicit FCFF printed to units (+0.710). The tolerance was
+  accepted by the maintainer on 2026-11-08 (SPEC-0001, Decision 12). Source check against the published PDF on 2026-11-08.
 input:
   stages:
     - { periods: 5, projection: given, flows: ["719", "813", "919", "1040", "1176"] }

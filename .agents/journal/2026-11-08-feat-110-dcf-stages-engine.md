@@ -25,6 +25,9 @@
   `dcf.fcff` files retired, seven analysis cases with re-expressed inputs.
 
 ## Decisions taken
+- Maintainer, 2026-11-08: the seven re-expressed analysis golden cases and the Amgen
+  published-precision tolerances (2, and 20 for the terminal value) are approved; recorded in
+  SPEC-0001 ("Recorded approval of the numerical change", Decision 12).
 - Choices are flat objects with an enumeration and optional fields, not tagged unions, so that
   new options stay additive under `scripts/schema_snapshots.py` (plan.md).
 - Terms of flows and rates are required in version 3 now and a mismatch is refused (FM-E024),
@@ -33,12 +36,8 @@
   `tvm::period_discount_factors` is unchanged (coordinator, separate issue).
 
 ## Open questions for the maintainer
-- Approval of the re-expressed analysis golden cases (expected numbers unchanged; the tornado
-  ranking names its variables by the new pointers).
-- Acceptance of the Amgen published-precision tolerances (2, and 20 for the terminal value).
 - Whether the R11 discontinuity warning should use the growth implied by a given last stage.
 - Whether the flat-object schema shape deserves an ADR.
 
 ## Next steps
-1. Maintainer review of the migration commit a45724c with the `numerical-change` label, then
-   the pull request `feat(dcf)!: shared engine with stages for dcf.fcff v3` closing #110.
+1. Open the pull request with the `numerical-change` and `breaking-change` labels: `feat(dcf)!: shared engine with stages for dcf.fcff v3` closing #110.
