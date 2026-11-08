@@ -82,6 +82,12 @@ pub enum FairmarkError {
         instalment: Decimal,
         interest: Decimal,
     },
+
+    #[error("principal grace period out of range: {0}")]
+    GracePeriodOutOfRange(String),
+
+    #[error("rounding too coarse for the loan: {0}")]
+    RoundingTooCoarse(String),
 }
 
 impl FairmarkError {
@@ -109,6 +115,8 @@ impl FairmarkError {
             Self::MixedBasis(_) => "FM-E019",
             Self::BalloonOutOfRange(_) => "FM-E020",
             Self::LoanNeverRepaid { .. } => "FM-E021",
+            Self::GracePeriodOutOfRange(_) => "FM-E022",
+            Self::RoundingTooCoarse(_) => "FM-E023",
         }
     }
 
