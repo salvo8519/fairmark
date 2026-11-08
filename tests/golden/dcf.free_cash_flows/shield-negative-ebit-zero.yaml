@@ -1,0 +1,16 @@
+method: dcf.free_cash_flows
+description: "Negative EBIT -37.6 with interest 22.4 and the zero treatment: no tax on EBIT and no interest tax shield, 0.279 x min(22.4, max(-37.6, 0)) = 0 (SPEC-0001 R3, R4, Decisions 14 and 22)"
+source: "Independent 50-digit reference, scripts/reference_free_cash_flows.py (build-up); FCFE cross-checked by the net-income route of the CFA Institute curriculum and Damodaran, Investment Valuation, chapter 14 (net_income_route: -21.25), no tax on a pre-tax loss under zero; rule from SPEC-0001 Decision 22, approved by the maintainer on 2026-11-08"
+input: {"notional_tax_rate": "0.279", "negative_ebit": "zero", "periods": [{"ebit": "-37.6", "depreciation_and_amortisation": "14.2", "capital_expenditure": "9.5", "change_in_net_working_capital": "-4.05", "interest_expense": "22.4", "net_borrowing": "30"}]}
+expect:
+  negative_ebit: "zero"
+  /periods/0/interest_tax_rate: "0"
+  /periods/0/operating_taxes: "0"
+  /periods/0/ebit_after_taxes: "-37.6"
+  /periods/0/free_cash_flow_to_firm: "-28.85"
+  /periods/0/interest_tax_shield: "0.000"
+  /periods/0/interest_after_taxes: "22.400"
+  /periods/0/free_cash_flow_to_equity: "-21.250"
+  /free_cash_flows_to_firm/0: "-28.85"
+  /free_cash_flows_to_equity/0: "-21.250"
+tolerance: "0"

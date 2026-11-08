@@ -85,7 +85,13 @@ def test_flows_match_the_reference_to_28_significant_digits() -> None:
             assert significant_digits_agree(g["free_cash_flow_to_firm"], w.fcff), (plan, g, w)
             if w.fcfe is None:
                 assert g["free_cash_flow_to_equity"] is None
+                assert g["interest_tax_shield"] is None
             else:
+                assert significant_digits_agree(g["interest_tax_shield"], w.interest_tax_shield), (
+                    plan,
+                    g,
+                    w,
+                )
                 assert significant_digits_agree(g["free_cash_flow_to_equity"], w.fcfe), (
                     plan,
                     g,
@@ -117,6 +123,7 @@ def test_golden_inputs_of_the_reference_agree_with_the_files() -> None:
             "operating_taxes": "taxes",
             "ebit_after_taxes": "ebit_after_taxes",
             "free_cash_flow_to_firm": "fcff",
+            "interest_tax_shield": "interest_tax_shield",
             "interest_after_taxes": "interest_after_taxes",
             "free_cash_flow_to_equity": "fcfe",
         }
@@ -133,23 +140,32 @@ def test_golden_inputs_of_the_reference_agree_with_the_files() -> None:
 
 
 def test_fcfe_equals_the_net_income_route() -> None:
-    """Amendment 14: under `zero`, a period with a negative EBIT has no interest tax shield and
-    its FCFE equals the net-income route; under `credit` every period does."""
-    checked = 0
+    """Decision 22: under both treatments every period's FCFE equals the net-income route; under
+    `zero` no tax arises on a pre-tax loss, so the interest tax shield is t x min(interest,
+    max(EBIT, 0)) and the total taxes are never below zero."""
+    checked = limited = 0
     for _ in range(200):
         plan = random_plan(financing=True, rate_form=True)
+        # Interest of the order of EBIT, so that EBIT falls below the interest in many periods.
+        for p in plan["periods"]:
+            p["interest_expense"] = amount(0, 30_000_000)
         got = fm.run("dcf.free_cash_flows", plan)
         rate, treatment = D(plan["notional_tax_rate"]), plan["negative_ebit"]
         for p, row in zip(plan["periods"], got.periods, strict=True):
             lines = ref.lines_from_json(p)
-            if treatment == "zero" and lines.ebit >= 0:
-                continue
             want = ref.net_income_route(lines, rate, treatment)
             assert significant_digits_agree(row["free_cash_flow_to_equity"], want), (p, row)
             if treatment == "zero":
-                assert row["interest_tax_rate"] == 0
+                total_taxes = row["operating_taxes"] - row["interest_tax_shield"]
+                assert total_taxes >= 0, (p, row)
+                if lines.ebit < 0:
+                    assert row["interest_tax_rate"] == 0
+                elif lines.ebit < lines.interest_expense:  # type: ignore[operator]
+                    assert total_taxes == 0, (p, row)
+                    limited += 1
             checked += 1
-    assert checked > 100
+    assert checked > 300
+    assert limited > 50
 
 
 def test_given_lines_through_fcff_equal_the_built_up_flows() -> None:

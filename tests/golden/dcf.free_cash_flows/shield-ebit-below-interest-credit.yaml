@@ -1,0 +1,16 @@
+method: dcf.free_cash_flows
+description: "EBIT 42.5 below interest 61.75 with the credit treatment: the shield stays at 0.279 x 61.75 = 17.22825, a net tax saving on the pre-tax loss (SPEC-0001 R3, Decision 22 leaves credit unchanged)"
+source: "Independent 50-digit reference, scripts/reference_free_cash_flows.py (build-up); FCFE cross-checked by the net-income route of the CFA Institute curriculum and Damodaran, Investment Valuation, chapter 14 (net_income_route: -12.37925), a pre-tax loss gives a tax saving under credit; rule from SPEC-0001 Decision 22, approved by the maintainer on 2026-11-08"
+input: {"notional_tax_rate": "0.279", "negative_ebit": "credit", "periods": [{"ebit": "42.5", "depreciation_and_amortisation": "18", "capital_expenditure": "25.4", "change_in_net_working_capital": "3.1", "interest_expense": "61.75", "net_borrowing": "12"}]}
+expect:
+  negative_ebit: "credit"
+  /periods/0/interest_tax_rate: "0.279"
+  /periods/0/operating_taxes: "11.8575"
+  /periods/0/ebit_after_taxes: "30.6425"
+  /periods/0/free_cash_flow_to_firm: "20.1425"
+  /periods/0/interest_tax_shield: "17.22825"
+  /periods/0/interest_after_taxes: "44.52175"
+  /periods/0/free_cash_flow_to_equity: "-12.37925"
+  /free_cash_flows_to_firm/0: "20.1425"
+  /free_cash_flows_to_equity/0: "-12.37925"
+tolerance: "0"
