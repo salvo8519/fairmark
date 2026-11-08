@@ -123,6 +123,10 @@ properties of the `terminal` object (additive to version 3).
   errors), `docs/en/reference/errors.md` (`FM-E019` widened), release note
   `changes/43.feature.md`
 - [x] T22 Italian edition; roadmap #43 done; `uv run just check`
+- [x] T24 Review findings: `tv.normalised_income` at the terminal rate (R19, Decision 13),
+  golden case and AC11 property; term checks reported by the `tv.*` methods with their field
+  (`tv::FieldError`) instead of repeated in the DCF; documentation nits; tolerances of the new
+  golden cases at 1e-20
 
 ### Verification
 - [ ] T23 `numerical-auditor` review, `code-reviewer` review, open questions of plan.md

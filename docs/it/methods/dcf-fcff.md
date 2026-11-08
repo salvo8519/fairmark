@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: 781588a10cee
+source_hash: e03d0ece8b31
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
@@ -83,15 +83,19 @@ flussi di cassa.
 | [`tv.value_driver`](tv-value-driver.md) | `nopat_next`, `growth`, `ronic`, `growth_cap` | $NOPAT_{N+1} (1 - g / RONIC) / (r_{TV} - g)$ |
 | [`tv.exit_multiple`](tv-exit-multiple.md) | `multiple`, `metric` (`ebitda`, `ebit`, `revenue`), `metric_value`, `next_flow`, `growth_cap` | multiplo × grandezza in N; con `next_flow`, la crescita implicita $r_{TV} - CF_{N+1} / TV_N$ |
 | [`tv.limited_horizon`](tv-limited-horizon.md) | `flow`, `periods`, `growth`, `residual_value`, `growth_cap` | i flussi dei periodi da N + 1 a N + n e il valore residuo in N + n, attualizzati in N al tasso $r_{TV}$ |
+| [`tv.normalised_income`](tv-normalised-income.md) | `income`, `basis` (`enterprise`), `growth`, `growth_cap` | $R / (r_{TV} - g)$: il tasso di capitalizzazione è il tasso terminale |
 | [`tv.liquidation`](tv-liquidation.md) | `assets`, `liabilities`, `liquidation_costs`, `tax_on_gains`, `basis` (`enterprise`) | valori di realizzo − passività − costi di liquidazione − imposte sulle plusvalenze |
 
 La tecnica deve seguire l'approccio asset side (enterprise value) di `dcf.fcff`: un multiplo di
 uscita (exit multiple) sugli utili (P/E) o sul valore contabile del capitale proprio (P/BV),
-oppure una liquidazione dichiarata con approccio equity side, è rifiutato con `FM-E019`.
+oppure un reddito normalizzato o una liquidazione dichiarati con approccio equity side, è
+rifiutato con `FM-E019`.
 `tv.gordon` e `tv.h_model` fanno crescere l'ultimo flusso esplicito, quindi il primo flusso
 terminale è una scelta obbligatoria; `tv.h_model` accetta solo `last_flow_grown`. All'interno
-del DCF i campi `growth` e `residual_value` di `tv.limited_horizon` sono obbligatori (indicare
-0 se assenti). `tv.normalised_income` non è ancora disponibile all'interno del DCF.
+del DCF i campi `growth` e `residual_value` di `tv.limited_horizon` e il campo `growth` di
+`tv.normalised_income` sono obbligatori (indicare 0 se assenti). `tv.normalised_income` è
+capitalizzato al tasso terminale, come ogni tecnica che usa un tasso: un `capitalisation_rate`
+separato non è accettato all'interno del DCF.
 
 ## Esempio
 
@@ -201,15 +205,16 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | Termini di flussi e tassi | `nominal`, `real`; termini diversi sono rifiutati | obbligatori, entrambi |
 | Collocazione temporale dei flussi | `end_of_period`, `mid_period` | obbligatoria |
 | Terminal discounting time (momento di attualizzazione del valore terminale) | `horizon`, `mid_period` (solo con la convenzione di metà periodo) | obbligatorio |
-| Tecnica del valore terminale | `tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.liquidation`, al tasso terminale, con approccio asset side | obbligatoria |
-| Primo flusso terminale (`tv.gordon`, `tv.h_model`) | ultimo flusso fatto crescere, oppure normalised flow (flusso normalizzato) in N + 1 (solo `tv.gordon`) | obbligatorio |
+| Tecnica del valore terminale | `tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income`, `tv.liquidation`, al tasso terminale, con approccio asset side | obbligatoria |
+| Primo flusso terminale (`tv.gordon`, `tv.h_model`) | ultimo flusso fatto crescere, oppure flusso normalizzato in N + 1 (solo `tv.gordon`) | obbligatorio |
 | Voci del passaggio all'equity value | misurate alla data di valutazione come fornite; nessuna voce significa nessuna | nessuna |
 
 Le avvertenze sono riportate in `explain.conventions` e non comportano mai il rifiuto
 dell'input: una crescita applicata a un flusso negativo; una crescita dell'ultimo periodo
 esplicito diversa dalla crescita perpetua del valore terminale (`growth`, oppure
-`long_term_growth` per `tv.h_model`); con la convenzione di metà periodo, un valore terminale a
-crescita perpetua (`tv.gordon`, `tv.h_model`, `tv.value_driver`) attualizzato all'orizzonte N,
+`long_term_growth` per `tv.h_model`; la crescita implicita in un multiplo di uscita è riportata,
+non confrontata); con la convenzione di metà periodo, un valore terminale a crescita perpetua
+(`tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.normalised_income`) attualizzato all'orizzonte N,
 mentre la prassi lo attualizza di solito in N − 0.5; con la convenzione di metà periodo, un
 multiplo di uscita o una liquidazione attualizzati in N − 0.5, benché siano un prezzo
 all'orizzonte N; un equity value negativo, riportato come calcolato e mai riportato a zero. Un `terminal_value_weight`
@@ -223,8 +228,8 @@ elevato segnala che la valutazione dipende soprattutto dalle ipotesi di lungo pe
 | `FM-E003` | Un tasso di attualizzazione è pari o inferiore a −100%; il messaggio indica il campo e il periodo |
 | `FM-E004` | La crescita perpetua (`growth`, oppure `long_term_growth` per `tv.h_model`) è pari o superiore al tasso terminale |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
-| `FM-E018` | Un parametro della tecnica del valore terminale è fuori dal suo dominio: rendimento del nuovo capitale investito, multiplo o grandezza di riferimento pari a zero o negativi, orizzonte finito fuori dall'intervallo da 1 a 10.000 periodi, H negativo, voce di liquidazione o imposte sulle plusvalenze negative |
-| `FM-E019` | La tecnica del valore terminale segue l'approccio equity side: un multiplo di uscita su `earnings` (P/E) o `book_value` (P/BV), oppure una liquidazione con `basis` equity |
+| `FM-E018` | Un parametro della tecnica del valore terminale è fuori dal suo dominio: rendimento del nuovo capitale investito, multiplo o grandezza di riferimento pari a zero o negativi, un tasso terminale pari a zero o negativo con `tv.normalised_income`, orizzonte finito fuori dall'intervallo da 1 a 10.000 periodi, H negativo, voce di liquidazione o imposte sulle plusvalenze negative |
+| `FM-E019` | La tecnica del valore terminale segue l'approccio equity side: un multiplo di uscita su `earnings` (P/E) o `book_value` (P/BV), oppure un reddito normalizzato o una liquidazione con `basis` equity |
 | `FM-E024` | `cash_flow_terms` e `discount_rate_terms` sono diversi |
 | `FM-E025` | Uno stage `given` con più o meno flussi o voci dei suoi periodi, tassi per periodo non uno per periodo, un base flow mancante per un primo stage generato o fornito per uno `given` |
 
