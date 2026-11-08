@@ -129,7 +129,7 @@ milestones:
           - { issue: 29, title: "Typed errors with stable codes and catalogue", tags: [gfi], status: done }
           - { issue: 30, title: "Schema versioning and changelog of schema changes", status: done }
           - { issue: 103, title: "Method trait per theme, single registry list, versioned input schemas", status: done }
-          - { issue: 174, title: "Every error names the input field by its JSON pointer", status: open }
+          - { issue: 174, title: "Every error names the input field by its JSON pointer", status: done }
       - title: "Test harness"
         issue: 31
         labels: ["area:core"]
