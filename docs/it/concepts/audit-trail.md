@@ -15,7 +15,7 @@ Ogni risultato è una busta in quattro parti:
     "conventions": ["timing: end of period (flow k discounted at t = k)", "..."],
     "steps": [ { "label": "Period 1: discount factor", "formula": "1 / (1 + 0.10)", "value": "0.909…" } ]
   },
-  "meta": { "engine_version": "…", "method_version": "3", "input_hash": "b963…", "arithmetic": "decimal…" }
+  "meta": { "engine_version": "…", "method_version": "3", "input_hash": "b963…", "arithmetic": "decimal…", "method_status": "preview" }
 }
 ```
 
@@ -25,7 +25,10 @@ Ogni risultato è una busta in quattro parti:
 - **`explain.conventions`** dichiara ogni scelta che cambia il numero (tempistica dei flussi,
   attualizzazione del valore terminale). Le convenzioni non sono mai implicite.
 - **`meta`** rende il risultato riproducibile: lo stesso `input_hash` con le stesse versioni
-  produce sempre lo stesso valore.
+  produce sempre lo stesso valore. `meta.method_status` indica se il metodo era `available`
+  (disponibile) o `preview` (anteprima) al momento dell'esecuzione (vedi lo
+  [stato dei metodi](https://salvo8519.github.io/fairmark/project/releases/#method-status), in
+  inglese); un risultato in anteprima va presentato come tale.
 
 Le etichette dei passaggi sono in inglese, perché fanno parte dell'output del motore. In
 Python, `result.explain_markdown()` produce una nota metodologica per la relazione.

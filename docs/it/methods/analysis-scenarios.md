@@ -155,6 +155,7 @@ scostamento relativo sostituiti.
 | Convenzione | Valore | Default |
 | --- | --- | --- |
 | Metodo interno | identificativo e versione, valutato tramite il registro | obbligatorio |
+| Stato del metodo interno | se il metodo interno è in anteprima, "Evaluated method <id> is preview"; lo stato è anche in `meta.evaluated_method_status` | riportato |
 | Ordine di valutazione | caso base, poi gli scenari nell'ordine indicato | fisso |
 | Input non modificati | mantengono il valore del caso base | fisso |
 | Scostamento relativo quando l'output del caso base è zero | `null` | fisso |

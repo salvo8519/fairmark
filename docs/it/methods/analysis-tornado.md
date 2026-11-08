@@ -134,6 +134,7 @@ l'ordine è mantenuto.
 | Convenzione | Valore | Default |
 | --- | --- | --- |
 | Metodo interno | identificativo e versione, valutato tramite il registro | obbligatorio |
+| Stato del metodo interno | se il metodo interno è in anteprima, "Evaluated method <id> is preview"; lo stato è anche in `meta.evaluated_method_status` | riportato |
 | Output | puntatore misurato dalle barre | obbligatorio |
 | Variazione | una variabile alla volta; gli altri input mantengono il valore del caso base | fisso |
 | Valori di variazione | valori basso e alto espliciti; nessuna variazione percentuale | obbligatorio |

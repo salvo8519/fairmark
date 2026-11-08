@@ -144,6 +144,7 @@ scenario, with the overrides, the value, the delta and the relative delta substi
 | Convention | Value | Default |
 | --- | --- | --- |
 | Inner method | id and version, evaluated through the registry | required |
+| Inner method status | when the inner method is preview, "Evaluated method <id> is preview"; the status is also in `meta.evaluated_method_status` | reported |
 | Evaluation order | base case, then the scenarios in the order given | fixed |
 | Inputs not overridden | keep their base value | fixed |
 | Relative delta when the base output is zero | `null` | fixed |

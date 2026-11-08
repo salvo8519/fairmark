@@ -34,6 +34,13 @@ pub trait Method {
 
     /// The calculation, with its audit trail.
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)>;
+
+    /// Id of the method this one evaluates through the registry (analysis methods, ADR 0010),
+    /// so that the result reports its status in `meta.evaluated_method_status` (ADR 0011).
+    /// `None` for every method that evaluates no other method.
+    fn evaluated_method(_input: &Self::Input) -> Option<&str> {
+        None
+    }
 }
 
 /// True when `v` is a positive integer without leading zeros ("1", "12"; not "", "0", "01",

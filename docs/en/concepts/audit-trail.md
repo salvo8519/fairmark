@@ -11,7 +11,7 @@ Every result is an envelope with four parts:
     "conventions": ["timing: end of period (flow k discounted at t = k)", "..."],
     "steps": [ { "label": "Period 1: discount factor", "formula": "1 / (1 + 0.10)", "value": "0.909…" } ]
   },
-  "meta": { "engine_version": "…", "method_version": "3", "input_hash": "b963…", "arithmetic": "decimal…" }
+  "meta": { "engine_version": "…", "method_version": "3", "input_hash": "b963…", "arithmetic": "decimal…", "method_status": "preview" }
 }
 ```
 
@@ -21,6 +21,8 @@ Every result is an envelope with four parts:
 - **`explain.conventions`** states every choice that changes the number (timing, terminal
   value discounting). Conventions are never implicit.
 - **`meta`** makes the result reproducible: the same `input_hash` with the same versions
-  always yields the same value.
+  always yields the same value. `meta.method_status` states whether the method was
+  `available` or `preview` when it ran (see
+  [method status](../project/releases.md#method-status)); report a preview result as such.
 
 In Python, `result.explain_markdown()` renders a methodology note for reports.

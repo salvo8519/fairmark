@@ -3,7 +3,7 @@
 //! Python, the CLI, the MCP server, function-calling tool definitions and the
 //! documentation are all generated from this catalogue and its JSON Schemas.
 
-use schemars::schema_for;
+use schemars::{schema_for, JsonSchema};
 use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -26,7 +26,7 @@ pub struct MethodInfo {
 
 /// How far a method has been verified (ADR 0011). Defined, with the promotion rule, in
 /// `docs/en/project/releases.md`; both statuses follow the versioning rules of ADR 0009.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum Status {
     /// Meets the promotion rule: approved spec, independent audit and review recorded.
@@ -260,6 +260,8 @@ fn execute<M: Method>(input_json: &str) -> Result<Value> {
             method_version: M::VERSION.to_owned(),
             input_hash: sha256_hex(canonical.as_bytes()),
             arithmetic: "decimal, 96-bit mantissa (28-29 significant digits)".to_owned(),
+            method_status: status_of(M::ID),
+            evaluated_method_status: M::evaluated_method(&input).map(status_of),
         },
     };
     serde_json::to_value(envelope).map_err(|e| FairmarkError::InvalidInput(e.to_string()))
@@ -336,6 +338,61 @@ mod tests {
         assert_eq!(json["status"], "preview");
         let json = serde_json::to_value(method("tvm.npv").unwrap()).unwrap();
         assert_eq!(json["status"], "available");
+    }
+
+    /// ADR 0011: every result states the status of the method that produced it.
+    #[test]
+    fn results_report_the_method_status() {
+        let npv = run("tvm.npv", r#"{"rate": 0.1, "cash_flows": [-100, 60, 60]}"#).unwrap();
+        assert_eq!(npv["meta"]["method_status"], "available");
+        assert!(npv["meta"].get("evaluated_method_status").is_none());
+        let dcf = run(
+            "dcf.fcff",
+            r#"{"free_cash_flows": [100], "discount_rate": "0.1", "terminal_growth": "0.02"}"#,
+        )
+        .unwrap();
+        assert_eq!(dcf["meta"]["method_status"], "preview");
+    }
+
+    /// ADR 0011: an analysis reports the status of the method it evaluates, in `meta` and, when
+    /// that method is preview, as a convention.
+    #[test]
+    fn analysis_reports_the_status_of_the_evaluated_method() {
+        let table = |method: &str, base: &str, variable: &str, output: &str| {
+            run(
+                "analysis.sensitivity",
+                &format!(
+                    r#"{{"method": "{method}", "base_input": {base}, "output": "{output}",
+                        "rows": {{"variable": "{variable}", "values": ["0.08", "0.09"]}}}}"#
+                ),
+            )
+            .unwrap()
+        };
+        let preview = table(
+            "dcf.fcff",
+            r#"{"free_cash_flows": [100, 110], "discount_rate": "0.09", "terminal_growth": "0.02"}"#,
+            "/discount_rate",
+            "/enterprise_value",
+        );
+        assert_eq!(preview["meta"]["method_status"], "available");
+        assert_eq!(preview["meta"]["evaluated_method_status"], "preview");
+        let conventions = preview["explain"]["conventions"].as_array().unwrap();
+        assert!(conventions.iter().any(|c| c
+            .as_str()
+            .unwrap()
+            .starts_with("Evaluated method dcf.fcff is preview")));
+
+        let available = table(
+            "tvm.npv",
+            r#"{"rate": "0.09", "cash_flows": [-100, 60, 60]}"#,
+            "/rate",
+            "/npv",
+        );
+        assert_eq!(available["meta"]["evaluated_method_status"], "available");
+        let conventions = available["explain"]["conventions"].as_array().unwrap();
+        assert!(!conventions
+            .iter()
+            .any(|c| c.as_str().unwrap().contains("is preview")));
     }
 
     #[test]

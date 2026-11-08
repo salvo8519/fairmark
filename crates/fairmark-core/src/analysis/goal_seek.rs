@@ -158,6 +158,9 @@ pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
         inner.id(),
         inner.info().version
     ));
+    if let Some(note) = inner.status_convention() {
+        ex.convention(note);
+    }
     ex.convention(
         "root finding: Brent's method (inverse quadratic interpolation, secant, bisection)",
     );
@@ -227,6 +230,10 @@ impl Method for GoalSeek {
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         goal_seek(input)
+    }
+
+    fn evaluated_method(input: &Self::Input) -> Option<&str> {
+        Some(&input.method)
     }
 }
 

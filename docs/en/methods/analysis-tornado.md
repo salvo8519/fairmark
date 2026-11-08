@@ -125,6 +125,7 @@ its `(low, high)` pair; the mapping keeps its order.
 | Convention | Value | Default |
 | --- | --- | --- |
 | Inner method | id and version, evaluated through the registry | required |
+| Inner method status | when the inner method is preview, "Evaluated method <id> is preview"; the status is also in `meta.evaluated_method_status` | reported |
 | Output | the pointer the bars measure | required |
 | Variation | each variable alone; the other inputs keep their base values | fixed |
 | Shocks | explicit low and high values; no percentage shocks | required |

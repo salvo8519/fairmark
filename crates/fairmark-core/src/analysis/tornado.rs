@@ -158,6 +158,9 @@ pub fn tornado(input: &TornadoInput) -> Result<(TornadoOutput, Explain)> {
         inner.id(),
         inner.info().version
     ));
+    if let Some(note) = inner.status_convention() {
+        ex.convention(note);
+    }
     ex.convention(format!("the bars measure {}", input.output));
     ex.convention("each variable is varied alone; the other inputs keep their base values");
     ex.convention("low and high values are given explicitly; no percentage shocks");
@@ -203,6 +206,10 @@ impl Method for Tornado {
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         tornado(input)
+    }
+
+    fn evaluated_method(input: &Self::Input) -> Option<&str> {
+        Some(&input.method)
     }
 }
 

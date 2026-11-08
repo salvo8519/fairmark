@@ -153,6 +153,7 @@ residual substituted, then a final `Solution` step.
 | Convention | Value | Default |
 | --- | --- | --- |
 | Inner method | id and version, evaluated through the registry | required |
+| Inner method status | when the inner method is preview, "Evaluated method <id> is preview"; the status is also in `meta.evaluated_method_status` | reported |
 | Root finding | Brent's method: inverse quadratic interpolation, secant, bisection | fixed |
 | Bracket | given by the caller; no automatic search | required |
 | Both ends meet the tolerance | low is returned | fixed |
