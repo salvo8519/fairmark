@@ -209,15 +209,19 @@ nominal before taxes; a leading exit multiple.
   basis differs from the basis of the DCF (enterprise for FCFF, equity for FCFE), THEN it SHALL
   return `FM-E019`.
 - **R20** — WHEN the technique uses the last explicit flow (`tv.gordon`, `tv.h_model`), THE
-  ENGINE SHALL require an explicit choice of the first terminal flow: the last explicit flow
-  grown by the perpetual growth, or a given normalised flow at N + 1; amounts in the terminal
-  terms SHALL be in the terms of the cash flows.
+  ENGINE SHALL require an explicit choice of the first terminal flow: for `tv.gordon`, the last
+  explicit flow grown by the perpetual growth, or a given normalised flow at N + 1; for
+  `tv.h_model`, the last explicit flow, or a given normalised base flow at N that replaces it,
+  with the standard formula and no conversion from N + 1 (Decision 15); amounts in the terminal
+  terms SHALL be in the terms of the cash flows. (Amended 2026-11-08, Decision 15.)
 - **R21** — THE ENGINE SHALL require the timing (`end_of_period` or `mid_period`, no default).
   WHEN the timing is `mid_period`, it SHALL require the terminal discounting time, `horizon`
-  (t = N, factor DF_N) or `mid_period` (t = N − 0.5, factor DF_N × (1 + r_N)^0.5), and report it;
-  WHEN `mid_period` is chosen for `tv.exit_multiple` or `tv.liquidation` (a price at a date), it
-  SHALL report a warning. WHEN the timing is `end_of_period`, the terminal discounting time SHALL
-  NOT be given (`FM-E001`).
+  (t = N, factor DF_N) or `mid_period` (t = N − 0.5, factor DF_N × (1 + r_T)^0.5, with r_T the
+  terminal rate; identical to (1 + r_N)^0.5 when one rate is given, Decision 16), and report it;
+  WHEN `mid_period` is chosen for `tv.exit_multiple`, `tv.liquidation` or `tv.limited_horizon`
+  (a price at a date; for the limited horizon, its residual value, Decision 17), it SHALL report
+  a warning. WHEN the timing is `end_of_period`, the terminal discounting time SHALL NOT be given
+  (`FM-E001`). (Amended 2026-11-08, Decisions 16 and 17.)
 - **R22** — THE ENGINE SHALL return the terminal value at N, its present value and, in every
   result, the terminal value weight: the present value of the terminal value divided by the
   present value of the explicit flows plus the present value of the terminal value (the value of
@@ -275,9 +279,9 @@ nominal before taxes; a leading exit multiple.
 | Terms of flows and rates | `nominal`, `real` | required, each | Fisher relation, SPEC-0002 R4 |
 | Conversion when terms differ | rates converted to the terms of the flows; flows never converted | fixed (Decision 5) | Fisher relation |
 | Timing | `end_of_period`, `mid_period` | required (was `end_of_period` in version 2) | Practice varies |
-| Terminal discounting under mid-period | `horizon` (N), `mid_period` (N − 0.5) | required | Practice varies (Decision 6) |
+| Terminal discounting under mid-period | `horizon` (N), `mid_period` (N − 0.5, half-period shift at the terminal rate) | required | Practice varies (Decisions 6, 16) |
 | Terminal technique | any `tv.*` technique on the basis of the DCF | required | SPEC-0006 |
-| First terminal flow (Gordon, H-model) | last flow grown, or normalised flow | required | PIV (normalised flow); to verify |
+| First terminal flow (Gordon, H-model) | last flow grown, or normalised flow (Gordon: at N + 1; H-model: base flow at N, Decision 15) | required | PIV (normalised flow); to verify |
 | From value of operations to equity value | non-operating assets added to reach enterprise value (FCFF); net financial position (FCFF only), debt-like items and non-controlling interests subtracted to reach equity value | none given means none, reported | Koller et al., ch. 16; IVS 200 130 (Terminology [S12], [S5]) |
 
 ## Acceptance criteria (Revised 2026-11-08)
@@ -311,9 +315,10 @@ nominal before taxes; a leading exit multiple.
 - **AC11** (R19, R20) — For each `tv.*` technique, the terminal value equals the standalone
   method on the same inputs (property); P/E or P/BV with FCFF, and EV/EBITDA with FCFE, return
   `FM-E019`.
-- **AC12** (R21) — Mid-period with terminal discounting at N − 0.5 equals TV × DF_N × (1 + r_N)^0.5
-  (reference); `terminal_discount_time` with end-of-period timing returns `FM-E001`; the exit
-  multiple warning is reported.
+- **AC12** (R21) — Mid-period with terminal discounting at N − 0.5 equals TV × DF_N × (1 + r_T)^0.5,
+  r_T the terminal rate (reference, also with rates per period; Decision 16);
+  `terminal_discount_time` with end-of-period timing returns `FM-E001`; the warning is reported
+  for an exit multiple, a liquidation and a limited horizon (Decision 17).
 - **AC13** (R22, R23, R24, R25) — An FCFF golden case with every item type matches the
   reference for `value_of_operations`, `enterprise_value` and `equity_value` and lists every
   label and amount in `explain`; property: `enterprise_value` − `value_of_operations` equals the
@@ -509,6 +514,20 @@ the source verification.
       the rate forms of `loans.*` and the flow choice of `tv.gordon`. It satisfies R29: the
       choice is explicit (exactly one form, `FM-E001` otherwise), has no default, is not a
       boolean, and a later form can be added as a new field without breaking existing inputs.
+- [x] **15. H-model with a normalised flow** (approved by the maintainer on 2026-11-08). The
+      normalised flow of `tv.h_model` is given at N: a normalised base flow CF_N replaces the
+      last explicit flow and the standard Fuller-Hsia formula applies, with no conversion from
+      N + 1. The first terminal flow of the H-model is therefore the last explicit flow
+      (`last_flow_grown`) or a normalised base flow at N (`normalised_base_flow`), stated in
+      `explain.conventions` and in the schema. Amends R20.
+- [x] **16. Rate of the half-period shift** (approved by the maintainer on 2026-11-08). A
+      terminal value discounted at N − 0.5 uses the terminal rate r_T for the half period:
+      PV_TV = TV × DF_N × (1 + r_T)^0.5. With one discount rate r_T = r_N and nothing changes;
+      with rates per period the terminal rate (`terminal_wacc`) applies. Amends R21 and AC12.
+- [x] **17. Limited horizon discounted at N − 0.5** (approved by the maintainer on
+      2026-11-08). Under mid-period timing, `tv.limited_horizon` discounted at N − 0.5 carries
+      the same warning as an exit multiple and a liquidation: its residual value is a price at a
+      date. Amends R21.
 
 Terminology decisions from the source verification:
 - [x] **a.** The projection option `linear_fade` is renamed `linear_decline` everywhere

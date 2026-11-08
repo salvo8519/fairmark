@@ -127,6 +127,10 @@ properties of the `terminal` object (additive to version 3).
   golden case and AC11 property; term checks reported by the `tv.*` methods with their field
   (`tv::FieldError`) instead of repeated in the DCF; documentation nits; tolerances of the new
   golden cases at 1e-20
+- [x] T25 Decisions 15 to 17: normalised base flow at N for `tv.h_model`, half-period shift at
+  the terminal rate, warning for `tv.limited_horizon` at N − 0.5; reference, tests and
+  documentation; no expected value of any golden case changes (every case at N − 0.5 uses one
+  rate)
 
 ### Verification
 - [ ] T23 `numerical-auditor` review, `code-reviewer` review, open questions of plan.md
