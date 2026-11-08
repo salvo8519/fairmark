@@ -236,6 +236,29 @@ terms:
   # Options of the measurement basis (SPEC-0001 Decision 21); present value is above
   book value: valore contabile
   market value: valore di mercato
+  # SPEC-0005 (statements.reorganise), balance sheet: captions of art. 2424 and 2435-bis c.c.
+  subscribed capital unpaid: crediti verso soci per versamenti ancora dovuti
+  intangible assets: immobilizzazioni immateriali
+  tangible assets: immobilizzazioni materiali
+  financial fixed assets: immobilizzazioni finanziarie
+  receivables: crediti
+  current financial assets: attività finanziarie che non costituiscono immobilizzazioni
+  prepayments and accrued income: ratei e risconti attivi
+  provisions for risks and charges: fondi per rischi e oneri
+  employee severance indemnity: trattamento di fine rapporto (TFR)
+  payables: debiti
+  shareholder loans: debiti verso soci per finanziamenti
+  accruals and deferred income: ratei e risconti passivi
+  ordinary layout: bilancio in forma ordinaria
+  abridged layout: bilancio in forma abbreviata
+  micro-entity layout: bilancio delle micro-imprese
+  of which: di cui
+  # SPEC-0005, reorganised balance sheet (Terminology and sources of the spec)
+  reorganised balance sheet: stato patrimoniale riclassificato
+  operating working capital: operating working capital (capitale circolante netto operativo)
+  operating fixed assets: operating fixed assets (immobilizzazioni operative)
+  operating provisions: operating provisions (fondi operativi)
+  carrying amount: valore contabile
   available (method status): disponibile
   preview (method status): anteprima
   promotion rule (method status): regola di promozione
@@ -243,6 +266,10 @@ keep_in_english:
   - Fairmark
   # SPEC-0001: Italian equivalent "to verify" (no verified source); kept in English
   - debt-like items
+  # SPEC-0005: Italian equivalents "to verify" (no verified source); kept in English
+  - total funds invested
+  - quasi-equity items
+  - excess cash
   # IFRS 13 term, kept in English in Italian practice (SPEC-0001 Decision 21)
   - fair value
   - explain
