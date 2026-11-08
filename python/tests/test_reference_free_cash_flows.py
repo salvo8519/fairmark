@@ -105,10 +105,28 @@ def test_fcfe_equals_fcff_without_interest_and_borrowing() -> None:
 
 
 def test_golden_inputs_of_the_reference_agree_with_the_files() -> None:
-    """The inputs the reference prints are the inputs of the golden files."""
+    """Inputs and expected values of the golden files agree with the reference."""
     import yaml
 
     folder = ROOT / "tests/golden/dcf.free_cash_flows"
     for name, case in ref.CASES.items():
         data = yaml.safe_load((folder / f"{name}.yaml").read_text(encoding="utf-8"))
         assert data["input"] == case, name
+        want = ref.build_up_json(case)
+        fields = {
+            "operating_taxes": "taxes",
+            "ebit_after_taxes": "ebit_after_taxes",
+            "free_cash_flow_to_firm": "fcff",
+            "interest_after_taxes": "interest_after_taxes",
+            "free_cash_flow_to_equity": "fcfe",
+        }
+        checked = 0
+        for key, expected in data["expect"].items():
+            parts = key.strip("/").split("/")
+            if expected == "null":
+                continue
+            if len(parts) == 3 and parts[0] == "periods" and parts[2] in fields:
+                value = getattr(want[int(parts[1])], fields[parts[2]])
+                assert D(expected) == value, (name, key, expected, value)
+                checked += 1
+        assert checked, name

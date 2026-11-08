@@ -240,6 +240,18 @@ CASES: dict[str, dict[str, Any]] = {
             },
         ],
     },
+    "boeing-rate-form-recomputed": {
+        "notional_tax_rate": "0.35",
+        "negative_ebit": "credit",
+        "periods": [
+            {
+                "ebit": "1753",
+                "depreciation_and_amortisation": "1517",
+                "capital_expenditure": "1584",
+                "change_in_net_working_capital": "-105",
+            }
+        ],
+    },
     "full-precision-rate-form": {
         "notional_tax_rate": "0.2793456789123",
         "negative_ebit": "credit",

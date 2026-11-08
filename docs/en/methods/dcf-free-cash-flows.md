@@ -122,6 +122,7 @@ Give either `notional_tax_rate` or `operating_taxes` in every period, never both
 | Negative EBIT (rate form) | `credit`, `zero` | none: must be chosen |
 | Tax loss carry-forward | not modelled | fixed |
 | Rate of the interest tax shield | the tax rate on EBIT (rate form), or `interest_tax_rate` (amounts form) | fixed by the tax form |
+| Sign of the taxes on EBIT (amounts form) | positive for a tax paid, subtracted; negative for a tax credit | fixed |
 | Sign of the change in net working capital | positive for an increase, subtracted | fixed |
 | Sign of net borrowing | positive for new borrowing, added | fixed |
 | Sign of adjustments | positive for an inflow, added | fixed |
@@ -141,7 +142,8 @@ capital expenditure and depreciation are never negative.
 
 Additions, subtractions and one multiplication per tax: exact up to the 28 significant digits
 of the decimal type. The golden cases are compared exactly, or to the 28th significant digit
-when a product needs more digits, against a 50-digit reference.
+when a product needs more digits, against a 50-digit reference. The Boeing case of Damodaran's
+illustration is compared at its published precision, in units (tolerance 0.5).
 
 ## Verified against
 

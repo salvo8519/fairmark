@@ -162,8 +162,62 @@ pub struct FreeCashFlowsOutput {
     pub interest_tax_rate: Option<Decimal>,
 }
 
+/// The tax choice of the build-up (Decision 7, R3, R4): the three tax fields of
+/// [`FreeCashFlowsInput`], which the shared DCF engine carries in its own input.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct TaxChoice {
+    /// Tax rate on EBIT (rate form), or `None` when the taxes are given as amounts.
+    pub notional_tax_rate: Option<Decimal>,
+    /// Treatment of a negative EBIT; required with the rate form only.
+    pub negative_ebit: Option<NegativeEbit>,
+    /// Rate of the interest tax shield; required with the amounts form and financing lines.
+    pub interest_tax_rate: Option<Decimal>,
+}
+
+/// Where the lines sit in the caller's input, for error messages and explain labels: the JSON
+/// pointer of the list of lines and the period number of its first element.
+#[derive(Debug, Clone, Copy)]
+pub struct Location<'a> {
+    /// JSON pointer of the list of lines, for example `/periods` or `/stages/0/lines`.
+    pub pointer_prefix: &'a str,
+    /// Period number of the first line, from 1.
+    pub first_period: u32,
+}
+
+impl Location<'_> {
+    fn pointer(&self, index: usize, field: &str) -> String {
+        format!("{}/{index}/{field}", self.pointer_prefix)
+    }
+
+    fn period(&self, index: usize) -> Result<u32> {
+        u32::try_from(index)
+            .ok()
+            .and_then(|i| self.first_period.checked_add(i))
+            .ok_or(FairmarkError::Overflow("period number"))
+    }
+
+    /// "`<pointer>` (period n)".
+    fn field(&self, index: usize, field: &str) -> Result<String> {
+        Ok(format!(
+            "`{}` (period {})",
+            self.pointer(index, field),
+            self.period(index)?
+        ))
+    }
+}
+
 fn invalid(msg: impl Into<String>) -> FairmarkError {
     FairmarkError::InvalidInput(msg.into())
+}
+
+/// A value for an explain formula: negative values in parentheses, so that `a − (−3)` reads
+/// unambiguously.
+fn term(v: Decimal) -> String {
+    if v < Decimal::ZERO {
+        format!("({v})")
+    } else {
+        v.to_string()
+    }
 }
 
 fn check_tax_rate(t: Decimal, pointer: &str) -> Result<()> {
@@ -177,13 +231,13 @@ fn check_tax_rate(t: Decimal, pointer: &str) -> Result<()> {
 }
 
 /// R5: D&A, capex and interest are amounts of zero or more.
-fn check_not_negative(value: Decimal, index: usize, field: &str) -> Result<()> {
+fn check_not_negative(value: Decimal, at: &Location, index: usize, field: &str) -> Result<()> {
     if value < Decimal::ZERO {
         return Err(invalid(format!(
-            "`/periods/{index}/{field}` (period {}) must be zero or more (got {value}); \
-             enter disposals and other inflows in `/periods/{index}/other_adjustments` with a \
-             positive sign",
-            index + 1
+            "{} must be zero or more (got {value}); enter disposals and other inflows in `{}` \
+             with a positive sign",
+            at.field(index, field)?,
+            at.pointer(index, "other_adjustments")
         )));
     }
     Ok(())
@@ -198,27 +252,31 @@ enum Taxes {
 
 /// Decision 7, R3 and R4: exactly one tax form, the treatment of a negative EBIT with the rate
 /// form only, the interest tax rate only where it is needed.
-fn validate(input: &FreeCashFlowsInput) -> Result<(Taxes, bool, Option<Decimal>)> {
-    let p = &input.periods;
+fn validate(
+    p: &[FreeCashFlowLines],
+    choice: &TaxChoice,
+    at: &Location,
+) -> Result<(Taxes, bool, Option<Decimal>)> {
     if p.is_empty() {
-        return Err(invalid(
-            "`/periods` must contain at least one period with its line items",
-        ));
+        return Err(invalid(format!(
+            "`{}` must contain at least one period with its line items",
+            at.pointer_prefix
+        )));
     }
     let with_amounts: Vec<usize> = (0..p.len())
         .filter(|&i| p[i].operating_taxes.is_some())
         .collect();
-    let taxes = match input.notional_tax_rate {
+    let taxes = match choice.notional_tax_rate {
         Some(t) => {
             if let Some(&i) = with_amounts.first() {
                 return Err(invalid(format!(
                     "give the taxes on EBIT in one form only: `/notional_tax_rate` conflicts with \
-                     `/periods/{i}/operating_taxes`; remove `notional_tax_rate`, or remove \
-                     `operating_taxes` from every period"
+                     {}; remove `notional_tax_rate`, or remove `operating_taxes` from every period",
+                    at.field(i, "operating_taxes")?
                 )));
             }
             check_tax_rate(t, "/notional_tax_rate")?;
-            let Some(treatment) = input.negative_ebit else {
+            let Some(treatment) = choice.negative_ebit else {
                 return Err(invalid(
                     "`/negative_ebit` is required with `/notional_tax_rate`: `credit` (taxes = \
                      rate × EBIT, a saving when EBIT is negative) or `zero` (no tax when EBIT is \
@@ -229,20 +287,20 @@ fn validate(input: &FreeCashFlowsInput) -> Result<(Taxes, bool, Option<Decimal>)
         }
         None => {
             if with_amounts.is_empty() {
-                return Err(invalid(
+                return Err(invalid(format!(
                     "no taxes on EBIT: give `/notional_tax_rate` (with `/negative_ebit`), or \
-                     `operating_taxes` in every period",
-                ));
+                     `operating_taxes` in every period of `{}`",
+                    at.pointer_prefix
+                )));
             }
             if let Some(i) = (0..p.len()).find(|&i| p[i].operating_taxes.is_none()) {
                 return Err(invalid(format!(
-                    "`/periods/{i}/operating_taxes` (period {}) is missing: give the taxes on \
-                     EBIT as amounts in every period, or remove them and give \
-                     `/notional_tax_rate`",
-                    i + 1
+                    "{} is missing: give the taxes on EBIT as amounts in every period, or remove \
+                     them and give `/notional_tax_rate`",
+                    at.field(i, "operating_taxes")?
                 )));
             }
-            if input.negative_ebit.is_some() {
+            if choice.negative_ebit.is_some() {
                 return Err(invalid(
                     "`/negative_ebit` applies only with `/notional_tax_rate`: the taxes are given \
                      as amounts in `operating_taxes`; remove `negative_ebit`",
@@ -255,37 +313,37 @@ fn validate(input: &FreeCashFlowsInput) -> Result<(Taxes, bool, Option<Decimal>)
     for (i, lines) in p.iter().enumerate() {
         check_not_negative(
             lines.depreciation_and_amortisation,
+            at,
             i,
             "depreciation_and_amortisation",
         )?;
-        check_not_negative(lines.capital_expenditure, i, "capital_expenditure")?;
+        check_not_negative(lines.capital_expenditure, at, i, "capital_expenditure")?;
         if let Some(interest) = lines.interest_expense {
-            check_not_negative(interest, i, "interest_expense")?;
+            check_not_negative(interest, at, i, "interest_expense")?;
         }
         for (k, a) in lines.other_adjustments.iter().enumerate() {
             if a.label.trim().is_empty() {
                 return Err(invalid(format!(
-                    "`/periods/{i}/other_adjustments/{k}/label` (period {}) is empty: say what \
-                     the amount is",
-                    i + 1
+                    "{} is empty: say what the amount is",
+                    at.field(i, &format!("other_adjustments/{k}/label"))?
                 )));
             }
         }
         match (lines.interest_expense, lines.net_borrowing) {
             (Some(_), None) => {
                 return Err(invalid(format!(
-                    "`/periods/{i}/net_borrowing` (period {}) is missing: the FCFE needs \
-                     `interest_expense` and `net_borrowing` together; give it (0 for none) or \
-                     remove `interest_expense`",
-                    i + 1
+                    "{} is missing: the FCFE needs `interest_expense` and `net_borrowing` \
+                     together; give it (0 for none) or remove `{}`",
+                    at.field(i, "net_borrowing")?,
+                    at.pointer(i, "interest_expense")
                 )))
             }
             (None, Some(_)) => {
                 return Err(invalid(format!(
-                    "`/periods/{i}/interest_expense` (period {}) is missing: the FCFE needs \
-                     `interest_expense` and `net_borrowing` together; give it (0 for none) or \
-                     remove `net_borrowing`",
-                    i + 1
+                    "{} is missing: the FCFE needs `interest_expense` and `net_borrowing` \
+                     together; give it (0 for none) or remove `{}`",
+                    at.field(i, "interest_expense")?,
+                    at.pointer(i, "net_borrowing")
                 )))
             }
             _ => {}
@@ -295,16 +353,19 @@ fn validate(input: &FreeCashFlowsInput) -> Result<(Taxes, bool, Option<Decimal>)
     if let Some(i) = (0..p.len()).find(|&i| p[i].interest_expense.is_some() != financing) {
         let (given, missing) = if financing { (0, i) } else { (i, 0) };
         return Err(invalid(format!(
-            "financing lines are given for period {} but not for period {}: give \
-             `interest_expense` and `net_borrowing` in every period (from `/periods/{missing}`) \
-             to obtain the FCFE, or in none",
-            given + 1,
-            missing + 1
+            "financing lines are given for period {} but not for period {}: add `{}` and `{}`, \
+             or remove them from `{}` and `{}`, so that every period or none has them",
+            at.period(given)?,
+            at.period(missing)?,
+            at.pointer(missing, "interest_expense"),
+            at.pointer(missing, "net_borrowing"),
+            at.pointer(given, "interest_expense"),
+            at.pointer(given, "net_borrowing"),
         )));
     }
 
     let shield =
-        match (taxes, financing, input.interest_tax_rate) {
+        match (taxes, financing, choice.interest_tax_rate) {
             (Taxes::Rate(..), _, Some(_)) => return Err(invalid(
                 "`/interest_tax_rate` is not accepted with `/notional_tax_rate`: the interest tax \
                  shield uses the tax rate on EBIT (SPEC-0001 R3); remove `interest_tax_rate`",
@@ -331,16 +392,39 @@ fn validate(input: &FreeCashFlowsInput) -> Result<(Taxes, bool, Option<Decimal>)
     Ok((taxes, financing, shield))
 }
 
+const FORMULA_FCFF: &str =
+    "FCFF_t = EBIT_t − taxes on EBIT_t + D&A_t − capex_t − ΔNWC_t + Σ adjustments_t";
+const FORMULA_FCFE: &str = "FCFE_t = FCFF_t − interest_t × (1 − t) + net borrowing_t";
+
 /// Builds FCFF, and FCFE when the financing lines are given, for every period.
 pub fn free_cash_flows(input: &FreeCashFlowsInput) -> Result<(FreeCashFlowsOutput, Explain)> {
-    let (taxes, financing, shield) = validate(input)?;
-    let formula = if financing {
-        "FCFF_t = EBIT_t − taxes on EBIT_t + D&A_t − capex_t − ΔNWC_t + Σ adjustments_t;  \
-         FCFE_t = FCFF_t − interest_t × (1 − t) + net borrowing_t"
-    } else {
-        "FCFF_t = EBIT_t − taxes on EBIT_t + D&A_t − capex_t − ΔNWC_t + Σ adjustments_t"
+    let mut ex = Explain::new("dcf.free_cash_flows", FORMULA_FCFF);
+    let choice = TaxChoice {
+        notional_tax_rate: input.notional_tax_rate,
+        negative_ebit: input.negative_ebit,
+        interest_tax_rate: input.interest_tax_rate,
     };
-    let mut ex = Explain::new("dcf.free_cash_flows", formula);
+    let at = Location {
+        pointer_prefix: "/periods",
+        first_period: 1,
+    };
+    let out = build_up(&input.periods, &choice, at, &mut ex)?;
+    if out.free_cash_flows_to_equity.is_some() {
+        ex.formula = format!("{FORMULA_FCFF};  {FORMULA_FCFE}");
+    }
+    Ok((out, ex))
+}
+
+/// The build-up itself, for any list of lines: validates them, appends the steps and
+/// conventions to `ex` and returns the flows. Error pointers and period numbers come from `at`,
+/// so that the shared DCF engine reuses it for the lines of a stage (ADR 0009).
+pub fn build_up(
+    lines: &[FreeCashFlowLines],
+    choice: &TaxChoice,
+    at: Location,
+    ex: &mut Explain,
+) -> Result<FreeCashFlowsOutput> {
+    let (taxes, financing, shield) = validate(lines, choice, &at)?;
     match taxes {
         Taxes::Rate(t, treatment) => {
             ex.convention(format!(
@@ -356,6 +440,10 @@ pub fn free_cash_flows(input: &FreeCashFlowsInput) -> Result<(FreeCashFlowsOutpu
         }
         Taxes::Amounts => {
             ex.convention("tax form: amounts given per period in `operating_taxes`");
+            ex.convention(
+                "operating taxes are positive for a tax paid and are subtracted; negative for a \
+                 tax credit",
+            );
         }
     }
     ex.convention("no tax loss carry-forward is modelled");
@@ -386,10 +474,10 @@ pub fn free_cash_flows(input: &FreeCashFlowsInput) -> Result<(FreeCashFlowsOutpu
     }
     ex.convention("amounts in currency units per period, not discounted");
 
-    let mut periods = Vec::with_capacity(input.periods.len());
+    let mut periods = Vec::with_capacity(lines.len());
     let mut negative = Vec::new();
-    for (i, l) in input.periods.iter().enumerate() {
-        let n = i + 1;
+    for (i, l) in lines.iter().enumerate() {
+        let n = at.period(i)?;
         let ebit = l.ebit;
         let tax = match (taxes, l.operating_taxes) {
             (Taxes::Rate(t, treatment), _) => {
@@ -399,7 +487,7 @@ pub fn free_cash_flows(input: &FreeCashFlowsInput) -> Result<(FreeCashFlowsOutpu
                 if ebit < Decimal::ZERO && treatment == NegativeEbit::Zero {
                     ex.step(
                         format!("Taxes on EBIT, period {n}"),
-                        format!("0 (EBIT {ebit} negative, treatment zero)"),
+                        format!("0 (EBIT {} negative, treatment zero)", term(ebit)),
                         Decimal::ZERO,
                     );
                     Decimal::ZERO
@@ -407,7 +495,7 @@ pub fn free_cash_flows(input: &FreeCashFlowsInput) -> Result<(FreeCashFlowsOutpu
                     let tax = mul(t, ebit)?;
                     ex.step(
                         format!("Taxes on EBIT, period {n}"),
-                        format!("{t} × {ebit}"),
+                        format!("{t} × {}", term(ebit)),
                         tax,
                     );
                     tax
@@ -418,7 +506,7 @@ pub fn free_cash_flows(input: &FreeCashFlowsInput) -> Result<(FreeCashFlowsOutpu
                 let tax = amount.ok_or(FairmarkError::Internal("operating taxes"))?;
                 ex.step(
                     format!("Taxes on EBIT, period {n}"),
-                    format!("{tax} (given)"),
+                    format!("{} (given)", term(tax)),
                     tax,
                 );
                 tax
@@ -427,24 +515,20 @@ pub fn free_cash_flows(input: &FreeCashFlowsInput) -> Result<(FreeCashFlowsOutpu
         let after = sub(ebit, tax)?;
         ex.step(
             format!("EBIT after taxes, period {n}"),
-            format!("{ebit} − {tax}"),
+            format!("{} − {}", term(ebit), term(tax)),
             after,
         );
         let mut adjustments = Decimal::ZERO;
         for a in &l.other_adjustments {
             ex.step(
                 format!("Adjustment, period {n}: {}", a.label),
-                format!("{} (given)", a.value),
+                format!("{} (given)", term(a.value)),
                 a.value,
             );
             adjustments = add(adjustments, a.value)?;
         }
         if l.other_adjustments.len() > 1 {
-            let terms: Vec<String> = l
-                .other_adjustments
-                .iter()
-                .map(|a| a.value.to_string())
-                .collect();
+            let terms: Vec<String> = l.other_adjustments.iter().map(|a| term(a.value)).collect();
             ex.step(
                 format!("Adjustments, period {n}"),
                 terms.join(" + "),
@@ -459,7 +543,15 @@ pub fn free_cash_flows(input: &FreeCashFlowsInput) -> Result<(FreeCashFlowsOutpu
         let fcff = add(sub(sub(add(after, da)?, capex)?, dnwc)?, adjustments)?;
         ex.step(
             format!("FCFF, period {n}"),
-            format!("{ebit} − {tax} + {da} − {capex} − ({dnwc}) + {adjustments}"),
+            format!(
+                "{} − {} + {} − {} − {} + {}",
+                term(ebit),
+                term(tax),
+                term(da),
+                term(capex),
+                term(dnwc),
+                term(adjustments)
+            ),
             fcff,
         );
         let (interest_after, fcfe) = match (l.interest_expense, l.net_borrowing, shield) {
@@ -467,13 +559,13 @@ pub fn free_cash_flows(input: &FreeCashFlowsInput) -> Result<(FreeCashFlowsOutpu
                 let after_tax = mul(interest, sub(Decimal::ONE, t)?)?;
                 ex.step(
                     format!("Interest after taxes, period {n}"),
-                    format!("{interest} × (1 − {t})"),
+                    format!("{} × (1 − {t})", term(interest)),
                     after_tax,
                 );
                 let fcfe = add(sub(fcff, after_tax)?, borrowing)?;
                 ex.step(
                     format!("FCFE, period {n}"),
-                    format!("{fcff} − {after_tax} + ({borrowing})"),
+                    format!("{} − {} + {}", term(fcff), term(after_tax), term(borrowing)),
                     fcfe,
                 );
                 (Some(after_tax), Some(fcfe))
@@ -481,7 +573,7 @@ pub fn free_cash_flows(input: &FreeCashFlowsInput) -> Result<(FreeCashFlowsOutpu
             _ => (None, None),
         };
         periods.push(FreeCashFlowPeriod {
-            period: u32::try_from(n).map_err(|_| FairmarkError::Overflow("period number"))?,
+            period: n,
             ebit,
             operating_taxes: tax,
             ebit_after_taxes: after,
@@ -491,9 +583,10 @@ pub fn free_cash_flows(input: &FreeCashFlowsInput) -> Result<(FreeCashFlowsOutpu
             other_adjustments: l.other_adjustments.clone(),
             other_adjustments_total: adjustments,
             free_cash_flow_to_firm: fcff,
-            interest_expense: l.interest_expense.filter(|_| financing),
+            // `validate` has checked that every period or none carries the financing lines.
+            interest_expense: l.interest_expense,
             interest_after_taxes: interest_after,
-            net_borrowing: l.net_borrowing.filter(|_| financing),
+            net_borrowing: l.net_borrowing,
             free_cash_flow_to_equity: fcfe,
         });
     }
@@ -508,28 +601,22 @@ pub fn free_cash_flows(input: &FreeCashFlowsInput) -> Result<(FreeCashFlowsOutpu
     }
 
     let fcff: Vec<Decimal> = periods.iter().map(|p| p.free_cash_flow_to_firm).collect();
-    let fcfe: Option<Vec<Decimal>> = periods
-        .iter()
-        .map(|p| p.free_cash_flow_to_equity)
-        .collect::<Option<Vec<_>>>()
-        .filter(|_| financing);
-    Ok((
-        FreeCashFlowsOutput {
-            periods,
-            free_cash_flows_to_firm: fcff,
-            free_cash_flows_to_equity: fcfe,
-            tax_form: match taxes {
-                Taxes::Rate(..) => TaxForm::RateOnEbit,
-                Taxes::Amounts => TaxForm::Amounts,
-            },
-            negative_ebit: match taxes {
-                Taxes::Rate(_, treatment) => Some(treatment),
-                Taxes::Amounts => None,
-            },
-            interest_tax_rate: shield,
+    // `None` exactly when the financing lines are not given (every period or none has them).
+    let fcfe: Option<Vec<Decimal>> = periods.iter().map(|p| p.free_cash_flow_to_equity).collect();
+    Ok(FreeCashFlowsOutput {
+        periods,
+        free_cash_flows_to_firm: fcff,
+        free_cash_flows_to_equity: fcfe,
+        tax_form: match taxes {
+            Taxes::Rate(..) => TaxForm::RateOnEbit,
+            Taxes::Amounts => TaxForm::Amounts,
         },
-        ex,
-    ))
+        negative_ebit: match taxes {
+            Taxes::Rate(_, treatment) => Some(treatment),
+            Taxes::Amounts => None,
+        },
+        interest_tax_rate: shield,
+    })
 }
 
 /// `dcf.free_cash_flows`: see the methodology page.
@@ -605,7 +692,7 @@ mod tests {
             .iter()
             .find(|s| s.label == "FCFF, period 1")
             .unwrap();
-        assert_eq!(fcff.formula, "100 − 24.00 + 10 − 12 − (3) + 5");
+        assert_eq!(fcff.formula, "100 − 24.00 + 10 − 12 − 3 + 5");
     }
 
     /// AC2: with zero interest and zero net borrowing, FCFE equals FCFF, in both tax forms and
@@ -798,6 +885,96 @@ mod tests {
                 ex.conventions
             );
         }
+    }
+
+    /// Negative values appear in parentheses in every formula.
+    #[test]
+    fn negative_values_are_in_parentheses() {
+        let mut l = lines("-100");
+        l.change_in_net_working_capital = d("-3");
+        l.interest_expense = Some(d("2"));
+        l.net_borrowing = Some(d("-1"));
+        let (_, ex) = free_cash_flows(&rate_form(vec![l], NegativeEbit::Credit)).unwrap();
+        let formula = |label: &str| {
+            ex.steps
+                .iter()
+                .find(|s| s.label == label)
+                .unwrap()
+                .formula
+                .clone()
+        };
+        assert_eq!(formula("Taxes on EBIT, period 1"), "0.24 × (-100)");
+        assert_eq!(
+            formula("FCFF, period 1"),
+            "(-100) − (-24.00) + 10 − 12 − (-3) + 0"
+        );
+        assert_eq!(formula("FCFE, period 1"), "(-75.00) − 1.52 + (-1)");
+    }
+
+    /// The shared engine reuses the build-up for the lines of a stage: pointers and period
+    /// numbers come from the location.
+    #[test]
+    fn build_up_reports_the_location_of_the_lines() {
+        let choice = TaxChoice {
+            notional_tax_rate: Some(d("0.24")),
+            negative_ebit: Some(NegativeEbit::Credit),
+            interest_tax_rate: None,
+        };
+        let at = Location {
+            pointer_prefix: "/stages/1/lines",
+            first_period: 6,
+        };
+        let mut ex = Explain::new("dcf.fcff", "");
+        let out = build_up(&[lines("100"), lines("-5")], &choice, at, &mut ex).unwrap();
+        assert_eq!(out.periods[1].period, 7);
+        assert!(ex.steps.iter().any(|s| s.label == "FCFF, period 7"));
+        assert!(ex
+            .conventions
+            .iter()
+            .any(|c| c == "negative EBIT in period 7: treatment credit applied"));
+        let mut bad = lines("1");
+        bad.capital_expenditure = d("-1");
+        let msg = build_up(&[lines("1"), bad], &choice, at, &mut ex)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            msg.contains("`/stages/1/lines/1/capital_expenditure` (period 7)"),
+            "{msg}"
+        );
+        assert!(
+            msg.contains("`/stages/1/lines/1/other_adjustments`"),
+            "{msg}"
+        );
+    }
+
+    #[test]
+    fn financing_mismatch_names_both_fields() {
+        let mut first = lines("1");
+        first.interest_expense = Some(d("1"));
+        first.net_borrowing = Some(d("0"));
+        let msg = free_cash_flows(&rate_form(vec![first, lines("2")], NegativeEbit::Credit))
+            .unwrap_err()
+            .to_string();
+        assert!(msg.contains("`/periods/1/interest_expense`"), "{msg}");
+        assert!(msg.contains("`/periods/1/net_borrowing`"), "{msg}");
+    }
+
+    /// Audit: the sign of the given tax amounts is reported.
+    #[test]
+    fn amounts_form_reports_the_sign_of_operating_taxes() {
+        let mut l = lines("100");
+        l.operating_taxes = Some(d("-4"));
+        let (out, ex) = free_cash_flows(&FreeCashFlowsInput {
+            periods: vec![l],
+            notional_tax_rate: None,
+            negative_ebit: None,
+            interest_tax_rate: None,
+        })
+        .unwrap();
+        assert_eq!(out.periods[0].ebit_after_taxes, d("104"));
+        assert!(ex.conventions.iter().any(|c| c
+            == "operating taxes are positive for a tax paid and are subtracted; negative for a \
+                tax credit"));
     }
 
     #[test]

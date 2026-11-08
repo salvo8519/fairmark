@@ -61,8 +61,11 @@ parallel; tick a task only when `just check` passes.
 
 ### Implementation
 - [x] F4 `src/dcf/free_cash_flows.rs`: input and output types, tax-form validation, build-up
-  with explain and conventions, unit type `FreeCashFlows`; unit tests for AC2, AC14 (JSON
-  pointers, conventions) and every error [R2 to R5, R27 to R29]
+  with explain and conventions, unit type `FreeCashFlows`; `build_up` with a `Location` for
+  reuse by the shared engine; unit tests for AC2, AC14 (JSON pointers in the validation errors
+  of the build-up, conventions) and every error [R2 to R5, R27 for validation errors, R28,
+  R29]. Deserialisation errors (an unknown or missing field) come from the shared serde path
+  of the registry and carry no JSON pointer: follow-up issue for `serde_path_to_error`
 - [x] F5 Registry line `dcf::FreeCashFlows`, `uv run just generate` [R1]
 
 ### Adapters and docs
@@ -70,7 +73,7 @@ parallel; tick a task only when `just check` passes.
   the AC2 property [AC1, AC2]
 - [x] F7 [P] Methodology page `dcf-free-cash-flows.md`, nav, index (preview); Italian edition;
   release note `changes/38.feature.md`
-- [x] F8 Roadmap: issue #38 done, page regenerated with `scripts/roadmap.py render`
+- [x] F8 Roadmap: issue #38 done
 
 ### Verification
 - [ ] F9 `uv run just check` green (done); `numerical-auditor` and `code-reviewer` reviews

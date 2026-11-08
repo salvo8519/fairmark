@@ -1,11 +1,11 @@
 ---
 source: methods/dcf-free-cash-flows.md
-source_hash: 04b3ce6e2e42
+source_hash: 0b667f110e1e
 ---
 # Costruzione dei flussi di cassa disponibili (`dcf.free_cash_flows`)
 
 Costruisce il flusso di cassa operativo disponibile (FCFF) di ogni periodo di un business plan
-dalle sue voci riclassificate: EBIT, imposte sull'EBIT (operating taxes), ammortamenti,
+dalle sue voci riclassificate: EBIT, operating taxes (imposte sull'EBIT), ammortamenti,
 investimenti in immobilizzazioni (capex), variazione del capitale circolante netto e rettifiche
 con etichetta. Se sono forniti anche gli oneri finanziari e il net borrowing (nuovi
 finanziamenti al netto dei rimborsi), costruisce il flusso di cassa disponibile per gli
@@ -128,6 +128,7 @@ Si fornisce `notional_tax_rate` oppure `operating_taxes` in ogni periodo, mai en
 | EBIT negativo (forma ad aliquota) | `credit`, `zero` | nessuno: va scelto |
 | Tax loss carry-forward | non modellato | fisso |
 | Aliquota dello scudo fiscale sugli oneri finanziari | l'aliquota sull'EBIT (forma ad aliquota), o `interest_tax_rate` (forma a importi) | fissata dalla forma delle imposte |
+| Segno delle imposte sull'EBIT (forma a importi) | positivo per un'imposta pagata, sottratto; negativo per un credito d'imposta | fisso |
 | Segno della variazione del capitale circolante netto | positivo per un aumento, sottratto | fisso |
 | Segno del net borrowing | positivo per nuovi finanziamenti, sommato | fisso |
 | Segno delle rettifiche | positivo per un'entrata, sommato | fisso |
@@ -148,7 +149,8 @@ positivo: investimenti e ammortamenti non sono mai negativi.
 Somme, sottrazioni e una moltiplicazione per ogni imposta: esatte fino alle 28 cifre
 significative del tipo decimale. I casi di riferimento (golden case) sono confrontati
 esattamente, o alla 28ª cifra significativa quando un prodotto richiede più cifre, con un
-riferimento a 50 cifre.
+riferimento a 50 cifre. Il caso Boeing dell'illustrazione di Damodaran è confrontato alla
+precisione pubblicata, in unità (tolleranza 0,5).
 
 ## Verificato con
 

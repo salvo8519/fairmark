@@ -168,8 +168,9 @@ Each is additive to version 3 under the schema checker.
 
 ## Issue #38: free cash flow build-up (`dcf.free_cash_flows`)
 
-Requirements: R1 (the build-up method id and version), R2, R3, R4, R5, R27, R28 and R29 for
-the fields of the build-up; acceptance criteria AC1, AC2, AC3 and the build-up part of AC14.
+Requirements: R1 (the build-up method id and version), R2, R3, R4, R5, R27 (validation errors
+of the build-up; deserialisation errors of the shared registry carry no pointer yet), R28 and
+R29 for the fields of the build-up; acceptance criteria AC1, AC2, AC3 and the build-up part of AC14.
 
 ### Module layout in `crates/fairmark-core`
 | File | Content |
@@ -227,9 +228,14 @@ treatment and the rate of the interest tax shield.
 
 The shared engine reuses the build-up for a `given` stage with build-up lines (R7): the stage
 carries `Vec<FreeCashFlowLines>`, the DCF input carries the three tax fields, and the engine
-calls `dcf::free_cash_flows(&FreeCashFlowsInput { .. })` (a typed call, ADR 0009), takes
-`free_cash_flows_to_firm` for `dcf.fcff` or `free_cash_flows_to_equity` for `dcf.fcfe`, and
-appends the explain steps and conventions of the build-up to its own. The types are public and
+calls `dcf::free_cash_flows::build_up(lines, &TaxChoice { .. }, Location { pointer_prefix,
+first_period }, &mut explain)` (a typed call, ADR 0009). `Location` gives the JSON pointer of
+the list of lines (for example `/stages/0/lines`) and the period number of its first line, so
+that error pointers, "period n" texts and explain labels refer to the engine's input; the steps
+and conventions are appended to the engine's explain. The engine takes
+`free_cash_flows_to_firm` for `dcf.fcff` or `free_cash_flows_to_equity` for `dcf.fcfe`.
+`free_cash_flows()` is `build_up` with `("/periods", 1)`. The pointers of the three tax fields
+are at the root of the input (`/notional_tax_rate`, `/negative_ebit`, `/interest_tax_rate`). The types are public and
 re-exported from `dcf`; the count check of R7 (`FM-E025`) stays in the engine.
 
 ### Explain
@@ -237,8 +243,9 @@ Per period: taxes on EBIT (formula with the rate substituted, or "given"), EBIT 
 each labelled adjustment and their sum, FCFF with every component substituted, and for FCFE
 the after-tax interest and the FCFE. Conventions (R28): tax form and rate, negative EBIT
 treatment and the periods where it applied, no tax loss carry-forward, the rate of the
-interest tax shield, the sign conventions of ΔNWC, net borrowing and adjustments, amounts per
-period in currency units and not discounted.
+interest tax shield, the sign conventions of the tax amounts (amounts form), ΔNWC, net
+borrowing and adjustments, amounts per period in currency units and not discounted. Negative
+values appear in parentheses in every formula.
 
 ### Tests
 - Independent reference `scripts/reference_free_cash_flows.py` (Python `decimal`, local
