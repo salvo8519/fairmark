@@ -37,11 +37,11 @@ dcf_input! {
             /// One WACC for every period and for the terminal value, decimal fraction per period
             /// (0.09 = 9%), greater than -1. Give this or `wacc_per_period`, not both.
             wacc,
-            /// One WACC per period of the explicit horizon, decimal fractions, exactly N of them;
-            /// requires `terminal_wacc`. Give this or `wacc`, not both.
+            /// One WACC per period of the explicit horizon, decimal fractions, exactly N of them,
+            /// each greater than -1; requires `terminal_wacc`. Give this or `wacc`, not both.
             wacc_per_period,
-            /// WACC of the terminal phase, decimal fraction per period; required with
-            /// `wacc_per_period`, refused with `wacc`.
+            /// WACC of the terminal phase, decimal fraction per period, greater than -1; required
+            /// with `wacc_per_period`, refused with `wacc`.
             terminal_wacc,
         },
         /// The terminal technique, an object with exactly one key, the method id, for example
@@ -777,7 +777,7 @@ mod tests {
         assert!(c.contains("terminal value discounted at the horizon, t = N"));
     }
 
-    /// AC12 (R21): mid-period terminal discounting at N − 0.5 is DF_N × (1 + r_N)^0.5, and the
+    /// AC12 (R21): mid-period terminal discounting at N − 0.5 is DF_N × (1 + r_T)^0.5, and the
     /// discounting time is reported.
     #[test]
     fn mid_period_terminal_discounting_time() {

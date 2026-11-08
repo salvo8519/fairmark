@@ -420,8 +420,8 @@ Value of operations, enterprise value and equity value from FCFF discounted at t
 | `inflation_per_period` | array \| null | no |  | Expected inflation per period of the explicit horizon, decimal fractions, exactly N of them, each greater than -1; requires `terminal_inflation`. Give this or `inflation`, not both. Default: none. |
 | `terminal_inflation` | decimale | no |  | Expected inflation of the terminal phase, decimal fraction per period, greater than -1; required with `inflation_per_period`, refused otherwise. |
 | `wacc` | decimale | no |  | One WACC for every period and for the terminal value, decimal fraction per period (0.09 = 9%), greater than -1. Give this or `wacc_per_period`, not both. |
-| `wacc_per_period` | array \| null | no |  | One WACC per period of the explicit horizon, decimal fractions, exactly N of them; requires `terminal_wacc`. Give this or `wacc`, not both. |
-| `terminal_wacc` | decimale | no |  | WACC of the terminal phase, decimal fraction per period; required with `wacc_per_period`, refused with `wacc`. |
+| `wacc_per_period` | array \| null | no |  | One WACC per period of the explicit horizon, decimal fractions, exactly N of them, each greater than -1; requires `terminal_wacc`. Give this or `wacc`, not both. |
+| `terminal_wacc` | decimale | no |  | WACC of the terminal phase, decimal fraction per period, greater than -1; required with `wacc_per_period`, refused with `wacc`. |
 | `timing` | `end_of_period` \| `mid_period` | sì |  | `end_of_period` (flow k at t = k) or `mid_period` (t = k − 0.5); no default. |
 | `terminal_discount_time` |  | no |  | With `mid_period` timing, required: `horizon` (terminal value at t = N) or `mid_period` (t = N − 0.5). Refused with `end_of_period`. |
 | `terminal` | object | sì |  | The terminal technique, an object with exactly one key, the method id, for example `{"tv.gordon": {"growth", "first_flow", ...}}`: `tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income` or `tv.liquidation`, on the enterprise basis. |

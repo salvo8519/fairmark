@@ -107,7 +107,7 @@
         "1": {
           "file": "dcf.fcfe/v1.json",
           "introduced_in": "unreleased",
-          "sha256": "b813cd11970426d04c41c0d49f892339823bf6c85e0d2d3ec2994fd4bb7bf08e"
+          "sha256": "504f8603a89978f7fb3009f6558b71e139aad0b4c4956a1dfc3acf6b7ed14f54"
         }
       }
     },
@@ -127,7 +127,7 @@
         "3": {
           "file": "dcf.fcff/v3.json",
           "introduced_in": "unreleased",
-          "sha256": "bcdc7d21310138c7dadb6af20e07397e89efa5ab14360663808427eed141c30e"
+          "sha256": "b23d750ac7b3456ed7cd79569ab0d2f457e901351a21fcdf9009b6ff564e021d"
         }
       }
     },

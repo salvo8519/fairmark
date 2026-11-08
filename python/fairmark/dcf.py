@@ -219,9 +219,8 @@ def bridge_claim(
     basis_note: str | None = None,
 ) -> dict[str, Any]:
     """A debt-like item or a non-controlling interest for :func:`fcff` or :func:`fcfe`: the
-    amount at the
-    valuation date (zero or more), how it was measured, and an optional note that qualifies
-    the basis (required with ``measurement_basis="other"``)."""
+    amount at the valuation date (zero or more), how it was measured, and an optional note that
+    qualifies the basis (required with ``measurement_basis="other"``)."""
     claim: dict[str, Any] = {
         "label": label,
         "value": value,
@@ -367,7 +366,8 @@ def fcfe(
     ``cost_of_equity_per_period`` with ``terminal_cost_of_equity``. Stages, terms, inflation,
     timing and ``terminal`` work as in :func:`fcff`; the terminal technique must be on the
     equity basis (``exit_multiple`` on ``earnings`` or ``book_value``, ``normalised_income``
-    or ``liquidation`` with ``basis="equity"``). Stages built with :func:`given_lines` need
+    or ``liquidation`` with ``basis="equity"``); ``value_driver`` is not available on the
+    equity basis in version 1. Stages built with :func:`given_lines` need
     ``interest_expense`` and ``net_borrowing`` in every line, and take ``notional_tax_rate``
     with ``negative_ebit``, or ``operating_taxes`` in every line with ``interest_tax_rate``.
 

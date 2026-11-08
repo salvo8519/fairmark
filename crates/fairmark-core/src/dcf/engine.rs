@@ -143,7 +143,8 @@ pub enum RateConversion {
 pub enum TerminalDiscountTime {
     /// At the horizon, t = N: factor DF_N.
     Horizon,
-    /// Half a period earlier, t = N − 0.5: factor DF_N × (1 + r_N)^0.5.
+    /// Half a period earlier, t = N − 0.5: factor DF_N × (1 + r_T)^0.5, with r_T the terminal
+    /// rate.
     MidPeriod,
 }
 
@@ -1178,8 +1179,9 @@ fn build_up_stages(
                 TerminalBasis::Equity => (
                     out.free_cash_flows_to_equity.ok_or_else(|| {
                         invalid(format!(
-                            "`{pointer}` has no `interest_expense` and `net_borrowing`: the \
-                             equity basis discounts FCFE, which needs them in every period"
+                            "`{pointer}/0/interest_expense` and `{pointer}/0/net_borrowing` are \
+                             missing: the equity basis discounts FCFE, which needs the interest \
+                             expense and the net borrowing in every line of `{pointer}`"
                         ))
                     })?,
                     "FCFE",

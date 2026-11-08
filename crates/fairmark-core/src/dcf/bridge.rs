@@ -121,8 +121,7 @@ fn check_labelled_amount(
 }
 
 /// R25, R27, Decision 21: every claim has a label, a value of zero or more and a note when the
-/// basis is `other`;
-/// each refusal names the field by its JSON pointer and states the fix.
+/// basis is `other`; each refusal names the field by its JSON pointer and states the fix.
 fn check_claims(claims: &[BridgeClaim], field: &str, sign_rule: &str) -> Result<()> {
     for (i, c) in claims.iter().enumerate() {
         check_labelled_amount(

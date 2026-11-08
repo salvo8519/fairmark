@@ -818,7 +818,7 @@
         },
         {
           "const": "mid_period",
-          "description": "Half a period earlier, t = N − 0.5: factor DF_N × (1 + r_N)^0.5.",
+          "description": "Half a period earlier, t = N − 0.5: factor DF_N × (1 + r_T)^0.5, with r_T the terminal\nrate.",
           "type": "string"
         }
       ]

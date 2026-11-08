@@ -113,7 +113,7 @@ pub struct FcfeBridge {
     /// Sum of the non-controlling interests, in currency units, subtracted.
     pub non_controlling_interests_total: Decimal,
     /// The present value of the explicit FCFE and the terminal value plus the non-operating
-    /// assets, minus the debt-like items and the non-controlling interests.
+    /// assets, minus the debt-like items and the non-controlling interests, in currency units.
     pub equity_value: Decimal,
 }
 
@@ -479,7 +479,7 @@ mod tests {
                     m.insert("negative_ebit".into(), json!("credit"));
                 }),
                 "FM-E001",
-                "/stages/0/lines",
+                "/stages/0/lines/0/interest_expense",
             ),
             (
                 with(base(), |m| {
