@@ -160,9 +160,6 @@ def debt_service(
     )
 
 
-CovenantOperator = Literal["at_most", "less_than", "at_least", "greater_than"]
-
-
 def covenants(*, covenants: Sequence[Mapping[str, Any]]) -> Result:
     """Test covenants on the numerator and denominator defined by the loan agreement.
 
@@ -172,10 +169,13 @@ def covenants(*, covenants: Sequence[Mapping[str, Any]]) -> Result:
     (<), ``"at_least"`` (>=) or ``"greater_than"`` (>); ``threshold`` in the unit of the ratio
     (a multiple, or a decimal fraction such as ``"0.30"`` for 30%).
 
-    Each result has ``outcome`` (``"passed"``, ``"breached"`` or ``"not_tested"``), ``value``,
-    ``headroom`` (positive on the compliant side, negative on the breach side),
-    ``headroom_relative`` (headroom / threshold) and ``not_tested_reason``. A zero denominator
-    is not tested, never a breach; a negative denominator is refused (``FM-E001``).
+    Each result has ``outcome`` (``"passed"``, ``"breached"`` or ``"not_tested"``), decided
+    exactly, ``value``, ``headroom`` (positive on the compliant side, negative on the breach
+    side), ``headroom_relative`` (headroom / threshold), ``not_tested_code``
+    (``"zero_denominator"`` or ``"overflow"``) and ``not_tested_reason``. Value and headroom are
+    shown to the 28 significant digits of the decimal type, not rounded to the decimals of the
+    agreement. A covenant that cannot be computed is not tested, never a breach; a negative
+    denominator is refused (``FM-E001``).
 
     >>> r = covenants(covenants=[{"name": "net leverage", "test_date": "2026-12-31",
     ...     "numerator": {"definition": "net debt", "amount": 1750},
