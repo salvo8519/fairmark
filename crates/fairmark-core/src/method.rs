@@ -56,6 +56,21 @@ pub trait Method {
         Self::compute(input)
     }
 
+    /// The one path from an input to a result (SPEC-0001 R31): fills in the documented
+    /// defaults of `input` in place, computes with them, and reports them first in
+    /// `explain.conventions`. Returns the defaults for `meta.defaults_applied`. Used by the
+    /// registry and by the typed Rust calls, so a result reports its defaults the same way
+    /// whichever way it was obtained; after the call `input` is the input with its defaults,
+    /// the one `meta.input_hash` covers.
+    fn run_typed(input: &mut Self::Input) -> Result<(Self::Output, Explain, Vec<DefaultApplied>)> {
+        let defaults = Self::apply_defaults(input);
+        let (output, mut explain) = Self::compute_with_defaults(input, &defaults)?;
+        explain
+            .conventions
+            .splice(0..0, defaults.iter().map(DefaultApplied::convention));
+        Ok((output, explain, defaults))
+    }
+
     /// Id of the method this one evaluates through the registry (analysis methods, ADR 0010),
     /// so that the result reports its status in `meta.evaluated_method_status` (ADR 0012).
     /// `None` for every method that evaluates no other method.

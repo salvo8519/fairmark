@@ -93,7 +93,7 @@ pub struct Meta {
     /// Version of the method implementation. Bumped on any numerical change.
     pub method_version: String,
     /// SHA-256 of the canonical input, with the documented defaults filled in: same hash +
-    /// same versions = same result.
+    /// same versions = same value.
     pub input_hash: String,
     /// Arithmetic used for every operation.
     pub arithmetic: String,
