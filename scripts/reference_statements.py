@@ -1165,7 +1165,7 @@ def statutory_balance_sheet(inp: dict[str, Any], i: int) -> dict[str, Any]:
         "total_assets": (
             total((1, opt(bs, "total_assets")), (-1, a_total))
             if "total_assets" in bs
-            # B + C + D − A within C.II: the parts beyond one year cancel out (audit F).
+            # B + C + D minus A within C.II: the parts beyond one year cancel out (audit F).
             else total((1, b_whole), (1, c_whole), (1, d_sep), (-1, known(a_within)))
         ),
         "current_liabilities": cur_liab,
