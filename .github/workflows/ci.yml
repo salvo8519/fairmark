@@ -65,7 +65,7 @@ jobs:
           toolchain: stable
           components: llvm-tools-preview
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
-      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2
+      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
         with:
           tool: cargo-llvm-cov
       - run: cargo llvm-cov -p fairmark-core --summary-only | tee coverage.txt
@@ -84,14 +84,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      # cargo-deny at a pinned version, checksum verified and retried by install-action; if the
-      # release download fails (GitHub outage), it is built from crates.io instead (#181).
+      # cargo-deny 0.20.2: install-action downloads it with retries and checks its SHA-256.
+      # If the download still fails (GitHub outage on release assets), the next step builds the
+      # same version from crates.io with its published lockfile (#181).
       - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        id: deny-install
+        continue-on-error: true
         with:
           tool: cargo-deny@0.20.2
-          fallback: cargo-install
+          fallback: none
+      - name: Build cargo-deny from crates.io (download failed)
+        if: steps.deny-install.outcome == 'failure'
+        run: cargo install --locked cargo-deny@0.20.2
       - name: cargo deny check
-        run: cargo deny --locked check
+        run: cargo deny --locked --all-features check
 
   python:
     name: Python ${{ matrix.python }} · ${{ matrix.os }}
@@ -132,7 +138,7 @@ jobs:
       - run: uvx --from actionlint-py@1.7.12.25 actionlint
       - run: python3 scripts/pin_actions.py --check
       - run: uv run --frozen --only-group dev python scripts/check_yaml.py
-      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2
+      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
         with:
           tool: cargo-machete
       - run: cargo machete
