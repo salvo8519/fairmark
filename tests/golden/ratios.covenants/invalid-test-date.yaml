@@ -13,4 +13,5 @@ input:
       amount: '600'
     operator: at_most
     threshold: '3.5'
+    if_denominator_not_positive: not_tested
 expect_error: FM-E009

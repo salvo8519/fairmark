@@ -1,9 +1,11 @@
 method: ratios.covenants
 description: A tested value equal to the threshold passes an inclusive operator and breaches a strict
   one, with zero headroom
-source: 'scripts/reference_ratios.py, covenants (Python decimal, 50 digits, local context), written from
-  the covenant rules in specs/0007-ratios-covenants/plan.md. Exact values, at the golden tolerance of decision 10 (1e-20); the outcomes prove the exact comparison. 1750 / 500 = 3.5 and 1200 / 300 =
-  4; headroom 0 in every covenant.'
+source: scripts/reference_ratios.py, covenants (Python fractions for the outcome and the contractual rounding,
+  decimal at 50 digits for the printed values), written from the covenant rules in specs/0007-ratios-covenants/plan.md
+  and the maintainer decisions of 2026-11-08 in spec.md. Exact values, at the golden tolerance of decision
+  10 (1e-20); the outcomes prove the exact comparison. 1750 / 500 = 3.5 and 1200 / 300 = 4; headroom 0
+  in every covenant.
 input:
   covenants:
   - name: leverage, inclusive maximum
@@ -16,6 +18,7 @@ input:
       amount: '500'
     operator: at_most
     threshold: '3.5'
+    if_denominator_not_positive: not_tested
   - name: leverage, strict maximum
     test_date: '2026-12-31'
     numerator:
@@ -26,6 +29,7 @@ input:
       amount: '500'
     operator: less_than
     threshold: '3.5'
+    if_denominator_not_positive: not_tested
   - name: cover, inclusive minimum
     test_date: '2026-12-31'
     numerator:
@@ -36,6 +40,7 @@ input:
       amount: '300'
     operator: at_least
     threshold: '4'
+    if_denominator_not_positive: not_tested
   - name: cover, strict minimum
     test_date: '2026-12-31'
     numerator:
@@ -46,21 +51,30 @@ input:
       amount: '300'
     operator: greater_than
     threshold: '4'
+    if_denominator_not_positive: not_tested
 expect:
   /covenants/0/outcome: passed
+  /covenants/0/not_tested_code: 'null'
   /covenants/0/value: '3.5'
-  /covenants/0/headroom: '0.0'
+  /covenants/0/value_unrounded: 'null'
+  /covenants/0/headroom: '0'
   /covenants/0/headroom_relative/value: '0'
   /covenants/1/outcome: breached
+  /covenants/1/not_tested_code: 'null'
   /covenants/1/value: '3.5'
-  /covenants/1/headroom: '0.0'
+  /covenants/1/value_unrounded: 'null'
+  /covenants/1/headroom: '0'
   /covenants/1/headroom_relative/value: '0'
   /covenants/2/outcome: passed
+  /covenants/2/not_tested_code: 'null'
   /covenants/2/value: '4'
+  /covenants/2/value_unrounded: 'null'
   /covenants/2/headroom: '0'
   /covenants/2/headroom_relative/value: '0'
   /covenants/3/outcome: breached
+  /covenants/3/not_tested_code: 'null'
   /covenants/3/value: '4'
+  /covenants/3/value_unrounded: 'null'
   /covenants/3/headroom: '0'
   /covenants/3/headroom_relative/value: '0'
   /summary/passed: '2'

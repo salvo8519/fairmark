@@ -1,10 +1,13 @@
 method: ratios.covenants
-description: A negative denominator is refused until the maintainer decides its treatment
-source: Constructed. Open question 1 of the covenant section of specs/0007-ratios-covenants/plan.md; the
-  method refuses the input instead of choosing a methodology (FM-E001).
+description: 'Maintainer decision 1 (2026-11-08): a zero or negative denominator gives the outcome stated
+  by if_denominator_not_positive'
+source: 'scripts/reference_ratios.py, covenants (Python fractions for the outcome and the contractual
+  rounding, decimal at 50 digits for the printed values), written from the covenant rules in specs/0007-ratios-covenants/plan.md
+  and the maintainer decisions of 2026-11-08 in spec.md. By construction: -600 and 0 are not positive,
+  so each outcome is the input rule (breached, passed, not_tested, breached); value and headroom are null.'
 input:
   covenants:
-  - name: net leverage
+  - name: net leverage, breached by agreement
     test_date: '2026-12-31'
     numerator:
       definition: consolidated net financial debt at the test date
@@ -14,4 +17,71 @@ input:
       amount: '-600'
     operator: at_most
     threshold: '3.5'
-expect_error: FM-E001
+    if_denominator_not_positive: breached
+  - name: net leverage, passed by agreement
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '1900'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '-600'
+    operator: at_most
+    threshold: '3.5'
+    if_denominator_not_positive: passed
+  - name: net leverage, not tested by agreement
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated net financial debt at the test date
+      amount: '1900'
+    denominator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '-600'
+    operator: at_most
+    threshold: '3.5'
+    if_denominator_not_positive: not_tested
+  - name: interest cover, zero charges breached
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated EBITDA for the 12 months ending on the test date
+      amount: '600'
+    denominator:
+      definition: net finance charges for the 12 months ending on the test date
+      amount: '0'
+    operator: at_least
+    threshold: '4'
+    if_denominator_not_positive: breached
+expect:
+  /covenants/0/outcome: breached
+  /covenants/0/not_tested_code: 'null'
+  /covenants/0/value: 'null'
+  /covenants/0/value_unrounded: 'null'
+  /covenants/0/headroom: 'null'
+  /covenants/0/headroom_relative/value: 'null'
+  /covenants/1/outcome: passed
+  /covenants/1/not_tested_code: 'null'
+  /covenants/1/value: 'null'
+  /covenants/1/value_unrounded: 'null'
+  /covenants/1/headroom: 'null'
+  /covenants/1/headroom_relative/value: 'null'
+  /covenants/2/outcome: not_tested
+  /covenants/2/not_tested_code: denominator_not_positive
+  /covenants/2/value: 'null'
+  /covenants/2/value_unrounded: 'null'
+  /covenants/2/headroom: 'null'
+  /covenants/2/headroom_relative/value: 'null'
+  /covenants/3/outcome: breached
+  /covenants/3/not_tested_code: 'null'
+  /covenants/3/value: 'null'
+  /covenants/3/value_unrounded: 'null'
+  /covenants/3/headroom: 'null'
+  /covenants/3/headroom_relative/value: 'null'
+  /summary/passed: '1'
+  /summary/breached: '2'
+  /summary/not_tested: '1'
+  /covenants/2/not_tested_reason: 'denominator is negative (-600): consolidated EBITDA for the 12 months
+    ending on the test date'
+  /covenants/0/not_tested_reason: 'null'
+  /covenants/0/headroom_relative/not_defined: 'no tested value: denominator is negative (-600): consolidated
+    EBITDA for the 12 months ending on the test date'
+tolerance: '0.00000000000000000001'

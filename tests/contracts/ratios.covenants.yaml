@@ -10,6 +10,7 @@ extreme_inputs:
     denominator: {definition: extreme, amount: '0.0000000000000000000000000001'}
     operator: at_most
     threshold: MIN
+    if_denominator_not_positive: not_tested
 - covenants:
   - name: extreme
     test_date: '2199-12-31'
@@ -17,12 +18,14 @@ extreme_inputs:
     denominator: {definition: extreme, amount: MAX}
     operator: greater_than
     threshold: MAX
+    if_denominator_not_positive: not_tested
   - name: extreme
     test_date: '2199-12-31'
     numerator: {definition: extreme, amount: MAX}
     denominator: {definition: extreme, amount: '1'}
     operator: at_least
     threshold: MIN
+    if_denominator_not_positive: not_tested
 - covenants:
   - name: extreme
     test_date: '2026-12-31'
@@ -30,12 +33,14 @@ extreme_inputs:
     denominator: {definition: extreme, amount: MAX}
     operator: less_than
     threshold: '0.0000000000000000000000000001'
+    if_denominator_not_positive: not_tested
   - name: extreme
     test_date: '2026-12-31'
     numerator: {definition: extreme, amount: MIN}
     denominator: {definition: extreme, amount: '0'}
     operator: at_least
     threshold: MAX
+    if_denominator_not_positive: not_tested
 - covenants:
   - name: extreme
     test_date: '2026-12-31'
@@ -43,6 +48,40 @@ extreme_inputs:
     denominator: {definition: extreme, amount: MIN}
     operator: at_most
     threshold: '0'
+    if_denominator_not_positive: not_tested
+- covenants:
+  - name: extreme
+    test_date: '2026-12-31'
+    numerator: {definition: extreme, amount: MAX}
+    denominator: {definition: extreme, amount: '0.0000000000000000000000000001'}
+    operator: at_most
+    threshold: MIN
+    if_denominator_not_positive: breached
+    rounding: {decimal_places: 6, mode: half_even}
+  - name: extreme
+    test_date: '2026-12-31'
+    numerator: {definition: extreme, amount: MIN}
+    denominator: {definition: extreme, amount: MIN}
+    operator: greater_than
+    threshold: MAX
+    if_denominator_not_positive: passed
+    rounding: {decimal_places: 0, mode: half_up}
+  - name: extreme
+    test_date: '2026-12-31'
+    numerator: {definition: extreme, amount: MAX}
+    denominator: {definition: extreme, amount: '1'}
+    operator: at_least
+    threshold: '0'
+    rounding: {decimal_places: 6, mode: half_up}
+    if_denominator_not_positive: not_tested
+  - name: extreme
+    test_date: '2026-12-31'
+    numerator: {definition: extreme, amount: '-0.0000000000000000000000000001'}
+    denominator: {definition: extreme, amount: MAX}
+    operator: less_than
+    threshold: '0'
+    rounding: {decimal_places: 6, mode: half_even}
+    if_denominator_not_positive: not_tested
 conventions:
 - input:
     covenants:
@@ -52,23 +91,28 @@ conventions:
       denominator: {definition: consolidated EBITDA for the 12 months ending on the test date, amount: '600'}
       operator: at_most
       threshold: '3.5'
+      if_denominator_not_positive: not_tested
     - name: interest cover
       test_date: '2026-12-31'
       numerator: {definition: consolidated EBITDA for the 12 months ending on the test date, amount: '600'}
       denominator: {definition: net finance charges for the 12 months ending on the test date, amount: '175'}
       operator: greater_than
       threshold: '4'
+      if_denominator_not_positive: not_tested
   expect:
   - tested value = numerator / denominator, each as defined by the loan agreement and given as an amount; no standard ratio is substituted
   - the amounts of each covenant refer to the period ending on its test date
-  - the outcome is decided exactly; value and headroom are shown to the 28 significant digits of the decimal type, not rounded to the decimals of the agreement
-  - 'exact decision: the sign of numerator − threshold × denominator, computed in integer arithmetic on the decimal mantissas, with a positive denominator'
+  - 'the outcome is decided exactly: on the exact tested value, or on the value rounded as the agreement states when rounding is given; value and headroom are shown to the 28 significant digits of the decimal type, and are rounded to the decimals of the agreement only when rounding is given'
+  - 'exact decision without rounding: the sign of numerator − threshold × denominator, computed in integer arithmetic on the decimal mantissas, with a positive denominator; with rounding: the rounded value, computed from the exact quotient, compared with the threshold'
+  - a zero or negative denominator gives the outcome set by if_denominator_not_positive; value and headroom are then null
   - a negative numerator is compared as computed
   - covenants are numbered from 1 in the audit trail; error messages name the zero-based position, covenants[i]
   - 'headroom positive on the compliant side and negative on the breach side: threshold − tested value for a maximum, tested value − threshold for a minimum'
   - relative headroom = headroom / threshold, a decimal fraction; not defined when the threshold is zero or negative
-  - a covenant whose tested value cannot be computed (zero denominator, or a value or headroom beyond the range of the decimal type) is not tested, never breached
+  - a covenant whose tested value, rounded value or headroom exceeds the range of the decimal type is not tested, never breached; the other covenants are tested
   - 'covenant 1, net leverage (2026-12-31): passes when the tested value ≤ 3.5 (maximum, inclusive)'
+  - 'covenant 1, net leverage (2026-12-31): a zero or negative denominator gives the outcome not tested (input if_denominator_not_positive)'
+  - 'covenant 1, net leverage (2026-12-31): tested value not rounded (no rounding given); outcome decided on the exact value'
   - 'covenant 2, interest cover (2026-12-31): passes when the tested value > 4 (minimum, strict)'
 - input:
     covenants:
@@ -78,6 +122,7 @@ conventions:
       denominator: {definition: consolidated EBITDA for the 12 months ending on the test date, amount: '0'}
       operator: less_than
       threshold: '0'
+      if_denominator_not_positive: not_tested
   expect:
   - 'covenant 1, net leverage (2026-12-31): passes when the tested value < 0 (maximum, strict)'
   - 'covenant 1, net leverage (2026-12-31): not tested (denominator is zero: consolidated EBITDA for the 12 months ending on the test date)'
@@ -89,6 +134,7 @@ conventions:
       denominator: {definition: total assets at the test date, amount: '1000'}
       operator: at_least
       threshold: '0'
+      if_denominator_not_positive: not_tested
   expect:
   - 'covenant 1, equity ratio (2026-06-30): passes when the tested value ≥ 0 (minimum, inclusive)'
   - 'covenant 1, equity ratio (2026-06-30): relative headroom not defined: threshold is zero'
@@ -100,5 +146,19 @@ conventions:
       denominator: {definition: consolidated EBITDA for the 12 months ending on the test date, amount: '0.0000000000000000000000000001'}
       operator: at_most
       threshold: '3.5'
+      if_denominator_not_positive: not_tested
   expect:
   - 'covenant 1, extreme leverage (2026-12-31): not tested (the tested value exceeds the range of the decimal type (28-29 significant digits))'
+- input:
+    covenants:
+    - name: net leverage
+      test_date: '2026-12-31'
+      numerator: {definition: consolidated net financial debt at the test date, amount: '3504'}
+      denominator: {definition: consolidated EBITDA for the 12 months ending on the test date, amount: '1000'}
+      operator: at_most
+      threshold: '3.50'
+      if_denominator_not_positive: breached
+      rounding: {decimal_places: 2, mode: half_up}
+  expect:
+  - 'covenant 1, net leverage (2026-12-31): tested value rounded to 2 decimal places, half_up (halves away from zero), before the comparison (input rounding)'
+  - 'covenant 1, net leverage (2026-12-31): a zero or negative denominator gives the outcome breached (input if_denominator_not_positive)'

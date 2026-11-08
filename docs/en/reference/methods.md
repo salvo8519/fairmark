@@ -490,7 +490,7 @@ Interest cover on EBIT and EBITDA, net financial position to EBITDA, DSCR per pe
 
 **Ratios — covenants** · method version 1 · tool `fairmark_ratios_covenants`
 
-Tests financial covenants on the numerator and denominator defined by the loan agreement, against a threshold with an explicit operator (at most, less than, at least, greater than) at a test date. Returns for each covenant the outcome (passed, breached, or not tested with a code and the reason, never a breach when the ratio cannot be computed), decided exactly, the tested value and the headroom, absolute and relative to the threshold.
+Tests financial covenants on the numerator and denominator defined by the loan agreement, against a threshold with an explicit operator (at most, less than, at least, greater than) at a test date. The agreement's own rules are explicit inputs: the outcome when the denominator is zero or negative, and the rounding of the tested value. Returns for each covenant the outcome (passed, breached, or not tested with a code and the reason), decided exactly, the tested value and the headroom, absolute and relative to the threshold.
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |

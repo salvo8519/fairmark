@@ -1,19 +1,17 @@
 //! `ratios.covenants`: does the company respect its covenants? (SPEC-0007 R5)
 //!
-//! Maintainer decision of 2026-11-08: the tested value comes from the numerator and the
+//! Maintainer decisions of 2026-11-08: the tested value comes from the numerator and the
 //! denominator defined by the loan agreement, given as inputs (no standard ratio is
-//! substituted); a ratio that cannot be computed is not tested, with the reason, never a
-//! breach; the test date refers to the period ending on that date.
+//! substituted); the test date refers to the period ending on that date. The engine never
+//! decides what the loan agreement decides: the outcome for a denominator that is not positive
+//! (`if_denominator_not_positive`) and the contractual rounding (`rounding`) are explicit
+//! inputs, so every outcome traces back to a clause.
 //!
-//! Precision: the outcome is decided exactly; value and headroom are shown to the 28
-//! significant digits of the decimal type, not rounded to the decimals of the agreement. The
-//! decision is the sign of numerator − threshold × denominator (denominator positive), computed
-//! in integer arithmetic on the decimal mantissas ([`exact_cmp`]), so a quotient rounded to 28
-//! digits can never turn a breach into a pass.
-//!
-//! Not decided, so not implemented (open questions in `plan.md`): a negative denominator is
-//! refused with `FM-E001`; the tested value is never rounded to the decimals of the agreement;
-//! the relative headroom on a negative threshold is not defined.
+//! Precision: the outcome is decided exactly. Without rounding it is the sign of
+//! numerator − threshold × denominator, computed in integer arithmetic on the decimal mantissas
+//! ([`exact_cmp`]); with rounding the value is rounded exactly from the rational quotient
+//! ([`round_exact`]) and compared with the threshold. Value and headroom are shown to the 28
+//! significant digits of the decimal type.
 
 use std::cmp::Ordering;
 
@@ -27,6 +25,9 @@ use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num;
+
+/// Most decimal places a contractual rounding may state.
+pub const MAX_DECIMAL_PLACES: u32 = 6;
 
 /// One side of the covenant ratio, as the loan agreement defines it.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -98,6 +99,56 @@ impl Operator {
     }
 }
 
+/// The outcome the loan agreement assigns to a covenant whose denominator is zero or negative.
+/// Required, no default.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum IfDenominatorNotPositive {
+    /// The covenant is breached.
+    Breached,
+    /// The covenant is passed.
+    Passed,
+    /// The covenant is not tested (never a breach); code `denominator_not_positive`.
+    NotTested,
+}
+
+/// How halves are rounded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RoundingMode {
+    /// A half is rounded away from zero (3.505 → 3.51, −3.505 → −3.51).
+    HalfUp,
+    /// A half is rounded to the even last digit (3.505 → 3.50, 3.515 → 3.52).
+    HalfEven,
+}
+
+impl RoundingMode {
+    fn name(self) -> &'static str {
+        match self {
+            Self::HalfUp => "half_up",
+            Self::HalfEven => "half_even",
+        }
+    }
+
+    fn describe(self) -> &'static str {
+        match self {
+            Self::HalfUp => "halves away from zero",
+            Self::HalfEven => "halves to the even digit",
+        }
+    }
+}
+
+/// The rounding of the tested value that the loan agreement states.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Rounding {
+    /// Decimal places of the rounded tested value, 0 to 6 (2 rounds 3.504 to 3.50).
+    #[schemars(range(min = 0, max = 6))]
+    pub decimal_places: u32,
+    /// `half_up` (halves away from zero) or `half_even` (halves to the even digit).
+    pub mode: RoundingMode,
+}
+
 /// One covenant of the loan agreement at one test date.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -109,8 +160,8 @@ pub struct Covenant {
     pub test_date: Date,
     /// Numerator of the covenant ratio, as defined by the loan agreement.
     pub numerator: ContractualAmount,
-    /// Denominator of the covenant ratio, as defined by the loan agreement. Zero: the covenant
-    /// is not tested. Negative: refused (`FM-E001`), the treatment is not specified.
+    /// Denominator of the covenant ratio, as defined by the loan agreement. Zero or negative:
+    /// the outcome is `if_denominator_not_positive`.
     pub denominator: ContractualAmount,
     /// Comparison with the threshold: `at_most` (≤), `less_than` (<), `at_least` (≥) or
     /// `greater_than` (>). Required, no default.
@@ -118,6 +169,13 @@ pub struct Covenant {
     /// Threshold in the unit of numerator / denominator: a multiple (3.5 = 3.5x) or a decimal
     /// fraction (0.30 = 30%), as the loan agreement states it.
     pub threshold: Decimal,
+    /// Outcome when the denominator is zero or negative, as the loan agreement states:
+    /// `breached`, `passed` or `not_tested`. Required, no default.
+    pub if_denominator_not_positive: IfDenominatorNotPositive,
+    /// Rounding of the tested value before the comparison, as the loan agreement states.
+    /// Absent: no rounding; the outcome is decided on the exact value.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rounding: Option<Rounding>,
 }
 
 /// Input of `ratios.covenants`.
@@ -134,12 +192,12 @@ pub struct CovenantsInput {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Outcome {
-    /// The tested value satisfies the operator and the threshold.
+    /// The covenant is respected.
     Passed,
-    /// The tested value does not satisfy the operator and the threshold.
+    /// The covenant is breached.
     Breached,
-    /// The tested value cannot be computed; never a breach. The reason is in
-    /// `not_tested_code` and `not_tested_reason`.
+    /// The covenant is not tested; never a breach. The reason is in `not_tested_code` and
+    /// `not_tested_reason`.
     NotTested,
 }
 
@@ -147,9 +205,10 @@ pub enum Outcome {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum NotTestedCode {
-    /// The denominator amount is zero.
-    ZeroDenominator,
-    /// The tested value or the headroom exceeds the range of the decimal type.
+    /// The denominator is zero or negative and `if_denominator_not_positive` is `not_tested`.
+    DenominatorNotPositive,
+    /// The tested value, the rounded value or the headroom exceeds the range of the decimal
+    /// type.
     Overflow,
 }
 
@@ -164,25 +223,31 @@ pub struct CovenantResult {
     pub operator: Operator,
     /// Threshold, as given.
     pub threshold: Decimal,
-    /// `passed`, `breached` or `not_tested`, decided exactly (not on the rounded `value`).
+    /// `passed`, `breached` or `not_tested`, decided exactly (never on a value rounded by the
+    /// decimal type).
     pub outcome: Outcome,
-    /// Tested value = numerator / denominator, shown to the 28 significant digits of the
-    /// decimal type, not rounded to the decimals of the agreement; in the unit of the
-    /// threshold; null when not tested.
+    /// The value compared with the threshold: numerator / denominator to the 28 significant
+    /// digits of the decimal type, or rounded as `rounding` states; in the unit of the
+    /// threshold. Null when the denominator is not positive or the covenant is not tested.
     pub value: Option<Decimal>,
-    /// Distance from the threshold in the unit of the tested value: positive on the compliant
-    /// side, negative on the breach side; threshold − value for a maximum, value − threshold
-    /// for a minimum. Zero at the threshold, where an inclusive operator passes and a strict
-    /// one breaches. Shown to 28 significant digits; null when not tested.
+    /// With `rounding`: numerator / denominator before the rounding, to 28 significant digits.
+    /// Null without `rounding`, or when `value` is null.
+    pub value_unrounded: Option<Decimal>,
+    /// Distance of `value` from the threshold: positive on the compliant side, negative on the
+    /// breach side; threshold − value for a maximum, value − threshold for a minimum. Zero at
+    /// the threshold, where an inclusive operator passes and a strict one breaches. Null when
+    /// `value` is null.
     pub headroom: Option<Decimal>,
     /// Headroom / threshold, decimal fraction (0.10 = 10% of the threshold), same sign as the
     /// headroom; not defined when the threshold is zero or negative, when the quotient
-    /// overflows, or when not tested.
+    /// overflows, or when `value` is null.
     pub headroom_relative: RatioValue,
-    /// Why the covenant was not tested: `zero_denominator` or `overflow`; null when tested.
+    /// Why the covenant was not tested: `denominator_not_positive` or `overflow`; null when
+    /// the outcome is `passed` or `breached`.
     pub not_tested_code: Option<NotTestedCode>,
     /// Why the covenant was not tested, in words, for example "denominator is zero:
-    /// consolidated EBITDA for the 12 months ending on the test date"; null when tested.
+    /// consolidated EBITDA for the 12 months ending on the test date"; null when the outcome is
+    /// `passed` or `breached`.
     pub not_tested_reason: Option<String>,
 }
 
@@ -206,7 +271,7 @@ pub struct CovenantsOutput {
     pub summary: CovenantSummary,
 }
 
-// ------------------------------------------------------------------ exact comparison
+// ------------------------------------------------------------------ exact arithmetic
 
 /// Unsigned integer of any size, little-endian 64-bit limbs, without leading zero limbs.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -245,6 +310,73 @@ impl Wide {
         (0..exp).fold(self.clone(), |acc, _| acc.mul(&ten))
     }
 
+    fn add(&self, other: &Self) -> Self {
+        let len = self.0.len().max(other.0.len());
+        let mut out = Vec::with_capacity(len + 1);
+        let mut carry = 0u128;
+        for i in 0..len {
+            let a = u128::from(self.0.get(i).copied().unwrap_or(0));
+            let b = u128::from(other.0.get(i).copied().unwrap_or(0));
+            let cur = a + b + carry;
+            out.push(cur as u64);
+            carry = cur >> 64;
+        }
+        out.push(carry as u64);
+        Self(out).trimmed()
+    }
+
+    /// self − other, with self ≥ other.
+    fn sub(&self, other: &Self) -> Self {
+        let mut out = Vec::with_capacity(self.0.len());
+        let mut borrow = 0u64;
+        for (i, &a) in self.0.iter().enumerate() {
+            let b = other.0.get(i).copied().unwrap_or(0);
+            let (d1, o1) = a.overflowing_sub(b);
+            let (d2, o2) = d1.overflowing_sub(borrow);
+            out.push(d2);
+            borrow = u64::from(o1 || o2);
+        }
+        Self(out).trimmed()
+    }
+
+    fn bits(&self) -> usize {
+        self.0
+            .last()
+            .map_or(0, |top| self.0.len() * 64 - top.leading_zeros() as usize)
+    }
+
+    fn bit(&self, i: usize) -> bool {
+        self.0
+            .get(i / 64)
+            .is_some_and(|limb| limb >> (i % 64) & 1 == 1)
+    }
+
+    /// (self / other, self mod other), other not zero; binary long division.
+    fn div_rem(&self, other: &Self) -> (Self, Self) {
+        let mut quotient = vec![0u64; self.0.len()];
+        let mut rem = Self(Vec::new());
+        for i in (0..self.bits()).rev() {
+            rem = rem.add(&rem);
+            if self.bit(i) {
+                rem = rem.add(&Self::from_u128(1));
+            }
+            if rem.cmp(other) != Ordering::Less {
+                rem = rem.sub(other);
+                quotient[i / 64] |= 1 << (i % 64);
+            }
+        }
+        (Self(quotient).trimmed(), rem)
+    }
+
+    fn to_u128(&self) -> Option<u128> {
+        match self.0.as_slice() {
+            [] => Some(0),
+            [lo] => Some(u128::from(*lo)),
+            [lo, hi] => Some(u128::from(*lo) | (u128::from(*hi) << 64)),
+            _ => None,
+        }
+    }
+
     fn cmp(&self, other: &Self) -> Ordering {
         self.0
             .len()
@@ -263,6 +395,10 @@ fn sign(d: Decimal) -> Ordering {
     }
 }
 
+fn magnitude(d: Decimal) -> Wide {
+    Wide::from_u128(d.mantissa().unsigned_abs())
+}
+
 /// How `numerator` compares with `threshold × denominator`, exactly. With a positive
 /// denominator this is how numerator / denominator compares with the threshold, with no
 /// rounding of the quotient. Every decimal is mantissa / 10^scale (mantissa below 2^96, scale
@@ -277,19 +413,54 @@ pub(crate) fn exact_cmp(numerator: Decimal, threshold: Decimal, denominator: Dec
     if sign_n != sign_td || sign_n == Ordering::Equal {
         return sign_n.cmp(&sign_td);
     }
-    let n = Wide::from_u128(numerator.mantissa().unsigned_abs());
-    let td = Wide::from_u128(threshold.mantissa().unsigned_abs())
-        .mul(&Wide::from_u128(denominator.mantissa().unsigned_abs()));
+    let td = magnitude(threshold).mul(&magnitude(denominator));
     let (scale_n, scale_td) = (numerator.scale(), threshold.scale() + denominator.scale());
     let common = scale_n.max(scale_td);
-    let magnitude = n
+    let order = magnitude(numerator)
         .times_pow10(common - scale_n)
         .cmp(&td.times_pow10(common - scale_td));
     if sign_n == Ordering::Less {
-        magnitude.reverse()
+        order.reverse()
     } else {
-        magnitude
+        order
     }
+}
+
+/// numerator / denominator rounded to `rounding.decimal_places` with its mode, computed from the
+/// exact rational value (no intermediate 28-digit quotient, so no double rounding). The
+/// denominator is positive. `None` when the rounded value exceeds the decimal type.
+pub(crate) fn round_exact(
+    numerator: Decimal,
+    denominator: Decimal,
+    rounding: Rounding,
+) -> Option<Decimal> {
+    let places = rounding.decimal_places;
+    // |n| / d = (Mn / 10^sn) / (Md / 10^sd); scaled by 10^places:
+    // |n| × 10^places / d = Mn × 10^(sd + places) / (Md × 10^sn).
+    let top = magnitude(numerator).times_pow10(denominator.scale() + places);
+    let bottom = magnitude(denominator).times_pow10(numerator.scale());
+    let (quotient, rem) = top.div_rem(&bottom);
+    let twice = rem.add(&rem);
+    let round_up = match twice.cmp(&bottom) {
+        Ordering::Greater => true,
+        Ordering::Less => false,
+        Ordering::Equal => match rounding.mode {
+            RoundingMode::HalfUp => true,
+            RoundingMode::HalfEven => quotient.bit(0),
+        },
+    };
+    let quotient = if round_up {
+        quotient.add(&Wide::from_u128(1))
+    } else {
+        quotient
+    };
+    let mantissa = i128::try_from(quotient.to_u128()?).ok()?;
+    let signed = if numerator.is_sign_negative() {
+        -mantissa
+    } else {
+        mantissa
+    };
+    Decimal::try_from_i128_with_scale(signed, places).ok()
 }
 
 // ------------------------------------------------------------------ method
@@ -298,8 +469,8 @@ fn invalid(message: String) -> FairmarkError {
     FairmarkError::InvalidInput(message)
 }
 
-/// Refuses what cannot be tested without a choice Fairmark does not make: blank names and
-/// definitions, and negative denominators (open question 1 of `plan.md`).
+/// Refuses inputs that state nothing: an empty list, blank names and definitions, and a
+/// rounding to more decimal places than supported.
 fn validate(input: &CovenantsInput) -> Result<()> {
     if input.covenants.is_empty() {
         return Err(invalid(
@@ -321,15 +492,14 @@ fn validate(input: &CovenantsInput) -> Result<()> {
                 )));
             }
         }
-        let den = c.denominator.amount;
-        if den.is_sign_negative() && !den.is_zero() {
-            return Err(invalid(format!(
-                "`covenants[{i}].denominator.amount` is negative ({den}): how a covenant is \
-                 tested on a negative denominator is not specified (SPEC-0007, open question), \
-                 so Fairmark does not test it; remove covenant {i} (\"{}\") from the list and \
-                 assess it under the terms of the loan agreement",
-                c.name
-            )));
+        if let Some(r) = c.rounding {
+            if r.decimal_places > MAX_DECIMAL_PLACES {
+                return Err(invalid(format!(
+                    "`covenants[{i}].rounding.decimal_places` is {}: give 0 to \
+                     {MAX_DECIMAL_PLACES}, the decimal places stated by the loan agreement",
+                    r.decimal_places
+                )));
+            }
         }
     }
     Ok(())
@@ -352,6 +522,8 @@ fn not_tested(
 
 const OVERFLOW_VALUE: &str =
     "the tested value exceeds the range of the decimal type (28-29 significant digits)";
+const OVERFLOW_ROUNDED: &str =
+    "the rounded tested value exceeds the range of the decimal type (28-29 significant digits)";
 const OVERFLOW_HEADROOM: &str =
     "the headroom exceeds the range of the decimal type (28-29 significant digits)";
 
@@ -360,11 +532,34 @@ fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
     let label = format!("covenant {k}, {} ({})", c.name, c.test_date);
     let op = c.operator;
     let threshold = c.threshold;
+    let rule = c.if_denominator_not_positive;
     ex.convention(format!(
         "{label}: passes when the tested value {} {threshold} ({})",
         op.symbol(),
         op.describe()
     ));
+    let rule_name = match rule {
+        IfDenominatorNotPositive::Breached => "breached",
+        IfDenominatorNotPositive::Passed => "passed",
+        IfDenominatorNotPositive::NotTested => "not tested",
+    };
+    ex.convention(format!(
+        "{label}: a zero or negative denominator gives the outcome {rule_name} \
+         (input if_denominator_not_positive)"
+    ));
+    match c.rounding {
+        Some(r) => ex.convention(format!(
+            "{label}: tested value rounded to {} decimal places, {} ({}), before the comparison \
+             (input rounding)",
+            r.decimal_places,
+            r.mode.name(),
+            r.mode.describe()
+        )),
+        None => ex.convention(format!(
+            "{label}: tested value not rounded (no rounding given); outcome decided on the \
+             exact value"
+        )),
+    }
     ex.step(
         format!("{label}: numerator"),
         format!("as given: {}", c.numerator.definition),
@@ -382,29 +577,87 @@ fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
         threshold,
         outcome: Outcome::NotTested,
         value: None,
+        value_unrounded: None,
         headroom: None,
         headroom_relative: RatioValue {
             value: None,
-            not_defined: Some("covenant not tested".into()),
+            not_defined: Some("no tested value".into()),
         },
         not_tested_code: None,
         not_tested_reason: None,
     };
     let (n, d) = (c.numerator.amount, c.denominator.amount);
-    if d.is_zero() {
-        let reason = format!("denominator is zero: {}", c.denominator.definition);
-        return not_tested(ex, &label, result, NotTestedCode::ZeroDenominator, reason);
+
+    if d.is_zero() || d.is_sign_negative() {
+        let reason = if d.is_zero() {
+            format!("denominator is zero: {}", c.denominator.definition)
+        } else {
+            format!(
+                "denominator is negative ({d}): {}",
+                c.denominator.definition
+            )
+        };
+        let relative = RatioValue {
+            value: None,
+            not_defined: Some(format!("no tested value: {reason}")),
+        };
+        let outcome = match rule {
+            IfDenominatorNotPositive::NotTested => {
+                return not_tested(
+                    ex,
+                    &label,
+                    CovenantResult {
+                        headroom_relative: relative,
+                        ..result
+                    },
+                    NotTestedCode::DenominatorNotPositive,
+                    reason,
+                );
+            }
+            IfDenominatorNotPositive::Breached => Outcome::Breached,
+            IfDenominatorNotPositive::Passed => Outcome::Passed,
+        };
+        ex.step(
+            format!("{label}: outcome"),
+            format!("{rule_name} ({reason}; outcome set by input if_denominator_not_positive)"),
+            d,
+        );
+        return CovenantResult {
+            outcome,
+            headroom_relative: relative,
+            ..result
+        };
     }
 
-    let Ok(value) = num::div(n, d) else {
+    let Ok(unrounded) = num::div(n, d) else {
         let reason = OVERFLOW_VALUE.to_owned();
         return not_tested(ex, &label, result, NotTestedCode::Overflow, reason);
     };
     ex.step(
         format!("{label}: tested value"),
         format!("numerator / denominator = {n} / {d}"),
-        value,
+        unrounded,
     );
+    let (value, value_unrounded) = match c.rounding {
+        None => (unrounded, None),
+        Some(r) => {
+            let Some(rounded) = round_exact(n, d, r) else {
+                let reason = OVERFLOW_ROUNDED.to_owned();
+                return not_tested(ex, &label, result, NotTestedCode::Overflow, reason);
+            };
+            ex.step(
+                format!("{label}: rounded tested value"),
+                format!(
+                    "{n} / {d} ({unrounded}) rounded to {} decimal places, {}, from the exact \
+                     quotient",
+                    r.decimal_places,
+                    r.mode.name()
+                ),
+                rounded,
+            );
+            (rounded, Some(unrounded))
+        }
+    };
     let (headroom, formula) = if op.is_maximum() {
         (
             num::sub(threshold, value),
@@ -449,8 +702,16 @@ fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
         )
     };
 
-    // The decision: exact, on numerator − threshold × denominator (denominator positive here).
-    let passed = op.passes(exact_cmp(n, threshold, d));
+    // The decision, exact: on numerator − threshold × denominator (denominator positive), or on
+    // the rounded value, which is exact, against the threshold.
+    let (order, compared) = match value_unrounded {
+        None => (exact_cmp(n, threshold, d), format!("{n} / {d}")),
+        Some(_) => (
+            value.cmp(&threshold),
+            format!("rounded tested value {value}"),
+        ),
+    };
+    let passed = op.passes(order);
     let (outcome, verdict) = if passed {
         (Outcome::Passed, "passed")
     } else {
@@ -459,7 +720,7 @@ fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
     ex.step(
         format!("{label}: outcome"),
         format!(
-            "{verdict} ({n} / {d} {} {threshold} is {passed}, decided exactly)",
+            "{verdict} ({compared} {} {threshold} is {passed}, decided exactly)",
             op.name()
         ),
         value,
@@ -467,6 +728,7 @@ fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
     CovenantResult {
         outcome,
         value: Some(value),
+        value_unrounded,
         headroom: Some(headroom),
         headroom_relative,
         ..result
@@ -477,8 +739,8 @@ pub fn covenants(input: &CovenantsInput) -> Result<(CovenantsOutput, Explain)> {
     validate(input)?;
     let mut ex = Explain::new(
         Covenants::ID,
-        "tested value = numerator / denominator (loan agreement definitions); outcome from the \
-         exact sign of numerator − threshold × denominator; headroom = threshold − tested value \
+        "tested value = numerator / denominator (loan agreement definitions), rounded only as \
+         the agreement states; outcome decided exactly; headroom = threshold − tested value \
          (maximum) or tested value − threshold (minimum); relative headroom = headroom / \
          threshold",
     );
@@ -488,12 +750,20 @@ pub fn covenants(input: &CovenantsInput) -> Result<(CovenantsOutput, Explain)> {
     );
     ex.convention("the amounts of each covenant refer to the period ending on its test date");
     ex.convention(
-        "the outcome is decided exactly; value and headroom are shown to the 28 significant \
-         digits of the decimal type, not rounded to the decimals of the agreement",
+        "the outcome is decided exactly: on the exact tested value, or on the value rounded as \
+         the agreement states when rounding is given; value and headroom are shown to the 28 \
+         significant digits of the decimal type, and are rounded to the decimals of the \
+         agreement only when rounding is given",
     );
     ex.convention(
-        "exact decision: the sign of numerator − threshold × denominator, computed in integer \
-         arithmetic on the decimal mantissas, with a positive denominator",
+        "exact decision without rounding: the sign of numerator − threshold × denominator, \
+         computed in integer arithmetic on the decimal mantissas, with a positive denominator; \
+         with rounding: the rounded value, computed from the exact quotient, compared with the \
+         threshold",
+    );
+    ex.convention(
+        "a zero or negative denominator gives the outcome set by if_denominator_not_positive; \
+         value and headroom are then null",
     );
     ex.convention(
         "headroom positive on the compliant side and negative on the breach side: threshold − \
@@ -505,8 +775,8 @@ pub fn covenants(input: &CovenantsInput) -> Result<(CovenantsOutput, Explain)> {
     );
     ex.convention("a negative numerator is compared as computed");
     ex.convention(
-        "a covenant whose tested value cannot be computed (zero denominator, or a value or \
-         headroom beyond the range of the decimal type) is not tested, never breached",
+        "a covenant whose tested value, rounded value or headroom exceeds the range of the \
+         decimal type is not tested, never breached; the other covenants are tested",
     );
     ex.convention(
         "covenants are numbered from 1 in the audit trail; error messages name the zero-based \
@@ -560,9 +830,10 @@ impl Method for Covenants {
     const DESCRIPTION: &'static str =
         "Tests financial covenants on the numerator and denominator defined by the loan \
         agreement, against a threshold with an explicit operator (at most, less than, at \
-        least, greater than) at a test date. Returns for each covenant the outcome (passed, \
-        breached, or not tested with a code and the reason, never a breach when the ratio \
-        cannot be computed), decided exactly, the tested value and the headroom, absolute and \
+        least, greater than) at a test date. The agreement's own rules are explicit inputs: the \
+        outcome when the denominator is zero or negative, and the rounding of the tested \
+        value. Returns for each covenant the outcome (passed, breached, or not tested with a \
+        code and the reason), decided exactly, the tested value and the headroom, absolute and \
         relative to the threshold.";
     const VERSION: &'static str = "1";
     type Input = CovenantsInput;
@@ -602,11 +873,23 @@ mod tests {
             denominator: amount("EBITDA", den),
             operator,
             threshold,
+            if_denominator_not_positive: IfDenominatorNotPositive::NotTested,
+            rounding: None,
         }
     }
 
     fn covenant(num: i64, den: i64, operator: Operator, threshold: Decimal) -> Covenant {
         cov(d(num), d(den), operator, threshold)
+    }
+
+    fn rounded(c: Covenant, decimal_places: u32, mode: RoundingMode) -> Covenant {
+        Covenant {
+            rounding: Some(Rounding {
+                decimal_places,
+                mode,
+            }),
+            ..c
+        }
     }
 
     fn run(c: Vec<Covenant>) -> Result<(CovenantsOutput, Explain)> {
@@ -668,6 +951,70 @@ mod tests {
     }
 
     #[test]
+    fn round_exact_follows_the_mode_on_the_exact_quotient() {
+        let r = |n: &str, den: &str, places, mode| {
+            round_exact(
+                dec(n),
+                dec(den),
+                Rounding {
+                    decimal_places: places,
+                    mode,
+                },
+            )
+            .unwrap()
+        };
+        use RoundingMode::{HalfEven, HalfUp};
+        assert_eq!(r("3504", "1000", 2, HalfUp), dec("3.50"));
+        assert_eq!(r("3505", "1000", 2, HalfUp), dec("3.51"));
+        assert_eq!(r("3505", "1000", 2, HalfEven), dec("3.50"));
+        assert_eq!(r("3515", "1000", 2, HalfEven), dec("3.52"));
+        assert_eq!(r("-3505", "1000", 2, HalfUp), dec("-3.51"));
+        assert_eq!(r("-3505", "1000", 2, HalfEven), dec("-3.50"));
+        assert_eq!(r("2", "3", 6, HalfUp), dec("0.666667"));
+        assert_eq!(r("7", "2", 0, HalfEven), dec("4"));
+        assert_eq!(r("5", "2", 0, HalfEven), dec("2"));
+        assert_eq!(r("1.5", "0.5", 0, HalfUp), dec("3"));
+        // No double rounding: the exact quotient 0.00499999...9667 is below the half, while its
+        // 28-digit rounding 0.0050000000000000000000000000 is on it.
+        let n = dec("0.0149999999999999999999999999");
+        assert_eq!(
+            num::div(n, d(3)).unwrap(),
+            dec("0.0050000000000000000000000000")
+        );
+        assert_eq!(
+            r("0.0149999999999999999999999999", "3", 2, HalfUp),
+            dec("0.00")
+        );
+        // Beyond the decimal type: MAX rounded to 6 places has too many digits.
+        assert_eq!(
+            round_exact(
+                Decimal::MAX,
+                d(1),
+                Rounding {
+                    decimal_places: 6,
+                    mode: HalfUp
+                }
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn contractual_rounding_decides_the_outcome_on_the_rounded_value() {
+        let c = covenant(3504, 1000, Operator::AtMost, dec("3.50"));
+        let r = one(c.clone());
+        assert_eq!(r.outcome, Outcome::Breached);
+        assert_eq!(r.value, Some(dec("3.504")));
+        assert_eq!(r.value_unrounded, None);
+        assert_eq!(r.headroom, Some(dec("-0.004")));
+        let r = one(rounded(c, 2, RoundingMode::HalfUp));
+        assert_eq!(r.outcome, Outcome::Passed);
+        assert_eq!(r.value, Some(dec("3.50")));
+        assert_eq!(r.value_unrounded, Some(dec("3.504")));
+        assert_eq!(r.headroom, Some(Decimal::ZERO));
+    }
+
+    #[test]
     fn maximum_passes_with_positive_headroom_and_breaches_with_negative() {
         let r = one(covenant(300, 100, Operator::AtMost, d(4)));
         assert_eq!(r.outcome, Outcome::Passed);
@@ -705,7 +1052,42 @@ mod tests {
     }
 
     #[test]
-    fn zero_denominator_is_not_tested_never_breached() {
+    fn denominator_not_positive_follows_the_input() {
+        for (den, rule, outcome) in [
+            (0, IfDenominatorNotPositive::NotTested, Outcome::NotTested),
+            (
+                -100,
+                IfDenominatorNotPositive::NotTested,
+                Outcome::NotTested,
+            ),
+            (0, IfDenominatorNotPositive::Breached, Outcome::Breached),
+            (-100, IfDenominatorNotPositive::Breached, Outcome::Breached),
+            (0, IfDenominatorNotPositive::Passed, Outcome::Passed),
+            (-100, IfDenominatorNotPositive::Passed, Outcome::Passed),
+        ] {
+            let mut c = covenant(300, den, Operator::AtMost, d(3));
+            c.if_denominator_not_positive = rule;
+            let r = one(c);
+            assert_eq!(r.outcome, outcome, "{den} {rule:?}");
+            assert_eq!((r.value, r.headroom), (None, None));
+            let tested = outcome != Outcome::NotTested;
+            assert_eq!(r.not_tested_code.is_none(), tested);
+        }
+        let mut c = covenant(300, -100, Operator::AtMost, d(3));
+        c.if_denominator_not_positive = IfDenominatorNotPositive::NotTested;
+        let r = one(c);
+        assert_eq!(
+            r.not_tested_code,
+            Some(NotTestedCode::DenominatorNotPositive)
+        );
+        assert_eq!(
+            r.not_tested_reason.as_deref(),
+            Some("denominator is negative (-100): EBITDA")
+        );
+    }
+
+    #[test]
+    fn zero_denominator_not_tested_never_breaches_and_others_continue() {
         let (out, ex) = run(vec![
             covenant(300, 0, Operator::AtMost, d(3)),
             covenant(300, 100, Operator::AtMost, d(2)),
@@ -713,16 +1095,17 @@ mod tests {
         .unwrap();
         let r = &out.covenants[0];
         assert_eq!(r.outcome, Outcome::NotTested);
-        assert_eq!(r.not_tested_code, Some(NotTestedCode::ZeroDenominator));
-        assert_eq!(r.value, None);
-        assert_eq!(r.headroom, None);
+        assert_eq!(
+            r.not_tested_code,
+            Some(NotTestedCode::DenominatorNotPositive)
+        );
         assert_eq!(
             r.not_tested_reason.as_deref(),
             Some("denominator is zero: EBITDA")
         );
         assert_eq!(
             r.headroom_relative.not_defined.as_deref(),
-            Some("covenant not tested")
+            Some("no tested value: denominator is zero: EBITDA")
         );
         assert_eq!(out.covenants[1].outcome, Outcome::Breached);
         assert_eq!(
@@ -739,10 +1122,17 @@ mod tests {
     }
 
     #[test]
-    fn negative_zero_denominator_is_not_tested() {
+    fn negative_zero_denominator_is_not_positive() {
         let r = one(cov(d(300), dec("-0"), Operator::AtMost, d(3)));
         assert_eq!(r.outcome, Outcome::NotTested);
-        assert_eq!(r.not_tested_code, Some(NotTestedCode::ZeroDenominator));
+        assert_eq!(
+            r.not_tested_code,
+            Some(NotTestedCode::DenominatorNotPositive)
+        );
+        assert_eq!(
+            r.not_tested_reason.as_deref(),
+            Some("denominator is zero: EBITDA")
+        );
     }
 
     #[test]
@@ -751,17 +1141,27 @@ mod tests {
         let (out, _) = run(vec![
             cov(Decimal::MAX, tiny, Operator::AtMost, d(3)),
             cov(Decimal::MAX, d(1), Operator::AtMost, Decimal::MIN),
+            rounded(
+                cov(Decimal::MAX, d(1), Operator::AtMost, d(3)),
+                6,
+                RoundingMode::HalfUp,
+            ),
             covenant(300, 100, Operator::AtMost, d(4)),
         ])
         .unwrap();
-        let first = &out.covenants[0];
-        assert_eq!(first.not_tested_code, Some(NotTestedCode::Overflow));
-        assert_eq!(first.not_tested_reason.as_deref(), Some(OVERFLOW_VALUE));
-        let second = &out.covenants[1];
-        assert_eq!(second.not_tested_code, Some(NotTestedCode::Overflow));
-        assert_eq!(second.not_tested_reason.as_deref(), Some(OVERFLOW_HEADROOM));
-        assert_eq!(out.covenants[2].outcome, Outcome::Passed);
-        assert_eq!(out.summary.not_tested, 2);
+        let reasons: Vec<_> = out.covenants[..3]
+            .iter()
+            .map(|r| {
+                assert_eq!(r.not_tested_code, Some(NotTestedCode::Overflow));
+                r.not_tested_reason.as_deref().unwrap()
+            })
+            .collect();
+        assert_eq!(
+            reasons,
+            vec![OVERFLOW_VALUE, OVERFLOW_HEADROOM, OVERFLOW_ROUNDED]
+        );
+        assert_eq!(out.covenants[3].outcome, Outcome::Passed);
+        assert_eq!(out.summary.not_tested, 3);
     }
 
     #[test]
@@ -770,19 +1170,6 @@ mod tests {
         assert_eq!(r.outcome, Outcome::Passed);
         assert_eq!(r.value, Some(Decimal::new(-5, 1)));
         assert_eq!(r.headroom, Some(Decimal::new(35, 1)));
-    }
-
-    #[test]
-    fn negative_denominator_is_refused_naming_the_field() {
-        let err = run(vec![
-            covenant(300, 100, Operator::AtMost, d(3)),
-            covenant(300, -100, Operator::AtMost, d(3)),
-        ])
-        .unwrap_err();
-        assert_eq!(err.code(), "FM-E001");
-        assert!(err
-            .to_string()
-            .contains("`covenants[1].denominator.amount` is negative (-100)"));
     }
 
     #[test]
@@ -804,7 +1191,7 @@ mod tests {
     }
 
     #[test]
-    fn empty_list_and_blank_texts_are_refused() {
+    fn invalid_inputs_are_refused_naming_the_field() {
         assert_eq!(run(vec![]).unwrap_err().code(), "FM-E001");
         let mut c = covenant(300, 100, Operator::AtMost, d(3));
         c.name = " ".into();
@@ -816,13 +1203,31 @@ mod tests {
         assert!(err
             .to_string()
             .contains("`covenants[0].numerator.definition` is empty"));
+        let c = rounded(
+            covenant(300, 100, Operator::AtMost, d(3)),
+            7,
+            RoundingMode::HalfUp,
+        );
+        let err = run(vec![covenant(300, 100, Operator::AtMost, d(3)), c]).unwrap_err();
+        assert_eq!(err.code(), "FM-E001");
+        assert!(err
+            .to_string()
+            .contains("`covenants[1].rounding.decimal_places` is 7: give 0 to 6"));
     }
 
     #[test]
-    fn explain_shows_the_numbers_the_verdict_and_the_counts() {
+    fn explain_shows_the_numbers_the_rules_the_verdict_and_the_counts() {
+        let mut breached_by_rule = covenant(600, -5, Operator::AtLeast, d(4));
+        breached_by_rule.if_denominator_not_positive = IfDenominatorNotPositive::Breached;
         let (_, ex) = run(vec![
             covenant(1900, 600, Operator::AtMost, Decimal::new(35, 1)),
             covenant(600, 175, Operator::AtLeast, d(4)),
+            rounded(
+                covenant(3504, 1000, Operator::AtMost, dec("3.50")),
+                2,
+                RoundingMode::HalfUp,
+            ),
+            breached_by_rule,
         ])
         .unwrap();
         let step = |label: &str| {
@@ -851,8 +1256,27 @@ mod tests {
             step("covenant 2, net leverage (2026-12-31): outcome").formula,
             "breached (600 / 175 at_least 4 is false, decided exactly)"
         );
-        assert_eq!(step("Covenants passed").value, d(1));
-        assert_eq!(step("Covenants breached").value, d(1));
+        let third = "covenant 3, net leverage (2026-12-31)";
+        let rounding = step(&format!("{third}: rounded tested value"));
+        assert_eq!(
+            rounding.formula,
+            "3504 / 1000 (3.504) rounded to 2 decimal places, half_up, from the exact quotient"
+        );
+        assert_eq!(rounding.value, dec("3.50"));
+        assert_eq!(
+            step(&format!("{third}: outcome")).formula,
+            "passed (rounded tested value 3.50 at_most 3.50 is true, decided exactly)"
+        );
+        assert_eq!(
+            step("covenant 4, net leverage (2026-12-31): outcome").formula,
+            "breached (denominator is negative (-5): EBITDA; outcome set by input \
+             if_denominator_not_positive)"
+        );
+        assert!(ex.conventions.iter().any(|c| c
+            == "covenant 4, net leverage (2026-12-31): a zero or negative denominator gives the \
+                outcome breached (input if_denominator_not_positive)"));
+        assert_eq!(step("Covenants passed").value, d(2));
+        assert_eq!(step("Covenants breached").value, d(2));
         assert_eq!(step("Covenants not tested").value, d(0));
     }
 }

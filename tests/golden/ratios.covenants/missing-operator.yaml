@@ -13,4 +13,5 @@ input:
       definition: consolidated EBITDA for the 12 months ending on the test date
       amount: '600'
     threshold: '3.5'
+    if_denominator_not_positive: not_tested
 expect_error: FM-E001

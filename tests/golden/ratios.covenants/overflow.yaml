@@ -16,6 +16,7 @@ input:
       amount: '0.0000000000000000000000000001'
     operator: at_most
     threshold: '3.5'
+    if_denominator_not_positive: not_tested
   - name: net leverage
     test_date: '2026-12-31'
     numerator:
@@ -26,6 +27,7 @@ input:
       amount: '100'
     operator: at_most
     threshold: '4'
+    if_denominator_not_positive: not_tested
 expect:
   /covenants/0/outcome: not_tested
   /covenants/0/not_tested_code: overflow
