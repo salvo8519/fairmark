@@ -38,12 +38,17 @@ safe default: its author would choose the status.
    `specs/method-evidence.yaml`. `scripts/method_status.py check` fails when an available
    method lacks evidence: spec approved with no unchecked item, spec naming the method,
    golden cases each with a `source`, audit and review tasks ticked.
-4. **Methods available before the rule are listed, not hidden.** The checker keeps a fixed
-   set of methods that were available when the rule was introduced and do not yet meet it.
-   They are reported on every run; the set may only shrink (the check fails when one of them
-   meets the rule or becomes preview). Promoting a method on any other grounds needs a change
-   to the checker, which is visible in review.
-5. **Status is not a version.** Both statuses follow ADR 0009: every numerical or breaking
+4. **Methods available before the rule are listed, not hidden.** The `legacy:` list of the
+   evidence file names the methods that were available when the rule was introduced and do
+   not yet meet it. They are reported on every run; the list may only shrink: it must stay
+   within a set frozen in the checker (`FROZEN_AT_149`), and the check fails when one of them
+   meets the rule or becomes preview. Promoting a method on any other grounds needs a change
+   to the checker, which is visible in review; the checker, the evidence file and the specs'
+   task lists are owned by the maintainer in `CODEOWNERS`.
+5. **Results carry the status.** `meta.method_status` reports the status of the method that
+   produced a result; an analysis method also reports `meta.evaluated_method_status` and, for
+   a preview inner method, a convention, so a saved or forwarded result keeps the warning.
+6. **Status is not a version.** Both statuses follow ADR 0009: every numerical or breaking
    change is a new method version with its own schema. The status states how much
    independent verification a method has had, so that an agent can tell its user.
 

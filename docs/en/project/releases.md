@@ -41,26 +41,37 @@ A method may be available only when all of the following hold:
 
 1. its spec (`specs/NNNN-*/spec.md`) is approved: the Status row starts with `Approved` or
    `Implementing`;
-2. the spec has no unchecked item (`- [ ]`): every open question is resolved and every
-   acceptance criterion with a checkbox is ticked;
+2. the spec has no unchecked item (`- [ ]`, with any bullet: `-`, `*`, `+` or a number;
+   fenced code blocks are ignored): every open question is resolved and every acceptance
+   criterion with a checkbox is ticked;
 3. the spec names the method id;
 4. the method has golden cases, and every one names its independent source (`source`);
-5. the independent numerical audit (`numerical-auditor`) is recorded as a ticked task in the
-   spec's `tasks.md`;
-6. the code review (`code-reviewer`) is recorded as a ticked task in the spec's `tasks.md`.
+5. the independent numerical audit is recorded as a ticked task in the spec's `tasks.md`
+   whose text names the role literally, `numerical-auditor`;
+6. the code review is recorded as a ticked task in the spec's `tasks.md` whose text names the
+   role literally, `code-reviewer`.
 
 ### Promotion, checked
 
-- `specs/method-evidence.yaml` lists, for each spec, the methods it covers and the ids of the
-  `tasks.md` tasks that record the audit and the review.
+- `specs/method-evidence.yaml` lists, for each spec (a quoted four-digit key such as
+  `"0002"`), the methods it covers and the ids (`T<n>`) of the `tasks.md` tasks that record
+  the audit and the review. Each id must be defined exactly once. The checker rejects an
+  unknown key or a malformed value, so a typo cannot pass as missing evidence.
 - Promotion is one line in the `AVAILABLE` list of `crates/fairmark-core/src/registry.rs`;
   the maintainer approves it in the pull request.
 - `python scripts/method_status.py check` (CI and `just check`) fails when an available method
   does not meet every condition. `python scripts/method_status.py report` prints the evidence
   of every method and the preview methods that are eligible for promotion.
 - Methods that were available before this rule was introduced and do not yet meet it are
-  listed in the checker and reported on every run. The list may only shrink: the check fails
-  when one of them meets the rule (remove it from the list) or becomes preview.
+  listed under `legacy:` in the evidence file and reported on every run. The list may only
+  shrink: it must stay within the set frozen in the checker (`FROZEN_AT_149`), and the check
+  fails when one of them meets the rule (remove it from the list) or becomes preview.
+- Results carry the status too: `meta.method_status` in every result, and
+  `meta.evaluated_method_status` in the result of an analysis method, which also states
+  "Evaluated method <id> is preview" in `explain.conventions` when the method it evaluates is
+  preview.
+- The evidence file, the checker and the specs' `tasks.md` files are owned by the maintainer
+  (`.github/CODEOWNERS`).
 - A defect found in an available method is fixed in a new method version; the maintainer may
   also move the method back to preview by removing its line.
 

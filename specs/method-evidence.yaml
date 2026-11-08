@@ -1,11 +1,15 @@
 # Evidence for the promotion of methods from preview to available (ADR 0011).
 # Rule: docs/en/project/releases.md, "Method status". Checked by scripts/method_status.py.
 #
-# One entry per spec folder number:
+# specs: one entry per spec folder number, a quoted four-digit string ("0002"):
 #   methods          method ids the spec covers (each id in at most one entry)
-#   numerical_audit  id of the ticked task in the spec's tasks.md that records the
-#                    independent numerical audit (numerical-auditor), or null
-#   code_review      id of the ticked task that records the code review (code-reviewer), or null
+#   numerical_audit  id of the task in the spec's tasks.md that records the independent
+#                    numerical audit; its text must name `numerical-auditor`; or null
+#   code_review      id of the task that records the code review; its text must name
+#                    `code-reviewer`; or null
+# legacy: methods available before the rule (issue #149) that do not yet meet it. Reported on
+#   every run. The list may only shrink (the checker's FROZEN_AT_149 bounds it): remove a
+#   method once it meets the rule or becomes preview. Never add one.
 #
 # Status itself is not stored here: it is the AVAILABLE list in
 # crates/fairmark-core/src/registry.rs. Preview methods may be listed or not.
@@ -75,3 +79,37 @@ specs:
       - loans.amortisation_schedule
     numerical_audit: T23
     code_review: T23
+
+legacy:
+  # SPEC-0002: no code review recorded; tvm.npv and tvm.irr also have golden cases without a
+  # source.
+  - dates.year_fraction
+  - rates.convert
+  - rates.real_nominal
+  - tvm.npv
+  - tvm.present_value
+  - tvm.xnpv
+  - tvm.irr
+  - tvm.xirr
+  - tvm.mirr
+  - tvm.annuity
+  - tvm.perpetuity
+  # SPEC-0009 T23: audit and review not yet ticked.
+  - tvm.future_value
+  - loans.instalment
+  - loans.number_of_instalments
+  - loans.amortisation_schedule
+  # SPEC-0006 T17: audit and review not yet ticked.
+  - tv.gordon
+  - tv.value_driver
+  - tv.h_model
+  - tv.exit_multiple
+  - tv.limited_horizon
+  - tv.normalised_income
+  - tv.liquidation
+  - tv.compare
+  # SPEC-0008 T25: audit and review not yet ticked.
+  - analysis.goal_seek
+  - analysis.sensitivity
+  - analysis.scenarios
+  - analysis.tornado
