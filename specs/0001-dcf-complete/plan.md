@@ -335,3 +335,96 @@ Additive: new method `dcf.free_cash_flows` version 1, snapshot
 terms kept where the spec marks the Italian term "to verify": EBIT, net borrowing, operating
 taxes), nav entry, methods index row (status preview), Python helper
 `fairmark.dcf.free_cash_flows`, release note `changes/38.feature.md`.
+
+## Issue #166 — Nominal and real terms: basis check and rate conversion
+
+Requirements: R14 to R18 (Decision 5), with R13 for converted rates, R27 and R28 for the new
+fields, AC6 (inflation list count), AC8, AC9 and the warning of AC10 (growth below inflation).
+Extends version 3 additively through the extension point above: only optional input fields are
+added, and output fields are added next to the existing ones.
+
+### Input (`dcf.fcff` version 3, additive)
+| Field | Type | Rule |
+| --- | --- | --- |
+| `inflation` | decimal, optional | expected inflation per period, decimal fraction, greater than -1; applies to every explicit period and to the terminal phase |
+| `inflation_per_period` | list of decimals, optional | one per period of the explicit horizon, exactly N (`FM-E025` otherwise); requires `terminal_inflation` |
+| `terminal_inflation` | decimal, optional | expected inflation of the terminal phase; required with `inflation_per_period`, refused with `inflation` and alone |
+
+Exactly one form or none; any other combination, or an inflation of -1 or lower, is `FM-E001`
+naming the field by its JSON pointer and stating the fix. The form mirrors the rate forms of
+R12 and Decision 13 (one value for every period and the terminal phase, or one per period plus
+a terminal value), so that the two lists read the same way. The forms are checked whenever
+they are given, also when the terms are equal (R18).
+
+### Computation (engine, `check_terms` replaced by `resolve_terms`)
+After the rates are resolved (R12, R13) and before the terminal technique is checked:
+1. Terms equal: no conversion (`rate_used` = `discount_rate`); with inflation, R18: it is used
+   only for R17 and the conventions say that no conversion was made.
+2. Terms differ, no inflation: `FM-E024` as before (R15), the message naming both terms fields,
+   the inflation fields and the two fixes.
+3. Terms differ, inflation given (R16, Decision 5): every rate of the explicit periods with the
+   inflation of its period, and the terminal rate with the inflation of the terminal phase
+   (`inflation`, or `terminal_inflation`), is converted to the terms of the cash flows through a
+   typed call to `rates::real_nominal` (`to_real` for real flows, `to_nominal` for nominal
+   flows); its step formula, with the values substituted, becomes the explain step "Period k:
+   discount rate used" and "Terminal rate used". Flows and growth rates are never converted.
+   A converted rate of -1 or lower would be `FM-E003` naming the period (R13); with both inputs
+   above -1 the exact relation cannot produce one, the check stays as a guard.
+4. The converted rates feed `tvm::period_discount_factors`, the compounding factors, the
+   terminal technique (its own check, so that a perpetual growth not below the converted
+   terminal rate is `FM-E004` naming the rate field "converted with the inflation field") and
+   the half-period shift of Decision 16.
+5. R17, whenever inflation is given: the perpetual growth stated by the terminal technique (the
+   same growth as the continuity check of R11: `growth` of `tv.gordon`, `tv.value_driver`,
+   `tv.normalised_income`; `long_term_growth` of `tv.h_model`) is restated in the other terms
+   with the inflation of the terminal phase, again through `rates::real_nominal`; for nominal
+   flows a growth below that inflation is reported as a warning (a real decline). For the
+   techniques that state no perpetual growth (`tv.exit_multiple`, `tv.limited_horizon`,
+   `tv.liquidation`) a convention says that none is restated (open question below).
+
+### Output (additive)
+- `periods[].rate_used`: the converted rate (already in the table since #110);
+  `periods[].inflation`: the inflation used to convert the rate of the period, `null` when no
+  conversion is made.
+- `terms`: `cash_flow_terms`, `discount_rate_terms`, `conversion` (`none`, `to_real`,
+  `to_nominal`), `terminal_rate_given`, `terminal_rate_used` (equal to `terminal.rate`),
+  `terminal_inflation` (the inflation of the terminal phase, `null` without inflation),
+  `perpetual_growth` (in the terms of the cash flows) and `perpetual_growth_other_terms` (R17;
+  `null` without inflation or without a perpetual growth).
+
+### Explain (R28)
+Conventions: the terms on both sides; the inflation form and values; the conversion with its
+direction, the exact Fisher relation and the building block (`rates.real_nominal v1`), the
+statement that no cash flow or growth rate is converted; R18 "no conversion"; R17 growth in the
+other terms and the warning. Steps: "Period k: discount rate" (as given), "Period k: expected
+inflation", "Period k: discount rate used" with the substituted Fisher formula, "Terminal
+rate: expected inflation", "Terminal rate used", "Perpetual growth in real (nominal) terms".
+
+### Tests
+- Reference `scripts/reference_dcf.py` extended: the rate conversion restated from R16
+  ((1 + r) / (1 + i) − 1, (1 + r)(1 + i) − 1), R17 growth, `rate_used` and `terms` outputs; a
+  separate function inflates real flows to nominal flows for AC9 (end of period, 1e-20
+  relative).
+- Golden cases (new files only) `tests/golden/dcf.fcff/terms-*.yaml`: real flows with a
+  nominal rate and inflation; nominal flows with a real rate and inflation; inflation per period
+  with rates per period and a terminal rate under mid-period timing at N − 0.5; terminal growth
+  in the other terms with equal terms (R18); a converted rate equal to a real rate given
+  directly (identical expected values, the inflation chosen so that the conversion is exact);
+  errors `error-terms-*.yaml` (count, forms, inflation of -1, growth not below the converted
+  terminal rate).
+- Python `python/tests/test_reference_dcf.py`: grid against the reference with conversion;
+  AC9 exact equality with the rates converted by `rates.real_nominal` given directly, and the
+  inflated-flows equivalence within 1e-20 relative.
+- Rust unit tests: every new error with its JSON pointer, every convention, the R17 warning,
+  no conversion with equal terms.
+
+### Open questions for the maintainer (issue #166)
+- **R17 for techniques without a stated perpetual growth.** `tv.exit_multiple` (implied growth
+  only when `next_flow` is given), `tv.limited_horizon` (a finite growth) and `tv.liquidation`
+  state no perpetual growth. Implemented: nothing is restated and a convention says so. The
+  implied growth of an exit multiple could be restated too.
+- **Inflation of the R17 warning with inflation per period.** Implemented: the inflation of
+  the terminal phase (`terminal_inflation`), since the perpetual growth applies after N. The
+  spec says "expected inflation" without naming the period.
+- **R17 for real flows.** The spec asks for the warning only for nominal flows; a negative real
+  perpetual growth on real flows is reported in the other terms but not as a warning.
