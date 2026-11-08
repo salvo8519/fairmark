@@ -168,45 +168,47 @@ fairmark verify result.json --input company.json  # riproduce un risultato bit p
 
 | Metodo | Stato | Descrizione |
 | --- | --- | --- |
-| `dates.year_fraction` | Anteprima | Year fraction (day count) |
-| `rates.convert` | Anteprima | Rate conversion between compounding conventions |
-| `rates.real_nominal` | Anteprima | Real and nominal rates (Fisher) |
-| `tvm.npv` | Anteprima | Net present value |
-| `tvm.present_value` | Anteprima | Present value with a constant or time-varying rate |
-| `tvm.xnpv` | Anteprima | Net present value of dated cash flows (XNPV) |
-| `tvm.irr` | Anteprima | Internal rate of return |
-| `tvm.xirr` | Anteprima | Internal rate of return of dated cash flows (XIRR) |
-| `tvm.mirr` | Anteprima | Modified internal rate of return (MIRR) |
-| `tvm.annuity` | Anteprima | Annuity (level or growing, ordinary or due) |
-| `tvm.perpetuity` | Anteprima | Perpetuity (level or growing) |
-| `tvm.future_value` | Disponibile | Future value of a present amount and level payments |
-| `loans.instalment` | Disponibile | Loan instalment (constant instalment, optional balloon) |
-| `loans.number_of_instalments` | Disponibile | Number of instalments of a loan |
-| `loans.amortisation_schedule` | Disponibile | Amortisation schedule (French, constant principal, bullet) |
-| `coc.cost_of_equity` | Disponibile | Cost of equity (CAPM with explicit premia) |
-| `coc.beta_relever` | Disponibile | Beta unlevering and relevering |
-| `coc.beta_peers` | Disponibile | Beta from comparable companies |
-| `coc.cost_of_debt` | Disponibile | Cost of debt |
-| `coc.wacc` | Disponibile | Weighted average cost of capital (WACC) |
-| `tv.gordon` | Disponibile | Terminal value, stable growth (Gordon) |
-| `tv.value_driver` | Disponibile | Terminal value, value driver (growth from reinvestment) |
-| `tv.h_model` | Disponibile | Terminal value, H-model (declining growth) |
-| `tv.exit_multiple` | Disponibile | Terminal value, exit multiple |
-| `tv.limited_horizon` | Disponibile | Terminal value, finite horizon |
-| `tv.normalised_income` | Disponibile | Terminal value, capitalised normalised income |
-| `tv.liquidation` | Disponibile | Terminal value, liquidation |
-| `tv.compare` | Disponibile | Terminal value, comparison of techniques |
-| `dcf.fcff` | Anteprima | DCF — unlevered free cash flow |
-| `ratios.profitability` | Anteprima | Ratios — profitability |
-| `ratios.capital_structure` | Anteprima | Ratios — capital structure |
-| `ratios.liquidity` | Anteprima | Ratios — liquidity |
-| `ratios.working_capital` | Anteprima | Ratios — working capital |
-| `ratios.debt_service` | Anteprima | Ratios — debt service |
-| `ratios.covenants` | Anteprima | Ratios — covenants |
-| `analysis.goal_seek` | Disponibile | Goal seek |
-| `analysis.sensitivity` | Disponibile | Sensitivity table |
-| `analysis.scenarios` | Disponibile | Scenario analysis |
+| `dates.year_fraction` | Anteprima | Frazione d'anno (convenzione di calcolo dei giorni) |
+| `rates.convert` | Anteprima | Conversione di un tasso tra convenzioni di capitalizzazione |
+| `rates.real_nominal` | Anteprima | Tassi reali e nominali (Fisher) |
+| `tvm.npv` | Anteprima | Valore attuale netto (VAN, NPV) |
+| `tvm.present_value` | Anteprima | Valore attuale con un tasso costante o variabile per periodo |
+| `tvm.xnpv` | Anteprima | Valore attuale netto di flussi datati (XNPV) |
+| `tvm.irr` | Anteprima | Tasso interno di rendimento (TIR, IRR) |
+| `tvm.xirr` | Anteprima | Tasso interno di rendimento di flussi datati (XIRR) |
+| `tvm.mirr` | Anteprima | Tasso interno di rendimento modificato (TIRM, MIRR) |
+| `tvm.annuity` | Anteprima | Rendita (costante o crescente, posticipata o anticipata) |
+| `tvm.perpetuity` | Anteprima | Rendita perpetua (costante o crescente) |
+| `tvm.future_value` | Disponibile | Valore futuro (montante) di un importo attuale e di pagamenti costanti |
+| `loans.instalment` | Disponibile | Rata di un finanziamento (rata costante, balloon facoltativo) |
+| `loans.number_of_instalments` | Disponibile | Numero delle rate di un finanziamento |
+| `loans.amortisation_schedule` | Disponibile | Piano di ammortamento (alla francese, all'italiana, bullet) |
+| `coc.cost_of_equity` | Disponibile | Costo del capitale proprio (CAPM con premi espliciti) |
+| `coc.beta_relever` | Disponibile | Unlevering e relevering del beta |
+| `coc.beta_peers` | Disponibile | Beta da società comparabili |
+| `coc.cost_of_debt` | Disponibile | Costo del debito |
+| `coc.wacc` | Disponibile | Costo medio ponderato del capitale (WACC) |
+| `tv.gordon` | Disponibile | Valore terminale, crescita costante (Gordon) |
+| `tv.value_driver` | Disponibile | Valore terminale, value driver (crescita dal reinvestimento) |
+| `tv.h_model` | Disponibile | Valore terminale, H-model (crescita in calo) |
+| `tv.exit_multiple` | Disponibile | Valore terminale, multiplo di uscita (exit multiple) |
+| `tv.limited_horizon` | Disponibile | Valore terminale, orizzonte finito |
+| `tv.normalised_income` | Disponibile | Valore terminale, reddito normalizzato capitalizzato |
+| `tv.liquidation` | Disponibile | Valore terminale, valore di liquidazione |
+| `tv.compare` | Disponibile | Valore terminale, confronto tra tecniche |
+| `dcf.fcff` | Anteprima | DCF, flusso di cassa operativo disponibile (FCFF) |
+| `ratios.profitability` | Anteprima | Indici di bilancio, redditività |
+| `ratios.capital_structure` | Anteprima | Indici di bilancio, struttura finanziaria |
+| `ratios.liquidity` | Anteprima | Indici di bilancio, liquidità |
+| `ratios.working_capital` | Anteprima | Indici di bilancio, capitale circolante |
+| `ratios.debt_service` | Anteprima | Indici di bilancio, servizio del debito |
+| `ratios.covenants` | Anteprima | Indici di bilancio, verifica dei covenant |
+| `analysis.goal_seek` | Disponibile | Ricerca obiettivo (goal seek) |
+| `analysis.sensitivity` | Disponibile | Tabella di sensitività |
+| `analysis.scenarios` | Disponibile | Analisi di scenario |
 | `analysis.tornado` | Disponibile | Tornado |
+
+Disponibile: verificato in modo indipendente, con evidenze registrate (specifica approvata, casi di riferimento con fonti, verifica numerica, revisione del codice). Anteprima: funziona ed è testato; alcune evidenze sono ancora da registrare. Regola: [stato dei metodi](https://salvo8519.github.io/fairmark/project/releases/#method-status) (in inglese).
 
 Le prossime funzionalità, con le loro issue e specifiche, sono nella [roadmap](https://salvo8519.github.io/fairmark/project/roadmap/), generata dal piano.
 

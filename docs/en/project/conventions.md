@@ -45,6 +45,12 @@ belong to Italian practice keep an English identifier (`asset.adjusted_equity`);
 internationally recognised acronym may be kept (`mixed.uec`). Their Italian names appear only
 in the Italian documentation and in `i18n/glossary.yaml`.
 
+The English title of each method comes from the engine registry. Its Italian title, shown in
+the methods table of `README.it.md`, lives in `i18n/method_titles/it.yaml`, keyed by method id
+and written with the glossary. Every new method adds its entry there in the same pull request:
+`scripts/gen_reference.py` fails when a registered method has no Italian title or the file
+lists an id that is not registered.
+
 ## Issues
 
 - **Title**: the outcome, as a short sentence in sentence case, without a type prefix and

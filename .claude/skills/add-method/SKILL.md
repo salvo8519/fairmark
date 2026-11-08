@@ -28,7 +28,9 @@ description: End-to-end checklist for adding a valuation method to the Fairmark 
 6. Python: thin helper in `python/fairmark/<area>.py`, exported in `__init__.py`.
 7. Docs: `docs/en/methods/<id>.md` (via `docs-writer`), nav entry in `zensical.toml`,
    row in `docs/en/methods/index.md` (method and what it computes; the status block is
-   generated); `python scripts/docs_sync.py coverage` must pass.
+   generated); `python scripts/docs_sync.py coverage` must pass. Add the Italian title of the
+   method to `i18n/method_titles/it.yaml` (short like the English title, terms from
+   `i18n/glossary.yaml`); `scripts/gen_reference.py` fails without it.
 8. `uv run just check`, then `code-reviewer` and `numerical-auditor`.
 9. Status: a new method is `preview` (ADR 0012). Add its id to the spec's entry in
    `specs/method-evidence.yaml`. Promotion to `available` is a separate, maintainer-approved

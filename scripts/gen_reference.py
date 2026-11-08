@@ -6,7 +6,8 @@
 Writes docs/<lang>/reference/methods.md, the status block of docs/<lang>/methods/index.md
 and the methods table of README.md and README.it.md. Field descriptions come from the Rust
 doc comments (English) in both editions; the status of each method comes from the registry
-(ADR 0012).
+(ADR 0012). The Italian README shows the Italian method titles of i18n/method_titles/it.yaml;
+both modes fail when that file misses a registered method or lists an unknown id.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import tomllib
+import yaml
 
 import fairmark as fm
 
@@ -112,11 +114,16 @@ SITE_URL = tomllib.loads((ROOT / "zensical.toml").read_text(encoding="utf-8"))["
     "site_url"
 ]  # English site: project pages are English only
 ROADMAP_URL = f"{SITE_URL}project/roadmap/"
+STATUS_URL = f"{SITE_URL}project/releases/#method-status"
 README = {
     "en": {
         "file": "README.md",
         "head": "| Method | Status | Description |",
         "status": {"available": "Available", "preview": "Preview"},
+        "legend": "Available: verified independently, with recorded evidence (spec approved,"
+        " golden cases with sources, numerical audit, code review). Preview: works and is"
+        " tested; some evidence is still to be recorded."
+        f" Rule: [method status]({STATUS_URL}).",
         "next": "What comes next, with its issues and specifications, is in the "
         f"[roadmap]({ROADMAP_URL}), generated from the plan.",
     },
@@ -124,21 +131,52 @@ README = {
         "file": "README.it.md",
         "head": "| Metodo | Stato | Descrizione |",
         "status": {"available": "Disponibile", "preview": "Anteprima"},
+        "legend": "Disponibile: verificato in modo indipendente, con evidenze registrate"
+        " (specifica approvata, casi di riferimento con fonti, verifica numerica, revisione del"
+        " codice). Anteprima: funziona ed è testato; alcune evidenze sono ancora da registrare."
+        f" Regola: [stato dei metodi]({STATUS_URL}) (in inglese).",
         "next": "Le prossime funzionalità, con le loro issue e specifiche, sono nella "
         f"[roadmap]({ROADMAP_URL}), generata dal piano.",
     },
 }
 README_START = "<!-- generated:methods:start (scripts/gen_reference.py) -->"
 README_END = "<!-- generated:methods:end -->"
+# Method titles in languages other than English; English titles come from the registry.
+TITLES_DIR = ROOT / "i18n" / "method_titles"
+
+
+def load_titles(lang: str) -> dict[str, str]:
+    """Method titles of one language, keyed by method id (empty for English)."""
+    if lang == "en":
+        return {}
+    data = yaml.safe_load((TITLES_DIR / f"{lang}.yaml").read_text(encoding="utf-8"))
+    return data if isinstance(data, dict) else {}
+
+
+def title_problems(ids: list[str], titles: dict[Any, Any], lang: str) -> list[str]:
+    """Registered methods without a title and listed ids that are not registered."""
+    path = f"i18n/method_titles/{lang}.yaml"
+    problems = [f"{mid}: no title in {path}" for mid in ids if mid not in titles]
+    problems += [
+        f"{key}: listed in {path} but not a registered method" for key in titles if key not in ids
+    ]
+    problems += [
+        f"{key}: empty or non-text title in {path}"
+        for key, value in titles.items()
+        if key in ids and (not isinstance(value, str) or not value.strip())
+    ]
+    return problems
 
 
 def readme_block(lang: str) -> str:
     t = README[lang]
+    titles = load_titles(lang)
     rows = [t["head"], "| --- | --- | --- |"]
     for m in fm.methods():
         state = t["status"][m["status"]]
-        rows.append(f"| `{m['id']}` | {state} | {m['title']} |")
-    return "\n".join([README_START, "", *rows, "", t["next"], "", README_END])
+        title = titles.get(m["id"], m["title"])
+        rows.append(f"| `{m['id']}` | {state} | {title} |")
+    return "\n".join([README_START, "", *rows, "", t["legend"], "", t["next"], "", README_END])
 
 
 def readme_with_block(lang: str) -> tuple[Path, str]:
@@ -149,7 +187,6 @@ def readme_with_block(lang: str) -> tuple[Path, str]:
     return path, head + readme_block(lang) + tail
 
 
-STATUS_URL = f"{SITE_URL}project/releases/#method-status"
 INDEX = {
     "en": {
         "intro": "Status of each method, as the engine registry reports it to `fm.methods()`,"
@@ -193,6 +230,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
+    ids = [m["id"] for m in fm.methods()]
+    problems = [
+        p for lang in README if lang != "en" for p in title_problems(ids, load_titles(lang), lang)
+    ]
+    if problems:
+        sys.exit("Method titles out of step with the registry:\n  " + "\n  ".join(problems))
     stale = []
     for lang in TEXT:
         out = ROOT / "docs" / lang / "reference" / "methods.md"
