@@ -66,7 +66,9 @@ NON_METHOD_FILES = {"error", "explain", "registry", "types", "lib", "num", "meth
 
 
 def git(*args: str) -> list[str]:
-    out = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, check=True)
+    out = subprocess.run(
+        ["git", *args], cwd=ROOT, capture_output=True, text=True, check=True, encoding="utf-8"
+    )
     return [line for line in out.stdout.splitlines() if line]
 
 
@@ -165,8 +167,8 @@ def claims() -> int:
 def coverage() -> int:
     import fairmark as fm  # needs the project environment
 
-    nav = (ROOT / "zensical.toml").read_text()
-    index = (ROOT / "docs/en/methods/index.md").read_text()
+    nav = (ROOT / "zensical.toml").read_text(encoding="utf-8")
+    index = (ROOT / "docs/en/methods/index.md").read_text(encoding="utf-8")
     problems = []
     for m in fm.methods():
         mid = m["id"]
@@ -182,7 +184,9 @@ def coverage() -> int:
         if not list((ROOT / "tests/golden" / mid).glob("*.yaml")):
             problems.append(f"{mid}: no golden cases in tests/golden/{mid}/")
         helper = ROOT / "python/fairmark" / f"{area}.py"
-        if not helper.exists() or not re.search(rf"^def {name}\(", helper.read_text(), re.M):
+        if not helper.exists() or not re.search(
+            rf"^def {name}\(", helper.read_text(encoding="utf-8"), re.M
+        ):
             problems.append(f"{mid}: no Python helper `{name}` in python/fairmark/{area}.py")
     if problems:
         print("Documentation coverage gaps:")

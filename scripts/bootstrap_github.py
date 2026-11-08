@@ -41,7 +41,9 @@ class GitHub:
         if method == "GET":
             cmd = ["gh", "api", "--paginate", f"repos/{self.repo}/{path}"]
         for attempt in range(3):
-            out = subprocess.run(cmd, input=json.dumps(fields), capture_output=True, text=True)
+            out = subprocess.run(
+                cmd, input=json.dumps(fields), capture_output=True, text=True, encoding="utf-8"
+            )
             if out.returncode == 0:
                 break
             time.sleep(2 * (attempt + 1))
@@ -57,7 +59,7 @@ def main() -> None:
     args = parser.parse_args()
 
     gh = GitHub(args.repo, args.dry_run)
-    roadmap = yaml.safe_load(ROADMAP.read_text())
+    roadmap = yaml.safe_load(ROADMAP.read_text(encoding="utf-8"))
 
     existing_labels = {lbl["name"] for lbl in gh.api("GET", "labels?per_page=100")}
     for lbl in roadmap["labels"]:

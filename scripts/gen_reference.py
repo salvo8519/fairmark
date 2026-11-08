@@ -241,11 +241,11 @@ def main() -> None:
         out = ROOT / "docs" / lang / "reference" / "methods.md"
         content = render(lang)
         if args.check:
-            if not out.exists() or out.read_text() != content:
+            if not out.exists() or out.read_text(encoding="utf-8") != content:
                 stale.append(str(out.relative_to(ROOT)))
         else:
             out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_text(content)
+            out.write_text(content, encoding="utf-8")
     blocks = [readme_with_block(lang) for lang in README]
     blocks += [index_with_block(lang) for lang in INDEX]
     for path, content in blocks:

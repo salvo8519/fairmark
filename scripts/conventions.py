@@ -128,7 +128,7 @@ def main() -> int:
         )  # fmt: skip
         event = os.environ.get("GITHUB_EVENT_PATH")
         if title is None and event:
-            pr = json.loads(Path(event).read_text())["pull_request"]
+            pr = json.loads(Path(event).read_text(encoding="utf-8"))["pull_request"]
             title, branch, body = pr["title"], pr["head"]["ref"], pr.get("body") or ""
             labels = [lbl["name"] for lbl in pr["labels"]]
             author = pr["user"]["login"]

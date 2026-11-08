@@ -38,6 +38,7 @@ def tracked_files() -> list[Path]:
         capture_output=True,
         text=True,
         check=True,
+        encoding="utf-8",
     ).stdout
     return [
         ROOT / f
