@@ -23,6 +23,16 @@
   --md-typeset-a-color: #9DB7DD;
   --md-default-bg-color: #0A1628;
 }
+/* Active navigation item, light theme. The theme default renders it in the accent colour,
+   and Hallmark Gold is an accent for navy surfaces only: on white it reaches 2.1:1 and fails
+   WCAG 2.1 AA (4.5:1). Deep Navy text on a navy tint reaches 11.4:1; gold stays as a marker.
+   The dark theme keeps gold text on navy (6.8:1). */
+[data-md-color-scheme="default"] .md-nav--primary .md-nav__item .md-nav__link--active {
+  color: var(--fm-deep);
+  background: rgb(11 31 58 / 6%);
+  box-shadow: inset 0.15rem 0 0 var(--fm-gold);
+}
+
 /* Landing page */
 .fm-hero { text-align: center; padding: 1.5rem 0 0.5rem; }
 .fm-hero h1 { font-size: 2.6rem; margin-bottom: 0.2rem; font-weight: 700; }

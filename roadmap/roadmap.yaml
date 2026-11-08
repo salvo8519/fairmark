@@ -210,6 +210,7 @@ milestones:
         tasks:
           - { issue: 65, title: "Release v0.1.0, MCP registry listings, announcement", tags: [maintainer], status: open }
           - { issue: 125, title: "Release readiness check and version policy", status: done }
+          - { issue: 144, title: "Documentation site meets WCAG AA contrast for the active navigation item", tags: [parallel], status: done }
 
   - title: "M4 · Traditional European methods"
     gate: "Golden cases green for every method."
