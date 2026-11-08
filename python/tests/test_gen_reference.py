@@ -5,7 +5,12 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 import fairmark as fm
+
+# scripts/gen_reference.py is tooling run with the development Python (3.11+, tomllib).
+pytest.importorskip("tomllib")
 
 ROOT = Path(__file__).resolve().parents[2]
 _spec = importlib.util.spec_from_file_location("gen_reference", ROOT / "scripts/gen_reference.py")
