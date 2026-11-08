@@ -192,6 +192,26 @@ Number of instalments needed to repay a loan with a given instalment, the exact 
 | `instalment` | decimal | yes |  | Constant instalment, in currency units; it must exceed the interest of the first period. |
 | `timing` | `ordinary` \| `due` | yes |  | `ordinary` (in arrears: instalment k at the end of period k) or `due` (in advance: at the beginning of period k). |
 
+## `loans.amortisation_schedule`
+
+**Amortisation schedule (French, constant principal, bullet)** · method version 1 · tool `fairmark_loans_amortisation_schedule`
+
+Period-by-period schedule of a loan with instalment, interest portion, principal portion and outstanding balance; French, fixed amortisation schedule or bullet, with an optional grace period, balloon amount and rounding.
+
+| Input | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `principal` | decimal | yes |  | Amount borrowed, in currency units, greater than zero. |
+| `rate` | decimal | no |  | Annual borrowing rate, decimal fraction (0.05 = 5% a year), quoted with `compounding`. Rate form (a): give it with `compounding` and `payment_frequency`, or give `periodic_rate` instead. |
+| `compounding` |  | no |  | Compounding of `rate` (form a); required with `rate`, no default. |
+| `payment_frequency` |  | no |  | Instalments per year (form a): `annual`, `semi_annual`, `quarterly` or `monthly`. |
+| `periodic_rate` | decimal | no |  | Rate per payment period, decimal fraction (form b), greater than -1; instead of `rate`, `compounding` and `payment_frequency`. |
+| `number_of_instalments` | integer | yes |  | Number of instalments over the full term, grace periods included, from 1 to 10000. |
+| `timing` | `ordinary` \| `due` | yes |  | `ordinary` (in arrears: instalment k at the end of period k, time k). Version 1 accepts only `ordinary`; `due` is refused with `FM-E001`. |
+| `amortisation_type` | `french` \| `fixed_amortisation_schedule` \| `bullet` | yes |  | `french` (constant instalment), `fixed_amortisation_schedule` (constant principal portion) or `bullet` (principal repaid with the last instalment). |
+| `principal_grace_periods` | integer \| null | no |  | Number of interest-only periods at the start, lower than `number_of_instalments`. Default: 0. Not accepted with `bullet`. |
+| `balloon_amount` | decimal | no |  | Principal repaid with the last instalment on top of the amortised amount, in currency units, at least 0 and lower than the principal. Default: 0. Not accepted with `bullet`. |
+| `rounding` |  | no |  | Rounding of the amount the schedule type keeps constant: the instalment (`french`) or the principal portion (`fixed_amortisation_schedule`). Interest is never rounded. Default: none (no rounding). |
+
 ## `coc.cost_of_equity`
 
 **Cost of equity (CAPM with explicit premia)** · method version 1 · tool `fairmark_coc_cost_of_equity`

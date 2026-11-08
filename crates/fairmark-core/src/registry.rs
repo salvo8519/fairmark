@@ -83,6 +83,7 @@ registry! {
     tvm::FutureValue,
     loans::Instalment,
     loans::NumberOfInstalments,
+    loans::AmortisationSchedule,
     coc::CostOfEquity,
     coc::BetaRelever,
     coc::BetaPeers,

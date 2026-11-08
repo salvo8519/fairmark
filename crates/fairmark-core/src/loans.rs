@@ -596,6 +596,459 @@ pub fn number_of_instalments(
     ))
 }
 
+// ---------------------------------------------------------------- loans.amortisation_schedule
+
+/// How the principal is repaid (Regulation (EU) 2016/867, Annex IV, "amortisation type").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AmortisationType {
+    /// Constant instalment (French amortisation, "ammortamento alla francese").
+    French,
+    /// Constant principal portion ("ammortamento all'italiana").
+    FixedAmortisationSchedule,
+    /// Interest only; the full principal is repaid with the last instalment.
+    Bullet,
+}
+
+impl AmortisationType {
+    fn describe(self) -> &'static str {
+        match self {
+            Self::French => "french (constant instalment)",
+            Self::FixedAmortisationSchedule => {
+                "fixed_amortisation_schedule (constant principal portion)"
+            }
+            Self::Bullet => "bullet (interest only, principal repaid with the last instalment)",
+        }
+    }
+}
+
+/// Input of `loans.amortisation_schedule`.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AmortisationScheduleInput {
+    /// Amount borrowed, in currency units, greater than zero.
+    pub principal: Decimal,
+    /// Annual borrowing rate, decimal fraction (0.05 = 5% a year), quoted with `compounding`.
+    /// Rate form (a): give it with `compounding` and `payment_frequency`, or give
+    /// `periodic_rate` instead.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate: Option<Decimal>,
+    /// Compounding of `rate` (form a); required with `rate`, no default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compounding: Option<Compounding>,
+    /// Instalments per year (form a): `annual`, `semi_annual`, `quarterly` or `monthly`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub payment_frequency: Option<PaymentFrequency>,
+    /// Rate per payment period, decimal fraction (form b), greater than -1; instead of `rate`,
+    /// `compounding` and `payment_frequency`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub periodic_rate: Option<Decimal>,
+    /// Number of instalments over the full term, grace periods included, from 1 to 10000.
+    pub number_of_instalments: u32,
+    /// `ordinary` (in arrears: instalment k at the end of period k, time k). Version 1 accepts
+    /// only `ordinary`; `due` is refused with `FM-E001`.
+    pub timing: AnnuityTiming,
+    /// `french` (constant instalment), `fixed_amortisation_schedule` (constant principal
+    /// portion) or `bullet` (principal repaid with the last instalment).
+    pub amortisation_type: AmortisationType,
+    /// Number of interest-only periods at the start, lower than `number_of_instalments`.
+    /// Default: 0. Not accepted with `bullet`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub principal_grace_periods: Option<u32>,
+    /// Principal repaid with the last instalment on top of the amortised amount, in currency
+    /// units, at least 0 and lower than the principal. Default: 0. Not accepted with `bullet`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub balloon_amount: Option<Decimal>,
+    /// Rounding of the amount the schedule type keeps constant: the instalment (`french`) or
+    /// the principal portion (`fixed_amortisation_schedule`). Interest is never rounded.
+    /// Default: none (no rounding).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rounding: Option<Rounding>,
+}
+
+/// One period of the schedule.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct ScheduleRow {
+    /// Period number, from 1 to n.
+    pub period: u32,
+    /// Payment time of the instalment, in periods from the start (time k for period k).
+    pub time: u32,
+    /// Amount paid, interest plus principal portion (balloon amount included in the last row).
+    pub instalment: Decimal,
+    /// Periodic rate × outstanding balance at the start of the period; not rounded.
+    pub interest_portion: Decimal,
+    /// Principal repaid in the period (balloon amount included in the last row).
+    pub principal_portion: Decimal,
+    /// Balloon amount repaid with the instalment; present in the last row only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub balloon_amount: Option<Decimal>,
+    /// Outstanding balance after the instalment.
+    pub outstanding_balance: Decimal,
+}
+
+/// Sums over all the rows.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct ScheduleTotals {
+    /// Sum of the instalments, in currency units.
+    pub instalments: Decimal,
+    /// Sum of the interest portions, in currency units.
+    pub interest: Decimal,
+    /// Sum of the principal portions (equal to the principal), in currency units.
+    pub principal: Decimal,
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct AmortisationScheduleOutput {
+    /// Rate per payment period used, decimal fraction.
+    pub periodic_rate: Decimal,
+    /// One row per period.
+    pub rows: Vec<ScheduleRow>,
+    /// Totals of instalments, interest and principal.
+    pub totals: ScheduleTotals,
+    /// Last instalment less the balloon amount less the regular instalment of the last period:
+    /// the correction that brings the outstanding balance exactly to zero.
+    pub final_adjustment: Decimal,
+}
+
+/// The amount the schedule keeps constant: the instalment, the principal portion or nothing.
+#[derive(Clone, Copy)]
+enum Regular {
+    Instalment(Decimal),
+    PrincipalPortion(Decimal),
+    InterestOnly,
+}
+
+pub fn amortisation_schedule(
+    input: &AmortisationScheduleInput,
+) -> Result<(AmortisationScheduleOutput, Explain)> {
+    if input.timing == AnnuityTiming::Due {
+        return Err(FairmarkError::InvalidInput(
+            "loans.amortisation_schedule version 1 supports payments in arrears only: timing \
+             must be `ordinary`"
+                .to_owned(),
+        ));
+    }
+    check_principal(input.principal)?;
+    check_instalments(input.number_of_instalments)?;
+    if let Some(r) = &input.rounding {
+        r.validate()?;
+    }
+    let kind = input.amortisation_type;
+    if kind == AmortisationType::Bullet {
+        if let Some(b) = input.balloon_amount {
+            return Err(FairmarkError::BalloonOutOfRange(format!(
+                "a bullet schedule repays the full principal with the last instalment; a \
+                 balloon amount ({b}) cannot be given with it"
+            )));
+        }
+        if let Some(g) = input.principal_grace_periods {
+            return Err(FairmarkError::GracePeriodOutOfRange(format!(
+                "a bullet schedule is interest only until the last instalment; principal grace \
+                 periods ({g}) cannot be given with it"
+            )));
+        }
+    }
+    let (p, n) = (input.principal, input.number_of_instalments);
+    let g = input.principal_grace_periods.unwrap_or_default();
+    if g >= n {
+        return Err(FairmarkError::GracePeriodOutOfRange(format!(
+            "{g} grace periods must be fewer than the {n} instalments"
+        )));
+    }
+    let mut ex = Explain::new(
+        "loans.amortisation_schedule",
+        "interest_k = i × opening balance_k; principal_k = instalment − interest_k (french), \
+         (P − B) / (n − g) (fixed_amortisation_schedule), 0 before the last period (bullet) \
+         and in the grace periods; closing balance_k = opening balance_k − principal_k; last \
+         principal = opening balance (balloon included)",
+    );
+    ex.convention(timing_convention(input.timing));
+    ex.convention(format!("amortisation type: {}", kind.describe()));
+    let i = periodic_rate(
+        &RateForm {
+            rate: input.rate,
+            compounding: input.compounding,
+            payment_frequency: input.payment_frequency,
+            periodic_rate: input.periodic_rate,
+        },
+        &mut ex,
+    )?;
+    let b = if kind == AmortisationType::Bullet {
+        Decimal::ZERO
+    } else {
+        balloon(p, input.balloon_amount, &mut ex)?
+    };
+    if kind != AmortisationType::Bullet {
+        ex.convention(match input.principal_grace_periods {
+            Some(v) => format!("principal grace periods: {v} (given), interest only"),
+            None => "principal grace periods: 0 (default)".to_owned(),
+        });
+    }
+    ex.convention(match (kind, input.rounding.as_ref()) {
+        (AmortisationType::French, r) => rounding_convention(r, "instalment"),
+        (AmortisationType::FixedAmortisationSchedule, r) => {
+            rounding_convention(r, "principal portion")
+        }
+        (AmortisationType::Bullet, Some(r)) => format!(
+            "rounding: {}; rounding does not change a bullet schedule (it has no constant \
+             amount other than its interest, which is not rounded)",
+            r.describe()
+        ),
+        (AmortisationType::Bullet, None) => "rounding: none (default)".to_owned(),
+    });
+    ex.convention(
+        "interest of a period = periodic rate × opening balance (compound interest regime); \
+         interest portions are not rounded",
+    );
+    ex.convention(
+        "final-period adjustment: the last principal portion equals the opening balance of the \
+         last period (balloon amount included), so that the final outstanding balance is \
+         exactly zero; final_adjustment = last instalment − balloon amount − regular instalment \
+         of the last period",
+    );
+    let amortising = n - g;
+    let regular = match kind {
+        AmortisationType::French => {
+            let a = level_instalment(p, b, i, amortising, AnnuityTiming::Ordinary, &mut ex)?;
+            Regular::Instalment(round_regular(
+                a,
+                input.rounding.as_ref(),
+                "instalment",
+                &mut ex,
+            ))
+        }
+        AmortisationType::FixedAmortisationSchedule => {
+            let c = num::div(num::sub(p, b)?, Decimal::from(amortising))?;
+            ex.step("Principal portion", format!("({p} − {b}) / ({n} − {g})"), c);
+            Regular::PrincipalPortion(round_regular(
+                c,
+                input.rounding.as_ref(),
+                "principal portion",
+                &mut ex,
+            ))
+        }
+        AmortisationType::Bullet => Regular::InterestOnly,
+    };
+    ex.step(
+        "Recurrence of every period k (the rows carry the numbers)",
+        match regular {
+            Regular::Instalment(a) => format!(
+                "interest_k = {i} × opening balance_k; principal_k = {a} − interest_k \
+                 (0 in the grace periods); closing balance_k = opening balance_k − principal_k"
+            ),
+            Regular::PrincipalPortion(c) => format!(
+                "interest_k = {i} × opening balance_k; principal_k = {c} (0 in the grace \
+                 periods); instalment_k = principal_k + interest_k; closing balance_k = opening \
+                 balance_k − principal_k"
+            ),
+            Regular::InterestOnly => format!(
+                "interest_k = {i} × opening balance_k; principal_k = 0 before the last period; \
+                 instalment_k = interest_k"
+            ),
+        },
+        i,
+    );
+
+    let rounded = input.rounding.is_some();
+    let mut rows = Vec::with_capacity(n as usize);
+    let mut balance = p;
+    let mut final_adjustment = Decimal::ZERO;
+    for k in 1..=n {
+        let opening = balance;
+        let interest = num::mul(i, opening)?;
+        let in_grace = k <= g;
+        let row = if k == n {
+            let principal = opening;
+            let instalment = num::add(interest, principal)?;
+            let (adjustment, formula) = match regular {
+                Regular::Instalment(a) => (
+                    num::sub(num::sub(instalment, b)?, a)?,
+                    format!("{instalment} − {b} − {a}"),
+                ),
+                Regular::PrincipalPortion(c) => (
+                    num::sub(num::sub(principal, b)?, c)?,
+                    format!(
+                        "({principal} − {b}) − {c}, the principal portion above the regular one"
+                    ),
+                ),
+                Regular::InterestOnly => (
+                    num::sub(principal, p)?,
+                    format!("{principal} − {p}, the principal repaid as scheduled"),
+                ),
+            };
+            if rounded && (principal < Decimal::ZERO || instalment < Decimal::ZERO) {
+                return Err(FairmarkError::RoundingTooCoarse(format!(
+                    "the last principal portion ({principal}) or instalment ({instalment}) would \
+                     be negative"
+                )));
+            }
+            ex.step(
+                format!("Period {k}: opening balance (balloon amount included)"),
+                if k == 1 {
+                    "the principal".to_owned()
+                } else {
+                    format!("closing balance of period {}", k - 1)
+                },
+                opening,
+            );
+            ex.step(
+                format!("Period {k}: interest portion"),
+                format!("{i} × {opening}"),
+                interest,
+            );
+            ex.step(
+                format!("Period {k}: principal portion (the opening balance)"),
+                format!("{opening}"),
+                principal,
+            );
+            ex.step(
+                format!("Period {k}: last instalment"),
+                format!("{interest} + {principal}"),
+                instalment,
+            );
+            ex.step("Final adjustment", formula, adjustment);
+            final_adjustment = adjustment;
+            ScheduleRow {
+                period: k,
+                time: k,
+                instalment,
+                interest_portion: interest,
+                principal_portion: principal,
+                balloon_amount: Some(b),
+                outstanding_balance: num::sub(opening, principal)?,
+            }
+        } else {
+            let (principal, instalment) = match regular {
+                _ if in_grace => (Decimal::ZERO, interest),
+                Regular::InterestOnly => (Decimal::ZERO, interest),
+                Regular::Instalment(a) => (num::sub(a, interest)?, a),
+                Regular::PrincipalPortion(c) => (c, num::add(c, interest)?),
+            };
+            let closing = num::sub(opening, principal)?;
+            if rounded && closing < Decimal::ZERO {
+                return Err(FairmarkError::RoundingTooCoarse(format!(
+                    "the outstanding balance would become negative ({closing}) in period {k} of \
+                     {n}"
+                )));
+            }
+            // The first period, and the first amortising period after a grace period, with the
+            // numbers substituted (R22); the rows carry every other period.
+            if k == 1 || (g > 0 && k == g + 1 && kind != AmortisationType::Bullet) {
+                first_period_steps(
+                    &mut ex, k, i, opening, interest, principal, instalment, closing, regular,
+                    in_grace,
+                );
+            }
+            ScheduleRow {
+                period: k,
+                time: k,
+                instalment,
+                interest_portion: interest,
+                principal_portion: principal,
+                balloon_amount: None,
+                outstanding_balance: closing,
+            }
+        };
+        balance = row.outstanding_balance;
+        rows.push(row);
+    }
+    let totals = ScheduleTotals {
+        instalments: sum(rows.iter().map(|r| r.instalment))?,
+        interest: sum(rows.iter().map(|r| r.interest_portion))?,
+        principal: sum(rows.iter().map(|r| r.principal_portion))?,
+    };
+    ex.step(
+        "Total instalments",
+        "Σ instalments of the rows",
+        totals.instalments,
+    );
+    ex.step(
+        "Total interest",
+        "Σ interest portions of the rows",
+        totals.interest,
+    );
+    ex.step(
+        "Total principal",
+        "Σ principal portions of the rows",
+        totals.principal,
+    );
+    Ok((
+        AmortisationScheduleOutput {
+            periodic_rate: i,
+            rows,
+            totals,
+            final_adjustment,
+        },
+        ex,
+    ))
+}
+
+fn round_regular(x: Decimal, rounding: Option<&Rounding>, what: &str, ex: &mut Explain) -> Decimal {
+    match rounding {
+        Some(r) => {
+            let rounded = r.apply(x);
+            ex.step(
+                format!("Rounded {what}"),
+                format!("round({x}, {})", r.describe()),
+                rounded,
+            );
+            rounded
+        }
+        None => x,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn first_period_steps(
+    ex: &mut Explain,
+    k: u32,
+    i: Decimal,
+    opening: Decimal,
+    interest: Decimal,
+    principal: Decimal,
+    instalment: Decimal,
+    closing: Decimal,
+    regular: Regular,
+    in_grace: bool,
+) {
+    ex.step(
+        format!("Period {k}: interest portion"),
+        format!("{i} × {opening}"),
+        interest,
+    );
+    let (principal_formula, instalment_formula) = match regular {
+        _ if in_grace => (
+            "0 (grace period, interest only)".to_owned(),
+            format!("{interest} (interest only)"),
+        ),
+        Regular::InterestOnly => (
+            "0 (interest only before the last period)".to_owned(),
+            format!("{interest} (interest only)"),
+        ),
+        Regular::Instalment(a) => (format!("{a} − {interest}"), format!("{a} (constant)")),
+        Regular::PrincipalPortion(c) => (format!("{c} (constant)"), format!("{c} + {interest}")),
+    };
+    ex.step(
+        format!("Period {k}: principal portion"),
+        principal_formula,
+        principal,
+    );
+    ex.step(
+        format!("Period {k}: instalment"),
+        instalment_formula,
+        instalment,
+    );
+    ex.step(
+        format!("Period {k}: outstanding balance"),
+        format!("{opening} − {principal}"),
+        closing,
+    );
+}
+
+fn sum(mut values: impl Iterator<Item = Decimal>) -> Result<Decimal> {
+    values.try_fold(Decimal::ZERO, num::add)
+}
+
 // ---------------------------------------------------------------- method registrations
 
 /// `loans.instalment`: see the methodology page.
@@ -613,6 +1066,25 @@ impl Method for Instalment {
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         instalment(input)
+    }
+}
+
+/// `loans.amortisation_schedule`: see the methodology page.
+pub struct AmortisationSchedule;
+
+impl Method for AmortisationSchedule {
+    const ID: &'static str = "loans.amortisation_schedule";
+    const TITLE: &'static str = "Amortisation schedule (French, constant principal, bullet)";
+    const DESCRIPTION: &'static str =
+        "Period-by-period schedule of a loan with instalment, interest portion, principal \
+        portion and outstanding balance; French, fixed amortisation schedule or bullet, with an \
+        optional grace period, balloon amount and rounding.";
+    const VERSION: &'static str = "1";
+    type Input = AmortisationScheduleInput;
+    type Output = AmortisationScheduleOutput;
+
+    fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
+        amortisation_schedule(input)
     }
 }
 
@@ -757,5 +1229,208 @@ mod tests {
             assert!(all.contains(text), "missing '{text}' in {all}");
         }
         assert!(ex.steps.iter().any(|s| s.label == "Periodic rate"));
+    }
+
+    fn schedule_input(
+        kind: AmortisationType,
+        i: &str,
+        n: u32,
+        grace: Option<u32>,
+        balloon_amount: Option<Decimal>,
+        rounding: Option<Rounding>,
+    ) -> AmortisationScheduleInput {
+        AmortisationScheduleInput {
+            principal: d("150000"),
+            rate: None,
+            compounding: None,
+            payment_frequency: None,
+            periodic_rate: Some(d(i)),
+            number_of_instalments: n,
+            timing: AnnuityTiming::Ordinary,
+            amortisation_type: kind,
+            principal_grace_periods: grace,
+            balloon_amount,
+            rounding,
+        }
+    }
+
+    /// AC14, AC9, AC8 on a grid of schedules: principal portions add up to the principal,
+    /// instalments to interest plus principal, balances never rise after the grace period,
+    /// the final balance is zero, interest is never rounded, the regular amount is kept, the
+    /// payment time is k, and without rounding the present value of the instalments is the
+    /// principal and the final adjustment vanishes.
+    #[test]
+    fn schedule_properties_hold_on_a_grid() {
+        let tol = d("1e-18");
+        let roundings = [
+            None,
+            Some(Rounding {
+                decimal_places: 2,
+                mode: RoundingMode::HalfUp,
+            }),
+            Some(Rounding {
+                decimal_places: 0,
+                mode: RoundingMode::HalfEven,
+            }),
+        ];
+        let mut checked = 0;
+        for kind in [
+            AmortisationType::French,
+            AmortisationType::FixedAmortisationSchedule,
+            AmortisationType::Bullet,
+        ] {
+            for i in ["0", "0.004", "0.0125", "-0.001"] {
+                for n in [1u32, 2, 12, 37] {
+                    for grace in [None, Some(2)] {
+                        for balloon_amount in [None, Some(d("30000"))] {
+                            for rounding in roundings {
+                                let bullet = kind == AmortisationType::Bullet;
+                                if bullet && (grace.is_some() || balloon_amount.is_some()) {
+                                    continue;
+                                }
+                                if grace.unwrap_or_default() >= n {
+                                    continue;
+                                }
+                                let input =
+                                    schedule_input(kind, i, n, grace, balloon_amount, rounding);
+                                let (out, _) = match amortisation_schedule(&input) {
+                                    Err(FairmarkError::RoundingTooCoarse(_)) => continue,
+                                    other => other.unwrap(),
+                                };
+                                let rate = out.periodic_rate;
+                                let label = format!("{kind:?} i={i} n={n} g={grace:?} b={balloon_amount:?} r={rounding:?}");
+                                assert_eq!(out.rows.len(), n as usize, "{label}");
+                                let p = input.principal;
+                                assert!((out.totals.principal - p).abs() < tol, "{label}");
+                                assert!(
+                                    (out.totals.instalments
+                                        - out.totals.interest
+                                        - out.totals.principal)
+                                        .abs()
+                                        < tol,
+                                    "{label}"
+                                );
+                                let g = grace.unwrap_or_default();
+                                let mut opening = p;
+                                let mut pv = Decimal::ZERO;
+                                for (k, row) in out.rows.iter().enumerate() {
+                                    let k = k as u32 + 1;
+                                    assert_eq!((row.period, row.time), (k, k), "{label}");
+                                    assert_eq!(row.interest_portion, rate * opening, "{label}");
+                                    if k > g {
+                                        assert!(row.outstanding_balance <= opening, "{label}");
+                                    }
+                                    if k < n && k > g {
+                                        match (kind, rounding) {
+                                            (AmortisationType::French, Some(r)) => {
+                                                assert_eq!(
+                                                    row.instalment.round_dp(r.decimal_places),
+                                                    row.instalment,
+                                                    "{label}"
+                                                );
+                                                assert_eq!(
+                                                    row.instalment, out.rows[g as usize].instalment,
+                                                    "{label}"
+                                                );
+                                            }
+                                            (AmortisationType::FixedAmortisationSchedule, _) => {
+                                                assert_eq!(
+                                                    row.principal_portion,
+                                                    out.rows[g as usize].principal_portion,
+                                                    "{label}"
+                                                );
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                    pv += row.instalment
+                                        * tvm::discount_factor(rate, Decimal::from(k)).unwrap();
+                                    opening = row.outstanding_balance;
+                                }
+                                assert!(opening.is_zero(), "{label}: final balance {opening}");
+                                if rounding.is_none() {
+                                    assert!((pv - p).abs() < tol, "{label}: pv {pv}");
+                                    assert!(out.final_adjustment.abs() < tol, "{label}");
+                                }
+                                checked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assert!(checked > 200, "only {checked} schedules checked");
+    }
+
+    /// AC12a: the same loan in form (a) and form (b) gives the same rows.
+    #[test]
+    fn schedule_rate_forms_agree() {
+        let b = schedule_input(AmortisationType::French, "0.005", 48, Some(3), None, None);
+        let a = AmortisationScheduleInput {
+            rate: Some(d("0.06")),
+            compounding: Some(Compounding::Monthly),
+            payment_frequency: Some(PaymentFrequency::Monthly),
+            periodic_rate: None,
+            ..b.clone()
+        };
+        let (x, _) = amortisation_schedule(&a).unwrap();
+        let (y, _) = amortisation_schedule(&b).unwrap();
+        assert_eq!(x.periodic_rate, y.periodic_rate);
+        assert_eq!(x.final_adjustment, y.final_adjustment);
+        for (r, q) in x.rows.iter().zip(&y.rows) {
+            assert_eq!(
+                (
+                    r.instalment,
+                    r.interest_portion,
+                    r.principal_portion,
+                    r.outstanding_balance
+                ),
+                (
+                    q.instalment,
+                    q.interest_portion,
+                    q.principal_portion,
+                    q.outstanding_balance
+                )
+            );
+        }
+    }
+
+    /// AC13, R22: the explain of a schedule has the same steps whatever the number of periods,
+    /// and states the recurrence once, the first period, the final adjustment and the totals.
+    #[test]
+    fn schedule_explain_is_bounded() {
+        for kind in [
+            AmortisationType::French,
+            AmortisationType::FixedAmortisationSchedule,
+        ] {
+            let (_, short) =
+                amortisation_schedule(&schedule_input(kind, "0.004", 12, Some(1), None, None))
+                    .unwrap();
+            let (_, long) =
+                amortisation_schedule(&schedule_input(kind, "0.004", 10000, Some(1), None, None))
+                    .unwrap();
+            assert_eq!(short.steps.len(), long.steps.len(), "{kind:?}");
+            assert!(long.steps.len() < 40, "{kind:?}: {}", long.steps.len());
+            let labels: Vec<&str> = long.steps.iter().map(|s| s.label.as_str()).collect();
+            for wanted in [
+                "Recurrence of every period k (the rows carry the numbers)",
+                "Period 1: interest portion",
+                "Period 2: principal portion",
+                "Final adjustment",
+                "Total instalments",
+                "Total interest",
+                "Total principal",
+            ] {
+                assert!(labels.contains(&wanted), "{kind:?}: missing {wanted}");
+            }
+        }
+    }
+
+    /// R2, AC8: payments in advance are refused by version 1.
+    #[test]
+    fn schedule_refuses_payments_in_advance() {
+        let mut input = schedule_input(AmortisationType::French, "0.01", 12, None, None, None);
+        input.timing = AnnuityTiming::Due;
+        assert_eq!(amortisation_schedule(&input).unwrap_err().code(), "FM-E001");
     }
 }

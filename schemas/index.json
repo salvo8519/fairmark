@@ -116,6 +116,16 @@
         }
       }
     },
+    "loans.amortisation_schedule": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "loans.amortisation_schedule/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "70f5b57ec018451087951db5e9bca26b10b71b8fe820df2d2d8a26ca3390dc5b"
+        }
+      }
+    },
     "loans.instalment": {
       "current": "1",
       "versions": {
