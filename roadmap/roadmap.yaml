@@ -64,7 +64,7 @@ milestones:
           - { issue: 159, title: "Roadmap page generated at build time instead of committed", status: done }
           - { issue: 183, title: "Required status checks recorded and kept in step with the ruleset", status: done }
           - { issue: 173, title: "Agents stop when an approved change reaches golden cases outside its scope", status: done }
-          - { issue: 193, title: "Ruff rule PLW1514: explicit encoding on every file open", status: open }
+          - { issue: 193, title: "Ruff rule PLW1514: explicit encoding on every file open", status: done }
           - { issue: 208, title: "ADR on the sources policy (constitution VII)", status: open }
           - { issue: 211, title: "Unique task ids in tasks.md files, checked in CI", status: open }
       - title: "CI/CD"
