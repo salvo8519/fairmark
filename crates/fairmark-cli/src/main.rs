@@ -20,7 +20,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// List available methods.
+    /// List every method with its version and status (available or preview).
     Methods,
     /// Print the JSON Schema of a method's input.
     Schema { method: String },
