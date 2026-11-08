@@ -17,8 +17,9 @@ parallel; tick a task only when `just check` passes.
 - [x] T5 `tv/mod.rs`: growth cap check, domain checks, shared types [R8, R10]
 - [x] T6 `tv.gordon` and `tv.value_driver` with unit tests [R1, R2, R8; AC1, AC2]
 - [x] T7 `tv.h_model` with unit tests [R3, R8; AC3]
-- [ ] T8 `tv.exit_multiple` with unit tests [R4, R8; AC4]; implemented except the
-  `book_value` metric, pending a maintainer decision (plan.md, open question 1)
+- [x] T8 `tv.exit_multiple` with unit tests [R4, R8; AC4], including `book_value` (P/BV)
+- [x] T8b Maintainer decisions of 2026-11-08: P/BV metric, required `basis` of
+  `tv.normalised_income` checked by `tv.compare`, tightest golden tolerances [R4, R6, R9]
 - [x] T9 `tv.limited_horizon` and `tv.normalised_income` with unit tests [R5, R6, R8; AC5]
 - [x] T10 `tv.liquidation` with unit tests [R7; AC6]
 - [x] T11 `tv.compare` with unit tests [R9]

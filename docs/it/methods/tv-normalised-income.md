@@ -1,13 +1,16 @@
 ---
 source: methods/tv-normalised-income.md
-source_hash: d0de776f5067
+source_hash: affe105d418b
 ---
 # Valore terminale con la capitalizzazione del reddito normalizzato (`tv.normalised_income`)
 
 Restituisce il valore terminale all'orizzonte N come reddito normalizzato capitalizzato a un
 tasso i, secondo il ragionamento reddituale della prassi italiana: il reddito R che l'azienda
 può ottenere in modo sostenibile dopo l'orizzonte, diviso per il tasso di capitalizzazione,
-con o senza una crescita perpetua. La stima di R e di i è esterna al metodo.
+con o senza una crescita perpetua. La stima di R e di i è esterna al metodo. L'approccio è un
+input obbligatorio: `enterprise` per un reddito operativo capitalizzato a un tasso per tutti i
+finanziatori, `equity` per un reddito netto capitalizzato al costo del capitale proprio; non
+esiste un default.
 
 ## Formula
 
@@ -24,11 +27,12 @@ from decimal import Decimal
 
 import fairmark as fm
 
-r = fm.tv.normalised_income(120, "0.08")
+r = fm.tv.normalised_income(120, "0.08", "equity")
 assert r.terminal_value == Decimal("1500")
-print(r.conventions[2])  # no growth: R / i (default)
+assert r.basis == "equity"
+print(r.conventions[3])  # no growth: R / i (default)
 
-grown = fm.tv.normalised_income(120, "0.09", growth="0.01", growth_cap="0.02")
+grown = fm.tv.normalised_income(120, "0.09", "enterprise", growth="0.01", growth_cap="0.02")
 assert grown.terminal_value == Decimal("1500")
 assert grown.growth_cap["status"] == "respected"
 ```
@@ -39,6 +43,7 @@ assert grown.growth_cap["status"] == "respected"
 | --- | --- | --- |
 | `income` | Reddito normalizzato R del periodo N + 1, in unità monetarie | obbligatorio |
 | `capitalisation_rate` | Tasso di capitalizzazione i, frazione decimale per periodo, maggiore di 0 e della crescita | obbligatorio |
+| `basis` | `enterprise` (reddito operativo, asset side) oppure `equity` (reddito netto, equity side) | obbligatorio, nessun default |
 | `growth` | Crescita perpetua del reddito, frazione decimale per periodo, maggiore di −1 e inferiore a i | nessuna (R / i) |
 | `growth_cap` | Limite alla crescita, frazione decimale per periodo | nessuno, riportato come assente |
 
@@ -47,6 +52,7 @@ assert grown.growth_cap["status"] == "respected"
 | Campo | Significato |
 | --- | --- |
 | `terminal_value` | Valore terminale in N, non attualizzato |
+| `basis` | `enterprise` oppure `equity`, come dichiarato |
 | `growth_cap` | La crescita (0 se non fornita) confrontata con il limite; `null` senza limite |
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
@@ -55,13 +61,14 @@ assert grown.growth_cap["status"] == "respected"
 | --- | --- | --- |
 | Crescita | nessuna (R / i), oppure fornita (R / (i − g)) | nessuna, riportata come default |
 | Tasso di capitalizzazione | fornito | nessuno: va fornito |
+| Approccio | enterprise oppure equity | nessuno: va fornito |
 | Limite alla crescita | valore oppure nessuno | nessuno, riportato come assente |
 
 ## Errori
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | La crescita è pari o inferiore a −100%, oppure un campo manca o è sconosciuto |
+| `FM-E001` | La crescita è pari o inferiore a −100%, `basis` manca o non è `enterprise` o `equity`, oppure un campo manca o è sconosciuto |
 | `FM-E004` | La crescita è pari o superiore al tasso di capitalizzazione |
 | `FM-E018` | Il tasso di capitalizzazione è pari a zero o negativo (verificato per primo) |
 | `FM-E008` | Overflow aritmetico (input molto lontani da un intervallo realistico) |

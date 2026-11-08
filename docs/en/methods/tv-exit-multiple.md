@@ -2,7 +2,8 @@
 
 Returns the terminal value at the horizon N as a market multiple of a metric of year N, as
 if the business were sold at N. The metric sets the basis of the value: EV/EBITDA, EV/EBIT and
-EV/Sales give an enterprise value; P/E gives an equity value. The two bases are never mixed.
+EV/Sales give an enterprise value; P/E and P/BV (price to book value of equity) give an
+equity value. The two bases are never mixed.
 Given the rate and the next flow on the same basis, the method also reports the perpetual
 growth that the multiple implies, which makes a market assumption comparable with a growth
 assumption.
@@ -21,8 +22,8 @@ of zero or below), the method still returns the value and states in `explain.con
 that the multiple is inconsistent with a stable-growth value.
 
 The multiple applies to the metric of year N (a trailing multiple), stated in
-`explain.conventions`. A book value metric (P/BV or EV over invested capital) is not
-available: its basis is pending a maintainer decision.
+`explain.conventions`. The `book_value` metric is the book value of equity, with the multiple
+P/BV on the equity basis (maintainer decision of 2026-11-08).
 
 ## Example
 
@@ -45,6 +46,10 @@ assert g.terminal_value == r.terminal_value
 # P/E: an equity value
 pe = fm.tv.exit_multiple(12, "earnings", 50)
 assert (pe.terminal_value, pe.basis) == (Decimal("600"), "equity")
+
+# P/BV: 1.4 × book value of equity 750, cost of equity 9%, FCFE 63 at N + 1
+pbv = fm.tv.exit_multiple("1.4", "book_value", 750, rate="0.09", next_flow=63)
+assert (pbv.terminal_value, pbv.implied_growth) == (Decimal("1050"), Decimal("0.03"))
 ```
 
 ## Inputs
@@ -52,7 +57,7 @@ assert (pe.terminal_value, pe.basis) == (Decimal("600"), "equity")
 | Field | Meaning | Default |
 | --- | --- | --- |
 | `multiple` | The multiple, above 0 | required |
-| `metric` | `ebitda`, `ebit`, `revenue` (enterprise basis) or `earnings` (equity basis) | required |
+| `metric` | `ebitda`, `ebit`, `revenue` (enterprise basis), `earnings` (P/E) or `book_value` (P/BV, book value of equity), both equity basis | required |
 | `metric_value` | The metric at N, in currency units, above 0 | required |
 | `rate` | Discount rate on the basis of the metric (WACC or cost of equity), decimal fraction per period; with `next_flow` | none |
 | `next_flow` | Flow at N + 1 on the basis of the metric (FCFF or FCFE), in currency units; with `rate` | none |
@@ -71,7 +76,7 @@ assert (pe.terminal_value, pe.basis) == (Decimal("600"), "equity")
 
 | Convention | Options | Default |
 | --- | --- | --- |
-| Metric and basis | ebitda, ebit, revenue (enterprise); earnings (equity); book value not available | none: must be chosen |
+| Metric and basis | ebitda, ebit, revenue (enterprise); earnings, book_value (equity) | none: must be chosen |
 | Timing of the metric | metric at N (trailing multiple) | fixed |
 | Implied growth not below the rate | reported in `explain.conventions`, not refused | fixed |
 | Rate and next flow of the implied growth | on the basis of the metric | not computed when absent |

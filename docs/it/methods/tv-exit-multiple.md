@@ -1,13 +1,13 @@
 ---
 source: methods/tv-exit-multiple.md
-source_hash: 9d0aeb6964a5
+source_hash: 90b580556096
 ---
 # Valore terminale con il multiplo di uscita (`tv.exit_multiple`)
 
 Restituisce il valore terminale all'orizzonte N come multiplo di mercato di una grandezza
 dell'anno N, come se l'azienda fosse ceduta in N. La grandezza determina l'approccio: EV/EBITDA,
-EV/EBIT ed EV/Sales danno un enterprise value (approccio asset side); il P/E dà un equity value
-(approccio equity side). I due approcci non si mescolano mai. Con il tasso e il flusso
+EV/EBIT ed EV/Sales danno un enterprise value (approccio asset side); il P/E e il P/BV (prezzo
+sul valore contabile del capitale proprio) danno un equity value (approccio equity side). I due approcci non si mescolano mai. Con il tasso e il flusso
 successivo sullo stesso approccio, il metodo riporta anche la crescita perpetua implicita nel
 multiplo, che rende confrontabile un'ipotesi di mercato con un'ipotesi di crescita.
 
@@ -26,8 +26,8 @@ dichiara in `explain.conventions` che il multiplo è incoerente con un valore a 
 stabile.
 
 Il multiplo si applica alla grandezza dell'anno N (multiplo trailing), come dichiarato in
-`explain.conventions`. Una grandezza patrimoniale (P/BV o EV sul capitale investito) non è
-disponibile: il suo approccio attende una decisione del maintainer.
+`explain.conventions`. La grandezza `book_value` è il valore contabile del capitale proprio, con
+il multiplo P/BV in approccio equity side (decisione del maintainer del 2026-11-08).
 
 ## Esempio
 
@@ -50,6 +50,10 @@ assert g.terminal_value == r.terminal_value
 # P/E: un equity value
 pe = fm.tv.exit_multiple(12, "earnings", 50)
 assert (pe.terminal_value, pe.basis) == (Decimal("600"), "equity")
+
+# P/BV: 1,4 × valore contabile del capitale proprio 750, costo del capitale proprio 9%, FCFE 63 in N + 1
+pbv = fm.tv.exit_multiple("1.4", "book_value", 750, rate="0.09", next_flow=63)
+assert (pbv.terminal_value, pbv.implied_growth) == (Decimal("1050"), Decimal("0.03"))
 ```
 
 ## Input
@@ -57,7 +61,7 @@ assert (pe.terminal_value, pe.basis) == (Decimal("600"), "equity")
 | Campo | Significato | Default |
 | --- | --- | --- |
 | `multiple` | Il multiplo, maggiore di 0 | obbligatorio |
-| `metric` | `ebitda`, `ebit`, `revenue` (asset side) oppure `earnings` (equity side) | obbligatorio |
+| `metric` | `ebitda`, `ebit`, `revenue` (asset side), `earnings` (P/E) oppure `book_value` (P/BV, valore contabile del capitale proprio), entrambi equity side | obbligatorio |
 | `metric_value` | La grandezza in N, in unità monetarie, maggiore di 0 | obbligatorio |
 | `rate` | Tasso di attualizzazione sull'approccio della grandezza (WACC o costo del capitale proprio), frazione decimale per periodo; insieme a `next_flow` | nessuno |
 | `next_flow` | Flusso in N + 1 sull'approccio della grandezza (FCFF o FCFE), in unità monetarie; insieme a `rate` | nessuno |
@@ -76,7 +80,7 @@ assert (pe.terminal_value, pe.basis) == (Decimal("600"), "equity")
 
 | Convenzione | Opzioni | Default |
 | --- | --- | --- |
-| Grandezza e approccio | ebitda, ebit, revenue (asset side); earnings (equity side); valore contabile non disponibile | nessuno: va scelto |
+| Grandezza e approccio | ebitda, ebit, revenue (asset side); earnings, book_value (equity side) | nessuno: va scelto |
 | Tempistica della grandezza | grandezza in N (multiplo trailing) | fissa |
 | Crescita implicita non inferiore al tasso | riportata in `explain.conventions`, non rifiutata | fissa |
 | Tasso e flusso successivo della crescita implicita | sull'approccio della grandezza | non calcolata se assenti |
