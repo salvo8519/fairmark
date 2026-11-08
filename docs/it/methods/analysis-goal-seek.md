@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-goal-seek.md
-source_hash: 44f2fb43fa2a
+source_hash: 55d601e9024c
 ---
 # Ricerca obiettivo (`analysis.goal_seek`)
 
@@ -81,15 +81,18 @@ from decimal import Decimal
 import fairmark as fm
 
 base = {
-    "free_cash_flows": [100, 110, 120],
-    "discount_rate": "0.10",       # valore iniziale, sostituito a ogni valutazione
-    "terminal_growth": "0.02",
-    "net_debt": 200,
+    "stages": [{"periods": 3, "projection": "given", "flows": [100, 110, 120]}],
+    "cash_flow_terms": "nominal",
+    "discount_rate_terms": "nominal",
+    "wacc": "0.10",
+    "timing": "end_of_period",
+    "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}},
+    "net_financial_position": {"gross_debt": 200, "cash": 0},
 }
 r = fm.analysis.goal_seek(
     "dcf.fcff",
     base,
-    variable="/discount_rate",
+    variable="/wacc",
     output="/enterprise_value",
     target="1300",
     bracket=("0.05", "0.5"),
@@ -104,7 +107,7 @@ assert abs(r.solution - Decimal("0.107373099787207080")) < Decimal("0.0000000000
 same = fm.run("analysis.goal_seek", {
     "method": "dcf.fcff",
     "base_input": base,
-    "variable": "/discount_rate",
+    "variable": "/wacc",
     "output": "/enterprise_value",
     "target": "1300",
     "bracket": ["0.05", "0.5"],

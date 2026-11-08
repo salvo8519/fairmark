@@ -1,95 +1,188 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: 21d8ca62a71d
+source_hash: 90ca4b71ae7a
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
 Valuta l'attività operativa attualizzando i flussi di cassa operativi disponibili (FCFF) al
-costo medio ponderato del capitale (WACC), poi passa dall'enterprise value all'equity value.
+costo medio ponderato del capitale (WACC) lungo da uno a tre stage (fasi del periodo di
+previsione esplicita), aggiunge il valore terminale e passa dal value of operations (valore
+delle attività operative) all'enterprise value e all'equity value. Ogni scelta che modifica il
+valore è un input esplicito: gli stage e il modo in cui se ne ottengono i flussi, i termini dei
+flussi e dei tassi, la collocazione temporale dei flussi, la tecnica del valore terminale e il
+momento in cui questo viene attualizzato.
 
-Versione del metodo: 2. La versione 2 calcola i fattori di sconto per tassi negativi dal
-reciproco di $1 + r$; solo le ultime cifre dei risultati con tassi negativi differiscono dalla
-versione 1.
+Versione del metodo: 3. La versione 3 ha sostituito l'unica lista di flussi della versione 2
+con gli stage, ha reso obbligatori la collocazione temporale dei flussi e la tecnica del valore
+terminale e ha rinominato `enterprise_value` della versione 2 (solo valori attuali) in
+`value_of_operations`; gli esempi della versione 2 danno gli stessi numeri nella versione 3.
 
 ## Formula
 
 $$
-EV = \sum_{t=1}^{n} \frac{FCFF_t}{(1+WACC)^{\tau_t}} + \frac{TV}{(1+WACC)^{n}}
+V_{op} = \sum_{k=1}^{N} FCFF_k \, DF_k + TV_N \, DF_{TV}
 \qquad
-TV = \frac{FCFF_n \,(1+g)}{WACC - g}
+DF_k = \prod_{i=1}^{k} (1 + r_i)^{-1}
 $$
 
 $$
-Equity = EV - \text{PFN} + \text{attività non operative}
+EV = V_{op} + \sum \text{attività non operative}
+\qquad
+Equity = EV - \text{posizione finanziaria netta}
 $$
 
-dove $\tau_t = t$ (fine periodo) oppure $\tau_t = t - 0.5$ (metà periodo). Il valore terminale
-è calcolato con il modello di crescita di Gordon, come in [`tvm.perpetuity`](tvm-perpetuity.md).
+L'orizzonte esplicito N è la somma dei periodi degli stage; un periodo è un anno. I flussi di
+ciascuno stage sono:
+
+| Proiezione | Flusso del periodo k dello stage (m periodi) |
+| --- | --- |
+| `given` | come forniti, uno per periodo |
+| `constant_growth` | $CF_k = CF_{k-1} (1 + g)$ |
+| `linear_decline` | $CF_k = CF_{k-1} (1 + g_k)$, con $g_k = g_{from} + (g_{to} - g_{from}) \, k / m$ |
+
+Uno stage generato parte dall'ultimo flusso dello stage precedente oppure, se è il primo stage,
+dal base flow $CF_0$ (flusso dell'anno base). Nella riduzione lineare della crescita
+(`linear_decline`), $g_{from}$ è la crescita prima dello stage e $g_{to}$ è raggiunta
+nell'ultimo periodo: "dal 10% al 3% in 5 anni" dà 8,6%, 7,2%, 5,8%, 4,4% e 3,0%.
+
+Con la convenzione di metà periodo il flusso del periodo k è attualizzato mezzo periodo prima,
+$DF_k = DF_{k-1} (1 + r_k)^{-0.5}$. Il valore terminale
+$TV_N = CF_{N+1} / (r_{TV} - g)$ è calcolato da [`tv.gordon`](tv-gordon.md) e attualizzato
+all'orizzonte, $DF_{TV} = DF_N$, oppure, con la convenzione di metà periodo e se scelto, mezzo
+periodo prima, $DF_{TV} = DF_N (1 + r_N)^{0.5}$.
 
 ## Esempio
+
+Un piano con tre anni di flussi forniti, poi quattro anni in cui la crescita si riduce in modo
+lineare dal 12% al 3%, poi una crescita stabile del 3%:
 
 ```python
 import fairmark as fm
 
 r = fm.dcf.fcff(
-    [250, 270, 290, 300, 310],
-    discount_rate="0.085",
-    terminal_growth="0.015",
-    timing="mid_period",
-    net_debt=-50,              # cassa netta positiva
-    non_operating_assets=30,
+    [
+        fm.dcf.given([100, 112, 125]),
+        fm.dcf.linear_decline(4, from_growth="0.12", to_growth="0.03"),
+    ],
+    cash_flow_terms="nominal",
+    discount_rate_terms="nominal",
+    wacc="0.095",
+    timing="end_of_period",
+    terminal=fm.dcf.gordon("0.03", first_flow="last_flow_grown"),
+    net_financial_position={"gross_debt": 500, "cash": 120},
+    non_operating_assets=[{"label": "Land held for sale", "value": 60}],
 )
-print(r.enterprise_value)       # 4145.01655907...
-print(r.terminal_value_weight)  # quota dell'EV che deriva dal valore terminale
+print([row["growth"] for row in r.periods][3:])  # 0.0975, 0.075, 0.0525, 0.03
+print(r.value_of_operations)    # 1985.96014516242602644247722...
+print(r.enterprise_value)       # value of operations + 60
+print(r.equity_value)           # enterprise value − (500 − 120)
+print(r.terminal_value_weight)  # share of the value of operations from the terminal value
+assert r.enterprise_value - r.value_of_operations == 60
+```
+
+Con un tasso per periodo, si forniscono `wacc_per_period` (un tasso per ogni periodo
+dell'orizzonte esplicito) e `terminal_wacc` al posto di `wacc`. Con la convenzione di metà
+periodo si indica quando il valore terminale è attualizzato:
+
+```python
+r = fm.dcf.fcff(
+    [fm.dcf.constant_growth(3, "0.10"), fm.dcf.linear_decline(3, "0.10", "0.025")],
+    base_flow=80,
+    cash_flow_terms="real",
+    discount_rate_terms="real",
+    wacc_per_period=["0.11", "0.11", "0.105", "0.10", "0.095", "0.09"],
+    terminal_wacc="0.09",
+    timing="mid_period",
+    terminal_discount_time="horizon",
+    terminal=fm.dcf.gordon("0.025", first_flow="last_flow_grown"),
+)
+print(r.terminal["discount_time"])  # 6
 ```
 
 ## Input
 
 | Campo | Significato | Default |
 | --- | --- | --- |
-| `free_cash_flows` | FCFF degli anni espliciti 1..n | obbligatorio |
-| `discount_rate` | WACC annuo, frazione decimale | obbligatorio |
-| `terminal_growth` | Crescita perpetua dopo l'anno n, frazione decimale; deve essere inferiore al WACC | obbligatorio |
-| `timing` | `end_of_period` oppure `mid_period` | `end_of_period` |
-| `net_debt` | Posizione finanziaria netta: debiti meno cassa; negativa se cassa netta | `0` |
-| `non_operating_assets` | Attività non operative (surplus asset) aggiunte all'equity | `0` |
+| `stages` | Da uno a tre stage, in ordine: `{"periods", "projection", ...}` con `flows` (`given`), `growth` (`constant_growth`) oppure `from_growth` e `to_growth` (`linear_decline`) | obbligatorio |
+| `base_flow` | FCFF del periodo base $CF_0$, quando il primo stage è generato | obbligatorio per un primo stage generato; rifiutato altrimenti |
+| `cash_flow_terms` | `nominal` oppure `real`: termini di ogni importo e di ogni tasso di crescita | obbligatorio |
+| `discount_rate_terms` | `nominal` oppure `real`: termini dei tassi di attualizzazione; devono coincidere con `cash_flow_terms` | obbligatorio |
+| `wacc` | Un unico WACC per tutti i periodi e per il valore terminale, frazione decimale | questo oppure `wacc_per_period` |
+| `wacc_per_period` | Un WACC per ogni periodo dell'orizzonte esplicito, frazioni decimali | questo oppure `wacc` |
+| `terminal_wacc` | WACC della fase terminale | obbligatorio con `wacc_per_period`; rifiutato con `wacc` |
+| `timing` | `end_of_period` oppure `mid_period` | obbligatorio |
+| `terminal_discount_time` | `horizon` (t = N) oppure `mid_period` (t = N − 0.5) | obbligatorio con `mid_period`; rifiutato con `end_of_period` |
+| `terminal` | `{"tv.gordon": {"growth", "first_flow", "normalised_next_flow", "growth_cap"}}`; `first_flow` è `last_flow_grown` oppure `normalised_next_flow` | obbligatorio |
+| `net_financial_position` | `{"gross_debt", "cash", "other_items"}` come in [`ratios.debt_service`](ratios-debt-service.md), positiva per indebitamento netto | nessuna, riportato |
+| `non_operating_assets` | Lista di `{"label", "value"}`, valori pari a zero o positivi | nessuna, riportato |
+
+## Output
+
+| Campo | Significato |
+| --- | --- |
+| `value_of_operations` | Valore attuale dei FCFF espliciti più valore attuale del valore terminale |
+| `enterprise_value` | Value of operations più le attività non operative |
+| `equity_value` | Enterprise value meno la posizione finanziaria netta |
+| `pv_explicit_period` | Valore attuale dei FCFF espliciti |
+| `terminal_value_weight` | Valore attuale del valore terminale diviso per il value of operations |
+| `periods` | Per periodo: stage, proiezione, crescita applicata, flusso, tasso di attualizzazione fornito, tasso usato, fattore di sconto, valore attuale |
+| `terminal` | Tecnica e sua versione, tasso terminale, valore in N, momento di attualizzazione, fattore, valore attuale, output proprio della tecnica |
+| `bridge` | Ogni voce dal value of operations all'equity value, con le descrizioni |
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
 
 | Convenzione | Opzioni | Default |
 | --- | --- | --- |
-| Collocazione temporale dei flussi espliciti | fine periodo, metà periodo | fine periodo |
-| Valore terminale | collocato alla fine dell'anno n e attualizzato in $t = n$, anche con la convenzione di metà periodo | fissa |
+| Approccio | asset side (enterprise value): FCFF attualizzati al WACC | fissato dal metodo |
+| Proiezione dello stage | `given`, `constant_growth`, `linear_decline` | obbligatoria per ogni stage |
+| Passo della riduzione lineare della crescita | $g_k = g_{from} + (g_{to} - g_{from}) \, k / m$, $g_{to}$ raggiunta nell'ultimo periodo | fissa |
+| Tasso di attualizzazione | un unico tasso (usato anche per il valore terminale), oppure uno per periodo con un tasso terminale | obbligatorio |
+| Termini di flussi e tassi | `nominal`, `real`; termini diversi sono rifiutati | obbligatori, entrambi |
+| Collocazione temporale dei flussi | `end_of_period`, `mid_period` | obbligatoria |
+| Terminal discounting time (momento di attualizzazione del valore terminale) | `horizon`, `mid_period` (solo con la convenzione di metà periodo) | obbligatorio |
+| Tecnica del valore terminale | `tv.gordon` al tasso terminale, con approccio asset side | obbligatoria |
+| Primo flusso terminale | ultimo flusso fatto crescere di g, oppure normalised flow (flusso normalizzato) in N + 1 | obbligatorio |
+| Voci del passaggio all'equity value | misurate alla data di valutazione come fornite; nessuna voce significa nessuna | nessuna |
 
-La prassi varia sulla collocazione del valore terminale; le altre collocazioni sono seguite
-nella [roadmap](https://salvo8519.github.io/fairmark/project/roadmap/) (in inglese). `terminal_value_weight` indica la quota dell'EV che deriva dal valore terminale:
-un peso elevato segnala che la valutazione dipende soprattutto dalle ipotesi di lungo periodo.
+Le avvertenze sono riportate in `explain.conventions` e non comportano mai il rifiuto
+dell'input: una crescita applicata a un flusso negativo e una crescita dell'ultimo periodo
+esplicito diversa dalla crescita perpetua del valore terminale. Un `terminal_value_weight`
+elevato segnala che la valutazione dipende soprattutto dalle ipotesi di lungo periodo.
 
 ## Errori
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | Un campo è mancante o sconosciuto |
-| `FM-E002` | `free_cash_flows` è vuoto |
-| `FM-E003` | Il tasso di attualizzazione è pari o inferiore a −100% |
-| `FM-E004` | Il tasso di crescita di lungo periodo è pari o superiore al tasso di attualizzazione |
+| `FM-E001` | Un campo è mancante, sconosciuto o non usato dall'opzione scelta; nessuno stage o più di tre; una crescita pari o inferiore a −100%; un tasso terminale insieme a un unico tasso, oppure nessuno con tassi per periodo; un momento di attualizzazione del valore terminale mancante con la convenzione di metà periodo o fornito con quella di fine periodo; un'attività non operativa negativa |
+| `FM-E003` | Un tasso di attualizzazione è pari o inferiore a −100%; il messaggio indica il campo e il periodo |
+| `FM-E004` | La crescita perpetua è pari o superiore al tasso terminale |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
+| `FM-E024` | `cash_flow_terms` e `discount_rate_terms` sono diversi |
+| `FM-E025` | Uno stage `given` con più o meno flussi dei suoi periodi, tassi per periodo non uno per periodo, un base flow mancante per un primo stage generato o fornito per uno `given` |
+
+Ogni messaggio indica il campo con il suo JSON Pointer, per esempio `/stages/1/flows`, e la
+correzione da apportare.
 
 ## Precisione
 
-L'attualizzazione a fine periodo usa potenze intere esatte; rispetto a un calcolo indipendente
-a 60 cifre, queste operazioni concordano entro circa $10^{-24}$ in termini relativi o meglio.
-L'attualizzazione a metà periodo usa potenze frazionarie, che concordano entro circa
-$10^{-18}$ in termini relativi o meglio su input tipici. I casi di riferimento sono verificati
-entro $10^{-9}$.
+I fattori di sconto sono calcolati da `tvm.present_value` (`tvm::period_discount_factors`): a
+fine periodo con divisioni esatte, a metà periodo con una radice quadrata decimale. Rispetto a
+un calcolo indipendente a 50 cifre, i risultati concordano entro circa $10^{-24}$ in termini
+relativi o meglio a fine periodo ed entro circa $10^{-18}$ in termini relativi o meglio a metà
+periodo. I casi di riferimento derivati dal calcolo indipendente sono verificati entro
+$10^{-20}$.
 
 ## Verificato con
 
-- Casi di riferimento (golden case) in `tests/golden/dcf.fcff/`, da un'implementazione
-  decimale indipendente (`scripts/reference_values.py`).
-
-## Sviluppi
-
-Il DCF completo (FCFF dal bilancio, modelli a più stadi, altri metodi per il valore
-terminale) e i suoi componenti sono seguiti nella [roadmap](https://salvo8519.github.io/fairmark/project/roadmap/) (in inglese), con le
-loro specifiche.
+- Damodaran, *Investment Valuation*, 2a edizione, capitolo 15, Illustration 15.3 (Amgen, FCFF
+  in tre fasi con un costo del capitale che cambia ogni anno), alla precisione pubblicata:
+  valore attuale del periodo esplicito 8.327, valore delle attività operative 39.161, equity
+  value 40.867, valore terminale 81.364 (gli input stampati sono arrotondati; si vedano i file
+  dei casi di riferimento).
+- Un'implementazione indipendente a 50 cifre, `scripts/reference_dcf.py`, per ogni caso di
+  riferimento (golden case) in `tests/golden/dcf.fcff/`, e le proprietà: uno stage a crescita
+  costante equivale agli stessi flussi forniti; una riduzione lineare con crescite uguali
+  equivale alla crescita costante; i fattori di sconto coincidono con quelli di
+  [`tvm.present_value`](tvm-present-value.md).
+- Il VAN di numpy-financial sui flussi espliciti più il valore di Gordon, in virgola mobile
+  binaria (concordanza delle convenzioni, non delle cifre).

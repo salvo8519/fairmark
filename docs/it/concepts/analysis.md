@@ -1,6 +1,6 @@
 ---
 source: concepts/analysis.md
-source_hash: 9c3c02b49eca
+source_hash: b8e07fcfef10
 ---
 # Metodi di analisi
 
@@ -50,8 +50,9 @@ per indicare una posizione in un documento JSON:
 
 | Puntatore | Si riferisce a |
 | --- | --- |
-| `/discount_rate` | il membro `discount_rate` |
-| `/free_cash_flows/0` | il primo elemento della lista `free_cash_flows` |
+| `/wacc` | il membro `wacc` |
+| `/stages/0/flows/0` | il primo flusso del primo stage |
+| `/terminal/tv.gordon/growth` | il membro `growth` del membro `tv.gordon` di `terminal` (il `.` non richiede escape) |
 | `/a~1b` | il membro `a/b` (`~1` sta per `/`, `~0` per `~`) |
 
 Il puntatore di una variabile si risolve in `base_input`; il puntatore di un output si risolve

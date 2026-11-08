@@ -1,6 +1,6 @@
 ---
 source: methods/index.md
-source_hash: 29504fb61a41
+source_hash: 5cf69ab351ba
 ---
 # Metodi
 
@@ -42,7 +42,7 @@ all'utilizzatore. Vedi le [avvertenze legali](../disclaimer.md).
 | [`tv.normalised_income`](tv-normalised-income.md) | Disponibile | Valore terminale all'orizzonte N come reddito normalizzato capitalizzato |
 | [`tv.liquidation`](tv-liquidation.md) | Disponibile | Valore netto di liquidazione all'orizzonte N, ogni voce nella tracciabilità del calcolo |
 | [`tv.compare`](tv-compare.md) | Disponibile | Più tecniche di valore terminale su un unico tasso, limite alla crescita e approccio |
-| [`dcf.fcff`](dcf-fcff.md) | Anteprima | Enterprise value ed equity value dai flussi di cassa operativi |
+| [`dcf.fcff`](dcf-fcff.md) | Anteprima | Value of operations, enterprise value ed equity value dai flussi di cassa operativi, su stage espliciti e un valore terminale |
 | [`ratios.profitability`](ratios-profitability.md) | Anteprima | ROE, ROI, ROA, ROS, margini, rotazione del capitale investito e scomposizione del ROE in tre fattori e nella forma con leva finanziaria |
 | [`ratios.capital_structure`](ratios-capital-structure.md) | Anteprima | Rapporto tra debito e capitale proprio, PFN su capitale proprio, indice di indipendenza finanziaria, margini e quozienti di struttura |
 | [`ratios.liquidity`](ratios-liquidity.md) | Anteprima | Indice di disponibilità, indice di liquidità primaria, cash ratio, capitale circolante netto e margine di tesoreria |

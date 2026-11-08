@@ -1,6 +1,6 @@
 ---
 source: guides/cli.md
-source_hash: d1427819984b
+source_hash: b05264e6d6e9
 ---
 # Riga di comando
 
@@ -20,10 +20,16 @@ Esempio di input:
 
 ```json
 {
-  "free_cash_flows": ["1200000", "1350000", "1500000", "1600000", "1700000"],
-  "discount_rate": "0.095",
-  "terminal_growth": "0.02",
+  "stages": [
+    {"periods": 5, "projection": "given",
+     "flows": ["1200000", "1350000", "1500000", "1600000", "1700000"]}
+  ],
+  "cash_flow_terms": "nominal",
+  "discount_rate_terms": "nominal",
+  "wacc": "0.095",
   "timing": "mid_period",
-  "net_debt": "3100000"
+  "terminal_discount_time": "horizon",
+  "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}},
+  "net_financial_position": {"gross_debt": "3100000", "cash": "0"}
 }
 ```

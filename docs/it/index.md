@@ -3,7 +3,7 @@ hide:
 - navigation
 - toc
 source: index.md
-source_hash: 18028615c3d1
+source_hash: 3379c0108446
 ---
 <div class="fm-hero" markdown>
 
@@ -29,7 +29,13 @@ pip install fairmark
 ```python
 import fairmark as fm
 
-r = fm.dcf.fcff([100, 110, 120], discount_rate="0.10", terminal_growth="0.02", net_debt=200)
+r = fm.dcf.fcff(
+    [fm.dcf.given([100, 110, 120])],                    # FCFF degli anni da 1 a 3
+    cash_flow_terms="nominal", discount_rate_terms="nominal",
+    wacc="0.10", timing="end_of_period",
+    terminal=fm.dcf.gordon("0.02", first_flow="last_flow_grown"),
+    net_financial_position={"gross_debt": 200, "cash": 0},
+)
 r.equity_value        # Decimal('1221.4876033057851239669421487') — esatto, riproducibile
 r.explain_markdown()  # ogni passaggio, pronto per la relazione di valutazione
 ```

@@ -1,6 +1,6 @@
 ---
 source: getting-started/quickstart.md
-source_hash: 0cd7a7a8bc82
+source_hash: dddd00a55c25
 ---
 # Guida rapida
 
@@ -13,15 +13,18 @@ test.
 import fairmark as fm
 
 r = fm.dcf.fcff(
-    free_cash_flows=[100, 110, 120],   # FCFF per gli anni 1, 2, 3
-    discount_rate="0.10",              # WACC come frazione decimale
-    terminal_growth="0.02",
-    net_debt=200,
+    [fm.dcf.given([100, 110, 120])],   # un solo stage: FCFF per gli anni 1, 2, 3
+    cash_flow_terms="nominal",         # flussi e tassi negli stessi termini
+    discount_rate_terms="nominal",
+    wacc="0.10",                       # WACC come frazione decimale
+    timing="end_of_period",
+    terminal=fm.dcf.gordon("0.02", first_flow="last_flow_grown"),
+    net_financial_position={"gross_debt": 200, "cash": 0},
 )
 
-print(r.enterprise_value)   # 1421.4876033057851239669421487
-print(r.equity_value)       # 1221.4876033057851239669421487
-print(r.terminal_value)     # 1530
+print(r.value_of_operations)          # 1421.4876033057851239669421487
+print(r.equity_value)                 # 1221.4876033057851239669421487
+print(r.terminal["terminal_value"])   # 1530
 ```
 
 I valori sono `Decimal` di Python. Passa i numeri come stringhe o `Decimal` per mantenerli
@@ -54,10 +57,17 @@ Stesso hash e stesse versioni significano lo stesso risultato. Da riga di comand
 
 ```python
 try:
-    fm.dcf.fcff([100], discount_rate="0.05", terminal_growth="0.06")
+    fm.dcf.fcff(
+        [fm.dcf.given([100])],
+        cash_flow_terms="nominal",
+        discount_rate_terms="nominal",
+        wacc="0.05",
+        timing="end_of_period",
+        terminal=fm.dcf.gordon("0.06", first_flow="last_flow_grown"),
+    )
 except fm.FairmarkError as err:
     print(err.code)      # FM-E004
-    print(err.message)   # terminal growth (0.06) must be lower than the discount rate (0.05)
+    print(err.message)   # `/terminal/tv.gordon/growth` (0.06) must be lower than ... `/wacc` (0.05) ...
 ```
 
 Ogni errore ha un codice stabile: vedi il [riferimento degli errori](../reference/errors.md).
