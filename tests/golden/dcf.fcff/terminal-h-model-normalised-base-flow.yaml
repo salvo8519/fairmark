@@ -1,0 +1,28 @@
+method: dcf.fcff
+description: "tv.h_model on a normalised base flow at N (92) replacing the last explicit flow (70), standard formula, single WACC, end-of-period timing (R20, Decision 15)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R19 to R22, Decisions 13, 15 and 16, and SPEC-0006, sharing no code with the
+  engine), cross-checked against the numerical auditor's separate 50-digit reference
+  (second numerical audit of issue #43, 2026-11-08): every value agrees to 1e-40 relative.
+input:
+  stages: [{"periods": 3, "projection": "given", "flows": ["80", "86", "70"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.09"
+  timing: "end_of_period"
+  terminal: {"tv.h_model": {"short_term_growth": "0.06", "long_term_growth": "0.02", "half_life": "3", "first_flow": "normalised_base_flow", "normalised_base_flow": "92"}}
+expect:
+  /terminal/technique: "tv.h_model"
+  /periods/2/flow: "70"
+  /terminal/output/stable_growth_value: "1340.571428571428571428571429"
+  /terminal/output/extra_growth_value: "157.7142857142857142857142857"
+  /pv_explicit_period: "199.8318184380427002020804167"
+  /terminal/terminal_value: "1498.285714285714285714285714"
+  /terminal/discount_factor: "0.7721834800610642696032289624"
+  /terminal/present_value: "1156.951476982920294228380765"
+  /value_of_operations: "1356.783295420962994430461182"
+  /enterprise_value: "1356.783295420962994430461182"
+  /equity_value: "1356.783295420962994430461182"
+  /terminal_value_weight: "0.8527164808761580536990236039"
+tolerance: "0.00000000000000000001"

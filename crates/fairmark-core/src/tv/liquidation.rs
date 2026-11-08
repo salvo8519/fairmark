@@ -4,7 +4,7 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::{domain, invalid, Line, TerminalBasis, NOT_DISCOUNTED};
+use super::{domain, invalid, on, Checked, Line, TerminalBasis, NOT_DISCOUNTED};
 use crate::error::Result;
 use crate::explain::Explain;
 use crate::method::Method;
@@ -48,20 +48,49 @@ pub struct LiquidationOutput {
     pub basis: TerminalBasis,
 }
 
-/// Adds the lines of one group, one explain step per line, then the total.
-fn total(ex: &mut Explain, group: &str, field: &str, lines: &[Line]) -> Result<Decimal> {
+/// The lines of one group: a label and a value of zero or more.
+fn check_lines(field: &str, lines: &[Line]) -> Checked {
+    for (i, line) in lines.iter().enumerate() {
+        if line.label.trim().is_empty() {
+            return Err(on(format!("{field}/{i}/label"))(invalid(format!(
+                "every line of {field} needs a label"
+            ))));
+        }
+        if line.value < Decimal::ZERO {
+            return Err(on(format!("{field}/{i}/value"))(domain(format!(
+                "{field} '{}' cannot be negative (got {})",
+                line.label, line.value
+            ))));
+        }
+    }
+    Ok(())
+}
+
+/// Validates the input; each error names its field.
+pub(crate) fn check(input: &LiquidationInput) -> Checked {
+    if input.assets.is_empty() {
+        return Err(on("assets")(invalid(
+            "give at least one asset to liquidate",
+        )));
+    }
+    let tax = input.tax_on_gains;
+    if tax < Decimal::ZERO {
+        return Err(on("tax_on_gains")(domain(format!(
+            "the tax on gains cannot be negative (got {tax})"
+        ))));
+    }
+    check_lines("assets", &input.assets)?;
+    check_lines("liabilities", &input.liabilities)?;
+    check_lines("liquidation_costs", &input.liquidation_costs)?;
+    Ok(())
+}
+
+/// Adds the lines of one group, one explain step per line, then the total. The lines are
+/// checked by [`check`].
+fn total(ex: &mut Explain, group: &str, lines: &[Line]) -> Result<Decimal> {
     let mut sum = Decimal::ZERO;
     let mut terms = Vec::with_capacity(lines.len());
     for line in lines {
-        if line.label.trim().is_empty() {
-            return Err(invalid(format!("every line of {field} needs a label")));
-        }
-        if line.value < Decimal::ZERO {
-            return Err(domain(format!(
-                "{field} '{}' cannot be negative (got {})",
-                line.label, line.value
-            )));
-        }
         ex.step(format!("{group}: {}", line.label), "given", line.value);
         sum = add(sum, line.value)?;
         terms.push(line.value.to_string());
@@ -77,15 +106,8 @@ fn total(ex: &mut Explain, group: &str, field: &str, lines: &[Line]) -> Result<D
 
 /// Net liquidation value = Σ assets − Σ liabilities − Σ liquidation costs − tax on gains.
 pub fn liquidation(input: &LiquidationInput) -> Result<(LiquidationOutput, Explain)> {
-    if input.assets.is_empty() {
-        return Err(invalid("give at least one asset to liquidate"));
-    }
+    check(input).map_err(|e| e.error)?;
     let tax = input.tax_on_gains;
-    if tax < Decimal::ZERO {
-        return Err(domain(format!(
-            "the tax on gains cannot be negative (got {tax})"
-        )));
-    }
     let mut ex = Explain::new(
         "tv.liquidation",
         "TV_N = Σ realisable values − Σ liabilities − Σ liquidation costs − tax on gains",
@@ -104,14 +126,9 @@ pub fn liquidation(input: &LiquidationInput) -> Result<(LiquidationOutput, Expla
             is an equity value"
         }
     });
-    let a = total(&mut ex, "Assets", "assets", &input.assets)?;
-    let l = total(&mut ex, "Liabilities", "liabilities", &input.liabilities)?;
-    let c = total(
-        &mut ex,
-        "Liquidation costs",
-        "liquidation_costs",
-        &input.liquidation_costs,
-    )?;
+    let a = total(&mut ex, "Assets", &input.assets)?;
+    let l = total(&mut ex, "Liabilities", &input.liabilities)?;
+    let c = total(&mut ex, "Liquidation costs", &input.liquidation_costs)?;
     ex.step("Tax on gains", "given", tax);
     let tv = sub(sub(sub(a, l)?, c)?, tax)?;
     ex.step(

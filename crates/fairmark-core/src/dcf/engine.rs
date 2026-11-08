@@ -18,13 +18,14 @@ use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num::{add, div, mul, one_plus, sub};
-use crate::tv::{self, GordonInput, GordonOutput, TerminalBasis};
+use crate::tv::TerminalBasis;
 use crate::tvm::{period_discount_factors, PeriodTiming};
 use crate::types::Timing;
 
 use super::free_cash_flows::{
     build_up, FreeCashFlowLines, FreeCashFlows, Location, TaxChoice, FORMULA_FCFF,
 };
+use super::terminal::{self, Terminal, TerminalContext, TerminalOutput};
 use std::borrow::Cow;
 
 /// Explicit stages accepted (Decision 2). Checked at run time, not in the schema, so that more
@@ -126,48 +127,6 @@ pub enum TerminalDiscountTime {
     MidPeriod,
 }
 
-/// The flow at N + 1 of a technique that grows the last explicit flow (R20).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum FirstTerminalFlow {
-    /// CF_{N+1} = CF_N × (1 + g), the last explicit flow grown by the perpetual growth.
-    LastFlowGrown,
-    /// CF_{N+1} given in `normalised_next_flow`.
-    NormalisedNextFlow,
-}
-
-/// The terms of `tv.gordon` inside the DCF: the rate is the terminal rate of the DCF and the
-/// last flow is the last explicit flow.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct GordonTerminal {
-    /// Perpetual growth after the horizon, decimal fraction per period, greater than -1 and
-    /// below the terminal rate, in the terms of the cash flows.
-    pub growth: Decimal,
-    /// `last_flow_grown` or `normalised_next_flow`; no default.
-    pub first_flow: FirstTerminalFlow,
-    /// The flow at N + 1 in currency units, in the terms of the cash flows; required with
-    /// `first_flow` = `normalised_next_flow`, refused otherwise.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub normalised_next_flow: Option<Decimal>,
-    /// Upper bound for the perpetual growth, decimal fraction per period. Default: none,
-    /// reported as absent. A growth above the cap is reported, not refused.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub growth_cap: Option<Decimal>,
-}
-
-/// The terminal technique, written as an object with exactly one key, the `tv.*` method id,
-/// as in `tv.compare`: `{"tv.gordon": {...}}`.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-#[schemars(extend("minProperties" = 1, "maxProperties" = 1))]
-pub struct Terminal {
-    /// Stable growth (`tv.gordon`): `growth`, `first_flow`, optional `normalised_next_flow`
-    /// and `growth_cap`.
-    #[serde(rename = "tv.gordon", default, skip_serializing_if = "Option::is_none")]
-    pub gordon: Option<GordonTerminal>,
-}
-
 // ---------------------------------------------------------------- output types
 
 /// One period of the explicit horizon (R10).
@@ -191,35 +150,6 @@ pub struct PeriodRow {
     pub discount_factor: Decimal,
     /// Present value of the flow, in currency units.
     pub present_value: Decimal,
-}
-
-/// The output of the terminal technique, as its own method returns it.
-#[derive(Debug, Clone, Serialize, JsonSchema)]
-#[serde(untagged)]
-pub enum TechniqueOutput {
-    Gordon(GordonOutput),
-}
-
-/// The terminal value and its discounting (R19 to R22).
-#[derive(Debug, Clone, Serialize, JsonSchema)]
-pub struct TerminalOutput {
-    /// Method id of the technique, for example `tv.gordon`.
-    pub technique: String,
-    /// Version of the technique's method that produced the value.
-    pub technique_version: String,
-    /// Rate of the terminal phase used, decimal fraction per period, in the terms of the cash
-    /// flows.
-    pub rate: Decimal,
-    /// Terminal value at the horizon N, not discounted, in currency units.
-    pub terminal_value: Decimal,
-    /// Time at which the terminal value is discounted, in periods: N, or N − 0.5.
-    pub discount_time: Decimal,
-    /// Discount factor applied to the terminal value.
-    pub discount_factor: Decimal,
-    /// Present value of the terminal value, in currency units.
-    pub present_value: Decimal,
-    /// The technique's own output, with its implied assumptions.
-    pub output: TechniqueOutput,
 }
 
 // ---------------------------------------------------------------- engine input and output
@@ -552,52 +482,6 @@ fn check_timing(timing: Timing, time: Option<TerminalDiscountTime>) -> Result<()
     }
 }
 
-/// R19, R20: exactly one technique, with the first terminal flow stated.
-fn check_terminal<'a>(
-    t: &'a Terminal,
-    rate: Decimal,
-    rate_field: &str,
-) -> Result<&'a GordonTerminal> {
-    let Some(g) = &t.gordon else {
-        return Err(invalid(
-            "`/terminal` names no technique: give exactly one, written with its method id, \
-             for example {\"tv.gordon\": {\"growth\": 0.02, \"first_flow\": \"last_flow_grown\"}}"
-                .to_owned(),
-        ));
-    };
-    let at = "/terminal/tv.gordon";
-    match (g.first_flow, g.normalised_next_flow) {
-        (FirstTerminalFlow::NormalisedNextFlow, None) => {
-            return Err(invalid(format!(
-                "`{at}/normalised_next_flow` is required with `{at}/first_flow` = \
-                 normalised_next_flow: give the flow at N + 1"
-            )))
-        }
-        (FirstTerminalFlow::LastFlowGrown, Some(_)) => {
-            return Err(invalid(format!(
-                "`{at}/normalised_next_flow` is not used with `{at}/first_flow` = \
-                 last_flow_grown; remove it, or set `{at}/first_flow` to normalised_next_flow"
-            )))
-        }
-        _ => {}
-    }
-    if g.growth <= -Decimal::ONE {
-        return Err(invalid(format!(
-            "`{at}/growth` is {}; a growth must be greater than -1 (-100%)",
-            g.growth
-        )));
-    }
-    if g.growth >= rate {
-        return Err(FairmarkError::GrowthNotBelowTerminalRate {
-            growth_field: format!("{at}/growth"),
-            growth: g.growth,
-            rate_field: rate_field.to_owned(),
-            rate,
-        });
-    }
-    Ok(g)
-}
-
 // ---------------------------------------------------------------- calculation
 
 struct Projected {
@@ -806,7 +690,7 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
     let (rates, terminal_rate, terminal_field) = resolve_rates(&input.rates, n)?;
     check_terms(ex, input.cash_flow_terms, input.discount_rate_terms)?;
     check_timing(input.timing, input.terminal_discount_time)?;
-    let gordon_terms = check_terminal(input.terminal, terminal_rate, &terminal_field)?;
+    let technique = terminal::check(input.terminal, terminal_rate, &terminal_field, input.basis)?;
 
     ex.convention(format!(
         "explicit horizon N = {n} periods; stages: {}; one period is one year, rates are \
@@ -926,179 +810,23 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
     );
 
     let last = &projected[n - 1];
-    let g_n = growth_factors[n];
-    let terminal = terminal_value(
+    let terminal = terminal::value(
         ex,
-        input,
-        gordon_terms,
-        terminal_rate,
-        last,
-        &rates,
-        &ends,
-        g_n,
+        &TerminalContext {
+            technique,
+            basis: input.basis,
+            timing: input.timing,
+            discount_time: input.terminal_discount_time,
+            rate: terminal_rate,
+            last_flow: last.flow,
+            last_growth: last.growth,
+            ends: &ends,
+            g_n: growth_factors[n],
+        },
     )?;
     Ok(EngineOutput {
         periods,
         pv_explicit,
         terminal,
-    })
-}
-
-/// R19 to R22: the terminal value through the typed `tv` function, and its discounting.
-#[allow(clippy::too_many_arguments)]
-fn terminal_value(
-    ex: &mut Explain,
-    input: &EngineInput<'_>,
-    terms: &GordonTerminal,
-    rate: Decimal,
-    last: &Projected,
-    rates: &[Decimal],
-    ends: &[Decimal],
-    g_n: Option<Decimal>,
-) -> Result<TerminalOutput> {
-    let n = ends.len();
-    let g = terms.growth;
-    let (next_flow, last_flow) = match terms.first_flow {
-        FirstTerminalFlow::LastFlowGrown => (None, Some(last.flow)),
-        FirstTerminalFlow::NormalisedNextFlow => (terms.normalised_next_flow, None),
-    };
-    let (out, tv_ex) = tv::gordon(&GordonInput {
-        rate,
-        growth: g,
-        next_flow,
-        last_flow,
-        growth_cap: terms.growth_cap,
-    })?;
-    let (id, version) = (tv::Gordon::ID, tv::Gordon::VERSION);
-    ex.convention(format!(
-        "terminal technique: {id} version {version} on the {} basis, at the terminal rate \
-         {rate}, in the terms of the cash flows",
-        input.basis.name()
-    ));
-    ex.convention(match terms.first_flow {
-        FirstTerminalFlow::LastFlowGrown => {
-            "first terminal flow: the last explicit flow grown by the perpetual growth, \
-             CF_N × (1 + g)"
-                .to_owned()
-        }
-        FirstTerminalFlow::NormalisedNextFlow => {
-            "first terminal flow: normalised flow at N + 1, given in the terms of the cash \
-             flows"
-                .to_owned()
-        }
-    });
-    for s in tv_ex.steps {
-        ex.step(format!("Terminal value: {}", s.label), s.formula, s.value);
-    }
-    for c in tv_ex.conventions {
-        ex.convention(format!("terminal value ({id} v{version}): {c}"));
-    }
-    if let Some(last_growth) = last.growth {
-        if last_growth != g {
-            ex.convention(format!(
-                "warning: the growth of the last explicit period ({last_growth}) differs from \
-                 the perpetual growth of the terminal value ({g})"
-            ));
-        }
-    }
-
-    let df_n = ends[n - 1];
-    let horizon = Decimal::from(n as u64);
-    let tv_n = out.terminal_value;
-    let at_n = format!("Terminal value: discount factor at t = N = {n}, end of period {n}");
-    let df_n_formula = match g_n {
-        Some(g) => format!("DF_{n} = 1 / Π_(i ≤ {n}) (1 + r_i) = 1 / {g}"),
-        None => format!("DF_{n}, the discount factor at the end of period {n}"),
-    };
-    let (time, df, pv) = match (input.timing, input.terminal_discount_time) {
-        (Timing::MidPeriod, Some(TerminalDiscountTime::MidPeriod)) => {
-            let r_n = rates[n - 1];
-            let root = one_plus(r_n)?
-                .sqrt()
-                .ok_or(FairmarkError::Overflow("square root"))?;
-            let df = mul(df_n, root)?;
-            ex.convention(format!(
-                "terminal discounting time: mid_period, t = N − 0.5, factor DF_N × (1 + r_N)^0.5; \
-                 the half-period shift uses the rate of period N, r_{n} = {r_n} (R21), not the \
-                 terminal rate"
-            ));
-            ex.step(at_n, df_n_formula, df_n);
-            ex.step(
-                format!(
-                    "Terminal value: discount factor at t = N − 0.5 = {}",
-                    horizon - Decimal::new(5, 1)
-                ),
-                format!("DF_{n} × (1 + r_{n})^0.5 = {df_n} × (1 + {r_n})^0.5"),
-                df,
-            );
-            let pv = match tv_n.checked_mul(root).zip(g_n) {
-                Some((v, g)) => {
-                    let pv = div(v, g)?;
-                    ex.step(
-                        "Present value of the terminal value",
-                        format!("{tv_n} × (1 + {r_n})^0.5 / {g}"),
-                        pv,
-                    );
-                    pv
-                }
-                None => {
-                    let pv = mul(tv_n, df)?;
-                    ex.step(
-                        "Present value of the terminal value",
-                        format!("{tv_n} × {df}"),
-                        pv,
-                    );
-                    pv
-                }
-            };
-            (sub(horizon, Decimal::new(5, 1))?, df, pv)
-        }
-        (timing, _) => {
-            ex.convention(match timing {
-                Timing::MidPeriod => "terminal discounting time: horizon, t = N, factor DF_N",
-                Timing::EndOfPeriod => {
-                    "terminal value discounted at the horizon, t = N, factor DF_N"
-                }
-            });
-            if timing == Timing::MidPeriod {
-                ex.convention(
-                    "warning: under mid-period timing a perpetuity-growth terminal value is \
-                     commonly discounted at N − 0.5, consistent with the flows it capitalises; \
-                     it is discounted at the horizon N as chosen",
-                );
-            }
-            ex.step(at_n, df_n_formula, df_n);
-            let pv = match g_n {
-                Some(g) => {
-                    let pv = div(tv_n, g)?;
-                    ex.step(
-                        "Present value of the terminal value",
-                        format!("{tv_n} / {g}"),
-                        pv,
-                    );
-                    pv
-                }
-                None => {
-                    let pv = mul(tv_n, df_n)?;
-                    ex.step(
-                        "Present value of the terminal value",
-                        format!("{tv_n} × {df_n}"),
-                        pv,
-                    );
-                    pv
-                }
-            };
-            (horizon, df_n, pv)
-        }
-    };
-    Ok(TerminalOutput {
-        technique: id.to_owned(),
-        technique_version: version.to_owned(),
-        rate,
-        terminal_value: out.terminal_value,
-        discount_time: time,
-        discount_factor: df,
-        present_value: pv,
-        output: TechniqueOutput::Gordon(out),
     })
 }

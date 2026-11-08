@@ -128,3 +128,32 @@ def test_existing_results_keep_their_shape() -> None:
     )
     assert seek.value["inner_method"]["version"] == "2"
     assert isinstance(seek.value["solution"], Decimal)
+
+
+def test_dcf_terminal_helpers_build_each_technique() -> None:
+    """Issue #43: each helper builds the object of its technique; the engine accepts it."""
+    lines = [{"label": "Plant", "value": 500}]
+    for terminal in (
+        fm.dcf.h_model("0.05", "0.02", 3, first_flow="last_flow_grown", growth_cap="0.03"),
+        fm.dcf.h_model(
+            "0.05", "0.02", 3, first_flow="normalised_base_flow", normalised_base_flow=95
+        ),
+        fm.dcf.value_driver(150, "0.02", "0.12", growth_cap="0.03"),
+        fm.dcf.exit_multiple(8, "ebitda", 180, next_flow=120, growth_cap="0.03"),
+        fm.dcf.limited_horizon(110, 5, growth=0, residual_value=300, growth_cap="0.03"),
+        fm.dcf.normalised_income(140, basis="enterprise", growth="0.01", growth_cap="0.03"),
+        fm.dcf.liquidation(
+            lines, liabilities=[], liquidation_costs=[], tax_on_gains=0, basis="enterprise"
+        ),
+    ):
+        r = fm.dcf.fcff(
+            [fm.dcf.given([100, 110])],
+            cash_flow_terms="nominal",
+            discount_rate_terms="nominal",
+            wacc="0.10",
+            timing="end_of_period",
+            terminal=terminal,
+        )
+        (technique,) = terminal
+        assert r.terminal["technique"] == technique
+        assert r.value_of_operations > 0

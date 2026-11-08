@@ -1,0 +1,11 @@
+method: dcf.fcff
+description: "tv.value_driver with a perpetual growth equal to the single WACC (R19)"
+source: SPEC-0001 R19; SPEC-0006 R10
+input:
+  stages: [{"periods": 2, "projection": "given", "flows": ["100", "110"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.10"
+  timing: "end_of_period"
+  terminal: {"tv.value_driver": {"nopat_next": "100", "growth": "0.10", "ronic": "0.15"}}
+expect_error: FM-E004

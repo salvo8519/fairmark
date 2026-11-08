@@ -7,10 +7,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::engine::{
-    self, EngineInput, PeriodRow, RateFields, RateInput, Stage, Terminal, TerminalDiscountTime,
-    TerminalOutput, Terms,
+    self, EngineInput, PeriodRow, RateFields, RateInput, Stage, TerminalDiscountTime, Terms,
 };
 use super::free_cash_flows::{NegativeEbit, TaxChoice};
+use super::terminal::{Terminal, TerminalOutput};
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
 use crate::method::Method;
@@ -64,8 +64,10 @@ pub struct DcfFcffInput {
     /// `mid_period` (t = N − 0.5). Refused with `end_of_period`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub terminal_discount_time: Option<TerminalDiscountTime>,
-    /// The terminal technique, an object with exactly one key, the method id:
-    /// `{"tv.gordon": {"growth", "first_flow", ...}}`, on the enterprise basis.
+    /// The terminal technique, an object with exactly one key, the method id, for example
+    /// `{"tv.gordon": {"growth", "first_flow", ...}}`: `tv.gordon`, `tv.h_model`,
+    /// `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income` or
+    /// `tv.liquidation`, on the enterprise basis.
     pub terminal: Terminal,
     /// Net financial position at the valuation date (SPEC-0007): gross debt − cash + signed
     /// other items, positive for net debt, subtracted from enterprise value. Default: none,
@@ -272,7 +274,9 @@ impl Method for Fcff {
     const DESCRIPTION: &'static str =
         "Value of operations, enterprise value and equity value from FCFF discounted at the \
         WACC over one to three explicit stages (given flows, constant growth, linear decline \
-        of growth) and a terminal value. Returns every period and step for audit.";
+        of growth) and a terminal value by a tv.* technique on the enterprise basis (stable \
+        growth, H-model, value driver, exit multiple, finite horizon, normalised income, \
+        liquidation). Returns every period and step for audit.";
     const VERSION: &'static str = "3";
     type Input = DcfFcffInput;
     type Output = DcfFcffOutput;
@@ -884,7 +888,11 @@ mod tests {
         assert!(!c
             .iter()
             .any(|c| c.starts_with("warning: under mid-period timing")));
-        assert!(c.iter().any(|c| c.contains("r_3 = 0.10 (R21)")), "{c:?}");
+        assert!(
+            c.iter()
+                .any(|c| c.contains("r_T = 0.10 (R21, Decision 16)")),
+            "{c:?}"
+        );
     }
 
     /// R23, R25: enterprise value minus value of operations is the sum of the non-operating

@@ -1,0 +1,27 @@
+method: dcf.fcff
+description: "tv.normalised_income on the enterprise basis, capitalised at the terminal WACC (R19, Decision 13; AC11)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R19 to R22 and SPEC-0006, sharing no code with the engine).
+input:
+  stages: [{"periods": 2, "projection": "given", "flows": ["90", "96"]}, {"periods": 2, "projection": "constant_growth", "growth": "0.02"}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc_per_period: ["0.10", "0.095", "0.09", "0.09"]
+  terminal_wacc: "0.085"
+  timing: "end_of_period"
+  terminal: {"tv.normalised_income": {"income": "110", "basis": "enterprise", "growth": "0.02"}}
+  net_financial_position: {"gross_debt": "350", "cash": "60"}
+expect:
+  /terminal/technique: "tv.normalised_income"
+  /terminal/output/basis: "enterprise"
+  /periods/3/flow: "99.8784"
+  /pv_explicit_period: "305.8949883144839291005669234"
+  /terminal/terminal_value: "1692.307692307692307692307692"
+  /terminal/discount_factor: "0.6987795709975591978974840756"
+  /terminal/present_value: "1182.550043226638642595742282"
+  /value_of_operations: "1488.445031541122571696309205"
+  /enterprise_value: "1488.445031541122571696309205"
+  /equity_value: "1198.445031541122571696309205"
+  /terminal_value_weight: "0.7944868760133096652250192506"
+tolerance: "0.00000000000000000001"

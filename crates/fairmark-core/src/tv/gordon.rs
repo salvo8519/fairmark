@@ -5,8 +5,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    check_below_rate, check_growth, check_growth_cap, invalid, rate_convention, GrowthCapCheck,
-    NOT_DISCOUNTED,
+    check_below_rate, check_growth, check_growth_cap, invalid, on, rate_convention, Checked,
+    GrowthCapCheck, NOT_DISCOUNTED,
 };
 use crate::error::Result;
 use crate::explain::Explain;
@@ -87,11 +87,23 @@ pub struct GordonOutput {
     pub growth_cap: Option<GrowthCapCheck>,
 }
 
+/// Validates the input; each error names its field.
+pub(crate) fn check(input: &GordonInput) -> Checked {
+    let (r, g) = (input.rate, input.growth);
+    check_growth(g, "growth").map_err(on("growth"))?;
+    check_below_rate(g, r).map_err(on("growth"))?;
+    if input.next_flow.is_some() == input.last_flow.is_some() {
+        return Err(on("next_flow")(invalid(
+            "give exactly one of next_flow (CF_{N+1}) and last_flow (CF_N)",
+        )));
+    }
+    Ok(())
+}
+
 /// TV_N = CF_{N+1} / (r − g).
 pub fn gordon(input: &GordonInput) -> Result<(GordonOutput, Explain)> {
+    check(input).map_err(|e| e.error)?;
     let (r, g) = (input.rate, input.growth);
-    check_growth(g, "growth")?;
-    check_below_rate(g, r)?;
     let mut ex = Explain::new("tv.gordon", "TV_N = CF_{N+1} / (r − g)");
     ex.convention(NOT_DISCOUNTED);
     let (next, basis) = match (input.next_flow, input.last_flow) {

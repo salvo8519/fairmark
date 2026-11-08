@@ -3,8 +3,10 @@
 ``fcff`` values the operating business from free cash flows to the firm discounted at the
 WACC, over one to three explicit stages followed by a terminal value. Every choice is explicit:
 the stages and their projection, the terms of the flows and of the rates, the timing, and the
-terminal technique. The helpers ``given``, ``constant_growth``, ``linear_decline`` and
-``gordon`` only build the input objects; the engine computes everything.
+terminal technique. The helpers ``given``, ``constant_growth``, ``linear_decline`` and the
+terminal techniques ``gordon``, ``h_model``, ``value_driver``, ``exit_multiple``,
+``limited_horizon``, ``normalised_income`` and ``liquidation`` only build the input objects;
+the engine computes everything.
 
 Rates and growths are decimal fractions per period (``"0.09"`` = 9%); one period is one year.
 """
@@ -23,6 +25,8 @@ Terms = Literal["nominal", "real"]
 TerminalDiscountTime = Literal["horizon", "mid_period"]
 FirstFlow = Literal["last_flow_grown", "normalised_next_flow"]
 NegativeEbit = Literal["credit", "zero"]
+Metric = Literal["ebitda", "ebit", "revenue", "earnings", "book_value"]
+Basis = Literal["enterprise", "equity"]
 
 
 def given(flows: Sequence[Number]) -> dict[str, Any]:
@@ -74,6 +78,136 @@ def gordon(
     return {"tv.gordon": terms}
 
 
+def h_model(
+    short_term_growth: Number,
+    long_term_growth: Number,
+    half_life: Number,
+    *,
+    first_flow: Literal["last_flow_grown", "normalised_base_flow"],
+    normalised_base_flow: Number | None = None,
+    growth_cap: Number | None = None,
+) -> dict[str, Any]:
+    """The terminal technique ``tv.h_model``, written ``{"tv.h_model": {...}}``: growth
+    declining linearly from ``short_term_growth`` to ``long_term_growth`` over 2 x
+    ``half_life`` periods, at the terminal rate of the DCF.
+
+    ``first_flow`` is ``"last_flow_grown"`` (the H-model grows the last explicit flow CF_N) or
+    ``"normalised_base_flow"`` (then give ``normalised_base_flow``, a normalised CF_N at the
+    horizon N that replaces the last explicit flow).
+    """
+    terms: dict[str, Any] = {
+        "short_term_growth": short_term_growth,
+        "long_term_growth": long_term_growth,
+        "half_life": half_life,
+        "first_flow": first_flow,
+    }
+    if normalised_base_flow is not None:
+        terms["normalised_base_flow"] = normalised_base_flow
+    if growth_cap is not None:
+        terms["growth_cap"] = growth_cap
+    return {"tv.h_model": terms}
+
+
+def value_driver(
+    nopat_next: Number,
+    growth: Number,
+    ronic: Number,
+    *,
+    growth_cap: Number | None = None,
+) -> dict[str, Any]:
+    """The terminal technique ``tv.value_driver``, written ``{"tv.value_driver": {...}}``:
+    NOPAT at N + 1, perpetual growth and return on new invested capital, at the terminal rate
+    of the DCF."""
+    terms: dict[str, Any] = {"nopat_next": nopat_next, "growth": growth, "ronic": ronic}
+    if growth_cap is not None:
+        terms["growth_cap"] = growth_cap
+    return {"tv.value_driver": terms}
+
+
+def exit_multiple(
+    multiple: Number,
+    metric: Metric,
+    metric_value: Number,
+    *,
+    next_flow: Number | None = None,
+    growth_cap: Number | None = None,
+) -> dict[str, Any]:
+    """The terminal technique ``tv.exit_multiple``, written ``{"tv.exit_multiple": {...}}``:
+    ``multiple`` x the metric at N. The metric must be on the basis of the DCF (``ebitda``,
+    ``ebit`` or ``revenue`` for ``fcff``). With ``next_flow`` the growth implied by the
+    multiple is computed at the terminal rate; ``growth_cap`` needs ``next_flow``."""
+    terms: dict[str, Any] = {"multiple": multiple, "metric": metric, "metric_value": metric_value}
+    if next_flow is not None:
+        terms["next_flow"] = next_flow
+    if growth_cap is not None:
+        terms["growth_cap"] = growth_cap
+    return {"tv.exit_multiple": terms}
+
+
+def limited_horizon(
+    flow: Number,
+    periods: int,
+    *,
+    growth: Number,
+    residual_value: Number,
+    growth_cap: Number | None = None,
+) -> dict[str, Any]:
+    """The terminal technique ``tv.limited_horizon``, written
+    ``{"tv.limited_horizon": {...}}``: ``flow`` at the end of period N + 1, growing by
+    ``growth`` for ``periods`` periods, then ``residual_value`` at N + ``periods``, at the
+    terminal rate of the DCF. ``growth`` and ``residual_value`` are required (give 0 for
+    none)."""
+    terms: dict[str, Any] = {
+        "flow": flow,
+        "periods": periods,
+        "growth": growth,
+        "residual_value": residual_value,
+    }
+    if growth_cap is not None:
+        terms["growth_cap"] = growth_cap
+    return {"tv.limited_horizon": terms}
+
+
+def normalised_income(
+    income: Number,
+    *,
+    basis: Basis,
+    growth: Number,
+    growth_cap: Number | None = None,
+) -> dict[str, Any]:
+    """The terminal technique ``tv.normalised_income``, written
+    ``{"tv.normalised_income": {...}}``: the normalised income at N + 1 capitalised at the
+    terminal rate of the DCF (no separate capitalisation rate), R / (r - g). ``basis`` must be
+    the basis of the DCF (``"enterprise"`` for ``fcff``); ``growth`` is required (give 0 for
+    none)."""
+    terms: dict[str, Any] = {"income": income, "basis": basis, "growth": growth}
+    if growth_cap is not None:
+        terms["growth_cap"] = growth_cap
+    return {"tv.normalised_income": terms}
+
+
+def liquidation(
+    assets: Iterable[Mapping[str, Any]],
+    *,
+    liabilities: Iterable[Mapping[str, Any]],
+    liquidation_costs: Iterable[Mapping[str, Any]],
+    tax_on_gains: Number,
+    basis: Basis,
+) -> dict[str, Any]:
+    """The terminal technique ``tv.liquidation``, written ``{"tv.liquidation": {...}}``: each
+    line is ``{"label", "value"}``; ``basis`` must be the basis of the DCF (``"enterprise"``
+    for ``fcff``: the liabilities listed exclude financial debt)."""
+    return {
+        "tv.liquidation": {
+            "assets": [dict(a) for a in assets],
+            "liabilities": [dict(x) for x in liabilities],
+            "liquidation_costs": [dict(c) for c in liquidation_costs],
+            "tax_on_gains": tax_on_gains,
+            "basis": basis,
+        }
+    }
+
+
 def fcff(
     stages: Iterable[Mapping[str, Any]],
     *,
@@ -98,6 +232,8 @@ def fcff(
     ``terminal_wacc``. Under ``timing="mid_period"`` give ``terminal_discount_time``.
     Stages built with :func:`given_lines` take ``notional_tax_rate`` with ``negative_ebit``,
     or ``operating_taxes`` in every line.
+    ``terminal`` is built by ``gordon``, ``h_model``, ``value_driver``, ``exit_multiple``,
+    ``limited_horizon``, ``normalised_income`` or ``liquidation``.
 
     >>> r = fcff(
     ...     [given([100, 110, 120])],

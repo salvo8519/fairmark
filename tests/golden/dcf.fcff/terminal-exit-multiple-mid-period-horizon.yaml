@@ -1,0 +1,28 @@
+method: dcf.fcff
+description: "tv.exit_multiple (EV/EBITDA) under mid-period timing, terminal value discounted at the horizon N, implied growth at the WACC (R19, R21; AC11)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R19 to R22 and SPEC-0006, sharing no code with the engine).
+input:
+  stages: [{"periods": 4, "projection": "given", "flows": ["150", "165", "180", "190"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.10"
+  timing: "mid_period"
+  terminal_discount_time: "horizon"
+  terminal: {"tv.exit_multiple": {"multiple": "7.5", "metric": "ebitda", "metric_value": "410", "next_flow": "260", "growth_cap": "0.03"}}
+expect:
+  /terminal/technique: "tv.exit_multiple"
+  /terminal/output/basis: "enterprise"
+  /terminal/output/growth_cap/status: "respected"
+  /terminal/output/implied_growth: "0.0154471544715447154471545"
+  /terminal/discount_time: "4"
+  /pv_explicit_period: "563.9827922712658376793739166"
+  /terminal/terminal_value: "3075"
+  /terminal/discount_factor: "0.6830134553650706918926303"
+  /terminal/present_value: "2100.266375247592377569838126"
+  /value_of_operations: "2664.249167518858215249212042"
+  /enterprise_value: "2664.249167518858215249212042"
+  /equity_value: "2664.249167518858215249212042"
+  /terminal_value_weight: "0.7883145468723229589451809"
+tolerance: "0.00000000000000000001"

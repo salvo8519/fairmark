@@ -1,0 +1,25 @@
+method: dcf.fcff
+description: "tv.limited_horizon: six further flows growing at 1% and a residual value, at the single WACC (R19; AC11)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R19 to R22 and SPEC-0006, sharing no code with the engine; the limited horizon summed flow by flow).
+input:
+  stages: [{"periods": 3, "projection": "given", "flows": ["140", "145", "150"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.08"
+  timing: "end_of_period"
+  terminal: {"tv.limited_horizon": {"flow": "150", "periods": 6, "growth": "0.01", "residual_value": "400"}}
+expect:
+  /terminal/technique: "tv.limited_horizon"
+  /terminal/output/flows_value: "709.4190916432942176555871313"
+  /terminal/output/residual_value_discounted: "252.0678507532419123037140145"
+  /pv_explicit_period: "373.0185947264136564548087182"
+  /terminal/terminal_value: "961.4869423965361299593011458"
+  /terminal/discount_factor: "0.7938322410201696895798405"
+  /terminal/present_value: "763.2593341942730798462673578"
+  /value_of_operations: "1136.277928920686736301076076"
+  /enterprise_value: "1136.277928920686736301076076"
+  /equity_value: "1136.277928920686736301076076"
+  /terminal_value_weight: "0.6717188768413975734775837"
+tolerance: "0.00000000000000000001"

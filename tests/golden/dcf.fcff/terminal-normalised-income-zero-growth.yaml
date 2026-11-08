@@ -1,0 +1,29 @@
+method: dcf.fcff
+description: "tv.normalised_income with growth 0, capitalised at the single WACC, R / r_T, mid-period timing with the terminal value at the horizon N (R19, Decision 13)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R19 to R22, Decisions 13, 15 and 16, and SPEC-0006, sharing no code with the
+  engine), cross-checked against the numerical auditor's separate 50-digit reference
+  (second numerical audit of issue #43, 2026-11-08): every value agrees to 1e-40 relative.
+input:
+  stages: [{"periods": 3, "projection": "given", "flows": ["110", "118", "124"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.095"
+  timing: "mid_period"
+  terminal_discount_time: "horizon"
+  terminal: {"tv.normalised_income": {"income": "130", "basis": "enterprise", "growth": "0"}}
+  net_financial_position: {"gross_debt": "420", "cash": "35"}
+expect:
+  /terminal/technique: "tv.normalised_income"
+  /terminal/output/basis: "enterprise"
+  /terminal/discount_time: "3"
+  /pv_explicit_period: "306.9314011593919883737486842"
+  /terminal/terminal_value: "1368.421052631578947368421053"
+  /terminal/discount_factor: "0.7616538513645838004413593655"
+  /terminal/present_value: "1042.263165025219937446070711"
+  /value_of_operations: "1349.194566184611925819819395"
+  /enterprise_value: "1349.194566184611925819819395"
+  /equity_value: "964.1945661846119258198193949"
+  /terminal_value_weight: "0.7725076806176565988456872852"
+tolerance: "0.00000000000000000001"

@@ -1,0 +1,27 @@
+method: dcf.fcff
+description: "tv.liquidation on the enterprise basis, mid-period timing, discounted at the horizon N (R19, R21; AC11)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R19 to R22 and SPEC-0006, sharing no code with the engine).
+input:
+  stages: [{"periods": 3, "projection": "given", "flows": ["60", "55", "40"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.11"
+  timing: "mid_period"
+  terminal_discount_time: "horizon"
+  terminal: {"tv.liquidation": {"assets": [{"label": "Plant", "value": "900"}, {"label": "Receivables", "value": "300"}], "liabilities": [{"label": "Trade payables", "value": "250"}], "liquidation_costs": [{"label": "Closure", "value": "80"}], "tax_on_gains": "40", "basis": "enterprise"}}
+  non_operating_assets: [{"label": "Idle land", "value": "35"}]
+expect:
+  /terminal/technique: "tv.liquidation"
+  /terminal/output/basis: "enterprise"
+  /terminal/output/total_assets: "1200"
+  /pv_explicit_period: "134.7941477678672706847010767"
+  /terminal/terminal_value: "830"
+  /terminal/discount_factor: "0.7311913813009503294382768"
+  /terminal/present_value: "606.8888464797887734337697815"
+  /value_of_operations: "741.6829942476560441184708582"
+  /enterprise_value: "776.6829942476560441184708582"
+  /equity_value: "776.6829942476560441184708582"
+  /terminal_value_weight: "0.8182590826359731337781431"
+tolerance: "0.00000000000000000001"

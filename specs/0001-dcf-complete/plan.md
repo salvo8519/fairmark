@@ -84,8 +84,9 @@ In implementation order, all in `Decimal` with checked arithmetic (`crate::num`)
    leaves the decimal range the engine multiplies by DF_k and reports it.
 5. Terminal value through `tv::gordon` at the terminal rate (the single rate, or
    `terminal_wacc`), with CF_{N+1} = CF_N × (1 + g) or the given normalised flow.
-6. Terminal discounting: `horizon` uses DF_N; `mid_period` uses DF_N × (1 + r_N)^0.5 with
-   the rate of period N (R21); the present value is TV_N / G_N, or TV_N × (1 + r_N)^0.5 / G_N.
+6. Terminal discounting: `horizon` uses DF_N; `mid_period` uses DF_N × (1 + r_T)^0.5 with
+   the terminal rate r_T (R21, Decision 16; with one rate r_T = r_N); the present value is
+   TV_N / G_N, or TV_N × (1 + r_T)^0.5 / G_N.
 7. Value of operations = Σ PV + PV(TV); enterprise value = value of operations + Σ
    non-operating assets; equity value = enterprise value − net financial position.
 8. Terminal value weight = PV(TV) / value of operations.
@@ -146,6 +147,26 @@ Each is additive to version 3 under the schema checker.
 - **#167 dated periods**: optional `valuation_date` and period end dates; the engine's time
   axis (today t = k or k − 0.5) becomes the dated axis of `tvm::time_axis`.
 
+## Issue #43 — Terminal value technique and discounting time
+Extends version 3 additively through the extension point above.
+
+| Item | Design |
+| --- | --- |
+| Module | `src/dcf/terminal.rs` holds the terminal input types (moved from `engine.rs`, same schema), the checks and the computation; `engine.rs` calls it at the two places it called the Gordon code, so that the parallel issue #38 (stages) and this one touch disjoint parts of the engine |
+| Techniques | Optional properties of `terminal`: `tv.gordon` (#110), `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income`, `tv.liquidation`; exactly one present, checked at run time (`FM-E001` naming the keys) |
+| Rate | The terminal rate (the single rate, or `terminal_wacc`) is passed to every technique that takes a rate (R19, Decision 13), including the capitalisation rate of `tv.normalised_income`, which accepts no separate rate inside the DCF (the SPEC-0006 decision on its own capitalisation rate concerns `tv.compare` only); `tv.exit_multiple` uses it only for the implied growth when `next_flow` is given; `tv.liquidation` takes none |
+| Terms | The technique's own terms (SPEC-0006), the rate and the last explicit flow excluded; a growth cap where the technique accepts one (R22). Terms that the standalone method defaults (`growth` and `residual_value` of `tv.limited_horizon`, `growth` of `tv.normalised_income`) are required inside the DCF (R29) |
+| First terminal flow | `tv.gordon`: `last_flow_grown` or `normalised_next_flow` (#110). `tv.h_model` (Decision 15): `first_flow` required, its own enumeration `HModelFirstFlow`: `last_flow_grown` passes the last explicit flow as CF_N; `normalised_base_flow` passes the given `normalised_base_flow` as CF_N, standard formula, no conversion from N + 1; the amount is required with that choice and refused otherwise (`FM-E001`) |
+| Basis (R19) | `tv.exit_multiple`: the basis of the metric; `tv.normalised_income`, `tv.liquidation`: the declared basis; each must equal the basis of the DCF, otherwise `FM-E019` naming the field and the fix. The flow-based techniques take the basis of the flows they are given |
+| Discounting (R21, Decisions 6, 16, 17) | DF_N, or DF_N × (1 + r_T)^0.5 at N − 0.5 with the terminal rate r_T (Decision 16; no change with one rate). Warnings: `tv.exit_multiple`, `tv.liquidation` or `tv.limited_horizon` (its residual value, Decision 17) discounted at N − 0.5 (a price at a date); a perpetual-growth technique (`tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.normalised_income`) discounted at N under mid-period timing |
+| R11 | The growth of the last generated period is compared with the perpetual growth stated by the technique: `growth` (`tv.gordon`, `tv.value_driver`, `tv.normalised_income`), `long_term_growth` (`tv.h_model`); the growth implied by an exit multiple is reported, not compared, and a convention says so |
+| Errors (R27) | The DCF checks only what it alone knows (the number of techniques, the first terminal flow, the basis); the terms are checked by the technique's own `check` function, before any calculation, which reports the field of each error (`tv::FieldError`); the DCF turns it into `/terminal/<id>/<field>`, or the terminal rate field for the rate, with the code unchanged (`FM-E004` with its pointers). The standalone methods keep their messages |
+| Output | `terminal.technique`, `terminal.technique_version`, the technique's own output in `terminal.output` (untagged, as in `tv.compare`) |
+
+Tests: `scripts/reference_dcf.py` restates every technique (limited horizon by explicit
+summation); golden cases `terminal-*.yaml` and `error-terminal-*.yaml`; Python property AC11
+against each `tv.*` method run alone through the registry.
+
 ## Risks and alternatives
 - **Tagged unions** (`{"projection": {"linear_decline": {...}}}`) would give a tighter JSON
   Schema, but every new option would be a breaking change for the CI checker and force a new
@@ -165,6 +186,14 @@ Each is additive to version 3 under the schema checker.
   CF_N / CF_{N−1} − 1, could be compared with the perpetual growth too. Not implemented: the
   spec does not say whether an implied growth counts as "the growth of the last explicit
   period".
+- **R11 with `tv.h_model` (#43).** The literal comparison is with the perpetual growth g_l; the
+  growth right after N in the H-model is g_s. Implemented literally (g_l); g_s may be the
+  comparison the maintainer intends.
+
+Resolved on 2026-11-08 by the maintainer (spec, Decisions 15 to 17): the first terminal flow of
+`tv.h_model` is the last explicit flow or a normalised base flow at N; the half-period shift at
+N − 0.5 uses the terminal rate; `tv.limited_horizon` discounted at N − 0.5 carries the warning
+of a price at a date.
 
 ## Issue #38: free cash flow build-up (`dcf.free_cash_flows`)
 

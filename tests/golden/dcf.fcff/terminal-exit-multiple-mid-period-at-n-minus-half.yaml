@@ -1,0 +1,26 @@
+method: dcf.fcff
+description: "tv.exit_multiple (EV/EBIT) discounted at N - 0.5 under mid-period timing: TV x DF_N x (1 + r_N)^0.5, reported with a warning (R21; AC12)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R19 to R22 and SPEC-0006, sharing no code with the engine).
+input:
+  stages: [{"periods": 4, "projection": "given", "flows": ["150", "165", "180", "190"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.10"
+  timing: "mid_period"
+  terminal_discount_time: "mid_period"
+  terminal: {"tv.exit_multiple": {"multiple": "9", "metric": "ebit", "metric_value": "320"}}
+expect:
+  /terminal/technique: "tv.exit_multiple"
+  /terminal/output/implied_growth: "null"
+  /terminal/discount_time: "3.5"
+  /pv_explicit_period: "563.9827922712658376793739166"
+  /terminal/terminal_value: "2880"
+  /terminal/discount_factor: "0.7163505554061550078488174"
+  /terminal/present_value: "2063.089599569726422604594030"
+  /value_of_operations: "2627.072391840992260283967947"
+  /enterprise_value: "2627.072391840992260283967947"
+  /equity_value: "2627.072391840992260283967947"
+  /terminal_value_weight: "0.7853188994628200583535571"
+tolerance: "0.00000000000000000001"

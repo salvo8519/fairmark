@@ -1,0 +1,30 @@
+method: dcf.fcff
+description: "Rates per period, mid-period timing, terminal value at N - 0.5 with the half-period shift at the terminal rate r_T = 0.0815, not r_N = 0.0925: DF_TV = DF_N x (1.0815)^0.5 (R21, Decision 16; AC12)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R19 to R22, Decisions 13, 15 and 16, and SPEC-0006, sharing no code with the
+  engine), cross-checked against the numerical auditor's separate 50-digit reference
+  (second numerical audit of issue #43, 2026-11-08): every value agrees to 1e-40 relative.
+input:
+  stages: [{"periods": 4, "projection": "given", "flows": ["120", "128", "135", "141"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc_per_period: ["0.10", "0.098", "0.095", "0.0925"]
+  terminal_wacc: "0.0815"
+  timing: "mid_period"
+  terminal_discount_time: "mid_period"
+  terminal: {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}
+expect:
+  /terminal/technique: "tv.gordon"
+  /periods/3/discount_factor: "0.7234027122560886510776270228"
+  /terminal/output/next_flow: "143.82"
+  /terminal/discount_time: "3.5"
+  /pv_explicit_period: "434.2795290399678580484753650"
+  /terminal/terminal_value: "2338.536585365853658536585366"
+  /terminal/discount_factor: "0.7197516543815392766965611681"
+  /terminal/present_value: "1683.165576148828923162592312"
+  /value_of_operations: "2117.445105188796781211067677"
+  /enterprise_value: "2117.445105188796781211067677"
+  /equity_value: "2117.445105188796781211067677"
+  /terminal_value_weight: "0.7949039963417392146661849977"
+tolerance: "0.00000000000000000001"

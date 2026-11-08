@@ -88,3 +88,50 @@ parallel; tick a task only when `just check` passes.
 - [ ] F9 `uv run just check` green (done); `numerical-auditor` and `code-reviewer` reviews
   (pending, to be run by the orchestrating session); AC1, AC2 and AC3 ticked in spec.md (by
   the maintainer: spec.md is not changed on this branch)
+
+## Issue #43 — Terminal value technique and discounting time in the DCF
+
+Plan: `plan.md`, section "Issue #43". The terminal discounting time of Decision 6 and
+`tv.gordon` are already in version 3 (#110); this issue adds the other techniques as optional
+properties of the `terminal` object (additive to version 3).
+
+### Tests (write first, they must fail)
+- [x] T15 [P] Reference `scripts/reference_dcf.py` extended with every technique wired in the
+  DCF, restated from SPEC-0006 R2 to R5 and R7 (the limited horizon by explicit summation, not
+  by the annuity closed form) [R19, R21, R22; AC11, AC12]
+- [x] T16 [P] Golden cases `tests/golden/dcf.fcff/terminal-*.yaml` (one per technique, each
+  timing and discounting time) and `error-terminal-*.yaml` (`FM-E019` for P/E, P/BV and an
+  equity liquidation with FCFF; two techniques; growth not below the rate) [R19, R21; AC11,
+  AC12]
+- [x] T17 [P] Python: engine against the reference for every technique and timing; property
+  AC11, the terminal value inside the DCF equals the `tv.*` method run alone on the same terms,
+  and its present value equals that value discounted at the terminal discounting time
+  [R19, R22; AC11]
+
+### Implementation
+- [x] T18 `dcf/terminal.rs`: terms of `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`,
+  `tv.limited_horizon`, `tv.liquidation`; exactly one technique; basis check (`FM-E019`);
+  first terminal flow (R20); typed calls; technique id and version; discounting warnings of
+  Decision 6; errors with JSON pointers; unit tests [R19 to R22, R27 to R29; AC11, AC12, AC14]
+- [x] T19 `uv run just generate`: schema `dcf.fcff/v3.json` changed additively only
+  (`scripts/schema_snapshots.py`), methods reference
+
+### Adapters and docs
+- [x] T20 [P] Python helpers `h_model`, `value_driver`, `exit_multiple`, `limited_horizon`,
+  `liquidation` in `python/fairmark/dcf.py`
+- [x] T21 [P] Methodology page `docs/en/methods/dcf-fcff.md` (terminal techniques, warnings,
+  errors), `docs/en/reference/errors.md` (`FM-E019` widened), release note
+  `changes/43.feature.md`
+- [x] T22 Italian edition; roadmap #43 done; `uv run just check`
+- [x] T24 Review findings: `tv.normalised_income` at the terminal rate (R19, Decision 13),
+  golden case and AC11 property; term checks reported by the `tv.*` methods with their field
+  (`tv::FieldError`) instead of repeated in the DCF; documentation nits; tolerances of the new
+  golden cases at 1e-20
+- [x] T25 Decisions 15 to 17: normalised base flow at N for `tv.h_model`, half-period shift at
+  the terminal rate, warning for `tv.limited_horizon` at N − 0.5; reference, tests and
+  documentation; no expected value of any golden case changes (every case at N − 0.5 uses one
+  rate)
+
+### Verification
+- [ ] T23 `numerical-auditor` review, `code-reviewer` review, open questions of plan.md
+  (issue #43) answered, acceptance criteria AC11 and AC12 ticked in spec.md (maintainer)
