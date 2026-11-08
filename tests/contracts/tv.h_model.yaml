@@ -1,0 +1,21 @@
+# Contract cases for tv.h_model: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: tv.h_model
+extreme_inputs:
+- last_flow: MAX
+  short_term_growth: MAX
+  long_term_growth: '0'
+  half_life: MAX
+  rate: '0.0000000000000000000000000001'
+conventions:
+- input:
+    last_flow: '100'
+    short_term_growth: '0.10'
+    long_term_growth: '0.03'
+    half_life: '5'
+    rate: '0.09'
+    growth_cap: '0.03'
+  expect:
+  - approximation of growth declining linearly
+  - long-term growth 0.03 respects the growth cap 0.03

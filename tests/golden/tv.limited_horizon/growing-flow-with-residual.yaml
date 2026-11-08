@@ -1,0 +1,9 @@
+method: tv.limited_horizon
+description: Flow 100 growing 2% for 5 periods at 10%, residual value 500 at N + 5 (R5)
+source: Independent 50-digit reference, scripts/reference_tv.py (term-by-term sum)
+input: { flow: "100", rate: "0.10", periods: 5, growth: "0.02", residual_value: "500" }
+expect:
+  terminal_value: "703.5265201706291795766558419383"
+  flows_value: "393.0658586410515923527329852034"
+  residual_value_discounted: "310.4606615295775872239228567348"
+tolerance: "0.0000000000000000000001"

@@ -1,0 +1,5 @@
+method: tv.value_driver
+description: A return on new capital of zero cannot finance any growth (R10)
+source: SPEC-0006 R10
+input: { nopat_next: "100", growth: "0.02", ronic: "0", rate: "0.10" }
+expect_error: FM-E018

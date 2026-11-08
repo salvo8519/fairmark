@@ -1,0 +1,10 @@
+method: tv.exit_multiple
+description: 8 x EBITDA 125, rate 10%, next flow 60; implied growth 4% exceeds a 3% cap (R4, R8)
+source: Independent 50-digit reference, scripts/reference_tv.py; closed forms 8 x 125 = 1000 and 0.10 - 60 / 1000 = 0.04
+input: { multiple: "8", metric: ebitda, metric_value: "125", rate: "0.10", next_flow: "60", growth_cap: "0.03" }
+expect:
+  terminal_value: "1000"
+  basis: enterprise
+  implied_growth: "0.04"
+  /growth_cap/status: exceeded
+tolerance: "0"

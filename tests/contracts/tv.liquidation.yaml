@@ -1,0 +1,32 @@
+# Contract cases for tv.liquidation: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: tv.liquidation
+extreme_inputs:
+- assets:
+  - label: A
+    value: MAX
+  - label: B
+    value: MAX
+  liabilities: []
+  liquidation_costs: []
+  tax_on_gains: '0'
+- assets: []
+  liabilities:
+  - label: L
+    value: MAX
+  liquidation_costs:
+  - label: C
+    value: MAX
+  tax_on_gains: MAX
+conventions:
+- input:
+    assets:
+    - label: Land
+      value: '800'
+    liabilities: []
+    liquidation_costs: []
+    tax_on_gains: '0'
+  expect:
+  - realisable at the horizon N
+  - tax on gains given as an amount

@@ -1,0 +1,9 @@
+method: tv.limited_horizon
+description: Flow 100 for 10 periods at 8%, no residual value (R5)
+source: Independent 50-digit reference, scripts/reference_tv.py (term-by-term sum); closed form 100 x (1 - 1.08^-10) / 0.08
+input: { flow: "100", rate: "0.08", periods: 10 }
+expect:
+  terminal_value: "671.0081398941443994157025021345"
+  flows_value: "671.0081398941443994157025021345"
+  residual_value_discounted: "0"
+tolerance: "0.0000000000000000000001"

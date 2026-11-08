@@ -1,0 +1,5 @@
+method: tv.h_model
+description: Long-term growth above the rate is refused (R10)
+source: SPEC-0006 R3 and R10
+input: { last_flow: "100", short_term_growth: "0.10", long_term_growth: "0.10", half_life: "5", rate: "0.09" }
+expect_error: FM-E004

@@ -1,0 +1,6 @@
+method: tv.limited_horizon
+description: Flow 100 for 600 periods at 10% is within 2e-22 of the perpetuity 100 / 0.10 = 1000 (AC5)
+source: Independent 50-digit reference, scripts/reference_tv.py (term-by-term sum); closed form 1000 × (1 − 1.1^-600)
+input: { flow: "100", rate: "0.10", periods: 600 }
+expect: { terminal_value: "999.99999999999999999999985398788" }
+tolerance: "0.000000000000000000000001"

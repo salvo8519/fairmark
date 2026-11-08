@@ -1,0 +1,9 @@
+method: tv.liquidation
+description: A realisable value cannot be negative; obligations go in liabilities (R10)
+source: SPEC-0006 R7 and R10
+input:
+  assets: [{ label: Land, value: "-800" }]
+  liabilities: []
+  liquidation_costs: []
+  tax_on_gains: "0"
+expect_error: FM-E018

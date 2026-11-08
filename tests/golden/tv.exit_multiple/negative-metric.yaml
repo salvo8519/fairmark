@@ -1,0 +1,5 @@
+method: tv.exit_multiple
+description: A negative EBITDA cannot carry a positive multiple (R10)
+source: SPEC-0006 R10
+input: { multiple: "6", metric: ebitda, metric_value: "-20" }
+expect_error: FM-E018

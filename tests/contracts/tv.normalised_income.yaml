@@ -1,0 +1,18 @@
+# Contract cases for tv.normalised_income: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: tv.normalised_income
+extreme_inputs:
+- income: MAX
+  capitalisation_rate: '0.0000000000000000000000000001'
+- income: MIN
+  capitalisation_rate: MAX
+  growth: MIN
+  growth_cap: MIN
+conventions:
+- input:
+    income: '120'
+    capitalisation_rate: '0.08'
+  expect:
+  - 'no growth: R / i'
+  - 'growth cap: none given'

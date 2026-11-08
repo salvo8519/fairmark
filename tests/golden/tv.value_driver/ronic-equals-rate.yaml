@@ -1,0 +1,9 @@
+method: tv.value_driver
+description: RONIC equal to the rate, growth creates no value, TV = NOPAT / r exactly (R2, AC2)
+source: "Damodaran, NYU Stern valuation lectures (undergraduate, spring 2020), session 11 slides, table 'The Big Assumption': terminal value for after-tax operating income of 100 in year n+1 and a cost of capital of 10%, rounded to units (pages.stern.nyu.edu/~adamodar/podcasts/valUGspr20/session11slides.pdf); the 10% column is 1,000 at every growth. Closed form 100 / 0.10"
+input: { nopat_next: "100", growth: "0.03", ronic: "0.10", rate: "0.10", growth_cap: "0.03" }
+expect:
+  terminal_value: "1000"
+  value_of_growth: none
+  /growth_cap/status: respected
+tolerance: "0"

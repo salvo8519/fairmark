@@ -1,0 +1,9 @@
+method: tv.h_model
+description: CF_N 100, growth from 10% to 3% over 2H = 10 periods, rate 9% (R3)
+source: Independent 50-digit reference, scripts/reference_tv.py; closed form 100 x (1.03 + 5 x 0.07) / 0.06 = 2300
+input: { last_flow: "100", short_term_growth: "0.10", long_term_growth: "0.03", half_life: "5", rate: "0.09" }
+expect:
+  terminal_value: "2300"
+  stable_growth_value: "1716.6666666666666666666666666667"
+  extra_growth_value: "583.33333333333333333333333333"
+tolerance: "0.0000000000000000000001"

@@ -1,0 +1,8 @@
+method: tv.h_model
+description: CF_N 100, growth from 8% to 2%, H 2.5, rate 7.5%, cap 2.5% respected (R3, R8)
+source: Independent 50-digit reference, scripts/reference_tv.py
+input: { last_flow: "100", short_term_growth: "0.08", long_term_growth: "0.02", half_life: "2.5", rate: "0.075", growth_cap: "0.025" }
+expect:
+  terminal_value: "2127.2727272727272727272727272727"
+  /growth_cap/status: respected
+tolerance: "0.0000000000000000000001"

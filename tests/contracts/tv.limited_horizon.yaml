@@ -1,0 +1,22 @@
+# Contract cases for tv.limited_horizon: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: tv.limited_horizon
+extreme_inputs:
+- flow: MAX
+  rate: MIN
+  periods: 4294967295
+- flow: MAX
+  rate: '0.0000000000000000000000000001'
+  periods: 10000
+  growth: MAX
+  residual_value: MAX
+conventions:
+- input:
+    flow: '100'
+    rate: '0.08'
+    periods: 10
+  expect:
+  - end of periods N + 1 to N + 10
+  - 'residual value at N + 10: 0 (default)'
+  - grows by 0 per period (default

@@ -1,0 +1,10 @@
+method: tv.compare
+description: A P/E exit multiple (equity) inside an enterprise comparison is refused (decision 2)
+source: SPEC-0006 Decisions, exit multiples are never mixed across bases
+input:
+  rate: "0.10"
+  basis: enterprise
+  techniques:
+    - tv.gordon: { growth: "0.02", next_flow: "100" }
+    - tv.exit_multiple: { multiple: "12", metric: earnings, metric_value: "50" }
+expect_error: FM-E019
