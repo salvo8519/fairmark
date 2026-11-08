@@ -170,7 +170,7 @@ milestones:
         labels: []
         tasks:
           - { issue: 114, title: "Ratios: profitability, capital structure, liquidity, working capital, debt service (SPEC-0007)", tags: [parallel], spec: "0007", status: done }
-          - { issue: 147, title: "Covenant tests on contractual definitions", spec: "0007", status: open }
+          - { issue: 147, title: "Covenant tests on contractual definitions", spec: "0007", status: done }
 
   - title: "M3 · Agent layer and v0.1 release"
     gate: "An external user completes a DCF with Claude Code or Codex using only the README."
