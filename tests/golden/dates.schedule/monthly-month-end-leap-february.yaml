@@ -1,0 +1,20 @@
+method: dates.schedule
+description: "2024-01-31, monthly, 4 periods"
+source: >
+  QuantLib Schedule (NullCalendar, Unadjusted, DateGeneration.Forward, endOfMonth true, Period(1,
+  Months)) and python-dateutil (start + relativedelta(months=k*p, day=31)), both agreeing,
+  QuantLib 1.44, python-dateutil 3.0.0; scripts/reference_schedule.py. SPEC-0010 AC1: a month-end
+  start keeps month ends (29 February, then 31 March), no drift.
+input: { start_date: "2024-01-31", frequency: monthly, number_of_periods: 4 }
+expect:
+  "/start_dates/0": "2024-01-31"
+  "/start_dates/1": "2024-02-29"
+  "/start_dates/2": "2024-03-31"
+  "/start_dates/3": "2024-04-30"
+  "/end_dates/0": "2024-02-29"
+  "/end_dates/1": "2024-03-31"
+  "/end_dates/2": "2024-04-30"
+  "/end_dates/3": "2024-05-31"
+  "/months_per_period": "1"
+  "/periods_per_year": "12"
+tolerance: "0"

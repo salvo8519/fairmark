@@ -1,6 +1,6 @@
 ---
 source: methods/loans-instalment.md
-source_hash: 264817232aa1
+source_hash: 3f1959e83806
 ---
 # Rata di un finanziamento (`loans.instalment`)
 
@@ -80,8 +80,8 @@ assert same.instalment == again.instalment
 | --- | --- | --- |
 | `principal` | Capitale finanziato, in unità di valuta, maggiore di 0 | obbligatorio |
 | `rate` | Tasso annuo nominale, frazione decimale (forma a) | una forma di tasso obbligatoria |
-| `compounding` | Capitalizzazione di `rate`: `annual`, `semi_annual`, `quarterly`, `monthly`, `continuous` (forma a) | obbligatorio con `rate` |
-| `payment_frequency` | Rate all'anno: `annual`, `semi_annual`, `quarterly`, `monthly` (forma a) | obbligatorio con `rate` |
+| `compounding` | Capitalizzazione di `rate`: `annual`, `semi_annual`, `four_monthly`, `quarterly`, `bimonthly`, `monthly`, `continuous` (forma a) | obbligatorio con `rate` |
+| `payment_frequency` | Rate all'anno: `annual` (1), `semi_annual` (2), `four_monthly` (3, ogni quattro mesi), `quarterly` (4), `bimonthly` (6, ogni due mesi, non due volte al mese), `monthly` (12) (forma a) | obbligatorio con `rate` |
 | `periodic_rate` | Tasso per periodo di pagamento, frazione decimale, maggiore di −1 (forma b) | una forma di tasso obbligatoria |
 | `number_of_instalments` | Da 1 a 10000 | obbligatorio |
 | `timing` | `ordinary` (rata posticipata) o `due` (rata anticipata) | obbligatorio |
@@ -134,6 +134,7 @@ indipendente a 50 cifre.
 
 - Casi di riferimento in `tests/golden/loans.instalment/`: l'esempio svolto di ECMA-376 della
   rata di un finanziamento (posticipata e anticipata) e un riferimento indipendente a 50 cifre
-  (`scripts/reference_loans.py`).
+  (`scripts/reference_loans.py`), compresi pagamenti ogni due mesi nella forma (a), uguali al
+  tasso periodale equivalente nella forma (b).
 - La funzione della rata di un finanziamento di `numpy_financial` su finanziamenti casuali, per
   entrambi i momenti di pagamento, con il balloon come valore futuro.

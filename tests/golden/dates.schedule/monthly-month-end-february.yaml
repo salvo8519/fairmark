@@ -1,0 +1,18 @@
+method: dates.schedule
+description: "2023-02-28, monthly, 3 periods"
+source: >
+  QuantLib Schedule (NullCalendar, Unadjusted, DateGeneration.Forward, endOfMonth true, Period(1,
+  Months)) and python-dateutil (start + relativedelta(months=k*p, day=31)), both agreeing,
+  QuantLib 1.44, python-dateutil 3.0.0; scripts/reference_schedule.py. SPEC-0010 AC1: 28 February
+  2023 is a month end, so every date is a month end.
+input: { start_date: "2023-02-28", frequency: monthly, number_of_periods: 3 }
+expect:
+  "/start_dates/0": "2023-02-28"
+  "/start_dates/1": "2023-03-31"
+  "/start_dates/2": "2023-04-30"
+  "/end_dates/0": "2023-03-31"
+  "/end_dates/1": "2023-04-30"
+  "/end_dates/2": "2023-05-31"
+  "/months_per_period": "1"
+  "/periods_per_year": "12"
+tolerance: "0"

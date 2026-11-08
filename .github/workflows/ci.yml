@@ -129,6 +129,9 @@ jobs:
           enable-cache: true
       - run: uv sync --locked --all-extras --group oracles
       - run: uv run pytest
+        env:
+          # The oracle tests fail instead of skipping when an oracle cannot be imported.
+          FAIRMARK_REQUIRE_ORACLES: "1"
 
   workflows:
     name: Quality · workflows, YAML, unused dependencies

@@ -61,8 +61,11 @@ RULES: list[tuple[str, str, str]] = [
     ),
 ]
 # Shared engine modules, not method themes. `solver` (Brent's method) is documented on the
-# pages of the methods that use it, such as docs/en/methods/analysis-goal-seek.md.
-NON_METHOD_FILES = {"error", "explain", "registry", "types", "lib", "num", "method", "solver"}
+# pages of the methods that use it, such as docs/en/methods/analysis-goal-seek.md; `frequency`
+# (the named frequencies of SPEC-0010 R20) on the pages of the methods whose inputs use them.
+NON_METHOD_FILES = {
+    "error", "explain", "registry", "types", "lib", "num", "method", "solver", "frequency",
+}  # fmt: skip
 
 
 def git(*args: str) -> list[str]:
@@ -127,7 +130,7 @@ FUTURE = re.compile(
     r"|in programma|prossimamente|sarà disponibile|\bpianificat[oaie]\b",
     re.IGNORECASE,
 )
-METHOD_ID = re.compile(r"`((?:dates|rates|tvm|loans|coc|dcf|tv|ratios|analysis)\.[a-z_]+)`")
+METHOD_ID = re.compile(r"`((?:dates|rates|tvm|loans|coc|dcf|tv|ratios|analysis|series)\.[a-z_]+)`")
 GENERATED = re.compile(r"<!-- generated:[a-z]+:start.*?<!-- generated:[a-z]+:end -->", re.S)
 
 

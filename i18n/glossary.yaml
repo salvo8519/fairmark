@@ -111,6 +111,15 @@ terms:
   borrowing rate: tasso annuo nominale (TAN)
   annual percentage rate of charge (APRC): tasso annuo effettivo globale (TAEG)
   payment frequency: periodicità della rata
+  # SPEC-0010, verified on 2026-11-08. Equivalent periodic rates in the compound regime,
+  # i_m = (1 + i)^(1/m) - 1, and in the simple regime, i_m = i / m: Universita di Trieste,
+  # A. R. Bacinello, Matematica finanziaria, "Tassi equivalenti nel regime dell'interesse
+  # semplice e della capitalizzazione composta"; M. Sandri, Matematica finanziaria,
+  # "Capitalizzazione frazionata", "Tassi equivalenti". "Quadrimestrale": Pratelli, Universita
+  # di Pisa, lezione 5 ("2 % quadrimestrale").
+  four-monthly (every four months): quadrimestrale
+  equivalent periodic rate, compound (annual_compound): tasso equivalente (capitalizzazione composta)
+  equivalent periodic rate, simple (annual_simple): tasso equivalente (interesse semplice)
   payment in arrears: rata posticipata
   payment in advance: rata anticipata
   number of instalments: numero delle rate
@@ -243,3 +252,15 @@ keep_in_english:
   - CLI
   - pull request
   - JSON Pointer
+  # SPEC-0010: no verified Italian equivalent (glossary rule above); kept in English, with an
+  # Italian explanation in brackets at first use on the Italian pages.
+  - timeline
+  - schedule
+  - calculation period
+  - end-of-month rule
+  - base value
+  - base period
+  - growth rule
+  - growth basis
+  - months per period
+  - unadjusted dates

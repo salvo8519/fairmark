@@ -1,0 +1,18 @@
+method: dates.schedule
+description: "2025-01-30, monthly, 3 periods"
+source: >
+  QuantLib Schedule (NullCalendar, Unadjusted, DateGeneration.Forward, endOfMonth true, Period(1,
+  Months)) and python-dateutil (start + relativedelta(months=k*p)), both agreeing, QuantLib 1.44,
+  python-dateutil 3.0.0; scripts/reference_schedule.py. SPEC-0010 AC1: the 30th is not a month
+  end, so the day is kept and only clamped in February.
+input: { start_date: "2025-01-30", frequency: monthly, number_of_periods: 3 }
+expect:
+  "/start_dates/0": "2025-01-30"
+  "/start_dates/1": "2025-02-28"
+  "/start_dates/2": "2025-03-30"
+  "/end_dates/0": "2025-02-28"
+  "/end_dates/1": "2025-03-30"
+  "/end_dates/2": "2025-04-30"
+  "/months_per_period": "1"
+  "/periods_per_year": "12"
+tolerance: "0"

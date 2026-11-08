@@ -1,0 +1,12 @@
+method: series.project
+description: "Three rates per period for four periods under period_1 (AC8)"
+source: >
+  Independent 50-digit reference, scripts/reference_series.py (written from SPEC-0010, not from
+  the engine).
+input: {"base_value": "500", "base_period": "period_1", "growth": {"per_period": {"growth_rates": ["0.10", "0.08", "-0.02"]}}, "timeline": {"periods": {"number_of_periods": 4}}}
+expect:
+  "/values/0": "500"
+  "/values/1": "550"
+  "/values/2": "594"
+  "/values/3": "582.12"
+tolerance: "0"

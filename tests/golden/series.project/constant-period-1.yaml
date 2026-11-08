@@ -1,0 +1,12 @@
+method: series.project
+description: "Base 100, constant 0.05, 3 periods, period_1 (AC6)"
+source: >
+  Independent 50-digit reference, scripts/reference_series.py (written from SPEC-0010, not from
+  the engine); hand values 105, 110.25, 115.7625 of SPEC-0010 AC6.
+input: {"base_value": "100", "base_period": "period_1", "growth": {"constant": {"growth": "0.05"}}, "timeline": {"periods": {"number_of_periods": 3}}}
+expect:
+  "/values/0": "100"
+  "/values/1": "105"
+  "/values/2": "110.25"
+  "/periods/0/value": "100"
+tolerance: "0"

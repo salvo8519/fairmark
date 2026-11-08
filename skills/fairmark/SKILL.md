@@ -27,6 +27,21 @@ report its results.
    - state the inputs you used and where each one came from;
    - include `meta.input_hash` and engine version for reproducibility.
 
+## Dates and projected values
+
+- **Build periods with `dates.schedule`, never by hand**: give the start date, the number of
+  periods and the period length, as `frequency` (`monthly`, `bimonthly`, `quarterly`,
+  `four_monthly`, `semi_annual`, `annual`) or, for a tenor without a name (18 months, 24
+  months), as `period_months`. Read every end date as **exclusive**: a period runs from its
+  start date up to, but not including, its end date, which is the first day of the next
+  period. Never count an end date twice and never add or subtract a day yourself.
+- **Build a row of values with `series.project`**, never by multiplying yourself: give the
+  base value, `base_period` (`period_0` when the base is the year before the first period,
+  `period_1` when it is the first period itself; ask the user if unclear) and, when the periods
+  are not one year long, `growth_basis` (`annual_compound` or `annual_simple` for an annual
+  growth rate, `per_period` for a rate per period). With a `schedule` timeline and a `timing`,
+  pass `dated_values` unchanged as the `cash_flows` of `tvm.xnpv` or `tvm.xirr`.
+
 ## Calculations, not advice
 
 Fairmark is a calculation tool: it computes, the user decides. Present every result as the

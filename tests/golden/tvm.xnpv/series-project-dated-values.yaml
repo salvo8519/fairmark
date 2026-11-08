@@ -1,0 +1,10 @@
+method: tvm.xnpv
+description: "An outlay of 1000 on 2026-01-01 and the quarterly values of series.project typed by hand, at 10% (SPEC-0010 AC10)"
+source: >
+  Independent 50-digit reference, scripts/reference_series.py (XNPV of scripts/reference_time.py,
+  Actual/365 (Fixed), annual compounding): 188.27000581025293752184000877804473240696332060104.
+  The flows are those of tests/golden/series.project/schedule-quarterly-end-of-period.yaml
+  typed by hand (SPEC-0010 AC10, end-to-end chain).
+input: { rate: "0.10", cash_flows: [{date: "2026-01-01", amount: "-1000"}, {date: "2026-04-01", amount: "306"}, {date: "2026-07-01", amount: "312.12"}, {date: "2026-10-01", amount: "318.3624"}, {date: "2027-01-01", amount: "324.729648"}] }
+expect: { xnpv: "188.270005810252937521840009" }
+tolerance: "0.0000000000000000001"

@@ -6,9 +6,9 @@ from decimal import Decimal
 from typing import Literal
 
 from ._core import Result, run
+from .dates import Compounding
 
 Number = Decimal | int | str | float
-Compounding = Literal["annual", "semi_annual", "quarterly", "monthly", "continuous"]
 
 
 def convert(rate: Number, from_: Compounding, to: Compounding) -> Result:

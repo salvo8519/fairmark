@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -252,3 +253,85 @@ def test_input_errors_name_the_field_by_its_json_pointer() -> None:
         fm.tvm.irr([-100, 60, 60], guess={"value": "0.1"})  # type: ignore[arg-type]
     assert err.value.code == "FM-E001"
     assert "`/guess`" in str(err.value)
+
+
+def test_dates_schedule_helper() -> None:
+    """SPEC-0010: `fm.dates.schedule` builds [start, end) periods; the two period-length forms
+    give the same dates."""
+    named = fm.dates.schedule("2024-01-31", 4, frequency="monthly", day_count="act_360")
+    assert named.end_dates == ["2024-02-29", "2024-03-31", "2024-04-30", "2024-05-31"]
+    assert named.start_dates[1:] == named.end_dates[:-1]
+    assert round(named.year_fractions[0], 25) == round(Decimal(29) / 360, 25)
+    assert (named.months_per_period, named.periods_per_year) == (1, 12)
+    months = fm.dates.schedule(date(2024, 1, 31), 4, period_months=1, day_count="act_360")
+    assert months.value == named.value
+    eighteen = fm.dates.schedule("2025-03-15", 2, period_months=18)
+    assert eighteen.end_dates == ["2026-09-15", "2028-03-15"]
+    assert "periods_per_year" not in eighteen.value
+    assert "year_fractions" not in eighteen.value
+    with pytest.raises(fm.FairmarkError) as err:
+        fm.dates.schedule("2025-01-31", 4, frequency="quarterly", period_months=3)
+    assert err.value.code == "FM-E001"
+
+
+def test_series_project_helpers() -> None:
+    """SPEC-0010: `fm.series.project` with each rule builder and both timelines; the dated values
+    feed `fm.tvm.xnpv` unchanged."""
+    s = fm.series
+    r = s.project(100, base_period="period_0", growth=s.constant("0.05"), timeline=s.periods(3))
+    assert r.values == [Decimal("105"), Decimal("110.25"), Decimal("115.7625")]
+    one = s.project(100, base_period="period_1", growth=s.constant("0.05"), timeline=s.periods(3))
+    assert one.values == [Decimal("100"), Decimal("105"), Decimal("110.25")]
+    lin = s.project(
+        1000, base_period="period_0", growth=s.linear("0.1308", "0.05"), timeline=s.periods(5)
+    )
+    assert [p["stated_growth"] for p in lin.periods] == [
+        Decimal("0.11464"),
+        Decimal("0.09848"),
+        Decimal("0.08232"),
+        Decimal("0.06616"),
+        Decimal("0.05"),
+    ]
+    rates = s.per_period(["0.10", "0.08", "-0.02"])
+    per = s.project(500, base_period="period_1", growth=rates, timeline=s.periods(4))
+    assert per.values[-1] == Decimal("582.12")
+    simple = s.project(
+        1000,
+        base_period="period_0",
+        growth=s.constant("0.12"),
+        growth_basis="annual_simple",
+        timeline=s.periods(12, frequency="monthly"),
+    )
+    assert simple.values[-1] == Decimal("1000") * Decimal("1.01") ** 12
+    dated = s.project(
+        300,
+        base_period="period_0",
+        growth=s.constant("0.02"),
+        growth_basis="per_period",
+        timeline=s.schedule(fm.dates.schedule_input("2026-01-01", 4, frequency="quarterly")),
+        timing="end_of_period",
+    )
+    assert [f["date"] for f in dated.dated_values] == [
+        "2026-04-01",
+        "2026-07-01",
+        "2026-10-01",
+        "2027-01-01",
+    ]
+    flows = [("2026-01-01", -1000)] + [(f["date"], f["amount"]) for f in dated.dated_values]
+    by_hand = [
+        ("2026-01-01", "-1000"),
+        ("2026-04-01", "306"),
+        ("2026-07-01", "312.12"),
+        ("2026-10-01", "318.3624"),
+        ("2027-01-01", "324.729648"),
+    ]
+    assert fm.tvm.xnpv("0.10", flows).xnpv == fm.tvm.xnpv("0.10", by_hand).xnpv
+    with pytest.raises(fm.FairmarkError) as err:
+        s.project(
+            1000,
+            base_period="period_0",
+            growth=s.constant("0.12"),
+            timeline=s.periods(12, frequency="monthly"),
+        )
+    assert err.value.code == "FM-E001"
+    assert "`/growth_basis`" in str(err.value)

@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{rate_field, FairmarkError, Result};
 use crate::explain::Explain;
+use crate::frequency::Frequency;
 use crate::method::Method;
 use crate::num;
 use crate::rates::{self, Compounding, ConvertInput};
@@ -29,6 +30,8 @@ const BALANCE_TOLERANCE: Decimal = Decimal::from_parts(1, 0, 0, false, 20); // 1
 
 // ---------------------------------------------------------------- shared inputs
 
+// The values take their periods a year from the named frequencies of the engine
+// (`frequency::Frequency`, SPEC-0010 R20).
 /// How often instalments are paid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -41,31 +44,36 @@ pub enum PaymentFrequency {
     Quarterly,
     /// Twelve instalments a year.
     Monthly,
+    /// Six instalments a year, every two months (not twice a month).
+    Bimonthly,
+    /// Three instalments a year, every four months.
+    FourMonthly,
 }
 
 impl PaymentFrequency {
+    /// The named frequency of the payments.
+    pub(crate) fn frequency(self) -> Frequency {
+        match self {
+            Self::Annual => Frequency::Annual,
+            Self::SemiAnnual => Frequency::SemiAnnual,
+            Self::Quarterly => Frequency::Quarterly,
+            Self::Monthly => Frequency::Monthly,
+            Self::Bimonthly => Frequency::Bimonthly,
+            Self::FourMonthly => Frequency::FourMonthly,
+        }
+    }
+
     fn per_year(self) -> u32 {
-        // A payment frequency maps to a periodic compounding, never to `continuous`.
-        self.compounding().per_year().unwrap_or(1)
+        self.frequency().per_year()
     }
 
     /// The compounding whose period is the payment period.
-    fn compounding(self) -> Compounding {
-        match self {
-            Self::Annual => Compounding::Annual,
-            Self::SemiAnnual => Compounding::SemiAnnual,
-            Self::Quarterly => Compounding::Quarterly,
-            Self::Monthly => Compounding::Monthly,
-        }
+    pub(crate) fn compounding(self) -> Compounding {
+        Compounding::of(self.frequency())
     }
 
     fn name(self) -> &'static str {
-        match self {
-            Self::Annual => "annual",
-            Self::SemiAnnual => "semi_annual",
-            Self::Quarterly => "quarterly",
-            Self::Monthly => "monthly",
-        }
+        self.frequency().name()
     }
 }
 
@@ -382,7 +390,8 @@ pub struct InstalmentInput {
     /// Compounding of `rate` (form a); required with `rate`, no default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub compounding: Option<Compounding>,
-    /// Instalments per year (form a): `annual`, `semi_annual`, `quarterly` or `monthly`.
+    /// Instalments per year (form a): `annual`, `semi_annual`, `four_monthly` (3 a year),
+    /// `quarterly`, `bimonthly` (every two months, 6 a year) or `monthly`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payment_frequency: Option<PaymentFrequency>,
     /// Rate per payment period, decimal fraction (form b), greater than -1; instead of `rate`,
@@ -488,7 +497,8 @@ pub struct NumberOfInstalmentsInput {
     /// Compounding of `rate` (form a); required with `rate`, no default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub compounding: Option<Compounding>,
-    /// Instalments per year (form a): `annual`, `semi_annual`, `quarterly` or `monthly`.
+    /// Instalments per year (form a): `annual`, `semi_annual`, `four_monthly` (3 a year),
+    /// `quarterly`, `bimonthly` (every two months, 6 a year) or `monthly`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payment_frequency: Option<PaymentFrequency>,
     /// Rate per payment period, decimal fraction (form b), greater than -1; instead of `rate`,
@@ -722,7 +732,8 @@ pub struct AmortisationScheduleInput {
     /// Compounding of `rate` (form a); required with `rate`, no default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub compounding: Option<Compounding>,
-    /// Instalments per year (form a): `annual`, `semi_annual`, `quarterly` or `monthly`.
+    /// Instalments per year (form a): `annual`, `semi_annual`, `four_monthly` (3 a year),
+    /// `quarterly`, `bimonthly` (every two months, 6 a year) or `monthly`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payment_frequency: Option<PaymentFrequency>,
     /// Rate per payment period, decimal fraction (form b), greater than -1; instead of `rate`,

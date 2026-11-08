@@ -1,0 +1,5 @@
+method: dates.schedule
+description: "Start date 2023-02-29 does not exist (AC4)"
+source: SPEC-0010 R7 and AC4; 2023 is not a leap year. The error code is part of the specification.
+input: { start_date: "2023-02-29", frequency: monthly, number_of_periods: 3 }
+expect_error: FM-E009

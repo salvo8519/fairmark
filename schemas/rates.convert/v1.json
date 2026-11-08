@@ -27,6 +27,16 @@
           "const": "continuous",
           "description": "Continuously: growth factor e^(r t).",
           "type": "string"
+        },
+        {
+          "const": "bimonthly",
+          "description": "Six times a year, every two months (not twice a month): nominal rate / 6 per period.",
+          "type": "string"
+        },
+        {
+          "const": "four_monthly",
+          "description": "Three times a year, every four months: nominal rate / 3 per period.",
+          "type": "string"
         }
       ]
     }

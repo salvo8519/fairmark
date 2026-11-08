@@ -29,9 +29,14 @@ For an annual target ($m' = 1$) this is simply $r' = G - 1$.
 | --- | --- | --- |
 | Annual (effective annual rate) | `annual` | 1 |
 | Semi-annual | `semi_annual` | 2 |
+| Four-monthly (every four months) | `four_monthly` | 3 |
 | Quarterly | `quarterly` | 4 |
+| Bimonthly (every two months, not twice a month) | `bimonthly` | 6 |
 | Monthly | `monthly` | 12 |
 | Continuous | `continuous` | none, growth $e^{r}$ |
+
+The periodic values are the named frequencies shared with the loan payment frequency, defined
+once in the engine.
 
 ## Example
 
@@ -76,7 +81,7 @@ because `from` is a Python keyword); in JSON, the CLI and the MCP server the fie
 
 | Convention | Options | Default |
 | --- | --- | --- |
-| Source compounding (`from`) | annual, semi-annual, quarterly, monthly, continuous | none: a rate without its compounding is ambiguous |
+| Source compounding (`from`) | annual, semi-annual, four-monthly, quarterly, bimonthly, monthly, continuous | none: a rate without its compounding is ambiguous |
 | Target compounding (`to`) | same options | none |
 | Quotation | rates are always per year: a monthly-compounded rate of 0.12 means 1% a month | fixed |
 
@@ -86,7 +91,7 @@ When `from` and `to` are equal the rate is returned unchanged.
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | A field is missing or unknown, or a compounding is not one of the five options |
+| `FM-E001` | A field is missing or unknown, or a compounding is not one of the seven options |
 | `FM-E003` | The rate per compounding period, $r/m$, is −100% or lower; the message names `/rate` and, with more than one compounding period a year, the bound $-m$ |
 | `FM-E008` | The exponential or logarithm overflows (rates far outside a realistic range) |
 
@@ -102,6 +107,7 @@ The golden cases are checked to $10^{-19}$.
 ## Verified against
 
 - Golden cases in `tests/golden/rates.convert/`, from an independent 50-digit computation
-  (`scripts/reference_time.py`).
+  (`scripts/reference_time.py`), including 7.35% effective annual converted to `bimonthly` and
+  to `four_monthly`, and the refusal of a rate of −3 compounded every four months ($r/m = -1$).
 - Conversions between a periodic compounding and `annual` agree with the spreadsheet `EFFECT`
   and `NOMINAL` functions (Excel, LibreOffice).

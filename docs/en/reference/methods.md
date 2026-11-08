@@ -19,17 +19,46 @@ Fraction of a year between two dates under an ISDA 2006 day-count convention: Ac
 | `end` | string | yes |  | End date (ISO 8601), not earlier than the start date. |
 | `day_count` | `act_365_fixed` \| `act_360` \| `act_act_isda` \| `thirty_360` \| `thirty_e_360` | yes |  | Day-count convention. |
 
+## `dates.schedule`
+
+**Schedule of accrual periods** · method version 1 · status preview · tool `fairmark_dates_schedule`
+
+Start and end dates of n contiguous accrual periods from a start date, each from and including its start date to but excluding its end date (2006 ISDA Definitions): the end date is the first day of the next period. Period length as a frequency (`monthly` 1 month, `bimonthly` 2, `quarterly` 3, `four_monthly` 4, `semi_annual` 6, `annual` 12) or as `period_months`; unadjusted dates with the end-of-month rule; optional year fractions under a day count.
+
+| Input | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `start_date` | string | yes |  | Start date of the first period (ISO 8601). Each period runs from and including its start date to but excluding its end date, [start, end); the end date of a period is the start date of the next one. |
+| `frequency` |  | no |  | Period length as a named frequency: `monthly` (1 month per period, 12 a year), `bimonthly` (2 months, every two months, 6 a year), `quarterly` (3 months, 4 a year), `four_monthly` (4 months, 3 a year), `semi_annual` (6 months, 2 a year) or `annual` (12 months, 1 a year). Give exactly one of `frequency` and `period_months`. |
+| `period_months` | integer \| null | no |  | Period length as a positive whole number of months per period (not periods a year), for tenors with or without a name: 1 = `monthly`, 2 = `bimonthly`, 3 = `quarterly`, 4 = `four_monthly`, 6 = `semi_annual`, 12 = `annual`, and any other such as 5, 18 or 24. Give exactly one of `frequency` and `period_months`. |
+| `number_of_periods` | integer | yes |  | Number of periods, from 1 to 10000. |
+| `day_count` |  | no |  | Day count for the year fraction of each period, measured on [start, end). Optional: without it no year fraction is computed (none is assumed). |
+
+## `series.project`
+
+**Value series projected on a timeline** · method version 1 · status preview · tool `fairmark_series_project`
+
+Values of periods 1 to n grown from a base value period by period, V_k = V_(k−1) × (1 + g_k), with a constant, linear or per-period growth rule; annual rates converted to the period length by a stated basis (compound or proportional). The timeline is a number of periods or a `dates.schedule` definition, whose periods run from and including the start date to but excluding the end date; dated values feed `tvm.xnpv`.
+
+| Input | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `base_value` | decimal | yes |  | Base value V_0, in the units of the series (currency units for revenues or flows); may be negative. |
+| `base_period` | `period_0` \| `period_1` | yes |  | `period_0` (the base value is before period 1, V_1 = V_0 × (1 + g_1)) or `period_1` (the base value is the value of period 1, V_1 = V_0). Required, no default. |
+| `growth` |  | yes |  | Growth rule, externally tagged: `constant`, `linear` or `per_period`. |
+| `growth_basis` |  | no |  | How the growth rates are read: `per_period`, `annual_compound` or `annual_simple`. Required when the timeline has a period length other than 12 months; may be omitted with 12-month periods (the three bases coincide) or without a period length (rates per period). The annual bases need a period length that divides 12 or is a multiple of 12. |
+| `timeline` |  | yes |  | The periods: `periods` (a number of periods) or `schedule` (dated periods, built as by `dates.schedule`). |
+| `timing` |  | no |  | With a `schedule` timeline only, and then required: `end_of_period` (each value dated at the end date of its period, the first day of the next period) or `beginning_of_period` (at its start date). |
+
 ## `rates.convert`
 
 **Rate conversion between compounding conventions** · method version 1 · status available · tool `fairmark_rates_convert`
 
-Equivalent annual rate under another compounding (annual, semi-annual, quarterly, monthly, continuous).
+Equivalent annual rate under another compounding (annual, semi-annual, four-monthly, quarterly, bimonthly, monthly, continuous).
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `rate` | decimal | yes |  | Annual rate as a decimal fraction (0.12 = 12% a year), quoted with `from` compounding. |
-| `from` | `annual` \| `semi_annual` \| `quarterly` \| `monthly` \| `continuous` | yes |  | Compounding of the given rate. |
-| `to` | `annual` \| `semi_annual` \| `quarterly` \| `monthly` \| `continuous` | yes |  | Compounding of the equivalent rate to return. |
+| `from` | `annual` \| `semi_annual` \| `quarterly` \| `monthly` \| `continuous` \| `bimonthly` \| `four_monthly` | yes |  | Compounding of the given rate. |
+| `to` | `annual` \| `semi_annual` \| `quarterly` \| `monthly` \| `continuous` \| `bimonthly` \| `four_monthly` | yes |  | Compounding of the equivalent rate to return. |
 
 ## `rates.real_nominal`
 
@@ -103,7 +132,7 @@ Annual rate at which the XNPV of dated flows is zero, solved deterministically; 
 | `cash_flows` | list of object | yes |  | Dated cash flows, in any order; at least one positive and one negative amount. |
 | `day_count` |  | no |  | Day count for the time between dates. Default: `act_365_fixed` (ECMA-376 XIRR). |
 | `compounding` |  | no |  | Compounding of the returned rate. Default: `annual` (ECMA-376 XIRR). |
-| `guess` | decimal | no |  | Starting point for Newton's method, annual decimal fraction in the compounding of the result, greater than -m, with m the compounding periods a year (-1 annual, -2 semi-annual, -4 quarterly, -12 monthly; no bound for continuous). Default: 0.10 (ECMA-376 XIRR). |
+| `guess` | decimal | no |  | Starting point for Newton's method, annual decimal fraction in the compounding of the result, greater than -m, with m the compounding periods a year (-1 annual, -2 semi-annual, -3 four-monthly, -4 quarterly, -6 bimonthly, -12 monthly; no bound for continuous). Default: 0.10 (ECMA-376 XIRR). |
 
 ## `tvm.mirr`
 
@@ -169,7 +198,7 @@ Constant instalment of a loan from its principal, rate, number of instalments an
 | `principal` | decimal | yes |  | Amount borrowed, in currency units, greater than zero. |
 | `rate` | decimal | no |  | Annual borrowing rate, decimal fraction (0.05 = 5% a year), quoted with `compounding`. Rate form (a): give it with `compounding` and `payment_frequency`, or give `periodic_rate` instead. |
 | `compounding` |  | no |  | Compounding of `rate` (form a); required with `rate`, no default. |
-| `payment_frequency` |  | no |  | Instalments per year (form a): `annual`, `semi_annual`, `quarterly` or `monthly`. |
+| `payment_frequency` |  | no |  | Instalments per year (form a): `annual`, `semi_annual`, `four_monthly` (3 a year), `quarterly`, `bimonthly` (every two months, 6 a year) or `monthly`. |
 | `periodic_rate` | decimal | no |  | Rate per payment period, decimal fraction (form b), greater than -1; instead of `rate`, `compounding` and `payment_frequency`. |
 | `number_of_instalments` | integer | yes |  | Number of instalments, from 1 to 10000. |
 | `timing` | `ordinary` \| `due` | yes |  | `ordinary` (in arrears: instalment k at the end of period k) or `due` (in advance: at the beginning of period k). |
@@ -187,7 +216,7 @@ Number of instalments needed to repay a loan with a given instalment, the exact 
 | `principal` | decimal | yes |  | Amount borrowed, in currency units, greater than zero. |
 | `rate` | decimal | no |  | Annual borrowing rate, decimal fraction (0.05 = 5% a year), quoted with `compounding`. Rate form (a): give it with `compounding` and `payment_frequency`, or give `periodic_rate` instead. |
 | `compounding` |  | no |  | Compounding of `rate` (form a); required with `rate`, no default. |
-| `payment_frequency` |  | no |  | Instalments per year (form a): `annual`, `semi_annual`, `quarterly` or `monthly`. |
+| `payment_frequency` |  | no |  | Instalments per year (form a): `annual`, `semi_annual`, `four_monthly` (3 a year), `quarterly`, `bimonthly` (every two months, 6 a year) or `monthly`. |
 | `periodic_rate` | decimal | no |  | Rate per payment period, decimal fraction (form b), greater than -1; instead of `rate`, `compounding` and `payment_frequency`. |
 | `instalment` | decimal | yes |  | Constant instalment, in currency units; it must exceed the interest of the first period. |
 | `timing` | `ordinary` \| `due` | yes |  | `ordinary` (in arrears: instalment k at the end of period k) or `due` (in advance: at the beginning of period k). |
@@ -203,7 +232,7 @@ Period-by-period schedule of a loan with instalment, interest portion, principal
 | `principal` | decimal | yes |  | Amount borrowed, in currency units, greater than zero. |
 | `rate` | decimal | no |  | Annual borrowing rate, decimal fraction (0.05 = 5% a year), quoted with `compounding`. Rate form (a): give it with `compounding` and `payment_frequency`, or give `periodic_rate` instead. |
 | `compounding` |  | no |  | Compounding of `rate` (form a); required with `rate`, no default. |
-| `payment_frequency` |  | no |  | Instalments per year (form a): `annual`, `semi_annual`, `quarterly` or `monthly`. |
+| `payment_frequency` |  | no |  | Instalments per year (form a): `annual`, `semi_annual`, `four_monthly` (3 a year), `quarterly`, `bimonthly` (every two months, 6 a year) or `monthly`. |
 | `periodic_rate` | decimal | no |  | Rate per payment period, decimal fraction (form b), greater than -1; instead of `rate`, `compounding` and `payment_frequency`. |
 | `number_of_instalments` | integer | yes |  | Number of instalments over the full term, grace periods included, from 1 to 10000. |
 | `timing` | `ordinary` \| `due` | yes |  | `ordinary` (in arrears: instalment k at the end of period k, time k). Version 1 accepts only `ordinary`; `due` is refused with `FM-E001`. |

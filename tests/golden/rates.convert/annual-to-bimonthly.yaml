@@ -1,0 +1,8 @@
+method: rates.convert
+description: 7.35% effective annual as a rate compounded every two months (SPEC-0010 AC14)
+source: >
+  closed form 6 × ((1 + 0.0735)^(1/6) − 1); Independent 50-digit reference,
+  scripts/reference_time.py (SPEC-0010 AC14)
+input: { rate: "0.0735", from: annual, to: bimonthly }
+expect: { rate: "0.07134518341369833293675", annual_growth_factor: "1.0735" }
+tolerance: "0.0000000000000000001"

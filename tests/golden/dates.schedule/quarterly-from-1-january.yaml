@@ -1,0 +1,20 @@
+method: dates.schedule
+description: "2026-01-01, quarterly, 4 periods"
+source: >
+  QuantLib Schedule (NullCalendar, Unadjusted, DateGeneration.Forward, endOfMonth true, Period(3,
+  Months)) and python-dateutil (start + relativedelta(months=k*p)), both agreeing, QuantLib 1.44,
+  python-dateutil 3.0.0; scripts/reference_schedule.py. SPEC-0010 AC1 and R15: from 1 January the
+  end dates are the first day of the next period, 1 April, 1 July, 1 October, 1 January.
+input: { start_date: "2026-01-01", frequency: quarterly, number_of_periods: 4 }
+expect:
+  "/start_dates/0": "2026-01-01"
+  "/start_dates/1": "2026-04-01"
+  "/start_dates/2": "2026-07-01"
+  "/start_dates/3": "2026-10-01"
+  "/end_dates/0": "2026-04-01"
+  "/end_dates/1": "2026-07-01"
+  "/end_dates/2": "2026-10-01"
+  "/end_dates/3": "2027-01-01"
+  "/months_per_period": "3"
+  "/periods_per_year": "4"
+tolerance: "0"

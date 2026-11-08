@@ -42,6 +42,16 @@
           "const": "continuous",
           "description": "Continuously: growth factor e^(r t).",
           "type": "string"
+        },
+        {
+          "const": "bimonthly",
+          "description": "Six times a year, every two months (not twice a month): nominal rate / 6 per period.",
+          "type": "string"
+        },
+        {
+          "const": "four_monthly",
+          "description": "Three times a year, every four months: nominal rate / 3 per period.",
+          "type": "string"
         }
       ]
     },
@@ -66,6 +76,16 @@
         {
           "const": "monthly",
           "description": "Twelve instalments a year.",
+          "type": "string"
+        },
+        {
+          "const": "bimonthly",
+          "description": "Six instalments a year, every two months (not twice a month).",
+          "type": "string"
+        },
+        {
+          "const": "four_monthly",
+          "description": "Three instalments a year, every four months.",
           "type": "string"
         }
       ]
@@ -104,7 +124,7 @@
           "type": "null"
         }
       ],
-      "description": "Instalments per year (form a): `annual`, `semi_annual`, `quarterly` or `monthly`."
+      "description": "Instalments per year (form a): `annual`, `semi_annual`, `four_monthly` (3 a year),\n`quarterly`, `bimonthly` (every two months, 6 a year) or `monthly`."
     },
     "periodic_rate": {
       "description": "Rate per payment period, decimal fraction (form b), greater than -1; instead of `rate`,\n`compounding` and `payment_frequency`.",

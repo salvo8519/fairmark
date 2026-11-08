@@ -1,0 +1,26 @@
+method: series.project
+description: "Quarterly schedule from 2026-01-01, values dated at the beginning of period (AC10)"
+source: >
+  Independent 50-digit reference, scripts/reference_series.py (written from SPEC-0010, not from
+  the engine); dates from QuantLib 1.44 and python-dateutil 3.0.0
+  (scripts/reference_schedule.py), equal to the dates.schedule golden case
+  quarterly-from-1-january.yaml.
+input: {"base_value": "300", "base_period": "period_0", "growth": {"constant": {"growth": "0.02"}}, "growth_basis": "per_period", "timeline": {"schedule": {"start_date": "2026-01-01", "frequency": "quarterly", "number_of_periods": 4}}, "timing": "beginning_of_period"}
+expect:
+  "/dated_values/0/date": "2026-01-01"
+  "/dated_values/0/amount": "306"
+  "/dated_values/1/date": "2026-04-01"
+  "/dated_values/1/amount": "312.12"
+  "/dated_values/2/date": "2026-07-01"
+  "/dated_values/2/amount": "318.3624"
+  "/dated_values/3/date": "2026-10-01"
+  "/dated_values/3/amount": "324.729648"
+  "/periods/0/start_date": "2026-01-01"
+  "/periods/1/start_date": "2026-04-01"
+  "/periods/2/start_date": "2026-07-01"
+  "/periods/3/start_date": "2026-10-01"
+  "/periods/0/end_date": "2026-04-01"
+  "/periods/1/end_date": "2026-07-01"
+  "/periods/2/end_date": "2026-10-01"
+  "/periods/3/end_date": "2027-01-01"
+tolerance: "0"

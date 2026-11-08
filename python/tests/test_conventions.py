@@ -20,6 +20,7 @@ _spec.loader.exec_module(conventions)
         "fix(tvm): reject cash flows without a sign change [SPEC-0002 R1, R4]",
         "feat(registry)!: rename method ids",
         "revert: feat(dcf): add mid-year discounting",
+        "feat(series): project values on a timeline [SPEC-0010 R9]",
     ],
 )
 def test_valid_headers(header: str) -> None:

@@ -1,0 +1,11 @@
+method: loans.instalment
+description: "6% compounded every two months with payments every two months (form a) equals the periodic rate 0.01 in form b (SPEC-0010 AC14)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py; the same expected value as
+  bimonthly-periodic-rate-form.yaml, the equivalent form (b) (SPEC-0009 AC12a). When the
+  compounding equals the payment frequency the periodic rate is exactly rate / 6.
+input: { principal: "20000", rate: "0.06", compounding: "bimonthly", payment_frequency: "bimonthly", number_of_instalments: 18, timing: "ordinary" }
+expect:
+  instalment: "1219.640957906026491510032792"
+  periodic_rate: "0.01"
+tolerance: "0.00000000000000000001"

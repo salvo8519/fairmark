@@ -91,6 +91,16 @@
         }
       }
     },
+    "dates.schedule": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "dates.schedule/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "cd8ee332d77b29e6d23765be465dc010b79a51dc231e7d3356591d42c57e76d2"
+        }
+      }
+    },
     "dates.year_fraction": {
       "current": "1",
       "versions": {
@@ -152,7 +162,7 @@
         "1": {
           "file": "loans.amortisation_schedule/v1.json",
           "introduced_in": "unreleased",
-          "sha256": "50a501b8204439e2ab38985babac314f98ffc1624bb7330e1eab6068ca3dabdf"
+          "sha256": "93b627fa0bfbc40cbb1521425a2ca4bceb17645aaa3582bac263ea3107d8f003"
         }
       }
     },
@@ -162,7 +172,7 @@
         "1": {
           "file": "loans.instalment/v1.json",
           "introduced_in": "unreleased",
-          "sha256": "b406bc5a1584b6a6e5e6e8ae0238ec5f19e2b2c22992d0bebab65e086395d3e4"
+          "sha256": "8be985160ba37e52181ee286c7f97b794209cfdbbcc8fcaedaa371f056ecb536"
         }
       }
     },
@@ -172,7 +182,7 @@
         "1": {
           "file": "loans.number_of_instalments/v1.json",
           "introduced_in": "unreleased",
-          "sha256": "cba07faf0ada280eb886cb80938370d37fd0c5f28db164806ab3a20272125655"
+          "sha256": "86b89dce9439ab9bacb79bceec52b6f7df5a79fad811607563af2585841a9b9b"
         }
       }
     },
@@ -182,7 +192,7 @@
         "1": {
           "file": "rates.convert/v1.json",
           "introduced_in": "unreleased",
-          "sha256": "9f31f833bf0c5c427c7b3106668a5c710321c0e7bc46c6d3578393cfcae7f60d"
+          "sha256": "74a6e1a949d00b453a1cdfa382d23f123424f069c492c32d057a389fcad1ce31"
         }
       }
     },
@@ -253,6 +263,16 @@
           "file": "ratios.working_capital/v1.json",
           "introduced_in": "unreleased",
           "sha256": "b90dfe455ca0d4adaa88d071f21bac192a14da2558a78f7398da4e96a1f74c21"
+        }
+      }
+    },
+    "series.project": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "series.project/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "4be04f388b60ed097fb5c5aff7f4be909f24b27e6ec00d63b3418d5a8e1e2b09"
         }
       }
     },
@@ -437,7 +457,7 @@
         "2": {
           "file": "tvm.xirr/v2.json",
           "introduced_in": "unreleased",
-          "sha256": "b3821a5de7950b990a5e45b081bed17b4a38301ceef9e589ee99845c8c08e48d"
+          "sha256": "4e14a92ad6c9df03f57a1449b8e9230d03f3f1435a695cdf9389bbce45f408f4"
         }
       }
     },
@@ -447,7 +467,7 @@
         "1": {
           "file": "tvm.xnpv/v1.json",
           "introduced_in": "unreleased",
-          "sha256": "9914f4eae08c3dfc9373a488dff6f2ca322ba13a69476de346e66e8093977c54"
+          "sha256": "0702b4505d2cbc5c0f45e2ec68b01df4e98ffe4e56b9537cec1c824b24694b8d"
         }
       }
     }

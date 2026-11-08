@@ -1,0 +1,18 @@
+method: series.project
+description: "Linear growth from 10% to 3% over 5 steps, base 100, period_0 (AC7)"
+source: >
+  SPEC-0001 Decision 4 (rates 0.086, 0.072, 0.058, 0.044, 0.03); values from the Independent
+  50-digit reference, scripts/reference_series.py (written from SPEC-0010, not from the engine).
+input: {"base_value": "100", "base_period": "period_0", "growth": {"linear": {"from_growth": "0.10", "to_growth": "0.03"}}, "timeline": {"periods": {"number_of_periods": 5}}}
+expect:
+  "/periods/0/stated_growth": "0.086"
+  "/periods/1/stated_growth": "0.072"
+  "/periods/2/stated_growth": "0.058"
+  "/periods/3/stated_growth": "0.044"
+  "/periods/4/stated_growth": "0.03"
+  "/values/0": "108.6"
+  "/values/1": "116.4192"
+  "/values/2": "123.1715136"
+  "/values/3": "128.5910601984"
+  "/values/4": "132.448792004352"
+tolerance: "0"

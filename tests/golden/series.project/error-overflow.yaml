@@ -1,0 +1,7 @@
+method: series.project
+description: "A value beyond the decimal range (AC12)"
+source: >
+  SPEC-0010 R17 and AC12: 79228162514264337593543950335 doubled exceeds the 96-bit decimal range;
+  the error code is part of the specification.
+input: {"base_value": "79228162514264337593543950335", "base_period": "period_0", "growth": {"constant": {"growth": "1"}}, "timeline": {"periods": {"number_of_periods": 2}}}
+expect_error: FM-E008

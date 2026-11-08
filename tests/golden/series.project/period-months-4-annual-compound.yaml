@@ -1,0 +1,12 @@
+method: series.project
+description: "1000 at 12% a year, annual_compound, period_months 4: as four_monthly (AC9)"
+source: >
+  Independent 50-digit reference, scripts/reference_series.py (written from SPEC-0010, not from
+  the engine); the same expected values as four-monthly-annual-compound.yaml, the named frequency
+  of the same tenor (SPEC-0010 R3).
+input: {"base_value": "1000", "base_period": "period_0", "growth": {"constant": {"growth": "0.12"}}, "growth_basis": "annual_compound", "timeline": {"periods": {"number_of_periods": 3, "period_months": 4}}}
+expect:
+  "/periods/0/growth_per_period": "0.038498820370220805238891"
+  "/periods/0/effective_annual_growth": "0.12"
+  "/values/2": "1120"
+tolerance: "0.00000000000000001"

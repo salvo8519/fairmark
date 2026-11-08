@@ -1,0 +1,5 @@
+method: dates.schedule
+description: "period_months 4294967295 with 10000 periods: out of the date range, never an overflow (AC4)"
+source: SPEC-0010 R7 and AC4; month arithmetic cannot overflow for any accepted input. The error code is part of the specification.
+input: { start_date: "2025-01-31", period_months: 4294967295, number_of_periods: 10000 }
+expect_error: FM-E009

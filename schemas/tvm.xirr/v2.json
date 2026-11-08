@@ -27,6 +27,16 @@
           "const": "continuous",
           "description": "Continuously: growth factor e^(r t).",
           "type": "string"
+        },
+        {
+          "const": "bimonthly",
+          "description": "Six times a year, every two months (not twice a month): nominal rate / 6 per period.",
+          "type": "string"
+        },
+        {
+          "const": "four_monthly",
+          "description": "Three times a year, every four months: nominal rate / 3 per period.",
+          "type": "string"
         }
       ]
     },
@@ -125,7 +135,7 @@
       "description": "Day count for the time between dates. Default: `act_365_fixed` (ECMA-376 XIRR)."
     },
     "guess": {
-      "description": "Starting point for Newton's method, annual decimal fraction in the compounding of the\nresult, greater than -m, with m the compounding periods a year (-1 annual, -2\nsemi-annual, -4 quarterly, -12 monthly; no bound for continuous). Default: 0.10\n(ECMA-376 XIRR).",
+      "description": "Starting point for Newton's method, annual decimal fraction in the compounding of the\nresult, greater than -m, with m the compounding periods a year (-1 annual, -2\nsemi-annual, -3 four-monthly, -4 quarterly, -6 bimonthly, -12 monthly; no bound for\ncontinuous). Default: 0.10 (ECMA-376 XIRR).",
       "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
       "type": [
         "string",

@@ -1,0 +1,15 @@
+method: dates.schedule
+description: "2025-03-15, 18 months, 2 periods"
+source: >
+  QuantLib Schedule (NullCalendar, Unadjusted, DateGeneration.Forward, endOfMonth true,
+  Period(18, Months)) and python-dateutil (start + relativedelta(months=k*p)), both agreeing,
+  QuantLib 1.44, python-dateutil 3.0.0; scripts/reference_schedule.py. SPEC-0010 AC1: eighteen
+  months per period.
+input: { start_date: "2025-03-15", period_months: 18, number_of_periods: 2 }
+expect:
+  "/start_dates/0": "2025-03-15"
+  "/start_dates/1": "2026-09-15"
+  "/end_dates/0": "2026-09-15"
+  "/end_dates/1": "2028-03-15"
+  "/months_per_period": "18"
+tolerance: "0"

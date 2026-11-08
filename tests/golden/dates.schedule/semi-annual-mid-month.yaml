@@ -1,0 +1,17 @@
+method: dates.schedule
+description: "2025-03-15, semi_annual, 3 periods"
+source: >
+  QuantLib Schedule (NullCalendar, Unadjusted, DateGeneration.Forward, endOfMonth true, Period(6,
+  Months)) and python-dateutil (start + relativedelta(months=k*p)), both agreeing, QuantLib 1.44,
+  python-dateutil 3.0.0; scripts/reference_schedule.py. SPEC-0010 AC1.
+input: { start_date: "2025-03-15", frequency: semi_annual, number_of_periods: 3 }
+expect:
+  "/start_dates/0": "2025-03-15"
+  "/start_dates/1": "2025-09-15"
+  "/start_dates/2": "2026-03-15"
+  "/end_dates/0": "2025-09-15"
+  "/end_dates/1": "2026-03-15"
+  "/end_dates/2": "2026-09-15"
+  "/months_per_period": "6"
+  "/periods_per_year": "2"
+tolerance: "0"

@@ -102,11 +102,11 @@ Signed-off-by: Name Surname <email>
 - **Type**: `feat` (new capability), `fix` (wrong behaviour), `perf`, `refactor` (no behaviour
   change), `docs`, `test`, `build` (packaging, dependencies), `ci`, `chore`, `revert`.
 - **Scope**: required (except for `revert`), one of: engine `core`, one scope per theme module
-  (`dates`, `rates`, `tvm`, `loans`, `coc`, `dcf`, `tv`, `ratios`, `analysis`), `registry`, `explain`,
-  `errors`, `schemas`; adapters `cli`, `py`, `tools`, `mcp`, `n8n`, `logging`; documentation
-  and project `docs`, `i18n`, `brand`, `specs`, `adr`, `agents`, `project`; build and delivery
-  `ci`, `deps`, `release`, `scripts`. New scopes are added in `scripts/conventions.py` with
-  this page in the same pull request.
+  (`dates`, `rates`, `tvm`, `loans`, `coc`, `dcf`, `tv`, `ratios`, `analysis`, `series`),
+  `registry`, `explain`, `errors`, `schemas`; adapters `cli`, `py`, `tools`, `mcp`, `n8n`,
+  `logging`; documentation and project `docs`, `i18n`, `brand`, `specs`, `adr`, `agents`,
+  `project`; build and delivery `ci`, `deps`, `release`, `scripts`. New scopes are added in
+  `scripts/conventions.py` with this page in the same pull request.
 - **Subject**: imperative, lower case first word, no full stop, header at most 72 characters.
 - **Breaking change**: `!` after the scope and a `BREAKING CHANGE:` paragraph in the body.
 - **Trailers**: `Signed-off-by` always (`git commit -s`); `Refs: #<n>` to link the issue;

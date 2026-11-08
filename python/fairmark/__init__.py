@@ -17,7 +17,7 @@ Agents: see ``fairmark.tools`` (function calling) and ``fairmark-mcp`` (MCP serv
 
 from importlib.metadata import PackageNotFoundError, version
 
-from . import analysis, coc, dates, dcf, loans, rates, ratios, tools, tv, tvm
+from . import analysis, coc, dates, dcf, loans, rates, ratios, series, tools, tv, tvm
 from ._core import FairmarkError, Result, Step, input_schema, methods, run, run_json
 from ._engine import ENGINE_VERSION
 
@@ -43,6 +43,7 @@ __all__ = [
     "ratios",
     "run",
     "run_json",
+    "series",
     "tools",
     "tv",
     "tvm",

@@ -25,7 +25,7 @@ model, every method would re-implement discounting with slightly different conve
    are added only with a published definition.
 4. **Compounding is explicit**: annual (effective), semi-annual, quarterly, monthly, or
    continuous. A rate is always given together with its compounding; conversion is a method of
-   its own.
+   its own. (Amended 2026-11-08, see Amendments: four-monthly and bimonthly added.)
 5. **Rates may vary over time.** Periodic discounting accepts either one rate or one rate per
    period (a term structure of forward period rates); the discount factor of period k is the
    product of the period factors up to k.
@@ -45,3 +45,15 @@ model, every method would re-implement discounting with slightly different conve
   reference and stated in the methodology pages; "exact" applies to rational operations only.
 − Roots of the present-value function closer to each other than the solver grid spacing are
   not distinguished; the grid is documented.
+
+## Amendments
+
+### 2026-11-08: two compounding frequencies, defined once (SPEC-0010 R20, Decision 5)
+The compounding list of decision 4 gains `four_monthly` (every four months, 3 periods a year)
+and `bimonthly` (every two months, 6 periods a year; not twice a month). The periodic values of
+the compounding list, of the loan payment frequency and of the schedules of `dates.schedule` and
+`series.project` are defined once, in the core module `frequency`, so that the lists cannot
+drift. The formulas are those of the existing periodic values with $m = 3$ and $m = 6$. The
+change is additive (ADR 0009 section 4): the current schema versions of the methods that accept
+a compounding or a payment frequency gain the two enumeration values, no method version
+changes, and the result for every existing value is unchanged.

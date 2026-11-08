@@ -1,0 +1,19 @@
+method: dates.schedule
+description: "2024-01-31, monthly, 4 periods, year fractions thirty_e_360"
+source: >
+  QuantLib Schedule (NullCalendar, Unadjusted, DateGeneration.Forward, endOfMonth true, Period(1,
+  Months)) and python-dateutil (start + relativedelta(months=k*p, day=31)), both agreeing,
+  QuantLib 1.44, python-dateutil 3.0.0; scripts/reference_schedule.py. SPEC-0010 AC3: year
+  fractions from the ISDA 2006 section 4.16 definitions at 50 digits (scripts/reference_time.py),
+  confirmed by the QuantLib day counter Thirty360(European) to 1e-12.
+input: { start_date: "2024-01-31", frequency: monthly, number_of_periods: 4, day_count: thirty_e_360 }
+expect:
+  "/end_dates/0": "2024-02-29"
+  "/end_dates/1": "2024-03-31"
+  "/end_dates/2": "2024-04-30"
+  "/end_dates/3": "2024-05-31"
+  "/year_fractions/0": "0.0805555555555555555555556"
+  "/year_fractions/1": "0.0861111111111111111111111"
+  "/year_fractions/2": "0.0833333333333333333333333"
+  "/year_fractions/3": "0.0833333333333333333333333"
+tolerance: "0.00000000000000000001"

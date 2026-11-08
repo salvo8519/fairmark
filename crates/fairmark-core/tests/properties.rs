@@ -21,9 +21,11 @@ use std::str::FromStr;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
 
-use fairmark_core::dates::{Date, DayCount};
+use fairmark_core::dates::{self, Date, DayCount, ScheduleInput};
+use fairmark_core::frequency::Frequency;
 use fairmark_core::loans::{self, InstalmentInput, NumberOfInstalmentsInput};
 use fairmark_core::rates::{self, Compounding, ConvertInput, FisherDirection, RealNominalInput};
+use fairmark_core::series;
 use fairmark_core::tvm::{
     self, AnnuityInput, AnnuityTiming, DatedCashFlow, FutureValueInput, IrrInput, MirrInput,
     NpvInput, XirrInput, XnpvInput,
@@ -348,10 +350,13 @@ fn rate_and_two_periods(cap: u32, extra: u32) -> impl Strategy<Value = (Decimal,
         .prop_flat_map(move |(r, n, max)| (Just(r), Just(n), n + 1..=(n + extra).min(max)))
 }
 
-const COMPOUNDINGS: [Compounding; 5] = [
+/// The seven compounding values (SPEC-0010 R20: `four_monthly` and `bimonthly` added).
+const COMPOUNDINGS: [Compounding; 7] = [
     Compounding::Annual,
     Compounding::SemiAnnual,
+    Compounding::FourMonthly,
     Compounding::Quarterly,
+    Compounding::Bimonthly,
     Compounding::Monthly,
     Compounding::Continuous,
 ];
@@ -367,6 +372,8 @@ fn compounding() -> impl Strategy<Value = Compounding> {
         Just(Compounding::Quarterly),
         Just(Compounding::Monthly),
         Just(Compounding::Continuous),
+        Just(Compounding::Bimonthly),
+        Just(Compounding::FourMonthly),
     ]
 }
 
@@ -1286,6 +1293,195 @@ fn registry_is_deterministic() {
                 prop_assert!(hash.bytes().all(|b| b.is_ascii_hexdigit()));
                 prop_assert_eq!(input_hash(&reordered), Some(hash.clone()));
                 prop_assert_eq!(input_hash(&as_numbers), Some(hash));
+            }
+            Ok(())
+        },
+    );
+}
+
+// ---------------------------------------------------------------- schedules (SPEC-0010)
+
+/// The date `k × p` months after `start`, written out independently of the engine: the month
+/// is counted from the start date, the day is the last day of the month when the start is a
+/// month end, otherwise the start day clamped to the length of the month (SPEC-0010 R2).
+fn months_after(start: Date, months: u32) -> Date {
+    let length = |y: i32, m: u32| match m {
+        2 if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 => 29,
+        2 => 28,
+        4 | 6 | 9 | 11 => 30,
+        _ => 31,
+    };
+    let month_end = start.day() == length(start.year(), start.month());
+    let total = start.year() * 12 + start.month() as i32 - 1 + months as i32;
+    let (y, m) = (total / 12, (total % 12) as u32 + 1);
+    let day = if month_end {
+        length(y, m)
+    } else {
+        start.day().min(length(y, m))
+    };
+    Date::new(y, m, day).unwrap()
+}
+
+/// A start date from 1900 to 2150, a period length (one of the six names, or 1 to 36 months)
+/// and a number of periods that keeps the schedule within 2199.
+fn schedule_case() -> impl Strategy<Value = (Date, Option<Frequency>, u32, u32)> {
+    let length = prop_oneof![
+        prop::sample::select(Frequency::ALL.to_vec()).prop_map(|f| (Some(f), f.months())),
+        (1u32..=36).prop_map(|m| (None, m)),
+    ];
+    ((1900i32..=2150, 1u32..=12, 1u32..=31), length, 1u32..=16).prop_map(
+        |((y, m, day), (frequency, months), n)| {
+            let day = day.min(match m {
+                2 if Date::new(y, 2, 29).is_ok() => 29,
+                2 => 28,
+                4 | 6 | 9 | 11 => 30,
+                _ => 31,
+            });
+            (Date::new(y, m, day).unwrap(), frequency, months, n)
+        },
+    )
+}
+
+/// SPEC-0010 AC2: n contiguous periods [start, end) from the start date, strictly increasing,
+/// every date generated from the start date (no drift), and a named frequency equal, bit for
+/// bit, to `period_months` of its tenor.
+#[test]
+fn schedules_are_contiguous_and_do_not_drift() {
+    check(
+        "schedules_are_contiguous_and_do_not_drift",
+        512,
+        0x3310,
+        schedule_case(),
+        |(start, frequency, months, n)| {
+            let input = |frequency: Option<Frequency>, period_months: Option<u32>| ScheduleInput {
+                start_date: start,
+                frequency,
+                period_months,
+                number_of_periods: n,
+                day_count: Some(DayCount::ActActIsda),
+            };
+            let given = match frequency {
+                Some(f) => input(Some(f), None),
+                None => input(None, Some(months)),
+            };
+            let (out, _) = dates::schedule(&given)
+                .map_err(|e| TestCaseError::fail(format!("schedule failed: {e}")))?;
+            let n = n as usize;
+            prop_assert_eq!(out.start_dates.len(), n);
+            prop_assert_eq!(out.end_dates.len(), n);
+            prop_assert_eq!(out.start_dates[0], start);
+            for k in 0..n {
+                prop_assert!(out.start_dates[k] < out.end_dates[k]);
+                prop_assert_eq!(
+                    out.end_dates[k],
+                    months_after(start, (k as u32 + 1) * months)
+                );
+                if k + 1 < n {
+                    prop_assert_eq!(out.end_dates[k], out.start_dates[k + 1]);
+                }
+            }
+            prop_assert_eq!(out.months_per_period, months);
+            prop_assert_eq!(
+                out.periods_per_year,
+                (12 % months == 0).then_some(12 / months)
+            );
+            if let Some(f) = frequency {
+                let (by_months, _) = dates::schedule(&input(None, Some(f.months())))
+                    .map_err(|e| TestCaseError::fail(format!("schedule failed: {e}")))?;
+                prop_assert_eq!(
+                    serde_json::to_string(&out).unwrap(),
+                    serde_json::to_string(&by_months).unwrap()
+                );
+            }
+            Ok(())
+        },
+    );
+}
+
+// ---------------------------------------------------------------- series (SPEC-0010)
+
+fn project(input: Value) -> Result<series::ProjectOutput, FairmarkError> {
+    series::project(&serde_json::from_value(input).unwrap()).map(|(out, _)| out)
+}
+
+/// A base value, a growth rate, a second rate for a linear rule, a base period and a number of
+/// periods.
+fn series_case() -> impl Strategy<Value = (Decimal, Decimal, Decimal, bool, u32)> {
+    (
+        -1_000_000_000i64..=1_000_000_000,
+        -5_000i64..=5_000,
+        -5_000i64..=5_000,
+        any::<bool>(),
+        1u32..=40,
+    )
+        .prop_map(|(base, g, h, period_0, n)| (dec(base, 2), dec(g, 4), dec(h, 4), period_0, n))
+}
+
+/// SPEC-0010 AC11: `constant` g equals `per_period` with g repeated, bit for bit; `linear` with
+/// equal ends equals `constant`; under `period_0` the values equal the flows of the
+/// `constant_growth` and `linear_decline` stages of `dcf.fcff` with the same base flow.
+#[test]
+fn series_rules_agree_with_each_other_and_with_dcf_stages() {
+    check(
+        "series_rules_agree_with_each_other_and_with_dcf_stages",
+        128,
+        0x3311,
+        series_case(),
+        |(base, g, h, period_0, n)| {
+            let base_period = if period_0 { "period_0" } else { "period_1" };
+            let steps = if period_0 { n } else { n - 1 };
+            let with = |growth: Value| {
+                project(serde_json::json!({
+                    "base_value": base.to_string(), "base_period": base_period,
+                    "growth": growth, "timeline": {"periods": {"number_of_periods": n}}}))
+                .map(|o| serde_json::to_string(&o.values).unwrap())
+                .map_err(|e| TestCaseError::fail(format!("project failed: {e}")))
+            };
+            let constant = with(serde_json::json!({"constant": {"growth": g.to_string()}}))?;
+            let repeated = with(serde_json::json!({"per_period": {
+                "growth_rates": vec![g.to_string(); steps as usize]}}))?;
+            prop_assert_eq!(&constant, &repeated);
+            let flat = with(serde_json::json!({"linear": {
+                "from_growth": g.to_string(), "to_growth": g.to_string()}}))?;
+            prop_assert_eq!(&constant, &flat);
+
+            if period_0 {
+                let linear = with(serde_json::json!({"linear": {
+                    "from_growth": g.to_string(), "to_growth": h.to_string()}}))?;
+                for (projection, values) in [
+                    (
+                        serde_json::json!({"periods": n, "projection": "constant_growth",
+                                           "growth": g.to_string()}),
+                        &constant,
+                    ),
+                    (
+                        serde_json::json!({"periods": n, "projection": "linear_decline",
+                                           "from_growth": g.to_string(),
+                                           "to_growth": h.to_string()}),
+                        &linear,
+                    ),
+                ] {
+                    let dcf = fairmark_core::run(
+                        "dcf.fcff",
+                        &serde_json::json!({
+                            "stages": [projection], "base_flow": base.to_string(),
+                            "cash_flow_terms": "nominal", "discount_rate_terms": "nominal",
+                            "wacc": "0.50", "timing": "end_of_period",
+                            "terminal": {"tv.gordon": {"growth": "0",
+                                                       "first_flow": "last_flow_grown"}},
+                            "net_financial_position": {"gross_debt": 0, "cash": 0}})
+                        .to_string(),
+                    );
+                    let dcf = dcf.map_err(|e| TestCaseError::fail(format!("dcf.fcff: {e}")))?;
+                    let flows: Vec<Value> = dcf["value"]["periods"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|p| p["flow"].clone())
+                        .collect();
+                    let ours: Vec<Value> = serde_json::from_str(values).unwrap();
+                    prop_assert_eq!(ours, flows);
+                }
             }
             Ok(())
         },

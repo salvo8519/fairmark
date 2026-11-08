@@ -1,0 +1,8 @@
+method: rates.convert
+description: 7.35% effective annual as a rate compounded every four months (SPEC-0010 AC14)
+source: >
+  closed form 3 × ((1 + 0.0735)^(1/3) − 1); Independent 50-digit reference,
+  scripts/reference_time.py (SPEC-0010 AC14)
+input: { rate: "0.0735", from: annual, to: four_monthly }
+expect: { rate: "0.07176936134672618757937", annual_growth_factor: "1.0735" }
+tolerance: "0.0000000000000000001"

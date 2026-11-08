@@ -20,7 +20,7 @@ from pathlib import Path
 TYPES = ("feat", "fix", "perf", "refactor", "docs", "test", "build", "ci", "chore", "revert")
 SCOPES = (
     # engine: one scope per theme module (ADR 0009), plus the shared parts
-    "core", "dates", "rates", "tvm", "loans", "coc", "dcf", "tv", "ratios", "analysis",
+    "core", "dates", "rates", "tvm", "loans", "coc", "dcf", "tv", "ratios", "analysis", "series",
     "registry", "explain", "errors", "schemas",
     # adapters
     "cli", "py", "tools", "mcp", "n8n", "logging",

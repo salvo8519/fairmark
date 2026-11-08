@@ -1,0 +1,18 @@
+method: dates.schedule
+description: "2025-01-31, four_monthly, 3 periods"
+source: >
+  QuantLib Schedule (NullCalendar, Unadjusted, DateGeneration.Forward, endOfMonth true, Period(4,
+  Months)) and python-dateutil (start + relativedelta(months=k*p, day=31)), both agreeing,
+  QuantLib 1.44, python-dateutil 3.0.0; scripts/reference_schedule.py. SPEC-0010 AC1: QuantLib
+  EveryFourthMonth, tenor 4 months.
+input: { start_date: "2025-01-31", frequency: four_monthly, number_of_periods: 3 }
+expect:
+  "/start_dates/0": "2025-01-31"
+  "/start_dates/1": "2025-05-31"
+  "/start_dates/2": "2025-09-30"
+  "/end_dates/0": "2025-05-31"
+  "/end_dates/1": "2025-09-30"
+  "/end_dates/2": "2026-01-31"
+  "/months_per_period": "4"
+  "/periods_per_year": "3"
+tolerance: "0"

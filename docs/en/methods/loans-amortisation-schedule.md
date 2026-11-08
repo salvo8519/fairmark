@@ -108,7 +108,7 @@ assert abs(grace.final_adjustment) < Decimal("1e-18")
 | Field | Meaning | Default |
 | --- | --- | --- |
 | `principal` | Amount borrowed, currency units, greater than 0 | required |
-| `rate`, `compounding`, `payment_frequency` | Annual borrowing rate with its compounding and the instalments per year (form a) | one rate form required |
+| `rate`, `compounding`, `payment_frequency` | Annual borrowing rate with its compounding and the instalments per year (form a); the values are those of [`loans.instalment`](loans-instalment.md), including `four_monthly` (3 a year) and `bimonthly` (6 a year) | one rate form required |
 | `periodic_rate` | Rate per payment period, decimal fraction, greater than −1 (form b) | one rate form required |
 | `number_of_instalments` | Full term, grace periods included, from 1 to 10000 | required |
 | `timing` | `ordinary` (in arrears); `due` is not accepted by version 1 | required |

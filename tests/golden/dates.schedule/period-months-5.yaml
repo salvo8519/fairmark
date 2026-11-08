@@ -1,0 +1,17 @@
+method: dates.schedule
+description: "2025-01-31, 5 months, 3 periods"
+source: >
+  QuantLib Schedule (NullCalendar, Unadjusted, DateGeneration.Forward, endOfMonth true, Period(5,
+  Months)) and python-dateutil (start + relativedelta(months=k*p, day=31)), both agreeing,
+  QuantLib 1.44, python-dateutil 3.0.0; scripts/reference_schedule.py. SPEC-0010 AC1: a tenor
+  without a common name; periods_per_year is absent (unit test).
+input: { start_date: "2025-01-31", period_months: 5, number_of_periods: 3 }
+expect:
+  "/start_dates/0": "2025-01-31"
+  "/start_dates/1": "2025-06-30"
+  "/start_dates/2": "2025-11-30"
+  "/end_dates/0": "2025-06-30"
+  "/end_dates/1": "2025-11-30"
+  "/end_dates/2": "2026-04-30"
+  "/months_per_period": "5"
+tolerance: "0"

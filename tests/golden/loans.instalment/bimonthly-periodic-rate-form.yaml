@@ -1,0 +1,9 @@
+method: loans.instalment
+description: "Periodic rate 0.01 per two-month period (form b), the equivalent of bimonthly-rate-form.yaml (SPEC-0010 AC14)"
+source: >
+  Independent 50-digit reference, scripts/reference_loans.py; the same expected value as
+  bimonthly-rate-form.yaml, the equivalent form (a) (SPEC-0009 AC12a).
+input: { principal: "20000", periodic_rate: "0.01", number_of_instalments: 18, timing: "ordinary" }
+expect:
+  instalment: "1219.640957906026491510032792"
+tolerance: "0.00000000000000000001"

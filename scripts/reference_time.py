@@ -56,7 +56,14 @@ def _leap(y: int) -> bool:
 
 
 # ---------------------------------------------------------------- rates
-M = {"annual": 1, "semi_annual": 2, "quarterly": 4, "monthly": 12}
+M = {
+    "annual": 1,
+    "semi_annual": 2,
+    "four_monthly": 3,
+    "quarterly": 4,
+    "bimonthly": 6,
+    "monthly": 12,
+}
 
 
 def growth(rate: D, comp: str, t: D) -> D:
@@ -142,6 +149,9 @@ if __name__ == "__main__":
         "conv 12% monthly->annual": convert(D("0.12"), "monthly", "annual"),
         "conv 10% annual->continuous": convert(D("0.10"), "annual", "continuous"),
         "conv 5% continuous->quarterly": convert(D("0.05"), "continuous", "quarterly"),
+        # SPEC-0010 AC14: the two compounding frequencies added by R20.
+        "conv 7.35% annual->bimonthly": convert(D("0.0735"), "annual", "bimonthly"),
+        "conv 7.35% annual->four_monthly": convert(D("0.0735"), "annual", "four_monthly"),
         "real 8% nominal, 3% inflation": D("1.08") / D("1.03") - 1,
         "nominal 2% real, 3% inflation": D("1.02") * D("1.03") - 1,
         "xnpv ecma": xnpv(D("0.09"), ecma),
@@ -149,6 +159,7 @@ if __name__ == "__main__":
         "xnpv ecma act_act_isda quarterly": xnpv(
             D("0.09"), ecma, None, "act_act_isda", "quarterly"
         ),
+        "xnpv ecma four_monthly": xnpv(D("0.09"), ecma, None, "act_365_fixed", "four_monthly"),
         "xirr ecma": xirr(ecma),
         "mirr 5y 10/12": mirr(
             [D(x) for x in (-120000, 39000, 30000, 21000, 37000, 46000)], D("0.10"), D("0.12")

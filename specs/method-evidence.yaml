@@ -80,6 +80,12 @@ specs:
       - loans.amortisation_schedule
     numerical_audit: T23
     code_review: T23
+  "0010":
+    methods:
+      - dates.schedule
+      - series.project
+    numerical_audit: T22
+    code_review: T23
 
 # Empty since the maintainer decision of 2026-11-08 (ADR 0012); scripts/release.py ready fails
 # while it is not.

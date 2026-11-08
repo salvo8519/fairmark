@@ -1,6 +1,6 @@
 ---
 source: methods/rates-convert.md
-source_hash: fbdbf60c15ec
+source_hash: 98107be3a239
 ---
 # Conversione di tassi (`rates.convert`)
 
@@ -35,9 +35,14 @@ Per una destinazione annuale ($m' = 1$) si ha semplicemente $r' = G - 1$.
 | --- | --- | --- |
 | Annuale (tasso annuo effettivo) | `annual` | 1 |
 | Semestrale | `semi_annual` | 2 |
+| Quadrimestrale (ogni quattro mesi) | `four_monthly` | 3 |
 | Trimestrale | `quarterly` | 4 |
+| Ogni due mesi (non due volte al mese) | `bimonthly` | 6 |
 | Mensile | `monthly` | 12 |
 | Continua | `continuous` | nessuno, crescita $e^{r}$ |
+
+I valori periodali sono le periodicità definite una sola volta nel motore e condivise con la
+periodicità di pagamento dei finanziamenti.
 
 ## Esempio
 
@@ -83,7 +88,7 @@ campo è `from`.
 
 | Convenzione | Opzioni | Default |
 | --- | --- | --- |
-| Capitalizzazione di partenza (`from`) | annuale, semestrale, trimestrale, mensile, continua | nessuno: un tasso senza la sua capitalizzazione è ambiguo |
+| Capitalizzazione di partenza (`from`) | annuale, semestrale, quadrimestrale, trimestrale, ogni due mesi, mensile, continua | nessuno: un tasso senza la sua capitalizzazione è ambiguo |
 | Capitalizzazione di destinazione (`to`) | stesse opzioni | nessuno |
 | Espressione del tasso | i tassi sono sempre espressi su base annua: un tasso di 0.12 a capitalizzazione mensile significa 1% al mese | fissa |
 
@@ -93,7 +98,7 @@ Quando `from` e `to` coincidono il tasso viene restituito invariato.
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | Un campo è mancante o sconosciuto, oppure una capitalizzazione non è una delle cinque opzioni |
+| `FM-E001` | Un campo è mancante o sconosciuto, oppure una capitalizzazione non è una delle sette opzioni |
 | `FM-E003` | Il tasso per periodo di capitalizzazione, $r/m$, è pari o inferiore a −100%; il messaggio indica `/rate` e, con più di un periodo di capitalizzazione all'anno, il limite $-m$ |
 | `FM-E008` | L'esponenziale o il logaritmo va in overflow (tassi molto al di fuori di un intervallo realistico) |
 
@@ -110,6 +115,8 @@ verificati entro $10^{-19}$.
 ## Verificato con
 
 - Casi di riferimento (golden case) in `tests/golden/rates.convert/`, da un calcolo
-  indipendente a 50 cifre (`scripts/reference_time.py`).
+  indipendente a 50 cifre (`scripts/reference_time.py`), compresi il 7,35% annuo effettivo
+  convertito in `bimonthly` e in `four_monthly` e il rifiuto di un tasso di −3 a
+  capitalizzazione quadrimestrale ($r/m = -1$).
 - Le conversioni tra una capitalizzazione periodale e `annual` concordano con le funzioni
   `EFFECT` e `NOMINAL` dei fogli di calcolo (Excel, LibreOffice).

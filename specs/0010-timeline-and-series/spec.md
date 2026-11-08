@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Status | Approved |
+| Status | Implementing — approved by the maintainer on 2026-11-08 |
 | Approval | Approved by the maintainer on 2026-11-08 |
 | Revision | 4, 2026-11-08: open questions 1 to 8 resolved with the recommendations; period length given as a named frequency or as a number of months (Decision F) |
 | Milestone | M1 |
@@ -244,7 +244,7 @@ not already grown. `dates.schedule` builds the periods as financial markets defi
 ## Acceptance criteria
 
 ### dates.schedule
-- **AC1** (R1, R2, R3) — Golden cases, each cross-checked with QuantLib `Schedule` (null
+- [x] **AC1** (R1, R2, R3) — Golden cases, each cross-checked with QuantLib `Schedule` (null
   calendar, `Unadjusted`, forward generation, `endOfMonth` true, tenor `Period(p, Months)`) and
   with python-dateutil (`start + relativedelta(months=k × p, day=31)` when the start is a month
   end, `start + relativedelta(months=k × p)` otherwise), library versions recorded in the golden
@@ -266,19 +266,19 @@ not already grown. `dates.schedule` builds the periods as financial markets defi
     absent);
   - 2025-03-15 `period_months` 18, 2: 2026-09-15, 2028-03-15;
   - 2024-02-29 `period_months` 24, 3: 2026-02-28, 2028-02-29, 2030-02-28.
-- **AC2** (R1, R2, R3, R6) — Property tests over random start dates (1900 to 2150), every named
+- [x] **AC2** (R1, R2, R3, R6) — Property tests over random start dates (1900 to 2150), every named
   frequency and random `period_months` from 1 to 36: n start and n end dates; the first start
   date equals the start date; end date k equals start date k + 1; dates strictly increasing;
   end date n equals the date generated directly from the start date (no drift); the result
   equals the python-dateutil expression of AC1; every named frequency gives the same output as
   `period_months` equal to its tenor, bit for bit.
-- **AC3** (R4) — With each of the five day counts, every year fraction equals
+- [x] **AC3** (R4) — With each of the five day counts, every year fraction equals
   `dates.year_fraction(start_date, end_date)` of its period exactly; under `act_365_fixed` the
   sum equals the total days / 365 exactly; one golden case per day count is cross-checked with
   the QuantLib day counters (`Actual365Fixed`, `Actual360`, `ActualActual(ISDA)`,
   `Thirty360(BondBasis)`, `Thirty360(European)`). Without a day count `year_fractions` is absent
   and `explain.conventions` says so.
-- **AC4** (R3, R5, R7) — `number_of_periods` 0 and 10001, and the fields `end_date`,
+- [x] **AC4** (R3, R5, R7) — `number_of_periods` 0 and 10001, and the fields `end_date`,
   `calendar`, `business_day_convention` and `stub`, return `FM-E001` with the JSON pointer; both
   `frequency` and `period_months`, and neither, return `FM-E001` naming both pointers with the
   fix; `period_months` 0 returns `FM-E001` naming `/period_months`; start date `2023-02-29`
@@ -286,23 +286,23 @@ not already grown. `dates.schedule` builds the periods as financial markets defi
   naming `/number_of_periods` and 2200-06-30; 2190-01-01 `period_months` 120 with 1 period
   returns `FM-E009` naming 2200-01-01; `period_months` 4294967295 with 10000 periods returns
   `FM-E009`, never an overflow or a panic.
-- **AC5** (R1, R3, R8) — Unit tests: the registry description of `dates.schedule` and the
+- [x] **AC5** (R1, R3, R8) — Unit tests: the registry description of `dates.schedule` and the
   schema descriptions of the start and end dates contain "from and including" and "to but
   excluding"; the registry description and the schema descriptions of `frequency` and
   `period_months` state the mapping of the six names to 1, 2, 3, 4, 6 and 12 months; `explain`
   contains every item of R8; the number of steps is the same for 4 and 400 periods.
 
 ### series.project
-- **AC6** (R9, R10, R11) — Base 100, `constant` 0.05, 3 periods: `period_0` gives 105, 110.25,
+- [x] **AC6** (R9, R10, R11) — Base 100, `constant` 0.05, 3 periods: `period_0` gives 105, 110.25,
   115.7625; `period_1` gives 100, 105, 110.25 (exact).
-- **AC7** (R11) — `linear` from 0.1308 to 0.05 over 5 steps (`period_0`): rates 0.11464,
+- [x] **AC7** (R11) — `linear` from 0.1308 to 0.05 over 5 steps (`period_0`): rates 0.11464,
   0.09848, 0.08232, 0.06616, 0.05, which round to the published 11.46%, 9.85%, 8.23%, 6.62%,
   5.00% of Damodaran, *Investment Valuation*, 2nd edition, Illustration 15.3 (Amgen); from 0.10
   to 0.03 over 5 steps: 0.086, 0.072, 0.058, 0.044, 0.03 (SPEC-0001 Decision 4). Values match the
   50-digit reference.
-- **AC8** (R12) — Under `period_1`, 4 periods, a list of 4 rates returns `FM-E001` naming
+- [x] **AC8** (R12) — Under `period_1`, 4 periods, a list of 4 rates returns `FM-E001` naming
   `/growth/per_period/growth_rates`, expected 3, actual 4; a list of 3 matches the reference.
-- **AC9** (R13) — Base 1000, `constant` 0.12, `monthly`, 12 periods, `period_0`:
+- [x] **AC9** (R13) — Base 1000, `constant` 0.12, `monthly`, 12 periods, `period_0`:
   `annual_compound` gives a rate per period equal to `rates.convert` of 0.12 from `annual` to
   `monthly` divided by 12, and V_12 = 1120 within 1e-20 relative; `annual_simple` gives 0.01 per
   period and V_12 equal to the reference value of 1000 × 1.01^12 exactly; the same for every
@@ -314,7 +314,7 @@ not already grown. `dates.schedule` builds the periods as financial markets defi
   without a basis, and an annual basis on a `periods` timeline without a period length, return
   `FM-E001` naming `/growth_basis`; an `annual` or `period_months` 12 timeline without a basis
   is accepted and reported.
-- **AC10** (R14, R15, R16) — A `schedule` timeline 2026-01-01 `quarterly`, 4 gives rows whose
+- [x] **AC10** (R14, R15, R16) — A `schedule` timeline 2026-01-01 `quarterly`, 4 gives rows whose
   start and end dates equal the `dates.schedule` output for the same input; with
   `end_of_period` the `dated_values` dates are 2026-04-01, 2026-07-01, 2026-10-01, 2027-01-01;
   with `beginning_of_period` the start dates. Contract test: `dated_values` validates as the
@@ -322,24 +322,24 @@ not already grown. `dates.schedule` builds the periods as financial markets defi
   2026-01-01 followed by the `dated_values`) gives the `tvm.xnpv` value of the same flows typed
   by hand. A timing with a `periods` timeline, and a `periods` timeline with both `frequency`
   and `period_months`, return `FM-E001`.
-- **AC11** (R9 to R12) — Properties: `constant` g equals `per_period` with g repeated, bit for
+- [x] **AC11** (R9 to R12) — Properties: `constant` g equals `per_period` with g repeated, bit for
   bit; `linear` with equal ends equals `constant`; under `period_0` with `per_period` basis the
   values equal the flows of a `dcf.fcff` `constant_growth` or `linear_decline` stage with the
   same base flow and rates (SPEC-0001 R8, R9).
-- **AC12** (R17, R18) — A `constant` growth of −1, a `per_period` element of −1.5 and an
+- [x] **AC12** (R17, R18) — A `constant` growth of −1, a `per_period` element of −1.5 and an
   `annual_compound` growth of −1 on a monthly timeline return `FM-E001` naming the rate; a
   negative base value is projected and the warning reported; a value beyond the decimal range
   returns `FM-E008`.
-- **AC13** (R19, R24) — Unit tests: `explain` contains every item of R19 with a bounded number
+- [x] **AC13** (R19, R24) — Unit tests: `explain` contains every item of R19 with a bounded number
   of steps; every error message contains a JSON pointer and the fix.
 
 ### Shared frequencies
-- **AC14** (R20, R21) — `rates.convert` round-trips within 1e-20 for every pair of the seven
+- [x] **AC14** (R20, R21) — `rates.convert` round-trips within 1e-20 for every pair of the seven
   compounding values and matches the 50-digit reference for 0.0735 from `annual` to `bimonthly`
   and to `four_monthly`; `tvm.xnpv` with `four_monthly` compounding matches the reference;
   `loans.instalment` with `payment_frequency` `bimonthly` equals the equivalent periodic rate in
   form (b) (SPEC-0009 AC12a); a rate of −3 with `four_monthly` returns `FM-E003` stating r > −3.
-- **AC15** (R21, R22) — Every existing golden case passes unchanged; no expected value is
+- [x] **AC15** (R21, R22) — Every existing golden case passes unchanged; no expected value is
   edited; `schemas/index.json` gains no version for the affected methods and the schema check
   accepts the regenerated current files as additive; ADR 0008 carries the amendment note.
 

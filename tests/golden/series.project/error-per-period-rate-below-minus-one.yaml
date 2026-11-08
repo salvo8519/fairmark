@@ -1,0 +1,7 @@
+method: series.project
+description: "A rate per period of -1.5 (AC12)"
+source: >
+  SPEC-0010 R17 and AC12 (the rule of SPEC-0001 R11); the error code is part of the
+  specification.
+input: {"base_value": "100", "base_period": "period_0", "growth": {"per_period": {"growth_rates": ["0.1", "-1.5", "0.1"]}}, "timeline": {"periods": {"number_of_periods": 3}}}
+expect_error: FM-E001

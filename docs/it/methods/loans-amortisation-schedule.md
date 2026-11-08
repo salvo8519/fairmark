@@ -1,6 +1,6 @@
 ---
 source: methods/loans-amortisation-schedule.md
-source_hash: 659ef2780c63
+source_hash: 5a9ba1b4bc1d
 ---
 # Piano di ammortamento (`loans.amortisation_schedule`)
 
@@ -114,7 +114,7 @@ assert abs(grace.final_adjustment) < Decimal("1e-18")
 | Campo | Significato | Default |
 | --- | --- | --- |
 | `principal` | Capitale finanziato, in unità di valuta, maggiore di 0 | obbligatorio |
-| `rate`, `compounding`, `payment_frequency` | Tasso annuo nominale con la sua capitalizzazione e il numero di rate all'anno (forma a) | una forma di tasso obbligatoria |
+| `rate`, `compounding`, `payment_frequency` | Tasso annuo nominale con la sua capitalizzazione e il numero di rate all'anno (forma a); i valori sono quelli di [`loans.instalment`](loans-instalment.md), compresi `four_monthly` (3 all'anno) e `bimonthly` (6 all'anno) | una forma di tasso obbligatoria |
 | `periodic_rate` | Tasso per periodo di pagamento, frazione decimale, maggiore di −1 (forma b) | una forma di tasso obbligatoria |
 | `number_of_instalments` | Intera durata, preammortamento compreso, da 1 a 10000 | obbligatorio |
 | `timing` | `ordinary` (rata posticipata); `due` non è accettato dalla versione 1 | obbligatorio |
