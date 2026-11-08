@@ -292,6 +292,14 @@ milestones:
           - { issue: 213, title: "Debt sustainability ratio of the negotiated settlement test", tags: [needs-methodology], status: open }
           - { issue: 214, title: "Lender-practice profiles for ratios and covenants", tags: [needs-methodology], status: open }
           - { issue: 215, title: "Italian tax profile: interest deductibility limit and loss carry-forward", tags: [needs-methodology], status: open }
+      - title: "Corporate finance methods"
+        labels: []
+        tasks:
+          - { issue: 223, title: "Dividend discount model on the shared DCF engine", status: open }
+          - { issue: 224, title: "Adjusted present value (APV)", tags: [needs-methodology], status: open }
+          - { issue: 225, title: "Country risk and size premiums in the cost of equity", tags: [needs-methodology], status: open }
+          - { issue: 226, title: "Operating, financial and total leverage and break-even", status: open }
+          - { issue: 227, title: "Implied multiples of a DCF result as a market cross-check", tags: [parallel], status: open }
 
   - title: "M5 · Opt-in usage statistics"
     gate: "CI proves the payload carries no financial data; privacy notice reviewed by counsel."
@@ -318,6 +326,7 @@ milestones:
           - { issue: 85, title: "Debt schedule, levered returns and equity waterfall", tags: [parallel], status: open }
           - { issue: 86, title: "Market comparison approach with explicit adjustments", tags: [parallel, needs-methodology], status: open }
           - { issue: 207, title: "Lease-based income: passing rent, ERV, reversion and lease expiries", tags: [needs-methodology], status: open }
+          - { issue: 228, title: "Build-up approach for property discount rates", tags: [needs-methodology], status: open }
       - title: "Platform"
         issue: 87
         labels: ["area:core"]
