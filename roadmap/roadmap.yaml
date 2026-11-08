@@ -94,6 +94,9 @@ milestones:
           - { issue: 23, title: "Annuities and growing perpetuities", tags: [parallel], status: done }
           - { issue: 24, title: "Deterministic IRR solver", tags: [parallel], status: done }
           - { issue: 95, title: "Time value foundations: dates, day counts, rates, XNPV, XIRR, MIRR, annuities", spec: "0002", status: done }
+          - { issue: 135, title: "Draft spec for loans: payment, number of periods, future value and amortisation schedules", spec: "0009", status: done }
+          - { issue: 136, title: "Loan payment, number of periods and future value", spec: "0009", status: open }
+          - { issue: 137, title: "Amortisation schedules: constant instalment, constant principal, bullet, interest-only period", spec: "0009", status: open }
       - title: "Explain and audit trail"
         issue: 25
         labels: ["area:core"]

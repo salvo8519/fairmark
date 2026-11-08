@@ -91,6 +91,25 @@ terms:
   swing (tornado): escursione
   tornado chart: grafico a tornado
   currency units: unità monetarie
+  loan: finanziamento
+  instalment: rata
+  interest portion: quota interessi
+  principal portion: quota capitale
+  outstanding balance: debito residuo
+  amortisation schedule: piano di ammortamento
+  amortisation type: tipo di ammortamento
+  French amortisation (constant instalment): ammortamento alla francese (a rata costante)
+  fixed amortisation schedule (constant principal portion): ammortamento all'italiana (a quota capitale costante)
+  bullet (amortisation type): bullet (rimborso integrale del capitale con l'ultima rata)
+  principal grace period: preammortamento
+  balloon amount: balloon (capitale rimborsato alla scadenza oltre la rata)
+  borrowing rate: tasso annuo nominale (TAN)
+  annual percentage rate of charge (APRC): tasso annuo effettivo globale (TAEG)
+  payment frequency: periodicità della rata
+  payment in arrears: rata posticipata
+  payment in advance: rata anticipata
+  number of instalments: numero delle rate
+  future value: valore futuro (montante)
 keep_in_english:
   - Fairmark
   - explain
