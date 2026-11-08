@@ -242,9 +242,12 @@ nominal before taxes; a leading exit multiple.
   `enterprise_value`; IF a net financial position is given, THEN it SHALL return `FM-E019`
   (debt is already in the flows) (Decision 9).
 - **R25** — Debt-like items, non-operating assets and non-controlling interests SHALL be
-  labelled amounts of zero or more, measured at the valuation date as given; the engine SHALL
-  NOT choose which items are included and SHALL echo each label and amount. No item given
-  means none, reported in `explain.conventions`.
+  labelled amounts of zero or more, measured at the valuation date as given; each debt-like
+  item and non-controlling interest SHALL state its measurement basis, one of `book_value`,
+  `market_value`, `fair_value`, `present_value` or `other`, with an optional `basis_note` that is
+  required and not empty with `other`; the engine SHALL NOT choose which items are included or
+  how they are measured, and SHALL echo each label, amount, basis and note. No item given means
+  none, reported in `explain.conventions`. (Amended 2026-11-08, Decision 21.)
 - **R26** — WHEN equity value is negative, THE ENGINE SHALL report it in
   `explain.conventions` as a warning and SHALL NOT floor it at zero (as decided for SPEC-0006 on
   2026-11-08: inconsistent inputs are reported, not refused).
@@ -283,6 +286,7 @@ nominal before taxes; a leading exit multiple.
 | Terminal technique | any `tv.*` technique on the basis of the DCF | required | SPEC-0006 |
 | First terminal flow (Gordon, H-model) | last flow grown, or normalised flow (Gordon: at N + 1; H-model: base flow at N, Decision 15) | required | PIV (normalised flow); to verify |
 | From value of operations to equity value | non-operating assets added to reach enterprise value (FCFF); net financial position (FCFF only), debt-like items and non-controlling interests subtracted to reach equity value | none given means none, reported | Koller et al., ch. 16; IVS 200 130 (Terminology [S12], [S5]) |
+| Measurement basis of debt-like items and non-controlling interests | `book_value`, `market_value`, `fair_value`, `present_value`, `other` with `basis_note` | required per item (Decision 21) | IFRS 13 (fair value); practice varies |
 
 ## Acceptance criteria (Revised 2026-11-08)
 - **AC1** (R2, R3, R5) — Build-up golden cases: FCFF and FCFE per period match the 50-digit
@@ -324,7 +328,10 @@ nominal before taxes; a leading exit multiple.
   label and amount in `explain`; property: `enterprise_value` − `value_of_operations` equals the
   sum of the non-operating assets, and the terminal value weight is computed on
   `value_of_operations`; an FCFE case returns `equity_value` only; a net financial position with
-  FCFE returns `FM-E019`.
+  FCFE returns `FM-E019`. Status: FCFF part met on 2026-11-08 (issue #44: golden cases
+  `bridge-every-line.yaml`, `bridge-negative-equity-value.yaml`,
+  `damodaran-segovia-consolidated.yaml`, property tests in `python/tests/test_reference_dcf.py`;
+  code review and numerical audit done); FCFE part open (`dcf.fcfe`, #165).
 - **AC14** (R27, R28, R29) — Unit tests: every error message contains a JSON pointer; every
   convention of the table appears in `explain.conventions`; the schema has no boolean choice.
 - **AC15** (R30) — Every `dcf.fcff` version 2 golden case, re-expressed in the new input, gives
@@ -353,7 +360,8 @@ nominal before taxes; a leading exit multiple.
   methodology page change in the same release; the CHANGELOG records a `breaking-change` for `dcf.fcff` v2 -> v3.
 - Building blocks reused, not duplicated: `tvm` discount factors (R12), `rates.real_nominal`
   (R16), `tv.*` functions and `TerminalBasis` (R19 to R22), `NetFinancialPosition` of SPEC-0007
-  (R23), `tv::Line` for labelled amounts (R25). The WACC and the cost of equity come from
+  (R23), `tv::Line` for the non-operating assets and `BridgeClaim` with `MeasurementBasis` for
+  the debt-like items and the non-controlling interests (R25, Decision 21). The WACC and the cost of equity come from
   `coc.*` as inputs; the interest and net borrowing of FCFE can come from
   `loans.amortisation_schedule`.
 - New error codes (numbers are the next free ones at implementation): `FM-E024` terms of flows
@@ -544,6 +552,20 @@ the source verification.
       terminal phase (`inflation`, or `terminal_inflation`), since the perpetual growth applies
       after N. (c) No warning is reported with real flows: the restated nominal growth is
       reported only.
+
+- [x] **21. Measurement basis of the bridge claims** (approved by the maintainer on
+      2026-11-08, issue #44). (1) Each debt-like item and each non-controlling interest states
+      its `measurement_basis`, a required enumeration `MeasurementBasis`: `book_value` (book
+      value per the accounts), `market_value` (quoted market price), `fair_value` (fair value as
+      defined by IFRS 13), `present_value` (present value of the obligation, such as unfunded
+      pensions or provisions), `other`; with an optional free-text `basis_note`; `other` without
+      a non-empty `basis_note` is refused (`FM-E001`, pointer to the note, the fix states what
+      to write). The basis and the note are echoed in `explain`, never used in the calculation.
+      (2) Measurement basis of non-operating assets: pending maintainer decision (schema v3
+      constraint). (3) Negative non-controlling interests stay refused (R25, "zero or more");
+      no duplicate-label warning between the bridge claims and the net financial position:
+      double counting is covered in the documentation only (R25, SPEC-0007 R6, the engine does
+      not choose the items). Amends R25 and "Interfaces".
 
 Terminology decisions from the source verification:
 - [x] **a.** The projection option `linear_fade` is renamed `linear_decline` everywhere

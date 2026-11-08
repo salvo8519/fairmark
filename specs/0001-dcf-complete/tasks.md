@@ -198,6 +198,11 @@ Plan: `plan.md`, section "Issue #44". Additive to `dcf.fcff` version 3; edits in
   `changes/44.feature.md`; Italian edition (glossary: "partecipazioni di minoranza")
 - [x] B8 Roadmap #44 done; `uv run just check`
 
+- [x] B10 Decision 21: `MeasurementBasis` enumeration and `basis_note` for debt-like items and
+  non-controlling interests, test first (unit, golden, contract and Python tests; error case
+  for `other` without a note), helper `bridge_claim`, docs and glossary; measurement basis of
+  non-operating assets pending (schema v3 constraint) [R25, R27, R28; AC13]
+
 ### Verification
-- [ ] B9 `numerical-auditor` review, `code-reviewer` review, AC13 (enterprise part) ticked in
+- [x] B9 `numerical-auditor` review, `code-reviewer` review, AC13 (enterprise part) ticked in
   spec.md (maintainer)

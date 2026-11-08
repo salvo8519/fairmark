@@ -441,18 +441,18 @@ point above; edits stay in `src/dcf/fcff.rs` (the engine is not touched).
 ### Input (additive to version 3)
 | Field | Type | Rule |
 | --- | --- | --- |
-| `debt_like_items` | list of `{label, value, measurement_basis}`, optional | each value zero or more, subtracted; labels and bases not empty |
-| `non_controlling_interests` | list of `{label, value, measurement_basis}`, optional | each value zero or more, subtracted; labels and bases not empty |
+| `debt_like_items` | list of `{label, value, measurement_basis, basis_note?}`, optional | each value zero or more, subtracted; labels not empty; basis required; note required with `other`, never empty |
+| `non_controlling_interests` | list of `{label, value, measurement_basis, basis_note?}`, optional | each value zero or more, subtracted; labels not empty; basis required; note required with `other`, never empty |
 
 One new type, `BridgeClaim`, for both lists: a claim on the value of the company other than the
-net financial position. `measurement_basis` is a required text stated by the analyst (for
-example "book value", "fair value", "present value net of tax"); it is echoed in `explain` and
-never used in the calculation. Reason: the spec does not say how debt-like items (before or
-after tax) or non-controlling interests (book value or fair value) are measured (R25: "measured
-at the valuation date as given"), so the engine does not choose; the analyst states the basis
-and the result shows it next to the amount. A boolean or an enumeration of bases would be a
-methodology choice that the spec does not make (see "Open questions" below). The net financial
-position keeps the SPEC-0007 structure unchanged (R23, SPEC-0007 R6).
+net financial position. `measurement_basis` is the required enumeration `MeasurementBasis`
+(`book_value`, `market_value`, `fair_value`, `present_value`, `other`), with an optional
+`basis_note` that is required with `other` (Decision 21); both are echoed in `explain` and never
+used in the calculation. The engine does not choose the basis: the analyst states it and the
+result shows it next to the amount. The first draft of this plan used a free text; the
+maintainer replaced it with the enumeration (Decision 21). The net financial position keeps the
+SPEC-0007 structure unchanged (R23, SPEC-0007 R6); `non_operating_assets` keeps the shape of
+main (see "Resolved" below).
 
 ### Computation
 equity value = enterprise value − net financial position − Σ debt-like items − Σ
@@ -492,16 +492,16 @@ Output fields are not part of the schema snapshots.
   property EV − NFP − Σ DLI − Σ NCI = equity value.
 - Python: reference grid with random bridges against the engine; the property above.
 
-### Open questions for the maintainer
-- **Measurement basis as free text.** The basis of each debt-like item and non-controlling
-  interest is a required text, not an enumeration. If the maintainer wants to fix the options
-  (for example `book_value`, `fair_value` for non-controlling interests; `pre_tax`, `after_tax`
-  for debt-like items), an enumeration can replace or complement the text in a new version or
-  as an additive optional field.
-- **Negative non-controlling interests.** R25 requires zero or more; a subsidiary with negative
-  equity gives a negative book value of the non-controlling interests. Refused today
-  (`FM-E001`), as the spec says.
-- **Double counting with the net financial position.** SPEC-0007 allows debt-like items (for
-  example lease liabilities) among the `other_items` of the net financial position. The engine
-  does not check that an item is not given twice; the methodology page says so. A warning on
-  equal labels could be added if wanted.
+### Resolved by the maintainer on 2026-11-08 (spec, Decision 21)
+- **Measurement basis.** The free text is replaced by the required enumeration
+  `MeasurementBasis` (`book_value`, `market_value`, `fair_value`, `present_value`, `other`) with
+  an optional `basis_note`, required and not empty with `other` (`FM-E001` naming
+  `/…/i/basis_note`).
+- **Negative non-controlling interests.** Stay refused (R25, "zero or more").
+- **Double counting with the net financial position.** No duplicate-label warning: covered in
+  the documentation only (R25, SPEC-0007 R6: the engine does not choose the items).
+- Measurement basis of non-operating assets: pending maintainer decision (schema v3
+  constraint). `scripts/schema_snapshots.py --diff-against` main reports a breaking change
+  (`v3 dcf.fcff.non_operating_assets[]: '$ref' changed`), so `non_operating_assets` keeps the
+  shape of main (`tv::Line`) until the maintainer chooses between a new method version and an
+  optional field.
