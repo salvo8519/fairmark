@@ -200,16 +200,28 @@ covenants `passed`, `breached` and `not_tested`. Each result:
 | Field | Content |
 | --- | --- |
 | `name`, `test_date`, `operator`, `threshold` | Echoed from the input |
-| `outcome` | `passed`, `breached` or `not_tested` |
-| `value` | Tested value = numerator / denominator, exact, not rounded; null when not tested |
+| `outcome` | `passed`, `breached` or `not_tested`, decided exactly (see "Precision") |
+| `value` | Tested value = numerator / denominator, to 28 significant digits; null when not tested |
 | `headroom` | Distance from the threshold in the unit of the tested value, positive on the compliant side and negative on the breach side: threshold − value for a maximum, value − threshold for a minimum; null when not tested |
 | `headroom_relative` | `{value, not_defined}`: headroom / threshold, decimal fraction; not defined when the threshold is zero, when the threshold is negative (open question 3 below) or when the covenant is not tested |
-| `not_tested_reason` | Null, or why the covenant was not tested |
+| `not_tested_code` | Null, `zero_denominator` or `overflow` (machine-readable) |
+| `not_tested_reason` | Null, or why the covenant was not tested, in words |
 
 At the threshold the headroom is zero: an inclusive operator passes, a strict operator breaches.
 
+### Precision
+The outcome is decided exactly; value and headroom are shown to the 28 significant digits of the
+decimal type, not rounded to the decimals of the agreement. The decision is the sign of
+numerator − threshold × denominator (denominator positive at that point), computed with
+wide-integer arithmetic on the decimal mantissas and scales (a small multiply helper on 64-bit
+limbs in `covenants.rs`), so a quotient that rounds to the threshold at 28 digits cannot change
+the outcome (numerical audit, finding 1).
+
 ### Rules
-- Not tested (never a breach): the denominator amount is zero ("denominator is zero: <definition>").
+- Not tested (never a breach), the others continue: the denominator amount is zero, code
+  `zero_denominator` ("denominator is zero: <definition>"), including `-0`; the tested value or
+  the headroom exceeds the range of the decimal type, code `overflow`. A relative headroom
+  that overflows is not defined, with the reason; the outcome stands.
 - A negative numerator is compared as computed (a net cash position gives a negative leverage
   that passes a maximum; a negative EBITDA gives a negative cover that breaches a minimum).
 - A negative denominator is refused with `FM-E001`, naming the field: the sign reverses the
@@ -217,33 +229,38 @@ At the threshold the headroom is zero: an inclusive operator passes, a strict op
   later decision additive (an input that fails today may succeed later; no published outcome
   changes).
 - No error code is added: missing, blank or unknown fields are `FM-E001`, invalid dates
-  `FM-E009`, overflow `FM-E008`.
+  `FM-E009`; overflow of one covenant is `not_tested`, not an error.
 
 ### Explain
+Covenants are numbered from 1 and every label starts with "covenant k, <name> (<test date>)".
 Per covenant: numerator and denominator as given, with the definitions; the tested value with
-the numbers substituted; the headroom and the relative headroom. Conventions: the definitions
-come from the agreement, the period ending on the test date, exact comparison without rounding,
-the headroom sign convention, the not-tested rule, and for each covenant its test rule
-("passes when the tested value ≤ 3.5") and, when not tested, the reason.
+the numbers substituted; the headroom and the relative headroom; a verdict step ("breached
+(600 / 175 at_least 4 is false, decided exactly)"). Then the three summary counts as steps.
+Conventions: the definitions come from the agreement, the period ending on the test date, the
+precision rule above, the headroom sign convention, "a negative numerator is compared as
+computed", the not-tested rule, and for each covenant its test rule ("passes when the tested
+value ≤ 3.5") and, when not tested, the reason.
 
 ### Tests
 | Test | Source of expected values | Proves |
 | --- | --- | --- |
 | Golden `ratios.covenants/one-breach.yaml` | `scripts/reference_ratios.py`, `covenants` | AC5 |
 | Golden `ratios.covenants/zero-denominator.yaml` | same | decision 1, not tested is never a breach |
-| Golden `ratios.covenants/at-the-threshold.yaml` | same, exact | inclusive and strict operators |
+| Golden `ratios.covenants/at-the-threshold.yaml` | same | inclusive and strict operators |
+| Golden `ratios.covenants/overflow.yaml` | constructed | overflow is not tested, the others continue |
 | Golden `ratios.covenants/negative-numerator.yaml` | same | sign of the tested value |
 | Golden `ratios.covenants/non-positive-threshold.yaml` | same | relative headroom not defined |
 | Golden error cases (empty list, blank definition, negative denominator, missing operator, invalid date) | constructed | errors |
 | Contract cases `tests/contracts/ratios.covenants.yaml` | constructed | extreme inputs, conventions |
-| Unit tests in `src/ratios/covenants.rs` | constructed | rules above |
+| Unit tests in `src/ratios/covenants.rs` | constructed | rules above; exact outcome on values that round to the threshold at 28 digits |
 
 ### Open questions for the maintainer (not implemented)
 1. **Negative denominator.** A covenant ratio over a negative amount (for example net debt /
    EBITDA with negative EBITDA): breach, not tested, or tested as computed? Some agreements say
    so explicitly. Refused with `FM-E001` until decided.
 2. **Rounding of the tested value.** Some agreements round the ratio (for example to two
-   decimals) before the comparison. Version 1 compares the exact quotient and says so; an
+   decimals) before the comparison. Version 1 decides the outcome exactly and shows value and
+   headroom to 28 significant digits, not rounded to the decimals of the agreement; an
    optional, explicit rounding input would be a new field.
 3. **Relative headroom on a negative threshold.** Headroom / threshold reverses the sign
    convention when the threshold is negative; dividing by the absolute value is a choice. Not

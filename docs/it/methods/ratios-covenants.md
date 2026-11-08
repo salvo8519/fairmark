@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-covenants.md
-source_hash: ff844a5c41a8
+source_hash: 16a839a4d6c3
 ---
 # Verifica dei covenant (`ratios.covenants`)
 
@@ -15,6 +15,19 @@ definizioni del contratto (per esempio "EBITDA consolidato dei 12 mesi che termi
 di verifica, prima delle componenti non ricorrenti"), che spesso differiscono dai dati di
 bilancio. L'analista calcola gli importi secondo quelle definizioni e li fornisce con le parole
 del contratto; Fairmark riporta entrambi nella tracciabilità del calcolo (audit trail).
+
+## Verifica dei covenant e indici di analisi
+
+La verifica di un covenant può dare un numero diverso dall'indice di analisi con lo stesso nome
+in [`ratios.debt_service`](ratios-debt-service.md), ed entrambi sono corretti per il proprio
+scopo. L'indice di analisi usa gli aggregati di bilancio secondo le convenzioni scelte
+dall'analista (saldi, definizioni di EBITDA e oneri finanziari). Il covenant usa le definizioni
+scritte nel contratto di finanziamento, che di norma rettificano l'EBITDA (componenti non
+ricorrenti, effetto pro forma di acquisizioni e cessioni), includono o escludono voci di debito
+(leasing, finanziamenti dei soci), limitano la cassa che può essere portata in riduzione e
+fissano il periodo di riferimento (spesso i 12 mesi che terminano alla data di verifica). La
+banca valuta il rispetto solo sulle definizioni del contratto, quindi la verifica del covenant
+non sostituisce mai a esse l'indice di analisi.
 
 ## Formula
 
@@ -35,6 +48,20 @@ $$
 L'headroom è positivo dal lato in cui il covenant è rispettato e negativo dal lato della
 violazione, qualunque sia la direzione del covenant. Alla soglia è zero: un operatore inclusivo
 (`at_most`, `at_least`) è rispettato e uno stretto (`less_than`, `greater_than`) è violato.
+
+L'esito è deciso in modo esatto; valore e headroom sono mostrati con le 28 cifre significative
+del tipo decimale, non arrotondati ai decimali del contratto. La decisione è il segno di
+numeratore − soglia × denominatore, calcolato in modo esatto in aritmetica intera (a quel
+punto il denominatore è positivo), quindi un valore verificato che a 28 cifre si arrotonda alla
+soglia è comunque classificato sul suo valore esatto.
+
+Nota: `headroom_relative` è headroom / soglia. Per un covenant di massimo con valore verificato
+positivo è anche la frazione di cui può scendere il denominatore, a numeratore invariato, prima
+della violazione. Per un covenant di minimo la frazione di cui può scendere il numeratore, a
+denominatore invariato, è headroom / valore (per esempio una copertura minima degli oneri
+finanziari pari a 4 verificata a 5: headroom 1, il numeratore può scendere di 1 / 5 = 20%,
+mentre headroom / soglia è 25%). Fairmark non restituisce headroom / valore come campo a sé:
+si ricava da `headroom` e `value`.
 
 ## Esempio
 
@@ -78,6 +105,7 @@ assert abs(leverage["headroom"] - Decimal("0.3333333333")) < Decimal("1e-10")
 assert cover["outcome"] == "breached"  # 600 / 175 = 3.4285... < 4
 assert cover["headroom"] < 0  # negativo: dal lato della violazione
 assert dscr["outcome"] == "not_tested"  # denominatore nullo: mai una violazione
+assert dscr["not_tested_code"] == "zero_denominator"
 assert dscr["not_tested_reason"].startswith("denominator is zero")
 assert r.summary == {"passed": 1, "breached": 1, "not_tested": 1}
 ```
@@ -100,11 +128,12 @@ assert r.summary == {"passed": 1, "breached": 1, "not_tested": 1}
 | --- | --- |
 | `covenants` | Un risultato per covenant, nell'ordine dell'input |
 | `covenants[].name`, `test_date`, `operator`, `threshold` | Riportati dall'input |
-| `covenants[].outcome` | `passed`, `breached` o `not_tested` |
-| `covenants[].value` | Valore verificato, numeratore / denominatore, esatto; null se non verificato |
-| `covenants[].headroom` | Distanza dalla soglia nell'unità dell'indice, positiva dal lato del rispetto; null se non verificato |
+| `covenants[].outcome` | `passed`, `breached` o `not_tested`, deciso in modo esatto |
+| `covenants[].value` | Valore verificato, numeratore / denominatore, con 28 cifre significative; null se non verificato |
+| `covenants[].headroom` | Distanza dalla soglia nell'unità dell'indice, positiva dal lato del rispetto, con 28 cifre significative; null se non verificato |
 | `covenants[].headroom_relative` | `{"value": ..., "not_defined": ...}`: headroom / soglia, frazione decimale, con lo stesso segno dell'headroom |
-| `covenants[].not_tested_reason` | Perché il covenant non è stato verificato; null se verificato |
+| `covenants[].not_tested_code` | `zero_denominator` o `overflow`; null se verificato |
+| `covenants[].not_tested_reason` | Perché il covenant non è stato verificato, a parole; null se verificato |
 | `summary` | `passed`, `breached`, `not_tested`: quanti covenant hanno ciascun esito |
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
@@ -114,14 +143,17 @@ assert r.summary == {"passed": 1, "breached": 1, "not_tested": 1}
 | Definizioni | numeratore e denominatore come definiti dal contratto di finanziamento, forniti come importi; nessun indice standard li sostituisce | fissa |
 | Data di verifica | gli importi si riferiscono al periodo che termina alla data di verifica | fissa |
 | Operatore | `at_most`, `less_than`, `at_least`, `greater_than`, indicato per ogni covenant | obbligatorio |
-| Confronto | esatto, senza arrotondare il valore verificato | fissa |
+| Precisione | l'esito è deciso in modo esatto; valore e headroom sono mostrati con le 28 cifre significative del tipo decimale, non arrotondati ai decimali del contratto | fissa |
+| Numeratore negativo | confrontato così come risulta dal calcolo | fissa |
 | Segno dell'headroom | positivo dal lato del rispetto, negativo dal lato della violazione | fissa |
 | Headroom relativo | headroom / soglia; non definito quando la soglia è nulla o negativa, o il covenant non è verificato | fissa |
-| Non verificato | il denominatore è nullo: il covenant non è verificato, con il motivo, e non è mai una violazione | fissa |
+| Non verificato | il denominatore è nullo (`zero_denominator`), oppure valore o headroom superano l'intervallo del tipo decimale (`overflow`): il covenant non è verificato, con il motivo, non è mai una violazione, e gli altri covenant sono verificati | fissa |
 
-Ogni covenant aggiunge la propria regola di verifica ("net leverage (2026-12-31): passes when
-the tested value ≤ 3.5 (maximum, inclusive)") e, se non è verificato, il motivo. Un numeratore
-negativo è confrontato così come risulta dal calcolo: una posizione di cassa netta dà una leva
+I covenant sono numerati da 1 nella tracciabilità del calcolo. Ogni covenant aggiunge la propria
+regola di verifica ("covenant 1, net leverage (2026-12-31): passes when the tested value ≤ 3.5
+(maximum, inclusive)"), un passo con l'esito ("breached (600 / 175 at_least 4 is false, decided
+exactly)") e, se non è verificato, il motivo; anche i tre conteggi del riepilogo sono passi. Un
+numeratore negativo è confrontato così come risulta dal calcolo: una posizione di cassa netta dà una leva
 negativa, che rispetta un massimo; un EBITDA negativo dà una copertura negativa, che viola un
 minimo.
 
@@ -133,8 +165,8 @@ definiti invece di scegliere.
 
 - Un denominatore negativo (per esempio debito netto su un EBITDA negativo) è rifiutato con
   `FM-E001`: alcuni contratti lo trattano come una violazione, altri diversamente.
-- Il valore verificato non è arrotondato; un contratto che arrotonda l'indice prima del
-  confronto non è modellato.
+- Un contratto che arrotonda l'indice a un numero di decimali prima del confronto non è
+  modellato: l'esito è deciso sul valore esatto.
 - L'headroom relativo su una soglia negativa non è definito.
 - I covenant su un singolo importo (patrimonio netto minimo, investimenti massimi), l'equity
   cure e gli step-down (riduzione programmata della soglia) non sono modellati; uno step-down è
@@ -145,18 +177,20 @@ definiti invece di scegliere.
 | Codice | Quando |
 | --- | --- |
 | `FM-E001` | `covenants` è vuoto; `name` o `definition` vuoti o composti solo da spazi; un denominatore negativo; un campo mancante o sconosciuto, o un `operator` sconosciuto |
-| `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 | `FM-E009` | Una `test_date` che non è una data `YYYY-MM-DD` valida |
 
 ## Precisione
 
-Il valore verificato è una divisione decimale; headroom e headroom relativo sono una
-sottrazione e una divisione. I risultati sono esatti fino alle 28 cifre significative del tipo
-decimale, e il confronto con la soglia usa quel valore esatto.
+L'esito è esatto: confronta numeratore e soglia × denominatore come numeri interi, senza
+arrotondamenti. Il valore verificato è una divisione decimale, l'headroom una sottrazione e
+l'headroom relativo una divisione, ciascuno con le 28 cifre significative del tipo decimale.
 
 ## Verificato con
 
 - Casi di riferimento (golden case) in `tests/golden/ratios.covenants/`, i cui valori attesi
   provengono da `scripts/reference_ratios.py` (decimal di Python a 50 cifre): un insieme di
   covenant con una violazione e l'headroom degli altri, un denominatore nullo, entrambi gli
-  operatori di ogni direzione alla soglia, numeratori negativi e soglie non positive.
+  operatori di ogni direzione alla soglia, numeratori negativi e soglie non positive; un caso
+  costruito per l'overflow.
+- Test unitari su valori che a 28 cifre si arrotondano alla soglia, per esempio
+  3.0000000000000000000000000001 / 3 verificato con massimo 1, che risulta violato.
