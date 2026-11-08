@@ -29,9 +29,9 @@ INSTRUCTIONS = (
     "cite explain.steps and keep the returned values unchanged. Present every result as a "
     "calculation from the method, conventions and inputs you used, never as advice or a "
     "recommendation: decisions belong to the user, who verifies the results before relying "
-    "on them (https://salvo8519.github.io/fairmark/disclaimer/). A tool whose description "
-    "says 'Status: preview' has not completed independent verification: tell the user when "
-    "a result comes from it."
+    "on them (https://salvo8519.github.io/fairmark/disclaimer/). A Fairmark tool whose "
+    "description says 'Status: preview' has not completed independent verification: tell "
+    "the user when a result comes from it."
 )
 
 logger = logging.getLogger("fairmark.mcp")

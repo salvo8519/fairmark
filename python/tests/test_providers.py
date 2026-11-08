@@ -108,3 +108,45 @@ def test_mcp_tools_carry_the_status() -> None:
     for t in tools:
         assert t.meta == {"fairmark/status": status[t.name]}
         assert (fm.tools.PREVIEW_NOTE in (t.description or "")) == (status[t.name] == "preview")
+
+
+def test_available_descriptions_are_unchanged_and_preview_titles_are_marked() -> None:
+    """Available tools keep the exact description they had before ADR 0011."""
+    by_name = {fm.tools.tool_name(m["id"]): m for m in fm.methods()}
+    for d in fm.tools.definitions():
+        m = by_name[d["name"]]
+        if m["status"] == "available":
+            assert d["description"] == f"{m['title']}. {m['description']}{fm.tools._AGENT_RULE}"
+        else:
+            title = d["description"].split(". ", 1)[0]
+            assert title == f"{m['title']} (preview)"
+            assert d["description"].endswith(fm.tools.PREVIEW_NOTE + fm.tools._AGENT_RULE)
+
+
+def test_unknown_status_is_treated_as_preview(monkeypatch: pytest.MonkeyPatch) -> None:
+    real = fm.tools.methods()
+    odd = [{**m, "status": "experimental"} if m["id"] == "tvm.npv" else m for m in real]
+    monkeypatch.setattr(fm.tools, "methods", lambda: odd)
+    npv = next(d for d in fm.tools.definitions() if d["name"] == "fairmark_tvm_npv")
+    assert fm.tools.PREVIEW_NOTE in npv["description"]
+
+
+def test_results_report_the_method_status() -> None:
+    assert (
+        fm.run("tvm.npv", {"rate": "0.1", "cash_flows": [-100, 60, 60]}).meta["method_status"]
+        == "available"
+    )
+    out = fm.tools.dispatch(
+        "fairmark_analysis_sensitivity",
+        {
+            "method": "dcf.fcff",
+            "base_input": {
+                "free_cash_flows": [100],
+                "discount_rate": "0.1",
+                "terminal_growth": "0",
+            },
+            "output": "/enterprise_value",
+            "rows": {"variable": "/discount_rate", "values": ["0.09", "0.1"]},
+        },
+    )
+    assert out["meta"]["evaluated_method_status"] == "preview"

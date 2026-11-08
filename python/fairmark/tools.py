@@ -36,9 +36,9 @@ _AGENT_RULE = (
 PREVIEW_NOTE = (
     " Status: preview. This method has not yet completed the promotion review (independent"
     " numerical audit and code review); a later method version may change its inputs or"
-    " results. Tell the user that the result comes from a preview method."
+    " results. Results from preview methods should be reported as preview."
 )
-"""Sentence added to the description of every tool whose method is preview (ADR 0011)."""
+"""Sentences added to the description of every tool whose method is not available (ADR 0011)."""
 
 
 def tool_name(method_id: str) -> str:
@@ -133,7 +133,8 @@ def definitions(portable: bool = False) -> list[dict[str, Any]]:
     out = []
     for m in methods():
         schema = _inline(input_schema(m["id"]))
-        preview = m["status"] == "preview"
+        # Anything other than "available" is treated as preview: fail towards the warning.
+        preview = m.get("status") != "available"
         title = f"{m['title']} (preview)" if preview else m["title"]
         note = PREVIEW_NOTE if preview else ""
         out.append(
