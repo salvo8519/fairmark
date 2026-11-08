@@ -167,22 +167,29 @@ def covenants(*, covenants: Sequence[Mapping[str, Any]]) -> Result:
     ending on it); ``numerator`` and ``denominator``, each ``{"definition": <the words of the
     agreement>, "amount": ...}``; ``operator``, required: ``"at_most"`` (<=), ``"less_than"``
     (<), ``"at_least"`` (>=) or ``"greater_than"`` (>); ``threshold`` in the unit of the ratio
-    (a multiple, or a decimal fraction such as ``"0.30"`` for 30%).
+    (a multiple, or a decimal fraction such as ``"0.30"`` for 30%);
+    ``if_denominator_not_positive``, required, no default: ``"breached"``, ``"passed"`` or
+    ``"not_tested"``, the outcome the agreement gives when the denominator is zero or
+    negative; ``rounding``, optional: ``{"decimal_places": 0 to 6, "mode": "half_up" or
+    "half_even"}``, the rounding of the tested value the agreement applies before the
+    comparison.
 
     Each result has ``outcome`` (``"passed"``, ``"breached"`` or ``"not_tested"``), decided
-    exactly, ``value``, ``headroom`` (positive on the compliant side, negative on the breach
-    side), ``headroom_relative`` (headroom / threshold), ``not_tested_code``
-    (``"zero_denominator"`` or ``"overflow"``) and ``not_tested_reason``. Value and headroom are
-    shown to the 28 significant digits of the decimal type, not rounded to the decimals of the
-    agreement. A covenant that cannot be computed is not tested, never a breach; a negative
-    denominator is refused (``FM-E001``).
+    exactly, ``value`` (the value compared, rounded only when ``rounding`` is given),
+    ``value_unrounded`` (with ``rounding``), ``headroom`` (positive on the compliant side,
+    negative on the breach side), ``headroom_relative`` (headroom / threshold),
+    ``not_tested_code`` (``"denominator_not_positive"`` or ``"overflow"``) and
+    ``not_tested_reason``.
 
     >>> r = covenants(covenants=[{"name": "net leverage", "test_date": "2026-12-31",
-    ...     "numerator": {"definition": "net debt", "amount": 1750},
-    ...     "denominator": {"definition": "EBITDA, last 12 months", "amount": 500},
-    ...     "operator": "at_most", "threshold": 4}])
+    ...     "numerator": {"definition": "net debt", "amount": 3504},
+    ...     "denominator": {"definition": "EBITDA, last 12 months", "amount": 1000},
+    ...     "operator": "at_most", "threshold": "3.50",
+    ...     "if_denominator_not_positive": "breached",
+    ...     "rounding": {"decimal_places": 2, "mode": "half_up"}}])
     >>> from decimal import Decimal
-    >>> r.covenants[0]["outcome"], r.covenants[0]["headroom"] == Decimal("0.5")
-    ('passed', True)
+    >>> c = r.covenants[0]
+    >>> c["outcome"], c["value"] == Decimal("3.50"), c["value_unrounded"] == Decimal("3.504")
+    ('passed', True, True)
     """
     return run("ratios.covenants", {"covenants": [dict(c) for c in covenants]})
