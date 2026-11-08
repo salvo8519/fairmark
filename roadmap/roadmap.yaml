@@ -65,6 +65,8 @@ milestones:
           - { issue: 183, title: "Required status checks recorded and kept in step with the ruleset", status: done }
           - { issue: 173, title: "Agents stop when an approved change reaches golden cases outside its scope", status: done }
           - { issue: 193, title: "Ruff rule PLW1514: explicit encoding on every file open", status: open }
+          - { issue: 208, title: "ADR on the sources policy (constitution VII)", status: open }
+          - { issue: 211, title: "Unique task ids in tasks.md files, checked in CI", status: open }
       - title: "CI/CD"
         issue: 10
         labels: ["area:infra"]
@@ -80,6 +82,7 @@ milestones:
           - { issue: 154, title: "Release scripts validate versions as whole strings", tags: [parallel], status: done }
           - { issue: 181, title: "Dependency check resilient to GitHub download errors", status: done }
           - { issue: 192, title: "Golden case protection hook applies in every git worktree", status: done }
+          - { issue: 210, title: "Rule for external analysis failures before merge", status: open }
       - title: "Community infrastructure"
         issue: 15
         labels: ["area:infra"]
@@ -90,6 +93,7 @@ milestones:
         labels: []
         tasks:
           - { issue: 185, title: "README explains method status and shows Italian method titles", status: done }
+          - { issue: 209, title: "Glossary entries for numerical audit and code review", status: open }
 
   - title: "M1 · Numerical core"
     gate: "Golden harness green; NPV and IRR validated; property tests running."
@@ -116,6 +120,7 @@ milestones:
           - { issue: 176, title: "Code review of the time value foundations for promotion to available", spec: "0002", status: done }
           - { issue: 189, title: "Overflow of tvm.annuity growth factors at extreme inputs", status: open }
           - { issue: 190, title: "IRR and XIRR refuse a guess at or below -1", spec: "0002", status: done }
+          - { issue: 217, title: "Rate domain checks without rounding in rates and the rate solver", status: open }
       - title: "Explain and audit trail"
         issue: 25
         labels: ["area:core"]
@@ -160,6 +165,7 @@ milestones:
           - { issue: 165, title: "Free cash flow to equity on the shared DCF engine (dcf.fcfe)", spec: "0001", status: done }
           - { issue: 166, title: "Nominal and real terms in the DCF: basis check and rate conversion", spec: "0001", status: done }
           - { issue: 198, title: "Interest tax shield limited to positive EBIT under the zero treatment", spec: "0001", status: done }
+          - { issue: 216, title: "Warning when the zero-treatment tax shield is limited", tags: [parallel], status: open }
       - title: "Cost of capital"
         issue: 39
         labels: ["area:core", "method:dcf"]
@@ -277,6 +283,13 @@ milestones:
         labels: ["area:python", "area:docs"]
         tasks:
           - { issue: 77, title: "Report generator from multiple results", status: open }
+      - title: "Credit analysis and lender practice"
+        labels: []
+        tasks:
+          - { issue: 212, title: "Banca d'Italia leverage and debt indicators in ratios", status: open }
+          - { issue: 213, title: "Debt sustainability ratio of the negotiated settlement test", tags: [needs-methodology], status: open }
+          - { issue: 214, title: "Lender-practice profiles for ratios and covenants", tags: [needs-methodology], status: open }
+          - { issue: 215, title: "Italian tax profile: interest deductibility limit and loss carry-forward", tags: [needs-methodology], status: open }
 
   - title: "M5 · Opt-in usage statistics"
     gate: "CI proves the payload carries no financial data; privacy notice reviewed by counsel."
@@ -302,6 +315,7 @@ milestones:
           - { issue: 84, title: "Property DCF and direct capitalisation", tags: [parallel, needs-methodology], status: open }
           - { issue: 85, title: "Debt schedule, levered returns and equity waterfall", tags: [parallel], status: open }
           - { issue: 86, title: "Market comparison approach with explicit adjustments", tags: [parallel, needs-methodology], status: open }
+          - { issue: 207, title: "Lease-based income: passing rent, ERV, reversion and lease expiries", tags: [needs-methodology], status: open }
       - title: "Platform"
         issue: 87
         labels: ["area:core"]
