@@ -4,11 +4,12 @@ name: Release
 #
 # - A tag v<version> pushed on a commit of main runs everything: version check, wheels for
 #   every platform and the sdist, a smoke test of each package (install in a new environment,
-#   run every golden case), build provenance, then PyPI, crates.io and the GitHub Release.
-#   PyPI and crates.io use trusted publishing (OIDC), each behind a GitHub environment that
-#   requires the maintainer's approval.
+#   run every golden case), then PyPI (with build provenance), crates.io and the GitHub
+#   Release. PyPI and crates.io use trusted publishing (OIDC). Every job that can request an
+#   OIDC token runs in a GitHub environment that requires the maintainer's approval.
 # - Run workflow (workflow_dispatch) is the dry run: the same builds and tests, and
-#   `cargo publish --dry-run`, without publishing anything, whatever the ref.
+#   `cargo publish --dry-run`. The publishing jobs run only on a tag push, so a manual run
+#   never reaches them and uses no environment.
 on:
   push:
     tags: ["v*"]
@@ -30,7 +31,8 @@ env:
   # Wheels are tested on the oldest and the newest Python version that CI tests (ci.yml).
   # The wheels are abi3 (cp310-abi3): one wheel per platform serves Python 3.10 and later.
   SMOKE_PYTHONS: "3.10 3.13"
-  SMOKE_PYYAML: "6.0.3"
+  # The maturin that builds the packages: the version locked in uv.lock (checked below).
+  MATURIN_VERSION: "1.16.0"
 
 jobs:
   version:
@@ -43,6 +45,20 @@ jobs:
           persist-credentials: false
           fetch-depth: 0   # the history of main, to check where the tag points
       - run: python3 scripts/version.py check
+      - name: maturin is the version locked in uv.lock
+        run: |
+          locked="$(python3 -c 'import tomllib; print(next(p["version"] for p in tomllib.load(open("uv.lock", "rb"))["package"] if p["name"] == "maturin"))')"
+          if [ "$locked" != "$MATURIN_VERSION" ]; then
+            echo "::error::MATURIN_VERSION is $MATURIN_VERSION, uv.lock has maturin $locked"
+            exit 1
+          fi
+          if ! grep -q "^maturin==$MATURIN_VERSION " .github/release/build-requirements.txt; then
+            echo "::error::.github/release/build-requirements.txt does not pin maturin==$MATURIN_VERSION"
+            exit 1
+          fi
+      # Guards against mistakes only (a tag on the wrong commit). It is not a security
+      # control: the maintainer checks the commit of the run before approving the
+      # environments (docs/en/project/releases.md).
       - name: The tag is on main
         if: github.event_name == 'push'
         run: |
@@ -79,9 +95,16 @@ jobs:
       # there. `manylinux` is ignored outside Linux.
       - uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
+          maturin-version: v${{ env.MATURIN_VERSION }}
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux }}
           args: --release --locked --out dist
+      # Uploaded before the smoke tests run, so that nothing they execute can change it.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: dist-${{ matrix.platform }}
+          path: dist
+          if-no-files-found: error
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         if: matrix.smoke == 'host'
         with:
@@ -95,32 +118,26 @@ jobs:
             venv="$RUNNER_TEMP/smoke-$py"
             uv venv --no-project --python "$py" "$venv"
             uv pip install --python "$venv" --no-index --find-links dist --only-binary fairmark fairmark
-            uv pip install --python "$venv" --only-binary :all: "pyyaml==$SMOKE_PYYAML"
+            uv pip install --python "$venv" --require-hashes -r .github/release/smoke-requirements.txt
             if [ "$RUNNER_OS" = "Windows" ]; then bin="$venv/Scripts/python.exe"; else bin="$venv/bin/python"; fi
             "$bin" -I scripts/smoke_wheel.py
             echo "::endgroup::"
           done
       # musllinux wheels are tested on Alpine Linux, which uses musl. The checkout, including
-      # dist/, is mounted read-only: the container cannot change the wheel that is uploaded.
-      # The images are the official Python images, by tag.
+      # dist/, is mounted read-only. The images are the official Python images, by tag.
       - name: Smoke test in new environments (Alpine Linux)
         if: matrix.smoke == 'alpine'
         run: |
           for py in $SMOKE_PYTHONS; do
             echo "::group::Python $py on Alpine"
-            docker run --rm -v "$PWD:/src:ro" -w /tmp -e SMOKE_PYYAML "python:$py-alpine" sh -euc '
+            docker run --rm -v "$PWD:/src:ro" -w /tmp "python:$py-alpine" sh -euc '
               python -m venv /tmp/venv
               /tmp/venv/bin/pip install --disable-pip-version-check --no-index --find-links /src/dist --only-binary fairmark fairmark
-              /tmp/venv/bin/pip install --disable-pip-version-check --only-binary :all: "pyyaml==$SMOKE_PYYAML"
+              /tmp/venv/bin/pip install --disable-pip-version-check --require-hashes -r /src/.github/release/smoke-requirements.txt
               /tmp/venv/bin/python -I /src/scripts/smoke_wheel.py
             '
             echo "::endgroup::"
           done
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: dist-${{ matrix.platform }}
-          path: dist
-          if-no-files-found: error
 
   sdist:
     name: Source distribution
@@ -133,8 +150,14 @@ jobs:
           persist-credentials: false
       - uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
+          maturin-version: v${{ env.MATURIN_VERSION }}
           command: sdist
           args: --out dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: dist-sdist
+          path: dist
+          if-no-files-found: error
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: stable
@@ -142,19 +165,16 @@ jobs:
         with:
           version: "0.11.32"
           enable-cache: false   # no cache in a workflow that publishes
-      # What a user without a matching wheel gets: a build from the sdist alone.
+      # What a user without a matching wheel gets: a build from the sdist alone. The build
+      # backend comes from a hashed requirements file, not from build isolation.
       - name: Build from the sdist and smoke test
         run: |
           venv="$RUNNER_TEMP/smoke-sdist"
           uv venv --no-project --python 3.13 "$venv"
-          uv pip install --python "$venv" --no-binary fairmark dist/fairmark-*.tar.gz
-          uv pip install --python "$venv" --only-binary :all: "pyyaml==$SMOKE_PYYAML"
+          uv pip install --python "$venv" --require-hashes -r .github/release/build-requirements.txt
+          uv pip install --python "$venv" --no-build-isolation --no-binary fairmark dist/fairmark-*.tar.gz
+          uv pip install --python "$venv" --require-hashes -r .github/release/smoke-requirements.txt
           "$venv/bin/python" -I scripts/smoke_wheel.py
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: dist-sdist
-          path: dist
-          if-no-files-found: error
 
   dist-check:
     name: Distributions complete
@@ -165,18 +185,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          path: src
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: dist-*
-          path: dist
+          path: release/dist
           merge-multiple: true
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           version: "0.11.32"
           enable-cache: false   # no cache in a workflow that publishes
       - name: One wheel per platform and the sdist, all of this version
+        working-directory: release
         run: |
-          version="$(python3 scripts/version.py show --python)"
+          version="$(python3 ../src/scripts/version.py show --python)"
           ls -l dist
           problems=0
           for pattern in \
@@ -200,7 +222,20 @@ jobs:
             problems=1
           fi
           exit "$problems"
-      - run: uvx twine@7.0.0 check --strict dist/*
+      - run: uvx twine@7.0.0 check --strict release/dist/*
+      # The files that every later job publishes, fixed here by their SHA-256.
+      - name: SHA256SUMS
+        working-directory: release
+        run: |
+          sha256sum dist/* > SHA256SUMS
+          cat SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: release-dist
+          path: |
+            release/dist
+            release/SHA256SUMS
+          if-no-files-found: error
 
   crates-package:
     name: Crates package and verify (dry run)
@@ -218,29 +253,9 @@ jobs:
       # `publish = false` (fairmark-py, shipped to PyPI as the wheels).
       - run: cargo publish --dry-run --locked --workspace
 
-  attest:
-    name: Build provenance
-    needs: [dist-check, crates-package]
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      id-token: write          # sign the attestation (Sigstore)
-      attestations: write      # store it in the repository
-      artifact-metadata: write # record the attested files
-    steps:
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-        with:
-          pattern: dist-*
-          path: dist
-          merge-multiple: true
-      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
-        with:
-          subject-path: dist/*
-
   publish-pypi:
-    name: Publish to PyPI (trusted publishing)
-    needs: attest
+    name: Publish to PyPI (trusted publishing, provenance)
+    needs: [dist-check, crates-package]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -248,15 +263,24 @@ jobs:
       name: pypi
       url: https://pypi.org/project/fairmark/
     permissions:
-      id-token: write   # OIDC token for PyPI trusted publishing; no stored token
+      id-token: write          # OIDC: Sigstore signature and PyPI trusted publishing
+      attestations: write      # store the provenance attestation in the repository
+      artifact-metadata: write # record the attested files
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          pattern: dist-*
-          path: dist
-          merge-multiple: true
+          name: release-dist
+          path: release
+      - name: Files are the ones checked
+        working-directory: release
+        run: sha256sum -c SHA256SUMS
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: release/dist/*
       # Also uploads PEP 740 attestations of every file (the default with trusted publishing).
       - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          packages-dir: release/dist/
 
   publish-crates:
     name: Publish to crates.io
@@ -278,25 +302,45 @@ jobs:
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: stable
-      # crates.io accepts trusted publishing only for crates that already exist. For the first
-      # release the maintainer stores a short-lived, scoped token as the secret
-      # CARGO_REGISTRY_TOKEN of the crates-io environment, and deletes it afterwards
-      # (docs/en/project/releases.md). Without that secret the job uses trusted publishing.
+      # crates.io accepts trusted publishing only for crates that already exist. The token in
+      # the secret CARGO_REGISTRY_TOKEN of the crates-io environment is accepted only for the
+      # first release, while fairmark-core is not on crates.io yet
+      # (docs/en/project/releases.md).
       - name: Authentication mode
         id: mode
         env:
           BOOTSTRAP_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
-          if [ -n "$BOOTSTRAP_TOKEN" ]; then
-            echo "::warning::publishing with the CARGO_REGISTRY_TOKEN secret of the crates-io environment; delete it once trusted publishing is configured"
-            echo "bootstrap=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "bootstrap=false" >> "$GITHUB_OUTPUT"
-          fi
+          status=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -A "fairmark-release (https://github.com/$GITHUB_REPOSITORY)" \
+            https://crates.io/api/v1/crates/fairmark-core)
+          case "$status" in
+            200)
+              if [ -n "$BOOTSTRAP_TOKEN" ]; then
+                echo "::error::fairmark-core exists on crates.io: delete CARGO_REGISTRY_TOKEN and use trusted publishing"
+                exit 1
+              fi
+              echo "bootstrap=false" >> "$GITHUB_OUTPUT"
+              ;;
+            404)
+              if [ -z "$BOOTSTRAP_TOKEN" ]; then
+                echo "::error::fairmark-core is not on crates.io yet: the first release needs the CARGO_REGISTRY_TOKEN secret of the crates-io environment"
+                exit 1
+              fi
+              echo "::warning::first release: publishing with the CARGO_REGISTRY_TOKEN secret; delete it afterwards"
+              echo "bootstrap=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::error::crates.io answered $status for fairmark-core"
+              exit 1
+              ;;
+          esac
+      # Packaging and verification build the crates; they run without any token.
+      - run: cargo publish --dry-run --locked --workspace
       - uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
         id: auth
         if: steps.mode.outputs.bootstrap != 'true'
-      - run: cargo publish --locked --workspace
+      - run: cargo publish --locked --workspace --no-verify
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token || secrets.CARGO_REGISTRY_TOKEN }}
 
@@ -312,14 +356,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - run: python3 scripts/release_notes.py "${GITHUB_REF_NAME}" > "$RUNNER_TEMP/body.md"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          pattern: dist-*
-          path: dist
-          merge-multiple: true
-      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
-        with:
-          body_path: ${{ runner.temp }}/body.md
-          files: dist/*
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          name: release-dist
+          path: release
+      - name: Files are the ones checked
+        working-directory: release
+        run: sha256sum -c SHA256SUMS
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/release_notes.py "$GITHUB_REF_NAME" > "$RUNNER_TEMP/body.md"
+          flags=()
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then flags+=(--prerelease); fi
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/body.md" "${flags[@]}" \
+            release/dist/* release/SHA256SUMS
