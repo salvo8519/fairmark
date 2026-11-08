@@ -20,12 +20,19 @@ is `null` and listed in `not_computed` with the JSON pointers of the missing inp
 input is never taken as zero and never an error. An agent that reads a few totals from a text
 can pass them, receive what they allow and ask the user only for the pointers listed.
 
-Two readings make the statutory layouts usable as filed:
+A few items are taken as zero when they are not given, so that the statutory layouts can be
+used as filed. Each is listed in `meta.defaults_applied` with its pointer and the value `"0"`,
+and stated in the conventions:
 
-- an "of which" part that is not given (assets A or D within receivables, liabilities E within
-  payables, the derivative part of provisions) is taken as none within its aggregate, and the
-  conventions list it: in the ordinary layout each is a separate item;
-- items A, D and E given within C.II or D (abridged layout) count as zero as separate items.
+- item A, subscribed capital unpaid (decision D1 of 2026-11-08): the same zero is deducted from
+  equity and from the total assets of the current and non-current block;
+- an "of which" part (decision D2): item A or assets D within receivables, liabilities E within
+  payables, the derivative part of provisions, also when the parent aggregate is not given; in
+  the ordinary layout each is a separate item;
+- the separate line D or E, when assets D are given within C.II or liabilities E within D (the
+  abridged layout, art. 2435-bis).
+
+A relation is never checked on an item taken as zero: see [Checks](#checks).
 
 Financial debt and shareholder loans within payables are needed for the net financial position
 and for operating working capital (Decision 4): without them both are not computed.
@@ -55,11 +62,18 @@ with, for a statutory year (Appendix B.1 of SPEC-0005):
 - operating working capital = C.I + C.II (operating part) + assets D + operating cash − payables
   D (operating part) − liabilities E (operating part);
 - operating provisions = provisions B and employee severance indemnity C treated as operating;
-- equity = liabilities A − subscribed capital unpaid − dividends declared;
+- equity = liabilities A − subscribed capital unpaid (zero when not given) − dividends declared;
 - gross debt = financial debt + shareholder loans treated as financial debt; cash = C.IV −
   operating cash; other items, each with its sign: C.III, financial receivables, B.III treated
   as a financial asset (negative), derivative liabilities, accrued interest and trade payables
-  with extended terms (positive).
+  with extended terms (positive);
+- excess cash = C.IV − operating cash, the cash of the net financial position.
+
+Derivatives (decision D3): derivative liabilities within provisions B treated as
+`financial_liability` are non-current in the net financial position. Derivative assets are not
+given separately: those within B.III (B.III.4) follow the treatment of B.III and are
+non-current; those within C.III (C.III.5) are current financial assets of the net financial
+position.
 
 A positive net financial position is net debt. Its total is computed by the function of the
 ratios (SPEC-0007), so it equals the total of the object returned.
@@ -138,7 +152,7 @@ them; the totals of the reclassified form defined as differences).
 
 | Reference | Field | Destination | Choice |
 | --- | --- | --- | --- |
-| Assets A | `subscribed_capital_unpaid` (or within C.II) | deducted from equity | fixed |
+| Assets A | `subscribed_capital_unpaid` (or within C.II); zero when not given | deducted from equity | fixed |
 | B.I | `intangible_assets` (`total`, or `gross` and `accumulated`) | operating fixed assets | default |
 | B.II | `tangible_assets` (`total`, or `gross` and `accumulated`) | operating fixed assets | default |
 | B.III | `financial_fixed_assets` | operating, non-operating or financial asset | treatment |
@@ -149,7 +163,7 @@ them; the totals of the reclassified form defined as differences).
 | Assets D | `prepayments_and_accrued_income` (or within C.II) | operating working capital | default |
 | Liabilities A | `equity` (`total` or A.I to A.X) | equity | fixed |
 | B | `provisions` (`of_which_derivative_liabilities`, `beyond_one_year`) | operating provisions | default |
-| B, derivatives | `provisions.of_which_derivative_liabilities` | net financial position or operating provisions | treatment |
+| B, derivatives | `provisions.of_which_derivative_liabilities`; none when not given | net financial position (non-current) or operating provisions | treatment |
 | C | `employee_severance_indemnity` | operating provisions | default |
 | D, financial debt | `payables.financial_debt` | net financial position, gross debt | fixed |
 | D, shareholder loans | `payables.shareholder_loans` | gross debt or quasi-equity | treatment |
@@ -157,7 +171,8 @@ them; the totals of the reclassified form defined as differences).
 | E | `accruals_and_deferred_income` (or within D) | operating working capital | default |
 
 The totals `fixed_assets` (B), `current_assets` (C), `total_assets` and
-`total_liabilities_and_equity` are optional and checked.
+`total_liabilities_and_equity` are optional and checked; when given, the current and
+non-current block uses them in place of components that are missing.
 
 ### Reclassified balance sheet (Appendix B.1)
 
@@ -167,8 +182,16 @@ The totals `fixed_assets` (B), `current_assets` (C), `total_assets` and
 `total_funds_invested`, `equity`, `quasi_equity_items`, `net_financial_position` (`total`,
 `position` in the SPEC-0007 type, `current`, `non_current`), `debt_like_items` (the `dcf.fcff`
 type, with `measurement_basis`) and `total_sources`. Every total its formula allows is derived
-from what is given; a total given is checked against its derived value. Treatments and
-adjustments do not apply to a reclassified year: give the totals already adjusted.
+from what is given; a total given is checked against its derived value. The net financial
+position total is, in this order, the total given, the total of `position`, or `current` +
+`non_current`; in the last case the maturity relation is not checked, because it would compare
+the total with itself. Treatments and adjustments do not apply to a reclassified year: give the
+totals already adjusted.
+
+The current and non-current block and the composition of the net financial position need the
+statutory form: in a reclassified year they are listed in `not_computed` with no pointer to
+give, and a convention says so. Inventories are taken from
+`operating_working_capital.inventories`.
 
 ## Treatments
 
@@ -186,8 +209,11 @@ destinations.
 
 `treatment_overrides` of a year accept only `financial_fixed_assets` and `shareholder_loans`,
 as `{"destination": ...}` or `{"split": [{"destination", "amount", "label"}, ...]}` with parts
-summing to that year's aggregate; a part of shareholder loans that is financial debt may give
-its `beyond_one_year`.
+summing to that year's aggregate. A part of shareholder loans that is financial debt may give
+its `beyond_one_year`, at most the part; a `quasi_equity` part cannot (`FM-E001`), because it
+has no maturity in the net financial position. When every part is financial debt with its
+`beyond_one_year`, the parts' amounts beyond one year equal the loans'; otherwise that relation
+is not checked, but a sum already larger than the loans' is refused (`FM-E026`).
 
 ## Adjustments
 
@@ -221,7 +247,7 @@ Per year: `label`, `date`, `form`, `layout`, then:
 | `balance_sheet.sources` | `equity`, `quasi_equity_items`, `net_financial_position`, `debt_like_items` (at book value), `total_sources` |
 | `balance_sheet.sources.net_financial_position` | `position` (SPEC-0007 type), `total`, `current`, `non_current`, `composition` by source |
 | `balance_sheet.excess_cash` | C.IV less operating cash |
-| `current_non_current` | `fixed_assets`, `current_assets`, `inventories`, `cash`, `total_assets`, `current_liabilities`, `non_current_liabilities` |
+| `current_non_current` | `fixed_assets`, `current_assets`, `inventories`, `cash`, `total_assets` (less item A), `current_liabilities`, `non_current_liabilities`; from total B, total C and total assets when given |
 | `assignments` | Each aggregate given: reference, pointer, amount, destination, origin (`mapping` or `analyst`) |
 | `adjustments_applied` | Each adjustment: kind, label, amount, reason, source, target |
 | `checks` | Each relation by id: `reconciled` or `not_checked`, with its pointers |
@@ -237,16 +263,20 @@ Per year: `label`, `date`, `form`, `layout`, then:
 
 ## Defaults
 
-Every default is listed in `meta.defaults_applied` and in `explain.conventions`:
+Every default is listed in `meta.defaults_applied` and in `explain.conventions`, in this
+order:
 
-- each statutory aggregate given whose destination is a default of Appendix A (B.I, B.II,
-  C.II, C.III, C.IV, assets D, provisions B, employee severance indemnity C, payables D,
-  liabilities E, and A5 and B14 of the income statement): `field` is the pointer of the item,
-  `value` the destination, and the convention reads "assigned to";
-- `treatments.write_downs_of_receivables`, `investing` when not given, and the item B10 d when
-  given with that default.
+1. each statutory aggregate given whose destination is a default of Appendix A (B.I, B.II,
+   C.II, C.III, C.IV, assets D, provisions B, employee severance indemnity C, payables D,
+   liabilities E): `field` is the pointer of the item, `value` the destination, and the
+   convention reads "assigned to". An aggregate counts as given when its amount is: a node
+   holding only a part of it (for example `receivables.trade`) does not;
+2. `treatments.write_downs_of_receivables`, `investing` when not given;
+3. each item taken as zero because it is not given ([Best effort](#best-effort)): `value` is
+   `"0"` and the convention reads "not given, set to".
 
-Fixed destinations are not defaults and are not listed.
+Fixed destinations are not defaults and are not listed. The default destinations of the income
+statement (A5, B14, B10 d) are listed from the build that reorganises it.
 
 ## Conventions (explicit, reported in `explain.conventions`)
 
@@ -260,19 +290,33 @@ Fixed destinations are not defaults and are not listed.
 | Net financial position | C.III and all of C.IV inside; operating cash out by adjustment | default |
 | Bridge items | carrying amount, `book_value` | fixed |
 | Current and non-current | statutory amounts beyond one year of C.II and D, read as twelve months; provisions and the employee severance indemnity non-current, prepayments and accruals current, unless their part beyond one year is given; not changed by the adjustments | default, each reported |
+| Item A not given | zero, the same amount for equity and total assets | default, listed (D1) |
+| "Of which" parts not given | none within their aggregate, also when the aggregate is not given | default, listed (D2) |
+| Derivatives | liabilities treated as financial: non-current in the net financial position; assets follow B.III (non-current) or C.III (current) | fixed, stated (D3) |
 
 ## Checks
 
 Each relation is checked exactly when both sides are given, and `FM-E026` gives both amounts,
-the difference, the pointers and the fix when they differ. Statutory form: B.I and B.II net =
-gross − accumulated; total B, total C, total equity, total assets and total liabilities and
-equity against their items; total assets = total liabilities and equity; parts beyond one year
-and "of which" parts within their aggregate; the profit of A.IX = item 21; a split of an
-override = the year's aggregate; the totals of the income statement (A, B, B10, A − B, C, D,
-profit before tax, item 21). Reclassified form: operating working capital, invested capital,
-total funds invested, the net financial position (against its position and its maturities) and
-total sources against their components, and total funds invested = total sources. In the
-statutory form the last identity follows from the others; a difference there is a defect
+the difference, the pointers and the fix when they differ. A side is built only from items the
+user gave: an item taken as zero never enters a check, and the message and the `pointers` of a
+checked relation name only items given. Without total assets, for example, total assets
+rebuilt as A + B + C + D are compared only when item A and the separate line D are given.
+
+Statutory form: B.I and B.II net = gross − accumulated; total B, total C, total equity, total
+assets and total liabilities and equity against their items; total assets = total liabilities
+and equity; parts beyond one year and "of which" parts within their aggregate; the profit of
+A.IX = item 21; a split of an override = the year's aggregate; the maturities of a split of
+shareholder loans (see [Treatments](#treatments)); the totals of the income statement (A, B,
+B10, A − B, C, D, profit before tax, item 21). Reclassified form: operating working capital,
+invested capital, total funds invested, the net financial position (against its position and
+its maturities) and total sources against their components, and total funds invested = total
+sources.
+
+In the statutory form total funds invested equal the sources whenever every item is given,
+because the identity follows from the relations above. When they differ, the inputs given do
+not balance once the items not given are taken as zero: the result is `FM-E026`, which names
+those items and asks for the one that is not zero, or for total assets and total liabilities
+and equity so that the totals are compared. With every item given, a difference is a defect
 (`FM-E012`).
 
 For statements filed in euro units, give the rounding reserve within other reserves (A.VI), so
@@ -282,11 +326,34 @@ that the totals reconcile exactly.
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | Both forms in one entry; dates not one year apart or newest first; a negative amount where the layout has none; an override of another aggregate; an `amounts` list of another length; a blank label or reason; an adjustment on a reclassified entry; an income statement adjustment in this build; an unknown field or value |
+| `FM-E001` | Both forms in one entry; dates not one year apart or newest first; a negative amount where the layout has none; an override of another aggregate; `beyond_one_year` on a `quasi_equity` part of a split; an `amounts` list of another length; a blank label or reason; an adjustment on a reclassified entry; an income statement adjustment in this build; an unknown field or value |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 | `FM-E009` | A date that does not exist or is outside 1900 to 2199 |
-| `FM-E012` | Defect: total funds invested differ from the sources of a statutory year |
-| `FM-E026` | A relation of the statements does not reconcile, or an adjustment exceeds its source |
+| `FM-E012` | Defect: total funds invested differ from the sources of a statutory year with every item given |
+| `FM-E026` | A relation of the statements does not reconcile; the funds invested of a statutory year differ from its sources once the items not given are taken as zero; or an adjustment exceeds its source |
+
+## Limitations and practice notes
+
+- **Deferred tax assets** (C.II 5-ter) stay in receivables, and so in operating working capital.
+  Practitioners often exclude them from working capital (Borsa Italiana, *Guida alla
+  Valutazione*); to do so, move them with a `non_operating_asset` adjustment of `receivables`
+  and state why in its reason.
+- **Receivables within financial fixed assets** (B.III.2) follow the treatment of B.III and are
+  always non-current in the current and non-current block, also for the part due within one
+  year that art. 2424 asks to disclose.
+- **Comparative years before 2016.** Before D.Lgs. 139/2015, own shares were presented as
+  assets (B.III.4 or C.III.5) with a reserve in equity; from 2016 they are deducted from equity
+  through the negative reserve A.X. Give a year before 2016 as restated in the comparative
+  column of the following filing, or deduct the own shares from their asset aggregate and give
+  them as A.X, so that the years compare.
+- **Employee severance indemnity** (TFR, liabilities C) is an operating provision by default,
+  as are provisions B; when the analyst treats it as debt, a `debt_like_provision` adjustment
+  moves it, with its reason, to the debt-like items for the bridge.
+- **Payables to group companies** (D.8 to D.11: to subsidiaries, associates, parents and sister
+  companies) stay in the remainder of payables D, in operating working capital: this version
+  does not separate their financial part (decision D6 of 2026-11-08; a separate issue). When
+  part of them is financing, give it within `payables.financial_debt`, or move it with a
+  `non_current_trade_payables` adjustment, and state why.
 
 ## Accuracy
 
@@ -301,15 +368,20 @@ Additions and subtractions of decimals only, exact; no multiplication, division 
   `FM-E026` case per relation with its not-checked twin, and the input errors), whose expected
   values come from `scripts/reference_statements.py`, an exact decimal reference at 50 digits
   written from the appendices of SPEC-0005 without reading the engine.
-- `python/tests/test_reference_statements.py`: the engine against that reference on 150 seeded
-  random calls in both forms, every output, check, default and `not_computed` entry.
+- `python/tests/test_reference_statements.py`: the engine against that reference on 400 seeded
+  random calls in both forms, every output, check, default and `not_computed` entry, including
+  items taken as zero, splits of shareholder loans with maturities and reclassified net
+  financial positions given by their parts.
 
 ## Sources
 
 - Civil Code art. 2423-ter, 2424, 2425, 2435-bis and 2435-ter (layouts and comparatives).
-- OIC 12 (presentation of the statements).
+- OIC 12 (presentation of the statements); D.Lgs. 139/2015 (own shares deducted from equity
+  from 2016).
+- Borsa Italiana, *Guida alla Valutazione* (treatment of deferred tax assets in practice).
 - ESMA32-382-1138, guideline 39, and Consob, Richiamo di attenzione n. 5/21 (net financial
   indebtedness).
 - Koller, Goedhart, Wessels, *Valuation*, "Reorganizing the financial statements".
-- SPEC-0005 and its decisions 1 to 18; SPEC-0007 (net financial position); SPEC-0001 Decision
-  21 (bridge items and `MeasurementBasis`).
+- SPEC-0005, its decisions 1 to 18 and the maintainer's decisions D1 to D6 of 2026-11-08;
+  SPEC-0007 (net financial position); SPEC-0001 Decision 21 (bridge items and
+  `MeasurementBasis`).

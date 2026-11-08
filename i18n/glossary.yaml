@@ -254,10 +254,12 @@ terms:
   micro-entity layout: bilancio delle micro-imprese
   of which: di cui
   # SPEC-0005, reorganised balance sheet (Terminology and sources of the spec)
-  reorganised balance sheet: stato patrimoniale riclassificato
+  # Kept in English with an Italian explanation (glossary rule of 2026-11-08): no verified
+  # Italian source fixes these terms for the operating and financing reorganisation.
+  reorganised balance sheet: reorganised balance sheet (stato patrimoniale riclassificato in area operativa, non operativa e finanziaria)
   operating working capital: operating working capital (capitale circolante netto operativo)
   operating fixed assets: operating fixed assets (immobilizzazioni operative)
-  operating provisions: operating provisions (fondi operativi)
+  operating provisions: operating provisions (fondi per rischi e oneri e TFR classificati come operativi)
   carrying amount: valore contabile
   available (method status): disponibile
   preview (method status): anteprima
