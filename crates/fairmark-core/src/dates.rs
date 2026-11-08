@@ -405,8 +405,10 @@ pub struct ScheduleInput {
     /// `four_monthly`, 6 = `semi_annual`, 12 = `annual`, and any other such as 5, 18 or 24. Give
     /// exactly one of `frequency` and `period_months`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(range(min = 1))]
     pub period_months: Option<u32>,
     /// Number of periods, from 1 to 10000.
+    #[schemars(range(min = 1, max = 10000))]
     pub number_of_periods: u32,
     /// Day count for the year fraction of each period, measured on [start, end). Optional:
     /// without it no year fraction is computed (none is assumed).
@@ -451,8 +453,9 @@ pub(crate) struct BuiltSchedule {
     first_year_fraction: Option<String>,
     /// The start date is the last day of its month: every date is a month end.
     month_end_start: bool,
-    /// Generated dates whose day differs from the day of the start date, and the first one.
-    days_changed: (usize, Option<Date>),
+    /// How many generated dates fall on a day other than the start day, and the first of them;
+    /// `None` when the rule changed no date.
+    days_changed: Option<(usize, Date)>,
 }
 
 /// Whether `d` is the last day of its month.
@@ -554,7 +557,7 @@ pub(crate) fn build_schedule(input: &ScheduleInput, prefix: &str) -> Result<Buil
         year_fractions,
         first_year_fraction,
         month_end_start,
-        days_changed: (changed.len(), changed.first().copied()),
+        days_changed: changed.first().map(|first| (changed.len(), *first)),
     })
 }
 
@@ -576,12 +579,11 @@ pub(crate) fn schedule_explain(s: &BuiltSchedule, ex: &mut Explain) -> Result<()
     ));
     ex.convention(s.length.describe());
     let effect = match s.days_changed {
-        (0, _) => "no date changed by the rule".to_owned(),
-        (count, Some(first)) => format!(
+        None => "no date changed by the rule".to_owned(),
+        Some((count, first)) => format!(
             "{count} of {n} end dates fall on a day other than {} (first: {first})",
             s.start_date.day
         ),
-        (count, None) => format!("{count} of {n} end dates changed"),
     };
     ex.convention(if s.month_end_start {
         format!(

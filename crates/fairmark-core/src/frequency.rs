@@ -249,6 +249,9 @@ mod tests {
         }
         periodic.sort_by_key(|f| f.per_year());
         assert_eq!(periodic, Frequency::ALL);
+        for f in Frequency::ALL {
+            assert_eq!(Compounding::of(f).frequency(), Some(f), "{f:?}");
+        }
 
         let payment = [
             PaymentFrequency::Annual,

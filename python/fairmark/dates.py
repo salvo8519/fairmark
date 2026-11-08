@@ -9,6 +9,10 @@ from ._core import Result, run
 
 DayCount = Literal["act_365_fixed", "act_360", "act_act_isda", "thirty_360", "thirty_e_360"]
 Frequency = Literal["monthly", "bimonthly", "quarterly", "four_monthly", "semi_annual", "annual"]
+# Compounding of a rate: the named frequencies (periods a year) and continuous compounding.
+Compounding = Literal[
+    "annual", "semi_annual", "four_monthly", "quarterly", "bimonthly", "monthly", "continuous"
+]
 DateLike = date | str
 
 

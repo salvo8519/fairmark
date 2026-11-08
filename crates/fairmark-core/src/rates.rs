@@ -53,16 +53,23 @@ impl Compounding {
         }
     }
 
-    /// The periodic compounding of a named frequency.
+    /// Every periodic compounding (all but `continuous`).
+    const PERIODIC: [Compounding; 6] = [
+        Self::Annual,
+        Self::SemiAnnual,
+        Self::FourMonthly,
+        Self::Quarterly,
+        Self::Bimonthly,
+        Self::Monthly,
+    ];
+
+    /// The periodic compounding of a named frequency, derived from [`Compounding::frequency`]
+    /// so that the mapping is written once.
     pub fn of(frequency: Frequency) -> Compounding {
-        match frequency {
-            Frequency::Annual => Self::Annual,
-            Frequency::SemiAnnual => Self::SemiAnnual,
-            Frequency::FourMonthly => Self::FourMonthly,
-            Frequency::Quarterly => Self::Quarterly,
-            Frequency::Bimonthly => Self::Bimonthly,
-            Frequency::Monthly => Self::Monthly,
-        }
+        Self::PERIODIC
+            .into_iter()
+            .find(|c| c.frequency() == Some(frequency))
+            .unwrap_or(Self::Annual)
     }
 
     /// Compounding periods per year, `None` for continuous compounding.

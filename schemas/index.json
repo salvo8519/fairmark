@@ -97,7 +97,7 @@
         "1": {
           "file": "dates.schedule/v1.json",
           "introduced_in": "unreleased",
-          "sha256": "c27c9b084f6ea152a32c241292e2185dad9efaa07388647f084bfa51c163dce9"
+          "sha256": "cd8ee332d77b29e6d23765be465dc010b79a51dc231e7d3356591d42c57e76d2"
         }
       }
     },
@@ -272,7 +272,7 @@
         "1": {
           "file": "series.project/v1.json",
           "introduced_in": "unreleased",
-          "sha256": "de08b746c84b9033fcc8eb4586f114fd49af41514711122676b694245e32b79c"
+          "sha256": "4be04f388b60ed097fb5c5aff7f4be909f24b27e6ec00d63b3418d5a8e1e2b09"
         }
       }
     },

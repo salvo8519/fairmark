@@ -234,13 +234,14 @@
         "number_of_periods": {
           "description": "Number of periods, from 1 to 10000.",
           "format": "uint32",
-          "minimum": 0,
+          "maximum": 10000,
+          "minimum": 1,
           "type": "integer"
         },
         "period_months": {
           "description": "Optional period length as a positive whole number of months per period (1 = `monthly`,\n3 = `quarterly`, 12 = `annual`, or any other such as 5 or 18). At most one of\n`frequency` and `period_months`.",
           "format": "uint32",
-          "minimum": 0,
+          "minimum": 1,
           "type": [
             "integer",
             "null"
@@ -281,13 +282,14 @@
         "number_of_periods": {
           "description": "Number of periods, from 1 to 10000.",
           "format": "uint32",
-          "minimum": 0,
+          "maximum": 10000,
+          "minimum": 1,
           "type": "integer"
         },
         "period_months": {
           "description": "Period length as a positive whole number of months per period (not periods a year), for\ntenors with or without a name: 1 = `monthly`, 2 = `bimonthly`, 3 = `quarterly`, 4 =\n`four_monthly`, 6 = `semi_annual`, 12 = `annual`, and any other such as 5, 18 or 24. Give\nexactly one of `frequency` and `period_months`.",
           "format": "uint32",
-          "minimum": 0,
+          "minimum": 1,
           "type": [
             "integer",
             "null"

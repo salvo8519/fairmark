@@ -14,13 +14,11 @@ from decimal import Decimal
 from typing import Any, Literal
 
 from ._core import Result, run
+from .dates import Compounding
 
 Number = Decimal | int | str | float
 DateLike = date | str
 DayCount = Literal["act_365_fixed", "act_360", "act_act_isda", "thirty_360", "thirty_e_360"]
-Compounding = Literal[
-    "annual", "semi_annual", "four_monthly", "quarterly", "bimonthly", "monthly", "continuous"
-]
 PeriodTiming = Literal["end_of_period", "mid_period", "beginning_of_period"]
 AnnuityTiming = Literal["ordinary", "due"]
 DatedFlows = Iterable[tuple[DateLike, Number]]

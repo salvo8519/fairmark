@@ -97,6 +97,7 @@ pub enum GrowthBasis {
 #[serde(deny_unknown_fields)]
 pub struct PeriodsTimeline {
     /// Number of periods, from 1 to 10000.
+    #[schemars(range(min = 1, max = 10000))]
     pub number_of_periods: u32,
     /// Optional period length as a named frequency: `monthly` (1 month), `bimonthly` (2 months,
     /// every two months), `quarterly` (3), `four_monthly` (4), `semi_annual` (6) or `annual`
@@ -108,6 +109,7 @@ pub struct PeriodsTimeline {
     /// 3 = `quarterly`, 12 = `annual`, or any other such as 5 or 18). At most one of
     /// `frequency` and `period_months`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(range(min = 1))]
     pub period_months: Option<u32>,
 }
 
