@@ -53,6 +53,7 @@ Status of each method, as the engine registry reports it to `fm.methods()`, `fai
 | [`dcf.fcff`](dcf-fcff.md) | Value of operations, enterprise value and equity value from unlevered free cash flows over explicit stages and a terminal value |
 | [`dcf.fcfe`](dcf-fcfe.md) | Equity value directly from free cash flows to equity at the cost of equity over explicit stages and a terminal value, without a net financial position |
 | [`dcf.free_cash_flows`](dcf-free-cash-flows.md) | FCFF and FCFE per period from EBIT, taxes, capital expenditure and working capital |
+| [`statements.reorganise`](statements-reorganise.md) | Statutory aggregates or reclassified totals reorganised into invested capital, non-operating assets, equity, the net financial position and debt-like items, with current and non-current amounts; best effort, checked exactly |
 | [`ratios.profitability`](ratios-profitability.md) | ROE, ROI, ROA, ROS, margins, capital turnover and the ROE decomposition in three factors and in the leverage form |
 | [`ratios.capital_structure`](ratios-capital-structure.md) | Debt to equity, net financial position to equity, equity ratio, structure margins and fixed-asset coverage |
 | [`ratios.liquidity`](ratios-liquidity.md) | Current, quick and cash ratios, net working capital and treasury margin |
