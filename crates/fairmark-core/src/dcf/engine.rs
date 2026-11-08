@@ -616,7 +616,7 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
     let gordon_terms = check_terminal(input.terminal, terminal_rate, &terminal_field)?;
 
     ex.convention(format!(
-        "explicit horizon N = {n} periods in {} stage(s); one period is one year, rates are \
+        "explicit horizon N = {n} periods; stages: {}; one period is one year, rates are \
          annual effective",
         input.stages.len()
     ));

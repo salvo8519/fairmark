@@ -95,8 +95,8 @@ def fcff(
     ...     terminal=gordon("0.02", first_flow="last_flow_grown"),
     ...     net_financial_position={"gross_debt": 200, "cash": 0},
     ... )
-    >>> r.value["terminal"]["terminal_value"]
-    Decimal('1530')
+    >>> r.value_of_operations
+    Decimal('1421.4876033057851239669421487')
     """
     payload: dict[str, Any] = {
         "stages": [dict(s) for s in stages],
