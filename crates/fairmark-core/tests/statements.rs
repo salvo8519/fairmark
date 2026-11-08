@@ -620,9 +620,12 @@ fn a_reconciled_relation_names_only_items_given() {
     }
 }
 
+/// Review of PR 1 (item 9): the income statement is not reorganised in this build, so no
+/// destination of A5, B14 or B10 d is listed; only the input default of the treatment is.
 #[test]
-fn the_default_of_write_downs_of_receivables_is_listed_per_item_given() {
+fn no_income_statement_destination_is_listed_before_it_is_reorganised() {
     let input = json!({"years": [{"statutory": {"income_statement": {
+        "other_revenue_and_income": "10", "other_operating_expenses": "5",
         "depreciation_and_write_downs": {"write_downs_of_receivables": "500"}}}}]});
     let out = run(&input);
     let fields: Vec<String> = out["meta"]["defaults_applied"]
@@ -631,13 +634,7 @@ fn the_default_of_write_downs_of_receivables_is_listed_per_item_given() {
         .iter()
         .map(|d| d["field"].as_str().unwrap().to_owned())
         .collect();
-    assert_eq!(
-        fields,
-        [
-            "/years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_receivables",
-            "/treatments/write_downs_of_receivables"
-        ]
-    );
+    assert_eq!(fields, ["/treatments/write_downs_of_receivables"]);
 }
 
 // ---------------------------------------------------------------- R6, AC2: not_computed

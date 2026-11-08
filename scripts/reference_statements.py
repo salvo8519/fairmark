@@ -377,10 +377,6 @@ DEFAULT_ROWS_BS = [
     ("payables", "operating_working_capital"),
     ("accruals_and_deferred_income", "operating_working_capital"),
 ]
-DEFAULT_ROWS_IS = [
-    ("other_revenue_and_income", "value_of_production"),
-    ("other_operating_expenses", "external_costs"),
-]
 
 
 def aggregate_given(bs: dict[str, Any], key: str) -> bool:
@@ -407,19 +403,6 @@ def defaults_applied(inp: dict[str, Any]) -> list[tuple[str, str]]:
         for key, dest in DEFAULT_ROWS_BS:
             if aggregate_given(bs, key):
                 out.append((f"{base}/{key}", dest))
-        inc = st.get("income_statement") or {}
-        ibase = f"/years/{i}/statutory/income_statement"
-        for key, dest in DEFAULT_ROWS_IS:
-            if key in inc:
-                out.append((f"{ibase}/{key}", dest))
-        b10d = get(inc, "depreciation_and_write_downs", "write_downs_of_receivables")
-        if not wdr_given and b10d is not None:
-            out.append(
-                (
-                    f"{ibase}/depreciation_and_write_downs/write_downs_of_receivables",
-                    "investing_result",
-                )
-            )
     if not wdr_given:
         out.append(("/treatments/write_downs_of_receivables", "investing"))
     for i, y in enumerate(inp["years"]):

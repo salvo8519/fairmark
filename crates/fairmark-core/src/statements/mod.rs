@@ -504,9 +504,11 @@ impl Method for Reorganise {
         compute(input)
     }
 
-    /// R8 as clarified on 2026-11-08, R17: the `default` destination of every statutory
-    /// aggregate given (one entry each, with the pointer of the item, the destination and the
-    /// reason), then the input default `write_downs_of_receivables = investing`.
+    /// R8 as clarified on 2026-11-08, R17, D1, D2: the `default` destination of every
+    /// statutory balance sheet aggregate given (one entry each, with the pointer of the item,
+    /// the destination and the reason), then the input default `write_downs_of_receivables =
+    /// investing`, then every item taken as zero because it is not given. The destinations of
+    /// the income statement (A5, B14, B10 d) are listed from the build that reorganises it.
     fn apply_defaults(input: &mut ReorganiseInput) -> Vec<DefaultApplied> {
         let mut out = Vec::new();
         let write_downs_given = input.treatments.write_downs_of_receivables.is_some();
@@ -521,29 +523,6 @@ impl Method for Reorganise {
                             row.reason,
                         ));
                     }
-                }
-            }
-            if let Some(is) = &st.income_statement {
-                let base = format!("/years/{i}/statutory/income_statement");
-                for (key, destination, reason) in INCOME_STATEMENT_DEFAULTS {
-                    if is.has(key) {
-                        out.push(DefaultApplied::destination(
-                            format!("{base}/{key}"),
-                            destination,
-                            reason,
-                        ));
-                    }
-                }
-                let b10d = is
-                    .depreciation_and_write_downs
-                    .as_ref()
-                    .and_then(|b| b.write_downs_of_receivables);
-                if !write_downs_given && b10d.is_some() {
-                    out.push(DefaultApplied::destination(
-                        format!("{base}/depreciation_and_write_downs/write_downs_of_receivables"),
-                        "investing_result",
-                        WRITE_DOWNS_OF_RECEIVABLES_DEFAULT,
-                    ));
                 }
             }
         }

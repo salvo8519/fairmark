@@ -1053,22 +1053,6 @@ pub(crate) const BALANCE_SHEET_DEFAULTS: &[DefaultDestination] = &[
     },
 ];
 
-/// The income statement aggregates with a `default` layer of Appendix A.2.
-pub(crate) const INCOME_STATEMENT_DEFAULTS: &[(&str, &str, &str)] = &[
-    (
-        "other_revenue_and_income",
-        "value_of_production",
-        "Appendix A.2, A5: core, in the value of production, by default (Decision 7); \
-         investing and non-recurring parts move only by adjustment",
-    ),
-    (
-        "other_operating_expenses",
-        "external_costs",
-        "Appendix A.2, B14: core, in the external costs, by default (Decision 7); investing \
-         and non-recurring parts move only by adjustment",
-    ),
-];
-
 /// R17: the default destination of B10 d.
 pub(crate) const WRITE_DOWNS_OF_RECEIVABLES_DEFAULT: &str =
     "Appendix A.2, B10 d: write-downs are extra-characteristic, in the investing result below \
@@ -1165,14 +1149,3 @@ pub(crate) const TAKEN_AS_ZERO: &[TakenAsZero] = &[
                  `payables/accruals_and_deferred_income`: no separate line E",
     },
 ];
-
-impl StatutoryIncomeStatement {
-    /// Whether the aggregate `key` of [`INCOME_STATEMENT_DEFAULTS`] is given.
-    pub(crate) fn has(&self, key: &str) -> bool {
-        match key {
-            "other_revenue_and_income" => self.other_revenue_and_income.is_some(),
-            "other_operating_expenses" => self.other_operating_expenses.is_some(),
-            _ => false,
-        }
-    }
-}
