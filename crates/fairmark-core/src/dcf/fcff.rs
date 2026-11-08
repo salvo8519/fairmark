@@ -220,18 +220,14 @@ pub fn fcff(input: &DcfFcffInput) -> Result<(DcfFcffOutput, Explain)> {
     };
     // Bridge items are checked before any calculation, like every other input.
     for (i, a) in input.non_operating_assets.iter().enumerate() {
-        if a.value.is_sign_negative() && !a.value.is_zero() {
-            return Err(FairmarkError::InvalidInput(format!(
-                "`/non_operating_assets/{i}/value` is {}; a non-operating asset is zero or \
-                 more (obligations belong in the net financial position)",
-                a.value
-            )));
-        }
-        if a.label.trim().is_empty() {
-            return Err(FairmarkError::InvalidInput(format!(
-                "`/non_operating_assets/{i}/label` is empty; name the asset"
-            )));
-        }
+        check_labelled_amount(
+            &format!("/non_operating_assets/{i}"),
+            &a.label,
+            a.value,
+            "name the asset",
+            "a non-operating asset is zero or more (obligations belong in the net financial \
+             position)",
+        )?;
     }
     check_claims(
         &input.debt_like_items,
@@ -283,21 +279,40 @@ pub fn fcff(input: &DcfFcffInput) -> Result<(DcfFcffOutput, Explain)> {
     ))
 }
 
+/// R25, R27: a bridge line at `pointer` has a value of zero or more and a label that is not
+/// empty; each refusal names the field by its JSON pointer and states the fix. Shared by the
+/// non-operating assets, the debt-like items and the non-controlling interests.
+fn check_labelled_amount(
+    pointer: &str,
+    label: &str,
+    value: Decimal,
+    label_fix: &str,
+    sign_rule: &str,
+) -> Result<()> {
+    if value.is_sign_negative() && !value.is_zero() {
+        return Err(FairmarkError::InvalidInput(format!(
+            "`{pointer}/value` is {value}; {sign_rule}"
+        )));
+    }
+    if label.trim().is_empty() {
+        return Err(FairmarkError::InvalidInput(format!(
+            "`{pointer}/label` is empty; {label_fix}"
+        )));
+    }
+    Ok(())
+}
+
 /// R25, R27: every claim has a label, a stated measurement basis and a value of zero or more;
 /// each refusal names the field by its JSON pointer and states the fix.
 fn check_claims(claims: &[BridgeClaim], field: &str, sign_rule: &str) -> Result<()> {
     for (i, c) in claims.iter().enumerate() {
-        if c.value.is_sign_negative() && !c.value.is_zero() {
-            return Err(FairmarkError::InvalidInput(format!(
-                "`/{field}/{i}/value` is {}; {sign_rule}",
-                c.value
-            )));
-        }
-        if c.label.trim().is_empty() {
-            return Err(FairmarkError::InvalidInput(format!(
-                "`/{field}/{i}/label` is empty; name the item"
-            )));
-        }
+        check_labelled_amount(
+            &format!("/{field}/{i}"),
+            &c.label,
+            c.value,
+            "name the item",
+            sign_rule,
+        )?;
         if c.measurement_basis.trim().is_empty() {
             return Err(FairmarkError::InvalidInput(format!(
                 "`/{field}/{i}/measurement_basis` is empty; state how the amount was measured, \
