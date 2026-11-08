@@ -104,6 +104,7 @@ milestones:
         labels: ["area:core"]
         tasks:
           - { issue: 19, title: "Money, Rate (annual vs per period), Period, Timeline with timing convention", status: open }
+          - { issue: 206, title: "Timeline and value series builders (dates.schedule, series.project)", spec: "0010", status: open }
       - title: "Time value of money"
         issue: 20
         labels: ["area:core"]
