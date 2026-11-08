@@ -89,7 +89,7 @@ pub enum Technique {
     /// Finite horizon: `flow`, `periods`, optional `growth` and `residual_value`.
     #[serde(rename = "tv.limited_horizon")]
     LimitedHorizon(LimitedHorizonTerms),
-    /// Normalised income with its own capitalisation rate.
+    /// Normalised income with its own capitalisation rate and basis (checked).
     #[serde(rename = "tv.normalised_income")]
     NormalisedIncome(NormalisedIncomeTerms),
     /// Liquidation: the analyst lists the liabilities of the declared basis.
@@ -231,6 +231,14 @@ fn run_one(
             )
         }
         Technique::NormalisedIncome(terms) => {
+            if terms.basis != basis {
+                return Err(FairmarkError::MixedBasis(format!(
+                    "technique [{position}] tv.normalised_income is declared on the {} basis in \
+                    a comparison declared on the {} basis",
+                    terms.basis.name(),
+                    basis.name()
+                )));
+            }
             let (o, ex) = normalised_income(&terms.with(cap))?;
             let tv = o.terminal_value;
             (
@@ -279,12 +287,6 @@ pub fn compare(input: &CompareInput) -> Result<(CompareOutput, Explain)> {
         None => "growth cap: none given (not checked)".to_owned(),
     });
     let has = |f: fn(&Technique) -> bool| input.techniques.iter().any(|t| f(&t.0));
-    if has(|t| matches!(t, Technique::NormalisedIncome(_))) {
-        ex.convention(
-            "tv.normalised_income: no basis check; the income and the capitalisation rate must \
-            be on the declared basis",
-        );
-    }
     if cap.is_some() && has(|t| matches!(t, Technique::ExitMultiple(e) if e.next_flow.is_none())) {
         ex.convention(
             "tv.exit_multiple without next_flow: no implied growth, so not checked against the \
@@ -453,6 +455,31 @@ mod tests {
         ))
         .unwrap_err();
         assert_eq!(err.code(), "FM-E019");
+    }
+
+    /// Decision of 2026-11-08: normalised income declares its basis and is checked like the
+    /// multiples.
+    #[test]
+    fn normalised_income_of_the_other_basis_is_refused() {
+        let ni = |basis| {
+            Technique::NormalisedIncome(NormalisedIncomeTerms {
+                income: d("95"),
+                capitalisation_rate: d("0.11"),
+                basis,
+                growth: None,
+            })
+        };
+        let err = compare(&input(
+            vec![gordon_terms(), ni(TerminalBasis::Equity)],
+            TerminalBasis::Enterprise,
+        ))
+        .unwrap_err();
+        assert_eq!(err.code(), "FM-E019");
+        assert!(compare(&input(
+            vec![ni(TerminalBasis::Equity), exit(MultipleMetric::BookValue)],
+            TerminalBasis::Equity,
+        ))
+        .is_ok());
     }
 
     #[test]

@@ -3,4 +3,4 @@ description: Damodaran table cell growth 2.5%, return on capital 8%, NOPAT 100, 
 source: "Damodaran, NYU Stern valuation lectures (undergraduate, spring 2020), session 11 slides, table 'The Big Assumption': terminal value for after-tax operating income of 100 in year n+1 and a cost of capital of 10%, rounded to units (pages.stern.nyu.edu/~adamodar/podcasts/valUGspr20/session11slides.pdf); cell growth 2.5%, return on capital 8% = 917"
 input: { nopat_next: "100", growth: "0.025", ronic: "0.08", rate: "0.10" }
 expect: { terminal_value: "917" }
-tolerance: "0.5"
+tolerance: "0.5"  # the published table is rounded to units; exact values are pinned by the reference cases

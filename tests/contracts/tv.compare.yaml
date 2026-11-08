@@ -29,6 +29,7 @@ conventions:
     - tv.normalised_income:
         income: '95'
         capitalisation_rate: '0.11'
+        basis: enterprise
   expect:
   - 'basis: enterprise'
   - 'shared rate 0.10'

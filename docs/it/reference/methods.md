@@ -267,12 +267,12 @@ Terminal value at the horizon N when growth declines linearly from g_s to g_l ov
 
 **Terminal value, exit multiple** · versione del metodo 1 · tool `fairmark_tv_exit_multiple`
 
-Terminal value at the horizon N as a multiple of EBITDA, EBIT, revenue (enterprise basis) or earnings (equity basis); with a rate and the next flow, reports the implied perpetual growth.
+Terminal value at the horizon N as a multiple of EBITDA, EBIT, revenue (enterprise basis), earnings or book value of equity (equity basis); with a rate and the next flow, reports the implied perpetual growth.
 
 | Input | Tipo | Obbligatorio | Default | Descrizione |
 | --- | --- | --- | --- | --- |
 | `multiple` | decimale | sì |  | The multiple, a pure number greater than 0 (for example 8 for 8 × EBITDA). |
-| `metric` | `ebitda` \| `ebit` \| `revenue` \| `earnings` | sì |  | `ebitda`, `ebit`, `revenue` (enterprise basis) or `earnings` (equity basis). |
+| `metric` | `ebitda` \| `ebit` \| `revenue` \| `earnings` \| `book_value` | sì |  | `ebitda`, `ebit`, `revenue` (enterprise basis), `earnings` or `book_value` (equity basis). |
 | `metric_value` | decimale | sì |  | The metric at the horizon N, in currency units, greater than 0. |
 | `rate` | decimale | no |  | Discount rate of the terminal phase, decimal fraction per period, on the basis of the metric (WACC for enterprise, cost of equity for equity). Optional, with `next_flow`: both or neither. Used only for the implied growth. |
 | `next_flow` | decimale | no |  | Flow at N + 1 on the basis of the metric (FCFF for enterprise, FCFE for equity), in currency units. Optional, with `rate`: both or neither. |
@@ -303,6 +303,7 @@ Terminal value at the horizon N as a normalised income capitalised at a rate i, 
 | --- | --- | --- | --- | --- |
 | `income` | decimale | sì |  | Normalised income R of the first period after the horizon, in currency units. |
 | `capitalisation_rate` | decimale | sì |  | Capitalisation rate i, decimal fraction per period, greater than 0; must exceed `growth`. |
+| `basis` | `enterprise` \| `equity` | sì |  | `enterprise` (an operating income capitalised at a rate for all capital providers) or `equity` (a net income capitalised at a cost of equity). Required, no default. |
 | `growth` | decimale | no |  | Perpetual growth of the income, decimal fraction per period, greater than -1 and below the capitalisation rate. Default: none (R / i). |
 | `growth_cap` | decimale | no |  | Upper bound for the growth, decimal fraction per period. Default: none, reported as absent. A growth above the cap is reported, not refused. |
 

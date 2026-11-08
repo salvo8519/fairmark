@@ -70,7 +70,7 @@ def test_limited_horizon_matches_the_term_by_term_sum(rate: str, periods: int) -
 @pytest.mark.parametrize("rate", RATES)
 def test_ac5_long_horizon_converges_to_the_perpetuity(rate: str) -> None:
     finite = fm.tv.limited_horizon("100", rate, 10000).terminal_value
-    perpetual = fm.tv.normalised_income("100", rate).terminal_value
+    perpetual = fm.tv.normalised_income("100", rate, "enterprise").terminal_value
     assert abs(finite - perpetual) <= TOL
 
 
@@ -80,13 +80,19 @@ def test_compare_equals_each_technique_run_alone() -> None:
         "enterprise",
         [
             {"tv.gordon": {"growth": "0.02", "last_flow": "100"}},
-            {"tv.normalised_income": {"income": "95", "capitalisation_rate": "0.11"}},
+            {
+                "tv.normalised_income": {
+                    "income": "95",
+                    "capitalisation_rate": "0.11",
+                    "basis": "enterprise",
+                }
+            },
         ],
         growth_cap="0.03",
     )
     values = [D(r["terminal_value"]) for r in result.value["results"]]
     assert values[0] == fm.tv.gordon("0.1", "0.02", last_flow="100").terminal_value
-    assert values[1] == fm.tv.normalised_income("95", "0.11").terminal_value
+    assert values[1] == fm.tv.normalised_income("95", "0.11", "enterprise").terminal_value
 
 
 def test_liquidation_accepts_label_pairs() -> None:

@@ -3,4 +3,4 @@ description: Damodaran table cell g 3%, ROC 12% restated as a Gordon flow, FCFF 
 source: "Damodaran, NYU Stern valuation lectures (undergraduate, spring 2020), session 11 slides, table 'The Big Assumption': terminal value for after-tax operating income of 100 in year n+1 and a cost of capital of 10%, rounded to units (pages.stern.nyu.edu/~adamodar/podcasts/valUGspr20/session11slides.pdf); cell growth 3.0%, return on capital 12% = 1,071. Re-derived: 75 / (0.10 - 0.03)"
 input: { rate: "0.10", growth: "0.03", next_flow: "75" }
 expect: { terminal_value: "1071" }
-tolerance: "0.5"
+tolerance: "0.5"  # the published table is rounded to units; exact values are pinned by the reference cases

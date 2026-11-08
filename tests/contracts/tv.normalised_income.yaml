@@ -5,14 +5,18 @@ method: tv.normalised_income
 extreme_inputs:
 - income: MAX
   capitalisation_rate: '0.0000000000000000000000000001'
+  basis: enterprise
 - income: MIN
   capitalisation_rate: MAX
+  basis: equity
   growth: MIN
   growth_cap: MIN
 conventions:
 - input:
     income: '120'
     capitalisation_rate: '0.08'
+    basis: equity
   expect:
   - 'no growth: R / i'
+  - 'basis: equity (declared)'
   - 'growth cap: none given'

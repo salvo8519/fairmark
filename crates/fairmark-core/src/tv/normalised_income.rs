@@ -6,7 +6,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    check_below_rate, check_growth, check_growth_cap, domain, GrowthCapCheck, NOT_DISCOUNTED,
+    check_below_rate, check_growth, check_growth_cap, domain, GrowthCapCheck, TerminalBasis,
+    NOT_DISCOUNTED,
 };
 use crate::error::Result;
 use crate::explain::Explain;
@@ -22,6 +23,9 @@ pub struct NormalisedIncomeInput {
     /// Capitalisation rate i, decimal fraction per period, greater than 0; must exceed
     /// `growth`.
     pub capitalisation_rate: Decimal,
+    /// `enterprise` (an operating income capitalised at a rate for all capital providers) or
+    /// `equity` (a net income capitalised at a cost of equity). Required, no default.
+    pub basis: TerminalBasis,
     /// Perpetual growth of the income, decimal fraction per period, greater than -1 and below
     /// the capitalisation rate. Default: none (R / i).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -41,6 +45,8 @@ pub struct NormalisedIncomeTerms {
     pub income: Decimal,
     /// Capitalisation rate i, decimal fraction per period.
     pub capitalisation_rate: Decimal,
+    /// `enterprise` or `equity`; must match the basis of the comparison.
+    pub basis: TerminalBasis,
     /// Perpetual growth, decimal fraction per period. Default: none (R / i).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub growth: Option<Decimal>,
@@ -51,6 +57,7 @@ impl NormalisedIncomeTerms {
         NormalisedIncomeInput {
             income: self.income,
             capitalisation_rate: self.capitalisation_rate,
+            basis: self.basis,
             growth: self.growth,
             growth_cap,
         }
@@ -62,6 +69,8 @@ impl NormalisedIncomeTerms {
 pub struct NormalisedIncomeOutput {
     /// Terminal value at N, not discounted, in currency units.
     pub terminal_value: Decimal,
+    /// `enterprise` or `equity`, as declared.
+    pub basis: TerminalBasis,
     /// Growth compared with the cap (0 when no growth is given); `null` when no cap is given.
     pub growth_cap: Option<GrowthCapCheck>,
 }
@@ -85,6 +94,15 @@ pub fn normalised_income(
     );
     ex.convention(NOT_DISCOUNTED);
     ex.convention(format!("capitalisation rate {i} per period (given)"));
+    ex.convention(match input.basis {
+        TerminalBasis::Enterprise => {
+            "basis: enterprise (declared): an operating income, the terminal value is an \
+            enterprise value"
+        }
+        TerminalBasis::Equity => {
+            "basis: equity (declared): a net income, the terminal value is an equity value"
+        }
+    });
     let tv = match input.growth {
         None => {
             ex.convention("no growth: R / i (default)");
@@ -105,6 +123,7 @@ pub fn normalised_income(
     Ok((
         NormalisedIncomeOutput {
             terminal_value: tv,
+            basis: input.basis,
             growth_cap: cap,
         },
         ex,
@@ -138,6 +157,7 @@ mod tests {
         NormalisedIncomeInput {
             income: d("120"),
             capitalisation_rate: d(i),
+            basis: TerminalBasis::Equity,
             growth: g.map(d),
             growth_cap: None,
         }

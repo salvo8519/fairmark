@@ -1,9 +1,30 @@
 {
+  "$defs": {
+    "TerminalBasis": {
+      "description": "Whether a terminal value is a value of the whole business or of its equity.",
+      "oneOf": [
+        {
+          "const": "enterprise",
+          "description": "Enterprise value: flows to all capital providers (FCFF), discounted at the WACC;\nmultiples EV/EBITDA, EV/EBIT, EV/Sales.",
+          "type": "string"
+        },
+        {
+          "const": "equity",
+          "description": "Equity value: flows to shareholders (FCFE, dividends), discounted at the cost of\nequity; multiple P/E.",
+          "type": "string"
+        }
+      ]
+    }
+  },
   "$id": "urn:fairmark:schema:tv.normalised_income:v1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Input of `tv.normalised_income`.",
   "properties": {
+    "basis": {
+      "$ref": "#/$defs/TerminalBasis",
+      "description": "`enterprise` (an operating income capitalised at a rate for all capital providers) or\n`equity` (a net income capitalised at a cost of equity). Required, no default."
+    },
     "capitalisation_rate": {
       "description": "Capitalisation rate i, decimal fraction per period, greater than 0; must exceed\n`growth`.",
       "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
@@ -41,7 +62,8 @@
   },
   "required": [
     "income",
-    "capitalisation_rate"
+    "capitalisation_rate",
+    "basis"
   ],
   "title": "NormalisedIncomeInput",
   "type": "object",

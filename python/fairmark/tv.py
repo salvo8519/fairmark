@@ -16,7 +16,7 @@ from typing import Any, Literal
 from ._core import Result, run
 
 Number = Decimal | int | str | float
-Metric = Literal["ebitda", "ebit", "revenue", "earnings"]
+Metric = Literal["ebitda", "ebit", "revenue", "earnings", "book_value"]
 Basis = Literal["enterprise", "equity"]
 
 
@@ -108,8 +108,9 @@ def exit_multiple(
     next_flow: Number | None = None,
     growth_cap: Number | None = None,
 ) -> Result:
-    """A multiple of a metric at N; ``earnings`` (P/E) is an equity value, the others
-    enterprise values. With ``rate`` and ``next_flow``, reports the implied growth.
+    """A multiple of a metric at N; ``earnings`` (P/E) and ``book_value`` (P/BV) give equity
+    values, the others enterprise values. With ``rate`` and ``next_flow``, reports the
+    implied growth.
 
     >>> exit_multiple(8, "ebitda", 125, rate="0.10", next_flow=60).implied_growth
     Decimal('0.04')
@@ -150,17 +151,21 @@ def limited_horizon(
 def normalised_income(
     income: Number,
     capitalisation_rate: Number,
+    basis: Basis,
     *,
     growth: Number | None = None,
     growth_cap: Number | None = None,
 ) -> Result:
     """A normalised income capitalised: R / i, or R / (i - g) with a growth.
 
-    >>> normalised_income(120, "0.08").terminal_value
+    ``basis`` is required: ``"enterprise"`` for an operating income, ``"equity"`` for a net
+    income.
+
+    >>> normalised_income(120, "0.08", "equity").terminal_value
     Decimal('1500')
     """
     payload = _put(
-        {"income": income, "capitalisation_rate": capitalisation_rate},
+        {"income": income, "capitalisation_rate": capitalisation_rate, "basis": basis},
         growth=growth,
         growth_cap=growth_cap,
     )

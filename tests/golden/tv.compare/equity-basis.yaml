@@ -1,0 +1,20 @@
+method: tv.compare
+description: Equity comparison at a cost of equity of 9%, Gordon on FCFE, P/BV, P/E and a normalised net income (R9, decisions of 2026-11-08)
+source: Independent 50-digit reference, scripts/reference_tv.py, each technique computed on its own; 70 / 0.07 = 1000, 1.4 x 750 = 1050, 12 x 50 = 600, 80 / 0.09
+input:
+  rate: "0.09"
+  basis: equity
+  techniques:
+    - tv.gordon: { growth: "0.02", next_flow: "70" }
+    - tv.exit_multiple: { multiple: "1.4", metric: book_value, metric_value: "750", next_flow: "63" }
+    - tv.exit_multiple: { multiple: "12", metric: earnings, metric_value: "50" }
+    - tv.normalised_income: { income: "80", capitalisation_rate: "0.09", basis: equity }
+expect:
+  basis: equity
+  /results/0/terminal_value: "1000"
+  /results/1/terminal_value: "1050"
+  /results/1/output/implied_growth: "0.03"
+  /results/2/terminal_value: "600"
+  /results/3/terminal_value: "888.88888888888888888888888889"
+  /results/3/output/basis: equity
+tolerance: "0.00000000000000000000000001"  # 1e-26: the only inexact value, 80 / 0.09 near 1e3, is exact to 28 significant digits

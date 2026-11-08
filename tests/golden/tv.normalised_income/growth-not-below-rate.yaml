@@ -1,5 +1,5 @@
 method: tv.normalised_income
 description: Growth equal to the capitalisation rate is refused (R10)
 source: SPEC-0006 R10
-input: { income: "120", capitalisation_rate: "0.05", growth: "0.05" }
+input: { income: "120", capitalisation_rate: "0.05", basis: equity, growth: "0.05" }
 expect_error: FM-E004

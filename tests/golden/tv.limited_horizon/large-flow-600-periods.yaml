@@ -5,4 +5,4 @@ input: { flow: "1000000000", rate: "0.10", periods: 600 }
 expect:
   terminal_value: "9999999999.9999999999999985398788"
   flows_value: "9999999999.9999999999999985398788"
-tolerance: "0.000000000000000001"  # 28 significant digits at 1e10
+tolerance: "0.000000000000000001"  # 1e-18: the engine keeps 28 significant digits, so a value near 1e10 is exact to 1e-18 (gap to the reference 1.2e-19)

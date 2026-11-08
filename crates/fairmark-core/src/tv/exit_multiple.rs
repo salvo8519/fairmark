@@ -11,7 +11,7 @@ use crate::method::Method;
 use crate::num::{div, mul, sub};
 
 /// The metric a multiple applies to. Enterprise multiples (EV/EBITDA, EV/EBIT, EV/Sales) give
-/// an enterprise value; P/E gives an equity value. The two are never mixed.
+/// an enterprise value; P/E and P/BV give an equity value. The two are never mixed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum MultipleMetric {
@@ -23,13 +23,16 @@ pub enum MultipleMetric {
     Revenue,
     /// Net earnings at N; multiple P/E, equity basis.
     Earnings,
+    /// Book value of equity at N; multiple P/BV (price to book value), equity basis
+    /// (SPEC-0006 decision of 2026-11-08).
+    BookValue,
 }
 
 impl MultipleMetric {
     pub fn basis(self) -> TerminalBasis {
         match self {
-            Self::Earnings => TerminalBasis::Equity,
-            _ => TerminalBasis::Enterprise,
+            Self::Earnings | Self::BookValue => TerminalBasis::Equity,
+            Self::Ebitda | Self::Ebit | Self::Revenue => TerminalBasis::Enterprise,
         }
     }
 
@@ -39,6 +42,7 @@ impl MultipleMetric {
             Self::Ebit => "ebit",
             Self::Revenue => "revenue",
             Self::Earnings => "earnings",
+            Self::BookValue => "book_value",
         }
     }
 
@@ -48,6 +52,7 @@ impl MultipleMetric {
             Self::Ebit => "EV/EBIT",
             Self::Revenue => "EV/Sales",
             Self::Earnings => "P/E",
+            Self::BookValue => "P/BV",
         }
     }
 }
@@ -58,7 +63,8 @@ impl MultipleMetric {
 pub struct ExitMultipleInput {
     /// The multiple, a pure number greater than 0 (for example 8 for 8 × EBITDA).
     pub multiple: Decimal,
-    /// `ebitda`, `ebit`, `revenue` (enterprise basis) or `earnings` (equity basis).
+    /// `ebitda`, `ebit`, `revenue` (enterprise basis), `earnings` or `book_value` (equity
+    /// basis).
     pub metric: MultipleMetric,
     /// The metric at the horizon N, in currency units, greater than 0.
     pub metric_value: Decimal,
@@ -84,8 +90,8 @@ pub struct ExitMultipleInput {
 pub struct ExitMultipleTerms {
     /// The multiple, greater than 0.
     pub multiple: Decimal,
-    /// `ebitda`, `ebit`, `revenue` (enterprise basis) or `earnings` (equity basis); must match
-    /// the basis of the comparison.
+    /// `ebitda`, `ebit`, `revenue` (enterprise basis), `earnings` or `book_value` (equity
+    /// basis); must match the basis of the comparison.
     pub metric: MultipleMetric,
     /// The metric at N, in currency units, greater than 0.
     pub metric_value: Decimal,
@@ -114,7 +120,7 @@ impl ExitMultipleTerms {
 pub struct ExitMultipleOutput {
     /// Terminal value at N, not discounted, in currency units.
     pub terminal_value: Decimal,
-    /// `enterprise` (EV/EBITDA, EV/EBIT, EV/Sales) or `equity` (P/E).
+    /// `enterprise` (EV/EBITDA, EV/EBIT, EV/Sales) or `equity` (P/E, P/BV).
     pub basis: TerminalBasis,
     /// Perpetual growth implied by the multiple, r − CF_{N+1} / TV_N, decimal fraction per
     /// period; `null` when `rate` and `next_flow` are not given.
@@ -230,8 +236,8 @@ impl Method for ExitMultiple {
     const TITLE: &'static str = "Terminal value, exit multiple";
     const DESCRIPTION: &'static str =
         "Terminal value at the horizon N as a multiple of EBITDA, EBIT, revenue (enterprise \
-        basis) or earnings (equity basis); with a rate and the next flow, reports the implied \
-        perpetual growth.";
+        basis), earnings or book value of equity (equity basis); with a rate and the next flow, \
+        reports the implied perpetual growth.";
     const VERSION: &'static str = "1";
     type Input = ExitMultipleInput;
     type Output = ExitMultipleOutput;
@@ -297,6 +303,7 @@ mod tests {
     #[test]
     fn basis_follows_the_metric() {
         assert_eq!(MultipleMetric::Earnings.basis(), TerminalBasis::Equity);
+        assert_eq!(MultipleMetric::BookValue.basis(), TerminalBasis::Equity);
         for m in [
             MultipleMetric::Ebitda,
             MultipleMetric::Ebit,

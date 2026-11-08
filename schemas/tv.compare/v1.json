@@ -6,7 +6,7 @@
       "properties": {
         "metric": {
           "$ref": "#/$defs/MultipleMetric",
-          "description": "`ebitda`, `ebit`, `revenue` (enterprise basis) or `earnings` (equity basis); must match\nthe basis of the comparison."
+          "description": "`ebitda`, `ebit`, `revenue` (enterprise basis), `earnings` or `book_value` (equity\nbasis); must match the basis of the comparison."
         },
         "metric_value": {
           "description": "The metric at N, in currency units, greater than 0.",
@@ -232,7 +232,7 @@
       "type": "object"
     },
     "MultipleMetric": {
-      "description": "The metric a multiple applies to. Enterprise multiples (EV/EBITDA, EV/EBIT, EV/Sales) give\nan enterprise value; P/E gives an equity value. The two are never mixed.",
+      "description": "The metric a multiple applies to. Enterprise multiples (EV/EBITDA, EV/EBIT, EV/Sales) give\nan enterprise value; P/E and P/BV give an equity value. The two are never mixed.",
       "oneOf": [
         {
           "const": "ebitda",
@@ -253,6 +253,11 @@
           "const": "earnings",
           "description": "Net earnings at N; multiple P/E, equity basis.",
           "type": "string"
+        },
+        {
+          "const": "book_value",
+          "description": "Book value of equity at N; multiple P/BV (price to book value), equity basis\n(SPEC-0006 decision of 2026-11-08).",
+          "type": "string"
         }
       ]
     },
@@ -260,6 +265,10 @@
       "additionalProperties": false,
       "description": "The terms of `tv.normalised_income` inside `tv.compare`: the growth cap is shared; the\ncapitalisation rate stays a term of the technique.",
       "properties": {
+        "basis": {
+          "$ref": "#/$defs/TerminalBasis",
+          "description": "`enterprise` or `equity`; must match the basis of the comparison."
+        },
         "capitalisation_rate": {
           "description": "Capitalisation rate i, decimal fraction per period.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
@@ -288,7 +297,8 @@
       },
       "required": [
         "income",
-        "capitalisation_rate"
+        "capitalisation_rate",
+        "basis"
       ],
       "type": "object"
     },
@@ -362,7 +372,7 @@
         },
         {
           "additionalProperties": false,
-          "description": "Normalised income with its own capitalisation rate.",
+          "description": "Normalised income with its own capitalisation rate and basis (checked).",
           "properties": {
             "tv.normalised_income": {
               "$ref": "#/$defs/NormalisedIncomeTerms"

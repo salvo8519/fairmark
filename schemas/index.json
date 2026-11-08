@@ -192,7 +192,7 @@
         "1": {
           "file": "tv.compare/v1.json",
           "introduced_in": "unreleased",
-          "sha256": "fe32cc1867e606331a1d4eececbb10e8de779713b76c522752a0cce3ca9c8c7e"
+          "sha256": "badec4b9c04b21e71bbe21e3549d2cff5bee6b759ba204ee72a3a48ea9e0dbdc"
         }
       }
     },
@@ -202,7 +202,7 @@
         "1": {
           "file": "tv.exit_multiple/v1.json",
           "introduced_in": "unreleased",
-          "sha256": "d111e5aca24fa5907cc5fdde65001cb0ce2f17124eeea5ecba77dbf95a5bd6cd"
+          "sha256": "e4f6aea3edc0a61954c0dfc6367c370a4d7b29dc660bf93c18dca2f09e4ddb30"
         }
       }
     },
@@ -252,7 +252,7 @@
         "1": {
           "file": "tv.normalised_income/v1.json",
           "introduced_in": "unreleased",
-          "sha256": "ea006652c495b2a55206a0b51e9a7f338d00133a41bc16ecfd0a5d6328aabb9c"
+          "sha256": "2da01c06674fad70b9c18a757b08da92d1070c61d7809b745d94200beb79200f"
         }
       }
     },

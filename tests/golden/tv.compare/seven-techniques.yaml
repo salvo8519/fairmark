@@ -11,7 +11,7 @@ input:
     - tv.h_model: { last_flow: "100", short_term_growth: "0.08", long_term_growth: "0.02", half_life: "2.5" }
     - tv.exit_multiple: { multiple: "7.5", metric: ebitda, metric_value: "180", next_flow: "95" }
     - tv.limited_horizon: { flow: "100", periods: 5, growth: "0.02", residual_value: "500" }
-    - tv.normalised_income: { income: "95", capitalisation_rate: "0.11", growth: "0.015" }
+    - tv.normalised_income: { income: "95", capitalisation_rate: "0.11", basis: enterprise, growth: "0.015" }
     - tv.liquidation:
         assets: [{ label: Land, value: "800" }, { label: Plant, value: "300" }, { label: Receivables, value: "200" }]
         # Enterprise basis: operating liabilities only, financial debt excluded.
