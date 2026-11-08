@@ -79,3 +79,31 @@ sector benchmarks; scoring models (for example Altman Z), possible later.
 - [x] ROE decomposition: both forms, as two outputs of the same method, so the analyst reads
       either without ambiguity: the leverage formula ROE = [ROI + (ROI − i) × D/E] × (1 − t)
       and the three-factor decomposition (margin × turnover × equity multiplier).
+
+## Decisions (maintainer, 2026-11-08)
+Recorded amendment, approved by the maintainer on 2026-11-08 on the open questions of
+`plan.md`. Covenants remain a separate method and a separate issue.
+
+- [x] Covenants (future `ratios.covenants`, not in this issue): the tested value comes from the
+      numerator and denominator defined by the loan agreement; a ratio that cannot be computed
+      is "not tested" with the reason, never a breach; the test date refers to the period ending
+      on that date.
+- [x] Leverage form of the ROE decomposition, a second output of `ratios.profitability`:
+      ROE = [ROI + (ROI − i) × D/E] × (1 − t). The basis of D is a required input choice,
+      `gross_financial_debt` or `net_financial_position`, with no default; i = financial
+      charges / D; t = effective tax rate = taxes / pre-tax income. Its inputs (financial
+      charges, taxes, pre-tax income, D on the chosen basis) form an optional block: without
+      them the leverage form is not defined, with the reason. All conventions are stated.
+- [x] ROA = operating income (EBIT) / total assets.
+- [x] ROS = EBIT / revenue (confirmed).
+- [x] Structure margins and fixed-asset coverage: primary and secondary, both (confirmed).
+- [x] Average balances apply to every balance-sheet amount, numerator included (confirmed).
+- [x] Not meaningful (value null with the reason): NFP / EBITDA when EBITDA ≤ 0; an interest
+      cover when its numerator (EBITDA or EBIT) ≤ 0 or interest ≤ 0; ROI when invested capital
+      ≤ 0; DSCR when debt service ≤ 0; LLCR when debt outstanding ≤ 0. Golden cases for each.
+- [x] `debt_schedule` is optional in `ratios.debt_service`: without it DSCR and LLCR are not
+      defined ("no debt schedule given") and the other ratios are computed.
+- [x] LLCR: an optional `reserve_balance` (debt service reserve account) is added to the
+      numerator, undiscounted at the valuation date: LLCR = (PV of CFADS + reserve balance) /
+      debt outstanding. The discount rate is the cost of debt per period chosen by the analyst.
+- [x] Golden tolerance: 1e-20 for every `ratios.*` golden case.

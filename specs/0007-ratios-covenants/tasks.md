@@ -36,7 +36,12 @@ parallel; tick a task only when `just check` passes.
 - [ ] T20 `numerical-auditor` review, `code-reviewer` review, AC ticked in spec.md by the
   maintainer
 
-## Not started: open questions in `plan.md`
-- [ ] T21 `ratios.covenants` [R5; AC5] (open question 1)
-- [ ] T22 ROE decomposition, leverage form (open question 2)
-- [ ] T23 ROA (open question 3)
+## Maintainer decisions of 2026-11-08 (spec.md)
+- [x] T21 Leverage form of the ROE decomposition, optional `leverage` block, `debt` in the
+  balance sheets [decision 2]
+- [x] T22 ROA = EBIT / total assets [decision 3]
+- [x] T23 Not-meaningful rules with a golden case each [decision 7]
+- [x] T24 Optional `debt_schedule`; `reserve_balance` in the LLCR [decisions 8, 9]
+- [x] T25 Golden tolerance 1e-20 for every `ratios.*` case [decision 10]
+- [x] T26 Reference script, docs (English and Italian), glossary, release note, schemas v1
+- [ ] T27 `ratios.covenants` [R5; AC5]: separate method and issue (decision 1)

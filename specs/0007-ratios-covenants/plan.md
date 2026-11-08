@@ -1,8 +1,8 @@
 # SPEC-0007 — Plan
 
 Status: active (SPEC-0007 approved on 2026-11-07); changes to the spec are reflected here first.
-Issue: #114. This plan covers the parts of the spec whose definitions are unambiguous; the parts
-that need a maintainer decision are listed under "Open questions" and are not implemented.
+Issue: #114. The open questions of the first draft were decided by the maintainer on
+2026-11-08 (see "Open questions, resolved"); covenants are a separate method and issue.
 
 ## Design
 
@@ -78,10 +78,12 @@ type's 28 significant digits.
 | Group | Output | Definition |
 | --- | --- | --- |
 | profitability | `roe` | net income / equity; not defined when equity is zero or negative (R3) |
-| profitability | `roi` | EBIT / operating return base (invested capital or total assets) |
+| profitability | `roi` | EBIT / operating return base (invested capital or total assets); not defined when invested capital ≤ 0 |
+| profitability | `roa` | EBIT / total assets |
 | profitability | `ros` | EBIT / revenue |
 | profitability | `ebitda_margin`, `ebit_margin` | EBITDA / revenue, EBIT / revenue |
 | profitability | `capital_turnover` | revenue / operating return base, so that ROI = ROS × capital turnover |
+| profitability | `roe_leverage` | [ROI + (ROI − i) × D/E] × (1 − t), i = financial charges / D, t = taxes / pre-tax income; optional `leverage` block |
 | profitability | `roe_three_factor` | net margin (net income / revenue) × asset turnover (revenue / total assets) × equity multiplier (total assets / equity) |
 | capital structure | `debt_to_equity` | gross debt / equity (gross debt from the NFP composition); not defined when equity is not positive |
 | capital structure | `nfp_to_equity` | NFP / equity; not defined when equity is not positive |
@@ -95,10 +97,10 @@ type's 28 significant digits.
 | working capital | `days_inventory_outstanding` | inventories / cost of sales × days |
 | working capital | `days_payable_outstanding` | trade payables / purchases × days |
 | working capital | `cash_conversion_cycle` | DSO + DIO − DPO; not defined when one of them is not |
-| debt service | `interest_cover_ebit`, `interest_cover_ebitda` | EBIT / interest, EBITDA / interest |
-| debt service | `nfp_to_ebitda` | NFP / EBITDA |
-| debt service | `dscr` | CFADS_t / debt service_t, one value per period (R4) |
-| debt service | `llcr` | Σ CFADS_t / (1 + r)^t over the schedule / debt outstanding (R4) |
+| debt service | `interest_cover_ebit`, `interest_cover_ebitda` | EBIT / interest, EBITDA / interest; not defined when interest or the numerator ≤ 0 |
+| debt service | `nfp_to_ebitda` | NFP / EBITDA; not defined when EBITDA ≤ 0 |
+| debt service | `dscr` | CFADS_t / debt service_t, one value per period (R4); not defined when debt service ≤ 0; empty without a schedule |
+| debt service | `llcr` | (Σ CFADS_t / (1 + r)^t + reserve balance) / debt outstanding (R4); not defined when debt outstanding ≤ 0 or without a schedule |
 
 The working capital denominators follow the CFA Institute curriculum (receivables turnover on
 revenue, inventory turnover on cost of sales, payables turnover on purchases), which is also
@@ -135,40 +137,35 @@ decomposition is the DuPont form of the same curriculum.
 - **Stable error codes.** No new code is needed, which also avoids a collision with SPEC-0006
   work in progress.
 
-## Open questions (not implemented until the maintainer decides)
-1. **`ratios.covenants` (R5, AC5).** Where the tested value comes from: (a) the covenant names a
-   ratio of a group and carries that group's inputs at the test date, and the engine computes
-   it; (b) the covenant carries its own numerator and denominator as defined in the loan
-   agreement ("each covenant states its own definition"); (c) the value is given and the
-   method only tests it. Also: whether a not-defined ratio is a breach, untested or an error,
-   and which DSCR (which period) a test date refers to.
-2. **ROE decomposition, leverage form.** ROE = [ROI + (ROI − i) × D/E] × (1 − t) needs: D as
-   gross debt or NFP (the identity holds with invested capital = equity + NFP); i as interest /
-   D on closing or average D; t as taxes / pre-tax income or a statutory rate; and how the
-   non-operating effect is reported (the residual between the formula and the actual ROE,
-   additive or as a ratio). Inputs for taxes and pre-tax income are not in R1.
-3. **ROA.** Net income / total assets (international usage) or operating income / total
-   assets (common Italian usage). The second coincides with ROI on a total-assets base.
-4. **ROS.** Implemented as EBIT / revenue, equal to the EBIT margin, so that ROI = ROS ×
-   capital turnover. Confirm, or name a different numerator (for example operating income from
-   core operations) as an additional input.
-5. **Fixed-asset coverage.** The spec names one ratio; both the primary (equity / fixed
-   assets) and the secondary ((equity + non-current liabilities) / fixed assets) quotients are
-   returned. Confirm both, or name one.
-6. **Balance convention scope.** Confirm that `average` applies to every balance-sheet amount
-   (numerator and denominator), including stock-to-stock ratios of capital structure and
-   liquidity.
-7. **Not-meaningful cases beyond negative equity.** Whether negative EBITDA (NFP / EBITDA),
-   negative interest (interest cover), negative invested capital (ROI) or negative revenue make
-   a ratio not defined. Version 1 reports not defined only for zero denominators and for ratios
-   over equity when equity is zero or negative.
-8. **Debt schedule optional.** `debt_schedule` is required in `ratios.debt_service`; a company
-   without a project-style loan schedule cannot get interest cover and NFP / EBITDA alone.
-   Should the schedule become optional, with DSCR and LLCR reported as not defined without it?
-9. **Golden tolerance.** Ratio golden cases use an absolute tolerance of 0.000000001; confirm,
-   or set a relative tolerance for large multiples and day counts.
-10. **Negative EBITDA, interest or debt service.** Whether NFP / EBITDA with negative EBITDA,
-    interest cover with negative interest, or a DSCR with negative debt service should be not
-    meaningful rather than computed (extends question 7).
-11. **LLCR reserve account.** Whether the LLCR numerator should add a debt service reserve
-    account (DSRA) balance given as an input, as many loan agreements define it.
+## Open questions, resolved (maintainer, 2026-11-08)
+All questions below were decided on 2026-11-08; the decisions are recorded in `spec.md`
+("Decisions (maintainer, 2026-11-08)") and implemented in version 1, before the first merge.
+
+1. **`ratios.covenants` (R5, AC5).** Resolved, not in this issue: a separate method and issue.
+   The tested value comes from the numerator and denominator defined by the loan agreement; a
+   ratio that cannot be computed is "not tested" with the reason, never a breach; the test date
+   refers to the period ending on that date.
+2. **ROE decomposition, leverage form.** Resolved and implemented as `roe_leverage`:
+   `leverage.debt_basis` is required (`gross_financial_debt` or `net_financial_position`, no
+   default); i = financial charges / D; t = taxes / pre-tax income. D is the `debt` field of
+   the balance sheets, so the balance convention applies to it like every other balance;
+   financial charges, taxes and pre-tax income are in the optional `leverage` block. Without
+   the block the form is not defined ("leverage inputs not given"). No residual is reported:
+   the form is shown next to ROE, and the page explains that they coincide when invested
+   capital equals equity + D.
+3. **ROA.** Resolved: EBIT / total assets, implemented as `roa`.
+4. **ROS.** Confirmed: EBIT / revenue.
+5. **Fixed-asset coverage.** Confirmed: primary and secondary, both.
+6. **Balance convention scope.** Confirmed: every balance-sheet amount, numerator included.
+7. **Not-meaningful cases.** Resolved: NFP / EBITDA when EBITDA ≤ 0; an interest cover when
+   interest or its numerator (EBIT or EBITDA) ≤ 0; ROI when invested capital ≤ 0 (invested
+   capital base); DSCR when debt service ≤ 0; LLCR when debt outstanding ≤ 0. Implemented in
+   the `Ratio` trait as a positive-denominator and a positive-numerator rule, with a golden case
+   for each. Negative revenue stays computed (not in the decision).
+8. **Debt schedule optional.** Resolved: `debt_schedule` is optional; without it `dscr` is an
+   empty list, `pv_cfads` is null and `llcr` is not defined ("no debt schedule given").
+9. **Golden tolerance.** Resolved: 1e-20 for every `ratios.*` golden case.
+10. **Negative EBITDA, interest or debt service.** Resolved with question 7.
+11. **LLCR reserve account.** Resolved: optional `debt_schedule.reserve_balance`, added
+    undiscounted at the valuation date to the LLCR numerator; the discount rate is documented as
+    the cost of debt per period chosen by the analyst.
