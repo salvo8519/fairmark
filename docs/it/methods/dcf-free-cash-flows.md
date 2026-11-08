@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-free-cash-flows.md
-source_hash: 32a13de3122b
+source_hash: cb626310f4eb
 ---
 # Costruzione dei flussi di cassa disponibili (`dcf.free_cash_flows`)
 
@@ -23,8 +23,11 @@ FCFF_t = EBIT_t - T_t + DA_t - CAPEX_t - \Delta NWC_t + \sum_k ADJ_{k,t}
 $$
 
 $$
-FCFE_t = FCFF_t - (INT_t - S_t) + NB_t, \qquad S_t = \tau \times INT_t
+FCFE_t = FCFF_t - (INT_t - S_t) + NB_t, \qquad S_t = \tau \times D_t
 $$
+
+con gli oneri finanziari deducibili $D_t = INT_t$ con `credit` e nella forma a importi, e
+$D_t = \min\big(INT_t, \max(EBIT_t, 0)\big)$ con `zero` (si veda più avanti).
 
 Le imposte sull'EBIT $T_t$ si forniscono in una sola di due forme:
 

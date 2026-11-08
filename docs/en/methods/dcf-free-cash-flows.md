@@ -18,8 +18,11 @@ FCFF_t = EBIT_t - T_t + DA_t - CAPEX_t - \Delta NWC_t + \sum_k ADJ_{k,t}
 $$
 
 $$
-FCFE_t = FCFF_t - (INT_t - S_t) + NB_t, \qquad S_t = \tau \times INT_t
+FCFE_t = FCFF_t - (INT_t - S_t) + NB_t, \qquad S_t = \tau \times D_t
 $$
+
+with the deductible interest $D_t = INT_t$ under `credit` and in the amounts form, and
+$D_t = \min\big(INT_t, \max(EBIT_t, 0)\big)$ under `zero` (see below).
 
 The taxes on EBIT $T_t$ are given in exactly one of two forms:
 

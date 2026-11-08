@@ -143,6 +143,8 @@ pub struct FreeCashFlowPeriod {
     pub interest_expense: Option<Decimal>,
     /// Rate t of the interest tax shield applied in this period: 0 where the `zero` treatment
     /// of a negative EBIT applies (SPEC-0001 amendment 14); `null` without financing lines.
+    /// The shield applied is `interest_tax_shield`: under `zero` it can be below
+    /// t × interest expense, when EBIT is below the interest (SPEC-0001 Decision 22).
     pub interest_tax_rate: Option<Decimal>,
     /// Interest tax shield of the period: t × interest expense; under the `zero` treatment
     /// t × min(interest expense, max(EBIT, 0)), the deduction limited to the taxable income

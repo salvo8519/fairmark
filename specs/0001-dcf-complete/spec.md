@@ -300,7 +300,7 @@ nominal before taxes; a leading exit multiple.
   EBIT (1 − tax rate) of 1,138 and recording in the golden file that 1,753 × 0.65 = 1,139.45
   differs from the printed 1,138 (Decision 12).
 - **AC2** (R3) — Property: with zero interest and zero net borrowing, FCFE equals FCFF.
-- **AC3** (R4, R5) — Negative EBIT under each treatment matches the reference; each negative
+- **AC3** (R3, R4, R5) — Negative EBIT under each treatment matches the reference; each negative
   D&A, capex or interest returns `FM-E001` with the field and the period in the message.
   Under both treatments, golden cases with EBIT negative, EBIT positive below the interest,
   EBIT above the interest and interest zero match the reference, and every FCFE equals the
@@ -347,11 +347,12 @@ nominal before taxes; a leading exit multiple.
   `value_of_operations`).
 
 ## Interfaces (Revised 2026-11-08)
-- Method ids (Decision 1): `dcf.fcff` version 3 (enterprise basis, breaking
-  input change), `dcf.fcfe` version 1 (equity basis, new), `dcf.free_cash_flows` version 1
-  (build-up, new; version 2 since Decision 22, a numerical change of the `zero` treatment). The ids `dcf.value`, `dcf.gordon`, `dcf.terminal_value` and
-  `dcf.sensitivity` of the previous draft are withdrawn: they duplicate `dcf.fcff` / `dcf.fcfe`,
-  `tv.gordon`, `tv.*` and `analysis.sensitivity`.
+- Method ids (Decision 1): `dcf.fcff` version 3 (enterprise basis, breaking input change),
+  `dcf.fcfe` version 1 (equity basis, new), `dcf.free_cash_flows` version 1 (build-up, new;
+  version 2 since Decision 22, a numerical change of the `zero` treatment). The ids
+  `dcf.value`, `dcf.gordon`, `dcf.terminal_value` and `dcf.sensitivity` of the previous draft
+  are withdrawn: they duplicate `dcf.fcff` / `dcf.fcfe`, `tv.gordon`, `tv.*` and
+  `analysis.sensitivity`.
 - Input schema changes: `dcf.fcff` version 3 is **breaking** (`timing` becomes required;
   `net_debt` becomes the net financial position structure; `non_operating_assets` becomes a
   list of labelled amounts; new required stages, terms and terminal technique). Output change:
