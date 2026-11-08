@@ -57,8 +57,11 @@ Choices that follow from the spec text and the maintainer decisions:
   list and the conventions table) is not implemented: its basis is not settled by the
   decision (open question 1).
 - **Limited horizon (R5, decision 1).** Constant (or optionally growing) flow for n explicit
-  periods at the end of each period N + 1 ... N + n, residual value at N + n; the value at N is
-  `tvm::annuity` (ordinary) plus the residual value × (1 + r)^−n. The declining flow and the
+  periods (1 to 10,000, one error code for the whole range, a range in the schema) at the end
+  of each period N + 1 ... N + n, residual value at N + n; the value at N is the flow times the
+  annuity factor `tvm::annuity_factor` (extracted from `tvm::annuity`, whose outputs stay
+  byte-identical) plus the residual value × (1 + r)^−n. No value at N + n is computed; a power
+  ((1 + g)/(1 + r))^n below the decimal precision is taken as 0 with an explain step. The declining flow and the
   goodwill decay are later options (decision 1), not implemented.
 - **Tax on gains (R7).** Read literally as a given amount, like the liquidation costs.
   Computing it from a tax rate and tax bases is open question 2.
@@ -72,10 +75,10 @@ Choices that follow from the spec text and the maintainer decisions:
 | Condition | Code |
 | --- | --- |
 | g ≥ r (Gordon, value driver, H-model on g_l), g ≥ i (normalised income) | `FM-E004` (existing) |
-| RONIC ≤ 0; multiple ≤ 0; metric ≤ 0; n < 1; H < 0; a negative asset value, liability, cost or tax on gains | `FM-E018` (new) |
+| RONIC ≤ 0; multiple ≤ 0; metric ≤ 0; n outside 1 to 10,000; H < 0; a negative asset value, liability, cost or tax on gains | `FM-E018` (new) |
 | Exit multiple of one basis inside a comparison declared on the other | `FM-E019` (new) |
 | Missing or conflicting flow fields, a growth of −100% or lower (as in `tvm.perpetuity`), empty label, empty technique list | `FM-E001` (existing) |
-| The rate of the limited horizon at or below −100% | `FM-E003` (existing, from `tvm.annuity`) |
+| The rate of the limited horizon at or below −100% | `FM-E003` (existing, from the shared annuity factor) |
 
 A multiple or metric of zero is refused with the negative ones: it gives a terminal value of
 zero, which is not a valuation, and makes the implied growth undefined.
@@ -104,7 +107,7 @@ documented in the schema (`growth`, `residual_value`, `growth_cap`, `rate`, `nex
 | Golden `tv.gordon/damodaran-fcff-from-roc-table.yaml` | Same table, the g = 3%, ROC = 12% cell restated as a Gordon flow FCFF = 100 × (1 − 0.03 / 0.12) = 75 | AC1 |
 | Golden cases of every method, exact | `scripts/reference_tv.py` (Python `decimal`, 50 digits, local context), written from the spec formulas | R1 to R7, R9 |
 | Golden error cases | spec R10 | AC6 |
-| Rust unit tests in each module | constructed grids | AC2 (RONIC = r, several g), AC3 (g_s = g_l equals Gordon), AC4 (implied growth fed to Gordon), AC5 (the longest horizon within the decimal range is within 1e-20 of the perpetuity; see open question 6) |
+| Rust unit tests in each module | constructed grids | AC2 (RONIC = r, several g), AC3 (g_s = g_l equals Gordon), AC4 (implied growth fed to Gordon), AC5 (n = 10,000 equals the perpetuity) |
 | Contract cases `tests/contracts/tv.*.yaml` | constructed | extreme inputs never panic; conventions reported |
 | `python/tests/test_reference_tv.py` | reference script against the engine on small grids | independence of the golden values |
 
@@ -136,8 +139,3 @@ documented in the schema (`growth`, `residual_value`, `growth_cap`, `rate`, `nex
    basis and chooses the liabilities accordingly (financial debt included for equity).
 5. AC1 for `tv.gordon` and `tv.value_driver` uses one published table; a second published
    stable-growth example with more digits would strengthen it.
-6. `tv.limited_horizon` reuses `tvm.annuity` (R5), which also computes the future value at
-   N + n; for long horizons that value leaves the decimal range and the method returns
-   `FM-E008` (with a flow of 100 at 10%, beyond about 620 periods). AC5 is therefore shown at
-   600 periods, within 2e-22 of the perpetuity. Should `tvm` expose the annuity factor without
-   the future value, so that the finite horizon accepts any n up to 10,000?

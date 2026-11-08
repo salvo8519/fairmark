@@ -1,0 +1,5 @@
+method: tv.limited_horizon
+description: More than 10000 periods is refused with the same code as zero periods (R10)
+source: SPEC-0006 R10; range 1 to 10000 of the input schema
+input: { flow: "100", rate: "0.08", periods: 10001 }
+expect_error: FM-E018

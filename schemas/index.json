@@ -192,7 +192,7 @@
         "1": {
           "file": "tv.compare/v1.json",
           "introduced_in": "unreleased",
-          "sha256": "f85a46d570463c3635e48ce0c09de9909bd3732716c0b05bd5e01087d3a09be3"
+          "sha256": "ba6ab4bdd4e5ecada215953cec4d61e695852edeaad0f3c4f336ce7bd81b571b"
         }
       }
     },
@@ -232,7 +232,7 @@
         "1": {
           "file": "tv.limited_horizon/v1.json",
           "introduced_in": "unreleased",
-          "sha256": "c44ed3621819daaca673088f7cc26d448837bb6a17018412e6efd1172803d92f"
+          "sha256": "aef1079641300a077852330709bc760e4db59fe4f7d22759768303a8612ed416"
         }
       }
     },

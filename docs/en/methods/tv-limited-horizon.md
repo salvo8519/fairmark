@@ -4,8 +4,9 @@ Returns the terminal value at the horizon N of a flow that lasts a given number 
 periods, followed by a residual value at N + n. Italian practice uses this form when the
 competitive advantage, a concession or a licence has a limited life: instead of a perpetuity,
 the flow is valued for n explicit periods. The flow is constant, or grows at a given rate; the
-residual value is zero unless given. The value of the n flows is computed by
-[`tvm.annuity`](tvm-annuity.md).
+residual value is zero unless given. The value of the n flows is the flow times the annuity
+factor of [`tvm.annuity`](tvm-annuity.md); only the factor is reused, so no value at N + n is
+computed.
 
 ## Formula
 
@@ -35,9 +36,9 @@ g = fm.tv.limited_horizon(100, "0.10", 5, growth="0.02", residual_value=500)
 assert round(g.residual_value_discounted, 10) == Decimal("310.4606615296")
 print(g.conventions[3])  # residual value at N + 5: 500 (given)
 
-# A long horizon is within 2e-22 of the perpetuity 100 / 0.10
-long = fm.tv.limited_horizon(100, "0.10", 600)
-assert abs(long.terminal_value - 1000) < Decimal("1e-21")
+# The longest horizon, 10,000 periods, equals the perpetuity 100 / 0.10
+long = fm.tv.limited_horizon(100, "0.10", 10000)
+assert long.terminal_value == Decimal("1000")
 ```
 
 ## Inputs
@@ -75,17 +76,20 @@ assert abs(long.terminal_value - 1000) < Decimal("1e-21")
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | `periods` is above 10,000, the growth is −100% or lower, or a field is missing or unknown |
+| `FM-E001` | The growth is −100% or lower, or a field is missing or unknown |
 | `FM-E003` | The rate is −100% or lower |
-| `FM-E018` | `periods` is 0 |
-| `FM-E008` | Arithmetic overflow, including long horizons where $(1 + r)^n$ times the value of the flows exceeds the decimal range (about $7.9 \times 10^{28}$): `tvm.annuity`, which the method reuses, also computes the value at N + n |
+| `FM-E018` | `periods` is outside 1 to 10,000 (the same code for both ends of the range) |
+| `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 
 ## Accuracy
 
-The value of the flows inherits the accuracy of [`tvm.annuity`](tvm-annuity.md); the residual
-value uses one integer power. Measured against a term-by-term sum at 50 digits, the golden
-cases agree to $10^{-22}$. With a flow of 100 and a rate of 10%, the longest horizon within the
-decimal range is about 620 periods, where the value is within $10^{-21}$ of the perpetuity.
+The value of the flows uses the annuity factor of [`tvm.annuity`](tvm-annuity.md) times the
+flow; the residual value uses one discount factor. Measured against a term-by-term sum at 50
+digits, the golden cases agree to $10^{-22}$, including a flow of $10^9$ over 600 periods. Every
+n from 1 to 10,000 is accepted: no value at N + n is computed, so long horizons stay within the
+decimal range. When $((1 + g)/(1 + r))^n$ falls below the decimal precision (about
+$10^{-28}$), it is taken as 0, its limit, and an explain step says so; the value is then the
+perpetuity to within that precision.
 
 ## Verified against
 

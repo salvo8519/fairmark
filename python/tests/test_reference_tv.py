@@ -69,10 +69,7 @@ def test_limited_horizon_matches_the_term_by_term_sum(rate: str, periods: int) -
 
 @pytest.mark.parametrize("rate", RATES)
 def test_ac5_long_horizon_converges_to_the_perpetuity(rate: str) -> None:
-    # The longest horizon with (1 + r)^n below e^57 (about 6e24): tvm.annuity, reused,
-    # also computes the future value at N + n, which must stay within the decimal range.
-    periods = int(D(57) / (1 + D(rate)).ln())
-    finite = fm.tv.limited_horizon("100", rate, periods).terminal_value
+    finite = fm.tv.limited_horizon("100", rate, 10000).terminal_value
     perpetual = fm.tv.normalised_income("100", rate).terminal_value
     assert abs(finite - perpetual) <= TOL
 

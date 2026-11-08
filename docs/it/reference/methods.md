@@ -282,7 +282,7 @@ Terminal value at the horizon N as a multiple of EBITDA, EBIT, revenue (enterpri
 
 **Terminal value, finite horizon** · versione del metodo 1 · tool `fairmark_tv_limited_horizon`
 
-Terminal value at the horizon N of a flow lasting n more periods, constant or growing, plus a residual value at N + n (Italian practice); reuses tvm.annuity.
+Terminal value at the horizon N of a flow lasting n more periods, constant or growing, plus a residual value at N + n (Italian practice); reuses the annuity factor of tvm.annuity.
 
 | Input | Tipo | Obbligatorio | Default | Descrizione |
 | --- | --- | --- | --- | --- |

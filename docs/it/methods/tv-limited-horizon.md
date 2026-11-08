@@ -1,6 +1,6 @@
 ---
 source: methods/tv-limited-horizon.md
-source_hash: f5edcdfe0928
+source_hash: df8bdfe8dc31
 ---
 # Valore terminale con orizzonte finito (`tv.limited_horizon`)
 
@@ -9,7 +9,9 @@ ulteriori periodi, seguito da un valore residuo in N + n. La prassi italiana usa
 quando il vantaggio competitivo, una concessione o una licenza hanno una durata limitata: al
 posto di una rendita perpetua, il flusso è valutato per n periodi espliciti. Il flusso è
 costante, oppure cresce a un tasso dato; il valore residuo è zero se non fornito. Il valore
-degli n flussi è calcolato da [`tvm.annuity`](tvm-annuity.md).
+degli n flussi è il flusso moltiplicato per il fattore di rendita di
+[`tvm.annuity`](tvm-annuity.md); si riutilizza solo il fattore, quindi non si calcola alcun
+valore in N + n.
 
 ## Formula
 
@@ -39,9 +41,9 @@ g = fm.tv.limited_horizon(100, "0.10", 5, growth="0.02", residual_value=500)
 assert round(g.residual_value_discounted, 10) == Decimal("310.4606615296")
 print(g.conventions[3])  # residual value at N + 5: 500 (given)
 
-# Un orizzonte lungo è entro 2e-22 dalla rendita perpetua 100 / 0,10
-long = fm.tv.limited_horizon(100, "0.10", 600)
-assert abs(long.terminal_value - 1000) < Decimal("1e-21")
+# L'orizzonte più lungo, 10.000 periodi, coincide con la rendita perpetua 100 / 0,10
+long = fm.tv.limited_horizon(100, "0.10", 10000)
+assert long.terminal_value == Decimal("1000")
 ```
 
 ## Input
@@ -79,18 +81,21 @@ assert abs(long.terminal_value - 1000) < Decimal("1e-21")
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | `periods` è superiore a 10.000, la crescita è pari o inferiore a −100%, oppure un campo manca o è sconosciuto |
+| `FM-E001` | La crescita è pari o inferiore a −100%, oppure un campo manca o è sconosciuto |
 | `FM-E003` | Il tasso è pari o inferiore a −100% |
-| `FM-E018` | `periods` è 0 |
-| `FM-E008` | Overflow aritmetico, anche per orizzonti lunghi in cui $(1 + r)^n$ per il valore dei flussi supera l'intervallo del tipo decimale (circa $7{,}9 \times 10^{28}$): `tvm.annuity`, riutilizzato dal metodo, calcola anche il valore in N + n |
+| `FM-E018` | `periods` è fuori dall'intervallo da 1 a 10.000 (lo stesso codice per entrambi gli estremi) |
+| `FM-E008` | Overflow aritmetico (input molto lontani da un intervallo realistico) |
 
 ## Precisione
 
-Il valore dei flussi eredita la precisione di [`tvm.annuity`](tvm-annuity.md); il valore
-residuo usa una potenza intera. Rispetto a una somma termine per termine a 50 cifre, i casi di
-riferimento coincidono a $10^{-22}$. Con un flusso di 100 e un tasso del 10%, l'orizzonte più
-lungo entro l'intervallo del tipo decimale è di circa 620 periodi, dove il valore dista meno di
-$10^{-21}$ dalla rendita perpetua.
+Il valore dei flussi usa il fattore di rendita di [`tvm.annuity`](tvm-annuity.md) moltiplicato
+per il flusso; il valore residuo usa un fattore di sconto. Rispetto a una somma termine per
+termine a 50 cifre, i casi di riferimento coincidono a $10^{-22}$, compreso un flusso di $10^9$
+su 600 periodi. È accettato ogni n da 1 a 10.000: non si calcola alcun valore in N + n, quindi
+gli orizzonti lunghi restano entro l'intervallo del tipo decimale. Quando
+$((1 + g)/(1 + r))^n$ scende sotto la precisione del tipo decimale (circa $10^{-28}$), è
+considerato pari a 0, il suo limite, e un passaggio di explain lo dichiara; il valore coincide
+allora con la rendita perpetua entro quella precisione.
 
 ## Verificato con
 
