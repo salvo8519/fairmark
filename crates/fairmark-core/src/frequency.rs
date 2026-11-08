@@ -14,6 +14,25 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{FairmarkError, Result};
 
+/// Largest number of periods of a schedule, a series or an annuity (bounds every loop over
+/// periods). Defined here, with the frequencies, so that the time model does not depend on a
+/// method theme.
+pub const MAX_PERIODS: u32 = 10_000;
+
+/// `FM-E001` at `pointer` unless `1 ≤ n ≤ MAX_PERIODS`; `purpose` completes the fix ("give the
+/// number of {purpose}").
+pub(crate) fn check_number_of_periods(n: u32, pointer: &str, purpose: &str) -> Result<()> {
+    if n == 0 || n > MAX_PERIODS {
+        return Err(FairmarkError::InvalidInputAt {
+            pointer: pointer.to_owned(),
+            detail: format!(
+                "must be between 1 and {MAX_PERIODS} (got {n}); give the number of {purpose}"
+            ),
+        });
+    }
+    Ok(())
+}
+
 /// A named frequency: periods a year and months per period.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -273,6 +292,24 @@ mod tests {
             PeriodLength::Months(1).describe(),
             "period length: 1 month per period, given as `period_months` 1, 12 periods a year"
         );
+    }
+
+    #[test]
+    fn number_of_periods_is_checked_with_its_pointer() {
+        assert_eq!(check_number_of_periods(1, "/n", "x"), Ok(()));
+        assert_eq!(check_number_of_periods(MAX_PERIODS, "/n", "x"), Ok(()));
+        for n in [0, MAX_PERIODS + 1] {
+            let e = check_number_of_periods(n, "/a/number_of_periods", "periods to project")
+                .unwrap_err();
+            assert_eq!(e.code(), "FM-E001");
+            assert_eq!(
+                e.to_string(),
+                format!(
+                    "invalid input at `/a/number_of_periods`: must be between 1 and 10000 (got \
+                     {n}); give the number of periods to project"
+                )
+            );
+        }
     }
 
     #[test]

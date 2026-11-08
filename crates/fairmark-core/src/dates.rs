@@ -17,10 +17,9 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
-use crate::frequency::{self, Frequency, PeriodLength};
+use crate::frequency::{self, check_number_of_periods, Frequency, PeriodLength};
 use crate::method::Method;
 use crate::num;
-use crate::tvm::MAX_PERIODS;
 
 /// First and last supported years.
 pub const MIN_YEAR: i32 = 1900;
@@ -484,15 +483,11 @@ pub(crate) fn build_schedule(input: &ScheduleInput, prefix: &str) -> Result<Buil
     let length = frequency::period_length(input.frequency, input.period_months, prefix, true)?
         .ok_or(FairmarkError::Internal("required period length missing"))?;
     let n = input.number_of_periods;
-    if n == 0 || n > MAX_PERIODS {
-        return Err(FairmarkError::InvalidInputAt {
-            pointer: format!("{prefix}/number_of_periods"),
-            detail: format!(
-                "must be between 1 and {MAX_PERIODS} (got {n}); give the number of periods of the \
-                 schedule"
-            ),
-        });
-    }
+    check_number_of_periods(
+        n,
+        &format!("{prefix}/number_of_periods"),
+        "periods of the schedule",
+    )?;
     let start = input.start_date;
     let month_end_start = is_month_end(start);
     let p = i64::from(length.months());

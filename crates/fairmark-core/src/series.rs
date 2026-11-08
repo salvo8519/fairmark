@@ -12,11 +12,11 @@ use serde::{Deserialize, Serialize};
 use crate::dates::{self, BuiltSchedule, Date, ScheduleInput};
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
-use crate::frequency::{self, Frequency, PeriodLength};
+use crate::frequency::{self, check_number_of_periods, Frequency, PeriodLength};
 use crate::method::Method;
 use crate::num;
 use crate::rates::{self, Compounding};
-use crate::tvm::{DatedCashFlow, MAX_PERIODS};
+use crate::tvm::DatedCashFlow;
 
 // ---------------------------------------------------------------- input
 
@@ -512,15 +512,11 @@ pub fn project(input: &ProjectInput) -> Result<(ProjectOutput, Explain)> {
             let length =
                 frequency::period_length(t.frequency, t.period_months, "/timeline/periods", false)?;
             let n = t.number_of_periods;
-            if n == 0 || n > MAX_PERIODS {
-                return Err(FairmarkError::InvalidInputAt {
-                    pointer: "/timeline/periods/number_of_periods".to_owned(),
-                    detail: format!(
-                        "must be between 1 and {MAX_PERIODS} (got {n}); give the number \
-                             of periods to project"
-                    ),
-                });
-            }
+            check_number_of_periods(
+                n,
+                "/timeline/periods/number_of_periods",
+                "periods to project",
+            )?;
             if input.timing.is_some() {
                 return Err(FairmarkError::InvalidInputAt {
                     pointer: "/timing".to_owned(),

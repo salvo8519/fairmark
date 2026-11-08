@@ -1133,8 +1133,9 @@ pub fn mirr(input: &MirrInput) -> Result<(MirrOutput, Explain)> {
 
 // ---------------------------------------------------------------- annuities
 
-/// Largest number of annuity payments accepted (bounds the direct summation).
-pub const MAX_PERIODS: u32 = 10_000;
+/// Largest number of annuity payments accepted (bounds the direct summation); defined with the
+/// frequencies (SPEC-0010).
+pub use crate::frequency::MAX_PERIODS;
 
 /// Below this distance between rate and growth, annuities are summed directly.
 const NEAR_EQUAL: Decimal = Decimal::from_parts(1, 0, 0, false, 9); // 1e-9
