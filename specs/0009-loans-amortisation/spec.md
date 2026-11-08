@@ -146,11 +146,14 @@ able to state which one applies and see it in the audit trail.
 - **R19** — THE ENGINE SHALL accept an optional rounding convention: number of decimal places
   from 0 to 6 and a rounding mode, `half_up` or `half_even`, both stated explicitly when
   rounding is chosen (no default mode); without the field there is no rounding. Rounding
-  applies to the instalment only: the constant instalment of `loans.instalment` and of a
-  French schedule, and the instalment of each period of a fixed amortisation schedule or
-  bullet schedule (principal portion plus interest, then rounded). Interest portions are not
-  rounded; the principal portion of each period is the rounded instalment minus the interest
-  portion, and the outstanding balance follows from it.
+  applies to the amount that the schedule type keeps constant, so that the type keeps its
+  meaning: the instalment of `loans.instalment` and of a French schedule, and the principal
+  portion of a fixed amortisation schedule. Interest portions are not rounded. In a French
+  schedule the principal portion of each period is the rounded instalment minus the interest
+  portion; in a fixed amortisation schedule the instalment is the rounded principal portion
+  plus the interest portion. A bullet schedule has no constant amount to round other than
+  its interest, which is not rounded, so rounding does not change it. The outstanding balance
+  follows from the principal portions.
 - **R20** — THE ENGINE SHALL set the principal portion of the last period equal to the
   outstanding balance at its start (the balloon amount included), so that the final outstanding balance
   is exactly zero, and SHALL report the difference between the last instalment and the regular
@@ -177,7 +180,7 @@ able to state which one applies and see it in the audit trail.
 | Amortisation type | french, fixed_amortisation_schedule, bullet | required | Regulation (EU) 2016/867 Annex IV; Delegated Regulation (EU) 2020/1224 RREL35 |
 | Principal grace period | 0 to n − 1 periods, interest only | 0 | Delegated Regulation (EU) 2020/1224 RREL36; World Bank loan terms |
 | Balloon amount | 0 ≤ B < P, currency units | 0 | Delegated Regulation (EU) 2020/1224 RREL41 |
-| Rounding | none, or decimal places 0 to 6 with an explicit mode half_up or half_even; applies to the instalment only | none | practice varies: an explicit input |
+| Rounding | none, or decimal places 0 to 6 with an explicit mode half_up or half_even; applies to the amount the schedule type keeps constant (instalment, or principal portion for a fixed amortisation schedule) | none | practice varies: an explicit input |
 | Final-period adjustment | last principal portion = opening balance of the last period | always applied, reported | this spec (R20) |
 | Future value sign convention | same sign accumulates, negative is a withdrawal | fixed | this spec (R10); differs from the spreadsheet cash-flow sign convention |
 | Interest of a period | i × opening balance (compound interest regime) | fixed | Corte di Cassazione 2024 (see sources) |
@@ -209,8 +212,9 @@ able to state which one applies and see it in the audit trail.
 - **AC8** (R2, R18) — `loans.amortisation_schedule` with timing `due` returns `FM-E001`;
   instalment k of a schedule is at time k.
 - **AC9** (R19, R20) — With rounding to 2 decimal places `half_up`, every French instalment
-  except the last equals the rounded instalment, every fixed-amortisation-schedule instalment
-  except the last has two decimals, interest portions are not rounded, the final balance is
+  except the last equals the rounded instalment, every fixed-amortisation-schedule principal
+  portion except the last equals the rounded constant principal portion, interest portions are
+  not rounded, the final balance is
   exactly 0 and `final_adjustment` equals the reference. Rounding without a mode returns
   `FM-E001`. Without rounding the final
   balance is exactly 0 and |`final_adjustment`| < 1e-18.
@@ -339,7 +343,10 @@ bancaditalia.it, and the citations SHALL point to those files, not to copies.
    numbers substituted, the final adjustment and the totals; the rows carry the per-period
    numbers (R22).
 9. **Rounding** applies to the instalment only; the default is no rounding; when chosen, the
-   mode `half_up` or `half_even` is stated explicitly (R19).
+   mode `half_up` or `half_even` is stated explicitly (R19). Clarification recorded on
+   2026-11-08: "the instalment" means the amount the schedule type keeps constant, which is
+   the principal portion in a fixed amortisation schedule, so that its principal portions stay
+   equal before the final adjustment.
 
 Further instructions recorded with the approval: error codes renumbered from `FM-E020`
 (provisional, because SPEC-0006 takes `FM-E018` and `FM-E019`); at least one textbook or
