@@ -69,6 +69,13 @@ extreme_inputs:
   wacc: '0.1'
   timing: end_of_period
   terminal: {tv.liquidation: {assets: [{label: a, value: MAX}, {label: b, value: MAX}], liabilities: [{label: c, value: MAX}], liquidation_costs: [], tax_on_gains: MAX, basis: enterprise}}
+- stages: [{periods: 1, projection: given, flows: [MAX]}]
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  wacc: '0.0000000000000000000000000001'
+  timing: mid_period
+  terminal_discount_time: horizon
+  terminal: {tv.normalised_income: {income: MAX, basis: enterprise, growth: MIN, growth_cap: MAX}}
 conventions:
 - input:
     stages: [{periods: 3, projection: given, flows: ['100', '110', '120']}]

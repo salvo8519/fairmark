@@ -17,8 +17,9 @@ use crate::method::Method;
 use crate::num::{div, mul, one_plus, sub};
 use crate::tv::{
     self, exit_multiple::ExitMultipleOutput, limited_horizon::LimitedHorizonOutput,
-    ExitMultipleInput, GordonInput, GordonOutput, HModelInput, HModelOutput, LimitedHorizonInput,
-    Line, LiquidationInput, LiquidationOutput, MultipleMetric, TerminalBasis, ValueDriverInput,
+    normalised_income::NormalisedIncomeOutput, ExitMultipleInput, FieldError, GordonInput,
+    GordonOutput, HModelInput, HModelOutput, LimitedHorizonInput, Line, LiquidationInput,
+    LiquidationOutput, MultipleMetric, NormalisedIncomeInput, TerminalBasis, ValueDriverInput,
     ValueDriverOutput,
 };
 use crate::types::Timing;
@@ -29,7 +30,8 @@ use crate::types::Timing;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum FirstTerminalFlow {
-    /// CF_{N+1} = CF_N × (1 + g), the last explicit flow grown by the perpetual growth.
+    /// The technique grows the last explicit flow CF_N (`tv.gordon`: CF_N × (1 + g);
+    /// `tv.h_model`: its own formula).
     LastFlowGrown,
     /// CF_{N+1} given in `normalised_next_flow`.
     NormalisedNextFlow,
@@ -109,8 +111,9 @@ pub struct ExitMultipleTerminal {
     /// The metric at the horizon N (trailing), in currency units, greater than 0, in the terms
     /// of the cash flows.
     pub metric_value: Decimal,
-    /// Flow at N + 1 on the basis of the DCF, in currency units. Optional: when given, the
-    /// perpetual growth implied by the multiple is computed at the terminal rate.
+    /// Flow at N + 1 on the basis of the DCF, in currency units, in the terms of the cash
+    /// flows. Optional: when given, the perpetual growth implied by the multiple is computed
+    /// at the terminal rate.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_flow: Option<Decimal>,
     /// Upper bound for the implied growth, decimal fraction per period. Default: none,
@@ -132,7 +135,8 @@ pub struct LimitedHorizonTerminal {
     pub periods: u32,
     /// Growth of the flow per period, decimal fraction, greater than -1; 0 for a constant flow.
     pub growth: Decimal,
-    /// Residual value at the end of period N + n, in currency units; 0 for none.
+    /// Residual value at the end of period N + n, in currency units, in the terms of the cash
+    /// flows; 0 for none.
     pub residual_value: Decimal,
     /// Upper bound for the growth, decimal fraction per period. Default: none, reported as
     /// absent. A growth above the cap is reported, not refused.
@@ -145,19 +149,41 @@ pub struct LimitedHorizonTerminal {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct LiquidationTerminal {
-    /// Assets with their realisable values at N, in currency units, each zero or positive; at
-    /// least one.
+    /// Assets with their realisable values at N, in currency units, in the terms of the cash
+    /// flows, each zero or positive; at least one.
     pub assets: Vec<Line>,
-    /// Liabilities settled at N, in currency units, each zero or positive.
-    pub liabilities: Vec<Line>,
-    /// Costs of the liquidation (legal fees, closure, severance), in currency units, each zero
+    /// Liabilities settled at N, in currency units, in the terms of the cash flows, each zero
     /// or positive.
+    pub liabilities: Vec<Line>,
+    /// Costs of the liquidation (legal fees, closure, severance), in currency units, in the
+    /// terms of the cash flows, each zero or positive.
     pub liquidation_costs: Vec<Line>,
-    /// Tax on the gains realised, as an amount in currency units, zero or positive.
+    /// Tax on the gains realised, as an amount in currency units, in the terms of the cash
+    /// flows, zero or positive.
     pub tax_on_gains: Decimal,
     /// `enterprise` (the liabilities listed exclude financial debt) or `equity` (financial debt
     /// included); must be the basis of the DCF. Required, no default.
     pub basis: TerminalBasis,
+}
+
+/// The terms of `tv.normalised_income` inside the DCF: the capitalisation rate is the terminal
+/// rate of the DCF (R19, Decision 13); no separate capitalisation rate is accepted.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NormalisedIncomeTerminal {
+    /// Normalised income R of the first period after the horizon, in currency units, in the
+    /// terms of the cash flows.
+    pub income: Decimal,
+    /// `enterprise` (an operating income) or `equity` (a net income); must be the basis of the
+    /// DCF. Required, no default.
+    pub basis: TerminalBasis,
+    /// Perpetual growth of the income, decimal fraction per period, greater than -1 and below
+    /// the terminal rate, in the terms of the cash flows; 0 for none (R / i).
+    pub growth: Decimal,
+    /// Upper bound for the growth, decimal fraction per period. Default: none, reported as
+    /// absent. A growth above the cap is reported, not refused.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub growth_cap: Option<Decimal>,
 }
 
 /// The terminal technique, written as an object with exactly one key, the `tv.*` method id,
@@ -203,6 +229,14 @@ pub struct Terminal {
         skip_serializing_if = "Option::is_none"
     )]
     pub limited_horizon: Option<LimitedHorizonTerminal>,
+    /// A normalised income capitalised at the terminal rate (`tv.normalised_income`): `income`,
+    /// `basis`, `growth`, optional `growth_cap`.
+    #[serde(
+        rename = "tv.normalised_income",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub normalised_income: Option<NormalisedIncomeTerminal>,
     /// Assets realised and liabilities settled at N (`tv.liquidation`): `assets`,
     /// `liabilities`, `liquidation_costs`, `tax_on_gains`, `basis`.
     #[serde(
@@ -224,6 +258,7 @@ pub enum TechniqueOutput {
     ValueDriver(ValueDriverOutput),
     ExitMultiple(ExitMultipleOutput),
     LimitedHorizon(LimitedHorizonOutput),
+    NormalisedIncome(NormalisedIncomeOutput),
     Liquidation(LiquidationOutput),
 }
 
@@ -260,6 +295,7 @@ pub(crate) enum Technique<'a> {
     ValueDriver(&'a ValueDriverTerminal),
     ExitMultiple(&'a ExitMultipleTerminal),
     LimitedHorizon(&'a LimitedHorizonTerminal),
+    NormalisedIncome(&'a NormalisedIncomeTerminal),
     Liquidation(&'a LiquidationTerminal),
 }
 
@@ -271,6 +307,7 @@ impl Technique<'_> {
             Self::ValueDriver(_) => tv::ValueDriver::ID,
             Self::ExitMultiple(_) => tv::ExitMultiple::ID,
             Self::LimitedHorizon(_) => tv::LimitedHorizon::ID,
+            Self::NormalisedIncome(_) => tv::NormalisedIncome::ID,
             Self::Liquidation(_) => tv::Liquidation::ID,
         }
     }
@@ -282,6 +319,7 @@ impl Technique<'_> {
             Self::ValueDriver(_) => tv::ValueDriver::VERSION,
             Self::ExitMultiple(_) => tv::ExitMultiple::VERSION,
             Self::LimitedHorizon(_) => tv::LimitedHorizon::VERSION,
+            Self::NormalisedIncome(_) => tv::NormalisedIncome::VERSION,
             Self::Liquidation(_) => tv::Liquidation::VERSION,
         }
     }
@@ -293,6 +331,7 @@ impl Technique<'_> {
             Self::Gordon(t) => Some(t.growth),
             Self::HModel(t) => Some(t.long_term_growth),
             Self::ValueDriver(t) => Some(t.growth),
+            Self::NormalisedIncome(t) => Some(t.growth),
             Self::ExitMultiple(_) | Self::LimitedHorizon(_) | Self::Liquidation(_) => None,
         }
     }
@@ -302,7 +341,7 @@ impl Technique<'_> {
     fn is_perpetual_growth(self) -> bool {
         matches!(
             self,
-            Self::Gordon(_) | Self::HModel(_) | Self::ValueDriver(_)
+            Self::Gordon(_) | Self::HModel(_) | Self::ValueDriver(_) | Self::NormalisedIncome(_)
         )
     }
 
@@ -315,37 +354,6 @@ impl Technique<'_> {
 
 fn invalid(msg: String) -> FairmarkError {
     FairmarkError::InvalidInput(msg)
-}
-
-fn domain(msg: String) -> FairmarkError {
-    FairmarkError::TerminalValueDomain(msg)
-}
-
-fn check_growth(at: &str, field: &str, g: Decimal) -> Result<()> {
-    if g <= -Decimal::ONE {
-        return Err(invalid(format!(
-            "`{at}/{field}` is {g}; a growth must be greater than -1 (-100%)"
-        )));
-    }
-    Ok(())
-}
-
-fn check_below_rate(
-    at: &str,
-    field: &str,
-    g: Decimal,
-    rate: Decimal,
-    rate_field: &str,
-) -> Result<()> {
-    if g >= rate {
-        return Err(FairmarkError::GrowthNotBelowTerminalRate {
-            growth_field: format!("{at}/{field}"),
-            growth: g,
-            rate_field: rate_field.to_owned(),
-            rate,
-        });
-    }
-    Ok(())
 }
 
 /// R19: the basis of the technique must be the basis of the DCF (`FM-E019`).
@@ -362,11 +370,13 @@ fn check_basis(
     let fix = match dcf {
         TerminalBasis::Enterprise => {
             "use an enterprise measure: an exit multiple on ebitda, ebit or revenue, a \
-             liquidation whose liabilities exclude financial debt (basis enterprise)"
+             normalised operating income or a liquidation whose liabilities exclude financial \
+             debt (basis enterprise)"
         }
         TerminalBasis::Equity => {
-            "use an equity measure: an exit multiple on earnings or book_value, a liquidation \
-             whose liabilities include financial debt (basis equity)"
+            "use an equity measure: an exit multiple on earnings or book_value, a normalised \
+             net income or a liquidation whose liabilities include financial debt (basis \
+             equity)"
         }
     };
     Err(FairmarkError::MixedBasis(format!(
@@ -376,27 +386,134 @@ fn check_basis(
     )))
 }
 
-/// Lines of a liquidation group: a label and a value of zero or more (as `tv.liquidation`
-/// requires), checked here so that the error names the line by its pointer.
-fn check_lines(at: &str, field: &str, lines: &[Line]) -> Result<()> {
-    for (i, line) in lines.iter().enumerate() {
-        if line.label.trim().is_empty() {
-            return Err(invalid(format!(
-                "`{at}/{field}/{i}/label` is empty; name the line"
-            )));
+/// The input of the technique's own method, built from its terms inside the DCF.
+enum TvInput {
+    Gordon(GordonInput),
+    HModel(HModelInput),
+    ValueDriver(ValueDriverInput),
+    ExitMultiple(ExitMultipleInput),
+    LimitedHorizon(LimitedHorizonInput),
+    NormalisedIncome(NormalisedIncomeInput),
+    Liquidation(LiquidationInput),
+}
+
+/// The technique's terms with the terminal rate and the last explicit flow CF_N.
+fn tv_input(technique: Technique<'_>, rate: Decimal, last_flow: Decimal) -> TvInput {
+    match technique {
+        Technique::Gordon(t) => {
+            let (next_flow, last) = match t.first_flow {
+                FirstTerminalFlow::LastFlowGrown => (None, Some(last_flow)),
+                FirstTerminalFlow::NormalisedNextFlow => (t.normalised_next_flow, None),
+            };
+            TvInput::Gordon(GordonInput {
+                rate,
+                growth: t.growth,
+                next_flow,
+                last_flow: last,
+                growth_cap: t.growth_cap,
+            })
         }
-        if line.value.is_sign_negative() && !line.value.is_zero() {
-            return Err(domain(format!(
-                "`{at}/{field}/{i}/value` is {}; a value is zero or more",
-                line.value
-            )));
-        }
+        Technique::HModel(t) => TvInput::HModel(HModelInput {
+            last_flow,
+            short_term_growth: t.short_term_growth,
+            long_term_growth: t.long_term_growth,
+            half_life: t.half_life,
+            rate,
+            growth_cap: t.growth_cap,
+        }),
+        Technique::ValueDriver(t) => TvInput::ValueDriver(ValueDriverInput {
+            nopat_next: t.nopat_next,
+            growth: t.growth,
+            ronic: t.ronic,
+            rate,
+            growth_cap: t.growth_cap,
+        }),
+        Technique::ExitMultiple(t) => TvInput::ExitMultiple(ExitMultipleInput {
+            multiple: t.multiple,
+            metric: t.metric,
+            metric_value: t.metric_value,
+            rate: t.next_flow.map(|_| rate),
+            next_flow: t.next_flow,
+            growth_cap: t.growth_cap,
+        }),
+        Technique::LimitedHorizon(t) => TvInput::LimitedHorizon(LimitedHorizonInput {
+            flow: t.flow,
+            rate,
+            periods: t.periods,
+            growth: Some(t.growth),
+            residual_value: Some(t.residual_value),
+            growth_cap: t.growth_cap,
+        }),
+        Technique::NormalisedIncome(t) => TvInput::NormalisedIncome(NormalisedIncomeInput {
+            income: t.income,
+            capitalisation_rate: rate,
+            basis: t.basis,
+            growth: Some(t.growth),
+            growth_cap: t.growth_cap,
+        }),
+        Technique::Liquidation(t) => TvInput::Liquidation(LiquidationInput {
+            assets: t.assets.clone(),
+            liabilities: t.liabilities.clone(),
+            liquidation_costs: t.liquidation_costs.clone(),
+            tax_on_gains: t.tax_on_gains,
+            basis: t.basis,
+        }),
     }
-    Ok(())
+}
+
+/// The checks of the technique's own method (SPEC-0006), each naming its field.
+fn tv_check(input: &TvInput) -> std::result::Result<(), FieldError> {
+    match input {
+        TvInput::Gordon(i) => tv::gordon::check(i),
+        TvInput::HModel(i) => tv::h_model::check(i),
+        TvInput::ValueDriver(i) => tv::value_driver::check(i),
+        TvInput::ExitMultiple(i) => tv::exit_multiple::check(i),
+        TvInput::LimitedHorizon(i) => tv::limited_horizon::check(i),
+        TvInput::NormalisedIncome(i) => tv::normalised_income::check(i),
+        TvInput::Liquidation(i) => tv::liquidation::check(i),
+    }
+}
+
+/// An error of the technique's own method, with its field turned into a JSON pointer of the
+/// DCF input (R27): `/terminal/<id>/<field>`, or the field of the terminal rate for the rate
+/// the DCF passes to the technique. The code is unchanged; a growth not below the rate becomes
+/// the pointer-carrying variant of `FM-E004`.
+fn at_pointer(e: FieldError, technique: Technique<'_>, rate_field: &str) -> FairmarkError {
+    let at = format!("/terminal/{}", technique.id());
+    let (pointer, note) = match (technique, e.field.as_str()) {
+        (_, "rate" | "capitalisation_rate") => (
+            rate_field.to_owned(),
+            "; inside the DCF the technique uses the terminal rate",
+        ),
+        (Technique::Gordon(_), "next_flow") => (format!("{at}/normalised_next_flow"), ""),
+        (_, field) => (format!("{at}/{field}"), ""),
+    };
+    match e.error {
+        FairmarkError::InvalidInput(m) => {
+            FairmarkError::InvalidInput(format!("`{pointer}`: {m}{note}"))
+        }
+        FairmarkError::TerminalValueDomain(m) => {
+            FairmarkError::TerminalValueDomain(format!("`{pointer}`: {m}{note}"))
+        }
+        FairmarkError::GrowthNotBelowRate { growth, rate } => {
+            FairmarkError::GrowthNotBelowTerminalRate {
+                growth_field: pointer,
+                growth,
+                rate_field: rate_field.to_owned(),
+                rate,
+            }
+        }
+        FairmarkError::RateOutOfRange(rate) => FairmarkError::DiscountRateOutOfRange {
+            field: rate_field.to_owned(),
+            rate,
+        },
+        other => other,
+    }
 }
 
 /// R19, R20: exactly one technique, on the basis of the DCF, with the first terminal flow
-/// stated; every term checked with its JSON pointer (R27).
+/// stated; the terms checked by the technique's own method, every error with its JSON pointer
+/// (R27). Runs before any calculation.
 pub(crate) fn check<'a>(
     t: &'a Terminal,
     rate: Decimal,
@@ -418,6 +535,9 @@ pub(crate) fn check<'a>(
     }
     if let Some(x) = &t.limited_horizon {
         given.push(Technique::LimitedHorizon(x));
+    }
+    if let Some(x) = &t.normalised_income {
+        given.push(Technique::NormalisedIncome(x));
     }
     if let Some(x) = &t.liquidation {
         given.push(Technique::Liquidation(x));
@@ -442,27 +562,24 @@ pub(crate) fn check<'a>(
     };
     let at = format!("/terminal/{}", technique.id());
     let at = at.as_str();
+    // What only the DCF knows: the first terminal flow (R20) and the basis (R19).
     match technique {
-        Technique::Gordon(g) => {
-            match (g.first_flow, g.normalised_next_flow) {
-                (FirstTerminalFlow::NormalisedNextFlow, None) => {
-                    return Err(invalid(format!(
-                        "`{at}/normalised_next_flow` is required with `{at}/first_flow` = \
-                         normalised_next_flow: give the flow at N + 1"
-                    )))
-                }
-                (FirstTerminalFlow::LastFlowGrown, Some(_)) => {
-                    return Err(invalid(format!(
-                        "`{at}/normalised_next_flow` is not used with `{at}/first_flow` = \
-                         last_flow_grown; remove it, or set `{at}/first_flow` to \
-                         normalised_next_flow"
-                    )))
-                }
-                _ => {}
+        Technique::Gordon(g) => match (g.first_flow, g.normalised_next_flow) {
+            (FirstTerminalFlow::NormalisedNextFlow, None) => {
+                return Err(invalid(format!(
+                    "`{at}/normalised_next_flow` is required with `{at}/first_flow` = \
+                     normalised_next_flow: give the flow at N + 1"
+                )))
             }
-            check_growth(at, "growth", g.growth)?;
-            check_below_rate(at, "growth", g.growth, rate, rate_field)?;
-        }
+            (FirstTerminalFlow::LastFlowGrown, Some(_)) => {
+                return Err(invalid(format!(
+                    "`{at}/normalised_next_flow` is not used with `{at}/first_flow` = \
+                     last_flow_grown; remove it, or set `{at}/first_flow` to \
+                     normalised_next_flow"
+                )))
+            }
+            _ => {}
+        },
         Technique::HModel(h) => {
             if h.first_flow != FirstTerminalFlow::LastFlowGrown {
                 return Err(invalid(format!(
@@ -472,107 +589,41 @@ pub(crate) fn check<'a>(
                      flow"
                 )));
             }
-            check_growth(at, "short_term_growth", h.short_term_growth)?;
-            check_growth(at, "long_term_growth", h.long_term_growth)?;
-            if h.half_life.is_sign_negative() && !h.half_life.is_zero() {
-                return Err(domain(format!(
-                    "`{at}/half_life` is {}; the half-life is zero or more periods",
-                    h.half_life
-                )));
-            }
-            check_below_rate(at, "long_term_growth", h.long_term_growth, rate, rate_field)?;
         }
-        Technique::ValueDriver(v) => {
-            check_growth(at, "growth", v.growth)?;
-            if v.ronic <= Decimal::ZERO {
-                return Err(domain(format!(
-                    "`{at}/ronic` is {}; the return on new invested capital must be greater \
-                     than 0",
-                    v.ronic
-                )));
-            }
-            check_below_rate(at, "growth", v.growth, rate, rate_field)?;
-        }
-        Technique::ExitMultiple(e) => {
-            check_basis(
-                at,
-                "metric",
-                e.metric.basis(),
-                format!("{} ({})", e.metric.name(), e.metric.multiple_name()),
-                basis,
-            )?;
-            if e.multiple <= Decimal::ZERO {
-                return Err(domain(format!(
-                    "`{at}/multiple` is {}; the multiple must be greater than 0",
-                    e.multiple
-                )));
-            }
-            if e.metric_value <= Decimal::ZERO {
-                return Err(domain(format!(
-                    "`{at}/metric_value` is {}; the metric must be greater than 0 to carry a \
-                     multiple",
-                    e.metric_value
-                )));
-            }
-            if e.growth_cap.is_some() && e.next_flow.is_none() {
-                return Err(invalid(format!(
-                    "`{at}/growth_cap` needs `{at}/next_flow`: the cap is checked on the growth \
-                     implied by the multiple; give the flow at N + 1, or remove the cap"
-                )));
-            }
-        }
-        Technique::LimitedHorizon(l) => {
-            if !(1..=crate::tvm::MAX_PERIODS).contains(&l.periods) {
-                return Err(domain(format!(
-                    "`{at}/periods` is {}; a finite horizon has 1 to {} periods",
-                    l.periods,
-                    crate::tvm::MAX_PERIODS
-                )));
-            }
-            check_growth(at, "growth", l.growth)?;
-        }
-        Technique::Liquidation(q) => {
-            check_basis(
-                at,
-                "basis",
-                q.basis,
-                format!("{} (declared)", q.basis.name()),
-                basis,
-            )?;
-            if q.assets.is_empty() {
-                return Err(invalid(format!(
-                    "`{at}/assets` is empty; give at least one asset to liquidate"
-                )));
-            }
-            check_lines(at, "assets", &q.assets)?;
-            check_lines(at, "liabilities", &q.liabilities)?;
-            check_lines(at, "liquidation_costs", &q.liquidation_costs)?;
-            if q.tax_on_gains.is_sign_negative() && !q.tax_on_gains.is_zero() {
-                return Err(domain(format!(
-                    "`{at}/tax_on_gains` is {}; the tax on gains is zero or more",
-                    q.tax_on_gains
-                )));
-            }
-        }
+        Technique::ExitMultiple(e) => check_basis(
+            at,
+            "metric",
+            e.metric.basis(),
+            format!("{} ({})", e.metric.name(), e.metric.multiple_name()),
+            basis,
+        )?,
+        Technique::NormalisedIncome(q) => check_basis(
+            at,
+            "basis",
+            q.basis,
+            format!("{} (declared)", q.basis.name()),
+            basis,
+        )?,
+        Technique::Liquidation(q) => check_basis(
+            at,
+            "basis",
+            q.basis,
+            format!("{} (declared)", q.basis.name()),
+            basis,
+        )?,
+        Technique::ValueDriver(_) | Technique::LimitedHorizon(_) => {}
     }
+    // The terms, by the technique's own checks. CF_N is not known yet and no technique checks
+    // its value: zero stands in for it.
+    tv_check(&tv_input(technique, rate, Decimal::ZERO))
+        .map_err(|e| at_pointer(e, technique, rate_field))?;
     Ok(technique)
 }
 
 // ---------------------------------------------------------------- calculation
 
-/// An error raised by the technique itself names the technique's object by its pointer
-/// (R27); its code is unchanged.
-fn at_pointer(e: FairmarkError, at: &str) -> FairmarkError {
-    match e {
-        FairmarkError::InvalidInput(m) => FairmarkError::InvalidInput(format!("`{at}`: {m}")),
-        FairmarkError::TerminalValueDomain(m) => {
-            FairmarkError::TerminalValueDomain(format!("`{at}`: {m}"))
-        }
-        other => other,
-    }
-}
-
 /// The technique computed through its typed `tv` function (ADR 0009), with its conventions.
+/// The terms were checked by [`check`]; what can still fail is arithmetic (overflow).
 fn compute(
     ex: &mut Explain,
     technique: Technique<'_>,
@@ -581,13 +632,12 @@ fn compute(
     basis: TerminalBasis,
 ) -> Result<(Decimal, TechniqueOutput, Explain)> {
     let (id, version) = (technique.id(), technique.version());
-    let at = format!("/terminal/{id}");
     let on = format!(
         "terminal technique: {id} version {version} on the {} basis",
         basis.name()
     );
     let at_rate = format!("{on}, at the terminal rate {rate}, in the terms of the cash flows");
-    let result = match technique {
+    match technique {
         Technique::Gordon(t) => {
             ex.convention(at_rate);
             ex.convention(match t.first_flow {
@@ -600,49 +650,20 @@ fn compute(
                      cash flows"
                 }
             });
-            let (next_flow, last) = match t.first_flow {
-                FirstTerminalFlow::LastFlowGrown => (None, Some(last_flow)),
-                FirstTerminalFlow::NormalisedNextFlow => (t.normalised_next_flow, None),
-            };
-            tv::gordon(&GordonInput {
-                rate,
-                growth: t.growth,
-                next_flow,
-                last_flow: last,
-                growth_cap: t.growth_cap,
-            })
-            .map(|(o, e)| (o.terminal_value, TechniqueOutput::Gordon(o), e))
         }
-        Technique::HModel(t) => {
+        Technique::HModel(_) => {
             ex.convention(at_rate);
             ex.convention(
                 "first terminal flow: the last explicit flow CF_N, grown by the H-model, \
                  CF_N × [(1 + g_l) + H × (g_s − g_l)]",
             );
-            tv::h_model(&HModelInput {
-                last_flow,
-                short_term_growth: t.short_term_growth,
-                long_term_growth: t.long_term_growth,
-                half_life: t.half_life,
-                rate,
-                growth_cap: t.growth_cap,
-            })
-            .map(|(o, e)| (o.terminal_value, TechniqueOutput::HModel(o), e))
         }
-        Technique::ValueDriver(t) => {
+        Technique::ValueDriver(_) => {
             ex.convention(at_rate);
             ex.convention(
                 "first terminal flow: NOPAT at N + 1 as given (`nopat_next`), less the \
                  reinvestment g / RONIC, in the terms of the cash flows",
             );
-            tv::value_driver(&ValueDriverInput {
-                nopat_next: t.nopat_next,
-                growth: t.growth,
-                ronic: t.ronic,
-                rate,
-                growth_cap: t.growth_cap,
-            })
-            .map(|(o, e)| (o.terminal_value, TechniqueOutput::ValueDriver(o), e))
         }
         Technique::ExitMultiple(t) => {
             ex.convention(match t.next_flow {
@@ -656,50 +677,60 @@ fn compute(
                 ),
             });
             ex.convention("terminal value from the metric at N; no terminal flow is projected");
-            tv::exit_multiple(&ExitMultipleInput {
-                multiple: t.multiple,
-                metric: t.metric,
-                metric_value: t.metric_value,
-                rate: t.next_flow.map(|_| rate),
-                next_flow: t.next_flow,
-                growth_cap: t.growth_cap,
-            })
-            .map(|(o, e)| (o.terminal_value, TechniqueOutput::ExitMultiple(o), e))
+            if t.next_flow.is_some() {
+                ex.convention(
+                    "the growth implied by the multiple is reported, not compared with the \
+                     growth of the last explicit period: the continuity check (R11) applies to \
+                     a perpetual growth stated as an input",
+                );
+            }
         }
-        Technique::LimitedHorizon(t) => {
+        Technique::LimitedHorizon(_) => {
             ex.convention(at_rate);
             ex.convention(
                 "first terminal flow: as given (`flow`), at the end of period N + 1, in the \
                  terms of the cash flows",
             );
-            tv::limited_horizon(&LimitedHorizonInput {
-                flow: t.flow,
-                rate,
-                periods: t.periods,
-                growth: Some(t.growth),
-                residual_value: Some(t.residual_value),
-                growth_cap: t.growth_cap,
-            })
-            .map(|(o, e)| (o.terminal_value, TechniqueOutput::LimitedHorizon(o), e))
         }
-        Technique::Liquidation(t) => {
+        Technique::NormalisedIncome(_) => {
+            ex.convention(format!(
+                "{on}, in the terms of the cash flows; capitalisation rate i = the terminal rate \
+                 {rate} (R19, Decision 13): no separate capitalisation rate is accepted inside \
+                 the DCF"
+            ));
+            ex.convention(
+                "first terminal flow: the normalised income at N + 1 as given (`income`), in the \
+                 terms of the cash flows",
+            );
+        }
+        Technique::Liquidation(_) => {
             ex.convention(format!(
                 "{on}, in the terms of the cash flows; the technique takes no discount rate"
             ));
             ex.convention(
                 "terminal value from realisable values at N; no terminal flow is projected",
             );
-            tv::liquidation(&LiquidationInput {
-                assets: t.assets.clone(),
-                liabilities: t.liabilities.clone(),
-                liquidation_costs: t.liquidation_costs.clone(),
-                tax_on_gains: t.tax_on_gains,
-                basis: t.basis,
-            })
-            .map(|(o, e)| (o.terminal_value, TechniqueOutput::Liquidation(o), e))
         }
-    };
-    result.map_err(|e| at_pointer(e, &at))
+    }
+    match tv_input(technique, rate, last_flow) {
+        TvInput::Gordon(i) => {
+            tv::gordon(&i).map(|(o, e)| (o.terminal_value, TechniqueOutput::Gordon(o), e))
+        }
+        TvInput::HModel(i) => {
+            tv::h_model(&i).map(|(o, e)| (o.terminal_value, TechniqueOutput::HModel(o), e))
+        }
+        TvInput::ValueDriver(i) => tv::value_driver(&i)
+            .map(|(o, e)| (o.terminal_value, TechniqueOutput::ValueDriver(o), e)),
+        TvInput::ExitMultiple(i) => tv::exit_multiple(&i)
+            .map(|(o, e)| (o.terminal_value, TechniqueOutput::ExitMultiple(o), e)),
+        TvInput::LimitedHorizon(i) => tv::limited_horizon(&i)
+            .map(|(o, e)| (o.terminal_value, TechniqueOutput::LimitedHorizon(o), e)),
+        TvInput::NormalisedIncome(i) => tv::normalised_income(&i)
+            .map(|(o, e)| (o.terminal_value, TechniqueOutput::NormalisedIncome(o), e)),
+        TvInput::Liquidation(i) => {
+            tv::liquidation(&i).map(|(o, e)| (o.terminal_value, TechniqueOutput::Liquidation(o), e))
+        }
+    }
 }
 
 /// What the engine passes to the terminal value: the rate, the last explicit flow and its
@@ -899,6 +930,10 @@ mod tests {
                 json!({"flow": "110", "periods": 5, "growth": "0", "residual_value": "300"}),
             ),
             (
+                "tv.normalised_income",
+                json!({"income": "140", "basis": "enterprise", "growth": "0.01"}),
+            ),
+            (
                 "tv.liquidation",
                 json!({"assets": [{"label": "Plant", "value": "900"}], "liabilities": [],
                        "liquidation_costs": [], "tax_on_gains": "0", "basis": "enterprise"}),
@@ -963,7 +998,10 @@ mod tests {
             let end = warnings(&with_terminal(json!({ id: terms }), None));
             let has = |w: &[String], s: &str| w.iter().any(|x| x.contains(s));
             let is_price = matches!(id, "tv.exit_multiple" | "tv.liquidation");
-            let is_perpetuity = matches!(id, "tv.gordon" | "tv.h_model" | "tv.value_driver");
+            let is_perpetuity = matches!(
+                id,
+                "tv.gordon" | "tv.h_model" | "tv.value_driver" | "tv.normalised_income"
+            );
             assert_eq!(has(&at_mid, price), is_price, "{id} at N - 0.5: {at_mid:?}");
             assert_eq!(has(&at_n, perpetuity), is_perpetuity, "{id} at N: {at_n:?}");
             assert!(!has(&at_n, price) && !has(&at_mid, perpetuity), "{id}");
@@ -1007,8 +1045,19 @@ mod tests {
             ),
             (
                 "tv.exit_multiple",
-                json!({"multiple": "8", "metric": "ebitda", "metric_value": "160"}),
+                json!({"multiple": "8", "metric": "ebitda", "metric_value": "160",
+                       "next_flow": "120"}),
                 false,
+            ),
+            (
+                "tv.normalised_income",
+                json!({"income": "140", "basis": "enterprise", "growth": "0.03"}),
+                false,
+            ),
+            (
+                "tv.normalised_income",
+                json!({"income": "140", "basis": "enterprise", "growth": "0"}),
+                true,
             ),
         ] {
             let w = warnings(&with_terminal(json!({ id: terms }), None));
@@ -1134,6 +1183,33 @@ mod tests {
                 "/terminal/tv.liquidation/tax_on_gains",
             ),
         ];
+        let normalised = |extra: Value| {
+            let mut terms = json!({"income": "100", "basis": "enterprise", "growth": "0.01"});
+            for (k, v) in extra.as_object().unwrap() {
+                terms[k] = v.clone();
+            }
+            json!({ "tv.normalised_income": terms })
+        };
+        let cases: Vec<(Value, &str, &str)> = cases
+            .into_iter()
+            .chain([
+                (
+                    normalised(json!({"basis": "equity"})),
+                    "FM-E019",
+                    "/terminal/tv.normalised_income/basis",
+                ),
+                (
+                    normalised(json!({"growth": "0.10"})),
+                    "FM-E004",
+                    "/terminal/tv.normalised_income/growth",
+                ),
+                (
+                    normalised(json!({"growth": "-1"})),
+                    "FM-E001",
+                    "/terminal/tv.normalised_income/growth",
+                ),
+            ])
+            .collect();
         for (terminal, code, pointer) in cases {
             let v = with_terminal(terminal, None);
             let e = run("dcf.fcff", &v.to_string()).unwrap_err();
@@ -1187,5 +1263,44 @@ mod tests {
             d("/terminal_value_weight"),
             d("/terminal/present_value") / d("/value_of_operations")
         );
+    }
+
+    /// R19, Decision 13: the capitalisation rate of `tv.normalised_income` is the terminal
+    /// rate; a separate one is refused, and a terminal rate of zero or below is named by its
+    /// own field.
+    #[test]
+    fn normalised_income_is_capitalised_at_the_terminal_rate() {
+        let terms = json!({"income": "100", "basis": "enterprise", "growth": "0.01"});
+        let v = with_terminal(json!({"tv.normalised_income": terms.clone()}), None);
+        let out = run("dcf.fcff", &v.to_string()).unwrap();
+        // 100 / (0.10 − 0.01)
+        let tv: rust_decimal::Decimal = out["value"]["terminal"]["terminal_value"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert_eq!(
+            tv,
+            rust_decimal::Decimal::from(100) / "0.09".parse::<rust_decimal::Decimal>().unwrap()
+        );
+        assert!(conventions(&v)
+            .iter()
+            .any(|c| c.contains("capitalisation rate i = the terminal rate 0.10")));
+
+        let mut separate = terms.clone();
+        separate["capitalisation_rate"] = json!("0.08");
+        let e = run(
+            "dcf.fcff",
+            &with_terminal(json!({"tv.normalised_income": separate}), None).to_string(),
+        )
+        .unwrap_err();
+        assert_eq!(e.code(), "FM-E001");
+        assert!(e.to_string().contains("capitalisation_rate"), "{e}");
+
+        let mut zero = with_terminal(json!({"tv.normalised_income": terms}), None);
+        zero["wacc"] = json!("0");
+        let e = run("dcf.fcff", &zero.to_string()).unwrap_err();
+        assert_eq!(e.code(), "FM-E018", "{e}");
+        assert!(e.to_string().contains("`/wacc`"), "{e}");
     }
 }

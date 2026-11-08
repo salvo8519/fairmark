@@ -276,6 +276,12 @@ TECHNIQUES: dict[str, dict[str, Any]] = {
         "residual_value": "250",
         "growth_cap": "0.01",
     },
+    "tv.normalised_income": {
+        "income": "105",
+        "basis": "enterprise",
+        "growth": "0.015",
+        "growth_cap": "0.01",
+    },
     "tv.liquidation": {
         "assets": [{"label": "Plant", "value": "700"}, {"label": "Stock", "value": "150"}],
         "liabilities": [{"label": "Payables", "value": "120"}],
@@ -339,6 +345,8 @@ def standalone_input(technique: str, terms: dict[str, Any], rate: str, last_flow
         return {**t, "rate": rate} if "next_flow" in t else t
     if technique == "tv.liquidation":
         return t
+    if technique == "tv.normalised_income":
+        return {**t, "capitalisation_rate": rate}
     return {**t, "rate": rate}
 
 

@@ -57,7 +57,7 @@
           ]
         },
         "next_flow": {
-          "description": "Flow at N + 1 on the basis of the DCF, in currency units. Optional: when given, the\nperpetual growth implied by the multiple is computed at the terminal rate.",
+          "description": "Flow at N + 1 on the basis of the DCF, in currency units, in the terms of the cash\nflows. Optional: when given, the perpetual growth implied by the multiple is computed\nat the terminal rate.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -78,7 +78,7 @@
       "oneOf": [
         {
           "const": "last_flow_grown",
-          "description": "CF_{N+1} = CF_N × (1 + g), the last explicit flow grown by the perpetual growth.",
+          "description": "The technique grows the last explicit flow CF_N (`tv.gordon`: CF_N × (1 + g);\n`tv.h_model`: its own formula).",
           "type": "string"
         },
         {
@@ -296,7 +296,7 @@
           "type": "integer"
         },
         "residual_value": {
-          "description": "Residual value at the end of period N + n, in currency units; 0 for none.",
+          "description": "Residual value at the end of period N + n, in currency units, in the terms of the cash\nflows; 0 for none.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -340,7 +340,7 @@
       "description": "The terms of `tv.liquidation` inside the DCF: the declared basis must be the basis of the\nDCF.",
       "properties": {
         "assets": {
-          "description": "Assets with their realisable values at N, in currency units, each zero or positive; at\nleast one.",
+          "description": "Assets with their realisable values at N, in currency units, in the terms of the cash\nflows, each zero or positive; at least one.",
           "items": {
             "$ref": "#/$defs/Line"
           },
@@ -351,21 +351,21 @@
           "description": "`enterprise` (the liabilities listed exclude financial debt) or `equity` (financial debt\nincluded); must be the basis of the DCF. Required, no default."
         },
         "liabilities": {
-          "description": "Liabilities settled at N, in currency units, each zero or positive.",
+          "description": "Liabilities settled at N, in currency units, in the terms of the cash flows, each zero\nor positive.",
           "items": {
             "$ref": "#/$defs/Line"
           },
           "type": "array"
         },
         "liquidation_costs": {
-          "description": "Costs of the liquidation (legal fees, closure, severance), in currency units, each zero\nor positive.",
+          "description": "Costs of the liquidation (legal fees, closure, severance), in currency units, in the\nterms of the cash flows, each zero or positive.",
           "items": {
             "$ref": "#/$defs/Line"
           },
           "type": "array"
         },
         "tax_on_gains": {
-          "description": "Tax on the gains realised, as an amount in currency units, zero or positive.",
+          "description": "Tax on the gains realised, as an amount in currency units, in the terms of the cash\nflows, zero or positive.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -482,6 +482,47 @@
       "required": [
         "name",
         "amount"
+      ],
+      "type": "object"
+    },
+    "NormalisedIncomeTerminal": {
+      "additionalProperties": false,
+      "description": "The terms of `tv.normalised_income` inside the DCF: the capitalisation rate is the terminal\nrate of the DCF (R19, Decision 13); no separate capitalisation rate is accepted.",
+      "properties": {
+        "basis": {
+          "$ref": "#/$defs/TerminalBasis",
+          "description": "`enterprise` (an operating income) or `equity` (a net income); must be the basis of the\nDCF. Required, no default."
+        },
+        "growth": {
+          "description": "Perpetual growth of the income, decimal fraction per period, greater than -1 and below\nthe terminal rate, in the terms of the cash flows; 0 for none (R / i).",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "growth_cap": {
+          "description": "Upper bound for the growth, decimal fraction per period. Default: none, reported as\nabsent. A growth above the cap is reported, not refused.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "income": {
+          "description": "Normalised income R of the first period after the horizon, in currency units, in the\nterms of the cash flows.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "income",
+        "basis",
+        "growth"
       ],
       "type": "object"
     },
@@ -637,6 +678,17 @@
             }
           ],
           "description": "Assets realised and liabilities settled at N (`tv.liquidation`): `assets`,\n`liabilities`, `liquidation_costs`, `tax_on_gains`, `basis`."
+        },
+        "tv.normalised_income": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NormalisedIncomeTerminal"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A normalised income capitalised at the terminal rate (`tv.normalised_income`): `income`,\n`basis`, `growth`, optional `growth_cap`."
         },
         "tv.value_driver": {
           "anyOf": [
@@ -828,7 +880,7 @@
     },
     "terminal": {
       "$ref": "#/$defs/Terminal",
-      "description": "The terminal technique, an object with exactly one key, the method id, for example\n`{\"tv.gordon\": {\"growth\", \"first_flow\", ...}}`: `tv.gordon`, `tv.h_model`,\n`tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon` or `tv.liquidation`, on the\nenterprise basis."
+      "description": "The terminal technique, an object with exactly one key, the method id, for example\n`{\"tv.gordon\": {\"growth\", \"first_flow\", ...}}`: `tv.gordon`, `tv.h_model`,\n`tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income` or\n`tv.liquidation`, on the enterprise basis."
     },
     "terminal_discount_time": {
       "anyOf": [

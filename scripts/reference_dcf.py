@@ -8,8 +8,9 @@ the Rust engine and computes differently where it can:
   divisions; mid-period factors divide by the square root of (1 + r_k) taken at 50 digits;
 - the linear decline of growth uses g_from + (g_to - g_from) x k / m directly (Decision 4);
 - every terminal technique is restated here from SPEC-0006 (Gordon, H-model, value driver,
-  exit multiple, liquidation); the limited horizon is summed flow by flow, not computed with
-  the annuity closed form that the engine reuses from `tvm.annuity`.
+  exit multiple, normalised income at the terminal rate, liquidation); the limited horizon is
+  summed flow by flow, not computed with the annuity closed form that the engine reuses from
+  `tvm.annuity`.
 
 It takes the version 3 input as a JSON-like dictionary (amounts and rates as strings) and
 returns the outputs that the golden cases check, keyed by their JSON Pointer in the result.
@@ -119,6 +120,11 @@ def terminal_value(
             "flows_value": flows_value,
             "residual_value_discounted": rv_at_n,
         }
+    if technique == "tv.normalised_income":
+        # Capitalised at the terminal rate (R19, Decision 13): R / (r - g).
+        income, g = _d(terms["income"]), _d(terms["growth"])
+        assert r > 0 and g < r
+        return income / (r - g), {}
     if technique == "tv.liquidation":
 
         def total(group: str) -> D:
