@@ -30,10 +30,10 @@ and stated in the conventions:
   payables, the derivative part of provisions, also when the parent aggregate is not given; in
   the ordinary layout each is a separate item;
 - the separate line D or E, when assets D are given within C.II or liabilities E within D (the
-  abridged layout, art. 2435-bis; approval M2 of 2026-11-08).
+  abridged layout, art. 2435-bis; maintainer approval of 2026-11-08).
 
 Item A and the "of which" parts taken as zero never enter a check; a part presented within C.II
-or D counts as given (M2): see [Checks](#checks).
+or D counts as given: see [Checks](#checks).
 
 Financial debt and shareholder loans within payables are needed for the net financial position
 and for operating working capital (Decision 4): without them both are not computed.
@@ -301,7 +301,7 @@ Each relation is checked exactly when both sides are given, and `FM-E026` gives 
 the difference, the pointers and the fix when they differ. A side is built only from items the
 user gave: item A or an "of which" part taken as zero never enters a check, and the message and
 the `pointers` of a checked relation name only items given. A part presented within C.II or D
-counts as given: its separate line is then zero, because the part is inside C or D (M2).
+counts as given: its separate line is then zero, because the part is inside C or D.
 Without total assets, for example, total assets rebuilt as A + B + C + D are compared when item
 A is given and line D is given or presented within C.II.
 
@@ -318,9 +318,9 @@ sources.
 In the statutory form total funds invested equal the sources whenever every item is given,
 because the identity follows from the relations above. When they differ, the items given do not
 balance once the separate lines taken as zero are counted (item A, and lines D and E presented
-within C.II or D): the result is `FM-E026` (approval M1 of 2026-11-08), which names only those
-lines and states the fix: an amount given differs, or one of these items taken as zero is not
-zero. An "of which" part taken as none moves an amount within one side and is not named. With
+within C.II or D): the result is `FM-E026` (maintainer approval of 2026-11-08), which names
+only those lines and states the fix: an amount given differs, or one of these items taken as
+zero is not zero. An "of which" part taken as none moves an amount within one side and is not named. With
 every item given, a difference is a defect (`FM-E012`). This relation names no pointer in
 `checks`: its sides are computed outputs, and its status counts the items taken as zero.
 

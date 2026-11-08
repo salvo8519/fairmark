@@ -1,6 +1,6 @@
 ---
 source: methods/statements-reorganise.md
-source_hash: 9b1985ae7345
+source_hash: 6ef22d053a43
 ---
 # Bilancio riclassificato (`statements.reorganise`)
 
@@ -39,11 +39,11 @@ con il suo pointer e il valore `"0"`, ed è indicata nelle convenzioni:
   l'aggregato che la contiene non è fornito; nel bilancio in forma ordinaria ciascuna è una
   voce separata;
 - la voce separata D o E, quando la voce D dell'attivo è fornita all'interno di C.II o la voce E
-  del passivo all'interno di D (bilancio in forma abbreviata, art. 2435-bis; approvazione M2 del
-  2026-11-08).
+  del passivo all'interno di D (bilancio in forma abbreviata, art. 2435-bis; approvazione del
+  maintainer del 2026-11-08).
 
 La voce A e le parti "di cui" considerate pari a zero non entrano mai in una verifica; una parte
-esposta all'interno di C.II o di D conta come fornita (M2): si veda [Verifiche](#verifiche).
+esposta all'interno di C.II o di D conta come fornita: si veda [Verifiche](#verifiche).
 
 I debiti finanziari e i debiti verso soci per finanziamenti compresi nei debiti sono necessari
 per la posizione finanziaria netta e per l'operating working capital (Decision 4): senza di essi
@@ -323,7 +323,7 @@ riporta i due importi, la differenza, i pointer e la correzione quando differisc
 costruito solo con voci fornite dall'utente: la voce A o una parte "di cui" considerate pari a
 zero non entrano mai in una verifica, e il messaggio e i `pointers` di una relazione verificata
 indicano solo voci fornite. Una parte esposta all'interno di C.II o di D conta come fornita: la
-sua voce separata è allora zero, perché la parte è già compresa in C o in D (M2). Senza totale
+sua voce separata è allora zero, perché la parte è già compresa in C o in D. Senza totale
 attivo, per esempio, il totale attivo ricostruito come A + B + C + D è confrontato quando la
 voce A è fornita e la voce D è fornita o esposta all'interno di C.II.
 
@@ -341,9 +341,9 @@ invested = total sources.
 Nella forma civilistica total funds invested è uguale alle fonti ogni volta che tutte le voci
 sono fornite, perché l'identità discende dalle relazioni precedenti. Quando differiscono, le
 voci fornite non quadrano una volta contate le voci separate considerate pari a zero (la voce A,
-e le voci D ed E esposte all'interno di C.II o di D): il risultato è `FM-E026` (approvazione M1
-del 2026-11-08), che indica solo quelle voci e la correzione: un importo fornito è diverso,
-oppure una di queste voci considerate pari a zero non è zero. Una parte "di cui" considerata
+e le voci D ed E esposte all'interno di C.II o di D): il risultato è `FM-E026` (approvazione del
+maintainer del 2026-11-08), che indica solo quelle voci e la correzione: un importo fornito è
+diverso, oppure una di queste voci considerate pari a zero non è zero. Una parte "di cui" considerata
 assente sposta un importo all'interno di un solo lato e non è indicata. Con tutte le voci
 fornite, una differenza è un difetto (`FM-E012`). Questa relazione non indica pointer in
 `checks`: i suoi lati sono output calcolati, e il suo stato tiene conto delle voci considerate
