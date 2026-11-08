@@ -93,7 +93,8 @@ print(q.end_dates)       # ['2026-03-31', '2026-06-30', '2026-09-30', '2026-12-3
 print(q.start_dates[1])  # 2026-03-31: the end date of period 1 starts period 2
 print(q.year_fractions)  # 90/365, 91/365, 92/365, 92/365
 assert q.start_dates[1:] == q.end_dates[:-1]
-assert q.steps[-1].value == Decimal(365) / 365  # the sum, total days / 365 exactly
+print(q.steps[-1].formula)  # 365 / 365: the total year fraction, numerators added first
+assert q.steps[-1].value == Decimal(365) / 365  # total days / 365 exactly
 
 jan = fm.dates.schedule("2026-01-01", 4, frequency="quarterly")
 print(jan.end_dates)     # ['2026-04-01', '2026-07-01', '2026-10-01', '2027-01-01']
@@ -143,7 +144,9 @@ part of version 1 and are refused as unknown fields.
 
 `explain` lists the number of periods, the months per period, the periods a year when defined,
 the actual days of the whole schedule and, with a day count, the year fraction of period 1 with
-its calculation and the sum of the year fractions. The per-period numbers are in the output
+its calculation and the total year fraction of the schedule, with its exact terms
+substituted (for example `121 / 365`, or `a / 365 + b / 366 + w` under Actual/Actual (ISDA)).
+The per-period numbers are in the output
 vectors, so the number of steps does not grow with the number of periods.
 
 ## Errors
@@ -156,9 +159,11 @@ vectors, so the number of steps does not grow with the number of periods.
 ## Accuracy
 
 Dates are integer arithmetic on months and days: exact. Year fractions are those of
-[`dates.year_fraction`](dates-year-fraction.md), ratios of integers rounded once. The sum of the
-year fractions in `explain` adds the integer numerators before dividing, so under
-Actual/365 (Fixed) it equals the total days of the schedule / 365 exactly.
+[`dates.year_fraction`](dates-year-fraction.md), ratios of integers rounded once. The total year
+fraction of the schedule in `explain` adds the integer numerators before dividing, so under
+Actual/365 (Fixed) it equals the total days of the schedule / 365 exactly. Because each
+returned `year_fractions` value is rounded once to 28 significant digits, the total can differ
+from the sum of the returned values by up to $n$ half-units of their last digit.
 
 ## Verified against
 

@@ -201,11 +201,14 @@ impl DayCount {
         Ok((terms.value()?, formula))
     }
 
-    /// The sum of the year fractions of `periods` with a single rounding per denominator: the
-    /// numerators of the exact fractions are added as integers first, so that under Actual/365
-    /// (Fixed) the sum of contiguous periods equals their total days / 365 exactly (SPEC-0010
-    /// AC3). Each fraction is the one of [`DayCount::year_fraction`] (no second definition).
-    pub(crate) fn year_fraction_sum(self, periods: &[(Date, Date)]) -> Result<Decimal> {
+    /// The total year fraction of `periods` with a single rounding per denominator, and its
+    /// formula with the numbers substituted (for example `121 / 365`, or `a / 365 + b / 366 +
+    /// w` under Actual/Actual (ISDA)): the numerators of the exact fractions are added as
+    /// integers first, so that under Actual/365 (Fixed) the total of contiguous periods equals
+    /// their total days / 365 exactly (SPEC-0010 AC3). It may differ from the sum of the rounded
+    /// year fractions by up to n half-units of their last digit. Each fraction is the one of
+    /// [`DayCount::year_fraction`] (no second definition).
+    pub(crate) fn year_fraction_sum(self, periods: &[(Date, Date)]) -> Result<(Decimal, String)> {
         // Numerators by denominator (360, 365, 366) and whole years, all exact integers.
         let mut by_denominator: Vec<(i64, i64)> = Vec::new();
         let mut whole: i64 = 0;
@@ -227,10 +230,15 @@ impl DayCount {
         }
         by_denominator.sort_by_key(|(_, d)| *d);
         let mut total = Decimal::from(whole);
+        let mut terms = Vec::with_capacity(by_denominator.len() + 1);
         for (n, d) in by_denominator {
             total = num::add(total, num::div(Decimal::from(n), Decimal::from(d))?)?;
+            terms.push(format!("{n} / {d}"));
         }
-        Ok(total)
+        if whole != 0 || terms.is_empty() {
+            terms.push(whole.to_string());
+        }
+        Ok((total, terms.join(" + ")))
     }
 
     /// The exact terms of the year fraction from `start` to `end`, and its formula.
@@ -632,12 +640,11 @@ pub(crate) fn schedule_explain(s: &BuiltSchedule, ex: &mut Explain) -> Result<()
             .copied()
             .zip(s.end_dates.iter().copied())
             .collect();
+        let (total, formula) = dc.year_fraction_sum(&periods)?;
         ex.step(
-            "Sum of the year fractions",
-            format!(
-                "Σ year fractions of periods 1 to {n}, numerators added exactly before dividing"
-            ),
-            dc.year_fraction_sum(&periods)?,
+            "Total year fraction of the schedule, exact (numerators added before dividing)",
+            formula,
+            total,
         );
     }
     Ok(())
@@ -991,9 +998,10 @@ mod tests {
                 "Periods per year",
                 "Actual days in the schedule",
                 "Year fraction of period 1, 2024-01-31 to 2024-02-29",
-                "Sum of the year fractions",
+                "Total year fraction of the schedule, exact (numerators added before dividing)",
             ]
         );
+        assert_eq!(ex.steps[5].formula, "121 / 365");
         assert_eq!(ex.steps[4].formula, "29 / 365");
         assert_eq!(ex.steps[4].value, out.year_fractions.as_ref().unwrap()[0]);
         assert_eq!(
@@ -1072,12 +1080,40 @@ mod tests {
                     assert_eq!(*yf, one.year_fraction, "{dc:?} {start} period {}", k + 1);
                 }
                 let sum = ex.steps.last().unwrap().value;
+                let formula = &ex.steps.last().unwrap().formula;
+                match dc {
+                    DayCount::Act365Fixed => assert!(formula.ends_with(" / 365"), "{formula}"),
+                    DayCount::Act360 | DayCount::Thirty360 | DayCount::ThirtyE360 => {
+                        assert!(formula.ends_with(" / 360"), "{formula}")
+                    }
+                    DayCount::ActActIsda => assert!(formula.contains(" / 36"), "{formula}"),
+                }
                 if dc == DayCount::Act365Fixed {
                     let days = out.start_dates[0].days_until(out.end_dates[39]);
                     assert_eq!(sum, Decimal::from(days) / Decimal::from(365), "{start}");
                 }
             }
         }
+    }
+
+    /// The total of an Actual/Actual (ISDA) schedule shows its exact terms: days over 365, days
+    /// over 366 and whole years.
+    #[test]
+    fn total_year_fraction_shows_the_exact_terms() {
+        let periods = [
+            (d("2023-06-30"), d("2023-12-31")),
+            (d("2023-12-31"), d("2024-06-30")),
+            (d("2024-06-30"), d("2026-06-30")),
+        ];
+        let (total, formula) = DayCount::ActActIsda.year_fraction_sum(&periods).unwrap();
+        // Over 365: 184 + 1 days of 2023 and 180 days of 2026; over 366: 181 + 185 days of 2024;
+        // one whole year, 2025. Numerators are added by denominator, never reduced.
+        assert_eq!(formula, "365 / 365 + 366 / 366 + 1");
+        assert_eq!(total, Decimal::from(3));
+        let (_, f) = DayCount::Act365Fixed
+            .year_fraction_sum(&[(d("2024-01-01"), d("2024-03-01"))])
+            .unwrap();
+        assert_eq!(f, "60 / 365");
     }
 
     /// R3: a named frequency and the equal number of months give the same values.

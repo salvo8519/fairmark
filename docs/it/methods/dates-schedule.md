@@ -1,6 +1,6 @@
 ---
 source: methods/dates-schedule.md
-source_hash: 632b77882b5b
+source_hash: 77ccdd3c7a66
 ---
 # Piano dei periodi di calcolo (`dates.schedule`)
 
@@ -99,7 +99,8 @@ print(q.end_dates)       # ['2026-03-31', '2026-06-30', '2026-09-30', '2026-12-3
 print(q.start_dates[1])  # 2026-03-31: la data di fine del periodo 1 apre il periodo 2
 print(q.year_fractions)  # 90/365, 91/365, 92/365, 92/365
 assert q.start_dates[1:] == q.end_dates[:-1]
-assert q.steps[-1].value == Decimal(365) / 365  # la somma, giorni totali / 365 esatti
+print(q.steps[-1].formula)  # 365 / 365: la frazione d'anno totale, numeratori sommati prima
+assert q.steps[-1].value == Decimal(365) / 365  # giorni totali / 365 esatti
 
 jan = fm.dates.schedule("2026-01-01", 4, frequency="quarterly")
 print(jan.end_dates)     # ['2026-04-01', '2026-07-01', '2026-10-01', '2027-01-01']
@@ -150,7 +151,9 @@ campi sconosciuti.
 
 `explain` riporta il numero di periodi, i mesi per periodo, i periodi all'anno quando definiti,
 i giorni effettivi dell'intero piano e, con una convenzione di calcolo dei giorni, la frazione
-d'anno del periodo 1 con il suo calcolo e la somma delle frazioni d'anno. I valori di ogni
+d'anno del periodo 1 con il suo calcolo e la frazione d'anno totale del piano, con i suoi
+termini esatti sostituiti (per esempio `121 / 365`, oppure `a / 365 + b / 366 + w` con
+Actual/Actual (ISDA)). I valori di ogni
 periodo sono nei vettori di output, quindi il numero di passaggi non cresce con il numero di
 periodi.
 
@@ -165,8 +168,11 @@ periodi.
 
 Le date sono aritmetica intera su mesi e giorni: esatte. Le frazioni d'anno sono quelle di
 [`dates.year_fraction`](dates-year-fraction.md), rapporti tra interi arrotondati una sola volta.
-La somma delle frazioni d'anno in `explain` addiziona i numeratori interi prima di dividere,
-quindi con Actual/365 (Fixed) è uguale esattamente ai giorni totali del piano / 365.
+La frazione d'anno totale del piano in `explain` addiziona i numeratori interi prima di
+dividere, quindi con Actual/365 (Fixed) è uguale esattamente ai giorni totali del piano / 365.
+Poiché ogni valore restituito in `year_fractions` è arrotondato una volta a 28 cifre
+significative, il totale può differire dalla somma dei valori restituiti fino a $n$ mezze unità
+della loro ultima cifra.
 
 ## Verificato con
 

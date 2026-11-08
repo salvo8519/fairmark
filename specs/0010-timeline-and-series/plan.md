@@ -106,7 +106,13 @@ and the registry. No new error code; errors use `FairmarkError::InvalidInput`, `
 
 ## Numerical approach
 - **Dates**: integer arithmetic only (month index in `i64`, day clamping); no `Decimal`.
-- **Year fractions**: `DayCount::year_fraction` as is; sum with `num::add`.
+- **Year fractions**: `DayCount::year_fraction` as is. Departure (implementation, 2026-11-08,
+  code review of #206): the total in `explain` is not the `num::add` sum of the rounded
+  fractions but the exact total, the integer numerators added by denominator before one
+  division each, so that AC3 (Actual/365 (Fixed): total days / 365 exactly) holds. The step
+  shows the substituted terms (`121 / 365`, `a / 365 + b / 366 + w`); it may differ from the
+  sum of the returned `year_fractions` by up to n half-units of their last digit, as the
+  methodology page states.
 - **Recurrence**: V_k = V_{k−1} × (1 + g_k) with `num::mul` and `num::add`, period by period, no
   closed-form power (R9). Exact for decimal inputs until the 28 significant digits of
   `rust_decimal` are used up; the methodology page states it.
