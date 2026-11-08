@@ -130,7 +130,6 @@ RECLASSIFIED_SIGNED_BS = {
 }
 RECLASSIFIED_SIGNED_IS = {
     "value_of_production",
-    "external_costs",
     "materials_consumed",
     "value_added",
     "ebitda",

@@ -1570,16 +1570,6 @@
             "null"
           ]
         },
-        "external_costs": {
-          "default": null,
-          "description": "External costs (B6 + B11 + B7 + B8 + B14 core), in currency units, signed.",
-          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
-          "type": [
-            "string",
-            "number",
-            "null"
-          ]
-        },
         "financing_result": {
           "default": null,
           "description": "Financing result, C17-bis − C17, in currency units, signed.",
@@ -1653,16 +1643,6 @@
         "operating_profit": {
           "default": null,
           "description": "Operating profit (reddito operativo, MON), in currency units, signed.",
-          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
-          "type": [
-            "string",
-            "number",
-            "null"
-          ]
-        },
-        "other_charges_below_ebitda": {
-          "default": null,
-          "description": "Other charges below EBITDA within the core management: provisions B12 and B13 and,\nwhen treated as operating, write-downs of receivables B10 d, in currency units.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",

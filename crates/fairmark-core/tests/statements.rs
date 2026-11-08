@@ -624,6 +624,20 @@ fn two_runs_give_identical_output_and_key_order_does_not_change_the_hash() {
     assert_eq!(a["value"], c["value"]);
 }
 
+/// D4 of 2026-11-08: `external_costs` and `other_charges_below_ebitda` of the reclassified
+/// income statement come with the second pull request; until then they are unknown fields.
+#[test]
+fn the_deferred_reclassified_income_statement_fields_are_refused() {
+    let schema = fairmark_core::input_schema(METHOD).unwrap().to_string();
+    for field in ["external_costs", "other_charges_below_ebitda"] {
+        assert!(!schema.contains(field), "{field}");
+        let input = json!({"years": [{"reclassified": {"income_statement": {field: "1"}}}]});
+        let e = err(&input);
+        assert_eq!(e.code(), "FM-E001");
+        assert!(e.to_string().contains(field), "{e}");
+    }
+}
+
 #[test]
 fn the_input_schema_has_no_boolean() {
     let schema = fairmark_core::input_schema(METHOD).unwrap().to_string();

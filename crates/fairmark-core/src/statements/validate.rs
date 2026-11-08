@@ -415,7 +415,6 @@ fn reclassified_income_statement(is: &ReclassifiedIncomeStatement, at: &str) -> 
             "depreciation_and_amortisation",
             is.depreciation_and_amortisation,
         ),
-        ("other_charges_below_ebitda", is.other_charges_below_ebitda),
         (
             "interest_and_other_financial_charges",
             is.interest_and_other_financial_charges,

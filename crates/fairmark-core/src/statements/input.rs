@@ -424,8 +424,6 @@ pub struct ReclassifiedIncomeStatement {
     pub purchases: Option<Decimal>,
     /// Materials consumed (B6 + B11), in currency units, signed.
     pub materials_consumed: Option<Decimal>,
-    /// External costs (B6 + B11 + B7 + B8 + B14 core), in currency units, signed.
-    pub external_costs: Option<Decimal>,
     /// Value added, value of production − external costs, in currency units, signed.
     pub value_added: Option<Decimal>,
     /// Personnel costs (B9), in currency units.
@@ -434,9 +432,6 @@ pub struct ReclassifiedIncomeStatement {
     pub ebitda: Option<Decimal>,
     /// Depreciation and amortisation (B10 a, b), in currency units.
     pub depreciation_and_amortisation: Option<Decimal>,
-    /// Other charges below EBITDA within the core management: provisions B12 and B13 and,
-    /// when treated as operating, write-downs of receivables B10 d, in currency units.
-    pub other_charges_below_ebitda: Option<Decimal>,
     /// Operating profit (reddito operativo, MON), in currency units, signed.
     pub operating_profit: Option<Decimal>,
     /// Investing result (accessory area), in currency units, signed.
