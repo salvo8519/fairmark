@@ -403,7 +403,8 @@ then leaves C.II); asset − liability − prepayment is the equity effect, adde
 its formula in the explain. In the income statement the payments leave B8, the depreciation is
 added to depreciation and amortisation and the interest to C17. No deferred taxes are computed,
 so profit before tax and net income differ from the statutory amounts by payments −
-depreciation − interest, a line of each reconciliation. Each amount moved is listed in
+depreciation − interest: payments and depreciation are lines of both reconciliations with A − B,
+and interest is in the financing result. Each amount moved is listed in
 `adjustments_applied` with its `line`.
 
 ## Outputs

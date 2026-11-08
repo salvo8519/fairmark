@@ -405,7 +405,8 @@ pub(crate) fn conventions(input: &ReorganiseInput, ex: &mut Explain) {
              current part, prepayment out of assets D, asset − liability − prepayment to equity; \
              payments out of B8, depreciation and interest added; no deferred taxes; profit \
              before tax and net income therefore differ from the statutory amounts by payments \
-             − depreciation − interest, a line of each reconciliation",
+             − depreciation − interest: payments and depreciation are lines of both \
+             reconciliations with A − B, interest is in the financing result",
         );
     }
 }

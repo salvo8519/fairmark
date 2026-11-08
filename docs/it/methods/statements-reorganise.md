@@ -1,6 +1,6 @@
 ---
 source: methods/statements-reorganise.md
-source_hash: a537b5dc2da9
+source_hash: 161fa816cf1c
 ---
 # Bilancio riclassificato (`statements.reorganise`)
 
@@ -424,8 +424,9 @@ parte esposta in C.II, che esce allora da C.II); bene − debito − maxicanone 
 patrimonio netto, aggiunto al patrimonio netto con la sua formula nell'explain. Nel conto
 economico i canoni escono da B8, l'ammortamento si aggiunge agli ammortamenti e gli interessi a
 C17. Non sono calcolate imposte differite, quindi il risultato prima delle imposte e l'utile
-netto differiscono dagli importi civilistici per canoni − ammortamento − interessi, una riga di
-ciascuna riconciliazione. Ogni importo spostato è elencato in `adjustments_applied` con la sua
+netto differiscono dagli importi civilistici per canoni − ammortamento − interessi: canoni e
+ammortamento sono righe di entrambe le riconciliazioni con A − B, gli interessi sono nel
+financing result. Ogni importo spostato è elencato in `adjustments_applied` con la sua
 `line`.
 
 ## Output
