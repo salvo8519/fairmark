@@ -28,7 +28,7 @@ description: End-to-end checklist for adding a valuation method to the Fairmark 
    row in `docs/en/methods/index.md` (method and what it computes; the status block is
    generated); `python scripts/docs_sync.py coverage` must pass.
 8. `uv run just check`, then `code-reviewer` and `numerical-auditor`.
-9. Status: a new method is `preview` (ADR 0011). Add its id to the spec's entry in
+9. Status: a new method is `preview` (ADR 0012). Add its id to the spec's entry in
    `specs/method-evidence.yaml`. Promotion to `available` is a separate, maintainer-approved
    change: one line in `AVAILABLE` (`registry.rs`) once the rule in
    `docs/en/project/releases.md` ("Method status") holds; `python scripts/method_status.py

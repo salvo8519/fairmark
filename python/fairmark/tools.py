@@ -38,7 +38,7 @@ PREVIEW_NOTE = (
     " numerical audit and code review); a later method version may change its inputs or"
     " results. Results from preview methods should be reported as preview."
 )
-"""Sentences added to the description of every tool whose method is not available (ADR 0011)."""
+"""Sentences added to the description of every tool whose method is not available (ADR 0012)."""
 
 
 def tool_name(method_id: str) -> str:

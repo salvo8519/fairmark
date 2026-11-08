@@ -38,7 +38,7 @@ logger = logging.getLogger("fairmark.mcp")
 
 
 async def list_tools() -> list[Any]:
-    """One MCP tool per method, with its status in `_meta` (`fairmark/status`, ADR 0011)."""
+    """One MCP tool per method, with its status in `_meta` (`fairmark/status`, ADR 0012)."""
     from mcp import types
 
     status = {tools.tool_name(m["id"]): m["status"] for m in methods()}

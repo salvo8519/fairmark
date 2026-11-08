@@ -1,6 +1,6 @@
 # ADR 0012 — Method status lives in the registry, promotion evidence is checked in CI
 
-Status: proposed · 2026-11-08 (issue #149)
+Status: accepted · 2026-11-08 (maintainer decision on #149)
 
 ## Context
 The methods index marked some methods "preview" in a hand-edited column, and
@@ -45,6 +45,11 @@ safe default: its author would choose the status.
    meets the rule or becomes preview. Promoting a method on any other grounds needs a change
    to the checker, which is visible in review; the checker, the evidence file and the specs'
    task lists are owned by the maintainer in `CODEOWNERS`.
+   Maintainer decision of 2026-11-08: the audits and reviews of SPEC-0006, SPEC-0008 and
+   SPEC-0009, recorded on pull requests #141, #129 and #156, are ticked in their task lists;
+   the SPEC-0002 methods move to preview until their code review is done. The list is empty
+   and `scripts/release.py ready` fails while it is not: no release ships a method available
+   on legacy grounds.
 5. **Results carry the status.** `meta.method_status` reports the status of the method that
    produced a result; an analysis method also reports `meta.evaluated_method_status` and, for
    a preview inner method, a convention, so a saved or forwarded result keeps the warning.

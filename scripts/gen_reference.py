@@ -6,7 +6,7 @@
 Writes docs/<lang>/reference/methods.md, the status block of docs/<lang>/methods/index.md
 and the methods table of README.md and README.it.md. Field descriptions come from the Rust
 doc comments (English) in both editions; the status of each method comes from the registry
-(ADR 0011).
+(ADR 0012).
 """
 
 from __future__ import annotations

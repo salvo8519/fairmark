@@ -1,4 +1,4 @@
-"""Promotion rule of scripts/method_status.py (ADR 0011, docs/en/project/releases.md)."""
+"""Promotion rule of scripts/method_status.py (ADR 0012, docs/en/project/releases.md)."""
 
 from __future__ import annotations
 

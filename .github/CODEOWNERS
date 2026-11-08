@@ -2,7 +2,7 @@
 /crates/fairmark-core/          @salvo8519
 /tests/golden/                  @salvo8519
 /docs/en/methods/               @salvo8519
-# Method status: promotion evidence and the rule that checks it (ADR 0011).
+# Method status: promotion evidence and the rule that checks it (ADR 0012).
 /scripts/method_status.py       @salvo8519
 /specs/method-evidence.yaml     @salvo8519
 /specs/*/tasks.md               @salvo8519

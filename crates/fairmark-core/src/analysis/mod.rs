@@ -131,7 +131,7 @@ impl Inner {
         self.id
     }
 
-    /// The convention an analysis reports when its inner method is preview (ADR 0011).
+    /// The convention an analysis reports when its inner method is preview (ADR 0012).
     pub(crate) fn status_convention(&self) -> Option<String> {
         (self.status == registry::Status::Preview).then(|| {
             format!(

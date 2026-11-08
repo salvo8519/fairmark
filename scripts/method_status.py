@@ -1,4 +1,4 @@
-"""Check the status of every method against the promotion rule (ADR 0011).
+"""Check the status of every method against the promotion rule (ADR 0012).
 
 The engine registry holds the status (`AVAILABLE` in crates/fairmark-core/src/registry.rs);
 the evidence is in specs/method-evidence.yaml; the rule is in docs/en/project/releases.md,
