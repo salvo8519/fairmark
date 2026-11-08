@@ -51,7 +51,8 @@ drift from it. Pull request numbers share the same sequence.
   the milestone and labels on GitHub and adds the task to the file. CI refuses a pull request
   that closes an issue missing from the roadmap or not marked `done` in it, a spec that no task references, and a
   roadmap page that is not generated from the file. `roadmap.py sync` copies issue states
-  from GitHub; the scheduled workflow `Roadmap sync` fails on any difference.
+  from GitHub; the workflow `Roadmap sync` fails on any difference, except one that the roadmap
+  file of an open pull request from this repository already resolves (reported as a warning).
 - **Plans in public pages**: method and concept pages, guides and the README describe what
   exists. What comes next is stated only in the roadmap page, generated from the plan, and
   linked from them. `scripts/docs_sync.py claims` fails on plans written in prose (planned,
