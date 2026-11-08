@@ -2,11 +2,26 @@
 
 | | |
 | --- | --- |
-| Status | Draft — revision 3 (2026-11-08): core and non-operating areas of the income statement, write-down rule, authoritative sources |
+| Status | Draft — revision 4 (2026-11-08): consecutive financial years, choices stated once, exact changes between years |
 | Milestone | M2 (release 0.1.0); epic #34; issues #35 and #36 |
 | Owner | @salvo8519 |
 | Formula basis | The corporate-finance reorganisation of the financial statements into operating and financing items (Koller, Goedhart, Wessels, *Valuation*, "Reorganizing the financial statements"; Damodaran; CFA Institute curriculum), applied to the aggregates of the Italian statutory layouts (art. 2424, 2425, abridged art. 2435-bis), with the net financial position in the SPEC-0007 structure and the ESMA32-382-1138 table as reference, and the income statement presented in the value added layout with the core (characteristic) management separated from the non-operating (accessory), non-recurring and financial areas, as in Italian credit analysis (OIC 12; art. 2427 n. 13; Banca d'Italia; EBA/GL/2020/06); verified against an exact decimal reference script and against published worked examples and practitioner cases still to be named (Open question 16) |
 | Related | SPEC-0001 (owns the free cash flow build-up and NOPAT taxes; its bridge types receive the non-operating assets and debt-like items), SPEC-0003 (owns tax rates; no IRAP logic), SPEC-0007 (owns `NetFinancialPosition`, every ratio and margin); ADR 0001, ADR 0009, ADR 0012 |
+
+## Revision 4 (2026-11-08)
+The maintainer's principle: the most scalable solution that is also simple and intuitive for an
+agent and for a human. Changes from revision 3 (commit e042bb1):
+- Input is a list of 1 to n consecutive financial years, oldest first, as read from the filing
+  with its comparative column (art. 2423-ter); unordered or non-consecutive years are refused
+  with `FM-E001` and the fix (R2).
+- Treatments and adjustments are stated once for the call. A treatment applies to every year;
+  an adjustment states its kind, label and reason once and its amount for each year it applies
+  to. A per-year override exists for two treatments only: financial fixed assets (B.III) and
+  shareholder loans (R8, R9, R10).
+- Output adds, between consecutive years only, the exact changes in operating working capital,
+  net financial position and equity (R16a). No capital expenditure is estimated from balance
+  sheets; an estimate is a future extension and would be labelled as such.
+- Open questions 17 and 18 stay open; no new question.
 
 ## Revision 3 (2026-11-08)
 After the maintainer's answers to Open questions 1 to 16 (commits a7b30ca, d65c45a):
@@ -126,7 +141,10 @@ they are.
 - Input: the aggregates of the statutory balance sheet (art. 2424 letters and Roman numerals,
   with the amounts beyond the next financial year of C.II and D) and income statement (art. 2425
   aggregates, as in the abridged layout of art. 2435-bis), in the ordinary, abridged and
-  micro-entity layouts (art. 2435-ter); one or more financial years.
+  micro-entity layouts (art. 2435-ter); one or more consecutive financial years, typically two
+  or three as read from a filing and its comparative column.
+- Exact changes between consecutive years in operating working capital, net financial position
+  and equity.
 - Reconciliation checks of the totals.
 - Reorganised balance sheet: operating fixed assets, operating working capital, operating
   provisions, invested capital, non-operating assets, equity, quasi-equity, net financial
@@ -149,8 +167,11 @@ IRAP (SPEC-0003); ratios and margins (SPEC-0007).
 2. The financial (liquidity) criterion as a full presentation.
 3. The cost of sales layout, with allocations by function.
 4. The full ESMA32-382-1138 net financial indebtedness table (rows A to M).
-5. Changes between consecutive years (operating working capital, fixed assets) for the
-   SPEC-0001 build-up, as a SPEC-0001 task.
+5. An estimate of capital expenditure from two balance sheets (change in fixed assets plus
+   depreciation and amortisation), for the SPEC-0001 build-up. It is an approximation, because
+   disposals, write-downs and revaluations are not in the aggregates; if ever added, it SHALL be
+   labelled as an estimate in its name and in `explain`. The exact changes of R16a are in
+   version 1.
 6. A standalone statutory check method, if agents need it before classification.
 7. IFRS layouts (IAS 1, IFRS 18) as statutory input; consolidated accounts.
 8. A debt sustainability method computing the ratio of the practical test (test pratico) of
@@ -174,6 +195,9 @@ credit scoring.
   reorganised balance sheet.
 - As an AI agent extracting a filing, I want reconciliation errors before classification
   errors, with JSON pointers, so that I fix the extraction first.
+- As an analyst, I want to pass the two or three years of a filing, state each choice once and
+  read the exact changes in working capital, net financial position and equity, so that I do
+  not repeat choices or compute differences by hand.
 - As a reviewer, I want every adjustment with its amount, reason, source and destination in the
   explain, so that I can challenge each one.
 
@@ -183,11 +207,17 @@ credit scoring.
 - **R1** — THE ENGINE SHALL provide the method `statements.reorganise` version 1, status
   preview (ADR 0012), which reorganises the statutory balance sheet, the income statement or
   both of one or more financial years into the operating and financing view (Open question 1).
-- **R2** — THE ENGINE SHALL take a list of one or more years, each with a balance sheet date
-  (ISO 8601, `FM-E009` when invalid; distinct dates, `FM-E001` otherwise), a declared layout
-  (`ordinary`, `abridged`, `micro_entity`), a balance sheet, an income statement or both
-  (`FM-E001` when neither), the treatments of R8 and the adjustments of R10. It SHALL reorganise
-  each year independently and return the years in input order. The layout SHALL be echoed in
+- **R2** — THE ENGINE SHALL take a list `years` of one or more financial years, oldest first,
+  each with its balance sheet date (ISO 8601, `FM-E009` when invalid), a declared layout
+  (`ordinary`, `abridged`, `micro_entity`) and a balance sheet, an income statement or both
+  (`FM-E001` when neither); the treatments (R8, R9) and the adjustments (R10) SHALL be given once
+  for the call, next to `years`. Each balance sheet date SHALL be exactly one calendar year after
+  the previous one (same month and day; 28 February follows 29 February). IF the years are not in
+  that order or not consecutive, THEN THE ENGINE SHALL return `FM-E001` naming the first year out
+  of place by its JSON pointer and stating the fix (list the years oldest first, one financial
+  year apart; reorganise years of a different length, such as after a change of year end, in a
+  separate call). One year SHALL be valid. THE ENGINE SHALL reorganise each year with the same
+  treatments and adjustments and return the years in input order. The layout SHALL be echoed in
   `explain.conventions`; no number SHALL depend on it and eligibility thresholds SHALL NOT be
   checked. All amounts SHALL be in the currency units of the statements, one unit per call,
   never scaled.
@@ -227,10 +257,17 @@ credit scoring.
 - **R8** — THE ENGINE SHALL assign every aggregate to the destination of Appendix A. An
   aggregate marked `fixed` or `default` SHALL take the documented destination, reported in
   `explain.conventions`; an aggregate marked `required` SHALL take the treatment stated by the
-  analyst whenever its amount is not zero: one destination, or a split into labelled parts with
-  a destination and an amount each, summing exactly to the aggregate (`FM-E026` otherwise). IF a
-  required treatment is missing or names a destination not permitted for that aggregate, THEN
-  THE ENGINE SHALL return `FM-E001` naming the aggregate and listing the permitted destinations.
+  analyst, once for the call, as one destination applied to every year in which its amount is
+  not zero. IF a required treatment is missing while the aggregate is not zero in some year, or
+  names a destination not permitted for that aggregate, THEN THE ENGINE SHALL return `FM-E001`
+  naming the aggregate, the year and the permitted destinations.
+- **R8a** — For financial fixed assets (B.III) and shareholder loans only, THE ENGINE SHALL
+  accept a per-year override in the year's `treatment_overrides`: another destination, or a
+  split into labelled parts with a destination and an amount each, summing exactly to the
+  aggregate of that year (`FM-E026` otherwise). These are the two aggregates whose nature
+  changes between years in practice (a stake that becomes surplus or strategic; loans that gain
+  or lose a postponement clause) and whose content is often mixed. An override of any other
+  aggregate SHALL be refused with `FM-E001`. Every override SHALL be reported for its year.
 - **R9** — The aggregates with a required treatment SHALL be: financial fixed assets (B.III), the
   shareholder loans part of D and the derivative liabilities part of provisions B (an optional
   "of which" of B) (Open questions 5, 6, 10). Provisions B (other than derivatives) and the
@@ -238,9 +275,12 @@ credit scoring.
   reported, never inside the net financial position; an adjustment SHALL move all or part to
   debt-like items with a reason (Decision of Open question 5). No other aggregate SHALL require a
   treatment in version 1.
-- **R10** — THE ENGINE SHALL accept a list of labelled adjustments, each with a kind from
-  Appendix C, an amount of zero or more, a reason (not blank; `FM-E001` otherwise) and the fields
-  of its kind. An adjustment SHALL move its amount from the source destination to the target
+- **R10** — THE ENGINE SHALL accept, once for the call, a list of labelled adjustments, each with
+  a kind from Appendix C, a label, a reason (not blank; `FM-E001` otherwise), the fields of its
+  kind, and `amounts`: one amount of zero or more for each year it applies to, keyed by the
+  year's balance sheet date (`FM-E001` for a date that is not in `years`). A year without an
+  amount SHALL mean that the adjustment does not apply in that year, reported. In each year an
+  adjustment SHALL move its amount from the source destination to the target
   destination of its kind; IF its source is not one permitted for its kind in Appendix C (for
   example a non-recurring adjustment of D19), THEN THE ENGINE SHALL return `FM-E001`; IF the
   amount exceeds what remains in the source after earlier adjustments, THEN it SHALL return
@@ -288,6 +328,16 @@ credit scoring.
   non-current and prepayments and accruals current unless the analyst gives their non-current
   part; inventories SHALL be current. Every such default SHALL be reported. THE ENGINE SHALL NOT
   compute ratios or margins (Open question 12).
+- **R16a** — WHEN two or more years with a balance sheet are given, THE ENGINE SHALL return, for
+  each pair of consecutive years, the exact changes from the earlier to the later year, each in
+  `explain` with both amounts substituted: `change_in_operating_working_capital` (positive for an
+  increase, which absorbs cash, the sign convention of `change_in_net_working_capital` in the
+  SPEC-0001 build-up), `change_in_net_financial_position` (positive for an increase in net debt)
+  and `change_in_equity`. Each change SHALL be the difference of the reorganised amounts of the
+  two years, after their treatments and adjustments, and the convention SHALL say so. WHEN one
+  year is given, `changes` SHALL be empty and the conventions SHALL state "one year given: no
+  changes". THE ENGINE SHALL NOT estimate capital expenditure from balance sheets (future
+  extension 5).
 
 ### Reorganised income statement
 - **R17** — WHEN an income statement is given, THE ENGINE SHALL return the value added layout of
@@ -367,7 +417,10 @@ credit scoring.
   debt-like items (Open question 14).
 
 ### Explain, errors and stability
-- **R25** — THE ENGINE SHALL report in `explain.conventions`: the layout; the sign conventions;
+- **R25** — THE ENGINE SHALL report in `explain.conventions`: the years and their order; that
+  treatments and adjustments are stated once for the call, with each per-year override and each
+  year in which an adjustment does not apply; how the changes are computed, or that one year
+  gives no changes; the layout; the sign conventions;
   the exact balance check; every default destination used; every treatment and adjustment; the
   twelve-month reading of the statutory maturity split; the EBITDA definition; the layers of the
   income statement and the area of each aggregate; the write-down rule of R18a; the default areas
@@ -386,6 +439,9 @@ credit scoring.
 
 | Convention | Options | Default | Source |
 | --- | --- | --- | --- |
+| Years | 1 to n financial years, oldest first, one calendar year apart | required order, refused otherwise | Art. 2423-ter (comparative amounts) (V2) |
+| Scope of choices | treatments and adjustments stated once; adjustment amounts per year; per-year override for B.III and shareholder loans only | fixed | Maintainer principle of revision 4 |
+| Changes between years | exact differences of reorganised amounts; none with one year | fixed, reported | R16a |
 | Layout | `ordinary`, `abridged`, `micro_entity` | required; echoed; no number depends on it | Art. 2424, 2425, 2435-bis, 2435-ter |
 | Sign of inputs | as presented in the statutory layouts (R5) | fixed | Art. 2425; OIC 12 (V5, V12) |
 | Balance check | exact equality | fixed | Art. 2423, euro units (V1); Open question 2 |
@@ -422,12 +478,25 @@ Every golden case compares exactly (tolerance 0).
   returns the reconciliation error.
 - **AC3** (R2, R3, R5, R26) — `FM-E001` for: no statement, a negative unsigned amount, a missing
   or excessive beyond-one-year amount, a missing financial debt or shareholder loans part of D,
-  two years with the same date; `FM-E009` for an invalid date. Every message has a JSON pointer.
-- **AC4** (R8, R9, R12) — Property: no non-operating asset is part of `invested_capital`, and the
-  non-operating assets of the balance sheet block equal those returned for the bridge, label by
-  label. For each required treatment: missing with a non-zero amount returns
-  `FM-E001` listing the destinations; a zero amount passes without it; a split that differs from
-  the aggregate returns `FM-E026`; one golden case per destination.
+  two years with the same date, years newest first, a gap of one year, dates not one calendar
+  year apart; `FM-E009` for an invalid date. Every message has a JSON pointer and the fix. Years
+  ending 29 February 2024 and 28 February 2025 are accepted as consecutive.
+- **AC3a** (R8, R8a, R10) — Golden `three-years.yaml`: one treatment stated once applies to
+  every year; an override of B.III in the last year applies to that year only and is reported;
+  an override of provisions B returns `FM-E001`; an adjustment with amounts for two of three
+  years is reported as not applied in the third; an amount keyed by a date not in `years`
+  returns `FM-E001`.
+- **AC3b** (R16a) — Golden `three-years.yaml` returns two sets of changes, each equal to the
+  difference of the reorganised amounts of its two years, exactly. Property (random valid
+  inputs): the sum of the changes over consecutive pairs equals the difference between the last
+  and the first year. Golden `one-year.yaml` returns no changes and the convention "one year
+  given: no changes".
+- **AC4** (R8, R8a, R9, R12) — Property: no non-operating asset is part of `invested_capital`,
+  and the non-operating assets of the balance sheet block equal those returned for the bridge,
+  label by label. For each required treatment: missing while the aggregate is not zero in some
+  year returns `FM-E001` naming the year and listing the destinations; zero in every year passes
+  without it; a split override that differs from the aggregate returns `FM-E026`; one golden
+  case per destination.
 - **AC5** (R10, R11) — One golden case per adjustment kind of Appendix C; an adjustment larger
   than its source returns `FM-E026`; a blank reason returns `FM-E001`. Property: the amounts in
   the explain assignment table sum to their aggregate.
@@ -468,15 +537,19 @@ Every golden case compares exactly (tolerance 0).
 ## Interfaces
 - **Method id:** `statements.reorganise` version 1, new, preview, listed under `"0005"` in
   `specs/method-evidence.yaml` (Open question 1 discusses the two-method alternative).
-- **Input:** `years`: list of `{balance_sheet_date, layout, balance_sheet?, income_statement?,
-  treatments?, adjustments?}`; treatments are keyed by the aggregate's JSON pointer relative to
-  the year; adjustments are `{kind, label, amount, reason, ...}`. Type names are set in
-  `plan.md`.
+- **Input:** `years`: list, oldest first, of `{balance_sheet_date, layout, balance_sheet?,
+  income_statement?, treatment_overrides?}`; `treatments`: once for the call, keyed by the
+  aggregate (B.III, the shareholder loans part of D, the derivative part of B), each one
+  destination; `treatment_overrides` (B.III and shareholder loans only): a destination or a split
+  for that year; `adjustments`: once for the call, `{kind, label, reason, amounts: {<date>:
+  amount or the amount fields of the kind}, ...}`. Type names are set in `plan.md`.
 - **Output per year:** `reorganised_balance_sheet` (Appendix B.1), `net_financial_position`
   (SPEC-0007 type) with `composition`, `current` and `non_current`; `non_operating_assets`,
   `debt_like_items`, `quasi_equity_items`; `current_non_current` (R16);
   `reorganised_income_statement` (Appendix B.2, the layers of R17 including `core_ebit` and
-  `ebit`) with `ebit_reconciliation`; `assignments` and
+  `ebit`) with `ebit_reconciliation`; and, once for the call, `changes`: one entry per pair of
+  consecutive years (`from`, `to`, `change_in_operating_working_capital`,
+  `change_in_net_financial_position`, `change_in_equity`; R16a), empty with one year; `assignments` and
   `adjustments` as applied (R11).
 - **Schema changes:** additive: one new method, `schemas/statements.reorganise/v1.json`, one
   entry in `schemas/index.json`. No existing method, golden case or number changes.
@@ -803,7 +876,9 @@ Result:
   added to C17.
 
 ## Appendix C — Adjustment kinds (proposed)
-Each adjustment has `kind`, `label`, `amount` (zero or more), `reason` and the fields listed.
+Each adjustment is stated once for the call with `kind`, `label`, `reason` and the fields
+listed, and `amounts` keyed by balance sheet date: for each year it applies to, the amount (zero
+or more) or, for `lease`, its amount fields for that year (R10).
 
 | Kind | Source | Target | Fields |
 | --- | --- | --- | --- |
@@ -814,7 +889,7 @@ Each adjustment has `kind`, `label`, `amount` (zero or more), `reason` and the f
 | `tax_instalments` | D remainder (operating) | debt-like items | maturity |
 | `non_current_trade_payables` | D remainder (operating) | NFP other financial liability | none |
 | `dividends_declared` | equity | debt-like items | none |
-| `lease` | double entry (R23) | operating fixed assets, NFP, equity; B8, B10, C | asset, liability with current part, prepayment, payments, depreciation, interest |
+| `lease` | double entry (R23) | operating fixed assets, NFP, equity; B8, B10, C | per year: asset, liability with current part, prepayment, payments, depreciation, interest |
 | `debt_like_provision` | provisions B or employee severance indemnity C (operating provision) | debt-like items | aggregate pointer |
 | `non_recurring` | any income statement aggregate except D18 and D19 | non-recurring result | aggregate pointer |
 | `non_operating` | A5, B14, C16 | non-operating result | aggregate pointer; optional related non-operating asset label |
