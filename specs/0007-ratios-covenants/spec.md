@@ -107,3 +107,28 @@ Recorded amendment, approved by the maintainer on 2026-11-08 on the open questio
       numerator, undiscounted at the valuation date: LLCR = (PV of CFADS + reserve balance) /
       debt outstanding. The discount rate is the cost of debt per period chosen by the analyst.
 - [x] Golden tolerance: 1e-20 for every `ratios.*` golden case.
+
+## Decisions (maintainer, 2026-11-08, covenant tests)
+Recorded amendment, approved by the maintainer on 2026-11-08 on the open questions of the
+covenant section of `plan.md` (issue #147). Principle: the engine never decides what the loan
+agreement decides; such a choice is an explicit required input, so every outcome traces back to
+a clause of the agreement (lender practice, LMA-style agreements).
+
+- [x] Zero or negative denominator: a required per-covenant input `if_denominator_not_positive`
+      with values `breached`, `passed` or `not_tested`, no default. The outcome follows it;
+      value and headroom are null; when the outcome is `not_tested` the code is
+      `denominator_not_positive` and the reason says whether the denominator is zero or
+      negative. Explain and conventions state the rule applied and that it comes from the input.
+- [x] Negative numerator: compared as computed (confirmed), stated as a convention.
+- [x] Strict operators: `less_than` and `greater_than` are confirmed, an extension of R5 (which
+      names ≤ and ≥) approved by the maintainer.
+- [x] Contractual rounding: an optional per-covenant input `rounding` with `decimal_places`
+      (0 to 6) and `mode` (`half_up` or `half_even`), both required when `rounding` is given,
+      no default. When given, the tested value is rounded as the agreement states before the
+      comparison and the outcome is decided exactly on the rounded value; explain shows the
+      unrounded and the rounded value. Without it the outcome is decided exactly on the
+      unrounded value.
+- [x] Covenants on a single amount (minimum net worth, maximum capital expenditure): out of
+      scope of `ratios.covenants`; a separate roadmap task.
+- [x] Equity cure: out of scope in version 1. Step-downs are expressed as one covenant per test
+      date, each with its own threshold.

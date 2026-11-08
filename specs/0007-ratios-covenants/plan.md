@@ -192,6 +192,8 @@ covenant's own definitions replace the standard ratios.
 | `covenants[i].numerator`, `.denominator` | `{definition, amount}`: the definition in the words of the agreement (not blank, `FM-E001`) and the amount in currency units |
 | `covenants[i].operator` | Required, no default: `at_most` (≤, inclusive maximum), `less_than` (<, strict maximum), `at_least` (≥, inclusive minimum), `greater_than` (>, strict minimum) |
 | `covenants[i].threshold` | In the unit of numerator / denominator: a multiple or a decimal fraction (0.30 = 30%) |
+| `covenants[i].if_denominator_not_positive` | Required, no default: `breached`, `passed` or `not_tested`, the outcome when the denominator is zero or negative, as the agreement states |
+| `covenants[i].rounding` | Optional: `{decimal_places, mode}`, both required when given; `decimal_places` 0 to 6 (`FM-E001` otherwise), `mode` `half_up` (halves away from zero) or `half_even`. Absent: no rounding |
 
 ### Output
 `covenants`: one result per covenant, in the input order, and `summary` with the number of
@@ -201,71 +203,83 @@ covenants `passed`, `breached` and `not_tested`. Each result:
 | --- | --- |
 | `name`, `test_date`, `operator`, `threshold` | Echoed from the input |
 | `outcome` | `passed`, `breached` or `not_tested`, decided exactly (see "Precision") |
-| `value` | Tested value = numerator / denominator, to 28 significant digits; null when not tested |
-| `headroom` | Distance from the threshold in the unit of the tested value, positive on the compliant side and negative on the breach side: threshold − value for a maximum, value − threshold for a minimum; null when not tested |
+| `value` | The value compared with the threshold: numerator / denominator to 28 significant digits, or rounded as `rounding` states; null when the denominator is not positive or the covenant is not tested |
+| `value_unrounded` | With `rounding`: numerator / denominator before the rounding, to 28 significant digits; otherwise null |
+| `headroom` | Distance from the threshold in the unit of the tested value, positive on the compliant side and negative on the breach side: threshold − value for a maximum, value − threshold for a minimum (on the rounded value with `rounding`); null when `value` is null |
 | `headroom_relative` | `{value, not_defined}`: headroom / threshold, decimal fraction; not defined when the threshold is zero, when the threshold is negative (open question 3 below) or when the covenant is not tested |
-| `not_tested_code` | Null, `zero_denominator` or `overflow` (machine-readable) |
+| `not_tested_code` | Null, `denominator_not_positive` or `overflow` (machine-readable) |
 | `not_tested_reason` | Null, or why the covenant was not tested, in words |
 
 At the threshold the headroom is zero: an inclusive operator passes, a strict operator breaches.
 
 ### Precision
-The outcome is decided exactly; value and headroom are shown to the 28 significant digits of the
-decimal type, not rounded to the decimals of the agreement. The decision is the sign of
+Without `rounding`, the outcome is decided exactly; value and headroom are shown to the 28
+significant digits of the decimal type, not rounded to the decimals of the agreement. The
+decision is the sign of
 numerator − threshold × denominator (denominator positive at that point), computed with
 wide-integer arithmetic on the decimal mantissas and scales (a small multiply helper on 64-bit
 limbs in `covenants.rs`), so a quotient that rounds to the threshold at 28 digits cannot change
-the outcome (numerical audit, finding 1).
+the outcome (numerical audit, finding 1). With `rounding`, the rounded value is computed
+exactly from the rational numerator / denominator (wide-integer division of the mantissas,
+then the rounding rule on the remainder), and the outcome is the exact comparison of the
+rounded value with the threshold.
 
 ### Rules
-- Not tested (never a breach), the others continue: the denominator amount is zero, code
-  `zero_denominator` ("denominator is zero: <definition>"), including `-0`; the tested value or
-  the headroom exceeds the range of the decimal type, code `overflow`. A relative headroom
+- Zero or negative denominator (including `-0`): the outcome is `if_denominator_not_positive`;
+  value and headroom are null; when the outcome is `not_tested` the code is
+  `denominator_not_positive` and the reason says "denominator is zero: <definition>" or
+  "denominator is negative (<amount>): <definition>".
+- Not tested (never a breach), the others continue: the tested value, the rounded value or the
+  headroom exceeds the range of the decimal type, code `overflow`. A relative headroom
   that overflows is not defined, with the reason; the outcome stands.
 - A negative numerator is compared as computed (a net cash position gives a negative leverage
   that passes a maximum; a negative EBITDA gives a negative cover that breaches a minimum).
-- A negative denominator is refused with `FM-E001`, naming the field: the sign reverses the
-  order of the quotient and the treatment is not decided (open question 1). Refusing keeps the
-  later decision additive (an input that fails today may succeed later; no published outcome
-  changes).
 - No error code is added: missing, blank or unknown fields are `FM-E001`, invalid dates
   `FM-E009`; overflow of one covenant is `not_tested`, not an error.
 
 ### Explain
 Covenants are numbered from 1 and every label starts with "covenant k, <name> (<test date>)".
 Per covenant: numerator and denominator as given, with the definitions; the tested value with
-the numbers substituted; the headroom and the relative headroom; a verdict step ("breached
+the numbers substituted; with `rounding`, the rounded value next to the unrounded one; the
+headroom and the relative headroom; a verdict step ("breached
 (600 / 175 at_least 4 is false, decided exactly)"). Then the three summary counts as steps.
 Conventions: the definitions come from the agreement, the period ending on the test date, the
 precision rule above, the headroom sign convention, "a negative numerator is compared as
 computed", the not-tested rule, and for each covenant its test rule ("passes when the tested
-value ≤ 3.5") and, when not tested, the reason.
+value ≤ 3.5"), its rule for a denominator that is not positive (from the input), its rounding
+rule (or that the value is not rounded) and, when not tested, the reason.
 
 ### Tests
 | Test | Source of expected values | Proves |
 | --- | --- | --- |
 | Golden `ratios.covenants/one-breach.yaml` | `scripts/reference_ratios.py`, `covenants` | AC5 |
 | Golden `ratios.covenants/zero-denominator.yaml` | same | decision 1, not tested is never a breach |
+| Golden `ratios.covenants/negative-denominator.yaml` | same | `if_denominator_not_positive`, all three values |
+| Golden `ratios.covenants/rounding.yaml`, `rounding-modes.yaml` | same, Python `quantize` | contractual rounding (3.504 at most 3.50) |
 | Golden `ratios.covenants/at-the-threshold.yaml` | same | inclusive and strict operators |
 | Golden `ratios.covenants/overflow.yaml` | constructed | overflow is not tested, the others continue |
 | Golden `ratios.covenants/negative-numerator.yaml` | same | sign of the tested value |
 | Golden `ratios.covenants/non-positive-threshold.yaml` | same | relative headroom not defined |
-| Golden error cases (empty list, blank definition, negative denominator, missing operator, invalid date) | constructed | errors |
+| Golden error cases (empty list, blank definition, missing operator, missing `if_denominator_not_positive`, decimal places above 6, invalid date) | constructed | errors |
 | Contract cases `tests/contracts/ratios.covenants.yaml` | constructed | extreme inputs, conventions |
 | Unit tests in `src/ratios/covenants.rs` | constructed | rules above; exact outcome on values that round to the threshold at 28 digits |
 
-### Open questions for the maintainer (not implemented)
-1. **Negative denominator.** A covenant ratio over a negative amount (for example net debt /
-   EBITDA with negative EBITDA): breach, not tested, or tested as computed? Some agreements say
-   so explicitly. Refused with `FM-E001` until decided.
-2. **Rounding of the tested value.** Some agreements round the ratio (for example to two
-   decimals) before the comparison. Version 1 decides the outcome exactly and shows value and
-   headroom to 28 significant digits, not rounded to the decimals of the agreement; an
-   optional, explicit rounding input would be a new field.
-3. **Relative headroom on a negative threshold.** Headroom / threshold reverses the sign
-   convention when the threshold is negative; dividing by the absolute value is a choice. Not
-   defined until decided.
-4. **Covenants on a single amount** (minimum net worth, maximum capital expenditure) have no
-   denominator. Not covered by R5 as written; a later addition if wanted.
-5. **Equity cure, step-down thresholds and grace periods.** Out of scope: each test date is one
-   entry with its own threshold; cures are not modelled.
+### Open questions, resolved (maintainer, 2026-11-08, covenant tests)
+Decided on 2026-11-08 and recorded in `spec.md` ("Decisions (maintainer, 2026-11-08, covenant
+tests)"); implemented in version 1 before the first merge.
+
+1. **Negative or zero denominator.** Resolved: required input `if_denominator_not_positive`
+   (`breached`, `passed`, `not_tested`). The `FM-E001` refusal of a negative denominator is
+   removed; value and headroom are null; `not_tested_code` is `denominator_not_positive`.
+2. **Rounding of the tested value.** Resolved: optional input `rounding` (`decimal_places` 0 to
+   6, `mode` `half_up` or `half_even`). The rounding is exact on the rational value
+   numerator / denominator (wide-integer division, so no double rounding through the
+   28-digit quotient); the outcome is decided exactly on the rounded value; `value` is the
+   value compared and `value_unrounded` the value before rounding.
+3. **Relative headroom on a negative threshold.** Still not defined, with the reason (not part
+   of the 2026-11-08 decisions).
+4. **Covenants on a single amount.** Out of scope; a separate roadmap task.
+5. **Equity cure and step-downs.** Equity cure out of scope in version 1; a step-down is one
+   covenant per test date with its own threshold.
+6. **Negative numerator.** Confirmed: compared as computed.
+7. **Strict operators.** Confirmed as an extension of R5.
