@@ -1,0 +1,14 @@
+method: dcf.free_cash_flows
+description: "Negative EBIT, zero treatment, interest 50: FCFE equals the net-income route, net income -170 + 45 - 30 + 8 + 12.5 + 20 = -114.5 (amendment 14)"
+source: "Independent 50-digit reference, scripts/reference_free_cash_flows.py; FCFE also computed by the net-income route of the CFA Institute curriculum and Damodaran (net_income_route: -114.5), no tax on a negative pre-tax income"
+input: {"notional_tax_rate": "0.24", "negative_ebit": "zero", "periods": [{"ebit": "-120", "depreciation_and_amortisation": "45", "capital_expenditure": "30", "change_in_net_working_capital": "-8", "other_adjustments": [{"label": "Grant received", "value": "12.5"}], "interest_expense": "50", "net_borrowing": "20"}]}
+expect:
+  /periods/0/interest_tax_rate: "0"
+  /periods/0/operating_taxes: "0"
+  /periods/0/ebit_after_taxes: "-120"
+  /periods/0/free_cash_flow_to_firm: "-84.5"
+  /free_cash_flows_to_firm/0: "-84.5"
+  /periods/0/interest_after_taxes: "50"
+  /periods/0/free_cash_flow_to_equity: "-114.5"
+  /free_cash_flows_to_equity/0: "-114.5"
+tolerance: "0"

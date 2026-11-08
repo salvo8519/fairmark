@@ -1,0 +1,5 @@
+method: dcf.free_cash_flows
+description: "At least one period is required (R2)"
+source: "SPEC-0001 R2"
+input: {"notional_tax_rate": "0.24", "negative_ebit": "credit", "periods": []}
+expect_error: FM-E001

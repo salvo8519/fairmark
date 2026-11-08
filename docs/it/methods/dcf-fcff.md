@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: 7bba19ff3f7a
+source_hash: f2b16cd3b514
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
@@ -36,7 +36,7 @@ ciascuno stage sono:
 
 | Proiezione | Flusso del periodo k dello stage (m periodi) |
 | --- | --- |
-| `given` | come forniti, uno per periodo |
+| `given` | come forniti in `flows`, uno per periodo, oppure costruiti dalle voci in `lines` come in [`dcf.free_cash_flows`](dcf-free-cash-flows.md) |
 | `constant_growth` | $CF_k = CF_{k-1} (1 + g)$ |
 | `linear_decline` | $CF_k = CF_{k-1} (1 + g_k)$, con $g_k = g_{from} + (g_{to} - g_{from}) \, k / m$ |
 
@@ -44,6 +44,15 @@ Uno stage generato parte dall'ultimo flusso dello stage precedente oppure, se è
 dal base flow $CF_0$ (flusso dell'anno base). Nella riduzione lineare della crescita
 (`linear_decline`), $g_{from}$ è la crescita prima dello stage e $g_{to}$ è raggiunta
 nell'ultimo periodo: "dal 10% al 3% in 5 anni" dà 8,6%, 7,2%, 5,8%, 4,4% e 3,0%.
+
+Uno stage `given` può ricevere i flussi come voci invece che come importi: `lines` contiene un
+oggetto per periodo con `ebit`, `depreciation_and_amortisation`, `capital_expenditure`,
+`change_in_net_working_capital`, `other_adjustments` facoltative e, nella forma a importi,
+`operating_taxes`. Il FCFF di ogni periodo è costruito come in
+[`dcf.free_cash_flows`](dcf-free-cash-flows.md), con le operating taxes (imposte sull'EBIT) da
+`notional_tax_rate` e `negative_ebit`, oppure da `operating_taxes` in ogni voce. Oneri
+finanziari e net borrowing sono rifiutati: il FCFF è prima dei flussi finanziari. Ogni passo
+della costruzione è nell'explain, con il prefisso "Build-up:".
 
 Con la convenzione di metà periodo il flusso del periodo k è attualizzato mezzo periodo prima,
 $DF_k = DF_{k-1} (1 + r_k)^{-0.5}$. Il valore terminale
@@ -110,8 +119,10 @@ print(r.terminal["discount_time"])  # 6
 
 | Campo | Significato | Default |
 | --- | --- | --- |
-| `stages` | Da uno a tre stage, in ordine: `{"periods", "projection", ...}` con `flows` (`given`), `growth` (`constant_growth`) oppure `from_growth` e `to_growth` (`linear_decline`) | obbligatorio |
+| `stages` | Da uno a tre stage, in ordine: `{"periods", "projection", ...}` con `flows` o `lines` (`given`), `growth` (`constant_growth`) oppure `from_growth` e `to_growth` (`linear_decline`) | obbligatorio |
 | `base_flow` | FCFF del periodo base $CF_0$, quando il primo stage è generato | obbligatorio per un primo stage generato; rifiutato altrimenti |
+| `notional_tax_rate` | Aliquota fiscale sull'EBIT per gli stage con `lines`, frazione decimale da 0 a meno di 1; in alternativa a `operating_taxes` in ogni voce | nessuno; rifiutata senza `lines` |
+| `negative_ebit` | `credit` o `zero`, per gli stage con `lines` e `notional_tax_rate` | obbligatorio con `notional_tax_rate`; rifiutato altrimenti |
 | `cash_flow_terms` | `nominal` oppure `real`: termini di ogni importo e di ogni tasso di crescita | obbligatorio |
 | `discount_rate_terms` | `nominal` oppure `real`: termini dei tassi di attualizzazione; devono coincidere con `cash_flow_terms` | obbligatorio |
 | `wacc` | Un unico WACC per tutti i periodi e per il valore terminale, frazione decimale | questo oppure `wacc_per_period` |
@@ -142,6 +153,7 @@ print(r.terminal["discount_time"])  # 6
 | --- | --- | --- |
 | Approccio | asset side (enterprise value): FCFF attualizzati al WACC | fissato dal metodo |
 | Proiezione dello stage | `given`, `constant_growth`, `linear_decline` | obbligatoria per ogni stage |
+| Flussi di uno stage `given` | importi (`flows`) o voci (`lines`), con le convenzioni fiscali di `dcf.free_cash_flows` | uno dei due, obbligatorio |
 | Passo della riduzione lineare della crescita | $g_k = g_{from} + (g_{to} - g_{from}) \, k / m$, $g_{to}$ raggiunta nell'ultimo periodo | fissa |
 | Tasso di attualizzazione | un unico tasso (usato anche per il valore terminale), oppure uno per periodo con un tasso terminale | obbligatorio |
 | Termini di flussi e tassi | `nominal`, `real`; termini diversi sono rifiutati | obbligatori, entrambi |
@@ -163,12 +175,12 @@ elevato segnala che la valutazione dipende soprattutto dalle ipotesi di lungo pe
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | Un campo è mancante, sconosciuto o non usato dall'opzione scelta; nessuno stage o più di tre; stage che sommano più di 10.000 periodi; una crescita pari o inferiore a −100%; un tasso terminale insieme a un unico tasso, oppure nessuno con tassi per periodo; un momento di attualizzazione del valore terminale mancante con la convenzione di metà periodo o fornito con quella di fine periodo; un'attività non operativa negativa o con descrizione vuota |
+| `FM-E001` | Un campo è mancante, sconosciuto o non usato dall'opzione scelta; nessuno stage o più di tre; stage che sommano più di 10.000 periodi; una crescita pari o inferiore a −100%; un tasso terminale insieme a un unico tasso, oppure nessuno con tassi per periodo; un momento di attualizzazione del valore terminale mancante con la convenzione di metà periodo o fornito con quella di fine periodo; un'attività non operativa negativa o con descrizione vuota; uno stage `given` con entrambi o nessuno tra `flows` e `lines`, `lines` in uno stage generato, campi fiscali senza `lines`, oneri finanziari o net borrowing in `lines`, e ogni rifiuto di [`dcf.free_cash_flows`](dcf-free-cash-flows.md) sulle voci, indicato con il suo pointer (ad esempio `/stages/0/lines/2/capital_expenditure`) |
 | `FM-E003` | Un tasso di attualizzazione è pari o inferiore a −100%; il messaggio indica il campo e il periodo |
 | `FM-E004` | La crescita perpetua è pari o superiore al tasso terminale |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 | `FM-E024` | `cash_flow_terms` e `discount_rate_terms` sono diversi |
-| `FM-E025` | Uno stage `given` con più o meno flussi dei suoi periodi, tassi per periodo non uno per periodo, un base flow mancante per un primo stage generato o fornito per uno `given` |
+| `FM-E025` | Uno stage `given` con più o meno flussi o voci dei suoi periodi, tassi per periodo non uno per periodo, un base flow mancante per un primo stage generato o fornito per uno `given` |
 
 Gli errori di validazione indicano il campo con il suo JSON Pointer, per esempio
 `/stages/1/flows`, e la correzione da apportare; gli errori rilevati durante la lettura
@@ -197,5 +209,7 @@ $10^{-20}$.
   costante equivale agli stessi flussi forniti; una riduzione lineare con crescite uguali
   equivale alla crescita costante; i fattori di sconto coincidono con quelli di
   [`tvm.present_value`](tvm-present-value.md).
+- Stage con `lines`: la costruzione a 50 cifre di `scripts/reference_free_cash_flows.py`
+  composta con `scripts/reference_dcf.py` (`stage-with-build-up-lines*.yaml`).
 - Il VAN di numpy-financial sui flussi espliciti più il valore di Gordon, in virgola mobile
   binaria (concordanza delle convenzioni, non delle cifre).

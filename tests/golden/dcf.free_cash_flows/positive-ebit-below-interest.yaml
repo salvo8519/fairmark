@@ -1,0 +1,14 @@
+method: dcf.free_cash_flows
+description: "EBIT 30 below interest 50 with the zero treatment: EBIT is positive, so the shield stays at 24%, interest after taxes 38 (R3, amendment 14)"
+source: "Independent 50-digit reference, scripts/reference_free_cash_flows.py"
+input: {"notional_tax_rate": "0.24", "negative_ebit": "zero", "periods": [{"ebit": "30", "depreciation_and_amortisation": "15", "capital_expenditure": "10", "change_in_net_working_capital": "2", "interest_expense": "50", "net_borrowing": "0"}]}
+expect:
+  /periods/0/interest_tax_rate: "0.24"
+  /periods/0/operating_taxes: "7.20"
+  /periods/0/ebit_after_taxes: "22.80"
+  /periods/0/free_cash_flow_to_firm: "25.80"
+  /free_cash_flows_to_firm/0: "25.80"
+  /periods/0/interest_after_taxes: "38.00"
+  /periods/0/free_cash_flow_to_equity: "-12.20"
+  /free_cash_flows_to_equity/0: "-12.20"
+tolerance: "0"

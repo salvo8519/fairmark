@@ -22,6 +22,11 @@ use crate::tv::{self, GordonInput, GordonOutput, TerminalBasis};
 use crate::tvm::{period_discount_factors, PeriodTiming};
 use crate::types::Timing;
 
+use super::free_cash_flows::{
+    build_up, FreeCashFlowLines, FreeCashFlows, Location, TaxChoice, FORMULA_FCFF,
+};
+use std::borrow::Cow;
+
 /// Explicit stages accepted (Decision 2). Checked at run time, not in the schema, so that more
 /// stages remain an additive change (R29).
 pub(crate) const MAX_STAGES: usize = 3;
@@ -35,7 +40,8 @@ pub(crate) const MAX_PERIODS: u64 = 10_000;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Projection {
-    /// The flows are given, one per period, in `flows`.
+    /// The flows are given, one per period, in `flows`, or built up from line items in
+    /// `lines` (exactly one of the two).
     Given,
     /// Each flow is the previous flow × (1 + `growth`).
     ConstantGrowth,
@@ -56,7 +62,7 @@ impl Projection {
 }
 
 /// One explicit stage: a number of periods and how its flows are obtained. Each projection
-/// takes only its own fields: `flows` for `given`, `growth` for `constant_growth`,
+/// takes only its own fields: `flows` or `lines` for `given`, `growth` for `constant_growth`,
 /// `from_growth` and `to_growth` for `linear_decline`.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -70,6 +76,14 @@ pub struct Stage {
     /// terms of `cash_flow_terms`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub flows: Option<Vec<Decimal>>,
+    /// For `given`, instead of `flows`: the line items of each period (EBIT, taxes on EBIT,
+    /// depreciation and amortisation, capital expenditure, change in net working capital,
+    /// adjustments), exactly one per period, in currency units in the terms of
+    /// `cash_flow_terms`; the flow of each period is built up as in `dcf.free_cash_flows`, with
+    /// the tax fields of the method (SPEC-0001 R7). `interest_expense` and `net_borrowing` apply
+    /// only where FCFE is discounted: they are refused on the enterprise basis (`dcf.fcff`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lines: Option<Vec<FreeCashFlowLines>>,
     /// For `constant_growth`: growth per period, decimal fraction, greater than -1.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub growth: Option<Decimal>,
@@ -235,6 +249,8 @@ pub(crate) struct EngineInput<'a> {
     pub timing: Timing,
     pub terminal_discount_time: Option<TerminalDiscountTime>,
     pub terminal: &'a Terminal,
+    /// Tax fields of the build-up for stages with `lines` (R7); all `None` otherwise.
+    pub taxes: TaxChoice,
 }
 
 pub(crate) struct EngineOutput {
@@ -256,15 +272,23 @@ fn count(msg: String) -> FairmarkError {
 /// R6, R7, R8, R11, R29: stage count, horizon, the fields of each projection, base flow.
 /// A stage after validation: the projection with its own, present, fields (R7 to R9).
 enum StageKind<'a> {
-    Given(&'a [Decimal]),
+    /// Given flows: as given in `flows`, or built up from `lines` by [`build_up_stages`].
+    Given(Cow<'a, [Decimal]>),
+    /// Given line items, before the build-up; never reaches the projection.
+    Lines(&'a [FreeCashFlowLines]),
     ConstantGrowth(Decimal),
-    LinearDecline { from: Decimal, to: Decimal },
+    LinearDecline {
+        from: Decimal,
+        to: Decimal,
+    },
 }
 
 struct ResolvedStage<'a> {
     periods: u32,
     projection: Projection,
     kind: StageKind<'a>,
+    /// True when the flows were built up from `lines`.
+    built_up: bool,
 }
 
 fn check_stages(
@@ -288,8 +312,32 @@ fn check_stages(
             )));
         }
         horizon += u64::from(s.periods);
+        if s.projection == Projection::Given {
+            match (&s.flows, &s.lines) {
+                (Some(_), Some(_)) => {
+                    return Err(invalid(format!(
+                        "`{at}/flows` and `{at}/lines` are both given; a `given` stage takes its \
+                         flows as amounts (`flows`) or as line items (`lines`), not both"
+                    )))
+                }
+                (None, None) => {
+                    return Err(invalid(format!(
+                        "`{at}/flows` or `{at}/lines` is required by the projection `given`: \
+                         give the flows as amounts, or the line items to build them up"
+                    )))
+                }
+                _ => {}
+            }
+        } else if s.lines.is_some() {
+            return Err(invalid(format!(
+                "`{at}/lines` is not used by the projection `{}`; remove it (line items belong \
+                 to a `given` stage)",
+                s.projection.label()
+            )));
+        }
+        // For `given`, `flows` stands for `flows` or `lines`, checked above.
         let present = [
-            ("flows", s.flows.is_some()),
+            ("flows", s.flows.is_some() || s.lines.is_some()),
             ("growth", s.growth.is_some()),
             ("from_growth", s.from_growth.is_some()),
             ("to_growth", s.to_growth.is_some()),
@@ -313,6 +361,19 @@ fn check_stages(
                 return Err(invalid(format!(
                     "`{at}/{field}` is required by the projection `{}`",
                     s.projection.label()
+                )));
+            }
+        }
+        if let Some(lines) = &s.lines {
+            if lines.len() != s.periods as usize {
+                return Err(count(format!(
+                    "stage {} (`{at}/lines`) has {} lines for {} periods; give exactly {} \
+                     lines or set `{at}/periods` to {}",
+                    i + 1,
+                    lines.len(),
+                    s.periods,
+                    s.periods,
+                    lines.len()
                 )));
             }
         }
@@ -350,7 +411,11 @@ fn check_stages(
             s.from_growth,
             s.to_growth,
         ) {
-            (Projection::Given, Some(flows), ..) => StageKind::Given(flows),
+            (Projection::Given, Some(flows), ..) => StageKind::Given(Cow::Borrowed(flows)),
+            (Projection::Given, None, ..) => match s.lines.as_deref() {
+                Some(lines) => StageKind::Lines(lines),
+                None => return Err(FairmarkError::Internal("given stage without flows")),
+            },
             (Projection::ConstantGrowth, _, Some(g), ..) => StageKind::ConstantGrowth(g),
             (Projection::LinearDecline, _, _, Some(from), Some(to)) => {
                 StageKind::LinearDecline { from, to }
@@ -361,6 +426,7 @@ fn check_stages(
             periods: s.periods,
             projection: s.projection,
             kind,
+            built_up: false,
         });
     }
     if horizon > MAX_PERIODS {
@@ -560,9 +626,13 @@ fn project(
         let stage = i as u32 + 1;
         let last = first + s.periods - 1;
         ex.convention(match s.kind {
+            StageKind::Given(_) if s.built_up => format!(
+                "stage {stage}: periods {first} to {last}, given flows built up from line items"
+            ),
             StageKind::Given(_) => {
                 format!("stage {stage}: periods {first} to {last}, given flows")
             }
+            StageKind::Lines(_) => return Err(FairmarkError::Internal("lines not built up")),
             StageKind::ConstantGrowth(g) => format!(
                 "stage {stage}: periods {first} to {last}, constant growth {g} per period: \
                  CF_k = CF_(k-1) × (1 + g)"
@@ -577,7 +647,7 @@ fn project(
         for j in 1..=s.periods {
             let k = first + j - 1;
             let growth = match s.kind {
-                StageKind::Given(_) => None,
+                StageKind::Given(_) | StageKind::Lines(_) => None,
                 StageKind::ConstantGrowth(g) => Some(g),
                 StageKind::LinearDecline { from, to } => {
                     let m = Decimal::from(s.periods);
@@ -594,7 +664,12 @@ fn project(
             let flow = match (&s.kind, growth) {
                 (StageKind::Given(flows), _) => {
                     let flow = flows[(j - 1) as usize];
-                    ex.step(format!("Period {k}: flow"), "as given", flow);
+                    let source = if s.built_up {
+                        format!("built up from line items (step \"Build-up: FCFF, period {k}\")")
+                    } else {
+                        "as given".to_owned()
+                    };
+                    ex.step(format!("Period {k}: flow"), source, flow);
                     flow
                 }
                 (_, Some(g)) => {
@@ -630,6 +705,92 @@ fn project(
     Ok(out)
 }
 
+/// R7: the flows of the `given` stages with `lines`, built up as in `dcf.free_cash_flows`
+/// (FCFF on the enterprise basis, FCFE on the equity basis), with every step in the explain and
+/// the conventions of the build-up reported once. The tax fields are refused when no stage has
+/// lines.
+fn build_up_stages(
+    stages: &mut [ResolvedStage<'_>],
+    basis: TerminalBasis,
+    taxes: &TaxChoice,
+    ex: &mut Explain,
+) -> Result<()> {
+    let mut first = 1u32;
+    let mut any = false;
+    let mut conventions: Vec<String> = Vec::new();
+    for (i, s) in stages.iter_mut().enumerate() {
+        if let StageKind::Lines(lines) = s.kind {
+            any = true;
+            let pointer = format!("/stages/{i}/lines");
+            if basis == TerminalBasis::Enterprise {
+                if let Some(k) = lines
+                    .iter()
+                    .position(|l| l.interest_expense.is_some() || l.net_borrowing.is_some())
+                {
+                    return Err(invalid(format!(
+                        "`{pointer}/{k}/interest_expense` and `{pointer}/{k}/net_borrowing` are \
+                         not used on the enterprise basis: the DCF discounts FCFF, which is \
+                         before financing; remove them"
+                    )));
+                }
+            }
+            let at = Location {
+                pointer_prefix: &pointer,
+                first_period: first,
+            };
+            let mut own = Explain::new(FreeCashFlows::ID, FORMULA_FCFF);
+            let out = build_up(lines, taxes, at, &mut own)?;
+            for step in own.steps {
+                ex.step(
+                    format!("Build-up: {}", step.label),
+                    step.formula,
+                    step.value,
+                );
+            }
+            for c in own.conventions {
+                if !conventions.contains(&c) {
+                    conventions.push(c);
+                }
+            }
+            let flows = match basis {
+                TerminalBasis::Enterprise => out.free_cash_flows_to_firm,
+                TerminalBasis::Equity => out.free_cash_flows_to_equity.ok_or_else(|| {
+                    invalid(format!(
+                        "`{pointer}` has no `interest_expense` and `net_borrowing`: the equity \
+                         basis discounts FCFE, which needs them in every period"
+                    ))
+                })?,
+            };
+            s.kind = StageKind::Given(Cow::Owned(flows));
+            s.built_up = true;
+        }
+        first += s.periods;
+    }
+    if any {
+        let source = format!("{} v{}", FreeCashFlows::ID, FreeCashFlows::VERSION);
+        ex.convention(format!(
+            "free cash flow build-up ({source}) for the stages with lines: {FORMULA_FCFF}"
+        ));
+        for c in conventions {
+            ex.convention(format!("free cash flow build-up ({source}): {c}"));
+        }
+        return Ok(());
+    }
+    for (field, given) in [
+        ("notional_tax_rate", taxes.notional_tax_rate.is_some()),
+        ("negative_ebit", taxes.negative_ebit.is_some()),
+        ("interest_tax_rate", taxes.interest_tax_rate.is_some()),
+    ] {
+        if given {
+            return Err(invalid(format!(
+                "`/{field}` is used only by a `given` stage with `lines`; remove it, or give the \
+                 line items of a stage in `lines`"
+            )));
+        }
+    }
+    Ok(())
+}
+
 fn period_timing(t: Timing) -> PeriodTiming {
     match t {
         Timing::EndOfPeriod => PeriodTiming::EndOfPeriod,
@@ -640,7 +801,8 @@ fn period_timing(t: Timing) -> PeriodTiming {
 /// Runs the engine: validates every choice, projects the flows, discounts them, computes and
 /// discounts the terminal value. The caller adds its basis convention and its bridge.
 pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOutput> {
-    let (stages, n) = check_stages(input.stages, input.base_flow)?;
+    let (mut stages, n) = check_stages(input.stages, input.base_flow)?;
+    build_up_stages(&mut stages, input.basis, &input.taxes, ex)?;
     let (rates, terminal_rate, terminal_field) = resolve_rates(&input.rates, n)?;
     check_terms(ex, input.cash_flow_terms, input.discount_rate_terms)?;
     check_timing(input.timing, input.terminal_discount_time)?;

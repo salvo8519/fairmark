@@ -136,7 +136,9 @@ nominal before taxes; a leading exit multiple.
   ENGINE SHALL return FCFE_t = FCFF_t − interest expense_t × (1 − t) + net borrowing_t, with t
   the same tax rate as in R2, and SHALL report that the interest tax shield uses that rate.
   WHEN the taxes on EBIT are given as amounts, the tax rate t of the interest tax shield SHALL
-  be a required separate input.
+  be a required separate input. WHEN the `zero` treatment of R4 applies in a period (EBIT
+  negative, taxes from a rate), the interest tax shield of that period SHALL be zero
+  (FCFE_t = FCFF_t − interest expense_t + net borrowing_t) and SHALL be reported (amendment 14).
 - **R4** — WHEN EBIT is negative and the taxes are computed from a rate, THE ENGINE SHALL apply
   the required treatment chosen in the input, `credit` (taxes = rate × EBIT, a saving) or
   `zero` (no tax), with no default, and report it; it SHALL NOT model tax loss carry-forwards
@@ -494,6 +496,19 @@ the source verification.
 - [x] **13. Terminal rate with one discount rate.** The single discount rate is used for the
       terminal value and no separate terminal rate is accepted; with rates per period, a
       terminal rate is required.
+- [x] **14. Amendment to R3 and R4, approved by the maintainer on 2026-11-08 (issue #38).**
+      (a) In a period where the `zero` treatment applies (EBIT negative, taxes computed from a
+      rate), the interest tax shield is zero: the interest expense is subtracted in full,
+      FCFE_t = FCFF_t − interest expense_t + net borrowing_t. This is the net-income route of
+      the CFA Institute curriculum and Damodaran (FCFE = net income + D&A − capex − ΔNWC + net
+      borrowing, with no tax on a negative pre-tax income), so in those periods the FCFE does
+      not depend on the route (clarification of wording, 2026-11-08). With `credit`, and in periods with a positive or zero EBIT, R3 is unchanged: the
+      shield is interest expense × t, also when EBIT is lower than the interest expense.
+      (b) R29 interpretation: the choice between a tax rate (`notional_tax_rate`) and tax
+      amounts (`operating_taxes` in every period) is expressed by which fields are present, as
+      the rate forms of `loans.*` and the flow choice of `tv.gordon`. It satisfies R29: the
+      choice is explicit (exactly one form, `FM-E001` otherwise), has no default, is not a
+      boolean, and a later form can be added as a new field without breaking existing inputs.
 
 Terminology decisions from the source verification:
 - [x] **a.** The projection option `linear_fade` is renamed `linear_decline` everywhere

@@ -1,0 +1,12 @@
+method: dcf.free_cash_flows
+description: "One period whose taxes need more than 28 significant digits: FCFF matches the 50-digit reference to the 28th significant digit (AC1)"
+source: "Independent 50-digit reference, scripts/reference_free_cash_flows.py"
+input: {"notional_tax_rate": "0.2793456789123", "negative_ebit": "credit", "periods": [{"ebit": "98765432.12345678901", "depreciation_and_amortisation": "98765.4321", "capital_expenditure": "123456.789", "change_in_net_working_capital": "-4321.0987", "other_adjustments": [{"label": "Grant received", "value": "777.777"}]}]}
+expect:
+  free_cash_flows_to_equity: "null"
+  /periods/0/free_cash_flow_to_equity: "null"
+  /periods/0/operating_taxes: "27589696.689593720155931027393823"
+  /periods/0/ebit_after_taxes: "71175735.433863068854068972606177"
+  /periods/0/free_cash_flow_to_firm: "71156142.952663068854068972606177"
+  /free_cash_flows_to_firm/0: "71156142.952663068854068972606177"
+tolerance: "0.000000000000000000005"

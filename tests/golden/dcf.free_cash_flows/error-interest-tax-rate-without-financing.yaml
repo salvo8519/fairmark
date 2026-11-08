@@ -1,0 +1,5 @@
+method: dcf.free_cash_flows
+description: "An interest tax rate without financing lines would be unused and is refused (R3)"
+source: "SPEC-0001 R3"
+input: {"interest_tax_rate": "0.24", "periods": [{"ebit": "100", "depreciation_and_amortisation": "10", "capital_expenditure": "12", "change_in_net_working_capital": "3", "operating_taxes": "24"}]}
+expect_error: FM-E001

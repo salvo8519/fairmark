@@ -1,0 +1,5 @@
+method: dcf.free_cash_flows
+description: "With a tax rate, the interest tax shield uses that rate; a separate rate is refused (R3)"
+source: "SPEC-0001 R3"
+input: {"notional_tax_rate": "0.24", "negative_ebit": "credit", "interest_tax_rate": "0.3", "periods": [{"ebit": "100", "depreciation_and_amortisation": "10", "capital_expenditure": "12", "change_in_net_working_capital": "3", "interest_expense": "5", "net_borrowing": "0"}]}
+expect_error: FM-E001

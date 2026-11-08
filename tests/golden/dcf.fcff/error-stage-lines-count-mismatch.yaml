@@ -1,0 +1,5 @@
+method: dcf.fcff
+description: "Two lines for a stage of three periods (R7; AC6)"
+source: "SPEC-0001 R7; AC6"
+input: {"stages": [{"periods": 3, "projection": "given", "lines": [{"ebit": "1200", "depreciation_and_amortisation": "350", "capital_expenditure": "420", "change_in_net_working_capital": "65"}, {"ebit": "-80", "depreciation_and_amortisation": "372.25", "capital_expenditure": "460", "change_in_net_working_capital": "-12.4", "other_adjustments": [{"label": "Disposal of a warehouse", "value": "60"}]}]}, {"periods": 2, "projection": "linear_decline", "from_growth": "0.06", "to_growth": "0.02"}], "notional_tax_rate": "0.24", "negative_ebit": "zero", "cash_flow_terms": "nominal", "discount_rate_terms": "nominal", "wacc": "0.09", "timing": "end_of_period", "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}, "net_financial_position": {"gross_debt": "900", "cash": "150"}}
+expect_error: FM-E025

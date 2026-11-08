@@ -1,0 +1,9 @@
+method: dcf.free_cash_flows
+description: "Boeing lines of Illustration 15.7 in the rate form: 1,753 x (1 - 0.35) = 1,139.45, FCFF 1,177.45, 1.45 above the published 1,176 (AC1)"
+source: "Independent 50-digit reference, scripts/reference_free_cash_flows.py; inputs from Damodaran, Investment Valuation, 2nd edition, Illustration 15.7 (Boeing). The difference from the published FCFF of 1,176 is the printed EBIT (1 - tax rate) of 1,138 instead of 1,139.45 (SPEC-0001 Decision 12)"
+input: {"notional_tax_rate": "0.35", "negative_ebit": "credit", "periods": [{"ebit": "1753", "depreciation_and_amortisation": "1517", "capital_expenditure": "1584", "change_in_net_working_capital": "-105"}]}
+expect:
+  /periods/0/operating_taxes: "613.55"
+  /periods/0/ebit_after_taxes: "1139.45"
+  /periods/0/free_cash_flow_to_firm: "1177.45"
+tolerance: "0"

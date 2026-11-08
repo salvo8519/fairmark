@@ -1,0 +1,5 @@
+method: dcf.free_cash_flows
+description: "Unknown fields are rejected (constitution III)"
+source: "SPEC-0001 constitution III"
+input: {"notional_tax_rate": "0.24", "negative_ebit": "credit", "periods": [{"ebit": "100", "depreciation_and_amortisation": "10", "capital_expenditure": "12", "change_in_net_working_capital": "3", "taxes": "24"}]}
+expect_error: FM-E001

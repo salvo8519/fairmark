@@ -1,6 +1,6 @@
 ---
 source: methods/index.md
-source_hash: a3e43346cb45
+source_hash: '809331826504'
 ---
 # Metodi
 
@@ -19,7 +19,7 @@ Stato di ogni metodo, come lo riporta il registro del motore a `fm.methods()`, `
 | Stato | Metodi |
 | --- | --- |
 | Disponibile | `tvm.future_value`, `loans.instalment`, `loans.number_of_instalments`, `loans.amortisation_schedule`, `coc.cost_of_equity`, `coc.beta_relever`, `coc.beta_peers`, `coc.cost_of_debt`, `coc.wacc`, `tv.gordon`, `tv.value_driver`, `tv.h_model`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income`, `tv.liquidation`, `tv.compare`, `analysis.goal_seek`, `analysis.sensitivity`, `analysis.scenarios`, `analysis.tornado` |
-| Anteprima | `dates.year_fraction`, `rates.convert`, `rates.real_nominal`, `tvm.npv`, `tvm.present_value`, `tvm.xnpv`, `tvm.irr`, `tvm.xirr`, `tvm.mirr`, `tvm.annuity`, `tvm.perpetuity`, `dcf.fcff`, `ratios.profitability`, `ratios.capital_structure`, `ratios.liquidity`, `ratios.working_capital`, `ratios.debt_service`, `ratios.covenants` |
+| Anteprima | `dates.year_fraction`, `rates.convert`, `rates.real_nominal`, `tvm.npv`, `tvm.present_value`, `tvm.xnpv`, `tvm.irr`, `tvm.xirr`, `tvm.mirr`, `tvm.annuity`, `tvm.perpetuity`, `dcf.fcff`, `dcf.free_cash_flows`, `ratios.profitability`, `ratios.capital_structure`, `ratios.liquidity`, `ratios.working_capital`, `ratios.debt_service`, `ratios.covenants` |
 
 <!-- generated:status:end -->
 
@@ -54,6 +54,7 @@ Stato di ogni metodo, come lo riporta il registro del motore a `fm.methods()`, `
 | [`tv.liquidation`](tv-liquidation.md) | Valore netto di liquidazione all'orizzonte N, ogni voce nella tracciabilità del calcolo |
 | [`tv.compare`](tv-compare.md) | Più tecniche di valore terminale su un unico tasso, limite alla crescita e approccio |
 | [`dcf.fcff`](dcf-fcff.md) | Value of operations, enterprise value ed equity value dai flussi di cassa operativi, su stage espliciti e un valore terminale |
+| [`dcf.free_cash_flows`](dcf-free-cash-flows.md) | FCFF e FCFE per periodo da EBIT, imposte, investimenti in immobilizzazioni e capitale circolante |
 | [`ratios.profitability`](ratios-profitability.md) | ROE, ROI, ROA, ROS, margini, rotazione del capitale investito e scomposizione del ROE in tre fattori e nella forma con leva finanziaria |
 | [`ratios.capital_structure`](ratios-capital-structure.md) | Rapporto tra debito e capitale proprio, PFN su capitale proprio, indice di indipendenza finanziaria, margini e quozienti di struttura |
 | [`ratios.liquidity`](ratios-liquidity.md) | Indice di disponibilità, indice di liquidità primaria, cash ratio, capitale circolante netto e margine di tesoreria |

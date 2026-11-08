@@ -32,6 +32,7 @@ tv.normalised_income: Valore terminale, reddito normalizzato capitalizzato
 tv.liquidation: Valore terminale, valore di liquidazione
 tv.compare: Valore terminale, confronto tra tecniche
 dcf.fcff: DCF, flusso di cassa operativo disponibile (FCFF)
+dcf.free_cash_flows: Flussi di cassa disponibili (FCFF e FCFE) da EBIT, imposte, investimenti e capitale circolante
 ratios.profitability: Indici di bilancio, redditività
 ratios.capital_structure: Indici di bilancio, struttura finanziaria
 ratios.liquidity: Indici di bilancio, liquidità

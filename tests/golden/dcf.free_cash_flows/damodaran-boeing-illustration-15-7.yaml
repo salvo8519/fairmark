@@ -1,0 +1,10 @@
+method: dcf.free_cash_flows
+description: "Damodaran Illustration 15.7 (Boeing), FCFF from the published EBIT (1 - tax rate) of 1,138, matched at the published precision (AC1)"
+source: "Damodaran, Investment Valuation, 2nd edition, chapter 15, Illustration 15.7 (Boeing), pages.stern.nyu.edu/~adamodar/pdfiles/valn2ed/ch15.pdf: EBIT 1,753, tax rate 35%, EBIT (1 - tax rate) 1,138, plus depreciation and amortisation 1,517, minus capital expenditures 1,584, minus change in working capital (105), FCFF 1,176 ($ million). Discrepancy recorded as SPEC-0001 Decision 12 requires: 1,753 x 0.65 = 1,139.45, not the printed 1,138, which implies an EBIT of about 1,751. The case starts from the published EBIT (1 - tax rate) of 1,138: the taxes on EBIT are given as the amount 1,753 - 1,138 = 615 (amounts form). From 1,138 the arithmetic to FCFF is exact: 1,138 + 1,517 - 1,584 + 105 = 1,176. The same lines in the rate form give 1,177.45 (case boeing-rate-form-recomputed)"
+input: {"periods": [{"ebit": "1753", "operating_taxes": "615", "depreciation_and_amortisation": "1517", "capital_expenditure": "1584", "change_in_net_working_capital": "-105"}]}
+expect:
+  /periods/0/ebit_after_taxes: "1138"
+  /periods/0/free_cash_flow_to_firm: "1176"
+  /free_cash_flows_to_firm/0: "1176"
+  tax_form: "amounts"
+tolerance: "0.5"
