@@ -374,27 +374,37 @@ fn compare_errors_inside_a_technique_entry() {
     );
 }
 
-/// `tv.compare` is available: reading entries in one pass must not change which inputs it
-/// accepts. A key repeated in one entry is accepted and the last occurrence wins, even when an
-/// earlier one is invalid; with two distinct keys the entry is refused before any terms are
-/// read, so an error inside the first terms does not hide the "one key" message.
+/// `tv.compare` version 2 (SPEC-0006 Decision of 2026-11-08, issue #199): a key repeated
+/// within one entry and an empty entry are refused at the entry; two distinct keys are refused
+/// before any terms are read, so an error inside the first terms does not hide that message.
 #[test]
-fn compare_entries_keep_their_behaviour() {
+fn compare_entries_have_exactly_one_key() {
     let text = |entry: &str| {
-        format!(r#"{{"rate": "0.09", "basis": "enterprise", "techniques": [{entry}]}}"#)
+        format!(
+            r#"{{"rate": "0.09", "basis": "enterprise", "techniques": [{{"tv.gordon": {{"growth": "0.02", "next_flow": "100"}}}}, {entry}]}}"#
+        )
     };
-    let last = run(
-        "tv.compare",
-        &text(r#"{"tv.gordon": {"growth": "x"}, "tv.gordon": {"growth": "0.02", "next_flow": "100"}}"#),
-    )
-    .expect("a repeated key is accepted, the last one wins");
-    let once = run(
-        "tv.compare",
-        &text(r#"{"tv.gordon": {"growth": "0.02", "next_flow": "100"}}"#),
-    )
-    .unwrap();
-    assert_eq!(last["value"], once["value"]);
-    assert_eq!(last["meta"]["input_hash"], once["meta"]["input_hash"]);
+    for entry in [
+        r#"{"tv.gordon": {"growth": "x"}, "tv.gordon": {"growth": "0.02", "next_flow": "100"}}"#,
+        r#"{"tv.gordon": {"growth": "0.02", "next_flow": "100"}, "tv.gordon": {"growth": "0.02", "next_flow": "100"}}"#,
+    ] {
+        let err = run("tv.compare", &text(entry)).unwrap_err();
+        let m = err.to_string();
+        assert_eq!(err.code(), "FM-E001", "{m}");
+        assert_eq!(
+            m,
+            "invalid input at `/techniques/1`: duplicate key `tv.gordon`; keep one"
+        );
+    }
+
+    let err = run("tv.compare", &text("{}")).unwrap_err();
+    let m = err.to_string();
+    assert_eq!(err.code(), "FM-E001", "{m}");
+    assert!(m.starts_with("invalid input at `/techniques/1`: "), "{m}");
+    assert!(
+        m.contains("exactly one key") && m.contains("empty object"),
+        "{m}"
+    );
 
     let err = run(
         "tv.compare",
@@ -403,7 +413,7 @@ fn compare_entries_keep_their_behaviour() {
     .unwrap_err();
     assert_eq!(err.code(), "FM-E001");
     let m = err.to_string();
-    assert!(m.contains("`/techniques/0`"), "{m}");
+    assert!(m.contains("`/techniques/1`"), "{m}");
     assert!(m.contains("got 2 keys: tv.gordon, tv.h_model"), "{m}");
 }
 

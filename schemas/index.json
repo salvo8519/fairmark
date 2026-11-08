@@ -242,12 +242,17 @@
       }
     },
     "tv.compare": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "tv.compare/v1.json",
           "introduced_in": "unreleased",
           "sha256": "a8d27100fa29978862c8236d9b6d26acc9aa9775846ea5e8c53298576e0f2b81"
+        },
+        "2": {
+          "file": "tv.compare/v2.json",
+          "introduced_in": "unreleased",
+          "sha256": "a91a1b5e14382cfaba58912f766e9dcd04f140f2fbed33611dd79cd3f54f2fb6"
         }
       }
     },
@@ -342,7 +347,7 @@
       }
     },
     "tvm.irr": {
-      "current": "2",
+      "current": "3",
       "versions": {
         "1": {
           "file": "tvm.irr/v1.json",
@@ -353,6 +358,11 @@
           "file": "tvm.irr/v2.json",
           "introduced_in": "unreleased",
           "sha256": "1adc3769c92a77986fee1aa9b91e07a148ddff5c515f42d794574a70a5f22e6a"
+        },
+        "3": {
+          "file": "tvm.irr/v3.json",
+          "introduced_in": "unreleased",
+          "sha256": "006ec8c556e4ede1bd91f32acfa5b8138571bff5f94a547c024da827b0107572"
         }
       }
     },
@@ -402,12 +412,17 @@
       }
     },
     "tvm.xirr": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "tvm.xirr/v1.json",
           "introduced_in": "unreleased",
           "sha256": "f80b3afb66fbf2c2edc21d4943e718edd5b7e43e502d0ebea3449a7fd44c9e2f"
+        },
+        "2": {
+          "file": "tvm.xirr/v2.json",
+          "introduced_in": "unreleased",
+          "sha256": "b3821a5de7950b990a5e45b081bed17b4a38301ceef9e589ee99845c8c08e48d"
         }
       }
     },

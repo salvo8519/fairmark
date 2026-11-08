@@ -32,12 +32,11 @@ use crate::method::Method;
 
 /// A technique entry as written in the input: an object with exactly one key, the method id.
 ///
-/// The entry is read as `tv.compare` version 1 has always read it: its keys are collected
-/// first, a key repeated in the entry keeps its last value (earlier values are not read), and
-/// an entry with two distinct keys is refused before any terms are read. Only then are the
-/// terms of the single key read, with their JSON pointer kept in any error
-/// (`/techniques/0/tv.gordon/next_flow`, issue #174). Refusing a repeated key is planned, but
-/// it would refuse inputs accepted today, so it needs a new version of `tv.compare`.
+/// The keys of the entry are read first: a key repeated within the entry, an empty entry and
+/// an entry with two distinct keys are refused before any terms are read (version 2, SPEC-0006
+/// Decision of 2026-11-08, issue #199; version 1 accepted a repeated key with its last value).
+/// Then the terms of the single key are read, with their JSON pointer kept in any error
+/// (`/techniques/0/tv.gordon/next_flow`, issue #174).
 #[derive(Debug, Clone)]
 pub struct TechniqueEntry(pub Technique);
 
@@ -76,10 +75,10 @@ impl<'de> serde::de::Visitor<'de> for EntryVisitor {
         let mut entries: Vec<(String, serde_json::Value)> = Vec::new();
         while let Some(key) = map.next_key::<String>()? {
             let value = map.next_value()?;
-            match entries.iter_mut().find(|(k, _)| *k == key) {
-                Some(entry) => entry.1 = value,
-                None => entries.push((key, value)),
+            if entries.iter().any(|(k, _)| *k == key) {
+                return Err(A::Error::custom(format!("duplicate key `{key}`; keep one")));
             }
+            entries.push((key, value));
         }
         let (id, terms) = match entries.len() {
             0 => return Err(A::Error::custom(format!("{ONE_KEY} (got an empty object)"))),
@@ -148,8 +147,9 @@ pub struct CompareInput {
     /// growth-based technique. Default: none, reported as absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub growth_cap: Option<Decimal>,
-    /// Techniques to run, at least one, each written `{"tv.<name>": {terms}}`; the same
-    /// technique may appear more than once.
+    /// Techniques to run, at least one, each an object with exactly one key, the method id:
+    /// `{"tv.<name>": {terms}}`. The same technique may appear in more than one entry; a key
+    /// repeated within one entry is refused.
     #[schemars(with = "Vec<Technique>", length(min = 1))]
     pub techniques: Vec<TechniqueEntry>,
 }
@@ -374,7 +374,9 @@ impl Method for Compare {
     const DESCRIPTION: &'static str =
         "Runs several terminal value techniques on one rate, growth cap and basis and returns \
         each terminal value at the horizon N with its implied assumptions, side by side.";
-    const VERSION: &'static str = "1";
+    // Version 2 (SPEC-0006 Decision of 2026-11-08, issue #199): a key repeated within one
+    // technique entry is refused instead of keeping its last value.
+    const VERSION: &'static str = "2";
     type Input = CompareInput;
     type Output = CompareOutput;
 
@@ -439,7 +441,7 @@ mod tests {
                 ("tv.limited_horizon", "1"),
                 ("tv.normalised_income", "1"),
                 ("tv.liquidation", "1"),
-                ("tv.compare", "1"),
+                ("tv.compare", "2"),
             ]
         );
     }

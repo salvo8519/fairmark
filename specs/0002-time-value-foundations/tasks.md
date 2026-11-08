@@ -20,3 +20,5 @@
       and the fix, Fisher round-trip property (AC3), MIRR and IRR explain detail, 30/360 day
       adjustments in explain, checked arithmetic, annuity future-value convention and long-horizon
       note; no number changes
+- [x] T16 code-reviewer review of `tvm.irr` v3 / `tvm.xirr` v2, PR #203, maintainer-approved
+      contract change of 2026-11-08 (guess domain, issue #190)

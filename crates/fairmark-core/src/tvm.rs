@@ -134,7 +134,8 @@ pub fn npv(input: &NpvInput) -> Result<(NpvOutput, Explain)> {
 pub struct IrrInput {
     /// Cash flows; the first one occurs at t = 0. Needs at least one sign change.
     pub cash_flows: Vec<Decimal>,
-    /// Starting point for Newton's method, decimal fraction per period. Default: 0.10.
+    /// Starting point for Newton's method, decimal fraction per period, greater than -1
+    /// (-100%). Default: 0.10.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub guess: Option<Decimal>,
 }
@@ -166,6 +167,8 @@ pub fn irr(input: &IrrInput) -> Result<(IrrOutput, Explain)> {
     ex.convention("cash_flows[0] occurs at t = 0");
     solver_conventions(&mut ex, "rates per period (the period of the cash flows)");
     let guess = guess_convention(&mut ex, input.guess);
+    // Issue #190: Newton cannot start outside the domain of the rate.
+    check_guess(guess, Some(1))?;
     let sol = solve_rate(
         "IRR",
         |r| npv_raw(r, cfs),
@@ -220,6 +223,19 @@ pub(crate) fn solver_conventions(ex: &mut Explain, rates_scanned: &str) {
         "stopping rule: step on the rate below {IRR_TOLERANCE}, at most {IRR_MAX_ITERATIONS} \
          iterations (a step, not an error bound: accuracy is lower near a double root)"
     ));
+}
+
+/// `FM-E003` when the guess lies outside the domain of a rate with `periods_per_year`
+/// compounding periods a year (issue #190): 1 + guess / m > 0, that is guess > -m, compared
+/// directly so that no arithmetic can overflow or round. `None` (continuous): no bound.
+pub(crate) fn check_guess(guess: Decimal, periods_per_year: Option<u32>) -> Result<()> {
+    match periods_per_year {
+        Some(m) if guess <= -Decimal::from(m) => Err(FairmarkError::GuessOutOfRange {
+            guess,
+            periods_per_year: m,
+        }),
+        _ => Ok(()),
+    }
 }
 
 /// The starting point of Newton's method, reported with whether it is the default.
@@ -917,7 +933,10 @@ pub struct XirrInput {
     /// Compounding of the returned rate. Default: `annual` (ECMA-376 XIRR).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub compounding: Option<Compounding>,
-    /// Starting point for Newton's method, annual decimal fraction. Default: 0.10 (ECMA-376 XIRR).
+    /// Starting point for Newton's method, annual decimal fraction in the compounding of the
+    /// result, greater than -m, with m the compounding periods a year (-1 annual, -2
+    /// semi-annual, -4 quarterly, -12 monthly; no bound for continuous). Default: 0.10
+    /// (ECMA-376 XIRR).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub guess: Option<Decimal>,
 }
@@ -962,6 +981,8 @@ pub fn xirr(input: &XirrInput) -> Result<(XirrOutput, Explain)> {
         "effective annual rates, each expressed in the compounding of the result",
     );
     let guess = guess_convention(&mut ex, input.guess);
+    // Issue #190: Newton cannot start outside the domain of the rate.
+    check_guess(guess, c.per_year())?;
     let sol = solve_rate(
         "XIRR",
         |r| dated_npv(r, c, flows, &ts),
@@ -1546,7 +1567,9 @@ impl Method for Irr {
     const DESCRIPTION: &'static str =
         "Rate at which the NPV of a periodic cash flow series is zero, solved deterministically; \
         refuses inputs with more than one IRR.";
-    const VERSION: &'static str = "2";
+    // Version 3 (SPEC-0002 Decision of 2026-11-08, issue #190): a guess outside the rate
+    // domain is refused with `FM-E003` instead of being ignored.
+    const VERSION: &'static str = "3";
     type Input = IrrInput;
     type Output = IrrOutput;
 
@@ -1600,7 +1623,9 @@ impl Method for Xirr {
     const DESCRIPTION: &'static str =
         "Annual rate at which the XNPV of dated flows is zero, solved deterministically; refuses \
         inputs with more than one rate.";
-    const VERSION: &'static str = "1";
+    // Version 2 (SPEC-0002 Decision of 2026-11-08, issue #190): a guess outside the rate
+    // domain is refused with `FM-E003` instead of being ignored.
+    const VERSION: &'static str = "2";
     type Input = XirrInput;
     type Output = XirrOutput;
 
@@ -2280,5 +2305,109 @@ mod tests {
                 .iter()
                 .any(|c| c == "future value at t = n for both timings"));
         }
+    }
+
+    /// The guess check is a contract change: new method versions (ADR 0009).
+    #[test]
+    fn the_guess_check_is_a_new_method_version() {
+        assert_eq!((Irr::VERSION, Xirr::VERSION), ("3", "2"));
+    }
+
+    /// Issue #190: a guess outside the domain of the rate is refused before iterating, with
+    /// the pointer `/guess`; a guess inside the domain gives the same rate as before.
+    #[test]
+    fn a_guess_outside_the_rate_domain_is_refused() {
+        let flows = vec![d("-100"), d("60"), d("60")];
+        let irr_with = |guess: &str| {
+            irr(&IrrInput {
+                cash_flows: flows.clone(),
+                guess: Some(d(guess)),
+            })
+        };
+        for guess in ["-1", "-2.5"] {
+            let (m, code) = message(irr_with(guess));
+            assert_eq!(code, "FM-E003", "{m}");
+            assert!(m.starts_with(&format!("`/guess` is {guess}")), "{m}");
+            assert!(m.contains("greater than -1 (-100%)"), "{m}");
+        }
+        let default = irr(&IrrInput {
+            cash_flows: flows.clone(),
+            guess: None,
+        })
+        .unwrap()
+        .0
+        .irr;
+        for guess in ["-0.99", "0", "0.5", "3"] {
+            let rate = irr_with(guess).unwrap().0.irr;
+            assert!((rate - default).abs() < d("1e-18"), "{guess}: {rate}");
+        }
+
+        let xirr_with = |guess: &str, compounding: Compounding| {
+            xirr(&XirrInput {
+                cash_flows: dated(&[("2024-01-01", "-100"), ("2025-01-01", "110")]),
+                day_count: None,
+                compounding: Some(compounding),
+                guess: Some(d(guess)),
+            })
+        };
+        let (m, code) = message(xirr_with("-1", Compounding::Annual));
+        assert_eq!(code, "FM-E003", "{m}");
+        assert!(m.starts_with("`/guess` is -1"), "{m}");
+        // With monthly compounding the bound is -12: -12 is refused, -1.5 is a valid start.
+        let (m, code) = message(xirr_with("-12", Compounding::Monthly));
+        assert_eq!(code, "FM-E003", "{m}");
+        assert!(m.starts_with("`/guess` is -12"), "{m}");
+        assert!(m.contains("12 compounding periods a year"), "{m}");
+        xirr_with("-1.5", Compounding::Monthly).unwrap();
+        // Continuous compounding has no lower bound.
+        xirr_with("-5", Compounding::Continuous).unwrap();
+        let annual = xirr_with("0.1", Compounding::Annual).unwrap().0.xirr;
+        assert!(
+            (xirr_with("-0.5", Compounding::Annual).unwrap().0.xirr - annual).abs() < d("1e-18")
+        );
+    }
+
+    /// Review of PR #203: the rule is compared directly (guess <= -m), so a guess far inside
+    /// the domain never overflows and a guess just above -m is never refused by rounding.
+    #[test]
+    fn the_guess_rule_is_a_direct_comparison() {
+        let xirr_with = |guess: Decimal, compounding: Compounding| {
+            xirr(&XirrInput {
+                cash_flows: dated(&[("2024-01-01", "-100"), ("2025-01-01", "110")]),
+                day_count: None,
+                compounding: Some(compounding),
+                guess: Some(guess),
+            })
+        };
+        // Version 1 returned this rate for a guess of Decimal::MAX.
+        let (out, _) = xirr_with(Decimal::MAX, Compounding::Annual).unwrap();
+        assert_eq!(out.xirr, d("0.0997135859341412415096650434"));
+        xirr_with(
+            d("-1.9999999999999999999999999999"),
+            Compounding::SemiAnnual,
+        )
+        .unwrap();
+        for (bound, c) in [
+            ("-1", Compounding::Annual),
+            ("-2", Compounding::SemiAnnual),
+            ("-4", Compounding::Quarterly),
+            ("-12", Compounding::Monthly),
+        ] {
+            let (m, code) = message(xirr_with(d(bound), c));
+            assert_eq!(code, "FM-E003", "{m}");
+            assert!(m.starts_with(&format!("`/guess` is {bound}")), "{m}");
+            assert!(
+                m.ends_with("or leave out `guess` to use the default 0.10"),
+                "{m}"
+            );
+        }
+        let (m, _) = message(irr(&IrrInput {
+            cash_flows: vec![d("-100"), d("110")],
+            guess: Some(d("-1")),
+        }));
+        assert!(
+            m.ends_with("or leave out `guess` to use the default 0.10"),
+            "{m}"
+        );
     }
 }

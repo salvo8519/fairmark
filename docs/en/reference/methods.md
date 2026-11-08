@@ -83,18 +83,18 @@ Present value of dated flows at a valuation date, with explicit day count and co
 
 ## `tvm.irr`
 
-**Internal rate of return** · method version 2 · status available · tool `fairmark_tvm_irr`
+**Internal rate of return** · method version 3 · status available · tool `fairmark_tvm_irr`
 
 Rate at which the NPV of a periodic cash flow series is zero, solved deterministically; refuses inputs with more than one IRR.
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `cash_flows` | list of decimal | yes |  | Cash flows; the first one occurs at t = 0. Needs at least one sign change. |
-| `guess` | decimal | no |  | Starting point for Newton's method, decimal fraction per period. Default: 0.10. |
+| `guess` | decimal | no |  | Starting point for Newton's method, decimal fraction per period, greater than -1 (-100%). Default: 0.10. |
 
 ## `tvm.xirr`
 
-**Internal rate of return of dated cash flows (XIRR)** · method version 1 · status available · tool `fairmark_tvm_xirr`
+**Internal rate of return of dated cash flows (XIRR)** · method version 2 · status available · tool `fairmark_tvm_xirr`
 
 Annual rate at which the XNPV of dated flows is zero, solved deterministically; refuses inputs with more than one rate.
 
@@ -103,7 +103,7 @@ Annual rate at which the XNPV of dated flows is zero, solved deterministically; 
 | `cash_flows` | list of object | yes |  | Dated cash flows, in any order; at least one positive and one negative amount. |
 | `day_count` |  | no |  | Day count for the time between dates. Default: `act_365_fixed` (ECMA-376 XIRR). |
 | `compounding` |  | no |  | Compounding of the returned rate. Default: `annual` (ECMA-376 XIRR). |
-| `guess` | decimal | no |  | Starting point for Newton's method, annual decimal fraction. Default: 0.10 (ECMA-376 XIRR). |
+| `guess` | decimal | no |  | Starting point for Newton's method, annual decimal fraction in the compounding of the result, greater than -m, with m the compounding periods a year (-1 annual, -2 semi-annual, -4 quarterly, -12 monthly; no bound for continuous). Default: 0.10 (ECMA-376 XIRR). |
 
 ## `tvm.mirr`
 
@@ -390,7 +390,7 @@ Net liquidation value at the horizon N: realisable values of labelled assets les
 
 ## `tv.compare`
 
-**Terminal value, comparison of techniques** · method version 1 · status available · tool `fairmark_tv_compare`
+**Terminal value, comparison of techniques** · method version 2 · status available · tool `fairmark_tv_compare`
 
 Runs several terminal value techniques on one rate, growth cap and basis and returns each terminal value at the horizon N with its implied assumptions, side by side.
 
@@ -399,7 +399,7 @@ Runs several terminal value techniques on one rate, growth cap and basis and ret
 | `rate` | decimal | yes |  | Discount rate of the terminal phase, decimal fraction per period, shared by every technique that uses a discount rate. |
 | `basis` | `enterprise` \| `equity` | yes |  | `enterprise` or `equity`: the basis of every terminal value compared. An exit multiple of the other basis is refused. |
 | `growth_cap` | decimal | no |  | Upper bound for the perpetual growth, decimal fraction per period, shared by every growth-based technique. Default: none, reported as absent. |
-| `techniques` | list of  | yes |  | Techniques to run, at least one, each written `{"tv.<name>": {terms}}`; the same technique may appear more than once. |
+| `techniques` | list of  | yes |  | Techniques to run, at least one, each an object with exactly one key, the method id: `{"tv.<name>": {terms}}`. The same technique may appear in more than one entry; a key repeated within one entry is refused. |
 
 ## `dcf.fcff`
 

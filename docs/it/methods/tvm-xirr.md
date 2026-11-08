@@ -1,6 +1,6 @@
 ---
 source: methods/tvm-xirr.md
-source_hash: 00d7ecf729a9
+source_hash: 8498b49dfe1a
 ---
 # Tasso interno di rendimento di flussi datati (`tvm.xirr`)
 
@@ -10,6 +10,11 @@ non cadono su periodi regolari, come un commitment in un fondo con richiami e di
 irregolari. L'algoritmo è deterministico, rifiuta gli input per i quali più di un tasso
 risolve l'equazione e dichiara se l'unicità del tasso restituito è dimostrata. Con i valori di
 default il risultato coincide con quello della funzione `XIRR` dei fogli di calcolo.
+
+Versione del metodo: 2. La versione 2 rifiuta un `guess` fuori dal dominio del tasso (guess
+per periodo di capitalizzazione pari o inferiore a −100%) con `FM-E003` prima di ogni
+iterazione; la versione 1 ignorava un guess di questo tipo. I risultati per ogni altro guess
+non cambiano.
 
 ## Formula
 
@@ -82,7 +87,7 @@ $s = 1$ l'unicità del tasso è dimostrata.
 | `cash_flows` | Flussi datati `{date, amount}`, in qualsiasi ordine; almeno un importo positivo e uno negativo | obbligatorio |
 | `day_count` | `act_365_fixed`, `act_360`, `act_act_isda`, `thirty_360` oppure `thirty_e_360` | `act_365_fixed` |
 | `compounding` | Capitalizzazione del tasso restituito: `annual`, `semi_annual`, `quarterly`, `monthly` oppure `continuous` | `annual` |
-| `guess` | Punto di partenza del metodo di Newton, frazione decimale annua | `0.10` |
+| `guess` | Punto di partenza del metodo di Newton, frazione decimale annua nella capitalizzazione del risultato, maggiore di $-m$, con $m$ il numero di periodi di capitalizzazione all'anno (−1 annuale, −2 semestrale, −4 trimestrale, −12 mensile; nessun limite con la capitalizzazione continua) | `0.10` |
 
 ## Output
 
@@ -115,6 +120,7 @@ dichiara se l'unicità è dimostrata o non verificata, con il motivo.
 | --- | --- |
 | `FM-E001` | Un campo è mancante o sconosciuto, oppure una convenzione non è tra le opzioni elencate |
 | `FM-E002` | `cash_flows` è vuoto |
+| `FM-E003` | `guess` è pari o inferiore a $-m$, con $m$ il numero di periodi di capitalizzazione all'anno (con capitalizzazione annua, `guess` ≤ −1): il metodo di Newton non può partire da lì; il messaggio indica `/guess` e suggerisce un guess vicino al tasso atteso oppure di omettere `guess` per usare il default 0.10. Verificato prima di ogni iterazione |
 | `FM-E005` | Nessuna radice è stata isolata sulla griglia e il metodo di Newton a partire da `guess` non converge; il tasso può trovarsi fuori dall'intervallo dei decimali o lontano da `guess`: indica un `guess` vicino al tasso atteso |
 | `FM-E006` | `cash_flows` non contiene alcun importo positivo o alcun importo negativo, così come è fornito oppure dopo la compensazione dei flussi con la stessa data (il messaggio indica quale dei due casi) |
 | `FM-E008` | Overflow aritmetico durante il raffinamento della radice |

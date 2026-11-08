@@ -39,3 +39,5 @@ parallel; tick a task only when `just check` passes.
   ticked in spec.md; recorded in the description of pull request #141
   (https://github.com/salvo8519/fairmark/pull/141, section Verification); ticked by maintainer
   decision of 2026-11-08
+- [x] T18 code-reviewer review of `tv.compare` v2, PR #203, maintainer-approved contract change of
+  2026-11-08 (one key per technique entry, issue #199)

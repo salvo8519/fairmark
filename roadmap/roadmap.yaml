@@ -115,7 +115,7 @@ milestones:
           - { issue: 175, title: "Full precision of present values at long horizons in tvm", status: open }
           - { issue: 176, title: "Code review of the time value foundations for promotion to available", spec: "0002", status: done }
           - { issue: 189, title: "Overflow of tvm.annuity growth factors at extreme inputs", status: open }
-          - { issue: 190, title: "IRR and XIRR refuse a guess at or below -1", status: open }
+          - { issue: 190, title: "IRR and XIRR refuse a guess at or below -1", spec: "0002", status: done }
       - title: "Explain and audit trail"
         issue: 25
         labels: ["area:core"]
@@ -177,7 +177,7 @@ milestones:
           - { issue: 101, title: "Draft specs for terminal value methods and financial ratios with covenants", spec: "0006", status: done }
           - { issue: 115, title: "Terminal value building blocks tv.* (SPEC-0006)", spec: "0006", status: done }
           - { issue: 197, title: "DCF from a vector of cash flows with documented defaults", spec: "0001", status: open }
-          - { issue: 199, title: "tv.compare version 2 refuses a repeated technique key", status: open }
+          - { issue: 199, title: "tv.compare version 2 refuses a repeated technique key", spec: "0006", status: done }
       - title: "Analysis: goal seek, sensitivity, scenarios, tornado"
         labels: ["area:core"]
         tasks:

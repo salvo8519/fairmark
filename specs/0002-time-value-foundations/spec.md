@@ -115,3 +115,11 @@ solutions.
 
 ## Open questions
 - None: every convention above is a published market standard or an explicit input.
+
+## Decisions (maintainer, 2026-11-08)
+- [x] **Guess domain (issue #190).** `tvm.irr` and `tvm.xirr` refuse a `guess` outside the
+      domain of the rate, 1 + guess / m ≤ 0 with m the compounding periods a year of the rate
+      (m = 1 for `tvm.irr`; no bound with continuous compounding), with `FM-E003` naming
+      `/guess` and the rule, before any iteration. Earlier versions ignored such a guess. A
+      contract change, so new method versions: `tvm.irr` version 3, `tvm.xirr` version 2.
+      Results for a guess inside the domain are unchanged.

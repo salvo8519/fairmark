@@ -1,0 +1,502 @@
+{
+  "$defs": {
+    "ExitMultipleTerms": {
+      "additionalProperties": false,
+      "description": "The terms of `tv.exit_multiple` inside `tv.compare`: the rate and the growth cap are shared\nand used when `next_flow` is given.",
+      "properties": {
+        "metric": {
+          "$ref": "#/$defs/MultipleMetric",
+          "description": "`ebitda`, `ebit`, `revenue` (enterprise basis), `earnings` or `book_value` (equity\nbasis); must match the basis of the comparison."
+        },
+        "metric_value": {
+          "description": "The metric at N, in currency units, greater than 0.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "multiple": {
+          "description": "The multiple, greater than 0.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "next_flow": {
+          "description": "Flow at N + 1, in currency units. Optional: when given, the implied growth is computed\nat the shared rate.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "multiple",
+        "metric",
+        "metric_value"
+      ],
+      "type": "object"
+    },
+    "GordonTerms": {
+      "additionalProperties": false,
+      "description": "The terms of `tv.gordon` inside `tv.compare`: the rate and the growth cap are shared.",
+      "properties": {
+        "growth": {
+          "description": "Perpetual growth of the flow, decimal fraction per period, below the shared rate.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "last_flow": {
+          "description": "Flow at N, in currency units, grown by `growth`. Give this or `next_flow`, not both.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "next_flow": {
+          "description": "Flow at N + 1, in currency units. Give this or `last_flow`, not both.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "growth"
+      ],
+      "type": "object"
+    },
+    "HModelTerms": {
+      "additionalProperties": false,
+      "description": "The terms of `tv.h_model` inside `tv.compare`: the rate and the growth cap are shared.",
+      "properties": {
+        "half_life": {
+          "description": "H, in periods, zero or positive.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "last_flow": {
+          "description": "CF_N, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "long_term_growth": {
+          "description": "g_l, decimal fraction per period, below the shared rate.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "short_term_growth": {
+          "description": "g_s, decimal fraction per period.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "last_flow",
+        "short_term_growth",
+        "long_term_growth",
+        "half_life"
+      ],
+      "type": "object"
+    },
+    "LimitedHorizonTerms": {
+      "additionalProperties": false,
+      "description": "The terms of `tv.limited_horizon` inside `tv.compare`: the rate and the growth cap are\nshared.",
+      "properties": {
+        "flow": {
+          "description": "First flow, at the end of period N + 1, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "growth": {
+          "description": "Growth of the flow per period, decimal fraction. Default: 0.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "periods": {
+          "description": "Number of further periods n, from 1 to 10000.",
+          "format": "uint32",
+          "maximum": 10000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "residual_value": {
+          "description": "Residual value at N + n, in currency units. Default: 0.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "flow",
+        "periods"
+      ],
+      "type": "object"
+    },
+    "Line": {
+      "additionalProperties": false,
+      "description": "A labelled amount, for example an asset and its realisable value.",
+      "properties": {
+        "label": {
+          "description": "What the amount is, for example \"Land\" or \"Bank loan\". Not empty.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Amount in currency units, zero or positive.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    },
+    "LiquidationInput": {
+      "additionalProperties": false,
+      "description": "Input of `tv.liquidation`.",
+      "properties": {
+        "assets": {
+          "description": "Assets with their realisable values at N, in currency units, each zero or positive; at\nleast one.",
+          "items": {
+            "$ref": "#/$defs/Line"
+          },
+          "type": "array"
+        },
+        "basis": {
+          "$ref": "#/$defs/TerminalBasis",
+          "description": "`enterprise` (the liabilities listed exclude financial debt: the value is an enterprise\nvalue) or `equity` (financial debt included: the value is an equity value). Required, no\ndefault."
+        },
+        "liabilities": {
+          "description": "Liabilities settled at N, in currency units, each zero or positive.",
+          "items": {
+            "$ref": "#/$defs/Line"
+          },
+          "type": "array"
+        },
+        "liquidation_costs": {
+          "description": "Costs of the liquidation (legal fees, closure, severance), in currency units, each zero\nor positive.",
+          "items": {
+            "$ref": "#/$defs/Line"
+          },
+          "type": "array"
+        },
+        "tax_on_gains": {
+          "description": "Tax on the gains realised, as an amount in currency units, zero or positive.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "assets",
+        "liabilities",
+        "liquidation_costs",
+        "tax_on_gains",
+        "basis"
+      ],
+      "type": "object"
+    },
+    "MultipleMetric": {
+      "description": "The metric a multiple applies to. Enterprise multiples (EV/EBITDA, EV/EBIT, EV/Sales) give\nan enterprise value; P/E and P/BV give an equity value. The two are never mixed.",
+      "oneOf": [
+        {
+          "const": "ebitda",
+          "description": "EBITDA at N; multiple EV/EBITDA, enterprise basis.",
+          "type": "string"
+        },
+        {
+          "const": "ebit",
+          "description": "EBIT at N; multiple EV/EBIT, enterprise basis.",
+          "type": "string"
+        },
+        {
+          "const": "revenue",
+          "description": "Revenue at N; multiple EV/Sales, enterprise basis.",
+          "type": "string"
+        },
+        {
+          "const": "earnings",
+          "description": "Net earnings at N; multiple P/E, equity basis.",
+          "type": "string"
+        },
+        {
+          "const": "book_value",
+          "description": "Book value of equity at N; multiple P/BV (price to book value), equity basis\n(SPEC-0006 decision of 2026-11-08).",
+          "type": "string"
+        }
+      ]
+    },
+    "NormalisedIncomeTerms": {
+      "additionalProperties": false,
+      "description": "The terms of `tv.normalised_income` inside `tv.compare`: the growth cap is shared; the\ncapitalisation rate stays a term of the technique.",
+      "properties": {
+        "basis": {
+          "$ref": "#/$defs/TerminalBasis",
+          "description": "`enterprise` or `equity`; must match the basis of the comparison."
+        },
+        "capitalisation_rate": {
+          "description": "Capitalisation rate i, decimal fraction per period.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "growth": {
+          "description": "Perpetual growth, decimal fraction per period. Default: none (R / i).",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "income": {
+          "description": "Normalised income R, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "income",
+        "capitalisation_rate",
+        "basis"
+      ],
+      "type": "object"
+    },
+    "Technique": {
+      "description": "One technique to compare, named by its method id, with its own terms. The shared rate and\ngrowth cap are not repeated here.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Stable growth: `growth` and one of `next_flow`, `last_flow`.",
+          "properties": {
+            "tv.gordon": {
+              "$ref": "#/$defs/GordonTerms"
+            }
+          },
+          "required": [
+            "tv.gordon"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Growth from reinvestment: `nopat_next`, `growth`, `ronic`.",
+          "properties": {
+            "tv.value_driver": {
+              "$ref": "#/$defs/ValueDriverTerms"
+            }
+          },
+          "required": [
+            "tv.value_driver"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Declining growth: `last_flow`, `short_term_growth`, `long_term_growth`, `half_life`.",
+          "properties": {
+            "tv.h_model": {
+              "$ref": "#/$defs/HModelTerms"
+            }
+          },
+          "required": [
+            "tv.h_model"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Exit multiple on the basis of the comparison; `next_flow` optional.",
+          "properties": {
+            "tv.exit_multiple": {
+              "$ref": "#/$defs/ExitMultipleTerms"
+            }
+          },
+          "required": [
+            "tv.exit_multiple"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Finite horizon: `flow`, `periods`, optional `growth` and `residual_value`.",
+          "properties": {
+            "tv.limited_horizon": {
+              "$ref": "#/$defs/LimitedHorizonTerms"
+            }
+          },
+          "required": [
+            "tv.limited_horizon"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Normalised income with its own capitalisation rate and basis (checked).",
+          "properties": {
+            "tv.normalised_income": {
+              "$ref": "#/$defs/NormalisedIncomeTerms"
+            }
+          },
+          "required": [
+            "tv.normalised_income"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Liquidation with its declared basis (checked).",
+          "properties": {
+            "tv.liquidation": {
+              "$ref": "#/$defs/LiquidationInput"
+            }
+          },
+          "required": [
+            "tv.liquidation"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "TerminalBasis": {
+      "description": "Whether a terminal value is a value of the whole business or of its equity.",
+      "oneOf": [
+        {
+          "const": "enterprise",
+          "description": "Enterprise value: flows to all capital providers (FCFF), discounted at the WACC;\nmultiples EV/EBITDA, EV/EBIT, EV/Sales.",
+          "type": "string"
+        },
+        {
+          "const": "equity",
+          "description": "Equity value: flows to shareholders (FCFE, dividends), discounted at the cost of\nequity; multiple P/E.",
+          "type": "string"
+        }
+      ]
+    },
+    "ValueDriverTerms": {
+      "additionalProperties": false,
+      "description": "The terms of `tv.value_driver` inside `tv.compare`: the rate and the growth cap are shared.",
+      "properties": {
+        "growth": {
+          "description": "Perpetual growth, decimal fraction per period, below the shared rate.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "nopat_next": {
+          "description": "NOPAT_{N+1}, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "ronic": {
+          "description": "Return on new invested capital, decimal fraction per period, greater than 0.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "nopat_next",
+        "growth",
+        "ronic"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:tv.compare:v2",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `tv.compare`.",
+  "properties": {
+    "basis": {
+      "$ref": "#/$defs/TerminalBasis",
+      "description": "`enterprise` or `equity`: the basis of every terminal value compared. An exit multiple\nof the other basis is refused."
+    },
+    "growth_cap": {
+      "description": "Upper bound for the perpetual growth, decimal fraction per period, shared by every\ngrowth-based technique. Default: none, reported as absent.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "rate": {
+      "description": "Discount rate of the terminal phase, decimal fraction per period, shared by every\ntechnique that uses a discount rate.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "techniques": {
+      "description": "Techniques to run, at least one, each an object with exactly one key, the method id:\n`{\"tv.<name>\": {terms}}`. The same technique may appear in more than one entry; a key\nrepeated within one entry is refused.",
+      "items": {
+        "$ref": "#/$defs/Technique"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "rate",
+    "basis",
+    "techniques"
+  ],
+  "title": "CompareInput",
+  "type": "object",
+  "x-fairmark-method": "tv.compare",
+  "x-fairmark-method-version": "2"
+}
