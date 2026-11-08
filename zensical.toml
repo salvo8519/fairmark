@@ -66,6 +66,7 @@ nav = [
     "methods/tv-liquidation.md",
     "methods/tv-compare.md",
     "methods/dcf-fcff.md",
+    "methods/dcf-fcfe.md",
     "methods/dcf-free-cash-flows.md",
     "methods/ratios-profitability.md",
     "methods/ratios-capital-structure.md",

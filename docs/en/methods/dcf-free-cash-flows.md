@@ -4,8 +4,10 @@ Builds the free cash flow to the firm (FCFF) of every period of a business plan 
 reclassified line items: EBIT, taxes on EBIT, depreciation and amortisation, capital
 expenditure, change in net working capital and labelled adjustments. When interest expense and
 net borrowing are also given, it builds the free cash flow to equity (FCFE). The flows are
-amounts per period, not discounted: discounting them is the job of the DCF. Reclassifying the
-statutory statements into these lines is a separate step.
+amounts per period, not discounted: discounting them is the job of the DCF,
+[`dcf.fcff`](dcf-fcff.md) for the FCFF and [`dcf.fcfe`](dcf-fcfe.md) for the FCFE, both of
+which also accept the same lines in a `given` stage. Reclassifying the statutory statements
+into these lines is a separate step.
 
 Method version: 2. Status: preview.
 
