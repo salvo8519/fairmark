@@ -1,0 +1,12 @@
+method: dcf.fcff
+description: "A negative debt-like item (R25: zero or more)"
+source: SPEC-0001 R25, R27
+input:
+  stages: [{"periods": 3, "projection": "given", "flows": ["100", "110", "120"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.10"
+  timing: "end_of_period"
+  terminal: {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}
+  debt_like_items: [{"label": "Pension", "value": "-10", "measurement_basis": "book value"}]
+expect_error: FM-E001

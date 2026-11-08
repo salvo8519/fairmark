@@ -957,4 +957,208 @@ mod tests {
             "Shares"
         );
     }
+
+    fn bridge_input() -> Value {
+        with(base(), |m| {
+            m.insert(
+                "net_financial_position".into(),
+                json!({"gross_debt": "300", "cash": "40",
+                       "other_items": [{"name": "lease liabilities", "amount": "25"}]}),
+            );
+            m.insert(
+                "non_operating_assets".into(),
+                json!([{"label": "Land", "value": "60"}]),
+            );
+            m.insert(
+                "debt_like_items".into(),
+                json!([
+                    {"label": "Unfunded pension obligation", "value": "70",
+                     "measurement_basis": "present value net of tax"},
+                    {"label": "Restructuring provision", "value": "12.5",
+                     "measurement_basis": "book value"}
+                ]),
+            );
+            m.insert(
+                "non_controlling_interests".into(),
+                json!([{"label": "20% of Subsidiary A", "value": "45",
+                        "measurement_basis": "fair value"}]),
+            );
+        })
+    }
+
+    /// R23, R25 (#44): equity value = enterprise value − net financial position − Σ debt-like
+    /// items − Σ non-controlling interests, every line echoed with its label and basis.
+    #[test]
+    fn bridge_subtracts_debt_like_items_and_non_controlling_interests() {
+        let out = run("dcf.fcff", &bridge_input().to_string()).unwrap();
+        let d = |p: &str| -> rust_decimal::Decimal {
+            out["value"]
+                .pointer(p)
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .parse()
+                .unwrap()
+        };
+        assert_eq!(d("/bridge/net_financial_position"), "285".parse().unwrap());
+        assert_eq!(d("/bridge/debt_like_items_total"), "82.5".parse().unwrap());
+        assert_eq!(
+            d("/bridge/non_controlling_interests_total"),
+            "45".parse().unwrap()
+        );
+        assert_eq!(
+            d("/equity_value"),
+            d("/enterprise_value") - d("/bridge/net_financial_position")
+                - d("/bridge/debt_like_items_total")
+                - d("/bridge/non_controlling_interests_total")
+        );
+        assert_eq!(d("/bridge/equity_value"), d("/equity_value"));
+        assert_eq!(
+            out["value"]["bridge"]["debt_like_items"][1]["measurement_basis"],
+            "book value"
+        );
+        assert_eq!(
+            out["value"]["bridge"]["non_controlling_interests"][0]["label"],
+            "20% of Subsidiary A"
+        );
+        let steps = out["explain"]["steps"].as_array().unwrap();
+        let step = |label: &str| {
+            steps
+                .iter()
+                .find(|s| s["label"] == label)
+                .unwrap_or_else(|| panic!("no step '{label}' in {steps:?}"))
+                .clone()
+        };
+        assert_eq!(
+            step("Debt-like item: Unfunded pension obligation (present value net of tax)")
+                ["value"],
+            "70"
+        );
+        assert_eq!(step("Debt-like items, total")["formula"], "70 + 12.5");
+        assert_eq!(
+            step("Non-controlling interest: 20% of Subsidiary A (fair value)")["value"],
+            "45"
+        );
+        assert_eq!(step("Non-controlling interests, total")["formula"], "45");
+        let equity = step("Equity value");
+        let formula = equity["formula"].as_str().unwrap();
+        assert!(
+            formula.ends_with(" − 285 − 82.5 − 45"),
+            "equity value formula without every term substituted: {formula}"
+        );
+    }
+
+    /// R25, R28 (#44): signs, the stated measurement basis of each claim, and "none given"
+    /// for empty lists are reported.
+    #[test]
+    fn bridge_conventions_are_reported() {
+        let c = conventions(&bridge_input()).join("\n");
+        for needle in [
+            "bridge items measured at the valuation date, as given",
+            "bridge signs: non-operating assets added to the value of operations; net financial \
+             position (positive for net debt), debt-like items and non-controlling interests \
+             subtracted from enterprise value; every debt-like item and non-controlling \
+             interest is zero or more",
+            "debt-like item 'Unfunded pension obligation': measurement basis stated by the \
+             analyst: present value net of tax",
+            "non-controlling interest '20% of Subsidiary A': measurement basis stated by the \
+             analyst: fair value",
+        ] {
+            assert!(c.contains(needle), "missing '{needle}' in:\n{c}");
+        }
+        assert!(!c.contains("debt-like items: none given"));
+        let c = conventions(&base()).join("\n");
+        assert!(c.contains("debt-like items: none given"), "{c}");
+        assert!(c.contains("non-controlling interests: none given"), "{c}");
+    }
+
+    /// R26 (#44): claims above the enterprise value give a negative equity value, reported
+    /// with the warning and not floored.
+    #[test]
+    fn claims_above_enterprise_value_are_a_warning() {
+        let v = with(base(), |m| {
+            m.insert(
+                "debt_like_items".into(),
+                json!([{"label": "Pension", "value": "1000", "measurement_basis": "book value"}]),
+            );
+            m.insert(
+                "non_controlling_interests".into(),
+                json!([{"label": "Minority", "value": "500", "measurement_basis": "book value"}]),
+            );
+        });
+        let out = run("dcf.fcff", &v.to_string()).unwrap();
+        let equity: rust_decimal::Decimal = out["value"]["equity_value"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert!(equity.is_sign_negative());
+        let c = out["explain"]["conventions"].to_string();
+        assert!(c.contains("warning: the equity value is negative"), "{c}");
+    }
+
+    /// R25, R27 (#44): every refusal of a bridge claim names its field by JSON pointer and
+    /// states the fix.
+    #[test]
+    fn bridge_claim_errors_name_their_field() {
+        let claim = |label: &str, value: &str, basis: &str| {
+            json!([{"label": label, "value": value, "measurement_basis": basis}])
+        };
+        let cases = [
+            (
+                "debt_like_items",
+                claim("Pension", "-1", "book value"),
+                "`/debt_like_items/0/value`",
+                "non_operating_assets",
+            ),
+            (
+                "non_controlling_interests",
+                claim("Minority", "-1", "book value"),
+                "`/non_controlling_interests/0/value`",
+                "zero or more",
+            ),
+            (
+                "debt_like_items",
+                claim(" ", "1", "book value"),
+                "`/debt_like_items/0/label`",
+                "name the item",
+            ),
+            (
+                "non_controlling_interests",
+                claim("", "1", "book value"),
+                "`/non_controlling_interests/0/label`",
+                "name the item",
+            ),
+            (
+                "debt_like_items",
+                claim("Pension", "1", "  "),
+                "`/debt_like_items/0/measurement_basis`",
+                "state how the amount was measured",
+            ),
+            (
+                "non_controlling_interests",
+                claim("Minority", "1", ""),
+                "`/non_controlling_interests/0/measurement_basis`",
+                "for example book value or fair value",
+            ),
+        ];
+        for (field, items, pointer, fix) in cases {
+            let v = with(base(), |m| {
+                m.insert(field.into(), items);
+            });
+            let e = err(&v);
+            assert_eq!(e.code(), "FM-E001", "{e}");
+            let text = e.to_string();
+            assert!(text.contains(pointer), "{pointer} not in: {text}");
+            assert!(text.contains(fix), "'{fix}' not in: {text}");
+        }
+        // A missing measurement basis is refused, never defaulted (R29).
+        let v = with(base(), |m| {
+            m.insert(
+                "debt_like_items".into(),
+                json!([{"label": "Pension", "value": "1"}]),
+            );
+        });
+        assert_eq!(err(&v).code(), "FM-E001");
+    }
 }

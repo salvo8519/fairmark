@@ -1,0 +1,26 @@
+method: dcf.fcff
+description: "Claims above the enterprise value give a negative equity value, reported as computed and not floored at zero (R23, R25, R26; AC10, AC13)"
+source: >
+  Independent 50-digit reference, scripts/reference_dcf.py (Python decimal, written from
+  SPEC-0001 R23, R25 and R26, sharing no code with the engine). Value of operations
+  1,421.4876...; net financial position 1,100 - 50 = 1,050; debt-like items 300;
+  non-controlling interests 150; equity value 1,421.4876... - 1,050 - 300 - 150 = -78.5124...
+  The warning of R26 is checked by the unit test negative_equity_value_is_a_warning and by the
+  contract cases, because golden cases check values only.
+input:
+  stages: [{"periods": 3, "projection": "given", "flows": ["100", "110", "120"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.10"
+  timing: "end_of_period"
+  terminal: {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}
+  net_financial_position: {"gross_debt": "1100", "cash": "50"}
+  debt_like_items: [{"label": "Unfunded pension obligation", "value": "300", "measurement_basis": "book value"}]
+  non_controlling_interests: [{"label": "40% of Subsidiary B", "value": "150", "measurement_basis": "book value"}]
+expect:
+  /value_of_operations: "1421.487603305785123966942149"
+  /enterprise_value: "1421.487603305785123966942149"
+  /equity_value: "-78.51239669421487603305785124"
+  /bridge/debt_like_items_total: "300"
+  /bridge/non_controlling_interests_total: "150"
+tolerance: "0.00000000000000000001"

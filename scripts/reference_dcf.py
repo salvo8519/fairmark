@@ -250,6 +250,10 @@ def dcf_fcff(inp: Mapping[str, Any]) -> dict[str, D]:
         p = inp["net_financial_position"]
         nfp = _d(p["gross_debt"]) - _d(p["cash"])
         nfp += sum((_d(i["amount"]) for i in p.get("other_items", [])), D(0))
+    # R23, R25 (#44): debt-like items and non-controlling interests, each zero or more,
+    # subtracted from enterprise value after the net financial position.
+    debt_like = sum((_d(c["value"]) for c in inp.get("debt_like_items", [])), D(0))
+    minority = sum((_d(c["value"]) for c in inp.get("non_controlling_interests", [])), D(0))
     out.update(
         {
             "/pv_explicit_period": pv_explicit,
@@ -259,7 +263,9 @@ def dcf_fcff(inp: Mapping[str, Any]) -> dict[str, D]:
             "/terminal/present_value": pv_tv,
             "/value_of_operations": value_of_operations,
             "/enterprise_value": enterprise_value,
-            "/equity_value": enterprise_value - nfp,
+            "/equity_value": enterprise_value - nfp - debt_like - minority,
+            "/bridge/debt_like_items_total": debt_like,
+            "/bridge/non_controlling_interests_total": minority,
             "/terminal_value_weight": pv_tv / value_of_operations,
         }
     )
