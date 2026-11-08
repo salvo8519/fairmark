@@ -30,8 +30,12 @@ The taxes on EBIT $T_t$ are given in exactly one of two forms:
 - **amounts**: $T_t$ given for every period.
 
 The rate $\tau$ of the interest tax shield in the FCFE is the tax rate on EBIT in the first
-form, and a separate required input, `interest_tax_rate`, in the second. It is applied to the
-interest as given, whatever the sign of EBIT and the treatment of a negative EBIT.
+form, and a separate required input, `interest_tax_rate`, in the second. In a period where
+the `zero` treatment applies (EBIT negative, taxes from a rate) there is no interest tax
+shield: $\tau = 0$ and the interest is subtracted in full. The FCFE then equals the net-income
+route (net income + D&A − capex − ΔNWC + adjustments + net borrowing, with no tax on a negative
+pre-tax income). With `credit`, and in every period with an EBIT of zero or more, the shield
+applies also when EBIT is lower than the interest.
 
 ## Example
 
@@ -80,8 +84,8 @@ plan = fm.dcf.free_cash_flows(
     negative_ebit="zero",
 )
 assert plan.free_cash_flows_to_firm == [Decimal("777.00"), Decimal("-125")]
-assert plan.free_cash_flows_to_equity == [Decimal("566.20"), Decimal("-47.80")]
-print(plan.conventions[-1])  # negative EBIT in period 2: treatment zero applied
+assert plan.free_cash_flows_to_equity == [Decimal("566.20"), Decimal("-55")]
+print(plan.conventions[-1])  # no interest tax shield in period 2 (negative EBIT, treatment zero)
 ```
 
 ## Inputs
@@ -107,7 +111,7 @@ Give either `notional_tax_rate` or `operating_taxes` in every period, never both
 
 | Field | Meaning |
 | --- | --- |
-| `periods` | One row per period: every line as given, `operating_taxes` used, `ebit_after_taxes`, `other_adjustments_total`, `free_cash_flow_to_firm` and, with the financing lines, `interest_after_taxes` and `free_cash_flow_to_equity` (`null` otherwise) |
+| `periods` | One row per period: every line as given, `operating_taxes` used, `ebit_after_taxes`, `other_adjustments_total`, `free_cash_flow_to_firm` and, with the financing lines, `interest_tax_rate` applied (0 where the `zero` treatment applies), `interest_after_taxes` and `free_cash_flow_to_equity` (`null` otherwise) |
 | `free_cash_flows_to_firm` | FCFF of periods 1..n |
 | `free_cash_flows_to_equity` | FCFE of periods 1..n; `null` without the financing lines |
 | `tax_form` | `rate_on_ebit` or `amounts` |
@@ -121,7 +125,7 @@ Give either `notional_tax_rate` or `operating_taxes` in every period, never both
 | Taxes on EBIT | rate on EBIT, or amounts per period | none: exactly one must be given |
 | Negative EBIT (rate form) | `credit`, `zero` | none: must be chosen |
 | Tax loss carry-forward | not modelled | fixed |
-| Rate of the interest tax shield | the tax rate on EBIT (rate form), or `interest_tax_rate` (amounts form) | fixed by the tax form |
+| Rate of the interest tax shield | the tax rate on EBIT (rate form), or `interest_tax_rate` (amounts form); 0 in a period with a negative EBIT under `zero` | fixed by the tax form and the treatment |
 | Sign of the taxes on EBIT (amounts form) | positive for a tax paid, subtracted; negative for a tax credit | fixed |
 | Sign of the change in net working capital | positive for an increase, subtracted | fixed |
 | Sign of net borrowing | positive for new borrowing, added | fixed |

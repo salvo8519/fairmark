@@ -214,9 +214,11 @@ present, as the rate forms of `loans.*` and the flow choice of `tv.gordon`; no b
   `zero` sets taxes_t = 0. No tax loss carry-forward (R4). Amounts form: taxes_t as given.
 - FCFF_t = EBIT_t − taxes_t + D&A_t − capex_t − ΔNWC_t + Σ adjustments_t (R2).
 - FCFE_t = FCFF_t − interest_t × (1 − t) + net borrowing_t, with t = `notional_tax_rate` in
-  the rate form and `interest_tax_rate` in the amounts form (R3). The rate is applied to the
-  interest as given, independently of the sign of EBIT and of the `negative_ebit` treatment,
-  as R3 states; this is reported in `explain.conventions`.
+  the rate form and `interest_tax_rate` in the amounts form (R3). In a period where the `zero`
+  treatment applies, t = 0: no interest tax shield, the interest is subtracted in full and
+  the FCFE equals the net-income route (amendment 14 of the spec, approved by the maintainer
+  on 2026-11-08). The rate applied in each period is in the output (`interest_tax_rate`) and in
+  `explain.conventions`.
 - All arithmetic through `crate::num` (checked; overflow is `FM-E008`).
 
 ### Output and reuse by the shared engine (#110, #165)

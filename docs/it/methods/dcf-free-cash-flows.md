@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-free-cash-flows.md
-source_hash: 0b667f110e1e
+source_hash: c8b6e0873be5
 ---
 # Costruzione dei flussi di cassa disponibili (`dcf.free_cash_flows`)
 
@@ -35,9 +35,14 @@ Le imposte sull'EBIT $T_t$ si forniscono in una sola di due forme:
 - **importi**: $T_t$ fornito per ogni periodo.
 
 L'aliquota $\tau$ dello scudo fiscale sugli oneri finanziari nel FCFE è l'aliquota sull'EBIT
-nella prima forma, e un input separato obbligatorio, `interest_tax_rate`, nella seconda. Si
-applica agli oneri finanziari come forniti, qualunque sia il segno dell'EBIT e il trattamento
-di un EBIT negativo.
+nella prima forma, e un input separato obbligatorio, `interest_tax_rate`, nella seconda. In un
+periodo in cui si applica il trattamento `zero` (EBIT negativo, imposte da un'aliquota) lo
+scudo fiscale sugli oneri finanziari è nullo: $\tau = 0$ e gli oneri finanziari sono sottratti
+per intero. Il FCFE coincide allora con quello calcolato dall'utile netto (utile netto +
+ammortamenti − capex − variazione del capitale circolante netto + rettifiche + net borrowing,
+senza imposte su un risultato ante imposte negativo). Con `credit`, e in ogni periodo con EBIT
+pari a zero o positivo, lo scudo si applica anche quando l'EBIT è inferiore agli oneri
+finanziari.
 
 ## Esempio
 
@@ -86,8 +91,8 @@ plan = fm.dcf.free_cash_flows(
     negative_ebit="zero",
 )
 assert plan.free_cash_flows_to_firm == [Decimal("777.00"), Decimal("-125")]
-assert plan.free_cash_flows_to_equity == [Decimal("566.20"), Decimal("-47.80")]
-print(plan.conventions[-1])  # negative EBIT in period 2: treatment zero applied
+assert plan.free_cash_flows_to_equity == [Decimal("566.20"), Decimal("-55")]
+print(plan.conventions[-1])  # no interest tax shield in period 2 (negative EBIT, treatment zero)
 ```
 
 ## Input
@@ -113,7 +118,7 @@ Si fornisce `notional_tax_rate` oppure `operating_taxes` in ogni periodo, mai en
 
 | Campo | Significato |
 | --- | --- |
-| `periods` | Una riga per periodo: ogni voce come fornita, `operating_taxes` usate, `ebit_after_taxes`, `other_adjustments_total`, `free_cash_flow_to_firm` e, con le voci finanziarie, `interest_after_taxes` e `free_cash_flow_to_equity` (altrimenti `null`) |
+| `periods` | Una riga per periodo: ogni voce come fornita, `operating_taxes` usate, `ebit_after_taxes`, `other_adjustments_total`, `free_cash_flow_to_firm` e, con le voci finanziarie, `interest_tax_rate` applicata (0 dove si applica il trattamento `zero`), `interest_after_taxes` e `free_cash_flow_to_equity` (altrimenti `null`) |
 | `free_cash_flows_to_firm` | FCFF dei periodi 1..n |
 | `free_cash_flows_to_equity` | FCFE dei periodi 1..n; `null` senza le voci finanziarie |
 | `tax_form` | `rate_on_ebit` o `amounts` |
@@ -127,7 +132,7 @@ Si fornisce `notional_tax_rate` oppure `operating_taxes` in ogni periodo, mai en
 | Imposte sull'EBIT | aliquota sull'EBIT, o importi per periodo | nessuno: va fornita esattamente una forma |
 | EBIT negativo (forma ad aliquota) | `credit`, `zero` | nessuno: va scelto |
 | Tax loss carry-forward | non modellato | fisso |
-| Aliquota dello scudo fiscale sugli oneri finanziari | l'aliquota sull'EBIT (forma ad aliquota), o `interest_tax_rate` (forma a importi) | fissata dalla forma delle imposte |
+| Aliquota dello scudo fiscale sugli oneri finanziari | l'aliquota sull'EBIT (forma ad aliquota), o `interest_tax_rate` (forma a importi); 0 in un periodo con EBIT negativo e trattamento `zero` | fissata dalla forma delle imposte e dal trattamento |
 | Segno delle imposte sull'EBIT (forma a importi) | positivo per un'imposta pagata, sottratto; negativo per un credito d'imposta | fisso |
 | Segno della variazione del capitale circolante netto | positivo per un aumento, sottratto | fisso |
 | Segno del net borrowing | positivo per nuovi finanziamenti, sommato | fisso |

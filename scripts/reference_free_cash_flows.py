@@ -7,6 +7,10 @@ the Rust engine.
     taxes_t = t x EBIT_t                      (rate form; `zero`: 0 when EBIT_t < 0)
     FCFF_t  = EBIT_t - taxes_t + D&A_t - capex_t - change in NWC_t + sum adjustments_t
     FCFE_t  = FCFF_t - interest_t x (1 - t) + net borrowing_t
+              (t = 0 in a period where the `zero` treatment applies, SPEC-0001 amendment 14)
+
+`net_income_route` computes the FCFE by the other route (net income + D&A - capex - change in
+NWC + adjustments + net borrowing) as an independent check of amendment 14.
 
 Usage:
 
@@ -100,10 +104,36 @@ def build_up(
         interest_after = fcfe = None
         if p.interest_expense is not None:
             assert p.net_borrowing is not None and shield is not None
-            interest_after = p.interest_expense * (1 - shield)
+            # Amendment 14: no interest tax shield where the `zero` treatment applies.
+            no_shield = rate_form and negative_ebit == "zero" and p.ebit < 0
+            rate = D(0) if no_shield else shield
+            interest_after = p.interest_expense * (1 - rate)
             fcfe = fcff - interest_after + p.net_borrowing
         out.append(Period(taxes, after, fcff, interest_after, fcfe))
     return out
+
+
+@at_50_digits
+def net_income_route(p: Lines, rate: D, negative_ebit: str) -> D:
+    """FCFE from net income: taxes on pre-tax income EBIT - interest at `rate`, with no tax on a
+    negative pre-tax income under `zero` (CFA Institute; Damodaran). Valid where it agrees with
+    the treatments: `credit` in any period, `zero` in periods with a negative EBIT."""
+    assert p.interest_expense is not None and p.net_borrowing is not None
+    pre_tax = p.ebit - p.interest_expense
+    if negative_ebit == "zero":
+        assert p.ebit < 0
+        tax = D(0)
+    else:
+        tax = rate * pre_tax
+    net_income = pre_tax - tax
+    return (
+        net_income
+        + p.depreciation_and_amortisation
+        - p.capital_expenditure
+        - p.change_in_net_working_capital
+        + sum(p.adjustments, D(0))
+        + p.net_borrowing
+    )
 
 
 def lines_from_json(period: Mapping[str, Any]) -> Lines:
@@ -252,6 +282,35 @@ CASES: dict[str, dict[str, Any]] = {
             }
         ],
     },
+    "negative-ebit-zero-net-income-route": {
+        "notional_tax_rate": "0.24",
+        "negative_ebit": "zero",
+        "periods": [
+            {
+                "ebit": "-120",
+                "depreciation_and_amortisation": "45",
+                "capital_expenditure": "30",
+                "change_in_net_working_capital": "-8",
+                "other_adjustments": [{"label": "Grant received", "value": "12.5"}],
+                "interest_expense": "50",
+                "net_borrowing": "20",
+            }
+        ],
+    },
+    "positive-ebit-below-interest": {
+        "notional_tax_rate": "0.24",
+        "negative_ebit": "zero",
+        "periods": [
+            {
+                "ebit": "30",
+                "depreciation_and_amortisation": "15",
+                "capital_expenditure": "10",
+                "change_in_net_working_capital": "2",
+                "interest_expense": "50",
+                "net_borrowing": "0",
+            }
+        ],
+    },
     "full-precision-rate-form": {
         "notional_tax_rate": "0.2793456789123",
         "negative_ebit": "credit",
@@ -276,6 +335,9 @@ def main() -> None:
             print(f"    FCFF {p.fcff}")
             if p.fcfe is not None:
                 print(f"    interest after taxes {p.interest_after_taxes}, FCFE {p.fcfe}")
+    case = CASES["negative-ebit-zero-net-income-route"]
+    p = lines_from_json(case["periods"][0])
+    print("net-income route:", net_income_route(p, D(case["notional_tax_rate"]), "zero"))
     with localcontext(CONTEXT):
         boeing = D(1753) * (1 - D("0.35"))
     print(f"Boeing: 1,753 x (1 - 0.35) = {boeing}; published EBIT (1 - t) 1,138")

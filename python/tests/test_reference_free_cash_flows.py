@@ -130,3 +130,23 @@ def test_golden_inputs_of_the_reference_agree_with_the_files() -> None:
                 assert D(expected) == value, (name, key, expected, value)
                 checked += 1
         assert checked, name
+
+
+def test_fcfe_equals_the_net_income_route() -> None:
+    """Amendment 14: under `zero`, a period with a negative EBIT has no interest tax shield and
+    its FCFE equals the net-income route; under `credit` every period does."""
+    checked = 0
+    for _ in range(200):
+        plan = random_plan(financing=True, rate_form=True)
+        got = fm.run("dcf.free_cash_flows", plan)
+        rate, treatment = D(plan["notional_tax_rate"]), plan["negative_ebit"]
+        for p, row in zip(plan["periods"], got.periods, strict=True):
+            lines = ref.lines_from_json(p)
+            if treatment == "zero" and lines.ebit >= 0:
+                continue
+            want = ref.net_income_route(lines, rate, treatment)
+            assert significant_digits_agree(row["free_cash_flow_to_equity"], want), (p, row)
+            if treatment == "zero":
+                assert row["interest_tax_rate"] == 0
+            checked += 1
+    assert checked > 100

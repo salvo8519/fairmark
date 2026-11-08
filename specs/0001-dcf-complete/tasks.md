@@ -75,6 +75,11 @@ parallel; tick a task only when `just check` passes.
   release note `changes/38.feature.md`
 - [x] F8 Roadmap: issue #38 done
 
+- [x] F10 Amendment 14 (maintainer, 2026-11-08): no interest tax shield in a period where the
+  `zero` treatment applies; reference, golden cases (net-income route, positive EBIT below the
+  interest), unit and property tests, conventions, docs in English and Italian; R29
+  interpretation of the presence-based tax form recorded in the spec [R3, R4, R29]
+
 ### Verification
 - [ ] F9 `uv run just check` green (done); `numerical-auditor` and `code-reviewer` reviews
   (pending, to be run by the orchestrating session); AC1, AC2 and AC3 ticked in spec.md (by
