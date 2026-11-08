@@ -24,6 +24,7 @@ pub mod dates;
 pub mod dcf;
 pub mod error;
 pub mod explain;
+pub mod loans;
 pub mod method;
 mod num;
 pub mod rates;

@@ -116,6 +116,26 @@
         }
       }
     },
+    "loans.instalment": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "loans.instalment/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "00f8a0cefb56490c1371679938097416d22caee38a31b893628fd615c09900a3"
+        }
+      }
+    },
+    "loans.number_of_instalments": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "loans.number_of_instalments/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "cba07faf0ada280eb886cb80938370d37fd0c5f28db164806ab3a20272125655"
+        }
+      }
+    },
     "rates.convert": {
       "current": "1",
       "versions": {

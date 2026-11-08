@@ -158,6 +158,40 @@ Value at the end of n periods of a present amount and a level series of payments
 | `periods` | integer | yes |  | Number of periods, from 1 to 10000. |
 | `timing` | `ordinary` \| `due` | yes |  | `ordinary` (payments at the end of each period) or `due` (at the beginning). |
 
+## `loans.instalment`
+
+**Loan instalment (constant instalment, optional balloon)** · method version 1 · tool `fairmark_loans_instalment`
+
+Constant instalment of a loan from its principal, rate, number of instalments and timing, with an optional balloon amount and an explicit rounding.
+
+| Input | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `principal` | decimal | yes |  | Amount borrowed, in currency units, greater than zero. |
+| `rate` | decimal | no |  | Annual borrowing rate, decimal fraction (0.05 = 5% a year), quoted with `compounding`. Rate form (a): give it with `compounding` and `payment_frequency`, or give `periodic_rate` instead. |
+| `compounding` |  | no |  | Compounding of `rate` (form a); required with `rate`, no default. |
+| `payment_frequency` |  | no |  | Instalments per year (form a): `annual`, `semi_annual`, `quarterly` or `monthly`. |
+| `periodic_rate` | decimal | no |  | Rate per payment period, decimal fraction (form b), greater than -1; instead of `rate`, `compounding` and `payment_frequency`. |
+| `number_of_instalments` | integer | yes |  | Number of instalments, from 1 to 10000. |
+| `timing` | `ordinary` \| `due` | yes |  | `ordinary` (in arrears: instalment k at the end of period k) or `due` (in advance: at the beginning of period k). |
+| `balloon_amount` | decimal | no |  | Amount repaid at the end of the last period on top of the last instalment, in currency units, at least 0 and lower than the principal. Default: 0. |
+| `rounding` |  | no |  | Rounding of the instalment. Default: none (no rounding). |
+
+## `loans.number_of_instalments`
+
+**Number of instalments of a loan** · method version 1 · tool `fairmark_loans_number_of_instalments`
+
+Number of instalments needed to repay a loan with a given instalment, the exact number of periods and the reduced final instalment.
+
+| Input | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `principal` | decimal | yes |  | Amount borrowed, in currency units, greater than zero. |
+| `rate` | decimal | no |  | Annual borrowing rate, decimal fraction (0.05 = 5% a year), quoted with `compounding`. Rate form (a): give it with `compounding` and `payment_frequency`, or give `periodic_rate` instead. |
+| `compounding` |  | no |  | Compounding of `rate` (form a); required with `rate`, no default. |
+| `payment_frequency` |  | no |  | Instalments per year (form a): `annual`, `semi_annual`, `quarterly` or `monthly`. |
+| `periodic_rate` | decimal | no |  | Rate per payment period, decimal fraction (form b), greater than -1; instead of `rate`, `compounding` and `payment_frequency`. |
+| `instalment` | decimal | yes |  | Constant instalment, in currency units; it must exceed the interest of the first period. |
+| `timing` | `ordinary` \| `due` | yes |  | `ordinary` (in arrears: instalment k at the end of period k) or `due` (in advance: at the beginning of period k). |
+
 ## `coc.cost_of_equity`
 
 **Cost of equity (CAPM with explicit premia)** · method version 1 · tool `fairmark_coc_cost_of_equity`
