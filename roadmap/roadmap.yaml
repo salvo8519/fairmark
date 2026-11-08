@@ -59,6 +59,7 @@ milestones:
           - { issue: 119, title: "A pull request marks the task it closes as done in the roadmap", status: done }
           - { issue: 123, title: "Roadmap updates proposed from the maintainer's requests", status: done }
           - { issue: 132, title: "Session journal for 2026-11-07", status: done }
+          - { issue: 143, title: "Release notes and changelog on the site: undated draft, numerical changes name the method versions", tags: [parallel], status: done }
       - title: "CI/CD"
         issue: 10
         labels: ["area:infra"]

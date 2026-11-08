@@ -17,6 +17,13 @@ body = """
 ### {{ group | striptags | trim | upper_first }}
 {% for commit in commits %}
 - {% if commit.scope %}**{{ commit.scope }}**: {% endif %}{{ commit.message | upper_first }}\
+{% set_global versions = [] %}\
+{% for footer in commit.footers %}\
+{% if footer.token | lower == "numerical-change" %}\
+{% set_global versions = versions | concat(with=footer.value | trim) %}\
+{% endif %}\
+{% endfor %}\
+{% if versions | length > 0 %}. Method versions: {{ versions | join(sep=", ") }}{% endif %}\
 {% endfor %}
 {% endfor %}\n
 """

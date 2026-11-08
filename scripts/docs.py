@@ -172,6 +172,21 @@ def llms_txt() -> None:
 GENERATED = ROOT / ".generated"
 
 
+UNRELEASED_TITLE = "## Fairmark Unreleased"
+
+
+def undated_draft(draft: str) -> str:
+    """Drop the date from the title of the unreleased section.
+
+    towncrier dates every section it builds; for the draft that date is the day the site was
+    built, which readers would take for a release date. Released sections keep their date.
+    """
+    first, sep, rest = draft.partition("\n")
+    if first.startswith(UNRELEASED_TITLE):
+        return UNRELEASED_TITLE + sep + rest
+    return draft
+
+
 def current_notes() -> None:
     """Release notes and changelog as of now, for the site (never committed).
 
@@ -194,6 +209,7 @@ def current_notes() -> None:
         sys.exit("RELEASE_NOTES.md: release notes marker missing")
     if "No significant changes" in draft or not draft:
         draft = "## Fairmark Unreleased\n\nNo user-facing changes since the last release."
+    draft = undated_draft(draft)
     head, tail = notes.split(marker, 1)
     (GENERATED / "RELEASE_NOTES.md").write_text(
         head + marker + "\n" + draft + "\n\n" + tail.lstrip("\n"), encoding="utf-8"

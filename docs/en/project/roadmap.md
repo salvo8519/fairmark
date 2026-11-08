@@ -37,6 +37,7 @@ Gate: A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows.
 | Repository and governance | A pull request marks the task it closes as done in the roadmap | [#119](https://github.com/salvo8519/fairmark/issues/119) |  | Done |
 | Repository and governance | Roadmap updates proposed from the maintainer's requests | [#123](https://github.com/salvo8519/fairmark/issues/123) |  | Done |
 | Repository and governance | Session journal for 2026-11-07 | [#132](https://github.com/salvo8519/fairmark/issues/132) |  | Done |
+| Repository and governance | Release notes and changelog on the site: undated draft, numerical changes name the method versions | [#143](https://github.com/salvo8519/fairmark/issues/143) |  | Done |
 | CI/CD | Rust pipeline: fmt, clippy, test, cargo-deny | [#11](https://github.com/salvo8519/fairmark/issues/11) |  | Done |
 | CI/CD | Python pipeline: ruff, mypy, pytest on 3 OS | [#12](https://github.com/salvo8519/fairmark/issues/12) |  | Done |
 | CI/CD | Wheel matrix with maturin-action, trusted publishing to PyPI and crates.io | [#13](https://github.com/salvo8519/fairmark/issues/13) |  | Open |
