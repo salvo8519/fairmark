@@ -182,7 +182,7 @@ della loro ultima cifra.
 ## Verificato con
 
 - QuantLib 1.44 `Schedule` (calendario nullo, `Unadjusted`, generazione in avanti, `endOfMonth`
-  vero, tenor `Period(p, Months)`) e python-dateutil 3.0.0 (`start + relativedelta(months=k
+  vero, periodo `Period(p, Months)`) e python-dateutil 3.0.0 (`start + relativedelta(months=k
   × p, day=31)` per un inizio a fine mese, `start + relativedelta(months=k × p)` altrimenti):
   ogni caso di riferimento in `tests/golden/dates.schedule/` è costruito con entrambe le
   librerie, che concordano (`scripts/reference_schedule.py`), e i test con gli oracoli

@@ -202,8 +202,11 @@ twelve monthly periods at 12% reach 1,120 within $10^{-20}$ relative.
 
 ## Sources
 
-- Equivalent and proportional periodic rates: the equivalent rate of
-  [`rates.convert`](rates-convert.md); stated annual rate, periodic rate and effective annual
-  rate of the CFA Institute curriculum (to verify against the published text).
+- Equivalent periodic rates under compound interest, $i_m = (1 + i)^{1/m} - 1$, and under
+  simple interest, $i_m = i / m$ (verified on 2026-11-08): Università di Trieste,
+  A. R. Bacinello, *Matematica finanziaria*, "Tassi equivalenti nel regime dell'interesse
+  semplice e della capitalizzazione composta"; M. Sandri, *Matematica finanziaria*,
+  "Capitalizzazione frazionata", "Tassi equivalenti". The compound equivalent rate is the one of
+  [`rates.convert`](rates-convert.md).
 - Damodaran, *Investment Valuation*, 2nd edition, chapter 15, Illustration 15.3.
 - Period definition and end-of-month rule: see [`dates.schedule`](dates-schedule.md).

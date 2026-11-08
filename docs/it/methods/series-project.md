@@ -1,6 +1,6 @@
 ---
 source: methods/series-project.md
-source_hash: dc3a9af350a5
+source_hash: bee8d87ae455
 ---
 # Proiezione di una serie di valori (`series.project`)
 
@@ -221,4 +221,4 @@ relativo.
   "Capitalizzazione frazionata", "Tassi equivalenti". Il tasso equivalente composto è quello di
   [`rates.convert`](rates-convert.md).
 - Damodaran, *Investment Valuation*, 2a edizione, capitolo 15, Illustration 15.3.
-- Definizione del periodo e regola di fine mese: vedi [`dates.schedule`](dates-schedule.md).
+- Definizione del periodo e end-of-month rule (regola di fine mese): vedi [`dates.schedule`](dates-schedule.md).
