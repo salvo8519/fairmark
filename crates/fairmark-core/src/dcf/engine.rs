@@ -200,6 +200,147 @@ pub struct TermsOutput {
     pub perpetual_growth_other_terms: Option<Decimal>,
 }
 
+// ---------------------------------------------------------------- method inputs
+
+/// Declares the input type of a DCF method and its mapping to [`EngineInput`], so that the
+/// fields every basis shares, their types, serde and schema attributes, and their mapping to
+/// the engine are written once. `serde(flatten)` cannot be used: it does not combine with
+/// `deny_unknown_fields`.
+///
+/// The caller gives what differs by basis: the type name and its doc, the basis, the doc of
+/// each field whose meaning names the flow (FCFF or FCFE), the three rate fields (names and
+/// docs; the names become the JSON names reported in errors, R27), `interest_tax_rate` after
+/// the marker `equity_only` (the enterprise basis has no financing lines) and its own bridge
+/// fields, appended as written.
+/// The field order is fixed here, so the serde messages and the JSON Schema of every method
+/// keep their order. A shared input field (for example an optional field whose documented
+/// default the engine resolves) is added here, once, for every method.
+macro_rules! dcf_input {
+    (
+        $(#[$meta:meta])*
+        pub struct $name:ident {
+            basis: $basis:expr,
+            $(#[$stages_doc:meta])* stages,
+            $(#[$base_flow_doc:meta])* base_flow,
+            $(#[$notional_doc:meta])* notional_tax_rate,
+            $(#[$negative_doc:meta])* negative_ebit,
+            $(equity_only $(#[$interest_doc:meta])* $interest:ident,)?
+            rates {
+                $(#[$single_doc:meta])* $single:ident,
+                $(#[$per_period_doc:meta])* $per_period:ident,
+                $(#[$terminal_rate_doc:meta])* $terminal_rate:ident,
+            },
+            $(#[$terminal_doc:meta])* terminal,
+            bridge { $($bridge:tt)* }
+        }
+    ) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone, ::serde::Serialize, ::serde::Deserialize, ::schemars::JsonSchema)]
+        #[serde(deny_unknown_fields)]
+        pub struct $name {
+            $(#[$stages_doc])*
+            #[schemars(length(min = 1))]
+            pub stages: Vec<$crate::dcf::engine::Stage>,
+            $(#[$base_flow_doc])*
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            pub base_flow: Option<::rust_decimal::Decimal>,
+            $(#[$notional_doc])*
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            pub notional_tax_rate: Option<::rust_decimal::Decimal>,
+            $(#[$negative_doc])*
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            pub negative_ebit: Option<$crate::dcf::free_cash_flows::NegativeEbit>,
+            $(
+                $(#[$interest_doc])*
+                #[serde(default, skip_serializing_if = "Option::is_none")]
+                pub $interest: Option<::rust_decimal::Decimal>,
+            )?
+            /// `nominal` or `real`: the terms of every amount and growth rate of the input.
+            pub cash_flow_terms: $crate::dcf::engine::Terms,
+            /// `nominal` or `real`: the terms of the discount rates. When they differ from
+            /// `cash_flow_terms`, expected inflation is required (`inflation`, or
+            /// `inflation_per_period` with `terminal_inflation`) and every rate is converted to the
+            /// terms of the cash flows; the cash flows are never converted.
+            pub discount_rate_terms: $crate::dcf::engine::Terms,
+            /// Expected inflation, decimal fraction per period (0.02 = 2%), greater than -1, for every
+            /// explicit period and for the terminal phase. Give this or `inflation_per_period`, or
+            /// neither. With different terms it converts the discount rates by the exact Fisher
+            /// relation; with equal terms it only restates the perpetual growth in the other terms.
+            /// Default: none.
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            pub inflation: Option<::rust_decimal::Decimal>,
+            /// Expected inflation per period of the explicit horizon, decimal fractions, exactly N of
+            /// them, each greater than -1; requires `terminal_inflation`. Give this or `inflation`,
+            /// not both. Default: none.
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            pub inflation_per_period: Option<Vec<::rust_decimal::Decimal>>,
+            /// Expected inflation of the terminal phase, decimal fraction per period, greater than -1;
+            /// required with `inflation_per_period`, refused otherwise.
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            pub terminal_inflation: Option<::rust_decimal::Decimal>,
+            $(#[$single_doc])*
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            pub $single: Option<::rust_decimal::Decimal>,
+            $(#[$per_period_doc])*
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            pub $per_period: Option<Vec<::rust_decimal::Decimal>>,
+            $(#[$terminal_rate_doc])*
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            pub $terminal_rate: Option<::rust_decimal::Decimal>,
+            /// `end_of_period` (flow k at t = k) or `mid_period` (t = k − 0.5); no default.
+            pub timing: $crate::types::Timing,
+            /// With `mid_period` timing, required: `horizon` (terminal value at t = N) or
+            /// `mid_period` (t = N − 0.5). Refused with `end_of_period`.
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            pub terminal_discount_time: Option<$crate::dcf::engine::TerminalDiscountTime>,
+            $(#[$terminal_doc])*
+            pub terminal: $crate::dcf::terminal::Terminal,
+            $($bridge)*
+        }
+
+        impl $name {
+            /// The engine's view of the input: every shared field, the basis and the JSON
+            /// names of the rate fields.
+            pub(crate) fn engine_input(&self) -> $crate::dcf::engine::EngineInput<'_> {
+                // Only the equity basis has the field; elsewhere the rate is absent.
+                let interest_tax_rate: Option<::rust_decimal::Decimal> =
+                    None $(.or(self.$interest))?;
+                $crate::dcf::engine::EngineInput {
+                    basis: $basis,
+                    stages: &self.stages,
+                    base_flow: self.base_flow,
+                    cash_flow_terms: self.cash_flow_terms,
+                    discount_rate_terms: self.discount_rate_terms,
+                    inflation: $crate::dcf::engine::InflationInput {
+                        single: self.inflation,
+                        per_period: self.inflation_per_period.as_deref(),
+                        terminal: self.terminal_inflation,
+                    },
+                    rates: $crate::dcf::engine::RateInput {
+                        single: self.$single,
+                        per_period: self.$per_period.as_deref(),
+                        terminal: self.$terminal_rate,
+                        fields: $crate::dcf::engine::RateFields {
+                            single: stringify!($single),
+                            per_period: stringify!($per_period),
+                            terminal: stringify!($terminal_rate),
+                        },
+                    },
+                    timing: self.timing,
+                    terminal_discount_time: self.terminal_discount_time,
+                    terminal: &self.terminal,
+                    taxes: $crate::dcf::free_cash_flows::TaxChoice {
+                        notional_tax_rate: self.notional_tax_rate,
+                        negative_ebit: self.negative_ebit,
+                        interest_tax_rate,
+                    },
+                }
+            }
+        }
+    };
+}
+pub(crate) use dcf_input;
+
 // ---------------------------------------------------------------- engine input and output
 
 /// JSON names of the rate fields of the calling method, for error messages.
@@ -246,6 +387,61 @@ pub(crate) struct EngineOutput {
     pub pv_explicit: Decimal,
     pub terminal: TerminalOutput,
     pub terms: TermsOutput,
+}
+
+impl EngineOutput {
+    /// The output fields every basis shares, with the terminal value weight of R22.
+    pub(crate) fn discounted(self, terminal_value_weight: Option<Decimal>) -> DiscountedValue {
+        DiscountedValue {
+            pv_explicit_period: self.pv_explicit,
+            terminal_value_weight,
+            periods: self.periods,
+            terms: self.terms,
+            terminal: self.terminal,
+        }
+    }
+}
+
+/// The part of the result that every DCF method shares, flattened into its output (the JSON
+/// keys are those of the method's own output, in this order).
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub struct DiscountedValue {
+    /// Present value of the explicit flows (FCFF on the enterprise basis, FCFE on the equity
+    /// basis), in currency units.
+    pub pv_explicit_period: Decimal,
+    /// Present value of the terminal value divided by the present value of the explicit flows
+    /// plus the present value of the terminal value (the value of operations on the enterprise
+    /// basis), decimal fraction (R22); `null` when that sum is zero.
+    pub terminal_value_weight: Option<Decimal>,
+    /// One row per period of the explicit horizon.
+    pub periods: Vec<PeriodRow>,
+    /// The terms of the flows and of the rates, the conversion of the rates and the perpetual
+    /// growth in the other terms (R14 to R18).
+    pub terms: TermsOutput,
+    /// The terminal value, its technique and its discounting.
+    pub terminal: TerminalOutput,
+}
+
+/// R22: the terminal value weight, the present value of the terminal value divided by
+/// `denominator` (the present value of the explicit flows plus that of the terminal value),
+/// with its step; `None` and a convention stating `zero_reason` when the denominator is zero.
+pub(crate) fn terminal_weight(
+    ex: &mut Explain,
+    pv_terminal: Decimal,
+    denominator: Decimal,
+    zero_reason: &str,
+) -> Result<Option<Decimal>> {
+    if denominator.is_zero() {
+        ex.convention(format!("terminal value weight not defined: {zero_reason}"));
+        return Ok(None);
+    }
+    let w = div(pv_terminal, denominator)?;
+    ex.step(
+        "Terminal value weight",
+        format!("{pv_terminal} / {denominator}"),
+        w,
+    );
+    Ok(Some(w))
 }
 
 fn invalid(msg: String) -> FairmarkError {

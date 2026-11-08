@@ -4,111 +4,74 @@
 
 use rust_decimal::Decimal;
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use super::bridge::{self, BridgeClaim};
-use super::engine::{
-    self, EngineInput, InflationInput, PeriodRow, RateFields, RateInput, Stage,
-    TerminalDiscountTime, Terms, TermsOutput,
-};
-use super::free_cash_flows::{NegativeEbit, TaxChoice};
-use super::terminal::{Terminal, TerminalOutput};
+use super::engine::{self, dcf_input, DiscountedValue};
 use crate::error::Result;
 use crate::explain::Explain;
 use crate::method::Method;
-use crate::num::{add, div, sub};
+use crate::num::{add, sub};
 use crate::ratios::{NetFinancialPosition, NFP_CONVENTION};
 use crate::tv::{Line, TerminalBasis};
-use crate::types::Timing;
 
-/// Input of `dcf.fcff` (version 3). Every choice is required, with no default (R29).
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct DcfFcffInput {
-    /// One to three explicit stages, in order; the explicit horizon N is the sum of their
-    /// periods. Each stage is `{"periods", "projection", ...}` with the fields of its
-    /// projection.
-    #[schemars(length(min = 1))]
-    pub stages: Vec<Stage>,
-    /// FCFF of the base period CF_0, in currency units: required when the first stage is
-    /// `constant_growth` or `linear_decline`, refused when it is `given`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub base_flow: Option<Decimal>,
-    /// For stages with `lines`: tax rate applied to EBIT, decimal fraction from 0 to below 1
-    /// (0.24 = 24%). Give this, or `operating_taxes` in every line, not both; refused when no
-    /// stage has `lines`. Default: none.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub notional_tax_rate: Option<Decimal>,
-    /// For stages with `lines` and `notional_tax_rate`: treatment of a negative EBIT, `credit`
-    /// (taxes = rate × EBIT) or `zero` (no tax); required with `notional_tax_rate`, no default.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub negative_ebit: Option<NegativeEbit>,
-    /// `nominal` or `real`: the terms of every amount and growth rate of the input.
-    pub cash_flow_terms: Terms,
-    /// `nominal` or `real`: the terms of the discount rates. When they differ from
-    /// `cash_flow_terms`, expected inflation is required (`inflation`, or
-    /// `inflation_per_period` with `terminal_inflation`) and every rate is converted to the
-    /// terms of the cash flows; the cash flows are never converted.
-    pub discount_rate_terms: Terms,
-    /// Expected inflation, decimal fraction per period (0.02 = 2%), greater than -1, for every
-    /// explicit period and for the terminal phase. Give this or `inflation_per_period`, or
-    /// neither. With different terms it converts the discount rates by the exact Fisher
-    /// relation; with equal terms it only restates the perpetual growth in the other terms.
-    /// Default: none.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub inflation: Option<Decimal>,
-    /// Expected inflation per period of the explicit horizon, decimal fractions, exactly N of
-    /// them, each greater than -1; requires `terminal_inflation`. Give this or `inflation`,
-    /// not both. Default: none.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub inflation_per_period: Option<Vec<Decimal>>,
-    /// Expected inflation of the terminal phase, decimal fraction per period, greater than -1;
-    /// required with `inflation_per_period`, refused otherwise.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub terminal_inflation: Option<Decimal>,
-    /// One WACC for every period and for the terminal value, decimal fraction per period
-    /// (0.09 = 9%), greater than -1. Give this or `wacc_per_period`, not both.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub wacc: Option<Decimal>,
-    /// One WACC per period of the explicit horizon, decimal fractions, exactly N of them;
-    /// requires `terminal_wacc`. Give this or `wacc`, not both.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub wacc_per_period: Option<Vec<Decimal>>,
-    /// WACC of the terminal phase, decimal fraction per period; required with
-    /// `wacc_per_period`, refused with `wacc`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub terminal_wacc: Option<Decimal>,
-    /// `end_of_period` (flow k at t = k) or `mid_period` (t = k − 0.5); no default.
-    pub timing: Timing,
-    /// With `mid_period` timing, required: `horizon` (terminal value at t = N) or
-    /// `mid_period` (t = N − 0.5). Refused with `end_of_period`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub terminal_discount_time: Option<TerminalDiscountTime>,
-    /// The terminal technique, an object with exactly one key, the method id, for example
-    /// `{"tv.gordon": {"growth", "first_flow", ...}}`: `tv.gordon`, `tv.h_model`,
-    /// `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income` or
-    /// `tv.liquidation`, on the enterprise basis.
-    pub terminal: Terminal,
-    /// Net financial position at the valuation date (SPEC-0007): gross debt − cash + signed
-    /// other items, positive for net debt, subtracted from enterprise value. Default: none,
-    /// reported.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub net_financial_position: Option<NetFinancialPosition>,
-    /// Non-operating assets at the valuation date, each a label and a value in currency units
-    /// (zero or more), added to the value of operations. Default: none, reported.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub non_operating_assets: Vec<Line>,
-    /// Debt-like items (debt equivalents) at the valuation date, for example unfunded pension
-    /// obligations or provisions, each a label, a value in currency units (zero or more) and
-    /// its measurement basis, subtracted from enterprise value. Do not repeat an item
-    /// already among the `other_items` of the net financial position. Default: none, reported.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub debt_like_items: Vec<BridgeClaim>,
-    /// Non-controlling interests (minority interests) at the valuation date, each a label, a
-    /// value in currency units (zero or more) and its measurement basis (for example
-    /// `book_value` or `fair_value`), subtracted from enterprise value. Default: none, reported.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub non_controlling_interests: Vec<BridgeClaim>,
+dcf_input! {
+    /// Input of `dcf.fcff` (version 3). Every choice is required, with no default (R29).
+    pub struct DcfFcffInput {
+        basis: TerminalBasis::Enterprise,
+        /// One to three explicit stages, in order; the explicit horizon N is the sum of their
+        /// periods. Each stage is `{"periods", "projection", ...}` with the fields of its
+        /// projection.
+        stages,
+        /// FCFF of the base period CF_0, in currency units: required when the first stage is
+        /// `constant_growth` or `linear_decline`, refused when it is `given`.
+        base_flow,
+        /// For stages with `lines`: tax rate applied to EBIT, decimal fraction from 0 to below 1
+        /// (0.24 = 24%). Give this, or `operating_taxes` in every line, not both; refused when no
+        /// stage has `lines`. Default: none.
+        notional_tax_rate,
+        /// For stages with `lines` and `notional_tax_rate`: treatment of a negative EBIT, `credit`
+        /// (taxes = rate × EBIT) or `zero` (no tax); required with `notional_tax_rate`, no default.
+        negative_ebit,
+        rates {
+            /// One WACC for every period and for the terminal value, decimal fraction per period
+            /// (0.09 = 9%), greater than -1. Give this or `wacc_per_period`, not both.
+            wacc,
+            /// One WACC per period of the explicit horizon, decimal fractions, exactly N of them;
+            /// requires `terminal_wacc`. Give this or `wacc`, not both.
+            wacc_per_period,
+            /// WACC of the terminal phase, decimal fraction per period; required with
+            /// `wacc_per_period`, refused with `wacc`.
+            terminal_wacc,
+        },
+        /// The terminal technique, an object with exactly one key, the method id, for example
+        /// `{"tv.gordon": {"growth", "first_flow", ...}}`: `tv.gordon`, `tv.h_model`,
+        /// `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income` or
+        /// `tv.liquidation`, on the enterprise basis.
+        terminal,
+        bridge {
+            /// Net financial position at the valuation date (SPEC-0007): gross debt − cash + signed
+            /// other items, positive for net debt, subtracted from enterprise value. Default: none,
+            /// reported.
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            pub net_financial_position: Option<NetFinancialPosition>,
+            /// Non-operating assets at the valuation date, each a label and a value in currency units
+            /// (zero or more), added to the value of operations. Default: none, reported.
+            #[serde(default, skip_serializing_if = "Vec::is_empty")]
+            pub non_operating_assets: Vec<Line>,
+            /// Debt-like items (debt equivalents) at the valuation date, for example unfunded pension
+            /// obligations or provisions, each a label, a value in currency units (zero or more) and
+            /// its measurement basis, subtracted from enterprise value. Do not repeat an item
+            /// already among the `other_items` of the net financial position. Default: none, reported.
+            #[serde(default, skip_serializing_if = "Vec::is_empty")]
+            pub debt_like_items: Vec<BridgeClaim>,
+            /// Non-controlling interests (minority interests) at the valuation date, each a label, a
+            /// value in currency units (zero or more) and its measurement basis (for example
+            /// `book_value` or `fair_value`), subtracted from enterprise value. Default: none, reported.
+            #[serde(default, skip_serializing_if = "Vec::is_empty")]
+            pub non_controlling_interests: Vec<BridgeClaim>,
+        }
+    }
 }
 
 /// From value of operations to equity value, every line as given (R23, R25).
@@ -149,18 +112,10 @@ pub struct DcfFcffOutput {
     /// Enterprise value minus the net financial position, the debt-like items and the
     /// non-controlling interests.
     pub equity_value: Decimal,
-    /// Present value of the explicit FCFF, in currency units.
-    pub pv_explicit_period: Decimal,
-    /// Present value of the terminal value divided by the value of operations; `null` when
-    /// the value of operations is zero.
-    pub terminal_value_weight: Option<Decimal>,
-    /// One row per period of the explicit horizon.
-    pub periods: Vec<PeriodRow>,
-    /// The terms of the flows and of the rates, the conversion of the rates and the perpetual
-    /// growth in the other terms (R14 to R18).
-    pub terms: TermsOutput,
-    /// The terminal value, its technique and its discounting.
-    pub terminal: TerminalOutput,
+    /// Present value of the explicit FCFF, the terminal value weight, the periods, the terms
+    /// and the terminal value, as JSON keys of this object.
+    #[serde(flatten)]
+    pub discounted: DiscountedValue,
     /// Every line from value of operations to equity value.
     pub bridge: FcffBridge,
 }
@@ -172,36 +127,7 @@ const FORMULA: &str = "Value of operations = Σ FCFF_k × DF_k + TV_N × DF_TV; 
 pub fn fcff(input: &DcfFcffInput) -> Result<(DcfFcffOutput, Explain)> {
     let mut ex = Explain::new("dcf.fcff", FORMULA);
     ex.convention("basis: enterprise, free cash flows to the firm (FCFF) discounted at the WACC");
-    let engine_input = EngineInput {
-        taxes: TaxChoice {
-            notional_tax_rate: input.notional_tax_rate,
-            negative_ebit: input.negative_ebit,
-            interest_tax_rate: None,
-        },
-        basis: TerminalBasis::Enterprise,
-        stages: &input.stages,
-        base_flow: input.base_flow,
-        cash_flow_terms: input.cash_flow_terms,
-        discount_rate_terms: input.discount_rate_terms,
-        inflation: InflationInput {
-            single: input.inflation,
-            per_period: input.inflation_per_period.as_deref(),
-            terminal: input.terminal_inflation,
-        },
-        rates: RateInput {
-            single: input.wacc,
-            per_period: input.wacc_per_period.as_deref(),
-            terminal: input.terminal_wacc,
-            fields: RateFields {
-                single: "wacc",
-                per_period: "wacc_per_period",
-                terminal: "terminal_wacc",
-            },
-        },
-        timing: input.timing,
-        terminal_discount_time: input.terminal_discount_time,
-        terminal: &input.terminal,
-    };
+    let engine_input = input.engine_input();
     // Bridge items are checked before any calculation, like every other input.
     bridge::check_lines(
         &input.non_operating_assets,
@@ -220,29 +146,19 @@ pub fn fcff(input: &DcfFcffInput) -> Result<(DcfFcffOutput, Explain)> {
         value_of_operations,
     );
     let bridge = bridge(&mut ex, input, value_of_operations)?;
-    let weight = if value_of_operations.is_zero() {
-        ex.convention("terminal value weight not defined: the value of operations is zero");
-        None
-    } else {
-        let w = div(pv_tv, value_of_operations)?;
-        ex.step(
-            "Terminal value weight",
-            format!("{pv_tv} / {value_of_operations}"),
-            w,
-        );
-        Some(w)
-    };
+    let weight = engine::terminal_weight(
+        &mut ex,
+        pv_tv,
+        value_of_operations,
+        "the value of operations is zero",
+    )?;
     Ok((
         DcfFcffOutput {
             basis: TerminalBasis::Enterprise,
             value_of_operations,
             enterprise_value: bridge.enterprise_value,
             equity_value: bridge.equity_value,
-            pv_explicit_period: out.pv_explicit,
-            terminal_value_weight: weight,
-            periods: out.periods,
-            terms: out.terms,
-            terminal: out.terminal,
+            discounted: out.discounted(weight),
             bridge,
         },
         ex,

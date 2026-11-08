@@ -8,123 +8,90 @@
 
 use rust_decimal::Decimal;
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use super::bridge::{self, BridgeClaim};
-use super::engine::{
-    self, EngineInput, InflationInput, PeriodRow, RateFields, RateInput, Stage,
-    TerminalDiscountTime, Terms, TermsOutput,
-};
-use super::free_cash_flows::{NegativeEbit, TaxChoice};
-use super::terminal::{Terminal, TerminalOutput};
+use super::engine::{self, dcf_input, DiscountedValue};
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
 use crate::method::Method;
-use crate::num::{add, div, sub};
+use crate::num::{add, sub};
 use crate::ratios::NetFinancialPosition;
 use crate::tv::{Line, TerminalBasis};
-use crate::types::Timing;
 
-/// Input of `dcf.fcfe` (version 1). Every choice is required, with no default (R29).
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct DcfFcfeInput {
-    /// One to three explicit stages of free cash flows to equity (FCFE), in order; the explicit
-    /// horizon N is the sum of their periods. Each stage is `{"periods", "projection", ...}`
-    /// with the fields of its projection; a `given` stage takes the FCFE as amounts (`flows`)
-    /// or builds them up from line items with `interest_expense` and `net_borrowing` in every
-    /// line (`lines`).
-    #[schemars(length(min = 1))]
-    pub stages: Vec<Stage>,
-    /// FCFE of the base period CF_0, in currency units: required when the first stage is
-    /// `constant_growth` or `linear_decline`, refused when it is `given`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub base_flow: Option<Decimal>,
-    /// For stages with `lines`: tax rate applied to EBIT, decimal fraction from 0 to below 1
-    /// (0.24 = 24%), also the rate of the interest tax shield. Give this, or `operating_taxes`
-    /// in every line, not both; refused when no stage has `lines`. Default: none.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub notional_tax_rate: Option<Decimal>,
-    /// For stages with `lines` and `notional_tax_rate`: treatment of a negative EBIT, `credit`
-    /// (taxes = rate × EBIT) or `zero` (no tax, and no interest tax shield in that period);
-    /// required with `notional_tax_rate`, no default.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub negative_ebit: Option<NegativeEbit>,
-    /// For stages with `lines` and `operating_taxes`: the tax rate t of the interest tax
-    /// shield, interest × (1 − t), decimal fraction from 0 to below 1; required in that case,
-    /// refused otherwise. Default: none.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub interest_tax_rate: Option<Decimal>,
-    /// `nominal` or `real`: the terms of every amount and growth rate of the input.
-    pub cash_flow_terms: Terms,
-    /// `nominal` or `real`: the terms of the costs of equity. When they differ from
-    /// `cash_flow_terms`, expected inflation is required (`inflation`, or
-    /// `inflation_per_period` with `terminal_inflation`) and every rate is converted to the
-    /// terms of the cash flows; the cash flows are never converted.
-    pub discount_rate_terms: Terms,
-    /// Expected inflation, decimal fraction per period (0.02 = 2%), greater than -1, for every
-    /// explicit period and for the terminal phase. Give this or `inflation_per_period`, or
-    /// neither. With different terms it converts the costs of equity by the exact Fisher
-    /// relation; with equal terms it only restates the perpetual growth in the other terms.
-    /// Default: none.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub inflation: Option<Decimal>,
-    /// Expected inflation per period of the explicit horizon, decimal fractions, exactly N of
-    /// them, each greater than -1; requires `terminal_inflation`. Give this or `inflation`,
-    /// not both. Default: none.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub inflation_per_period: Option<Vec<Decimal>>,
-    /// Expected inflation of the terminal phase, decimal fraction per period, greater than -1;
-    /// required with `inflation_per_period`, refused otherwise.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub terminal_inflation: Option<Decimal>,
-    /// One cost of equity for every period and for the terminal value, decimal fraction per
-    /// period (0.11 = 11%), greater than -1. Give this or `cost_of_equity_per_period`, not
-    /// both.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cost_of_equity: Option<Decimal>,
-    /// One cost of equity per period of the explicit horizon, decimal fractions, exactly N of
-    /// them; requires `terminal_cost_of_equity`. Give this or `cost_of_equity`, not both.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cost_of_equity_per_period: Option<Vec<Decimal>>,
-    /// Cost of equity of the terminal phase, decimal fraction per period; required with
-    /// `cost_of_equity_per_period`, refused with `cost_of_equity`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub terminal_cost_of_equity: Option<Decimal>,
-    /// `end_of_period` (flow k at t = k) or `mid_period` (t = k − 0.5); no default.
-    pub timing: Timing,
-    /// With `mid_period` timing, required: `horizon` (terminal value at t = N) or
-    /// `mid_period` (t = N − 0.5). Refused with `end_of_period`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub terminal_discount_time: Option<TerminalDiscountTime>,
-    /// The terminal technique on the equity basis, an object with exactly one key, the method
-    /// id, for example `{"tv.gordon": {"growth", "first_flow", ...}}`: `tv.gordon`,
-    /// `tv.h_model` or `tv.limited_horizon` on the FCFE, `tv.exit_multiple` on `earnings`
-    /// (P/E) or `book_value` (P/BV), `tv.normalised_income` or `tv.liquidation` declared on
-    /// the `equity` basis.
-    pub terminal: Terminal,
-    /// Not used on the equity basis and refused (`FM-E019`): debt is already in the FCFE,
-    /// through interest and net borrowing, so the net financial position is not subtracted.
-    /// Cash that the FCFE does not reflect goes in `non_operating_assets`. Accepted by the
-    /// schema only so that the refusal names the fix.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub net_financial_position: Option<NetFinancialPosition>,
-    /// Non-operating assets at the valuation date, each a label and a value in currency units
-    /// (zero or more), added to the present value of the FCFE and of the terminal value: for
-    /// example cash not needed for operations whose interest income is not in the FCFE, or an
-    /// investment property. Default: none, reported.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub non_operating_assets: Vec<Line>,
-    /// Debt-like items (debt equivalents) at the valuation date whose cash flows are not in the
-    /// FCFE, for example unfunded pension obligations, each a label, a value in currency units
-    /// (zero or more) and its measurement basis; subtracted. Default: none, reported.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub debt_like_items: Vec<BridgeClaim>,
-    /// Non-controlling interests (minority interests) at the valuation date, when the FCFE are
-    /// those of the consolidated group, each a label, a value in currency units (zero or more)
-    /// and its measurement basis; subtracted. Default: none, reported.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub non_controlling_interests: Vec<BridgeClaim>,
+dcf_input! {
+    /// Input of `dcf.fcfe` (version 1). Every choice is required, with no default (R29).
+    pub struct DcfFcfeInput {
+        basis: TerminalBasis::Equity,
+        /// One to three explicit stages of free cash flows to equity (FCFE), in order; the
+        /// explicit horizon N is the sum of their periods. Each stage is `{"periods",
+        /// "projection", ...}` with the fields of its projection; a `given` stage takes the FCFE
+        /// as amounts (`flows`) or builds them up from line items with `interest_expense` and
+        /// `net_borrowing` in every line (`lines`).
+        stages,
+        /// FCFE of the base period CF_0, in currency units: required when the first stage is
+        /// `constant_growth` or `linear_decline`, refused when it is `given`.
+        base_flow,
+        /// For stages with `lines`: tax rate applied to EBIT, decimal fraction from 0 to below 1
+        /// (0.24 = 24%), also the rate of the interest tax shield. Give this, or
+        /// `operating_taxes` in every line, not both; refused when no stage has `lines`. Default:
+        /// none.
+        notional_tax_rate,
+        /// For stages with `lines` and `notional_tax_rate`: treatment of a negative EBIT, `credit`
+        /// (taxes = rate × EBIT) or `zero` (no tax, and no interest tax shield in that period);
+        /// required with `notional_tax_rate`, no default.
+        negative_ebit,
+        equity_only
+        /// For stages with `lines` and `operating_taxes`: the tax rate t of the interest tax
+        /// shield, interest × (1 − t), decimal fraction from 0 to below 1; required in that case,
+        /// refused otherwise. Default: none.
+        interest_tax_rate,
+        rates {
+            /// One cost of equity for every period and for the terminal value, decimal fraction
+            /// per period (0.11 = 11%), greater than -1. Give this or `cost_of_equity_per_period`,
+            /// not both.
+            cost_of_equity,
+            /// One cost of equity per period of the explicit horizon, decimal fractions, exactly N
+            /// of them, each greater than -1; requires `terminal_cost_of_equity`. Give this or
+            /// `cost_of_equity`, not both.
+            cost_of_equity_per_period,
+            /// Cost of equity of the terminal phase, decimal fraction per period, greater than -1;
+            /// required with `cost_of_equity_per_period`, refused with `cost_of_equity`.
+            terminal_cost_of_equity,
+        },
+        /// The terminal technique on the equity basis, an object with exactly one key, the method
+        /// id, for example `{"tv.gordon": {"growth", "first_flow", ...}}`: `tv.gordon`,
+        /// `tv.h_model` or `tv.limited_horizon` on the FCFE, `tv.exit_multiple` on `earnings`
+        /// (P/E) or `book_value` (P/BV), `tv.normalised_income` or `tv.liquidation` declared on
+        /// the `equity` basis. `tv.value_driver` is not available on the equity basis in version
+        /// 1.
+        terminal,
+        bridge {
+            /// Not used on the equity basis and refused (`FM-E019`): debt is already in the FCFE,
+            /// through interest and net borrowing, so the net financial position is not
+            /// subtracted. Cash that the FCFE does not reflect goes in `non_operating_assets`.
+            /// Accepted by the schema only so that the refusal names the fix.
+            #[serde(default, skip_serializing_if = "Option::is_none")]
+            pub net_financial_position: Option<NetFinancialPosition>,
+            /// Non-operating assets at the valuation date, each a label and a value in currency
+            /// units (zero or more), added to the present value of the FCFE and of the terminal
+            /// value: for example cash not needed for operations whose interest income is not in
+            /// the FCFE, or an investment property. Default: none, reported.
+            #[serde(default, skip_serializing_if = "Vec::is_empty")]
+            pub non_operating_assets: Vec<Line>,
+            /// Debt-like items (debt equivalents) at the valuation date whose cash flows are not in
+            /// the FCFE, for example unfunded pension obligations, each a label, a value in
+            /// currency units (zero or more) and its measurement basis; subtracted. Default: none,
+            /// reported.
+            #[serde(default, skip_serializing_if = "Vec::is_empty")]
+            pub debt_like_items: Vec<BridgeClaim>,
+            /// Non-controlling interests (minority interests) at the valuation date, when the FCFE
+            /// are those of the consolidated group, each a label, a value in currency units (zero
+            /// or more) and its measurement basis; subtracted. Default: none, reported.
+            #[serde(default, skip_serializing_if = "Vec::is_empty")]
+            pub non_controlling_interests: Vec<BridgeClaim>,
+        }
+    }
 }
 
 /// From the present value of the FCFE to equity value, every line as given (R24, R25).
@@ -159,18 +126,10 @@ pub struct DcfFcfeOutput {
     /// Present value of the explicit FCFE and of the terminal value, plus the non-operating
     /// assets, minus the debt-like items and the non-controlling interests, in currency units.
     pub equity_value: Decimal,
-    /// Present value of the explicit FCFE, in currency units.
-    pub pv_explicit_period: Decimal,
-    /// Present value of the terminal value divided by the present value of the explicit FCFE
-    /// plus the present value of the terminal value (R22); `null` when that sum is zero.
-    pub terminal_value_weight: Option<Decimal>,
-    /// One row per period of the explicit horizon.
-    pub periods: Vec<PeriodRow>,
-    /// The terms of the flows and of the rates, the conversion of the rates and the perpetual
-    /// growth in the other terms (R14 to R18).
-    pub terms: TermsOutput,
-    /// The terminal value, its technique and its discounting.
-    pub terminal: TerminalOutput,
+    /// Present value of the explicit FCFE, the terminal value weight, the periods, the terms
+    /// and the terminal value, as JSON keys of this object.
+    #[serde(flatten)]
+    pub discounted: DiscountedValue,
     /// Every line from the present value of the FCFE to equity value.
     pub bridge: FcfeBridge,
 }
@@ -198,36 +157,7 @@ pub fn fcfe(input: &DcfFcfeInput) -> Result<(DcfFcfeOutput, Explain)> {
         "no net financial position is subtracted: debt is already in the flows through interest \
          and net borrowing (R24); equity value is computed directly",
     );
-    let engine_input = EngineInput {
-        taxes: TaxChoice {
-            notional_tax_rate: input.notional_tax_rate,
-            negative_ebit: input.negative_ebit,
-            interest_tax_rate: input.interest_tax_rate,
-        },
-        basis: TerminalBasis::Equity,
-        stages: &input.stages,
-        base_flow: input.base_flow,
-        cash_flow_terms: input.cash_flow_terms,
-        discount_rate_terms: input.discount_rate_terms,
-        inflation: InflationInput {
-            single: input.inflation,
-            per_period: input.inflation_per_period.as_deref(),
-            terminal: input.terminal_inflation,
-        },
-        rates: RateInput {
-            single: input.cost_of_equity,
-            per_period: input.cost_of_equity_per_period.as_deref(),
-            terminal: input.terminal_cost_of_equity,
-            fields: RateFields {
-                single: "cost_of_equity",
-                per_period: "cost_of_equity_per_period",
-                terminal: "terminal_cost_of_equity",
-            },
-        },
-        timing: input.timing,
-        terminal_discount_time: input.terminal_discount_time,
-        terminal: &input.terminal,
-    };
+    let engine_input = input.engine_input();
     // Bridge items are checked before any calculation, like every other input.
     bridge::check_lines(
         &input.non_operating_assets,
@@ -246,26 +176,17 @@ pub fn fcfe(input: &DcfFcfeInput) -> Result<(DcfFcfeOutput, Explain)> {
         start,
     );
     let bridge = equity_bridge(&mut ex, input, start)?;
-    let weight = if start.is_zero() {
-        ex.convention(
-            "terminal value weight not defined: the present value of the explicit FCFE and the \
-             terminal value is zero",
-        );
-        None
-    } else {
-        let w = div(pv_tv, start)?;
-        ex.step("Terminal value weight", format!("{pv_tv} / {start}"), w);
-        Some(w)
-    };
+    let weight = engine::terminal_weight(
+        &mut ex,
+        pv_tv,
+        start,
+        "the present value of the explicit FCFE and the terminal value is zero",
+    )?;
     Ok((
         DcfFcfeOutput {
             basis: TerminalBasis::Equity,
             equity_value: bridge.equity_value,
-            pv_explicit_period: out.pv_explicit,
-            terminal_value_weight: weight,
-            periods: out.periods,
-            terms: out.terms,
-            terminal: out.terminal,
+            discounted: out.discounted(weight),
             bridge,
         },
         ex,

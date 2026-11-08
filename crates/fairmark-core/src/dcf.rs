@@ -20,7 +20,8 @@ pub mod terminal;
 
 pub use bridge::{BridgeClaim, MeasurementBasis};
 pub use engine::{
-    PeriodRow, Projection, RateConversion, Stage, TerminalDiscountTime, Terms, TermsOutput,
+    DiscountedValue, PeriodRow, Projection, RateConversion, Stage, TerminalDiscountTime, Terms,
+    TermsOutput,
 };
 pub use fcfe::{fcfe, DcfFcfeInput, DcfFcfeOutput, Fcfe, FcfeBridge};
 pub use fcff::{fcff, DcfFcffInput, DcfFcffOutput, Fcff, FcffBridge};

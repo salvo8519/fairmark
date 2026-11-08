@@ -918,7 +918,7 @@
       "description": "`nominal` or `real`: the terms of every amount and growth rate of the input."
     },
     "cost_of_equity": {
-      "description": "One cost of equity for every period and for the terminal value, decimal fraction per\nperiod (0.11 = 11%), greater than -1. Give this or `cost_of_equity_per_period`, not\nboth.",
+      "description": "One cost of equity for every period and for the terminal value, decimal fraction\nper period (0.11 = 11%), greater than -1. Give this or `cost_of_equity_per_period`,\nnot both.",
       "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
       "type": [
         "string",
@@ -927,7 +927,7 @@
       ]
     },
     "cost_of_equity_per_period": {
-      "description": "One cost of equity per period of the explicit horizon, decimal fractions, exactly N of\nthem; requires `terminal_cost_of_equity`. Give this or `cost_of_equity`, not both.",
+      "description": "One cost of equity per period of the explicit horizon, decimal fractions, exactly N\nof them, each greater than -1; requires `terminal_cost_of_equity`. Give this or\n`cost_of_equity`, not both.",
       "items": {
         "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
         "type": [
@@ -941,7 +941,7 @@
       ]
     },
     "debt_like_items": {
-      "description": "Debt-like items (debt equivalents) at the valuation date whose cash flows are not in the\nFCFE, for example unfunded pension obligations, each a label, a value in currency units\n(zero or more) and its measurement basis; subtracted. Default: none, reported.",
+      "description": "Debt-like items (debt equivalents) at the valuation date whose cash flows are not in\nthe FCFE, for example unfunded pension obligations, each a label, a value in\ncurrency units (zero or more) and its measurement basis; subtracted. Default: none,\nreported.",
       "items": {
         "$ref": "#/$defs/BridgeClaim"
       },
@@ -949,10 +949,10 @@
     },
     "discount_rate_terms": {
       "$ref": "#/$defs/Terms",
-      "description": "`nominal` or `real`: the terms of the costs of equity. When they differ from\n`cash_flow_terms`, expected inflation is required (`inflation`, or\n`inflation_per_period` with `terminal_inflation`) and every rate is converted to the\nterms of the cash flows; the cash flows are never converted."
+      "description": "`nominal` or `real`: the terms of the discount rates. When they differ from\n`cash_flow_terms`, expected inflation is required (`inflation`, or\n`inflation_per_period` with `terminal_inflation`) and every rate is converted to the\nterms of the cash flows; the cash flows are never converted."
     },
     "inflation": {
-      "description": "Expected inflation, decimal fraction per period (0.02 = 2%), greater than -1, for every\nexplicit period and for the terminal phase. Give this or `inflation_per_period`, or\nneither. With different terms it converts the costs of equity by the exact Fisher\nrelation; with equal terms it only restates the perpetual growth in the other terms.\nDefault: none.",
+      "description": "Expected inflation, decimal fraction per period (0.02 = 2%), greater than -1, for every\nexplicit period and for the terminal phase. Give this or `inflation_per_period`, or\nneither. With different terms it converts the discount rates by the exact Fisher\nrelation; with equal terms it only restates the perpetual growth in the other terms.\nDefault: none.",
       "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
       "type": [
         "string",
@@ -1003,24 +1003,24 @@
           "type": "null"
         }
       ],
-      "description": "Not used on the equity basis and refused (`FM-E019`): debt is already in the FCFE,\nthrough interest and net borrowing, so the net financial position is not subtracted.\nCash that the FCFE does not reflect goes in `non_operating_assets`. Accepted by the\nschema only so that the refusal names the fix."
+      "description": "Not used on the equity basis and refused (`FM-E019`): debt is already in the FCFE,\nthrough interest and net borrowing, so the net financial position is not\nsubtracted. Cash that the FCFE does not reflect goes in `non_operating_assets`.\nAccepted by the schema only so that the refusal names the fix."
     },
     "non_controlling_interests": {
-      "description": "Non-controlling interests (minority interests) at the valuation date, when the FCFE are\nthose of the consolidated group, each a label, a value in currency units (zero or more)\nand its measurement basis; subtracted. Default: none, reported.",
+      "description": "Non-controlling interests (minority interests) at the valuation date, when the FCFE\nare those of the consolidated group, each a label, a value in currency units (zero\nor more) and its measurement basis; subtracted. Default: none, reported.",
       "items": {
         "$ref": "#/$defs/BridgeClaim"
       },
       "type": "array"
     },
     "non_operating_assets": {
-      "description": "Non-operating assets at the valuation date, each a label and a value in currency units\n(zero or more), added to the present value of the FCFE and of the terminal value: for\nexample cash not needed for operations whose interest income is not in the FCFE, or an\ninvestment property. Default: none, reported.",
+      "description": "Non-operating assets at the valuation date, each a label and a value in currency\nunits (zero or more), added to the present value of the FCFE and of the terminal\nvalue: for example cash not needed for operations whose interest income is not in\nthe FCFE, or an investment property. Default: none, reported.",
       "items": {
         "$ref": "#/$defs/Line"
       },
       "type": "array"
     },
     "notional_tax_rate": {
-      "description": "For stages with `lines`: tax rate applied to EBIT, decimal fraction from 0 to below 1\n(0.24 = 24%), also the rate of the interest tax shield. Give this, or `operating_taxes`\nin every line, not both; refused when no stage has `lines`. Default: none.",
+      "description": "For stages with `lines`: tax rate applied to EBIT, decimal fraction from 0 to below 1\n(0.24 = 24%), also the rate of the interest tax shield. Give this, or\n`operating_taxes` in every line, not both; refused when no stage has `lines`. Default:\nnone.",
       "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
       "type": [
         "string",
@@ -1029,7 +1029,7 @@
       ]
     },
     "stages": {
-      "description": "One to three explicit stages of free cash flows to equity (FCFE), in order; the explicit\nhorizon N is the sum of their periods. Each stage is `{\"periods\", \"projection\", ...}`\nwith the fields of its projection; a `given` stage takes the FCFE as amounts (`flows`)\nor builds them up from line items with `interest_expense` and `net_borrowing` in every\nline (`lines`).",
+      "description": "One to three explicit stages of free cash flows to equity (FCFE), in order; the\nexplicit horizon N is the sum of their periods. Each stage is `{\"periods\",\n\"projection\", ...}` with the fields of its projection; a `given` stage takes the FCFE\nas amounts (`flows`) or builds them up from line items with `interest_expense` and\n`net_borrowing` in every line (`lines`).",
       "items": {
         "$ref": "#/$defs/Stage"
       },
@@ -1038,10 +1038,10 @@
     },
     "terminal": {
       "$ref": "#/$defs/Terminal",
-      "description": "The terminal technique on the equity basis, an object with exactly one key, the method\nid, for example `{\"tv.gordon\": {\"growth\", \"first_flow\", ...}}`: `tv.gordon`,\n`tv.h_model` or `tv.limited_horizon` on the FCFE, `tv.exit_multiple` on `earnings`\n(P/E) or `book_value` (P/BV), `tv.normalised_income` or `tv.liquidation` declared on\nthe `equity` basis."
+      "description": "The terminal technique on the equity basis, an object with exactly one key, the method\nid, for example `{\"tv.gordon\": {\"growth\", \"first_flow\", ...}}`: `tv.gordon`,\n`tv.h_model` or `tv.limited_horizon` on the FCFE, `tv.exit_multiple` on `earnings`\n(P/E) or `book_value` (P/BV), `tv.normalised_income` or `tv.liquidation` declared on\nthe `equity` basis. `tv.value_driver` is not available on the equity basis in version\n1."
     },
     "terminal_cost_of_equity": {
-      "description": "Cost of equity of the terminal phase, decimal fraction per period; required with\n`cost_of_equity_per_period`, refused with `cost_of_equity`.",
+      "description": "Cost of equity of the terminal phase, decimal fraction per period, greater than -1;\nrequired with `cost_of_equity_per_period`, refused with `cost_of_equity`.",
       "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
       "type": [
         "string",
