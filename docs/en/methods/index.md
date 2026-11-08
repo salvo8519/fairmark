@@ -22,7 +22,7 @@ page. The [methods reference](../reference/methods.md) lists every input.
 | [`coc.cost_of_debt`](coc-cost-of-debt.md) | available | Pre-tax and after-tax cost of debt |
 | [`coc.wacc`](coc-wacc.md) | available | Weighted average cost of capital at a target capital structure |
 | [`dcf.fcff`](dcf-fcff.md) | preview | Enterprise and equity value from unlevered free cash flows |
-| [`ratios.profitability`](ratios-profitability.md) | preview | ROE, ROI, ROS, margins, capital turnover and the three-factor ROE decomposition |
+| [`ratios.profitability`](ratios-profitability.md) | preview | ROE, ROI, ROA, ROS, margins, capital turnover and the ROE decomposition in three factors and in the leverage form |
 | [`ratios.capital_structure`](ratios-capital-structure.md) | preview | Debt to equity, net financial position to equity, equity ratio, structure margins and fixed-asset coverage |
 | [`ratios.liquidity`](ratios-liquidity.md) | preview | Current, quick and cash ratios, net working capital and treasury margin |
 | [`ratios.working_capital`](ratios-working-capital.md) | preview | Days sales, inventory and payable outstanding and the cash conversion cycle |

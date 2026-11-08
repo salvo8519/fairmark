@@ -15,11 +15,12 @@ $$
 $$
 \text{DSCR}_t = \frac{\text{CFADS}_t}{\text{debt service}_t}
 \qquad
-\text{LLCR} = \frac{\sum_{t=1}^{n} \text{CFADS}_t \,/\, (1 + r)^t}{\text{debt outstanding}}
+\text{LLCR} = \frac{\sum_{t=1}^{n} \text{CFADS}_t \,/\, (1 + r)^t + \text{reserve balance}}{\text{debt outstanding}}
 $$
 
 where CFADS is the cash flow available for debt service, $r$ the discount rate per period of
-the schedule, $n$ the number of periods up to the final maturity and the debt outstanding is
+the schedule (the cost of debt per period chosen by the analyst), the reserve balance the debt
+service reserve account at the valuation date, added undiscounted (zero when not given), $n$ the number of periods up to the final maturity and the debt outstanding is
 measured at the start of the first period. Discounting is the one of
 [`tvm.present_value`](tvm-present-value.md), at the end of each period.
 
@@ -47,6 +48,17 @@ assert r.nfp_to_ebitda["value"] == Decimal("2.375")  # 1900 / 800
 assert r.dscr[0]["value"] == Decimal("1.25")  # 250 / 200
 # Level CFADS: LLCR = 250 × (1 − 1.06^−5) / 0.06 / 1000
 assert abs(r.llcr["value"] - Decimal("1.05309094639142847003375")) < Decimal("1e-20")
+
+# Without a debt schedule, DSCR and LLCR are not defined; the other ratios are computed.
+s = fm.ratios.debt_service(
+    balances="closing",
+    ebitda_definition="reported EBITDA, no adjustments",
+    interest_definition="gross interest expense",
+    income_statement={"ebitda": 800, "ebit": 500, "interest": 100},
+    closing={"net_financial_position": {"gross_debt": 2200, "cash": 300}},
+)
+assert s.llcr["not_defined"] == "no debt schedule given"
+assert s.interest_cover_ebitda["value"] == Decimal("8")
 ```
 
 ## Inputs
@@ -59,7 +71,7 @@ assert abs(r.llcr["value"] - Decimal("1.05309094639142847003375")) < Decimal("1e
 | `income_statement` | `ebitda`, `ebit`, `interest` of the period, currency units | required |
 | `closing` | `net_financial_position` with `gross_debt`, `cash` and `other_items` | required |
 | `opening` | Same field at the start of the period | required with average balances, not used otherwise |
-| `debt_schedule` | `discount_rate` per period (decimal fraction), `debt_outstanding` at the start of the first period, `periods`: a list of `{"cfads", "debt_service"}` up to the final maturity | required |
+| `debt_schedule` | `discount_rate`: the cost of debt per period chosen by the analyst (decimal fraction); `debt_outstanding` at the start of the first period; optional `reserve_balance` (debt service reserve account at the valuation date); `periods`: a list of `{"cfads", "debt_service"}` up to the final maturity | optional: without it DSCR and LLCR are not defined |
 
 ## Outputs
 
@@ -69,9 +81,9 @@ assert abs(r.llcr["value"] - Decimal("1.05309094639142847003375")) < Decimal("1e
 | `interest_cover_ebit` | EBIT / interest, multiple |
 | `interest_cover_ebitda` | EBITDA / interest, multiple |
 | `nfp_to_ebitda` | NFP / EBITDA, multiple |
-| `dscr` | CFADS / debt service of each period, multiple, in the order of the schedule |
-| `pv_cfads` | Present value of the CFADS at the start of the first period, currency units |
-| `llcr` | Present value of CFADS / debt outstanding, multiple |
+| `dscr` | CFADS / debt service of each period, multiple, in the order of the schedule; empty without a debt schedule |
+| `pv_cfads` | Present value of the CFADS at the start of the first period, currency units; null without a debt schedule |
+| `llcr` | (Present value of CFADS + reserve balance) / debt outstanding, multiple |
 
 Ratios are objects `{"value": ..., "not_defined": ...}`, as in every ratio group.
 
@@ -83,15 +95,17 @@ Ratios are objects `{"value": ..., "not_defined": ...}`, as in every ratio group
 | EBITDA definition | as given by the analyst, non-empty | required |
 | Interest definition | as given by the analyst (gross, or net of interest income), non-empty | required |
 | Debt service | as given | fixed |
-| LLCR discounting | end of each period, at `discount_rate` per period | fixed |
-| Not defined | zero denominator (interest, EBITDA, debt service of a period, debt outstanding) | fixed |
+| LLCR discounting | end of each period, at `discount_rate` per period, the cost of debt chosen by the analyst | fixed |
+| Reserve balance | added undiscounted to the LLCR numerator | none |
+| Debt schedule | optional; without it DSCR and LLCR are not defined ("no debt schedule given") | none |
+| Not defined | zero denominator; interest covers when interest or the numerator (EBIT or EBITDA) is zero or negative; NFP / EBITDA when EBITDA is zero or negative; DSCR when debt service is zero or negative; LLCR when debt outstanding is zero or negative | fixed |
 
 ## Errors
 
 | Code | When |
 | --- | --- |
 | `FM-E001` | Average balances without `opening`; an empty or blank `ebitda_definition` or `interest_definition`; a field is missing or unknown |
-| `FM-E002` | The debt schedule has no periods |
+| `FM-E002` | A debt schedule is given with no periods |
 | `FM-E003` | Discount rate at or below −100% per period |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 
@@ -104,4 +118,5 @@ are exact up to the 28 significant digits of the decimal type.
 
 - Golden cases in `tests/golden/ratios.debt_service/`, whose expected values come from
   `scripts/reference_ratios.py` (Python decimal at 50 digits); the LLCR of a level CFADS equals
-  the annuity closed form $C\,(1 - (1 + r)^{-n}) / r$ divided by the debt outstanding.
+  the annuity closed form $C\,(1 - (1 + r)^{-n}) / r$ divided by the debt outstanding. Further
+  cases cover the reserve balance, a missing schedule and each not-meaningful sign.

@@ -1,8 +1,8 @@
 # Profitability ratios (`ratios.profitability`)
 
-Answers the question "does the company earn enough on what it uses?". Returns ROE, ROI, ROS,
-the EBITDA and EBIT margins, the capital turnover and the three-factor decomposition of ROE,
-each with its formula and the numbers substituted in the audit trail. A ratio that cannot be
+Answers the question "does the company earn enough on what it uses?". Returns ROE, ROI, ROA,
+ROS, the EBITDA and EBIT margins, the capital turnover and the decomposition of ROE in three
+factors and in the leverage form, each with its formula and the numbers substituted in the audit trail. A ratio that cannot be
 computed is reported as not defined with the reason, and the other ratios are still computed.
 
 ## Formula
@@ -34,6 +34,26 @@ $$
 \times \underbrace{\frac{\text{revenue}}{\text{total assets}}}_{\text{asset turnover}}
 \times \underbrace{\frac{\text{total assets}}{\text{equity}}}_{\text{equity multiplier}}
 $$
+
+$$
+\text{ROA} = \frac{\text{EBIT}}{\text{total assets}}
+$$
+
+The leverage form, computed when the `leverage` inputs are given:
+
+$$
+\text{ROE} = \left[\text{ROI} + (\text{ROI} - i)\,\frac{D}{E}\right](1 - t)
+\qquad
+i = \frac{\text{financial charges}}{D}
+\qquad
+t = \frac{\text{taxes}}{\text{pre-tax income}}
+$$
+
+where $D$ is the gross financial debt or the net financial position, as chosen in
+`leverage.debt_basis`, $E$ the equity and $t$ the effective tax rate. $(\text{ROI} - i) \times
+D/E$ is the leverage effect. The form equals ROE when the operating return base is the invested
+capital and the invested capital equals $E + D$; otherwise the difference shows the effect of
+non-operating items.
 
 The operating return base is the operating invested capital or the total assets, as chosen in
 `operating_return_base`. Balance-sheet amounts are closing balances, or the average of opening
@@ -67,6 +87,24 @@ n = fm.ratios.profitability(
 )
 assert n.roe["value"] is None
 print(n.roe["not_defined"])  # equity is negative (-100)
+
+# Leverage form, D on the net financial position: equals ROE when capital = E + D.
+lev = fm.ratios.profitability(
+    balances="closing",
+    operating_return_base="invested_capital",
+    ebitda_definition="reported EBITDA, no adjustments",
+    income_statement={"revenue": 5000, "ebitda": 800, "ebit": 500, "net_income": 260},
+    closing={"equity": 2000, "total_assets": 6000, "invested_capital": 4000, "debt": 2000},
+    leverage={
+        "debt_basis": "net_financial_position",
+        "financial_charges": 100,
+        "taxes": 140,
+        "pre_tax_income": 400,
+    },
+)
+assert lev.roe_leverage["cost_of_debt"]["value"] == Decimal("0.05")  # 100 / 2000
+assert lev.roe_leverage["leverage_effect"]["value"] == Decimal("0.075")  # (0.125 − 0.05) × 1
+assert lev.roe_leverage["roe"]["value"] == Decimal("0.13")  # 0.2 × (1 − 0.35)
 ```
 
 ## Inputs
@@ -77,8 +115,9 @@ print(n.roe["not_defined"])  # equity is negative (-100)
 | `operating_return_base` | `invested_capital` or `total_assets`: the capital of ROI and of the capital turnover | required |
 | `ebitda_definition` | How EBITDA was measured, in words, not empty; echoed in the conventions | required |
 | `income_statement` | `revenue`, `ebitda`, `ebit`, `net_income` of the period, currency units | required |
-| `closing` | `equity`, `total_assets` and, with an invested capital base, `invested_capital`, currency units | required |
+| `closing` | `equity`, `total_assets`; with an invested capital base, `invested_capital`; with `leverage`, `debt` (D on the chosen basis); currency units | required |
 | `opening` | Same fields at the start of the period | required with average balances, not used otherwise |
+| `leverage` | `debt_basis` (`gross_financial_debt` or `net_financial_position`, no default), `financial_charges`, `taxes`, `pre_tax_income` of the period, currency units | optional: without it the leverage form is not defined |
 
 ## Outputs
 
@@ -89,11 +128,13 @@ is not defined, and `not_defined` then gives the reason.
 | --- | --- |
 | `roe` | Net income / equity, decimal fraction |
 | `roi` | EBIT / operating return base, decimal fraction |
+| `roa` | EBIT / total assets, decimal fraction |
 | `ros` | EBIT / revenue, decimal fraction |
 | `ebitda_margin` | EBITDA / revenue, decimal fraction |
 | `ebit_margin` | EBIT / revenue, decimal fraction |
 | `capital_turnover` | Revenue / operating return base, times per period |
 | `roe_three_factor` | `net_margin`, `asset_turnover`, `equity_multiplier` and their product `roe` |
+| `roe_leverage` | `roi`, `cost_of_debt` (i), `debt_to_equity` (D/E), `leverage_effect`, `pre_tax_roe`, `tax_rate` (t) and `roe` |
 
 ## Conventions (explicit, reported in `explain.conventions`)
 
@@ -103,8 +144,11 @@ is not defined, and `not_defined` then gives the reason.
 | Operating return base | invested capital, total assets; an invested capital given with a total-assets base is reported as not used | required |
 | EBITDA definition | as given by the analyst, non-empty | required |
 | ROS | EBIT / revenue, equal to the EBIT margin | fixed |
+| ROA | EBIT / total assets | fixed |
+| Leverage form | D on `debt_basis`; i = financial charges / D; t = taxes / pre-tax income (effective); ROI on the operating return base; `debt` given without `leverage` is reported as not used | `debt_basis` required when `leverage` is given |
 | Three-factor ROE | on total assets (asset turnover and equity multiplier), whatever the operating return base | fixed |
-| Not defined | zero denominator; equity zero or negative for ROE and the equity multiplier | fixed |
+| Balances | applied to every balance-sheet amount, numerator or denominator, D included | fixed |
+| Not defined | zero denominator; equity zero or negative for ROE, the equity multiplier and D/E; invested capital zero or negative for ROI on an invested capital base; no `leverage` inputs for the leverage form | fixed |
 
 ROS is EBIT over revenue, so it equals the EBIT margin; both are returned so that the chain ROI
 = ROS × capital turnover reads directly.
@@ -113,7 +157,7 @@ ROS is EBIT over revenue, so it equals the EBIT margin; both are returned so tha
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | Average balances without `opening`; `invested_capital` missing with an invested capital base; an empty or blank `ebitda_definition`; a field is missing or unknown |
+| `FM-E001` | Average balances without `opening`; `invested_capital` missing with an invested capital base; `debt` missing or `debt_basis` missing with `leverage`; an empty or blank `ebitda_definition`; a field is missing or unknown |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 
 ## Accuracy
@@ -125,5 +169,6 @@ ROE in the 28th digit.
 ## Verified against
 
 - Golden cases in `tests/golden/ratios.profitability/` (closing and average balances on both
-  operating return bases, negative equity, zero revenue), whose expected values come from `scripts/reference_ratios.py` (Python
+  operating return bases, negative equity, negative invested capital, zero revenue, the
+  leverage form on both bases of D and with zero pre-tax income), whose expected values come from `scripts/reference_ratios.py` (Python
   decimal at 50 digits), with the closed form written in each file.
