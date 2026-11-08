@@ -221,6 +221,7 @@ milestones:
           - { issue: 53, title: "MCP server (stdio) generated from the registry", status: done }
           - { issue: 54, title: "Function-calling tools for Anthropic and OpenAI with dispatcher", status: done }
           - { issue: 55, title: "Gemini and LangChain adapters", tags: [parallel, gfi], status: done }
+          - { issue: 219, title: "Agent evaluation suite with success rates per release", status: open }
       - title: "Agent skills and docs"
         issue: 56
         labels: ["area:docs"]
