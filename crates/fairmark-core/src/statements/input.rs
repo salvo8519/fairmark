@@ -874,15 +874,6 @@ impl Adjustment {
         }
     }
 
-    /// Kinds that adjust the income statement, not implemented before the second pull request
-    /// of SPEC-0005 (plan, "Behaviour between pull requests").
-    pub(crate) fn is_income_statement_kind(&self) -> bool {
-        matches!(
-            self,
-            Self::Lease(_) | Self::Investing(_) | Self::NonRecurring(_)
-        )
-    }
-
     fn common(&self) -> (&str, &str) {
         match self {
             Self::NonOperatingAsset(a) => (&a.label, &a.reason),
@@ -934,7 +925,27 @@ impl<'de> Deserialize<'de> for Adjustment {
             "dividends_declared" => read(rest).map(Self::DividendsDeclared),
             "lease" => read(rest).map(Self::Lease),
             "investing" => read(rest).map(Self::Investing),
-            "non_recurring" => read(rest).map(Self::NonRecurring),
+            "non_recurring" => {
+                // R17: D18 and D19 are fixed in the investing result; the refusal names why,
+                // not only the values accepted.
+                if let Some(
+                    fixed
+                    @ ("revaluations_of_financial_assets" | "write_downs_of_financial_assets"),
+                ) = rest.get("aggregate").and_then(Value::as_str)
+                {
+                    let message = format!(
+                        "`{fixed}` cannot be moved by an adjustment: D18 and D19 are fixed in \
+                         the investing result (SPEC-0005 R17, Decision 17); remove the \
+                         adjustment, or name the aggregate of Appendix A.2 the non-recurring \
+                         part belongs to"
+                    );
+                    return Err(D::Error::custom(crate::registry::nested_error_text(
+                        &["aggregate".into()],
+                        &message,
+                    )));
+                }
+                read(rest).map(Self::NonRecurring)
+            }
             other => {
                 let list: Vec<String> = KINDS.iter().map(|k| format!("`{k}`")).collect();
                 let message = format!(
@@ -1045,6 +1056,54 @@ pub(crate) const BALANCE_SHEET_DEFAULTS: &[DefaultDestination] = &[
         reason: "Appendix A.1, liabilities E: operating working capital by default; accrued \
                  interest moves only by an `accrued_interest` adjustment (SPEC-0005 R8)",
         given: |bs| bs.accruals_and_deferred_income.as_ref()?.total,
+    },
+];
+
+/// An income statement aggregate whose destination is a `default` of Appendix A.2 (choice D).
+pub(crate) struct IncomeStatementDefault {
+    /// Pointer of the aggregate below the income statement.
+    pub key: &'static str,
+    pub destination: Destination,
+    /// The Appendix A.2 row and its decision.
+    pub reason: &'static str,
+    /// The aggregate's amount when it is given.
+    pub given: fn(&StatutoryIncomeStatement) -> Option<Decimal>,
+    /// The default applies only while the treatment `write_downs_of_receivables` is not given
+    /// (B10 d, R17): a treatment stated by the analyst is not a default.
+    pub unless_treatment: bool,
+}
+
+/// The `default` destinations of Appendix A.2, read by `apply_defaults` for
+/// `meta.defaults_applied` (R8, R17, R18). Typed rows, as for the balance sheet.
+pub(crate) const INCOME_STATEMENT_DEFAULTS: &[IncomeStatementDefault] = &[
+    IncomeStatementDefault {
+        key: "other_revenue_and_income",
+        destination: Destination::ValueOfProduction,
+        reason: "Appendix A.2, A5: core, in the value of production by default (Decision 7, \
+                 R18); investing or non-recurring parts move only by an `investing` or \
+                 `non_recurring` adjustment",
+        given: |is| is.other_revenue_and_income,
+        unless_treatment: false,
+    },
+    IncomeStatementDefault {
+        key: "other_operating_expenses",
+        destination: Destination::ValueAdded,
+        reason: "Appendix A.2, B14: core, deducted in value added by default (Decision 7, R18); \
+                 investing or non-recurring parts move only by an `investing` or \
+                 `non_recurring` adjustment",
+        given: |is| is.other_operating_expenses,
+        unless_treatment: false,
+    },
+    IncomeStatementDefault {
+        key: "depreciation_and_write_downs/write_downs_of_receivables",
+        destination: Destination::InvestingResult,
+        reason: WRITE_DOWNS_OF_RECEIVABLES_DEFAULT,
+        given: |is| {
+            is.depreciation_and_write_downs
+                .as_ref()?
+                .write_downs_of_receivables
+        },
+        unless_treatment: true,
     },
 ];
 

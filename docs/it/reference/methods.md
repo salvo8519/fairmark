@@ -505,7 +505,7 @@ FCFF per period from EBIT, taxes on EBIT (a rate or amounts), depreciation and a
 
 **Financial statements — operating and financing reorganisation** · versione del metodo 1 · stato anteprima · tool `fairmark_statements_reorganise`
 
-Reorganises statutory aggregates (art. 2424, 2425, abridged art. 2435-bis) or totals already reclassified, for one or more financial years, into invested capital, non-operating assets, equity, quasi-equity, the net financial position (SPEC-0007 type) and debt-like items, plus current and non-current amounts for the ratios; best effort: each output is computed when its inputs are given, otherwise null and listed in `not_computed` with the missing input pointers; totals are checked exactly (FM-E026). This build returns the balance sheet.
+Reorganises statutory aggregates (art. 2424, 2425, abridged art. 2435-bis) or totals already reclassified, for one or more financial years, into invested capital, non-operating assets, equity, quasi-equity, the net financial position (SPEC-0007 type) and debt-like items, plus current and non-current amounts for the ratios, and the income statement by nature reorganised into value of production, value added, EBITDA, operating profit, investing result, profit before financing and taxes (subtotals aligned with IFRS 18), non-recurring and financing results, profit before tax and net income, with its reconciliations with A − B; best effort: each output is computed when its inputs are given, otherwise null and listed in `not_computed` with the missing input pointers; totals are checked exactly (FM-E026).
 
 | Input | Tipo | Obbligatorio | Default | Descrizione |
 | --- | --- | --- | --- | --- |

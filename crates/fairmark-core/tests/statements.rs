@@ -1,7 +1,7 @@
-//! `statements.reorganise` (SPEC-0005), first pull request: contract tests with the methods that
-//! take its outputs (AC9, balance sheet part), error messages (R24), determinism and the schema
-//! (AC13), `meta.defaults_applied` (R8), exhaustiveness of `not_computed` (AC2) and the
-//! properties AC7 and AC8 on random balanced statements.
+//! `statements.reorganise` (SPEC-0005), first and second pull requests: contract tests with the
+//! methods that take its outputs (AC9), error messages (R24), determinism and the schema (AC13),
+//! `meta.defaults_applied` (R8), exhaustiveness of `not_computed` (AC2), the properties AC7 and
+//! AC8 on random balanced statements, and AC10 and AC11 on random income statements.
 
 use std::path::Path;
 use std::str::FromStr;
@@ -313,36 +313,58 @@ fn an_override_of_another_aggregate_is_refused_at_its_pointer() {
     );
 }
 
-/// Between the pull requests of SPEC-0005 (plan, "Behaviour between pull requests"): an income
-/// statement adjustment is refused, never ignored.
+/// The income statement kinds are applied (the refusal of the first pull request is removed):
+/// each appears in `adjustments_applied` with its source and target.
 #[test]
-fn income_statement_adjustments_are_refused_in_this_build() {
-    for adj in [
-        json!({"kind": "investing", "label": "Rent", "reason": "Investment property",
+fn income_statement_adjustments_are_applied() {
+    for (adj, target) in [
+        (
+            json!({"kind": "investing", "label": "Rent", "reason": "Investment property",
                "aggregate": "other_revenue_and_income", "amounts": ["1000"]}),
-        json!({"kind": "non_recurring", "label": "Gain", "reason": "Disposal",
+            "investing_result",
+        ),
+        (
+            json!({"kind": "non_recurring", "label": "Gain", "reason": "Disposal",
                "aggregate": "revenue", "amounts": ["1000"]}),
-        json!({"kind": "lease", "label": "Head office", "reason": "IFRS 16 view",
+            "non_recurring_result",
+        ),
+        (
+            json!({"kind": "lease", "label": "Head office", "reason": "IFRS 16 view",
                "amounts": [{"asset": "1", "liability": "1", "liability_current": "0",
                             "prepayment": "0", "payments": "0", "depreciation": "0",
                             "interest": "0"}]}),
+            "operating_fixed_assets",
+        ),
     ] {
-        let mut input = golden_input("balance-sheet-ordinary");
+        let mut input = golden_input("ordinary-aggregates");
         input["adjustments"] = json!([adj]);
-        let e = err(&input);
-        assert_eq!(e.code(), "FM-E001");
-        let msg = e.to_string();
-        assert!(msg.contains("/adjustments/0"), "{msg}");
-        assert!(msg.contains("not implemented in this build"), "{msg}");
+        let out = run(&input);
+        let applied = &out["value"]["years"][0]["adjustments_applied"];
+        assert_eq!(applied[0]["index"], 0, "{applied}");
+        assert_eq!(applied[0]["target"], target, "{applied}");
+        check_income_statement(&out, &input);
     }
 }
 
+/// AC11, R17: D18 and D19 cannot be moved; the message names the field and says why.
 #[test]
-fn a_non_recurring_adjustment_of_d19_is_refused() {
-    let mut input = golden_input("balance-sheet-ordinary");
-    input["adjustments"] = json!([{"kind": "non_recurring", "label": "Impairment",
-        "reason": "One-off", "aggregate": "write_downs_of_financial_assets", "amounts": ["1"]}]);
-    assert_eq!(err(&input).code(), "FM-E001");
+fn a_non_recurring_adjustment_of_d18_or_d19_is_refused_with_its_reason() {
+    for aggregate in [
+        "write_downs_of_financial_assets",
+        "revaluations_of_financial_assets",
+    ] {
+        let mut input = golden_input("balance-sheet-ordinary");
+        input["adjustments"] = json!([{"kind": "non_recurring", "label": "Impairment",
+            "reason": "One-off", "aggregate": aggregate, "amounts": ["1"]}]);
+        let e = err(&input);
+        assert_eq!(e.code(), "FM-E001");
+        let msg = e.to_string();
+        assert!(msg.contains("`/adjustments/0/aggregate`"), "{msg}");
+        assert!(
+            msg.contains("D18 and D19 are fixed in the investing result"),
+            "{msg}"
+        );
+    }
 }
 
 /// The ordinary company with its shareholder loans (100000, of which 50000 beyond one year)
@@ -650,7 +672,8 @@ fn two_runs_give_identical_output_and_key_order_does_not_change_the_hash() {
 }
 
 /// D4 of 2026-11-08: `external_costs` and `other_charges_below_ebitda` of the reclassified
-/// income statement come with the second pull request; until then they are unknown fields.
+/// income statement are deferred to the second pull request, as additive fields; the spec does
+/// not define them, so they wait for the maintainer's definition and stay unknown fields.
 #[test]
 fn the_deferred_reclassified_income_statement_fields_are_refused() {
     let schema = fairmark_core::input_schema(METHOD).unwrap().to_string();
@@ -948,21 +971,75 @@ fn a_reconciled_relation_names_only_items_given() {
     }
 }
 
-/// Review of PR 1 (item 9): the income statement is not reorganised in this build, so no
-/// destination of A5, B14 or B10 d is listed; only the input default of the treatment is.
+/// R8, R17, R18, AC13: the default destinations of A5, B14 and B10 d are listed when given, in
+/// that order before the input default; B10 d is not listed when the analyst states the
+/// treatment, and no fixed destination of the income statement is listed.
 #[test]
-fn no_income_statement_destination_is_listed_before_it_is_reorganised() {
+fn the_income_statement_defaults_are_listed_and_no_fixed_one() {
+    let base = "/years/0/statutory/income_statement";
     let input = json!({"years": [{"statutory": {"income_statement": {
+        "revenue": "100", "purchases": "40", "income_from_equity_investments": "3",
         "other_revenue_and_income": "10", "other_operating_expenses": "5",
         "depreciation_and_write_downs": {"write_downs_of_receivables": "500"}}}}]});
+    let pairs = |out: &Value| -> Vec<(String, String)> {
+        out["meta"]["defaults_applied"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| {
+                (
+                    d["field"].as_str().unwrap().to_owned(),
+                    d["value"].as_str().unwrap().to_owned(),
+                )
+            })
+            .collect()
+    };
     let out = run(&input);
-    let fields: Vec<String> = out["meta"]["defaults_applied"]
+    let s = |a: &str, b: &str| (a.to_owned(), b.to_owned());
+    assert_eq!(
+        pairs(&out),
+        [
+            s(
+                &format!("{base}/other_revenue_and_income"),
+                "value_of_production"
+            ),
+            s(&format!("{base}/other_operating_expenses"), "value_added"),
+            s(
+                &format!("{base}/depreciation_and_write_downs/write_downs_of_receivables"),
+                "investing_result"
+            ),
+            s("/treatments/write_downs_of_receivables", "investing"),
+        ]
+    );
+    let conv = conventions(&out);
+    assert!(
+        conv.contains(&format!(
+            "default: `{base}/other_operating_expenses` assigned to"
+        )),
+        "{conv}"
+    );
+    let mut stated = input.clone();
+    stated["treatments"] = json!({"write_downs_of_receivables": "operating"});
+    let out = run(&stated);
+    assert_eq!(
+        pairs(&out),
+        [
+            s(
+                &format!("{base}/other_revenue_and_income"),
+                "value_of_production"
+            ),
+            s(&format!("{base}/other_operating_expenses"), "value_added"),
+        ]
+    );
+    let b10d = out["value"]["years"][0]["assignments"]
         .as_array()
         .unwrap()
         .iter()
-        .map(|d| d["field"].as_str().unwrap().to_owned())
-        .collect();
-    assert_eq!(fields, ["/treatments/write_downs_of_receivables"]);
+        .find(|a| a["reference"] == "B10 d")
+        .unwrap()
+        .clone();
+    assert_eq!(b10d["destination"], "operating_profit");
+    assert_eq!(b10d["origin"], "analyst");
 }
 
 // ---------------------------------------------------------------- R6, AC2: not_computed
@@ -1078,7 +1155,7 @@ fn conventions_state_the_order_assumed_and_the_treatment_not_needed() {
         "financial fixed assets (B.III) are zero: no treatment is needed",
         "missing inputs are never taken as zero",
         "checks are exact, with no tolerance",
-        "the income statement is not reorganised in this build",
+        "income statement by nature reorganised into the layers of Appendix B.2 (R16)",
         "measurement basis `book_value`",
     ] {
         assert!(conv.contains(text), "missing '{text}' in {conv}");
@@ -1145,8 +1222,14 @@ fn every_applicable_convention_is_stated() {
         ),
         "treatments and adjustments do not apply to the reclassified entries: 2024",
         "year 2024: the current and non-current block (except inventories)",
-        // The income statement of this build (plan, "Behaviour between pull requests").
-        "the income statement is not reorganised in this build",
+        // The income statement (R16 to R20, Decision 17).
+        "income statement by nature reorganised into the layers of Appendix B.2 (R16)",
+        "D18, D19, B10 c and B10 d in the investing result",
+        "A5 and B14 are core by default (Decision 7, R18)",
+        "income taxes: item 20 as given",
+        "cost_of_sales is not returned (Decision 13)",
+        "year 2024: the reconciliations of the income statement with A − B need the statutory \
+         form",
     ] {
         assert!(conv.contains(text), "missing '{text}' in {conv}");
     }
@@ -1160,7 +1243,7 @@ fn an_entry_with_no_form_states_no_statutory_convention() {
     let conv = conventions(&out);
     for text in [
         "amounts as presented in the statutory layouts",
-        "the income statement is not reorganised in this build",
+        "income statement by nature reorganised",
         "(Decision 11)",
     ] {
         assert!(!conv.contains(text), "'{text}' in {conv}");
@@ -1175,4 +1258,429 @@ fn an_adjustment_that_does_not_apply_to_a_year_is_reported() {
         conv.contains("adjustment 0 'Dividend declared on the 2024 profit' does not apply to 2023"),
         "{conv}"
     );
+}
+
+// ---------------------------------------------------------------- income statement (PR 2)
+
+/// AC10, R16, R19: the layer identities of Appendix B.2 and the reconciliations of R19 in every
+/// statutory year of `out` whose amounts are known; without a lease, profit before tax equals
+/// A − B ± C ± D and net income equals item 21 when given.
+fn check_income_statement(out: &Value, input: &Value) {
+    let leases = input["adjustments"]
+        .as_array()
+        .is_some_and(|a| a.iter().any(|x| x["kind"] == "lease"));
+    for (i, y) in out["value"]["years"].as_array().unwrap().iter().enumerate() {
+        let is = &y["income_statement"];
+        let k = |key: &str| (!is[key].is_null()).then(|| dec(&is[key]));
+        let all = |keys: &[&str]| keys.iter().map(|x| k(x)).collect::<Option<Vec<_>>>();
+        if let Some(v) = all(&["value_added", "personnel_costs", "ebitda"]) {
+            assert_eq!(v[0] - v[1], v[2], "EBITDA");
+        }
+        if let Some(v) = all(&[
+            "operating_profit",
+            "investing_result",
+            "profit_before_financing_and_taxes",
+        ]) {
+            assert_eq!(v[0] + v[1], v[2], "profit before financing and taxes");
+        }
+        if let Some(v) = all(&[
+            "profit_before_financing_and_taxes",
+            "non_recurring_result",
+            "financing_result",
+            "profit_before_tax",
+        ]) {
+            assert_eq!(v[0] + v[1] + v[2], v[3], "profit before tax");
+        }
+        if let Some(v) = all(&["profit_before_tax", "income_taxes", "net_income"]) {
+            assert_eq!(v[0] - v[1], v[2], "net income");
+        }
+        for (name, end) in [
+            ("operating_profit", "operating_profit"),
+            (
+                "profit_before_financing_and_taxes",
+                "profit_before_financing_and_taxes",
+            ),
+        ] {
+            let r = &is["reconciliations"][name];
+            if r.is_null() {
+                continue;
+            }
+            let lines: Decimal = r["lines"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|l| dec(&l["amount"]))
+                .sum();
+            assert_eq!(dec(&r["start"]) + lines, dec(&r["end"]), "{name}");
+            assert_eq!(dec(&r["end"]), dec(&is[end]), "{name}");
+        }
+        let st = &input["years"][i]["statutory"]["income_statement"];
+        if leases || st.is_null() {
+            continue;
+        }
+        for (given, output) in [
+            ("profit_before_tax", "profit_before_tax"),
+            ("profit_or_loss_for_the_year", "net_income"),
+        ] {
+            if let (false, Some(v)) = (st[given].is_null(), k(output)) {
+                assert_eq!(dec(&st[given]), v, "{output} against {given}");
+            }
+        }
+    }
+}
+
+/// A statutory income statement from random amounts, its totals consistent with its items,
+/// some totals left out, with random adjustments within their sources.
+fn random_income_statement(a: &[i64], choices: &[usize]) -> Value {
+    let s = |x: i64| x.to_string();
+    let (a1, a23, a4, a5) = (a[0], a[1] - 50_000, a[2], a[3]);
+    let (b6, b7, b8, b9, ab, c10, d10) = (a[4], a[5], a[6], a[7], a[8], a[9], a[10]);
+    let (b11, b12, b13, b14) = (a[11] - 40_000, a[12], a[13], a[14]);
+    let (c15, c16, c17, c17b) = (a[15], a[16], a[17], a[18] - 30_000);
+    let (d18, d19, taxes) = (a[19], a[20], a[21] - 20_000);
+    let total_a = a1 + a23 + a4 + a5;
+    let total_b = b6 + b7 + b8 + b9 + ab + c10 + d10 + b11 + b12 + b13 + b14;
+    let total_c = c15 + c16 - c17 + c17b;
+    let total_d = d18 - d19;
+    let pbt = total_a - total_b + total_c + total_d;
+    let mut is = json!({
+        "revenue": s(a1), "change_in_product_inventories": s(a23),
+        "own_work_capitalised": s(a4), "other_revenue_and_income": s(a5),
+        "purchases": s(b6), "services": s(b7), "use_of_third_party_assets": s(b8),
+        "personnel_costs": s(b9),
+        "depreciation_and_write_downs": {"total": s(ab + c10 + d10),
+            "value_adjustments_of_fixed_assets": s(ab + c10),
+            "depreciation_and_amortisation": s(ab), "write_downs_of_fixed_assets": s(c10),
+            "write_downs_of_receivables": s(d10)},
+        "change_in_raw_material_inventories": s(b11), "provisions_for_risks": s(b12),
+        "other_provisions": s(b13), "other_operating_expenses": s(b14),
+        "income_from_equity_investments": s(c15), "other_financial_income": s(c16),
+        "interest_and_other_financial_charges": s(c17), "exchange_gains_and_losses": s(c17b),
+        "revaluations_of_financial_assets": s(d18), "write_downs_of_financial_assets": s(d19),
+        "value_of_production": s(total_a), "costs_of_production": s(total_b),
+        "difference_between_value_and_costs_of_production": s(total_a - total_b),
+        "financial_income_and_charges": s(total_c),
+        "value_adjustments_of_financial_assets": s(total_d),
+        "profit_before_tax": s(pbt), "income_taxes": s(taxes),
+        "profit_or_loss_for_the_year": s(pbt - taxes),
+    });
+    let m = is.as_object_mut().unwrap();
+    for (j, key) in [
+        "value_of_production",
+        "costs_of_production",
+        "difference_between_value_and_costs_of_production",
+        "financial_income_and_charges",
+        "value_adjustments_of_financial_assets",
+        "profit_before_tax",
+    ]
+    .iter()
+    .enumerate()
+    {
+        if choices[j].is_multiple_of(3) {
+            m.remove(*key);
+        }
+    }
+    let part = |x: i64, c: usize| x.max(0) * (choices[c] as i64 % 60) / 100;
+    let nr_sources = [
+        ("revenue", a1),
+        ("services", b7),
+        ("personnel_costs", b9),
+        ("write_downs_of_fixed_assets", c10),
+        ("write_downs_of_receivables", d10),
+        ("provisions_for_risks", b12),
+        ("income_from_equity_investments", c15),
+        ("interest_and_other_financial_charges", c17),
+    ];
+    let (nr_key, nr_amount) = nr_sources[choices[6] % nr_sources.len()];
+    let mut treatments = json!({});
+    if choices[7] % 3 == 1 {
+        treatments["write_downs_of_receivables"] = json!("operating");
+    }
+    json!({
+        "years": [{"statutory": {"income_statement": is}}],
+        "treatments": treatments,
+        "adjustments": [
+            {"kind": "investing", "label": "Rent", "reason": "Investment property",
+             "aggregate": "other_revenue_and_income", "amounts": [s(part(a5, 8))]},
+            {"kind": "investing", "label": "Upkeep", "reason": "Investment property",
+             "aggregate": "other_operating_expenses", "amounts": [s(part(b14, 9))]},
+            {"kind": "non_recurring", "label": "One-off", "reason": "art. 2427 n. 13",
+             "aggregate": nr_key, "amounts": [s(part(nr_amount, 10))]},
+        ]
+    })
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(64))]
+
+    /// AC10: on random income statements with adjustments, profit before financing and taxes =
+    /// operating profit + investing result, profit before tax = A − B ± C ± D, net income =
+    /// item 21, and the reconciliations add up to their subtotals from A − B.
+    #[test]
+    fn income_statement_identities_hold(
+        a in proptest::collection::vec(0i64..3_000_000, 22),
+        choices in proptest::collection::vec(0usize..1000, 11),
+    ) {
+        let input = random_income_statement(&a, &choices);
+        let out = run(&input);
+        let is = &out["value"]["years"][0]["income_statement"];
+        prop_assert!(!is["net_income"].is_null());
+        prop_assert!(!is["reconciliations"]["operating_profit"].is_null());
+        check_income_statement(&out, &input);
+    }
+
+    /// AC11, R17: the treatment `operating` moves B10 d from the investing result to operating
+    /// profit: EBITDA and profit before financing and taxes are the same either way, and
+    /// operating profit is lower by B10 d (core).
+    #[test]
+    fn the_operating_treatment_moves_only_b10_d(
+        a in proptest::collection::vec(0i64..3_000_000, 22),
+        choices in proptest::collection::vec(0usize..1000, 11),
+    ) {
+        let mut input = random_income_statement(&a, &choices);
+        input["treatments"] = json!({"write_downs_of_receivables": "investing"});
+        let inv = run(&input);
+        input["treatments"] = json!({"write_downs_of_receivables": "operating"});
+        let op = run(&input);
+        let (x, y) = (&inv["value"]["years"][0]["income_statement"],
+                      &op["value"]["years"][0]["income_statement"]);
+        prop_assert_eq!(&x["ebitda"], &y["ebitda"]);
+        prop_assert_eq!(&x["profit_before_financing_and_taxes"],
+                        &y["profit_before_financing_and_taxes"]);
+        let d10 = dec(&input["years"][0]["statutory"]["income_statement"]
+            ["depreciation_and_write_downs"]["write_downs_of_receivables"]);
+        let moved: Decimal = input["adjustments"].as_array().unwrap().iter()
+            .filter(|a| a["aggregate"] == "write_downs_of_receivables")
+            .map(|a| dec(&a["amounts"][0])).sum();
+        prop_assert_eq!(dec(&x["operating_profit"]) - dec(&y["operating_profit"]), d10 - moved);
+    }
+}
+
+/// AC9, R20: the income statement outputs feed the methods that take them under the same
+/// names: `operating_profit` and `depreciation_and_amortisation` as `FreeCashFlowLines`;
+/// revenue, EBITDA, net income and invested capital in `ratios.profitability` with the returned
+/// `ebitda_definition`; profit before financing and taxes and interest in `ratios.debt_service`;
+/// revenue and purchases in `ratios.working_capital`, whose cost of sales the analyst gives. No
+/// `cost_of_sales` is returned (Decision 13).
+#[test]
+fn income_statement_outputs_feed_the_methods_that_take_them() {
+    let out = run(&golden_input("ordinary-aggregates"));
+    let y = &out["value"]["years"][0];
+    let is = &y["income_statement"];
+    assert!(is.get("cost_of_sales").is_none());
+    assert!(!out["value"].to_string().contains("cost_of_sales"));
+    let fcf = json!({"periods": [{
+        "ebit": is["operating_profit"], "operating_taxes": "90000",
+        "depreciation_and_amortisation": is["depreciation_and_amortisation"],
+        "capital_expenditure": "150000", "change_in_net_working_capital": "20000"}]});
+    let v = fairmark_core::run("dcf.free_cash_flows", &fcf.to_string()).unwrap();
+    let flow = dec(&v["value"]["periods"][0]["free_cash_flow_to_firm"]);
+    assert_eq!(
+        flow,
+        Decimal::from(301000 - 90000 + 180000 - 150000 - 20000)
+    );
+    let profitability = json!({"balances": "closing", "operating_return_base": "invested_capital",
+        "ebitda_definition": is["ebitda_definition"],
+        "income_statement": {"revenue": is["revenue"], "ebitda": is["ebitda"],
+            "ebit": is["operating_profit"], "net_income": is["net_income"]},
+        "closing": {"equity": y["balance_sheet"]["sources"]["equity"],
+            "total_assets": y["current_non_current"]["total_assets"],
+            "invested_capital": y["balance_sheet"]["operating"]["invested_capital"]}});
+    let p = fairmark_core::run("ratios.profitability", &profitability.to_string()).unwrap();
+    assert!(conventions(&p).contains("EBITDA as given: EBITDA (margine operativo lordo"));
+    let debt = json!({"balances": "closing", "ebitda_definition": is["ebitda_definition"],
+        "interest_definition": "C17 interest and other financial charges",
+        "income_statement": {"ebitda": is["ebitda"],
+            "ebit": is["profit_before_financing_and_taxes"],
+            "interest": is["interest_and_other_financial_charges"]},
+        "closing": {"net_financial_position":
+            y["balance_sheet"]["sources"]["net_financial_position"]["position"]}});
+    let d = fairmark_core::run("ratios.debt_service", &debt.to_string()).unwrap();
+    assert_eq!(
+        dec(&d["value"]["interest_cover_ebit"]["value"]),
+        Decimal::from(275000) / Decimal::from(60000)
+    );
+    // Decision 13: an income statement by nature has no cost of sales; the analyst gives it.
+    let wc = json!({"balances": "closing", "day_basis": "365",
+        "income_statement": {"revenue": is["revenue"], "purchases": is["purchases"],
+            "cost_of_sales": "3000000"},
+        "closing": {"trade_receivables": "800000", "trade_payables": "500000",
+            "inventories": y["current_non_current"]["inventories"]}});
+    fairmark_core::run("ratios.working_capital", &wc.to_string()).unwrap();
+}
+
+/// AC2, R6: in `few-totals`, every null output of the income statement is listed in
+/// `not_computed`, no listed output has a value, and the outputs computed are exactly those the
+/// totals given allow.
+#[test]
+fn few_totals_lists_every_income_statement_output_not_computed() {
+    let out = run(&golden_input("few-totals"));
+    let y = &out["value"]["years"][0];
+    let listed: Vec<String> = y["not_computed"]["income_statement"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["output"].as_str().unwrap().to_owned())
+        .collect();
+    let mut nulls = Vec::new();
+    let mut known = Vec::new();
+    let is = y["income_statement"].as_object().unwrap();
+    for (k, v) in is {
+        if k == "reconciliations" {
+            for (r, x) in v.as_object().unwrap() {
+                assert!(x.is_null(), "{r}");
+                nulls.push(format!("/years/0/income_statement/reconciliations/{r}"));
+            }
+        } else if v.is_null() {
+            nulls.push(format!("/years/0/income_statement/{k}"));
+        } else {
+            known.push(k.as_str());
+        }
+    }
+    nulls.sort();
+    assert_eq!(nulls, listed);
+    known.sort_unstable();
+    assert_eq!(
+        known,
+        [
+            "ebitda_definition",
+            "non_recurring_result",
+            "personnel_costs",
+            "revenue"
+        ]
+    );
+}
+
+/// AC12, R12, R21: a lease restatement keeps total funds invested equal to the sources, states
+/// its equity effect with its formula, and lists each of its amounts in `adjustments_applied`.
+#[test]
+fn a_lease_restatement_keeps_the_identity_and_shows_its_lines() {
+    let input = golden_input("adjustment-lease");
+    let out = run(&input);
+    check_identities(&out);
+    check_income_statement(&out, &input);
+    let s = step(
+        &out,
+        "Lease equity effect, adjustment 0 'Head office lease' (2024)",
+    );
+    assert_eq!(
+        s["formula"],
+        "right-of-use asset 240000 − lease liability 200000 − prepayment removed 10000"
+    );
+    assert_eq!(s["value"], "30000");
+    let lines: Vec<(&str, &str)> = out["value"]["years"][0]["adjustments_applied"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|a| (a["line"].as_str().unwrap(), a["target"].as_str().unwrap()))
+        .collect();
+    assert_eq!(
+        lines,
+        [
+            ("asset", "operating_fixed_assets"),
+            (
+                "liability",
+                "net_financial_position_other_financial_liability"
+            ),
+            ("prepayment", "equity"),
+            ("equity_effect", "equity"),
+            ("payments", "removed_by_restatement"),
+            ("depreciation", "operating_profit"),
+            ("interest", "financing_result"),
+        ]
+    );
+    let conv = conventions(&out);
+    assert!(conv.contains("no deferred taxes"), "{conv}");
+}
+
+/// R21: with assets D presented within C.II (abridged layout), a lease prepayment leaves C.II;
+/// the identity of R12 holds and a prepayment larger than that part is `FM-E026`.
+#[test]
+fn a_lease_prepayment_within_receivables_leaves_receivables() {
+    let mut input = golden_input("abridged-aggregates");
+    input["adjustments"] = json!([{"kind": "lease", "label": "Head office lease",
+        "reason": "Financial method", "amounts": [{"asset": "240000", "liability": "200000",
+        "liability_current": "50000", "prepayment": "10000", "payments": "60000",
+        "depreciation": "40000", "interest": "8000"}]}]);
+    let out = run(&input);
+    check_identities(&out);
+    let bs = &out["value"]["years"][0]["balance_sheet"];
+    assert_eq!(bs["operating"]["operating_working_capital"], "670000");
+    assert_eq!(bs["sources"]["equity"], "930000");
+    input["adjustments"][0]["amounts"][0]["prepayment"] = json!("30001");
+    let e = err(&input);
+    assert_eq!(e.code(), "FM-E026");
+    assert!(
+        e.to_string().contains(
+            "/years/0/statutory/balance_sheet/receivables/prepayments_and_accrued_income"
+        ),
+        "{e}"
+    );
+}
+
+/// R5: a reclassified income statement lists its reconciliations with no pointer to give (they
+/// need the statutory form), and its derived totals are steps with their terms substituted.
+#[test]
+fn a_reclassified_income_statement_derives_and_explains_its_totals() {
+    let mut input = golden_input("reclassified-income-statement");
+    let is = input["years"][0]["reclassified"]["income_statement"]
+        .as_object_mut()
+        .unwrap();
+    for k in [
+        "ebitda",
+        "profit_before_financing_and_taxes",
+        "profit_before_tax",
+        "net_income",
+    ] {
+        is.remove(k);
+    }
+    let out = run(&input);
+    let y = &out["value"]["years"][0];
+    assert_eq!(y["income_statement"]["net_income"], "150000");
+    let s = step(&out, "Net income from its components (2024)");
+    assert_eq!(
+        s["formula"],
+        "profit before tax 214000 − income taxes 64000"
+    );
+    for e in y["not_computed"]["income_statement"].as_array().unwrap() {
+        assert!(
+            e["output"]
+                .as_str()
+                .unwrap()
+                .contains("/income_statement/reconciliations/"),
+            "{e}"
+        );
+        assert!(e["missing"].as_array().unwrap().is_empty(), "{e}");
+    }
+}
+
+/// R11: every aggregate of the income statement given is assigned once, to its layer, and the
+/// assigned amounts of the ordinary company are the amounts given.
+#[test]
+fn every_income_statement_aggregate_given_is_assigned_to_its_layer() {
+    let out = run(&golden_input("ordinary-aggregates"));
+    let assignments = out["value"]["years"][0]["assignments"].as_array().unwrap();
+    let of = |r: &str| {
+        assignments
+            .iter()
+            .find(|a| a["reference"] == r)
+            .unwrap_or_else(|| panic!("{r}"))
+    };
+    for (reference, destination, amount) in [
+        ("A5", "value_of_production", "50000"),
+        ("B9", "ebitda", "1000000"),
+        ("B10 a, b", "operating_profit", "180000"),
+        ("B10 c", "investing_result", "20000"),
+        ("B10 d", "investing_result", "15000"),
+        ("B14", "value_added", "40000"),
+        ("C15", "investing_result", "12000"),
+        ("C17-bis", "financing_result", "-1000"),
+        ("D19", "investing_result", "8000"),
+        ("20", "income_taxes", "64000"),
+    ] {
+        let a = of(reference);
+        assert_eq!(a["destination"], destination, "{reference}");
+        assert_eq!(a["amount"], amount, "{reference}");
+        assert_eq!(a["origin"], "mapping", "{reference}");
+    }
 }

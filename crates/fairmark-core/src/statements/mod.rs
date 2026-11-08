@@ -7,13 +7,16 @@
 //! the pointers of the missing inputs (R6), and every relation checked exactly when both sides
 //! are given (R7).
 //!
-//! This build implements the balance sheet (first pull request of the plan): the reorganised
-//! balance sheet in both forms, the net financial position in the SPEC-0007 type, the bridge
-//! items in the `dcf.fcff` types and the current and non-current block for SPEC-0007. The
-//! income statement inputs are validated and checked; their reorganisation is not returned yet.
+//! This build implements the balance sheet and the income statement (first and second pull
+//! requests of the plan): the reorganised balance sheet in both forms, the net financial
+//! position in the SPEC-0007 type, the bridge items in the `dcf.fcff` types, the current and
+//! non-current block for SPEC-0007, and the reorganised income statement in both forms with the
+//! subtotals aligned with IFRS 18 and its reconciliations with A − B. The changes between years
+//! (R23) come with the third pull request.
 
 mod balance_sheet;
 mod checks;
+mod income_statement;
 pub mod input;
 mod partial;
 mod reclassified;
@@ -74,6 +77,27 @@ pub enum Destination {
     Equity,
     /// Deducted from equity (subscribed capital unpaid).
     DeductedFromEquity,
+    /// Value of production, layer of the income statement (A1 to A5, core).
+    ValueOfProduction,
+    /// Deducted in value added (B6, B7, B8, B11, B14, core).
+    ValueAdded,
+    /// Deducted in EBITDA (B9).
+    Ebitda,
+    /// Deducted in operating profit, below EBITDA (B10 a and b, B12, B13; B10 d with the
+    /// treatment `operating`).
+    OperatingProfit,
+    /// Investing result, below operating profit (A5 and B14 investing parts, C15, C16, D18,
+    /// D19, B10 c, B10 d by default).
+    InvestingResult,
+    /// Non-recurring result (parts moved by `non_recurring` adjustments).
+    NonRecurringResult,
+    /// Financing result (C17, C17-bis).
+    FinancingResult,
+    /// Income taxes, item 20 as given.
+    IncomeTaxes,
+    /// Removed from its aggregate by the financial-method restatement of a lease and replaced
+    /// by depreciation and interest (lease payments out of B8, R21).
+    RemovedByRestatement,
 }
 
 impl Destination {
@@ -95,6 +119,15 @@ impl Destination {
             Self::DebtLikeItems => "debt_like_items",
             Self::Equity => "equity",
             Self::DeductedFromEquity => "deducted_from_equity",
+            Self::ValueOfProduction => "value_of_production",
+            Self::ValueAdded => "value_added",
+            Self::Ebitda => "ebitda",
+            Self::OperatingProfit => "operating_profit",
+            Self::InvestingResult => "investing_result",
+            Self::NonRecurringResult => "non_recurring_result",
+            Self::FinancingResult => "financing_result",
+            Self::IncomeTaxes => "income_taxes",
+            Self::RemovedByRestatement => "removed_by_restatement",
         }
     }
 }
@@ -150,6 +183,11 @@ pub struct AppliedAdjustment {
     pub source: String,
     /// Where the amount goes.
     pub target: Destination,
+    /// For a `lease` adjustment, which of its amounts this entry moves: `asset`, `liability`,
+    /// `prepayment`, `equity_effect`, `payments`, `depreciation` or `interest`; omitted for
+    /// the other kinds.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub line: Option<&'static str>,
 }
 
 /// The operating block (Appendix B.1).
@@ -270,8 +308,96 @@ pub use crate::not_computed::{NotComputedEntry, Permitted};
 pub struct NotComputed {
     /// Outputs of the balance sheet block.
     pub balance_sheet: Vec<NotComputedEntry>,
+    /// Outputs of the income statement block.
+    pub income_statement: Vec<NotComputedEntry>,
     /// Outputs of the current and non-current block.
     pub current_non_current: Vec<NotComputedEntry>,
+}
+
+/// One amount moved between A − B and a subtotal (R19).
+#[derive(Debug, Clone, Serialize)]
+pub struct ReconciliationLine {
+    /// What the amount is, for example "B10 c, write-downs of fixed assets (investing result)".
+    pub label: String,
+    /// JSON pointer of the input it comes from: an aggregate or an adjustment.
+    pub source: String,
+    /// Amount added to A − B, in currency units, signed.
+    pub amount: Decimal,
+}
+
+/// A subtotal reconciled with the statutory difference between value and costs of production
+/// (R19): `start` + Σ `lines` = `end`, exactly.
+#[derive(Debug, Clone, Serialize)]
+pub struct Reconciliation {
+    /// A − B of the statutory income statement, in currency units, signed.
+    pub start: Decimal,
+    /// Every amount moved, in the order: write-downs, then adjustments in the order given, then
+    /// the investing items.
+    pub lines: Vec<ReconciliationLine>,
+    /// The subtotal reconciled, in currency units, signed.
+    pub end: Decimal,
+}
+
+/// The reconciliations of the two IFRS 18 aligned subtotals with A − B (R19).
+#[derive(Debug, Clone, Serialize)]
+pub struct Reconciliations {
+    /// A − B to `operating_profit`.
+    pub operating_profit: Option<Reconciliation>,
+    /// A − B to `profit_before_financing_and_taxes`.
+    pub profit_before_financing_and_taxes: Option<Reconciliation>,
+}
+
+/// The reorganised income statement (Appendix B.2; R16 to R20). Amounts named after a
+/// statutory item are the core amounts that enter the layers: less the parts moved by
+/// adjustments, with lease depreciation and interest added (R21).
+#[derive(Debug, Clone, Serialize)]
+pub struct IncomeStatement {
+    /// Revenue (A1, core), in currency units.
+    pub revenue: Option<Decimal>,
+    /// Value of production (A1 to A5, core), in currency units, signed.
+    pub value_of_production: Option<Decimal>,
+    /// Purchases (B6, core), in currency units.
+    pub purchases: Option<Decimal>,
+    /// Materials consumed (B6 + B11, core), in currency units, signed.
+    pub materials_consumed: Option<Decimal>,
+    /// Value added: value of production − B6, B11, B7, B8 and B14 (core), in currency units,
+    /// signed.
+    pub value_added: Option<Decimal>,
+    /// Personnel costs (B9, core), in currency units.
+    pub personnel_costs: Option<Decimal>,
+    /// EBITDA (margine operativo lordo, MOL): value added − personnel costs, in currency units,
+    /// signed.
+    pub ebitda: Option<Decimal>,
+    /// The definition of `ebitda` in words, usable as `ebitda_definition` of SPEC-0007 (R18).
+    pub ebitda_definition: &'static str,
+    /// Depreciation and amortisation (B10 a and b, core, plus lease depreciation), in currency
+    /// units; the field of `FreeCashFlowLines`.
+    pub depreciation_and_amortisation: Option<Decimal>,
+    /// Operating profit of the core business (reddito operativo della gestione caratteristica,
+    /// MON; IFRS 18 "operating profit or loss"), in currency units, signed.
+    pub operating_profit: Option<Decimal>,
+    /// Investing result (risultato della gestione accessoria), in currency units, signed.
+    pub investing_result: Option<Decimal>,
+    /// Operating profit + investing result (reddito operativo aziendale, EBIT in Italian
+    /// practice; IFRS 18 "profit or loss before financing and income taxes"), in currency
+    /// units, signed.
+    pub profit_before_financing_and_taxes: Option<Decimal>,
+    /// Σ non-recurring income − Σ non-recurring charges, in currency units, signed.
+    pub non_recurring_result: Option<Decimal>,
+    /// C17-bis − C17 (core, with lease interest), in currency units, signed.
+    pub financing_result: Option<Decimal>,
+    /// C17 (core, plus lease interest), in currency units.
+    pub interest_and_other_financial_charges: Option<Decimal>,
+    /// Profit before financing and taxes + non-recurring result + financing result, in
+    /// currency units, signed.
+    pub profit_before_tax: Option<Decimal>,
+    /// Item 20 as given, in currency units, signed (positive for a tax charge).
+    pub income_taxes: Option<Decimal>,
+    /// Profit before tax − income taxes, in currency units, signed.
+    pub net_income: Option<Decimal>,
+    /// The reconciliations of `operating_profit` and `profit_before_financing_and_taxes` with
+    /// A − B (statutory form only).
+    pub reconciliations: Reconciliations,
 }
 
 /// One financial year reorganised.
@@ -287,6 +413,8 @@ pub struct YearOutput {
     pub layout: Option<Layout>,
     /// The reorganised balance sheet (R12).
     pub balance_sheet: BalanceSheet,
+    /// The reorganised income statement (R16).
+    pub income_statement: IncomeStatement,
     /// Current and non-current amounts for SPEC-0007 (R15).
     pub current_non_current: CurrentNonCurrent,
     /// Every aggregate given, with its destination (R11).
@@ -367,10 +495,13 @@ fn compute(input: &ReorganiseInput) -> Result<(ReorganiseOutput, Explain)> {
             "amounts as presented in the statutory layouts, in the currency units of the \
              statements, never scaled (R3, Decision 3)",
         );
-        ex.convention(
-            "the income statement is not reorganised in this build: its inputs are validated \
-             and checked (R3, R7) and no income statement block is returned",
-        );
+    }
+    if input.years.iter().any(|y| {
+        y.statutory
+            .as_ref()
+            .is_some_and(|s| s.income_statement.is_some())
+    }) {
+        income_statement::conventions(input, &mut ex);
     }
     ex.convention(NFP_CONVENTION);
     if statutory {
@@ -447,19 +578,33 @@ fn compute(input: &ReorganiseInput) -> Result<(ReorganiseOutput, Explain)> {
                 "year {name}: layout `{id}` echoed; no number depends on it"
             ));
         }
-        let body = match form {
-            Some(Form::Reclassified) => reclassified::reclassified(input, i, &name, &mut ex)?,
+        let (mut body, income) = match form {
+            Some(Form::Reclassified) => (
+                reclassified::reclassified(input, i, &name, &mut ex)?,
+                income_statement::reclassified(input, i, &name, &mut ex)?,
+            ),
             _ => {
                 zero_treatment_conventions(input, i, &name, &mut ex);
-                balance_sheet::statutory(input, i, &name, &mut ex, &mut Notes(&mut later))?
+                let mut notes = Notes(&mut later);
+                let bs = balance_sheet::statutory(input, i, &name, &mut ex, &mut notes)?;
+                (
+                    bs,
+                    income_statement::statutory(input, i, &name, &mut ex, &mut notes)?,
+                )
             }
         };
+        body.assignments.extend(income.assignments);
+        body.adjustments_applied.extend(income.adjustments_applied);
+        body.adjustments_applied.sort_by_key(|a| a.index);
+        body.checks.extend(income.checks);
+        body.not_computed.income_statement = income.not_computed;
         years.push(YearOutput {
             label: y.label.clone(),
             date: y.date,
             form,
             layout,
             balance_sheet: body.balance_sheet,
+            income_statement: income.income_statement,
             current_non_current: body.current_non_current,
             assignments: body.assignments,
             adjustments_applied: body.adjustments_applied,
@@ -529,9 +674,12 @@ impl Method for Reorganise {
         abridged art. 2435-bis) or totals already reclassified, for one or more financial years, \
         into invested capital, non-operating assets, equity, quasi-equity, the net financial \
         position (SPEC-0007 type) and debt-like items, plus current and non-current amounts for \
-        the ratios; best effort: each output is computed when its inputs are given, otherwise \
-        null and listed in `not_computed` with the missing input pointers; totals are checked \
-        exactly (FM-E026). This build returns the balance sheet.";
+        the ratios, and the income statement by nature reorganised into value of production, \
+        value added, EBITDA, operating profit, investing result, profit before financing and \
+        taxes (subtotals aligned with IFRS 18), non-recurring and financing results, profit \
+        before tax and net income, with its reconciliations with A − B; best effort: each \
+        output is computed when its inputs are given, otherwise null and listed in \
+        `not_computed` with the missing input pointers; totals are checked exactly (FM-E026).";
     const VERSION: &'static str = "1";
 
     type Input = ReorganiseInput;
@@ -541,11 +689,12 @@ impl Method for Reorganise {
         compute(input)
     }
 
-    /// R8 as clarified on 2026-11-08, R17, D1, D2: the `default` destination of every
-    /// statutory balance sheet aggregate given (one entry each, with the pointer of the item,
-    /// the destination and the reason), then the input default `write_downs_of_receivables =
-    /// investing`, then every item taken as zero because it is not given. The destinations of
-    /// the income statement (A5, B14, B10 d) are listed from the build that reorganises it.
+    /// R8 as clarified on 2026-11-08, R17, R18, D1, D2: by year, the `default` destination of
+    /// every statutory aggregate given (balance sheet, then A5, B14 and B10 d of the income
+    /// statement; one entry each, with the pointer of the item, the destination and the reason;
+    /// B10 d only while the treatment `write_downs_of_receivables` is not given), then the input
+    /// default `write_downs_of_receivables = investing`, then every item taken as zero because
+    /// it is not given.
     fn apply_defaults(input: &mut ReorganiseInput) -> Vec<DefaultApplied> {
         let mut out = Vec::new();
         let write_downs_given = input.treatments.write_downs_of_receivables.is_some();
@@ -556,6 +705,17 @@ impl Method for Reorganise {
                     if (row.given)(bs).is_some() {
                         out.push(DefaultApplied::destination(
                             format!("/years/{i}/statutory/balance_sheet/{}", row.key),
+                            row.destination.id(),
+                            row.reason,
+                        ));
+                    }
+                }
+            }
+            if let Some(is) = &st.income_statement {
+                for row in INCOME_STATEMENT_DEFAULTS {
+                    if (row.given)(is).is_some() && !(row.unless_treatment && write_downs_given) {
+                        out.push(DefaultApplied::destination(
+                            format!("/years/{i}/statutory/income_statement/{}", row.key),
                             row.destination.id(),
                             row.reason,
                         ));
