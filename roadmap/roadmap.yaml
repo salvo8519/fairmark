@@ -64,6 +64,7 @@ milestones:
           - { issue: 159, title: "Roadmap page generated at build time instead of committed", status: done }
           - { issue: 183, title: "Required status checks recorded and kept in step with the ruleset", status: done }
           - { issue: 173, title: "Agents stop when an approved change reaches golden cases outside its scope", status: done }
+          - { issue: 193, title: "Ruff rule PLW1514: explicit encoding on every file open", status: open }
       - title: "CI/CD"
         issue: 10
         labels: ["area:infra"]
@@ -78,6 +79,7 @@ milestones:
           - { issue: 142, title: "Release preparation runs as a workflow that opens the release pull request", tags: [parallel], status: done }
           - { issue: 154, title: "Release scripts validate versions as whole strings", tags: [parallel], status: done }
           - { issue: 181, title: "Dependency check resilient to GitHub download errors", status: done }
+          - { issue: 192, title: "Golden case protection hook applies in every git worktree", status: done }
       - title: "Community infrastructure"
         issue: 15
         labels: ["area:infra"]
@@ -112,6 +114,8 @@ milestones:
           - { issue: 137, title: "Amortisation schedules: French, fixed amortisation schedule, bullet, principal grace period", spec: "0009", status: done }
           - { issue: 175, title: "Full precision of present values at long horizons in tvm", status: open }
           - { issue: 176, title: "Code review of the time value foundations for promotion to available", spec: "0002", status: done }
+          - { issue: 189, title: "Overflow of tvm.annuity growth factors at extreme inputs", status: open }
+          - { issue: 190, title: "IRR and XIRR refuse a guess at or below -1", status: open }
       - title: "Explain and audit trail"
         issue: 25
         labels: ["area:core"]
@@ -198,6 +202,7 @@ milestones:
         tasks:
           - { issue: 50, title: "methods / schema / run / verify", status: done }
           - { issue: 51, title: "Markdown output and batch mode", tags: [parallel], status: open }
+          - { issue: 191, title: "CLI exits cleanly when the output pipe is closed", status: open }
       - title: "MCP and function calling"
         issue: 52
         labels: ["area:mcp"]
