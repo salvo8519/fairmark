@@ -12,7 +12,7 @@ golden file is edited; if a task would change one, stop and ask the maintainer.
 - [ ] T2 Oracle dependencies: QuantLib-Python and python-dateutil pinned to exact versions in the
       `oracles` dependency group (`pyproject.toml`, `uv.lock`), per
       `docs/en/project/dependencies.md`; `security-reviewer` review of the change.
-- [ ] T3 [P] Reference generators, independent of the engine: `scripts/reference_schedule.py`
+- [x] T3 [P] Reference generators, independent of the engine: `scripts/reference_schedule.py`
       (each schedule built with python-dateutil and with QuantLib `Schedule`, `Period(p,
       Months)`, `NullCalendar`, `Unadjusted`, forward, `endOfMonth`; fails on any disagreement;
       prints both library versions) and `scripts/reference_series.py` (50-digit Python

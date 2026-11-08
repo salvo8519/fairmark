@@ -29,7 +29,14 @@ from typing import Any, TypeVar
 T = TypeVar("T", bound=Callable[..., Any])
 
 CONTEXT = Context(prec=50)
-PER_YEAR = {"annual": 1, "semi_annual": 2, "quarterly": 4, "monthly": 12}
+PER_YEAR = {
+    "annual": 1,
+    "semi_annual": 2,
+    "four_monthly": 3,
+    "quarterly": 4,
+    "bimonthly": 6,
+    "monthly": 12,
+}
 MODES = {"half_up": ROUND_HALF_UP, "half_even": ROUND_HALF_EVEN}
 
 
@@ -221,3 +228,11 @@ if __name__ == "__main__":
     for row in s.rows:
         print(" ", row.period, row.instalment, row.interest, row.principal, row.balance)
     print("  final adjustment", s.final_adjustment, "total interest", s.total_interest)
+    # SPEC-0010 AC14: bimonthly payments, in form (a) and as the equivalent form (b).
+    for compounding in ("bimonthly", "annual"):
+        k = periodic_rate(D("0.06"), compounding, "bimonthly")
+        print(f"6% {compounding}, bimonthly payments: periodic rate {k}")
+        print(
+            "  instalment, 20000 over 18 payments in arrears:",
+            instalment(D(20000), k, 18, "ordinary"),
+        )
