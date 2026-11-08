@@ -514,6 +514,70 @@ fn the_reclassified_totals_of_lists_and_excess_cash_are_steps() {
     }
 }
 
+// ---------------------------------------------------------------- R5: the reclassified form
+
+/// Review of PR 1 (item 5): an output that only the statutory form gives is listed without a
+/// pointer to give (giving `statutory` in the same entry is `FM-E001`), and a convention says
+/// why; inventories come from the operating working capital.
+#[test]
+fn reclassified_outputs_of_the_statutory_form_are_explained_not_pointed_at() {
+    let out = run(&golden_input("reclassified-balance-sheet"));
+    let y = &out["value"]["years"][0];
+    assert_eq!(y["current_non_current"]["inventories"], "400000");
+    for block in ["balance_sheet", "current_non_current"] {
+        for entry in y["not_computed"][block].as_array().unwrap() {
+            let missing = entry["missing"].as_array().unwrap();
+            assert!(
+                missing
+                    .iter()
+                    .all(|m| !m.as_str().unwrap().contains("/statutory")),
+                "{entry}"
+            );
+        }
+    }
+    let outputs: Vec<&str> = y["not_computed"]["current_non_current"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["output"].as_str().unwrap())
+        .collect();
+    assert!(!outputs.contains(&"/years/0/current_non_current/inventories"));
+    let conv = conventions(&out);
+    assert!(
+        conv.contains(
+            "year 2024: the current and non-current block (except inventories) and \
+                       the composition of the net financial position need the statutory form"
+        ),
+        "{conv}"
+    );
+}
+
+/// Review of PR 1 (item 5): with only its current and non-current parts, the net financial
+/// position total is their sum, and the maturity relation, which would compare the total with
+/// itself, is not checked.
+#[test]
+fn the_reclassified_net_financial_position_is_derived_from_its_parts() {
+    let mut input = golden_input("reclassified-balance-sheet");
+    input["years"][0]["reclassified"]["balance_sheet"]["net_financial_position"] =
+        json!({"current": "100000", "non_current": "610000"});
+    let out = run(&input);
+    let y = &out["value"]["years"][0];
+    assert_eq!(
+        y["balance_sheet"]["sources"]["net_financial_position"]["total"],
+        "710000"
+    );
+    assert_eq!(
+        y["checks"]["net_financial_position_maturity"]["status"],
+        "not_checked"
+    );
+    assert_eq!(
+        y["checks"]["funds_invested_equals_sources"]["status"],
+        "reconciled"
+    );
+    let s = step(&out, "Net financial position from its parts (2024)");
+    assert_eq!(s["formula"], "current 100000 + non-current 610000");
+}
+
 // ---------------------------------------------------------------- AC13: stability and schema
 
 #[test]

@@ -32,6 +32,12 @@ impl Partial {
         Self::Missing(BTreeSet::from([pointer.into()]))
     }
 
+    /// Missing with no input that could supply it in this form (for example an output of the
+    /// statutory form in a reclassified entry); the conventions say why.
+    pub(crate) fn unavailable() -> Self {
+        Self::Missing(BTreeSet::new())
+    }
+
     pub(crate) fn of(value: Option<Decimal>, pointer: impl FnOnce() -> String) -> Self {
         match value {
             Some(v) => Self::Known(v),
@@ -62,11 +68,15 @@ impl Partial {
     /// missing term (checked arithmetic, `FM-E008` on overflow).
     pub(crate) fn sum(terms: &[(Sign, &Partial)]) -> Result<Partial> {
         let mut missing = BTreeSet::new();
+        let mut any_missing = false;
         let mut total = Decimal::ZERO;
         for (sign, term) in terms {
             match term {
-                Self::Missing(m) => missing.extend(m.iter().cloned()),
-                Self::Known(v) if missing.is_empty() => {
+                Self::Missing(m) => {
+                    any_missing = true;
+                    missing.extend(m.iter().cloned());
+                }
+                Self::Known(v) if !any_missing => {
                     total = match sign {
                         Sign::Plus => num::add(total, *v)?,
                         Sign::Minus => num::sub(total, *v)?,
@@ -75,7 +85,7 @@ impl Partial {
                 Self::Known(_) => {}
             }
         }
-        Ok(if missing.is_empty() {
+        Ok(if !any_missing {
             Self::Known(total)
         } else {
             Self::Missing(missing)
@@ -172,6 +182,14 @@ mod tests {
         let missing = total(&mut ex, "x", &[(Sign::Plus, "a", &Partial::lacking("/a"))]).unwrap();
         assert!(!missing.is_known());
         assert_eq!(ex.steps.len(), 1);
+    }
+
+    #[test]
+    fn an_unavailable_term_keeps_the_sum_missing() {
+        let s =
+            Partial::sum(&[(Sign::Plus, &k(1)), (Sign::Plus, &Partial::unavailable())]).unwrap();
+        assert!(!s.is_known());
+        assert!(s.missing().is_empty());
     }
 
     #[test]

@@ -21,6 +21,8 @@ const FIX: &str = "correct the total or its components so that the reclassified 
     adds up, or leave out the total to have it derived";
 
 /// A total given, checked against its derived value; the given value prevails when both exist.
+/// Returns the amount and the pointers it was read from: the total's when given, else its
+/// components' (`components`), so that a relation names only items given.
 fn given_or_derived(
     checks: &mut Checks,
     relation: &'static str,
@@ -28,21 +30,21 @@ fn given_or_derived(
     given: (Option<Decimal>, String),
     derived: &Partial,
     components: Vec<String>,
-) -> Result<Partial> {
+) -> Result<(Partial, Vec<String>)> {
     checks.equal(
         relation,
         Side::new(name.to_owned(), vec![given.1.clone()], given.0),
         Side::new(
             format!("{name} derived by Appendix B.1"),
-            components,
+            components.clone(),
             derived.value(),
         ),
         FIX,
     )?;
     Ok(match given.0 {
-        Some(v) => Partial::Known(v),
-        None if derived.is_known() => derived.clone(),
-        None => Partial::lacking(given.1),
+        Some(v) => (Partial::Known(v), vec![given.1]),
+        None if derived.is_known() => (derived.clone(), components),
+        None => (Partial::lacking(given.1.clone()), vec![given.1]),
     })
 }
 
@@ -62,7 +64,17 @@ pub(crate) fn reclassified(
     let p = |k: &str| format!("{base}/{k}");
     let mut checks = Checks::new(year);
 
+    ex.convention(format!(
+        "year {year}: the current and non-current block (except inventories) and the \
+         composition of the net financial position need the statutory form (R13, R15): they are \
+         not computed for a reclassified entry; inventories are those of the operating working \
+         capital"
+    ));
     let owc_at = p("operating_working_capital");
+    let inventories = match &bs.operating_working_capital {
+        None => Partial::lacking(format!("{owc_at}/inventories")),
+        Some(n) => Partial::of(n.inventories, || format!("{owc_at}/inventories")),
+    };
     let (owc_given, owc_derived, twc) = match &bs.operating_working_capital {
         None => {
             let m = Partial::lacking(owc_at.clone());
@@ -103,7 +115,7 @@ pub(crate) fn reclassified(
     } else {
         owc_at.clone()
     };
-    let owc = given_or_derived(
+    let (owc, owc_used) = given_or_derived(
         &mut checks,
         "operating_working_capital_total",
         "operating working capital",
@@ -122,17 +134,16 @@ pub(crate) fn reclassified(
             (Minus, "operating provisions", &op_prov),
         ],
     )?;
-    let ic = given_or_derived(
+    let mut ic_components = vec![p("operating_fixed_assets")];
+    ic_components.extend(owc_used);
+    ic_components.push(p("operating_provisions"));
+    let (ic, ic_used) = given_or_derived(
         &mut checks,
         "invested_capital_total",
         "invested capital",
         (bs.invested_capital, p("invested_capital")),
         &ic_derived,
-        vec![
-            p("operating_fixed_assets"),
-            owc_at.clone(),
-            p("operating_provisions"),
-        ],
+        ic_components,
     )?;
     // R11: the total of each list is a step with every line substituted.
     let lines_total = |ex: &mut Explain,
@@ -169,13 +180,15 @@ pub(crate) fn reclassified(
             (Plus, "non-operating assets", &noa_total),
         ],
     )?;
-    let tfi = given_or_derived(
+    let mut tfi_components = ic_used;
+    tfi_components.push(p("non_operating_assets"));
+    let (tfi, tfi_used) = given_or_derived(
         &mut checks,
         "total_funds_invested_total",
         "total funds invested",
         (bs.total_funds_invested, p("total_funds_invested")),
         &tfi_derived,
-        vec![p("invested_capital"), p("non_operating_assets")],
+        tfi_components,
     )?;
     let equity = Partial::of(bs.equity, || p("equity"));
     let q_total = lines_total(
@@ -195,51 +208,76 @@ pub(crate) fn reclassified(
         "Debt-like items",
     )?;
     let nfp_at = p("net_financial_position");
-    let (position, nfp_total, current, non_current, position_why) = match &bs.net_financial_position
-    {
-        None => {
-            let m = Partial::lacking(nfp_at.clone());
-            (None, m.clone(), m.clone(), m.clone(), m)
-        }
-        Some(n) => {
-            let from_position = match &n.position {
-                Some(pos) => Partial::Known(pos.total(ex, year)?),
-                None => Partial::lacking(format!("{nfp_at}/position")),
-            };
-            let nfp_total = given_or_derived(
-                &mut checks,
-                "net_financial_position_total",
-                "net financial position",
-                (n.total, format!("{nfp_at}/total")),
-                &from_position,
-                vec![format!("{nfp_at}/position")],
-            )?;
-            let current = Partial::of(n.current, || format!("{nfp_at}/current"));
-            let non_current = Partial::of(n.non_current, || format!("{nfp_at}/non_current"));
-            let parts = Partial::sum(&[(Plus, &current), (Plus, &non_current)])?;
-            checks.equal(
-                "net_financial_position_maturity",
-                Side::new(
+    let (position, nfp_total, nfp_used, current, non_current, position_why) =
+        match &bs.net_financial_position {
+            None => {
+                let m = Partial::lacking(nfp_at.clone());
+                (
+                    None,
+                    m.clone(),
+                    vec![nfp_at.clone()],
+                    m.clone(),
+                    m.clone(),
+                    m,
+                )
+            }
+            Some(n) => {
+                let from_position = match &n.position {
+                    Some(pos) => Partial::Known(pos.total(ex, year)?),
+                    None => Partial::lacking(format!("{nfp_at}/position")),
+                };
+                let (independent, independent_used) = given_or_derived(
+                    &mut checks,
+                    "net_financial_position_total",
                     "net financial position",
-                    vec![format!("{nfp_at}/total")],
-                    nfp_total.value(),
-                ),
-                Side::new(
-                    "its current + non-current parts",
-                    vec![format!("{nfp_at}/current"), format!("{nfp_at}/non_current")],
-                    parts.value(),
-                ),
-                FIX,
-            )?;
-            (
-                n.position.clone(),
-                nfp_total,
-                current,
-                non_current,
-                from_position,
-            )
-        }
-    };
+                    (n.total, format!("{nfp_at}/total")),
+                    &from_position,
+                    vec![format!("{nfp_at}/position")],
+                )?;
+                let current = Partial::of(n.current, || format!("{nfp_at}/current"));
+                let non_current = Partial::of(n.non_current, || format!("{nfp_at}/non_current"));
+                let parts_used = vec![format!("{nfp_at}/current"), format!("{nfp_at}/non_current")];
+                let (nfp_total, nfp_used) = if independent.is_known() {
+                    let parts = Partial::sum(&[(Plus, &current), (Plus, &non_current)])?;
+                    checks.equal(
+                        "net_financial_position_maturity",
+                        Side::new(
+                            "net financial position",
+                            independent_used.clone(),
+                            independent.value(),
+                        ),
+                        Side::new("its current + non-current parts", parts_used, parts.value()),
+                        FIX,
+                    )?;
+                    (independent, independent_used)
+                } else {
+                    // R5: the total derived from its parts; comparing it with them would compare
+                    // it with itself, so the maturity relation is not checked.
+                    checks.not_checked("net_financial_position_maturity", parts_used.clone());
+                    let parts = total(
+                        ex,
+                        &format!("Net financial position from its parts ({year})"),
+                        &[
+                            (Plus, "current", &current),
+                            (Plus, "non-current", &non_current),
+                        ],
+                    )?;
+                    if parts.is_known() {
+                        (parts, parts_used)
+                    } else {
+                        (independent, independent_used)
+                    }
+                };
+                (
+                    n.position.clone(),
+                    nfp_total,
+                    nfp_used,
+                    current,
+                    non_current,
+                    from_position,
+                )
+            }
+        };
     let ts_derived = total(
         ex,
         &format!("Total sources ({year})"),
@@ -250,27 +288,21 @@ pub(crate) fn reclassified(
             (Plus, "debt-like items", &dl_total),
         ],
     )?;
-    let ts = given_or_derived(
+    let mut ts_components = vec![p("equity"), p("quasi_equity_items")];
+    ts_components.extend(nfp_used);
+    ts_components.push(p("debt_like_items"));
+    let (ts, ts_used) = given_or_derived(
         &mut checks,
         "total_sources_total",
         "total sources",
         (bs.total_sources, p("total_sources")),
         &ts_derived,
-        vec![
-            p("equity"),
-            p("quasi_equity_items"),
-            nfp_at.clone(),
-            p("debt_like_items"),
-        ],
+        ts_components,
     )?;
     checks.equal(
         "funds_invested_equals_sources",
-        Side::new(
-            "total funds invested",
-            vec![p("total_funds_invested")],
-            tfi.value(),
-        ),
-        Side::new("total sources", vec![p("total_sources")], ts.value()),
+        Side::new("total funds invested", tfi_used, tfi.value()),
+        Side::new("total sources", ts_used, ts.value()),
         "in a reorganised balance sheet the funds invested equal the sources (R12): correct \
          the total that differs from the statement",
     )?;
@@ -287,7 +319,7 @@ pub(crate) fn reclassified(
         None => position_why.clone(),
     };
 
-    let statutory = Partial::lacking(format!("/years/{i}/statutory/balance_sheet"));
+    let statutory = Partial::unavailable();
     let mut out = Outputs::new(i, Default::default());
     let b = "balance_sheet";
     let c = "current_non_current";
@@ -351,7 +383,7 @@ pub(crate) fn reclassified(
     let current_non_current = CurrentNonCurrent {
         fixed_assets: out.amount(c, "fixed_assets", &statutory),
         current_assets: out.amount(c, "current_assets", &statutory),
-        inventories: out.amount(c, "inventories", &statutory),
+        inventories: out.amount(c, "inventories", &inventories),
         cash: out.amount(c, "cash", &statutory),
         total_assets: out.amount(c, "total_assets", &statutory),
         current_liabilities: out.amount(c, "current_liabilities", &statutory),

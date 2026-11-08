@@ -79,13 +79,15 @@ def lacking(*pointers: str) -> Amt:
 def total(*terms: tuple[int, Amt]) -> Amt:
     """Signed sum of (sign, amount); missing if any term is missing (union of pointers)."""
     missing: set[str] = set()
+    absent = False
     s = ZERO
     for sign, a in terms:
         if a.value is None:
+            absent = True
             missing |= a.missing
         else:
             s += sign * a.value
-    if missing:
+    if absent:
         return Amt(None, frozenset(missing))
     return Amt(s)
 
@@ -1336,14 +1338,21 @@ def reclassified_balance_sheet(inp: dict[str, Any], i: int) -> dict[str, Any]:
             )
             position = Lst(pos, t_pos)
         check(c, "net_financial_position_total", t_given, t_pos)
-        nfp_total = given_or_derived(t_given, t_pos)
+        independent = given_or_derived(t_given, t_pos)
         cur = known(dec(nfp["current"])) if "current" in nfp else lacking(f"{nptr}/current")
         ncur = (
             known(dec(nfp["non_current"]))
             if "non_current" in nfp
             else lacking(f"{nptr}/non_current")
         )
-        check(c, "net_financial_position_maturity", nfp_total, plus(cur, ncur))
+        if independent.known:
+            check(c, "net_financial_position_maturity", independent, plus(cur, ncur))
+            nfp_total = independent
+        else:
+            # R5: the total is derived from its parts, so the maturity relation is not checked.
+            c["net_financial_position_maturity"] = "not_checked"
+            parts = plus(cur, ncur)
+            nfp_total = parts if parts.known else independent
     ts_given = leaf(bs, base, "total_sources")
     ts_der = plus(equity, qe.amount, nfp_total, dl.amount)
     check(c, "total_sources_total", ts_given, ts_der)
@@ -1355,16 +1364,12 @@ def reclassified_balance_sheet(inp: dict[str, Any], i: int) -> dict[str, Any]:
     else:
         c["funds_invested_equals_sources"] = "not_checked"
     excess = known(dec(position.items["cash"])) if position.items is not None else position.amount  # type: ignore[call-overload]
-    statutory = lacking(f"/years/{i}/statutory/balance_sheet")
-    keys = (
-        "fixed_assets",
-        "current_assets",
-        "inventories",
-        "cash",
-        "total_assets",
-        "current_liabilities",
-        "non_current_liabilities",
-    )
+    # Outputs only the statutory form gives: missing with no input to name (R13, R15).
+    statutory = Amt(None, frozenset())
+    if owc_node is None:
+        inventories = lacking(f"{owc_ptr}/inventories")
+    else:
+        inventories = part(bs, base, "operating_working_capital", "inventories")
     balance_sheet = {
         "operating": {
             "operating_fixed_assets": ofa,
@@ -1393,7 +1398,16 @@ def reclassified_balance_sheet(inp: dict[str, Any], i: int) -> dict[str, Any]:
         },
         "excess_cash": excess,
     }
-    return finish(balance_sheet, dict.fromkeys(keys, statutory), c, {}, i)
+    cnc = {
+        "fixed_assets": statutory,
+        "current_assets": statutory,
+        "inventories": inventories,
+        "cash": statutory,
+        "total_assets": statutory,
+        "current_liabilities": statutory,
+        "non_current_liabilities": statutory,
+    }
+    return finish(balance_sheet, cnc, c, {}, i)
 
 
 @at_50_digits
