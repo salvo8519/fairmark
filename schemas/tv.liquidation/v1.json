@@ -1,0 +1,72 @@
+{
+  "$defs": {
+    "Line": {
+      "additionalProperties": false,
+      "description": "A labelled amount, for example an asset and its realisable value.",
+      "properties": {
+        "label": {
+          "description": "What the amount is, for example \"Land\" or \"Bank loan\". Not empty.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Amount in currency units, zero or positive.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:tv.liquidation:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `tv.liquidation`.",
+  "properties": {
+    "assets": {
+      "description": "Assets with their realisable values at N, in currency units, each zero or positive.",
+      "items": {
+        "$ref": "#/$defs/Line"
+      },
+      "type": "array"
+    },
+    "liabilities": {
+      "description": "Liabilities settled at N, in currency units, each zero or positive.",
+      "items": {
+        "$ref": "#/$defs/Line"
+      },
+      "type": "array"
+    },
+    "liquidation_costs": {
+      "description": "Costs of the liquidation (legal fees, closure, severance), in currency units, each zero\nor positive.",
+      "items": {
+        "$ref": "#/$defs/Line"
+      },
+      "type": "array"
+    },
+    "tax_on_gains": {
+      "description": "Tax on the gains realised, as an amount in currency units, zero or positive.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    }
+  },
+  "required": [
+    "assets",
+    "liabilities",
+    "liquidation_costs",
+    "tax_on_gains"
+  ],
+  "title": "LiquidationInput",
+  "type": "object",
+  "x-fairmark-method": "tv.liquidation",
+  "x-fairmark-method-version": "1"
+}

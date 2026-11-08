@@ -1,0 +1,50 @@
+{
+  "$id": "urn:fairmark:schema:tv.normalised_income:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `tv.normalised_income`.",
+  "properties": {
+    "capitalisation_rate": {
+      "description": "Capitalisation rate i, decimal fraction per period; must exceed `growth` (or 0 when no\ngrowth is given).",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "growth": {
+      "description": "Perpetual growth of the income, decimal fraction per period, greater than -1 and below\nthe capitalisation rate. Default: none (R / i).",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "growth_cap": {
+      "description": "Upper bound for the growth, decimal fraction per period. Default: none, reported as\nabsent. A growth above the cap is reported, not refused.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "income": {
+      "description": "Normalised income R of the first period after the horizon, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    }
+  },
+  "required": [
+    "income",
+    "capitalisation_rate"
+  ],
+  "title": "NormalisedIncomeInput",
+  "type": "object",
+  "x-fairmark-method": "tv.normalised_income",
+  "x-fairmark-method-version": "1"
+}

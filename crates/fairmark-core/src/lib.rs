@@ -30,6 +30,7 @@ pub mod rates;
 pub mod ratios;
 pub mod registry;
 pub mod solver;
+pub mod tv;
 pub mod tvm;
 pub mod types;
 
