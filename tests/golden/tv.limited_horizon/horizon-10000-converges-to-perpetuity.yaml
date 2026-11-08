@@ -1,0 +1,8 @@
+method: tv.limited_horizon
+description: Flow 100 for 10000 periods at 10% equals the perpetuity 100 / 0.10 = 1000 to the decimal precision (AC5)
+source: Independent 50-digit reference, scripts/reference_tv.py (term-by-term sum, 999.99999999999999999999999999999999999999999999985); closed form of the perpetuity 100 / 0.10
+input: { flow: "100", rate: "0.10", periods: 10000 }
+expect:
+  terminal_value: "1000"
+  flows_value: "1000"
+tolerance: "0.0000000000000000000001"

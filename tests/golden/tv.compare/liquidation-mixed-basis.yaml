@@ -1,0 +1,15 @@
+method: tv.compare
+description: A liquidation declared on the equity basis inside an enterprise comparison is refused (decided under the maintainer's instruction of 2026-11-08)
+source: SPEC-0006 Decisions (2026-11-08), the basis check applies to liquidation as to the multiples
+input:
+  rate: "0.10"
+  basis: enterprise
+  techniques:
+    - tv.gordon: { growth: "0.02", next_flow: "100" }
+    - tv.liquidation:
+        assets: [{ label: Land, value: "800" }]
+        liabilities: [{ label: Bank loan, value: "600" }]
+        liquidation_costs: []
+        tax_on_gains: "0"
+        basis: equity
+expect_error: FM-E019

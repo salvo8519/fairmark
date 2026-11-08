@@ -1,0 +1,5 @@
+method: tv.limited_horizon
+description: A finite horizon needs at least one period (R10)
+source: SPEC-0006 R10
+input: { flow: "100", rate: "0.08", periods: 0 }
+expect_error: FM-E018

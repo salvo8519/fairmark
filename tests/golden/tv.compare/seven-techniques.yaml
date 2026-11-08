@@ -1,0 +1,35 @@
+method: tv.compare
+description: Seven techniques on one rate (10%), enterprise basis and growth cap (3%) (R9)
+source: Independent 50-digit reference, scripts/reference_tv.py, each technique computed on its own; liquidation 800 + 300 + 200 - 250 - 40 - 60 - 30 = 920
+input:
+  rate: "0.10"
+  basis: enterprise
+  growth_cap: "0.03"
+  techniques:
+    - tv.gordon: { growth: "0.02", last_flow: "100" }
+    - tv.value_driver: { nopat_next: "150", growth: "0.02", ronic: "0.12" }
+    - tv.h_model: { last_flow: "100", short_term_growth: "0.08", long_term_growth: "0.02", half_life: "2.5" }
+    - tv.exit_multiple: { multiple: "7.5", metric: ebitda, metric_value: "180", next_flow: "95" }
+    - tv.limited_horizon: { flow: "100", periods: 5, growth: "0.02", residual_value: "500" }
+    - tv.normalised_income: { income: "95", capitalisation_rate: "0.11", basis: enterprise, growth: "0.015" }
+    - tv.liquidation:
+        assets: [{ label: Land, value: "800" }, { label: Plant, value: "300" }, { label: Receivables, value: "200" }]
+        # Enterprise basis: operating liabilities only, financial debt excluded.
+        liabilities: [{ label: Suppliers, value: "250" }]
+        liquidation_costs: [{ label: Legal fees, value: "40" }, { label: Closure, value: "60" }]
+        tax_on_gains: "30"
+        basis: enterprise
+expect:
+  /results/0/method: tv.gordon
+  /results/0/terminal_value: "1275"
+  /results/1/terminal_value: "1562.5"
+  /results/2/terminal_value: "1462.5"
+  /results/3/terminal_value: "1350"
+  /results/3/output/implied_growth: "0.0296296296296296296296296296"
+  /results/3/output/growth_cap/status: respected
+  /results/4/terminal_value: "703.5265201706291795766558419383"
+  /results/5/terminal_value: "1000"
+  /results/6/method: tv.liquidation
+  /results/6/terminal_value: "920"
+  /results/0/method_version: "1"
+tolerance: "0.0000000000000000000001"

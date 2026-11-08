@@ -1,0 +1,30 @@
+# Contract cases for tv.exit_multiple: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: tv.exit_multiple
+extreme_inputs:
+- multiple: MAX
+  metric: revenue
+  metric_value: MAX
+- multiple: '0.0000000000000000000000000001'
+  metric: ebit
+  metric_value: '0.0000000000000000000000000001'
+  rate: MAX
+  next_flow: MIN
+  growth_cap: '0'
+conventions:
+- input:
+    multiple: '12'
+    metric: earnings
+    metric_value: '50'
+  expect:
+  - equity basis
+  - 'implied growth: not computed'
+- input:
+    multiple: '8'
+    metric: ebitda
+    metric_value: '125'
+    rate: '0.10'
+    next_flow: '60'
+  expect:
+  - enterprise basis

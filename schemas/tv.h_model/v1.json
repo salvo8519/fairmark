@@ -1,0 +1,68 @@
+{
+  "$id": "urn:fairmark:schema:tv.h_model:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `tv.h_model`.",
+  "properties": {
+    "growth_cap": {
+      "description": "Upper bound for the long-term growth, decimal fraction per period. Default: none,\nreported as absent. A growth above the cap is reported, not refused.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "half_life": {
+      "description": "Half-life H, in periods: the decline from g_s to g_l lasts 2H periods. Zero or positive;\nmay be fractional.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "last_flow": {
+      "description": "Flow of the last explicit period, CF_N, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "long_term_growth": {
+      "description": "Stable growth reached after 2H periods and kept forever, g_l, decimal fraction per\nperiod, greater than -1 and below `rate`.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "rate": {
+      "description": "Discount rate of the terminal phase, decimal fraction per period; must exceed\n`long_term_growth`.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "short_term_growth": {
+      "description": "Growth at the start of the decline, g_s, decimal fraction per period, greater than -1.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    }
+  },
+  "required": [
+    "last_flow",
+    "short_term_growth",
+    "long_term_growth",
+    "half_life",
+    "rate"
+  ],
+  "title": "HModelInput",
+  "type": "object",
+  "x-fairmark-method": "tv.h_model",
+  "x-fairmark-method-version": "1"
+}

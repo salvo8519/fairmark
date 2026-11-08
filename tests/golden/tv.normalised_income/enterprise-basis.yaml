@@ -1,0 +1,8 @@
+method: tv.normalised_income
+description: Normalised operating income 95 at 11% with growth 1.5%, declared on the enterprise basis (R6, decision of 2026-11-08)
+source: Independent 50-digit reference, scripts/reference_tv.py; closed form 95 / (0.11 - 0.015) = 1000
+input: { income: "95", capitalisation_rate: "0.11", basis: enterprise, growth: "0.015" }
+expect:
+  terminal_value: "1000"
+  basis: enterprise
+tolerance: "0"

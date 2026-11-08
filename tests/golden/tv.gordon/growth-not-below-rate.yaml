@@ -1,0 +1,5 @@
+method: tv.gordon
+description: Growth equal to the rate has no finite terminal value (R10)
+source: SPEC-0006 R10
+input: { rate: "0.05", growth: "0.05", next_flow: "100" }
+expect_error: FM-E004

@@ -1,0 +1,92 @@
+{
+  "$defs": {
+    "Line": {
+      "additionalProperties": false,
+      "description": "A labelled amount, for example an asset and its realisable value.",
+      "properties": {
+        "label": {
+          "description": "What the amount is, for example \"Land\" or \"Bank loan\". Not empty.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Amount in currency units, zero or positive.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    },
+    "TerminalBasis": {
+      "description": "Whether a terminal value is a value of the whole business or of its equity.",
+      "oneOf": [
+        {
+          "const": "enterprise",
+          "description": "Enterprise value: flows to all capital providers (FCFF), discounted at the WACC;\nmultiples EV/EBITDA, EV/EBIT, EV/Sales.",
+          "type": "string"
+        },
+        {
+          "const": "equity",
+          "description": "Equity value: flows to shareholders (FCFE, dividends), discounted at the cost of\nequity; multiple P/E.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:fairmark:schema:tv.liquidation:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `tv.liquidation`.",
+  "properties": {
+    "assets": {
+      "description": "Assets with their realisable values at N, in currency units, each zero or positive; at\nleast one.",
+      "items": {
+        "$ref": "#/$defs/Line"
+      },
+      "type": "array"
+    },
+    "basis": {
+      "$ref": "#/$defs/TerminalBasis",
+      "description": "`enterprise` (the liabilities listed exclude financial debt: the value is an enterprise\nvalue) or `equity` (financial debt included: the value is an equity value). Required, no\ndefault."
+    },
+    "liabilities": {
+      "description": "Liabilities settled at N, in currency units, each zero or positive.",
+      "items": {
+        "$ref": "#/$defs/Line"
+      },
+      "type": "array"
+    },
+    "liquidation_costs": {
+      "description": "Costs of the liquidation (legal fees, closure, severance), in currency units, each zero\nor positive.",
+      "items": {
+        "$ref": "#/$defs/Line"
+      },
+      "type": "array"
+    },
+    "tax_on_gains": {
+      "description": "Tax on the gains realised, as an amount in currency units, zero or positive.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    }
+  },
+  "required": [
+    "assets",
+    "liabilities",
+    "liquidation_costs",
+    "tax_on_gains",
+    "basis"
+  ],
+  "title": "LiquidationInput",
+  "type": "object",
+  "x-fairmark-method": "tv.liquidation",
+  "x-fairmark-method-version": "1"
+}

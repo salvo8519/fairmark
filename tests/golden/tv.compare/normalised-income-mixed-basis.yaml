@@ -1,0 +1,10 @@
+method: tv.compare
+description: A normalised income declared on the equity basis inside an enterprise comparison is refused (decision of 2026-11-08)
+source: SPEC-0006 Decisions (2026-11-08), the basis check applies to normalised income as to the multiples
+input:
+  rate: "0.10"
+  basis: enterprise
+  techniques:
+    - tv.gordon: { growth: "0.02", next_flow: "100" }
+    - tv.normalised_income: { income: "80", capitalisation_rate: "0.09", basis: equity }
+expect_error: FM-E019

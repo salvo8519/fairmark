@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::dates::{Date, DayCount};
 use crate::error::{FairmarkError, Result};
-use crate::explain::Explain;
+use crate::explain::{Explain, Step};
 use crate::method::Method;
 use crate::num;
 use crate::rates::{self, Compounding};
@@ -1026,8 +1026,33 @@ pub struct AnnuityOutput {
     pub factor: Decimal,
 }
 
-pub fn annuity(input: &AnnuityInput) -> Result<(AnnuityOutput, Explain)> {
-    let (r, g, n) = (input.rate, input.growth.unwrap_or_default(), input.periods);
+/// Present value at t = 0 of a first payment of 1 growing at `g` for `n` periods at rate `r`
+/// (the annuity factor), with the explain steps that compute it. Validates `n` (1 to
+/// [`MAX_PERIODS`], `FM-E001`), `r` (`FM-E003`) and `g` (`FM-E001`). Shared by `tvm.annuity`
+/// and `tv.limited_horizon`; it never computes a future value, so it cannot overflow on the
+/// growth factor (1 + r)^n.
+///
+/// For a long horizon ((1 + g)/(1 + r))^n can fall below the decimal precision (about
+/// 10^−28); the power then underflows, and the factor takes it as 0, its correct limit, with an
+/// explain step that says so. The result is the perpetuity factor to within that precision.
+pub(crate) fn annuity_factor(
+    r: Decimal,
+    g: Decimal,
+    n: u32,
+    timing: AnnuityTiming,
+) -> Result<(Decimal, Vec<Step>)> {
+    factor_with(r, g, n, timing, true)
+}
+
+/// `underflow_to_zero: false` keeps the behaviour of `tvm.annuity` version 1 unchanged: an
+/// underflowing power is `FM-E008` there.
+fn factor_with(
+    r: Decimal,
+    g: Decimal,
+    n: u32,
+    timing: AnnuityTiming,
+    underflow_to_zero: bool,
+) -> Result<(Decimal, Vec<Step>)> {
     if n == 0 || n > MAX_PERIODS {
         return Err(FairmarkError::InvalidInput(format!(
             "periods must be between 1 and {MAX_PERIODS} (got {n})"
@@ -1046,15 +1071,7 @@ pub fn annuity(input: &AnnuityInput) -> Result<(AnnuityOutput, Explain)> {
     let one_r = num::one_plus(r)?;
     let one_g = num::one_plus(g)?;
     let diff = num::sub(r, g)?;
-    let mut ex = Explain::new(
-        "tvm.annuity",
-        "PV = P × [1 − ((1 + g)/(1 + r))^n] / (r − g); P × n / (1 + r) when r = g; × (1 + r) if due",
-    );
-    ex.convention(match input.timing {
-        AnnuityTiming::Ordinary => "ordinary annuity: payments at the end of each period",
-        AnnuityTiming::Due => "annuity due: payments at the beginning of each period",
-    });
-    ex.convention(growth_convention(input.growth));
+    let mut ex = Explain::new("", "");
     let ordinary_factor = if r == g {
         let f = periods
             .checked_div(one_r)
@@ -1087,7 +1104,18 @@ pub fn annuity(input: &AnnuityInput) -> Result<(AnnuityOutput, Explain)> {
         let ratio = one_g
             .checked_div(one_r)
             .ok_or(FairmarkError::Overflow("annuity factor"))?;
-        let q = rates::pow(ratio, periods)?;
+        let q = match rates::pow(ratio, periods) {
+            // Only a ratio below 1 can underflow; its power is then below 10^−28.
+            Err(FairmarkError::Overflow(_)) if underflow_to_zero && ratio < one => {
+                ex.step(
+                    "Growth-to-discount ratio to the power n (below the decimal precision, taken as 0)",
+                    format!("((1 + {g}) / (1 + {r}))^{n}"),
+                    Decimal::ZERO,
+                );
+                Decimal::ZERO
+            }
+            other => other?,
+        };
         let f = num::sub(one, q)?
             .checked_div(diff)
             .ok_or(FairmarkError::Overflow("annuity factor"))?;
@@ -1098,7 +1126,7 @@ pub fn annuity(input: &AnnuityInput) -> Result<(AnnuityOutput, Explain)> {
         );
         f
     };
-    let factor = match input.timing {
+    let factor = match timing {
         AnnuityTiming::Ordinary => ordinary_factor,
         AnnuityTiming::Due => {
             let f = ordinary_factor
@@ -1112,6 +1140,24 @@ pub fn annuity(input: &AnnuityInput) -> Result<(AnnuityOutput, Explain)> {
             f
         }
     };
+    Ok((factor, ex.steps))
+}
+
+pub fn annuity(input: &AnnuityInput) -> Result<(AnnuityOutput, Explain)> {
+    let (r, g, n) = (input.rate, input.growth.unwrap_or_default(), input.periods);
+    let (factor, steps) = factor_with(r, g, n, input.timing, false)?;
+    let periods = Decimal::from(n);
+    let one_r = num::one_plus(r)?;
+    let mut ex = Explain::new(
+        "tvm.annuity",
+        "PV = P × [1 − ((1 + g)/(1 + r))^n] / (r − g); P × n / (1 + r) when r = g; × (1 + r) if due",
+    );
+    ex.convention(match input.timing {
+        AnnuityTiming::Ordinary => "ordinary annuity: payments at the end of each period",
+        AnnuityTiming::Due => "annuity due: payments at the beginning of each period",
+    });
+    ex.convention(growth_convention(input.growth));
+    ex.steps.extend(steps);
     let pv = input
         .payment
         .checked_mul(factor)

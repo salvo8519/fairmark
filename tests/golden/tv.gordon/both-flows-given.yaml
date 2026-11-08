@@ -1,0 +1,5 @@
+method: tv.gordon
+description: The flow at N + 1 is a required choice; giving both flows is refused (R1)
+source: SPEC-0006 R1 and conventions table
+input: { rate: "0.09", growth: "0.02", next_flow: "100", last_flow: "100" }
+expect_error: FM-E001

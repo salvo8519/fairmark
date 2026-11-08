@@ -1,0 +1,29 @@
+# Contract cases for tv.gordon: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: tv.gordon
+extreme_inputs:
+- rate: MAX
+  growth: '0.5'
+  last_flow: MAX
+  growth_cap: MIN
+- rate: MAX
+  growth: MIN
+  next_flow: MIN
+conventions:
+- input:
+    rate: '0.09'
+    growth: '0.02'
+    last_flow: '100'
+  expect:
+  - flow at N + 1 is the last flow grown by g
+  - 'growth cap: none given'
+  - not discounted
+- input:
+    rate: '0.09'
+    growth: '0.04'
+    next_flow: '100'
+    growth_cap: '0.03'
+  expect:
+  - flow at N + 1 given
+  - growth 0.04 exceeds the growth cap 0.03

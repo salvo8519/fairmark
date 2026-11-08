@@ -38,9 +38,22 @@ def _encode(obj: Any) -> Any:
 
 
 # Fields that name things rather than measure them: kept as text even when they look like
-# numbers (a method version "2", a scenario named "2025", an error code).
+# numbers (a method version "2", a scenario named "2025", an error code). Text and lists under
+# such a key stay as they are; only an object under it (the `output` of a `tv.compare` row,
+# which holds a whole method output) is converted like any other value.
 _TEXT_KEYS = frozenset(
-    {"id", "version", "method", "name", "output", "variable", "pointer", "code", "message"}
+    {
+        "id",
+        "version",
+        "method",
+        "method_version",
+        "name",
+        "output",
+        "variable",
+        "pointer",
+        "code",
+        "message",
+    }
 )
 
 
@@ -50,7 +63,10 @@ def _decimalize(node: Any) -> Any:
     if isinstance(node, list):
         return [_decimalize(v) for v in node]
     if isinstance(node, dict):
-        return {k: v if k in _TEXT_KEYS else _decimalize(v) for k, v in node.items()}
+        return {
+            k: v if k in _TEXT_KEYS and not isinstance(v, dict) else _decimalize(v)
+            for k, v in node.items()
+        }
     return node
 
 

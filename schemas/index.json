@@ -186,6 +186,86 @@
         }
       }
     },
+    "tv.compare": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "tv.compare/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "a8d27100fa29978862c8236d9b6d26acc9aa9775846ea5e8c53298576e0f2b81"
+        }
+      }
+    },
+    "tv.exit_multiple": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "tv.exit_multiple/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "e4f6aea3edc0a61954c0dfc6367c370a4d7b29dc660bf93c18dca2f09e4ddb30"
+        }
+      }
+    },
+    "tv.gordon": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "tv.gordon/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "4f1fb45a04b513cfd482286c5641de6c3beb7733cee878affa42bc4b40d72b5c"
+        }
+      }
+    },
+    "tv.h_model": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "tv.h_model/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "b17adafae91b11795da2bc3e8f6e4b3b47ec9376fce519be375e01a36885fae4"
+        }
+      }
+    },
+    "tv.limited_horizon": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "tv.limited_horizon/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "aef1079641300a077852330709bc760e4db59fe4f7d22759768303a8612ed416"
+        }
+      }
+    },
+    "tv.liquidation": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "tv.liquidation/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "82c7f1ae95a4544a90b1884fec1f4cbe86b10eeb96b9634c074ac568dd9191bc"
+        }
+      }
+    },
+    "tv.normalised_income": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "tv.normalised_income/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "2da01c06674fad70b9c18a757b08da92d1070c61d7809b745d94200beb79200f"
+        }
+      }
+    },
+    "tv.value_driver": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "tv.value_driver/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "f62f78fe375fcd6f833752009f67cd0296f5fc509b357deb9b533060f16c1184"
+        }
+      }
+    },
     "tvm.annuity": {
       "current": "1",
       "versions": {

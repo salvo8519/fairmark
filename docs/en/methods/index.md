@@ -21,6 +21,14 @@ page. The [methods reference](../reference/methods.md) lists every input.
 | [`coc.beta_peers`](coc-beta-peers.md) | available | Mean and median unlevered beta of comparables, relevered to a target structure |
 | [`coc.cost_of_debt`](coc-cost-of-debt.md) | available | Pre-tax and after-tax cost of debt |
 | [`coc.wacc`](coc-wacc.md) | available | Weighted average cost of capital at a target capital structure |
+| [`tv.gordon`](tv-gordon.md) | available | Terminal value at N with stable growth, CF_{N+1} / (r − g) |
+| [`tv.value_driver`](tv-value-driver.md) | available | Terminal value at N with growth earned by reinvesting g / RONIC |
+| [`tv.h_model`](tv-h-model.md) | available | Terminal value at N with growth declining linearly (H-model) |
+| [`tv.exit_multiple`](tv-exit-multiple.md) | available | Terminal value at N as a multiple of a metric, with the implied growth |
+| [`tv.limited_horizon`](tv-limited-horizon.md) | available | Terminal value at N of a flow lasting n more periods, plus a residual value |
+| [`tv.normalised_income`](tv-normalised-income.md) | available | Terminal value at N as a capitalised normalised income |
+| [`tv.liquidation`](tv-liquidation.md) | available | Net liquidation value at N, every line in the audit trail |
+| [`tv.compare`](tv-compare.md) | available | Several terminal value techniques on one rate, growth cap and basis |
 | [`dcf.fcff`](dcf-fcff.md) | preview | Enterprise and equity value from unlevered free cash flows |
 | [`ratios.profitability`](ratios-profitability.md) | preview | ROE, ROI, ROA, ROS, margins, capital turnover and the ROE decomposition in three factors and in the leverage form |
 | [`ratios.capital_structure`](ratios-capital-structure.md) | preview | Debt to equity, net financial position to equity, equity ratio, structure margins and fixed-asset coverage |

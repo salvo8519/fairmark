@@ -1,0 +1,59 @@
+{
+  "$id": "urn:fairmark:schema:tv.gordon:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `tv.gordon`.",
+  "properties": {
+    "growth": {
+      "description": "Perpetual growth of the flow, decimal fraction per period, greater than -1 and below\n`rate`.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "growth_cap": {
+      "description": "Upper bound for the perpetual growth, decimal fraction per period (for example the\nrisk-free rate or the nominal growth of the economy). Default: none, reported as absent.\nA growth above the cap is reported, not refused.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "last_flow": {
+      "description": "Flow of the last explicit period, CF_N, in currency units; grown by `growth` to\nCF_{N+1}. Give this or `next_flow`, not both.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "next_flow": {
+      "description": "Flow of the first period after the horizon, CF_{N+1}, in currency units (for example a\nnormalised flow). Give this or `last_flow`, not both.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "rate": {
+      "description": "Discount rate of the terminal phase, decimal fraction per period; must exceed `growth`.\nIt may differ from the rate of the explicit phase.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    }
+  },
+  "required": [
+    "rate",
+    "growth"
+  ],
+  "title": "GordonInput",
+  "type": "object",
+  "x-fairmark-method": "tv.gordon",
+  "x-fairmark-method-version": "1"
+}

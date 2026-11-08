@@ -1,0 +1,72 @@
+{
+  "$defs": {
+    "TerminalBasis": {
+      "description": "Whether a terminal value is a value of the whole business or of its equity.",
+      "oneOf": [
+        {
+          "const": "enterprise",
+          "description": "Enterprise value: flows to all capital providers (FCFF), discounted at the WACC;\nmultiples EV/EBITDA, EV/EBIT, EV/Sales.",
+          "type": "string"
+        },
+        {
+          "const": "equity",
+          "description": "Equity value: flows to shareholders (FCFE, dividends), discounted at the cost of\nequity; multiple P/E.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:fairmark:schema:tv.normalised_income:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `tv.normalised_income`.",
+  "properties": {
+    "basis": {
+      "$ref": "#/$defs/TerminalBasis",
+      "description": "`enterprise` (an operating income capitalised at a rate for all capital providers) or\n`equity` (a net income capitalised at a cost of equity). Required, no default."
+    },
+    "capitalisation_rate": {
+      "description": "Capitalisation rate i, decimal fraction per period, greater than 0; must exceed\n`growth`.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "growth": {
+      "description": "Perpetual growth of the income, decimal fraction per period, greater than -1 and below\nthe capitalisation rate. Default: none (R / i).",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "growth_cap": {
+      "description": "Upper bound for the growth, decimal fraction per period. Default: none, reported as\nabsent. A growth above the cap is reported, not refused.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "income": {
+      "description": "Normalised income R of the first period after the horizon, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    }
+  },
+  "required": [
+    "income",
+    "capitalisation_rate",
+    "basis"
+  ],
+  "title": "NormalisedIncomeInput",
+  "type": "object",
+  "x-fairmark-method": "tv.normalised_income",
+  "x-fairmark-method-version": "1"
+}

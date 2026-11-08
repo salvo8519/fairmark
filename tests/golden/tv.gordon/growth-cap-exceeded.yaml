@@ -1,0 +1,10 @@
+method: tv.gordon
+description: Next flow 50, rate 8%, growth 4% above a cap of 2%, reported and not refused (R8)
+source: Independent 50-digit reference, scripts/reference_tv.py; closed form 50 / (0.08 - 0.04) = 1250
+input: { rate: "0.08", growth: "0.04", next_flow: "50", growth_cap: "0.02" }
+expect:
+  terminal_value: "1250"
+  flow_basis: next_flow_given
+  /growth_cap/status: exceeded
+  /growth_cap/cap: "0.02"
+tolerance: "0"

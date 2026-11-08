@@ -102,6 +102,11 @@ The closed form and the direct sum use only integer powers, multiplication and d
 Measured against an independent 60-digit computation, they agree to about $10^{-24}$ relative
 or better. The golden cases are checked to $10^{-19}$.
 
+The annuity factor (the present value of a flow of 1 per period, growing at $g$) is shared
+with [`tv.limited_horizon`](tv-limited-horizon.md), which multiplies it by the flow and does
+not compute the future value: its range of periods is therefore not limited by the future
+value at $t = n$.
+
 ## Verified against
 
 - Golden cases in `tests/golden/tvm.annuity/`, from an independent 50-digit computation

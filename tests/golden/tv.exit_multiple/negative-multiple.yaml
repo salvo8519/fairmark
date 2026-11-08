@@ -1,0 +1,5 @@
+method: tv.exit_multiple
+description: A negative multiple makes no sense (R10)
+source: SPEC-0006 R10
+input: { multiple: "-6", metric: ebit, metric_value: "100" }
+expect_error: FM-E018

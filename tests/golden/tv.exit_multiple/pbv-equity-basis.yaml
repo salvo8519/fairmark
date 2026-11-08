@@ -1,0 +1,9 @@
+method: tv.exit_multiple
+description: 1.4 x book value of equity 750 (P/BV, equity basis), cost of equity 9%, FCFE 63 at N + 1 implies growth 3% (R4, decision of 2026-11-08)
+source: Independent 50-digit reference, scripts/reference_tv.py; closed forms 1.4 x 750 = 1050 and 0.09 - 63 / 1050 = 0.03
+input: { multiple: "1.4", metric: book_value, metric_value: "750", rate: "0.09", next_flow: "63" }
+expect:
+  terminal_value: "1050"
+  basis: equity
+  implied_growth: "0.03"
+tolerance: "0"

@@ -64,6 +64,12 @@ pub enum FairmarkError {
 
     #[error("'{0}' is an analysis method; an analysis cannot evaluate another analysis")]
     NestedAnalysis(String),
+
+    #[error("terminal value input outside its domain: {0}")]
+    TerminalValueDomain(String),
+
+    #[error("enterprise and equity measures are mixed: {0}")]
+    MixedBasis(String),
 }
 
 impl FairmarkError {
@@ -87,6 +93,8 @@ impl FairmarkError {
             Self::InvalidPointer { .. } => "FM-E015",
             Self::EvaluationLimit(_) => "FM-E016",
             Self::NestedAnalysis(_) => "FM-E017",
+            Self::TerminalValueDomain(_) => "FM-E018",
+            Self::MixedBasis(_) => "FM-E019",
         }
     }
 

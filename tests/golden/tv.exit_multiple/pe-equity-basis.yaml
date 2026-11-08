@@ -1,0 +1,10 @@
+method: tv.exit_multiple
+description: 12 x earnings 50 is an equity value (P/E, equity basis); no implied growth asked (R4)
+source: Independent 50-digit reference, scripts/reference_tv.py; closed form 12 x 50 = 600
+input: { multiple: "12", metric: earnings, metric_value: "50" }
+expect:
+  terminal_value: "600"
+  basis: equity
+  implied_growth: "null"
+  growth_cap: "null"
+tolerance: "0"

@@ -219,6 +219,120 @@ WACC from cost of equity, cost of debt, tax rate and target weights (D/E or D/(D
 | `debt_to_equity` | decimal | no |  | Target debt-to-equity ratio D/E, decimal, not negative. Give exactly one of `debt_to_equity` and `debt_weight`. |
 | `debt_weight` | decimal | no |  | Target weight of debt D/(D + E), decimal fraction from 0 to below 1. Give exactly one of `debt_to_equity` and `debt_weight`. |
 
+## `tv.gordon`
+
+**Terminal value, stable growth (Gordon)** · method version 1 · tool `fairmark_tv_gordon`
+
+Terminal value at the horizon N of a flow growing at g forever, CF_{N+1} / (r − g), from the next flow or the last flow grown by g; not discounted.
+
+| Input | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `rate` | decimal | yes |  | Discount rate of the terminal phase, decimal fraction per period; must exceed `growth`. It may differ from the rate of the explicit phase. |
+| `growth` | decimal | yes |  | Perpetual growth of the flow, decimal fraction per period, greater than -1 and below `rate`. |
+| `next_flow` | decimal | no |  | Flow of the first period after the horizon, CF_{N+1}, in currency units (for example a normalised flow). Give this or `last_flow`, not both. |
+| `last_flow` | decimal | no |  | Flow of the last explicit period, CF_N, in currency units; grown by `growth` to CF_{N+1}. Give this or `next_flow`, not both. |
+| `growth_cap` | decimal | no |  | Upper bound for the perpetual growth, decimal fraction per period (for example the risk-free rate or the nominal growth of the economy). Default: none, reported as absent. A growth above the cap is reported, not refused. |
+
+## `tv.value_driver`
+
+**Terminal value, value driver (growth from reinvestment)** · method version 1 · tool `fairmark_tv_value_driver`
+
+Terminal value at the horizon N with growth earned by reinvesting g / RONIC of NOPAT: NOPAT_{N+1} × (1 − g / RONIC) / (r − g); reports the reinvestment rate and whether growth creates value.
+
+| Input | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `nopat_next` | decimal | yes |  | Net operating profit after tax of the first period after the horizon, NOPAT_{N+1}, in currency units. |
+| `growth` | decimal | yes |  | Perpetual growth, decimal fraction per period, greater than -1 and below `rate`. |
+| `ronic` | decimal | yes |  | Return on new invested capital (RONIC), decimal fraction per period, greater than 0. |
+| `rate` | decimal | yes |  | Discount rate of the terminal phase, decimal fraction per period; must exceed `growth`. |
+| `growth_cap` | decimal | no |  | Upper bound for the perpetual growth, decimal fraction per period. Default: none, reported as absent. A growth above the cap is reported, not refused. |
+
+## `tv.h_model`
+
+**Terminal value, H-model (declining growth)** · method version 1 · tool `fairmark_tv_h_model`
+
+Terminal value at the horizon N when growth declines linearly from g_s to g_l over 2H periods: CF_N × [(1 + g_l) + H × (g_s − g_l)] / (r − g_l), an approximation.
+
+| Input | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `last_flow` | decimal | yes |  | Flow of the last explicit period, CF_N, in currency units. |
+| `short_term_growth` | decimal | yes |  | Growth at the start of the decline, g_s, decimal fraction per period, greater than -1. |
+| `long_term_growth` | decimal | yes |  | Stable growth reached after 2H periods and kept forever, g_l, decimal fraction per period, greater than -1 and below `rate`. |
+| `half_life` | decimal | yes |  | Half-life H, in periods: the decline from g_s to g_l lasts 2H periods. Zero or positive; may be fractional. |
+| `rate` | decimal | yes |  | Discount rate of the terminal phase, decimal fraction per period; must exceed `long_term_growth`. |
+| `growth_cap` | decimal | no |  | Upper bound for the long-term growth, decimal fraction per period. Default: none, reported as absent. A growth above the cap is reported, not refused. |
+
+## `tv.exit_multiple`
+
+**Terminal value, exit multiple** · method version 1 · tool `fairmark_tv_exit_multiple`
+
+Terminal value at the horizon N as a multiple of EBITDA, EBIT, revenue (enterprise basis), earnings or book value of equity (equity basis); with a rate and the next flow, reports the implied perpetual growth.
+
+| Input | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `multiple` | decimal | yes |  | The multiple, a pure number greater than 0 (for example 8 for 8 × EBITDA). |
+| `metric` | `ebitda` \| `ebit` \| `revenue` \| `earnings` \| `book_value` | yes |  | `ebitda`, `ebit`, `revenue` (enterprise basis), `earnings` or `book_value` (equity basis). |
+| `metric_value` | decimal | yes |  | The metric at the horizon N, in currency units, greater than 0. |
+| `rate` | decimal | no |  | Discount rate of the terminal phase, decimal fraction per period, on the basis of the metric (WACC for enterprise, cost of equity for equity). Optional, with `next_flow`: both or neither. Used only for the implied growth. |
+| `next_flow` | decimal | no |  | Flow at N + 1 on the basis of the metric (FCFF for enterprise, FCFE for equity), in currency units. Optional, with `rate`: both or neither. |
+| `growth_cap` | decimal | no |  | Upper bound for the implied growth, decimal fraction per period. Default: none, reported as absent. Needs `rate` and `next_flow`. Exceeding it is reported, not refused. |
+
+## `tv.limited_horizon`
+
+**Terminal value, finite horizon** · method version 1 · tool `fairmark_tv_limited_horizon`
+
+Terminal value at the horizon N of a flow lasting n more periods, constant or growing, plus a residual value at N + n (Italian practice); reuses the annuity factor of tvm.annuity.
+
+| Input | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `flow` | decimal | yes |  | First flow after the horizon, at the end of period N + 1, in currency units. |
+| `rate` | decimal | yes |  | Discount rate of the terminal phase, decimal fraction per period, greater than -1. |
+| `periods` | integer | yes |  | Number of further periods n during which the flow lasts, from 1 to 10000. |
+| `growth` | decimal | no |  | Growth of the flow per period, decimal fraction, greater than -1. Default: 0 (constant flow). |
+| `residual_value` | decimal | no |  | Residual value at the end of period N + n, in currency units. Default: 0. |
+| `growth_cap` | decimal | no |  | Upper bound for the growth, decimal fraction per period. Default: none, reported as absent. A growth above the cap is reported, not refused. |
+
+## `tv.normalised_income`
+
+**Terminal value, capitalised normalised income** · method version 1 · tool `fairmark_tv_normalised_income`
+
+Terminal value at the horizon N as a normalised income capitalised at a rate i, R / i, or R / (i − g) with growth (Italian practice).
+
+| Input | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `income` | decimal | yes |  | Normalised income R of the first period after the horizon, in currency units. |
+| `capitalisation_rate` | decimal | yes |  | Capitalisation rate i, decimal fraction per period, greater than 0; must exceed `growth`. |
+| `basis` | `enterprise` \| `equity` | yes |  | `enterprise` (an operating income capitalised at a rate for all capital providers) or `equity` (a net income capitalised at a cost of equity). Required, no default. |
+| `growth` | decimal | no |  | Perpetual growth of the income, decimal fraction per period, greater than -1 and below the capitalisation rate. Default: none (R / i). |
+| `growth_cap` | decimal | no |  | Upper bound for the growth, decimal fraction per period. Default: none, reported as absent. A growth above the cap is reported, not refused. |
+
+## `tv.liquidation`
+
+**Terminal value, liquidation** · method version 1 · tool `fairmark_tv_liquidation`
+
+Net liquidation value at the horizon N: realisable values of labelled assets less labelled liabilities, liquidation costs and the tax on gains, every line in explain.
+
+| Input | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `assets` | list of object | yes |  | Assets with their realisable values at N, in currency units, each zero or positive; at least one. |
+| `liabilities` | list of object | yes |  | Liabilities settled at N, in currency units, each zero or positive. |
+| `liquidation_costs` | list of object | yes |  | Costs of the liquidation (legal fees, closure, severance), in currency units, each zero or positive. |
+| `tax_on_gains` | decimal | yes |  | Tax on the gains realised, as an amount in currency units, zero or positive. |
+| `basis` | `enterprise` \| `equity` | yes |  | `enterprise` (the liabilities listed exclude financial debt: the value is an enterprise value) or `equity` (financial debt included: the value is an equity value). Required, no default. |
+
+## `tv.compare`
+
+**Terminal value, comparison of techniques** · method version 1 · tool `fairmark_tv_compare`
+
+Runs several terminal value techniques on one rate, growth cap and basis and returns each terminal value at the horizon N with its implied assumptions, side by side.
+
+| Input | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `rate` | decimal | yes |  | Discount rate of the terminal phase, decimal fraction per period, shared by every technique that uses a discount rate. |
+| `basis` | `enterprise` \| `equity` | yes |  | `enterprise` or `equity`: the basis of every terminal value compared. An exit multiple of the other basis is refused. |
+| `growth_cap` | decimal | no |  | Upper bound for the perpetual growth, decimal fraction per period, shared by every growth-based technique. Default: none, reported as absent. |
+| `techniques` | list of  | yes |  | Techniques to run, at least one, each written `{"tv.<name>": {terms}}`; the same technique may appear more than once. |
+
 ## `dcf.fcff`
 
 **DCF — unlevered free cash flow** · method version 2 · tool `fairmark_dcf_fcff`

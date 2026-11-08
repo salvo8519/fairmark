@@ -1,0 +1,10 @@
+method: tv.value_driver
+description: NOPAT 150, growth 2%, RONIC 12%, rate 10%; reinvestment rate g / RONIC (R2)
+source: Independent 50-digit reference, scripts/reference_tv.py
+input: { nopat_next: "150", growth: "0.02", ronic: "0.12", rate: "0.10" }
+expect:
+  reinvestment_rate: "0.1666666666666666666666666667"
+  next_free_cash_flow: "125"
+  terminal_value: "1562.5"
+  value_of_growth: creates
+tolerance: "0.0000000000000000000001"

@@ -1,6 +1,6 @@
 ---
 source: methods/tvm-annuity.md
-source_hash: a4b224c5d7e7
+source_hash: bb3fe78f13e9
 ---
 # Rendita (`tvm.annuity`)
 
@@ -107,6 +107,11 @@ assert round(limit.present_value, 20) == Decimal("14150.94339622641509433962")
 La formula chiusa e la somma diretta usano solo potenze intere, moltiplicazioni e divisioni.
 Rispetto a un calcolo indipendente a 60 cifre, concordano entro circa $10^{-24}$ in termini
 relativi o meglio. I casi di riferimento sono verificati entro $10^{-19}$.
+
+Il fattore di rendita (il valore attuale di un flusso pari a 1 per periodo, in crescita al
+tasso $g$) è condiviso con [`tv.limited_horizon`](tv-limited-horizon.md), che lo moltiplica
+per il flusso senza calcolare il montante: il suo intervallo di periodi non è quindi limitato
+dal montante in $t = n$.
 
 ## Verificato con
 

@@ -180,6 +180,14 @@ fairmark verify result.json --input company.json  # riproduce un risultato bit p
 | `coc.beta_peers` | Disponibile | Beta from comparable companies |
 | `coc.cost_of_debt` | Disponibile | Cost of debt |
 | `coc.wacc` | Disponibile | Weighted average cost of capital (WACC) |
+| `tv.gordon` | Disponibile | Terminal value, stable growth (Gordon) |
+| `tv.value_driver` | Disponibile | Terminal value, value driver (growth from reinvestment) |
+| `tv.h_model` | Disponibile | Terminal value, H-model (declining growth) |
+| `tv.exit_multiple` | Disponibile | Terminal value, exit multiple |
+| `tv.limited_horizon` | Disponibile | Terminal value, finite horizon |
+| `tv.normalised_income` | Disponibile | Terminal value, capitalised normalised income |
+| `tv.liquidation` | Disponibile | Terminal value, liquidation |
+| `tv.compare` | Disponibile | Terminal value, comparison of techniques |
 | `dcf.fcff` | Anteprima | DCF — unlevered free cash flow |
 | `ratios.profitability` | Anteprima | Ratios — profitability |
 | `ratios.capital_structure` | Anteprima | Ratios — capital structure |

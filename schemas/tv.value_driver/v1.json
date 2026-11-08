@@ -1,0 +1,59 @@
+{
+  "$id": "urn:fairmark:schema:tv.value_driver:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `tv.value_driver`.",
+  "properties": {
+    "growth": {
+      "description": "Perpetual growth, decimal fraction per period, greater than -1 and below `rate`.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "growth_cap": {
+      "description": "Upper bound for the perpetual growth, decimal fraction per period. Default: none,\nreported as absent. A growth above the cap is reported, not refused.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "nopat_next": {
+      "description": "Net operating profit after tax of the first period after the horizon, NOPAT_{N+1}, in\ncurrency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "rate": {
+      "description": "Discount rate of the terminal phase, decimal fraction per period; must exceed `growth`.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "ronic": {
+      "description": "Return on new invested capital (RONIC), decimal fraction per period, greater than 0.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    }
+  },
+  "required": [
+    "nopat_next",
+    "growth",
+    "ronic",
+    "rate"
+  ],
+  "title": "ValueDriverInput",
+  "type": "object",
+  "x-fairmark-method": "tv.value_driver",
+  "x-fairmark-method-version": "1"
+}

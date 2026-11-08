@@ -1,0 +1,6 @@
+method: tv.normalised_income
+description: Normalised income 120 at 9% with growth 1%, R / (i - g) (R6)
+source: Independent 50-digit reference, scripts/reference_tv.py; closed form 120 / 0.08 = 1500
+input: { income: "120", capitalisation_rate: "0.09", basis: equity, growth: "0.01" }
+expect: { terminal_value: "1500" }
+tolerance: "0"

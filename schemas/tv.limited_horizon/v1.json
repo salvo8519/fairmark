@@ -1,0 +1,67 @@
+{
+  "$id": "urn:fairmark:schema:tv.limited_horizon:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `tv.limited_horizon`.",
+  "properties": {
+    "flow": {
+      "description": "First flow after the horizon, at the end of period N + 1, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "growth": {
+      "description": "Growth of the flow per period, decimal fraction, greater than -1. Default: 0 (constant\nflow).",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "growth_cap": {
+      "description": "Upper bound for the growth, decimal fraction per period. Default: none, reported as\nabsent. A growth above the cap is reported, not refused.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "periods": {
+      "description": "Number of further periods n during which the flow lasts, from 1 to 10000.",
+      "format": "uint32",
+      "maximum": 10000,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "rate": {
+      "description": "Discount rate of the terminal phase, decimal fraction per period, greater than -1.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number"
+      ]
+    },
+    "residual_value": {
+      "description": "Residual value at the end of period N + n, in currency units. Default: 0.",
+      "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "flow",
+    "rate",
+    "periods"
+  ],
+  "title": "LimitedHorizonInput",
+  "type": "object",
+  "x-fairmark-method": "tv.limited_horizon",
+  "x-fairmark-method-version": "1"
+}

@@ -1,0 +1,5 @@
+method: tv.normalised_income
+description: A capitalisation rate of zero is refused before any other check (R10)
+source: SPEC-0006 R10
+input: { income: "95", capitalisation_rate: "0", basis: equity }
+expect_error: FM-E018

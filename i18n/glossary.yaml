@@ -172,6 +172,25 @@ terms:
   debt service reserve account (DSRA): riserva per il servizio del debito (DSRA)
   reserve balance: saldo della riserva per il servizio del debito
   not meaningful: non significativo
+  horizon (terminal value): orizzonte
+  growth cap: limite alla crescita
+  return on new invested capital (RONIC): rendimento del nuovo capitale investito (RONIC)
+  net operating profit after tax (NOPAT): reddito operativo netto dopo le imposte (NOPAT)
+  exit multiple: multiplo di uscita (exit multiple)
+  enterprise basis: approccio asset side (enterprise value)
+  equity basis: approccio equity side (equity value)
+  price to book value (P/BV): rapporto tra prezzo e valore contabile del capitale proprio (P/BV)
+  book value of equity: valore contabile del capitale proprio (patrimonio netto contabile)
+  trailing multiple: multiplo trailing (sulla grandezza dell'ultimo esercizio)
+  normalised income: reddito normalizzato
+  capitalisation rate: tasso di capitalizzazione
+  residual value: valore residuo
+  liquidation value: valore di liquidazione
+  realisable value: valore di realizzo
+  liquidation costs: costi di liquidazione
+  tax on gains: imposte sulle plusvalenze
+  value driver (terminal value): value driver (formula dei value driver)
+  half-life (H-model): H, metà della durata della fase di declino (half-life)
 keep_in_english:
   - Fairmark
   - explain

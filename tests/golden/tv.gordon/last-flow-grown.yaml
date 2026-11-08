@@ -1,0 +1,10 @@
+method: tv.gordon
+description: Last flow 100 grown by 2.5% to the next flow, rate 9%, cap 3% respected (R1, R8)
+source: Independent 50-digit reference, scripts/reference_tv.py
+input: { rate: "0.09", growth: "0.025", last_flow: "100", growth_cap: "0.03" }
+expect:
+  next_flow: "102.5"
+  terminal_value: "1576.9230769230769230769230769231"
+  flow_basis: last_flow_grown
+  /growth_cap/status: respected
+tolerance: "0.0000000000000000000001"

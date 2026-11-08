@@ -1,0 +1,23 @@
+# Contract cases for tv.value_driver: extreme inputs must return a result or a typed error,
+# never a panic (MAX and MIN stand for the largest and smallest decimals);
+# conventions must appear in explain.conventions.
+method: tv.value_driver
+extreme_inputs:
+- nopat_next: MAX
+  growth: MIN
+  ronic: '0.0000000000000000000000000001'
+  rate: MAX
+- nopat_next: MIN
+  growth: '0.5'
+  ronic: MAX
+  rate: MAX
+  growth_cap: MAX
+conventions:
+- input:
+    nopat_next: '100'
+    growth: '0.03'
+    ronic: '0.10'
+    rate: '0.10'
+  expect:
+  - return on new invested capital equals the rate
+  - 'growth cap: none given'
