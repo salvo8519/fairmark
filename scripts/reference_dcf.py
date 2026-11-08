@@ -254,6 +254,11 @@ def dcf_fcff(inp: Mapping[str, Any]) -> dict[str, D]:
     # subtracted from enterprise value after the net financial position.
     debt_like = sum((_d(c["value"]) for c in inp.get("debt_like_items", [])), D(0))
     minority = sum((_d(c["value"]) for c in inp.get("non_controlling_interests", [])), D(0))
+    if "net_financial_position" in inp:
+        out["/bridge/net_financial_position"] = nfp
+    for kind in ("non_operating_assets", "debt_like_items", "non_controlling_interests"):
+        for i, item in enumerate(inp.get(kind, [])):
+            out[f"/bridge/{kind}/{i}/value"] = _d(item["value"])
     out.update(
         {
             "/pv_explicit_period": pv_explicit,
@@ -264,6 +269,7 @@ def dcf_fcff(inp: Mapping[str, Any]) -> dict[str, D]:
             "/value_of_operations": value_of_operations,
             "/enterprise_value": enterprise_value,
             "/equity_value": enterprise_value - nfp - debt_like - minority,
+            "/bridge/non_operating_assets_total": non_operating,
             "/bridge/debt_like_items_total": debt_like,
             "/bridge/non_controlling_interests_total": minority,
             "/terminal_value_weight": pv_tv / value_of_operations,

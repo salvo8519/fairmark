@@ -16,7 +16,7 @@ pub mod terminal;
 pub use engine::{
     PeriodRow, Projection, RateConversion, Stage, TerminalDiscountTime, Terms, TermsOutput,
 };
-pub use fcff::{fcff, DcfFcffInput, DcfFcffOutput, Fcff, FcffBridge};
+pub use fcff::{fcff, BridgeClaim, DcfFcffInput, DcfFcffOutput, Fcff, FcffBridge};
 pub use free_cash_flows::{
     free_cash_flows, FreeCashFlows, FreeCashFlowsInput, FreeCashFlowsOutput,
 };

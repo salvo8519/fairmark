@@ -9,6 +9,7 @@ timings, and the properties AC5 and AC7.
 from __future__ import annotations
 
 import importlib.util
+from decimal import Context, localcontext
 from decimal import Decimal as D
 from itertools import product
 from pathlib import Path
@@ -573,10 +574,12 @@ def test_bridge_matches_reference_on_random_lines(seed: int) -> None:
 
 
 @pytest.mark.parametrize("seed", range(20))
-def test_bridge_identity_holds_exactly(seed: int) -> None:
-    """AC13 (R23, R25): enterprise value − value of operations is the sum of the non-operating
-    assets, and equity value = enterprise value − net financial position − Σ debt-like items −
-    Σ non-controlling interests, exactly; every label and amount is echoed in the bridge."""
+def test_bridge_identity_holds_to_the_last_digit(seed: int) -> None:
+    """AC13 (R23, R25): enterprise value - value of operations is the sum of the non-operating
+    assets, and equity value = enterprise value - net financial position - Σ debt-like items -
+    Σ non-controlling interests, within the rounding of the engine's 28 significant digits
+    (one unit in the last place per addition or subtraction); the totals of the claims are
+    exact; every label, amount and basis is echoed in the bridge."""
     import random
 
     rng = random.Random(1000 + seed)
@@ -593,22 +596,20 @@ def test_bridge_identity_holds_exactly(seed: int) -> None:
     }
     got = run(payload)
     b = got["bridge"]
+    # Exact arithmetic on the returned decimals: 60 digits, so that nothing here is rounded.
+    with localcontext(Context(prec=60)):
 
-    def total(items: list[dict[str, Any]]) -> D:
-        return sum((D(i["value"]) for i in items), D(0))
+        def total(items: list[dict[str, Any]]) -> D:
+            return sum((D(i["value"]) for i in items), D(0))
 
-    nfp = D(b["net_financial_position"]) if b["net_financial_position"] is not None else D(0)
-    assert D(got["enterprise_value"]) - D(got["value_of_operations"]) == total(
-        b["non_operating_assets"]
-    )
-    assert D(b["debt_like_items_total"]) == total(b["debt_like_items"])
-    assert D(b["non_controlling_interests_total"]) == total(b["non_controlling_interests"])
-    assert D(got["equity_value"]) == (
-        D(got["enterprise_value"])
-        - nfp
-        - D(b["debt_like_items_total"])
-        - D(b["non_controlling_interests_total"])
-    )
+        ev = D(got["enterprise_value"])
+        ulp = D("1e-27") * max(D(1), abs(ev))
+        nfp = D(b["net_financial_position"] or 0)
+        assert abs(ev - D(got["value_of_operations"]) - total(b["non_operating_assets"])) <= ulp
+        assert D(b["debt_like_items_total"]) == total(b["debt_like_items"])
+        assert D(b["non_controlling_interests_total"]) == total(b["non_controlling_interests"])
+        equity = ev - nfp - D(b["debt_like_items_total"]) - D(b["non_controlling_interests_total"])
+        assert abs(D(got["equity_value"]) - equity) <= 3 * ulp
     for kind in ("debt_like_items", "non_controlling_interests"):
         given = bridge.get(kind, [])
         assert [(c["label"], D(c["value"]), c["measurement_basis"]) for c in b[kind]] == [

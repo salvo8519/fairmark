@@ -23,6 +23,34 @@
       ],
       "type": "object"
     },
+    "BridgeClaim": {
+      "additionalProperties": false,
+      "description": "A claim on the value of the company other than the net financial position, subtracted from\nenterprise value to reach equity value: a debt-like item or a non-controlling interest\n(R25). Fairmark subtracts the amount as given and does not choose how it is measured.",
+      "properties": {
+        "label": {
+          "description": "What the claim is, for example \"Unfunded pension obligation\" or \"30% of Subsidiary A\".\nNot empty.",
+          "type": "string"
+        },
+        "measurement_basis": {
+          "description": "How the amount was measured, stated by the analyst, for example \"book value\", \"fair\nvalue\" or \"present value net of tax\". Not empty. Reported with the amount, never used\nin the calculation.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Amount at the valuation date, in currency units, zero or more; subtracted.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "value",
+        "measurement_basis"
+      ],
+      "type": "object"
+    },
     "ExitMultipleTerminal": {
       "additionalProperties": false,
       "description": "The terms of `tv.exit_multiple` inside the DCF: the metric must be on the basis of the DCF\n(`ebitda`, `ebit` or `revenue` for the enterprise basis).",
@@ -852,6 +880,13 @@
       "$ref": "#/$defs/Terms",
       "description": "`nominal` or `real`: the terms of every amount and growth rate of the input."
     },
+    "debt_like_items": {
+      "description": "Debt-like items (debt equivalents) at the valuation date, for example unfunded pension\nobligations or provisions, each a label, a value in currency units (zero or more) and\nits stated measurement basis, subtracted from enterprise value. Do not repeat an item\nalready among the `other_items` of the net financial position. Default: none, reported.",
+      "items": {
+        "$ref": "#/$defs/BridgeClaim"
+      },
+      "type": "array"
+    },
     "discount_rate_terms": {
       "$ref": "#/$defs/Terms",
       "description": "`nominal` or `real`: the terms of the discount rates. When they differ from\n`cash_flow_terms`, expected inflation is required (`inflation`, or\n`inflation_per_period` with `terminal_inflation`) and every rate is converted to the\nterms of the cash flows; the cash flows are never converted."
@@ -900,6 +935,13 @@
         }
       ],
       "description": "Net financial position at the valuation date (SPEC-0007): gross debt − cash + signed\nother items, positive for net debt, subtracted from enterprise value. Default: none,\nreported."
+    },
+    "non_controlling_interests": {
+      "description": "Non-controlling interests (minority interests) at the valuation date, each a label, a\nvalue in currency units (zero or more) and its stated measurement basis (for example\nbook value or fair value), subtracted from enterprise value. Default: none, reported.",
+      "items": {
+        "$ref": "#/$defs/BridgeClaim"
+      },
+      "type": "array"
     },
     "non_operating_assets": {
       "description": "Non-operating assets at the valuation date, each a label and a value in currency units\n(zero or more), added to the value of operations. Default: none, reported.",
