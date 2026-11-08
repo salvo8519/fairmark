@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: e03d0ece8b31
+source_hash: 99b8f3336da7
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
@@ -59,8 +59,8 @@ $DF_k = DF_{k-1} (1 + r_k)^{-0.5}$. Il valore terminale $TV_N$ è calcolato dall
 scelta (si veda "Tecniche del valore terminale" più avanti), per esempio
 $TV_N = CF_{N+1} / (r_{TV} - g)$ con [`tv.gordon`](tv-gordon.md), e attualizzato
 all'orizzonte, $DF_{TV} = DF_N$, oppure, con la convenzione di metà periodo e se scelto, mezzo
-periodo prima, $DF_{TV} = DF_N (1 + r_N)^{0.5}$; lo spostamento di mezzo periodo usa il tasso
-del periodo N, $r_N$, non il tasso terminale.
+periodo prima, $DF_{TV} = DF_N (1 + r_{TV})^{0.5}$; lo spostamento di mezzo periodo usa il
+tasso terminale $r_{TV}$, che con un unico tasso di attualizzazione è il tasso di ogni periodo.
 
 I valori attuali si calcolano dividendo ogni importo per il suo fattore di capitalizzazione
 $\prod_{i \le k} (1 + r_i)$ (con la convenzione di metà periodo, $\prod_{i < k} (1 + r_i) \,
@@ -79,7 +79,7 @@ flussi di cassa.
 | Tecnica | Parametri all'interno del DCF | Valore terminale in N |
 | --- | --- | --- |
 | [`tv.gordon`](tv-gordon.md) | `growth`, `first_flow`, `normalised_next_flow`, `growth_cap` | $CF_{N+1} / (r_{TV} - g)$, con $CF_{N+1} = CF_N (1 + g)$ oppure un flusso normalizzato |
-| [`tv.h_model`](tv-h-model.md) | `short_term_growth`, `long_term_growth`, `half_life`, `first_flow` (`last_flow_grown`), `growth_cap` | $CF_N [(1 + g_l) + H (g_s - g_l)] / (r_{TV} - g_l)$ sull'ultimo flusso esplicito |
+| [`tv.h_model`](tv-h-model.md) | `short_term_growth`, `long_term_growth`, `half_life`, `first_flow`, `normalised_base_flow`, `growth_cap` | $CF_N [(1 + g_l) + H (g_s - g_l)] / (r_{TV} - g_l)$ sull'ultimo flusso esplicito o su un flusso base normalizzato in N |
 | [`tv.value_driver`](tv-value-driver.md) | `nopat_next`, `growth`, `ronic`, `growth_cap` | $NOPAT_{N+1} (1 - g / RONIC) / (r_{TV} - g)$ |
 | [`tv.exit_multiple`](tv-exit-multiple.md) | `multiple`, `metric` (`ebitda`, `ebit`, `revenue`), `metric_value`, `next_flow`, `growth_cap` | multiplo × grandezza in N; con `next_flow`, la crescita implicita $r_{TV} - CF_{N+1} / TV_N$ |
 | [`tv.limited_horizon`](tv-limited-horizon.md) | `flow`, `periods`, `growth`, `residual_value`, `growth_cap` | i flussi dei periodi da N + 1 a N + n e il valore residuo in N + n, attualizzati in N al tasso $r_{TV}$ |
@@ -91,7 +91,10 @@ uscita (exit multiple) sugli utili (P/E) o sul valore contabile del capitale pro
 oppure un reddito normalizzato o una liquidazione dichiarati con approccio equity side, è
 rifiutato con `FM-E019`.
 `tv.gordon` e `tv.h_model` fanno crescere l'ultimo flusso esplicito, quindi il primo flusso
-terminale è una scelta obbligatoria; `tv.h_model` accetta solo `last_flow_grown`. All'interno
+terminale è una scelta obbligatoria: per `tv.gordon`, `last_flow_grown` oppure un flusso
+normalizzato in N + 1 (`normalised_next_flow`); per `tv.h_model`, `last_flow_grown` oppure un
+flusso base normalizzato in N (`normalised_base_flow`) che sostituisce l'ultimo flusso
+esplicito nella formula standard. All'interno
 del DCF i campi `growth` e `residual_value` di `tv.limited_horizon` e il campo `growth` di
 `tv.normalised_income` sono obbligatori (indicare 0 se assenti). `tv.normalised_income` è
 capitalizzato al tasso terminale, come ogni tecnica che usa un tasso: un `capitalisation_rate`
@@ -204,9 +207,9 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | Tasso di attualizzazione | un unico tasso (usato anche per il valore terminale), oppure uno per periodo con un tasso terminale | obbligatorio |
 | Termini di flussi e tassi | `nominal`, `real`; termini diversi sono rifiutati | obbligatori, entrambi |
 | Collocazione temporale dei flussi | `end_of_period`, `mid_period` | obbligatoria |
-| Terminal discounting time (momento di attualizzazione del valore terminale) | `horizon`, `mid_period` (solo con la convenzione di metà periodo) | obbligatorio |
+| Terminal discounting time (momento di attualizzazione del valore terminale) | `horizon`, `mid_period` (solo con la convenzione di metà periodo; il mezzo periodo al tasso terminale) | obbligatorio |
 | Tecnica del valore terminale | `tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income`, `tv.liquidation`, al tasso terminale, con approccio asset side | obbligatoria |
-| Primo flusso terminale (`tv.gordon`, `tv.h_model`) | ultimo flusso fatto crescere, oppure flusso normalizzato in N + 1 (solo `tv.gordon`) | obbligatorio |
+| Primo flusso terminale (`tv.gordon`, `tv.h_model`) | ultimo flusso fatto crescere; oppure flusso normalizzato in N + 1 (`tv.gordon`), flusso base normalizzato in N (`tv.h_model`) | obbligatorio |
 | Voci del passaggio all'equity value | misurate alla data di valutazione come fornite; nessuna voce significa nessuna | nessuna |
 
 Le avvertenze sono riportate in `explain.conventions` e non comportano mai il rifiuto
@@ -216,15 +219,15 @@ esplicito diversa dalla crescita perpetua del valore terminale (`growth`, oppure
 non confrontata); con la convenzione di metà periodo, un valore terminale a crescita perpetua
 (`tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.normalised_income`) attualizzato all'orizzonte N,
 mentre la prassi lo attualizza di solito in N − 0.5; con la convenzione di metà periodo, un
-multiplo di uscita o una liquidazione attualizzati in N − 0.5, benché siano un prezzo
-all'orizzonte N; un equity value negativo, riportato come calcolato e mai riportato a zero. Un `terminal_value_weight`
+multiplo di uscita, una liquidazione o un orizzonte finito attualizzati in N − 0.5, benché
+siano o includano un prezzo a una data (per l'orizzonte finito, il valore residuo); un equity value negativo, riportato come calcolato e mai riportato a zero. Un `terminal_value_weight`
 elevato segnala che la valutazione dipende soprattutto dalle ipotesi di lungo periodo.
 
 ## Errori
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | Un campo è mancante, sconosciuto o non usato dall'opzione scelta; nessuno stage o più di tre; stage che sommano più di 10.000 periodi; una crescita pari o inferiore a −100%; un tasso terminale insieme a un unico tasso, oppure nessuno con tassi per periodo; un momento di attualizzazione del valore terminale mancante con la convenzione di metà periodo o fornito con quella di fine periodo; nessuna tecnica del valore terminale o più di una; `normalised_next_flow` con `tv.h_model`; un limite alla crescita di un multiplo di uscita senza `next_flow`; una liquidazione senza attività o con una voce senza descrizione; un'attività non operativa negativa o con descrizione vuota; uno stage `given` con entrambi o nessuno tra `flows` e `lines`, `lines` in uno stage generato, campi fiscali senza `lines`, oneri finanziari o net borrowing in `lines`, e ogni rifiuto di [`dcf.free_cash_flows`](dcf-free-cash-flows.md) sulle voci, indicato con il suo pointer (ad esempio `/stages/0/lines/2/capital_expenditure`) |
+| `FM-E001` | Un campo è mancante, sconosciuto o non usato dall'opzione scelta; nessuno stage o più di tre; stage che sommano più di 10.000 periodi; una crescita pari o inferiore a −100%; un tasso terminale insieme a un unico tasso, oppure nessuno con tassi per periodo; un momento di attualizzazione del valore terminale mancante con la convenzione di metà periodo o fornito con quella di fine periodo; nessuna tecnica del valore terminale o più di una; un `normalised_base_flow` di `tv.h_model` mancante con `first_flow` = `normalised_base_flow` o fornito negli altri casi; un limite alla crescita di un multiplo di uscita senza `next_flow`; una liquidazione senza attività o con una voce senza descrizione; un'attività non operativa negativa o con descrizione vuota; uno stage `given` con entrambi o nessuno tra `flows` e `lines`, `lines` in uno stage generato, campi fiscali senza `lines`, oneri finanziari o net borrowing in `lines`, e ogni rifiuto di [`dcf.free_cash_flows`](dcf-free-cash-flows.md) sulle voci, indicato con il suo pointer (ad esempio `/stages/0/lines/2/capital_expenditure`) |
 | `FM-E003` | Un tasso di attualizzazione è pari o inferiore a −100%; il messaggio indica il campo e il periodo |
 | `FM-E004` | La crescita perpetua (`growth`, oppure `long_term_growth` per `tv.h_model`) è pari o superiore al tasso terminale |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |

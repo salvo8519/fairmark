@@ -53,8 +53,8 @@ $DF_k = DF_{k-1} (1 + r_k)^{-0.5}$. The terminal value $TV_N$ is computed by the
 technique chosen (see "Terminal techniques" below), for example
 $TV_N = CF_{N+1} / (r_{TV} - g)$ with [`tv.gordon`](tv-gordon.md), and discounted at the
 horizon, $DF_{TV} = DF_N$, or, under mid-period timing when chosen, half a period earlier,
-$DF_{TV} = DF_N (1 + r_N)^{0.5}$; the half-period shift uses the rate of period N, $r_N$, not
-the terminal rate.
+$DF_{TV} = DF_N (1 + r_{TV})^{0.5}$; the half-period shift uses the terminal rate $r_{TV}$,
+which with one discount rate is the rate of every period.
 
 Present values are computed by dividing each amount by its compounding factor
 $\prod_{i \le k} (1 + r_i)$ (under mid-period timing, $\prod_{i < k} (1 + r_i) \,
@@ -72,7 +72,7 @@ its own output in `terminal`. Amounts are in the terms of the cash flows.
 | Technique | Terms inside the DCF | Terminal value at N |
 | --- | --- | --- |
 | [`tv.gordon`](tv-gordon.md) | `growth`, `first_flow`, `normalised_next_flow`, `growth_cap` | $CF_{N+1} / (r_{TV} - g)$, with $CF_{N+1} = CF_N (1 + g)$ or a normalised flow |
-| [`tv.h_model`](tv-h-model.md) | `short_term_growth`, `long_term_growth`, `half_life`, `first_flow` (`last_flow_grown`), `growth_cap` | $CF_N [(1 + g_l) + H (g_s - g_l)] / (r_{TV} - g_l)$ on the last explicit flow |
+| [`tv.h_model`](tv-h-model.md) | `short_term_growth`, `long_term_growth`, `half_life`, `first_flow`, `normalised_base_flow`, `growth_cap` | $CF_N [(1 + g_l) + H (g_s - g_l)] / (r_{TV} - g_l)$ on the last explicit flow or a normalised base flow at N |
 | [`tv.value_driver`](tv-value-driver.md) | `nopat_next`, `growth`, `ronic`, `growth_cap` | $NOPAT_{N+1} (1 - g / RONIC) / (r_{TV} - g)$ |
 | [`tv.exit_multiple`](tv-exit-multiple.md) | `multiple`, `metric` (`ebitda`, `ebit`, `revenue`), `metric_value`, `next_flow`, `growth_cap` | multiple × metric at N; with `next_flow`, the implied growth $r_{TV} - CF_{N+1} / TV_N$ |
 | [`tv.limited_horizon`](tv-limited-horizon.md) | `flow`, `periods`, `growth`, `residual_value`, `growth_cap` | the flows of periods N + 1 to N + n and the residual value at N + n, discounted to N at $r_{TV}$ |
@@ -82,7 +82,9 @@ its own output in `terminal`. Amounts are in the terms of the cash flows.
 The technique must be on the enterprise basis of `dcf.fcff`: an exit multiple on earnings
 (P/E) or book value (P/BV), or a normalised income or a liquidation declared on the equity
 basis, is refused with `FM-E019`. `tv.gordon` and `tv.h_model` grow the last explicit flow, so the first terminal flow
-is a required choice; `tv.h_model` accepts only `last_flow_grown`. Inside the DCF the
+is a required choice: for `tv.gordon`, `last_flow_grown` or a normalised flow at N + 1
+(`normalised_next_flow`); for `tv.h_model`, `last_flow_grown` or a normalised base flow at N
+(`normalised_base_flow`) that replaces the last explicit flow in the standard formula. Inside the DCF the
 `growth` and `residual_value` of `tv.limited_horizon` and the `growth` of
 `tv.normalised_income` are required (give 0 for none). `tv.normalised_income` is capitalised at
 the terminal rate, as every technique that takes a rate: a separate `capitalisation_rate` is
@@ -195,9 +197,9 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | Discount rate | one rate (also used for the terminal value), or one per period with a terminal rate | required |
 | Terms of flows and rates | `nominal`, `real`; different terms are refused | required, each |
 | Timing | `end_of_period`, `mid_period` | required |
-| Terminal discounting time | `horizon`, `mid_period` (with mid-period timing only) | required |
+| Terminal discounting time | `horizon`, `mid_period` (with mid-period timing only; the half period at the terminal rate) | required |
 | Terminal technique | `tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income`, `tv.liquidation`, at the terminal rate, on the enterprise basis | required |
-| First terminal flow (`tv.gordon`, `tv.h_model`) | last flow grown, or a normalised flow at N + 1 (`tv.gordon` only) | required |
+| First terminal flow (`tv.gordon`, `tv.h_model`) | last flow grown; or a normalised flow at N + 1 (`tv.gordon`), a normalised base flow at N (`tv.h_model`) | required |
 | Bridge items | measured at the valuation date as given; none given means none | none |
 
 Warnings are reported in `explain.conventions` and never refuse the input: a growth applied to
@@ -206,15 +208,15 @@ of the terminal value (`growth`, or `long_term_growth` for `tv.h_model`; the gro
 by an exit multiple is reported, not compared); under mid-period timing, a perpetual-growth
 terminal value (`tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.normalised_income`)
 discounted at the horizon N, where practice commonly discounts it at N − 0.5; under mid-period
-timing, an exit multiple or a liquidation discounted at N − 0.5, although it is a price at the
-horizon N; a negative equity value, which is reported as computed and never floored at zero. A high `terminal_value_weight` signals that the valuation depends mostly
+timing, an exit multiple, a liquidation or a limited horizon discounted at N − 0.5, although
+it is or includes a price at a date (for the limited horizon, its residual value); a negative equity value, which is reported as computed and never floored at zero. A high `terminal_value_weight` signals that the valuation depends mostly
 on long-term assumptions.
 
 ## Errors
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | A field is missing, unknown or not used by the chosen option; no stage or more than three; stages adding up to more than 10,000 periods; a growth of −100% or lower; a terminal rate with one rate, or none with rates per period; a terminal discounting time missing under mid-period timing or given at end of period; no terminal technique or more than one; `normalised_next_flow` with `tv.h_model`; a growth cap of an exit multiple without `next_flow`; a liquidation without assets or with an unlabelled line; a negative non-operating asset, or one with an empty label; a `given` stage with both or neither of `flows` and `lines`, `lines` on a generated stage, tax fields without `lines`, interest expense or net borrowing in `lines`, and every refusal of [`dcf.free_cash_flows`](dcf-free-cash-flows.md) for the lines, named by pointer (for example `/stages/0/lines/2/capital_expenditure`) |
+| `FM-E001` | A field is missing, unknown or not used by the chosen option; no stage or more than three; stages adding up to more than 10,000 periods; a growth of −100% or lower; a terminal rate with one rate, or none with rates per period; a terminal discounting time missing under mid-period timing or given at end of period; no terminal technique or more than one; a `normalised_base_flow` of `tv.h_model` missing with `first_flow` = `normalised_base_flow` or given otherwise; a growth cap of an exit multiple without `next_flow`; a liquidation without assets or with an unlabelled line; a negative non-operating asset, or one with an empty label; a `given` stage with both or neither of `flows` and `lines`, `lines` on a generated stage, tax fields without `lines`, interest expense or net borrowing in `lines`, and every refusal of [`dcf.free_cash_flows`](dcf-free-cash-flows.md) for the lines, named by pointer (for example `/stages/0/lines/2/capital_expenditure`) |
 | `FM-E003` | A discount rate is −100% or lower; the message names the field and the period |
 | `FM-E004` | The perpetual growth (`growth`, or `long_term_growth` for `tv.h_model`) is equal to or greater than the terminal rate |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
