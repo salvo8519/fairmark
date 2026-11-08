@@ -1,6 +1,6 @@
 ---
 source: methods/tv-compare.md
-source_hash: 2239c819d63b
+source_hash: 766e805d973f
 ---
 # Confronto tra tecniche di valore terminale (`tv.compare`)
 
@@ -24,7 +24,7 @@ metodo senza `rate` e `growth_cap`:
 | [`tv.exit_multiple`](tv-exit-multiple.md) | `multiple`, `metric`, `metric_value`, `next_flow` facoltativo | tasso e limite alla crescita quando è fornito `next_flow`; la grandezza deve essere sull'approccio dichiarato |
 | [`tv.limited_horizon`](tv-limited-horizon.md) | `flow`, `periods`, `growth` e `residual_value` facoltativi | tasso, limite alla crescita |
 | [`tv.normalised_income`](tv-normalised-income.md) | `income`, `capitalisation_rate`, `basis`, `growth` facoltativo | limite alla crescita; il tasso di capitalizzazione resta il proprio; `basis` deve coincidere con l'approccio dichiarato |
-| [`tv.liquidation`](tv-liquidation.md) | `assets`, `liabilities`, `liquidation_costs`, `tax_on_gains` | nessuno; le passività elencate devono essere coerenti con l'approccio dichiarato |
+| [`tv.liquidation`](tv-liquidation.md) | `assets`, `liabilities`, `liquidation_costs`, `tax_on_gains`, `basis` | nessuno; `basis` deve coincidere con l'approccio dichiarato |
 
 Ogni tecnica è calcolata dal proprio metodo, quindi una riga del confronto coincide con il
 risultato di quel metodo eseguito da solo. Passaggi e convenzioni di ciascuna tecnica compaiono
@@ -37,8 +37,10 @@ Ogni riga riporta `method_version`, la versione della tecnica che l'ha prodotta.
 numerica in qualsiasi metodo `tv.*` richiede quindi anche una nuova versione di `tv.compare`;
 un test vincola le versioni delle tecniche insieme alla versione di `tv.compare`.
 
-`tv.normalised_income` dichiara il proprio `basis`, confrontato con l'approccio del confronto
-come per i multipli di uscita (`FM-E019` se differiscono). Un multiplo di uscita senza
+`tv.normalised_income` e `tv.liquidation` dichiarano il proprio `basis`, confrontato con
+l'approccio del confronto come per i multipli di uscita (`FM-E019` se differiscono). Nel
+confronto, `tv.normalised_income` mantiene il proprio tasso di capitalizzazione, che non è il
+tasso di attualizzazione comune; `explain.conventions` lo dichiara. Un multiplo di uscita senza
 `next_flow` non ha una crescita implicita, quindi non è confrontato con il limite alla
 crescita; `explain.conventions` lo dichiara quando si applica.
 
@@ -103,7 +105,7 @@ except fm.FairmarkError as err:
 | Codice | Quando |
 | --- | --- |
 | `FM-E001` | L'elenco delle tecniche è vuoto, una voce ha più di una chiave, l'id di una tecnica è sconosciuto, oppure un campo manca o è sconosciuto |
-| `FM-E019` | Un multiplo di uscita o un reddito normalizzato è sull'approccio diverso da quello dichiarato |
+| `FM-E019` | Un multiplo di uscita, un reddito normalizzato o una liquidazione è sull'approccio diverso da quello dichiarato |
 | Qualsiasi codice di una tecnica | La prima tecnica che fallisce restituisce il proprio errore (ad esempio `FM-E004`, `FM-E018`) |
 
 ## Precisione

@@ -19,7 +19,7 @@ that method without `rate` and `growth_cap`:
 | [`tv.exit_multiple`](tv-exit-multiple.md) | `multiple`, `metric`, `metric_value`, optional `next_flow` | rate and growth cap when `next_flow` is given; the metric must be on the declared basis |
 | [`tv.limited_horizon`](tv-limited-horizon.md) | `flow`, `periods`, optional `growth`, `residual_value` | rate, growth cap |
 | [`tv.normalised_income`](tv-normalised-income.md) | `income`, `capitalisation_rate`, `basis`, optional `growth` | growth cap; the capitalisation rate stays its own; `basis` must match the declared basis |
-| [`tv.liquidation`](tv-liquidation.md) | `assets`, `liabilities`, `liquidation_costs`, `tax_on_gains` | none; the liabilities listed must match the declared basis |
+| [`tv.liquidation`](tv-liquidation.md) | `assets`, `liabilities`, `liquidation_costs`, `tax_on_gains`, `basis` | none; `basis` must match the declared basis |
 
 Each technique is computed by its own method, so a row of the comparison equals the result of
 that method run alone. Steps and conventions of each technique appear in `explain`, prefixed
@@ -32,8 +32,10 @@ Each row records `method_version`, the version of the technique that produced it
 change in any `tv.*` method therefore requires a new version of `tv.compare` as well; a test
 pins the technique versions together with the version of `tv.compare`.
 
-`tv.normalised_income` declares its own `basis`, checked against the basis of the comparison
-like the exit multiples (`FM-E019` when they differ). An exit multiple without `next_flow` has
+`tv.normalised_income` and `tv.liquidation` declare their own `basis`, checked against the
+basis of the comparison like the exit multiples (`FM-E019` when they differ). Inside the
+comparison, `tv.normalised_income` keeps its own capitalisation rate, which is not the shared
+discount rate; `explain.conventions` states it. An exit multiple without `next_flow` has
 no implied growth, so it is not checked against the growth cap; `explain.conventions` states
 it when it applies.
 
@@ -98,7 +100,7 @@ except fm.FairmarkError as err:
 | Code | When |
 | --- | --- |
 | `FM-E001` | The list of techniques is empty, an entry has more than one key, a technique id is unknown, or a field is missing or unknown |
-| `FM-E019` | An exit multiple or a normalised income is on the other basis than the one declared |
+| `FM-E019` | An exit multiple, a normalised income or a liquidation is on the other basis than the one declared |
 | Any code of a technique | The first technique that fails returns its own error (for example `FM-E004`, `FM-E018`) |
 
 ## Accuracy

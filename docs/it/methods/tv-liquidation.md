@@ -1,6 +1,6 @@
 ---
 source: methods/tv-liquidation.md
-source_hash: 302e97693aff
+source_hash: 27c680e3ffaa
 ---
 # Valore terminale di liquidazione (`tv.liquidation`)
 
@@ -8,7 +8,9 @@ Restituisce il valore netto di liquidazione all'orizzonte N: i valori di realizz
 attività, al netto delle passività estinte, dei costi di liquidazione e delle imposte sulle
 plusvalenze realizzate. Si usa per iniziative senza continuità dopo N o con attività
 separabili. Ogni voce compare in `explain` con la sua etichetta, così il valore è verificabile
-voce per voce.
+voce per voce. L'approccio è un input obbligatorio: `equity` quando le passività elencate
+includono il debito finanziario (il valore è un equity value), `enterprise` quando lo escludono
+(un enterprise value); non esiste un default.
 
 ## Formula
 
@@ -32,6 +34,7 @@ r = fm.tv.liquidation(
     liabilities={"Bank loan": 600, "Suppliers": 250},
     liquidation_costs={"Legal fees": 40, "Closure": 60},
     tax_on_gains=30,
+    basis="equity",  # il finanziamento bancario è elencato: un equity value
 )
 assert r.terminal_value == Decimal("320")
 assert r.total_liabilities == Decimal("850")
@@ -39,7 +42,9 @@ for step in r.steps[:3]:
     print(step.label, step.value)  # Assets: Land 800, Assets: Plant 300, Assets: Receivables 200
 
 # Sono accettati anche elenchi di coppie (etichetta, importo)
-pairs = fm.tv.liquidation([("Lot", 500), ("Lot", 300)], [("Suppliers", 100)], [], 0)
+pairs = fm.tv.liquidation(
+    [("Lot", 500), ("Lot", 300)], [("Suppliers", 100)], [], 0, basis="enterprise"
+)
 assert pairs.terminal_value == Decimal("700")
 ```
 
@@ -51,6 +56,7 @@ assert pairs.terminal_value == Decimal("700")
 | `liabilities` | Elenco di `{label, value}`: importo estinto in N, zero o positivo | obbligatorio |
 | `liquidation_costs` | Elenco di `{label, value}`: spese legali, chiusura, indennità al personale, zero o positivi | obbligatorio |
 | `tax_on_gains` | Imposte sulle plusvalenze realizzate, come importo, zero o positivo | obbligatorio |
+| `basis` | `enterprise` (debito finanziario non elencato) oppure `equity` (debito finanziario elencato) | obbligatorio, nessun default |
 
 `assets` richiede almeno una voce; gli altri elenchi possono essere vuoti. Le etichette non
 possono essere vuote.
@@ -64,6 +70,7 @@ possono essere vuote.
 | `total_liabilities` | Somma delle passività |
 | `total_liquidation_costs` | Somma dei costi di liquidazione |
 | `tax_on_gains` | Imposte sulle plusvalenze, come fornite |
+| `basis` | `enterprise` oppure `equity`, come dichiarato |
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
 
@@ -72,13 +79,13 @@ possono essere vuote.
 | Tempistica | attività realizzate e passività estinte in N | fissa |
 | Imposte sulle plusvalenze | fornite come importo | fissa: non calcolate da un'aliquota |
 | Valore netto negativo | restituito così com'è | fissa: nessun minimo a zero |
-| Approccio | lo determinano le passività elencate: includendo il debito finanziario il valore è un equity value | scelta dell'analista |
+| Approccio | enterprise oppure equity, dichiarato; le passività elencate devono essere coerenti | nessuno: va fornito |
 
 ## Errori
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | `assets` è vuoto, un'etichetta è vuota, oppure un campo manca o è sconosciuto |
+| `FM-E001` | `assets` è vuoto, un'etichetta è vuota, `basis` manca o non è `enterprise` o `equity`, oppure un campo manca o è sconosciuto |
 | `FM-E018` | Un valore di realizzo, una passività, un costo di liquidazione o le imposte sulle plusvalenze sono negativi |
 | `FM-E008` | Overflow aritmetico (input molto lontani da un intervallo realistico) |
 

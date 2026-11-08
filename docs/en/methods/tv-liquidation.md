@@ -3,7 +3,9 @@
 Returns the net liquidation value at the horizon N: the realisable values of the assets, less
 the liabilities settled, the costs of the liquidation and the tax on the gains realised. Use
 it for ventures without continuity after N or with separable assets. Every line appears in
-`explain` with its label, so the value can be audited line by line.
+`explain` with its label, so the value can be audited line by line. The basis is a required
+input: `equity` when the liabilities listed include financial debt (the value is an equity
+value), `enterprise` when they exclude it (an enterprise value); there is no default.
 
 ## Formula
 
@@ -27,6 +29,7 @@ r = fm.tv.liquidation(
     liabilities={"Bank loan": 600, "Suppliers": 250},
     liquidation_costs={"Legal fees": 40, "Closure": 60},
     tax_on_gains=30,
+    basis="equity",  # the bank loan is listed: an equity value
 )
 assert r.terminal_value == Decimal("320")
 assert r.total_liabilities == Decimal("850")
@@ -34,7 +37,9 @@ for step in r.steps[:3]:
     print(step.label, step.value)  # Assets: Land 800, Assets: Plant 300, Assets: Receivables 200
 
 # Lists of (label, amount) pairs are accepted too
-pairs = fm.tv.liquidation([("Lot", 500), ("Lot", 300)], [("Suppliers", 100)], [], 0)
+pairs = fm.tv.liquidation(
+    [("Lot", 500), ("Lot", 300)], [("Suppliers", 100)], [], 0, basis="enterprise"
+)
 assert pairs.terminal_value == Decimal("700")
 ```
 
@@ -46,6 +51,7 @@ assert pairs.terminal_value == Decimal("700")
 | `liabilities` | List of `{label, value}`: amount settled at N, zero or positive | required |
 | `liquidation_costs` | List of `{label, value}`: legal fees, closure, severance, zero or positive | required |
 | `tax_on_gains` | Tax on the gains realised, as an amount, zero or positive | required |
+| `basis` | `enterprise` (financial debt not listed) or `equity` (financial debt listed) | required, no default |
 
 `assets` needs at least one line; the other lists may be empty. Labels must not be empty.
 
@@ -58,6 +64,7 @@ assert pairs.terminal_value == Decimal("700")
 | `total_liabilities` | Sum of the liabilities |
 | `total_liquidation_costs` | Sum of the liquidation costs |
 | `tax_on_gains` | Tax on gains, as given |
+| `basis` | `enterprise` or `equity`, as declared |
 
 ## Conventions (explicit, reported in `explain.conventions`)
 
@@ -66,13 +73,13 @@ assert pairs.terminal_value == Decimal("700")
 | Timing | assets realised and liabilities settled at N | fixed |
 | Tax on gains | given as an amount | fixed: not computed from a rate |
 | Negative net value | returned as is | fixed: no floor at zero |
-| Basis | the liabilities listed decide it: with financial debt the value is an equity value | analyst's choice |
+| Basis | enterprise or equity, declared; the liabilities listed must match it | none: must be given |
 
 ## Errors
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | `assets` is empty, a label is empty, or a field is missing or unknown |
+| `FM-E001` | `assets` is empty, a label is empty, `basis` is missing or not `enterprise` or `equity`, or a field is missing or unknown |
 | `FM-E018` | An asset value, a liability, a liquidation cost or the tax on gains is negative |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 
