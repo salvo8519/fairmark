@@ -2,12 +2,15 @@
 
 ``fcff`` values the operating business from free cash flows to the firm discounted at the
 WACC, and ``fcfe`` values the equity from free cash flows to equity discounted at the cost of
-equity, each over one to three explicit stages followed by a terminal value. Every choice is
-explicit: the stages and their projection, the terms of the flows and of the rates, the timing,
-and the terminal technique. The helpers ``given``, ``constant_growth``, ``linear_decline`` and the
+equity, each over one to three explicit stages followed by a terminal value, given as an amount,
+or none. The minimal call is a list of flows and one rate, ``fcff(flows=[...], wacc="0.09")``:
+the engine then applies its documented defaults (given flows, nominal terms, end-of-period
+timing, no terminal value) and lists them in ``result.meta["defaults_applied"]``; every choice
+given explicitly prevails. The helpers ``given``, ``constant_growth``, ``linear_decline``, the
 terminal techniques ``gordon``, ``h_model``, ``value_driver``, ``exit_multiple``,
-``limited_horizon``, ``normalised_income`` and ``liquidation`` only build the input objects;
-the engine computes everything.
+``limited_horizon``, ``normalised_income`` and ``liquidation``, and the terminal options
+``given_terminal`` and ``no_terminal`` only build the input objects; the engine computes
+everything.
 
 Rates and growths are decimal fractions per period (``"0.09"`` = 9%); one period is one year.
 """
@@ -211,6 +214,20 @@ def liquidation(
     }
 
 
+def given_terminal(value: Number) -> dict[str, Any]:
+    """A terminal value given by the analyst, written ``{"given": {"value": ...}}``: an amount
+    at the horizon N on the basis of the DCF (the value of operations at N for :func:`fcff`, the
+    equity value at N for :func:`fcfe`), in the terms of the cash flows, of any sign. It is
+    discounted like the value of a technique."""
+    return {"given": {"value": value}}
+
+
+def no_terminal() -> dict[str, Any]:
+    """No terminal value, written ``{"none": {}}``: the value covers the explicit flows only,
+    with a warning. It is also the default when ``terminal`` is not given."""
+    return {"none": {}}
+
+
 def bridge_claim(
     label: str,
     value: Number,
@@ -241,22 +258,33 @@ def _plain(value: Any) -> Any:
     return value
 
 
-def _dcf_payload(required: Mapping[str, Any], optional: Mapping[str, Any]) -> dict[str, Any]:
-    """The input of a DCF method: every required field, and the optional fields that were
-    given. An optional field left at None is omitted, so the engine applies its documented
-    rule; the helper never fills in a value."""
-    payload = {k: _plain(v) for k, v in required.items()}
+def _dcf_payload(
+    stages: Iterable[Mapping[str, Any]] | None,
+    flows: Sequence[Number] | None,
+    optional: Mapping[str, Any],
+) -> dict[str, Any]:
+    """The input of a DCF method: the stages (or one stage of the given ``flows``), and the
+    fields that were given. A field left at None is omitted, so the engine applies its
+    documented default and reports it; the helper never fills in a value."""
+    if stages is not None and flows is not None:
+        raise TypeError("give `stages` or `flows`, not both")
+    payload: dict[str, Any] = {}
+    if flows is not None:
+        payload["stages"] = [{"flows": _plain(flows)}]
+    elif stages is not None:
+        payload["stages"] = _plain(stages)
     payload.update({k: _plain(v) for k, v in optional.items() if v is not None})
     return payload
 
 
 def fcff(
-    stages: Iterable[Mapping[str, Any]],
+    stages: Iterable[Mapping[str, Any]] | None = None,
     *,
-    cash_flow_terms: Terms,
-    discount_rate_terms: Terms,
-    timing: Timing,
-    terminal: Mapping[str, Any],
+    flows: Sequence[Number] | None = None,
+    cash_flow_terms: Terms | None = None,
+    discount_rate_terms: Terms | None = None,
+    timing: Timing | None = None,
+    terminal: Mapping[str, Any] | None = None,
     wacc: Number | None = None,
     wacc_per_period: Sequence[Number] | None = None,
     terminal_wacc: Number | None = None,
@@ -275,6 +303,11 @@ def fcff(
     """Enterprise DCF (``dcf.fcff`` version 3): value of operations, enterprise value and
     equity value from FCFF discounted at the WACC.
 
+    Minimal call: ``fcff(flows=[...], wacc="0.09")``, one stage of given flows; the engine
+    applies its documented defaults (nominal terms, end-of-period timing, no terminal value)
+    and lists them in ``result.meta["defaults_applied"]``. Give ``stages`` instead of ``flows``
+    for several stages or generated flows.
+
     Give ``wacc`` (one rate, also used for the terminal value) or ``wacc_per_period`` with
     ``terminal_wacc``. Under ``timing="mid_period"`` give ``terminal_discount_time``.
     When ``cash_flow_terms`` and ``discount_rate_terms`` differ, give expected inflation
@@ -285,7 +318,8 @@ def fcff(
     Stages built with :func:`given_lines` take ``notional_tax_rate`` with ``negative_ebit``,
     or ``operating_taxes`` in every line.
     ``terminal`` is built by ``gordon``, ``h_model``, ``value_driver``, ``exit_multiple``,
-    ``limited_horizon``, ``normalised_income`` or ``liquidation``.
+    ``limited_horizon``, ``normalised_income`` or ``liquidation``, by ``given_terminal`` (an
+    amount at N) or ``no_terminal`` (the default).
 
     From value of operations to equity value: ``non_operating_assets`` (``{"label",
     "value"}``) are added; ``net_financial_position`` (``{"gross_debt", "cash",
@@ -305,18 +339,19 @@ def fcff(
     ... )
     >>> r.value_of_operations
     Decimal('1421.4876033057851239669421487')
+    >>> fcff(flows=[120, 135, 150, 160, 170], wacc="0.09").value_of_operations
+    Decimal('563.38243366056148746628356553')
     """
     return run(
         "dcf.fcff",
         _dcf_payload(
+            stages,
+            flows,
             {
-                "stages": stages,
                 "cash_flow_terms": cash_flow_terms,
                 "discount_rate_terms": discount_rate_terms,
                 "timing": timing,
                 "terminal": terminal,
-            },
-            {
                 "wacc": wacc,
                 "wacc_per_period": wacc_per_period,
                 "terminal_wacc": terminal_wacc,
@@ -337,12 +372,13 @@ def fcff(
 
 
 def fcfe(
-    stages: Iterable[Mapping[str, Any]],
+    stages: Iterable[Mapping[str, Any]] | None = None,
     *,
-    cash_flow_terms: Terms,
-    discount_rate_terms: Terms,
-    timing: Timing,
-    terminal: Mapping[str, Any],
+    flows: Sequence[Number] | None = None,
+    cash_flow_terms: Terms | None = None,
+    discount_rate_terms: Terms | None = None,
+    timing: Timing | None = None,
+    terminal: Mapping[str, Any] | None = None,
     cost_of_equity: Number | None = None,
     cost_of_equity_per_period: Sequence[Number] | None = None,
     terminal_cost_of_equity: Number | None = None,
@@ -361,6 +397,9 @@ def fcfe(
 ) -> Result:
     """Equity DCF (``dcf.fcfe`` version 1): equity value from FCFE discounted at the cost of
     equity.
+
+    Minimal call: ``fcfe(flows=[...], cost_of_equity="0.11")``, with the defaults of
+    :func:`fcff`.
 
     Give ``cost_of_equity`` (one rate, also used for the terminal value) or
     ``cost_of_equity_per_period`` with ``terminal_cost_of_equity``. Stages, terms, inflation,
@@ -393,14 +432,13 @@ def fcfe(
     return run(
         "dcf.fcfe",
         _dcf_payload(
+            stages,
+            flows,
             {
-                "stages": stages,
                 "cash_flow_terms": cash_flow_terms,
                 "discount_rate_terms": discount_rate_terms,
                 "timing": timing,
                 "terminal": terminal,
-            },
-            {
                 "cost_of_equity": cost_of_equity,
                 "cost_of_equity_per_period": cost_of_equity_per_period,
                 "terminal_cost_of_equity": terminal_cost_of_equity,
