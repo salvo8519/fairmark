@@ -2,10 +2,10 @@
 
 | | |
 | --- | --- |
-| Status | Draft |
+| Status | Approved — 2026-11-08, maintainer decisions recorded below |
 | Milestone | M1 |
 | Owner | @salvo8519 |
-| Formula basis | Closed forms of the level-payment (annuity) loan and the period-by-period recurrence of the outstanding balance, as commonly adopted in lending practice and in the amortisation types defined by Regulation (EU) 2016/867 (AnaCredit); verified against the ECMA-376 worked examples of the spreadsheet loan functions, an independent 50-digit reference script and `numpy_financial` |
+| Formula basis | Closed forms of the level-payment (annuity) loan and the period-by-period recurrence of the outstanding balance, as commonly adopted in lending practice and in the amortisation types defined by Regulation (EU) 2016/867 (AnaCredit); verified against the ECMA-376 worked examples of the spreadsheet loan functions, at least one worked example from a published financial mathematics textbook or a regulatory example, an independent 50-digit reference script and `numpy_financial` |
 | Related | Issues #135 (this spec), #136, #137; SPEC-0002 (rates, timing, annuities); issue #85 (M6, debt schedule) |
 
 ## Problem
@@ -27,9 +27,10 @@ able to state which one applies and see it in the audit trail.
 - Amortisation schedules for three amortisation types: French (constant instalment),
   fixed amortisation schedule (constant principal portion) and bullet; an optional principal
   grace period (interest only) at the start; an optional balloon amount at maturity.
-- Payments in arrears or in advance, the periodic rate derived from an annual borrowing rate,
-  an explicit rounding convention and a final-period adjustment that brings the outstanding
-  balance exactly to zero.
+- Payments in arrears or in advance for the instalment and the future value; payments in
+  arrears for schedules. The periodic rate is derived from an annual borrowing rate or given
+  directly. An explicit rounding convention for the instalment and a final-period adjustment
+  that brings the outstanding balance exactly to zero.
 
 **Out of scope:**
 - Debt schedule of a company, levered returns and equity waterfall: issue #85 (M6).
@@ -40,6 +41,7 @@ able to state which one applies and see it in the audit trail.
 - Fees, charges and the annual percentage rate of charge (APRC). The rate input of this
   spec is the borrowing rate; the APRC is a different quantity (see "Terminology and
   sources").
+- Schedules with payments in advance: planned for a later method version.
 - Amortisation types other than the three above (for example the AnaCredit "German" type,
   rising instalments, sinking funds).
 
@@ -59,25 +61,31 @@ able to state which one applies and see it in the audit trail.
 ## Requirements (EARS)
 
 ### Common to all loan methods
-- **R1** — THE ENGINE SHALL accept the borrowing rate as an annual rate, decimal fraction,
-  with its compounding (the five options of SPEC-0002 R3) and the payment frequency (annual,
-  semi-annual, quarterly, monthly), and SHALL derive the periodic rate as the equivalent annual
-  rate with compounding equal to the payment frequency, divided by the number of payments per
-  year, reusing the conversion of `rates.convert`. WHEN the compounding is omitted, THE ENGINE
-  SHALL use the payment frequency (so the periodic rate is the annual rate divided by the
-  number of payments per year) and report this default in `explain.conventions`.
+- **R1** — THE ENGINE SHALL accept the rate in exactly one of two forms: (a) an annual
+  borrowing rate `rate`, decimal fraction, with its `compounding` (the five options of
+  SPEC-0002 R3) and the `payment_frequency` (annual, semi-annual, quarterly, monthly), all three
+  required; or (b) a `periodic_rate`, decimal fraction per payment period, as `tvm.annuity`
+  accepts. In form (a) it SHALL derive the periodic rate as the equivalent annual rate with
+  compounding equal to the payment frequency, divided by the number of payments per year,
+  reusing the conversion of `rates.convert`. There is no default compounding.
+- **R1a** — IF both forms, neither form, or form (a) without its compounding or payment
+  frequency is given, THEN THE ENGINE SHALL return `FM-E001` naming the missing or
+  conflicting fields.
 - **R2** — THE ENGINE SHALL accept the payment timing `ordinary` (in arrears: each instalment
   at the end of its period) or `due` (in advance: each instalment at the beginning of its
   period), the same values as `tvm.annuity` (SPEC-0002 R11). The timing is required.
+  `loans.instalment` and `tvm.future_value` accept both values; `loans.number_of_instalments`
+  accepts both; `loans.amortisation_schedule` accepts `ordinary` only in version 1 and returns
+  `FM-E001` for `due`.
 - **R3** — IF the principal is zero or negative, the number of instalments is 0 or above
   10000, or a field is missing or unknown, THEN THE ENGINE SHALL return `FM-E001`; IF the
   periodic rate is −100% or lower, THEN it SHALL return `FM-E003`.
 - **R4** — WHEN the periodic rate is zero, THE ENGINE SHALL use the limit forms (instalment
   (P − B) / n, number of instalments (P − B) / A) and show them as a separate step.
-- **R5** — Every loan result SHALL list in `explain.conventions` the timing, the source
-  compounding, the payment frequency, the periodic rate, the rounding convention and every
-  default applied; and in `explain.steps` the periodic-rate derivation with the numbers
-  substituted.
+- **R5** — Every loan result SHALL list in `explain.conventions` the timing, the rate form
+  used, the source compounding and payment frequency (form (a)), the periodic rate, the
+  rounding convention and every default applied; and in `explain.steps` the periodic-rate
+  derivation with the numbers substituted (form (a)) or the periodic rate as given (form (b)).
 
 ### Instalment (issue #136)
 - **R6** — WHEN given a principal P, the rate inputs of R1, a number of instalments n, a
@@ -87,16 +95,17 @@ able to state which one applies and see it in the audit trail.
   A = (P − B (1 + i)^−n) · i / (1 − (1 + i)^−n) for `ordinary`, divided by (1 + i) for `due`;
   together with the total amount paid and the total interest.
 - **R7** — IF the balloon amount is negative or not lower than the principal, THEN THE ENGINE
-  SHALL return `FM-E018`.
+  SHALL return `FM-E020`.
 
 ### Number of instalments (issue #136)
-- **R8** — WHEN given a principal, the rate inputs of R1, an instalment A and a timing, THE
+- **R8** — WHEN given a principal, the rate inputs of R1, an instalment A and a timing (no
+  balloon amount in version 1; a `balloon_amount` field is rejected as unknown), THE
   ENGINE SHALL return the exact number of periods n* = −ln(1 − i P' / A) / ln(1 + i), where
   P' = P for `ordinary` and P / (1 + i) for `due`; the number of instalments ⌈n*⌉; and the
   amount of the final, reduced instalment that brings the outstanding balance exactly to zero.
 - **R9** — IF A ≤ i P' (the instalment does not exceed the interest accruing on the
-  balance, so the balance never decreases), THEN THE ENGINE SHALL return `FM-E019`; IF ⌈n*⌉ exceeds 10000, THEN it
-  SHALL return `FM-E001`.
+  balance, so the balance never decreases), THEN THE ENGINE SHALL return `FM-E021`; IF ⌈n*⌉
+  exceeds 10000, THEN it SHALL return `FM-E001`.
 
 ### Future value (issue #136)
 - **R10** — WHEN given a present amount PV (default 0), a level periodic payment PMT
@@ -104,13 +113,15 @@ able to state which one applies and see it in the audit trail.
   the future value at t = n: FV = PV (1 + r)^n + PMT · ((1 + r)^n − 1) / r, the payment term
   multiplied by (1 + r) for `due`, and n · PMT for the payment term when r = 0. Amounts of the
   same sign are accumulated in the same direction; a negative amount is a withdrawal. The rate
-  per period follows the `tvm` convention of SPEC-0002 (no annual-rate conversion).
+  per period follows the `tvm` convention of SPEC-0002 (no annual-rate conversion). Both
+  timings are accepted. There is no separate outstanding-balance method: the balance after any
+  instalment is read from the schedule (R12).
 - **R11** — THE ENGINE SHALL report the sign convention of R10 in `explain.conventions`, and
   `FM-E001` IF both PV and PMT are omitted.
 
 ### Amortisation schedule (issue #137)
 - **R12** — WHEN given a principal, the rate inputs of R1, a number of instalments n (the full
-  term, grace period included), a timing, an amortisation type, an optional principal grace
+  term, grace period included), the timing `ordinary`, an amortisation type, an optional principal grace
   period g (default 0) and an optional balloon amount B (default 0), THE ENGINE SHALL return
   one row per period with: period number, payment time, instalment, interest portion,
   principal portion and outstanding balance after the instalment; and the totals of
@@ -123,21 +134,23 @@ able to state which one applies and see it in the audit trail.
   portion being i times the outstanding balance at the start of the period.
 - **R15** — WHEN the amortisation type is `bullet`, THE ENGINE SHALL charge interest only in
   every period and repay the full principal with the last instalment; IF a balloon amount or a
-  grace period is given with `bullet`, THEN it SHALL return `FM-E018` or `FM-E020`
+  grace period is given with `bullet`, THEN it SHALL return `FM-E020` or `FM-E022`
   respectively.
 - **R16** — WHEN a principal grace period g > 0 is given, THE ENGINE SHALL charge interest
-  only in the first g periods; IF g is not lower than n, THEN it SHALL return `FM-E020`.
+  only in the first g periods; IF g is not lower than n, THEN it SHALL return `FM-E022`.
 - **R17** — WHEN a balloon amount B > 0 is given, THE ENGINE SHALL repay B together with the
   last instalment and report it as a separate field of the last row; IF B is negative or not
-  lower than the principal, THEN it SHALL return `FM-E018`.
-- **R18** — WHEN the timing is `due`, THE ENGINE SHALL place instalment k at time k − 1; the
-  interest portion of an instalment is the interest accrued since the previous instalment, so
-  the first instalment carries no interest; the balance after the last instalment is zero.
-- **R19** — THE ENGINE SHALL accept an optional rounding convention (number of decimal places
-  from 0 to 6 and a rounding mode `half_up` or `half_even`; default: no rounding). WHEN given,
-  it SHALL round the constant instalment (French) or the constant principal portion (fixed
-  amortisation schedule) and each interest portion, and derive the principal portion as the
-  instalment minus the interest portion.
+  lower than the principal, THEN it SHALL return `FM-E020`.
+- **R18** — Instalment k of a schedule is paid at the end of period k (time k). Schedules with
+  payments in advance are not part of version 1 (R2).
+- **R19** — THE ENGINE SHALL accept an optional rounding convention: number of decimal places
+  from 0 to 6 and a rounding mode, `half_up` or `half_even`, both stated explicitly when
+  rounding is chosen (no default mode); without the field there is no rounding. Rounding
+  applies to the instalment only: the constant instalment of `loans.instalment` and of a
+  French schedule, and the instalment of each period of a fixed amortisation schedule or
+  bullet schedule (principal portion plus interest, then rounded). Interest portions are not
+  rounded; the principal portion of each period is the rounded instalment minus the interest
+  portion, and the outstanding balance follows from it.
 - **R20** — THE ENGINE SHALL set the principal portion of the last period equal to the
   outstanding balance at its start (the balloon amount included), so that the final outstanding balance
   is exactly zero, and SHALL report the difference between the last instalment and the regular
@@ -146,24 +159,25 @@ able to state which one applies and see it in the audit trail.
 - **R21** — IF, with rounding, the outstanding balance would become negative before the last
   period, or the final adjustment would make the last principal portion or the last
   instalment negative (rounding too coarse for the loan), THEN THE ENGINE SHALL return
-  `FM-E021`.
+  `FM-E023`.
 - **R22** — THE ENGINE SHALL include in `explain.steps` the instalment or principal-portion
-  formula with the numbers substituted, one step per period with the recurrence
+  formula with the numbers substituted; the recurrence stated once with its formula
   (interest = i × opening balance; principal = instalment − interest; closing balance =
-  opening balance − principal), the final adjustment and the totals.
+  opening balance − principal); the first period with the numbers substituted; the final
+  adjustment; and the totals. The rows of the output carry the per-period numbers.
 
 ## Conventions and parameters
 | Convention | Options | Default | Source |
 | --- | --- | --- | --- |
-| Borrowing rate quotation | annual rate, decimal fraction | required | Directive (EU) 2023/2225 Art. 3(8): rate "applied on an annual basis" |
-| Source compounding of the rate | annual, semi_annual, quarterly, monthly, continuous | equal to the payment frequency (reported) | SPEC-0002 R3; nominal annual rate practice |
-| Payment frequency | annual, semi_annual, quarterly, monthly | required | Regulation (EU) 2016/867, "payment frequency" |
-| Periodic rate | equivalent rate with compounding = payment frequency, divided by payments per year | fixed | SPEC-0002 `rates.convert` |
-| Payment timing | ordinary (in arrears), due (in advance) | required | SPEC-0002 annuity timing |
+| Rate form | (a) annual borrowing rate with compounding and payment frequency, or (b) periodic rate | exactly one, required | Directive (EU) 2023/2225 Art. 3(8): rate "applied on an annual basis"; `tvm.annuity` |
+| Source compounding of the rate (form a) | annual, semi_annual, quarterly, monthly, continuous | required, no default | SPEC-0002 R3; constitution III |
+| Payment frequency (form a) | annual, semi_annual, quarterly, monthly | required | Regulation (EU) 2016/867, "payment frequency" |
+| Periodic rate (form a) | equivalent rate with compounding = payment frequency, divided by payments per year | fixed | SPEC-0002 `rates.convert` |
+| Payment timing | ordinary (in arrears), due (in advance); schedules: ordinary only in version 1 | required | SPEC-0002 annuity timing |
 | Amortisation type | french, fixed_amortisation_schedule, bullet | required | Regulation (EU) 2016/867 Annex IV; Delegated Regulation (EU) 2020/1224 RREL35 |
 | Principal grace period | 0 to n − 1 periods, interest only | 0 | Delegated Regulation (EU) 2020/1224 RREL36; World Bank loan terms |
 | Balloon amount | 0 ≤ B < P, currency units | 0 | Delegated Regulation (EU) 2020/1224 RREL41 |
-| Rounding | none, or decimal places 0 to 6 with half_up or half_even | none | practice varies: an explicit input |
+| Rounding | none, or decimal places 0 to 6 with an explicit mode half_up or half_even; applies to the instalment only | none | practice varies: an explicit input |
 | Final-period adjustment | last principal portion = opening balance of the last period | always applied, reported | this spec (R20) |
 | Future value sign convention | same sign accumulates, negative is a withdrawal | fixed | this spec (R10); differs from the spreadsheet cash-flow sign convention |
 | Interest of a period | i × opening balance (compound interest regime) | fixed | Corte di Cassazione 2024 (see sources) |
@@ -173,11 +187,11 @@ able to state which one applies and see it in the audit trail.
   compounding and monthly payments, 10 instalments: instalment 1037.03 in arrears and 1030.16
   in advance (published to two decimals).
 - **AC2** (R6, R7) — Instalments with a balloon amount match the 50-digit reference within
-  1e-19; B < 0 and B ≥ P return `FM-E018`.
+  1e-19; B < 0 and B ≥ P return `FM-E020`.
 - **AC3** (R8, R9) — The number of instalments recomputes the instalment of AC1 within 1e-15
   (n* = 10); a non-integer case gives ⌈n*⌉ and a final instalment that matches the reference
-  schedule; an instalment equal to i P' returns `FM-E019`; agreement with
-  `numpy_financial.nper` on ten random loans.
+  schedule; an instalment equal to i P' returns `FM-E021`; a `balloon_amount` field returns
+  `FM-E001`; agreement with `numpy_financial.nper` on ten random loans.
 - **AC4** (R10, R11) — ECMA-376 worked examples, converted to this sign convention:
   payment 1000, rate 0.01, 12 periods, ordinary: 12682.50; present amount 500 and payment 200,
   rate 0.005, 10 periods, due: 2581.40; payment 2000, rate 0.11 / 12 (entered to 28 significant digits), 35 periods, due: 82846.25;
@@ -188,29 +202,37 @@ able to state which one applies and see it in the audit trail.
   principal 2000, rate 0.10 monthly compounding, 24 monthly instalments: principal portion of
   period 1 = 75.62. Full French schedules match the reference within 1e-19.
 - **AC6** (R14, R15) — Fixed amortisation schedule and bullet schedules match the reference;
-  `bullet` with a balloon returns `FM-E018`, with a grace period `FM-E020`.
+  `bullet` with a balloon returns `FM-E020`, with a grace period `FM-E022`.
 - **AC7** (R16, R17) — A French schedule with a 2-period grace period and a balloon of 20% of
   the principal matches the reference: interest-only rows 1 and 2, the balloon in the last row;
-  g ≥ n returns `FM-E020`.
-- **AC8** (R18) — In advance, the first row has zero interest and the instalment equals the
-  instalment of R6 `due`; the schedule matches the reference.
-- **AC9** (R19, R20) — With rounding to 2 decimal places `half_up`, every instalment except
-  the last equals the rounded instalment, every interest portion has two decimals, the final
-  balance is exactly 0 and `final_adjustment` equals the reference. Without rounding the final
+  g ≥ n returns `FM-E022`.
+- **AC8** (R2, R18) — `loans.amortisation_schedule` with timing `due` returns `FM-E001`;
+  instalment k of a schedule is at time k.
+- **AC9** (R19, R20) — With rounding to 2 decimal places `half_up`, every French instalment
+  except the last equals the rounded instalment, every fixed-amortisation-schedule instalment
+  except the last has two decimals, interest portions are not rounded, the final balance is
+  exactly 0 and `final_adjustment` equals the reference. Rounding without a mode returns
+  `FM-E001`. Without rounding the final
   balance is exactly 0 and |`final_adjustment`| < 1e-18.
 - **AC10** (R21) — Principal 10, rate 0, 20 instalments, French, rounding to 0 decimal places
   `half_up` (instalment 0.5 rounds to 1, the balance reaches zero after 10 periods) returns
-  `FM-E021`.
+  `FM-E023`.
 - **AC11** (R4) — Rate zero: instalment (P − B) / n, number of instalments P / A, future value
   PV + n · PMT; each shown as a separate step.
-- **AC12** (R3) — Principal 0, n = 0, n = 10001 and an unknown field return `FM-E001`; a
-  periodic rate of −1 returns `FM-E003`.
-- **AC13** (R5, R11, R22) — Every new method reports its conventions and the steps listed
-  (unit test per method).
+- **AC12** (R1a, R3) — Principal 0, n = 0, n = 10001, an unknown field, both rate forms,
+  neither rate form, and an annual rate without compounding return `FM-E001`; a periodic rate
+  of −1 returns `FM-E003`.
+- **AC12a** (R1) — The same loan given with form (a) and with the equivalent periodic rate in
+  form (b) gives the same instalment and schedule.
+- **AC13** (R5, R11, R22) — Every new method reports its conventions and the steps listed;
+  the schedule explain has a bounded number of steps independent of n (unit test per method).
 - **AC14** (property) — For every schedule: the sum of principal portions equals the principal;
   the sum of instalments equals the sum of interest and principal portions; balances are
   non-increasing after the grace period; with no rounding, the present value of the
   instalments at the periodic rate equals the principal within 1e-18.
+- **AC15** (R6, R13, R14) — At least one golden case reproduces a worked example from a
+  published financial mathematics textbook or a regulatory example (French or fixed
+  amortisation schedule), with the source, edition and page cited in the golden file.
 
 ## Golden-case sources
 - **Reference script**: `scripts/reference_loans.py`, written independently of the Rust code
@@ -221,6 +243,10 @@ able to state which one applies and see it in the audit trail.
   `https://webapp.docx4java.org/OnlineDemo/ecma376/SpreadsheetML/PMT.html`, `.../PPMT.html`,
   `.../FV.html`. These are used as worked examples only; their function names are not used as
   names in Fairmark.
+- **Textbook or regulatory worked example (required)**: at least one schedule from a
+  published financial mathematics textbook or a regulatory example, cited with edition and
+  page in the golden file (AC15). It is selected by the test engineer before implementation;
+  no source is invented, and if none can be obtained the maintainer is asked.
 - **Implementations cross-checked**: `numpy_financial` (`pmt`, `nper`, `fv`, `ipmt`, `ppmt`)
   and the spreadsheet functions of Excel and LibreOffice.
 
@@ -234,7 +260,8 @@ able to state which one applies and see it in the audit trail.
 - New module `crates/fairmark-core/src/loans.rs` (theme `loans`); `tvm.future_value` in
   `tvm.rs`. All schema changes are additive (new methods, version 1).
 - Input fields (snake_case, units in the schema doc comments): `principal` (currency units),
-  `rate` (annual borrowing rate, decimal fraction), `compounding` (optional), `payment_frequency`,
+  `rate` (annual borrowing rate, decimal fraction), `compounding`, `payment_frequency`
+  (form (a)) or `periodic_rate` (form (b)),
   `number_of_instalments`, `timing`, `instalment` (currency units), `amortisation_type`,
   `principal_grace_periods` (number of periods), `balloon_amount` (currency units),
   `rounding` (`decimal_places`, `mode`); for `tvm.future_value`: `present_value`, `payment`,
@@ -243,14 +270,15 @@ able to state which one applies and see it in the audit trail.
   `exact_number_of_periods`, `number_of_instalments`, `final_instalment`; `future_value`;
   `rows` (`period`, `time`, `instalment`, `interest_portion`, `principal_portion`,
   `balloon_amount`, `outstanding_balance`), `totals`, `final_adjustment`.
-- New error codes (next free codes; the last code in `error.rs` is `FM-E017`):
-  - `FM-E018` balloon amount out of range (negative, not lower than the principal, or given
+- New error codes, provisional (`FM-E018` and `FM-E019` are taken by SPEC-0006; the final
+  numbers are fixed when the variants are added to `error.rs`):
+  - `FM-E020` balloon amount out of range (negative, not lower than the principal, or given
     with `bullet`);
-  - `FM-E019` the instalment does not exceed the interest of the first period: the loan is
+  - `FM-E021` the instalment does not exceed the interest of the first period: the loan is
     never repaid;
-  - `FM-E020` principal grace period not lower than the number of instalments, or given with
+  - `FM-E022` principal grace period not lower than the number of instalments, or given with
     `bullet`;
-  - `FM-E021` with rounding, the balance would become negative before the last period or the
+  - `FM-E023` with rounding, the balance would become negative before the last period or the
     final-period adjustment would be negative (rounding too coarse for the loan).
 - Python helpers in `python/fairmark/loans.py` and `fm.tvm.future_value`; methodology pages
   `docs/en/methods/loans-instalment.md`, `loans-number-of-instalments.md`,
@@ -278,39 +306,70 @@ practice, verified on the sources below. Spreadsheet function names are not used
 | payment frequency | periodicità della rata | Regulation (EU) 2016/867 Annex IV, "Payment frequency"; Banca d'Italia guide: "la periodicità delle singole rate (mese, trimestre, semestre)" |
 | payment in arrears / in advance | rata posticipata / anticipata | SPEC-0002 annuity timing (`ordinary` / `due`) and `i18n/glossary.yaml` (rendita posticipata / anticipata) |
 | number of instalments | numero delle rate | Directive 2008/48/EC Art. 5(1)(h), "the amount, number and frequency of payments": https://www.legislation.gov.uk/eudr/2008/48/chapter/II/data.pdf |
-| future value | valore futuro (montante) | CFA Institute curriculum, time value of money (term in common use; see open question 6) |
+| future value | valore futuro (montante) | CFA Institute curriculum, time value of money (term in common use; accepted by the maintainer, decision 6) |
 
 Notes on the sources: the Banca d'Italia mortgage guide was read in a copy of its text
 (https://www.fpcgil.it/wp-content/uploads/2021/06/COMPRARE-UNA-CASA-IL-MUTUO-IPOTECARIO-IN-PAROLE-SEMPLICI.pdf)
 because the official PDF could not be retrieved in this session; the Banca d'Italia rate guide
 was read in a copy at
 https://www.dirittobancario.it/wp-content/uploads/2023/03/I-tassi-di-interesse-Guida-Banca-dItalia.pdf.
-The maintainer should confirm both against the official Banca d'Italia files before approval.
+Requirement: before the methodology pages and the Italian edition are published, every
+quotation from Banca d'Italia texts SHALL be checked on the official files published at
+bancaditalia.it, and the citations SHALL point to those files, not to copies.
 
-## Open questions
-- [ ] 1. Amortisation type values: the proposal uses the AnaCredit names `french`,
+## Decisions (maintainer, 2026-11-08)
+1. **Constant principal type value**: the AnaCredit term `fixed_amortisation_schedule` is kept.
+   The documentation explains it as the Italian "ammortamento all'italiana" (constant
+   principal portion).
+2. **Compounding** is required in form (a); there is no default, consistent with "no silent
+   defaults" (R1).
+3. **Periodic rate**: the loan methods also accept a periodic rate directly, as `tvm.annuity`
+   does; exactly one of the annual rate with compounding and payment frequency, or the
+   periodic rate (R1, R1a).
+4. **Timing**: schedules support payments in arrears only in version 1; payments in advance
+   come in a later method version. `loans.instalment` and `tvm.future_value` keep both timings
+   (R2, R18).
+5. **Balloon and number of instalments**: `loans.number_of_instalments` does not accept a
+   balloon amount in version 1 (R8).
+6. **Future value**: `tvm.future_value` is accepted; there is no separate outstanding-balance
+   method, the balance is read from the schedule (R10).
+7. **Italian terms**: "bullet" and "balloon" stay as English terms with an Italian explanation
+   in the glossary; "maxirata" is not used as a term.
+8. **Explain**: the recurrence is stated once with its formula, plus the first period with the
+   numbers substituted, the final adjustment and the totals; the rows carry the per-period
+   numbers (R22).
+9. **Rounding** applies to the instalment only; the default is no rounding; when chosen, the
+   mode `half_up` or `half_even` is stated explicitly (R19).
+
+Further instructions recorded with the approval: error codes renumbered from `FM-E020`
+(provisional, because SPEC-0006 takes `FM-E018` and `FM-E019`); at least one textbook or
+regulatory worked example is required among the golden cases (AC15); Banca d'Italia texts are
+checked on the official files.
+
+### Questions as asked
+- [x] 1. Amortisation type values: the proposal uses the AnaCredit names `french`,
   `fixed_amortisation_schedule` and `bullet` verbatim. "Fixed amortisation schedule" is the
   official European name but reads ambiguously in plain English. Keep it, or use a described
   name such as `constant_principal` (not a regulatory term)?
-- [ ] 2. Compounding default: when omitted, the compounding equals the payment frequency
+- [x] 2. Compounding default: when omitted, the compounding equals the payment frequency
   (periodic rate = annual rate / payments per year, as for an Italian TAN). Keep this
   documented default, or make the compounding required as in `rates.convert`?
-- [ ] 3. Should the loan methods also accept a periodic rate directly (as `tvm.annuity`
+- [x] 3. Should the loan methods also accept a periodic rate directly (as `tvm.annuity`
   does), as an alternative to the annual rate and frequency?
-- [ ] 4. Payments in advance in the schedule (R18): the proposed convention places the first
+- [x] 4. Payments in advance in the schedule (R18): the proposed convention places the first
   instalment at t = 0 with no interest. Italian textbooks also describe "ammortamento a rate
   anticipate" with interest paid in advance at a discount rate. Is R18 the convention wanted,
   or should schedules support arrears only in version 1?
-- [ ] 5. Balloon amount: repaid with the last instalment (R17). Should `loans.number_of_instalments`
+- [x] 5. Balloon amount: repaid with the last instalment (R17). Should `loans.number_of_instalments`
   also accept a balloon amount?
-- [ ] 6. Future value: no European regulatory source defines it; it is a CFA Institute
+- [x] 6. Future value: no European regulatory source defines it; it is a CFA Institute
   curriculum term. Is `tvm.future_value` acceptable, and should a loan-specific
   `loans.outstanding_balance` (balance after k instalments) be added, or is the schedule enough?
-- [ ] 7. Italian terms for "bullet" and "balloon amount": no Banca d'Italia definition was found;
+- [x] 7. Italian terms for "bullet" and "balloon amount": no Banca d'Italia definition was found;
   the glossary keeps the English terms with an Italian explanation. "Maxirata" is common in
   consumer credit but was not verified on an official source. Confirm.
-- [ ] 8. Explain size: one step per period means up to 10000 steps for a monthly schedule.
+- [x] 8. Explain size: one step per period means up to 10000 steps for a monthly schedule.
   Accept, or use a compact step that references the rows with the recurrence stated once?
-- [ ] 9. Rounding scope: the proposal rounds the instalment (or principal portion) and the
+- [x] 9. Rounding scope: the proposal rounds the instalment (or principal portion) and the
   interest portions only. Should it also round the outstanding balance shown in each row (it is
   then exact by construction), and is `half_up` the right example default for Italian banks?
