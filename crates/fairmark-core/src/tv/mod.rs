@@ -117,6 +117,25 @@ pub struct Line {
     pub value: Decimal,
 }
 
+/// An input error of a `tv.*` method together with the input field it concerns, for example
+/// `growth` or `assets/0/value`. The standalone methods report only `error`, unchanged; a
+/// method that composes a technique (the DCF) turns `field` into a JSON pointer of its own
+/// input (R27 of SPEC-0001).
+#[derive(Debug)]
+pub(crate) struct FieldError {
+    pub field: String,
+    pub error: FairmarkError,
+}
+
+/// Validation result of a `tv.*` input.
+pub(crate) type Checked = std::result::Result<(), FieldError>;
+
+/// Attaches the field to an error.
+pub(crate) fn on(field: impl Into<String>) -> impl FnOnce(FairmarkError) -> FieldError {
+    let field = field.into();
+    move |error| FieldError { field, error }
+}
+
 pub(crate) fn invalid(msg: impl Into<String>) -> FairmarkError {
     FairmarkError::InvalidInput(msg.into())
 }

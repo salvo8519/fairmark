@@ -4,7 +4,9 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::{check_growth_cap, domain, invalid, GrowthCapCheck, TerminalBasis, NOT_DISCOUNTED};
+use super::{
+    check_growth_cap, domain, invalid, on, Checked, GrowthCapCheck, TerminalBasis, NOT_DISCOUNTED,
+};
 use crate::error::Result;
 use crate::explain::Explain;
 use crate::method::Method;
@@ -129,30 +131,38 @@ pub struct ExitMultipleOutput {
     pub growth_cap: Option<GrowthCapCheck>,
 }
 
-/// TV_N = multiple × metric_N; implied growth g = r − CF_{N+1} / TV_N.
-pub fn exit_multiple(input: &ExitMultipleInput) -> Result<(ExitMultipleOutput, Explain)> {
+/// Validates the input; each error names its field.
+pub(crate) fn check(input: &ExitMultipleInput) -> Checked {
     let (m, x, metric) = (input.multiple, input.metric_value, input.metric);
     if m <= Decimal::ZERO {
-        return Err(domain(format!(
+        return Err(on("multiple")(domain(format!(
             "the multiple must be greater than 0 (got {m})"
-        )));
+        ))));
     }
     if x <= Decimal::ZERO {
-        return Err(domain(format!(
+        return Err(on("metric_value")(domain(format!(
             "the metric {} must be greater than 0 to carry a multiple (got {x})",
             metric.name()
+        ))));
+    }
+    if input.rate.is_some() != input.next_flow.is_some() {
+        return Err(on("next_flow")(invalid(
+            "give both rate and next_flow, or neither",
         )));
     }
-    let pair = match (input.rate, input.next_flow) {
-        (Some(r), Some(cf)) => Some((r, cf)),
-        (None, None) => None,
-        _ => return Err(invalid("give both rate and next_flow, or neither")),
-    };
-    if pair.is_none() && input.growth_cap.is_some() {
-        return Err(invalid(
+    if input.next_flow.is_none() && input.growth_cap.is_some() {
+        return Err(on("growth_cap")(invalid(
             "growth_cap needs rate and next_flow: the cap is checked on the implied growth",
-        ));
+        )));
     }
+    Ok(())
+}
+
+/// TV_N = multiple × metric_N; implied growth g = r − CF_{N+1} / TV_N.
+pub fn exit_multiple(input: &ExitMultipleInput) -> Result<(ExitMultipleOutput, Explain)> {
+    check(input).map_err(|e| e.error)?;
+    let (m, x, metric) = (input.multiple, input.metric_value, input.metric);
+    let pair = input.rate.zip(input.next_flow);
     let basis = metric.basis();
     let mut ex = Explain::new(
         "tv.exit_multiple",

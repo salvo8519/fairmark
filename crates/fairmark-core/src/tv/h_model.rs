@@ -8,8 +8,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    check_below_rate, check_growth, check_growth_cap, domain, rate_convention, GrowthCapCheck,
-    NOT_DISCOUNTED,
+    check_below_rate, check_growth, check_growth_cap, domain, on, rate_convention, Checked,
+    GrowthCapCheck, NOT_DISCOUNTED,
 };
 use crate::error::Result;
 use crate::explain::Explain;
@@ -80,8 +80,27 @@ pub struct HModelOutput {
     pub growth_cap: Option<GrowthCapCheck>,
 }
 
+/// Validates the input; each error names its field.
+pub(crate) fn check(input: &HModelInput) -> Checked {
+    let (gs, gl, h) = (
+        input.short_term_growth,
+        input.long_term_growth,
+        input.half_life,
+    );
+    check_growth(gs, "short_term_growth").map_err(on("short_term_growth"))?;
+    check_growth(gl, "long_term_growth").map_err(on("long_term_growth"))?;
+    if h < Decimal::ZERO {
+        return Err(on("half_life")(domain(format!(
+            "the half-life must be zero or positive (got {h})"
+        ))));
+    }
+    check_below_rate(gl, input.rate).map_err(on("long_term_growth"))?;
+    Ok(())
+}
+
 /// TV_N = CF_N × [(1 + g_l) + H × (g_s − g_l)] / (r − g_l).
 pub fn h_model(input: &HModelInput) -> Result<(HModelOutput, Explain)> {
+    check(input).map_err(|e| e.error)?;
     let (cf, gs, gl, h, r) = (
         input.last_flow,
         input.short_term_growth,
@@ -89,14 +108,6 @@ pub fn h_model(input: &HModelInput) -> Result<(HModelOutput, Explain)> {
         input.half_life,
         input.rate,
     );
-    check_growth(gs, "short_term_growth")?;
-    check_growth(gl, "long_term_growth")?;
-    if h < Decimal::ZERO {
-        return Err(domain(format!(
-            "the half-life must be zero or positive (got {h})"
-        )));
-    }
-    check_below_rate(gl, r)?;
     let mut ex = Explain::new(
         "tv.h_model",
         "TV_N = CF_N × [(1 + g_l) + H × (g_s − g_l)] / (r − g_l)",

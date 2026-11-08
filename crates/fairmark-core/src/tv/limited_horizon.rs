@@ -5,8 +5,10 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::{check_growth_cap, domain, rate_convention, GrowthCapCheck, NOT_DISCOUNTED};
-use crate::error::Result;
+use super::{
+    check_growth_cap, domain, on, rate_convention, Checked, GrowthCapCheck, NOT_DISCOUNTED,
+};
+use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num::{add, mul, one_plus};
@@ -86,14 +88,31 @@ pub struct LimitedHorizonOutput {
     pub growth_cap: Option<GrowthCapCheck>,
 }
 
+/// Validates the input; each error names its field. The rate and the growth are checked as
+/// the annuity factor of `tvm.annuity` checks them, with the same errors.
+pub(crate) fn check(input: &LimitedHorizonInput) -> Checked {
+    let (r, n) = (input.rate, input.periods);
+    if !(1..=MAX_PERIODS).contains(&n) {
+        return Err(on("periods")(domain(format!(
+            "a finite horizon needs between 1 and {MAX_PERIODS} periods (got {n})"
+        ))));
+    }
+    if r <= -Decimal::ONE {
+        return Err(on("rate")(FairmarkError::RateOutOfRange(r)));
+    }
+    let g = input.growth.unwrap_or_default();
+    if g <= -Decimal::ONE {
+        return Err(on("growth")(FairmarkError::InvalidInput(format!(
+            "growth must be greater than -1 (got {g})"
+        ))));
+    }
+    Ok(())
+}
+
 /// TV_N = flow × annuity factor(r, g, n) + RV × (1 + r)^−n.
 pub fn limited_horizon(input: &LimitedHorizonInput) -> Result<(LimitedHorizonOutput, Explain)> {
+    check(input).map_err(|e| e.error)?;
     let (cf, r, n) = (input.flow, input.rate, input.periods);
-    if !(1..=MAX_PERIODS).contains(&n) {
-        return Err(domain(format!(
-            "a finite horizon needs between 1 and {MAX_PERIODS} periods (got {n})"
-        )));
-    }
     // Rate and growth are validated by the annuity factor shared with `tvm.annuity` (R5:
     // reused). Only the factor is used: no value at N + n is computed, so long horizons do not
     // leave the decimal range.
