@@ -12,6 +12,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::error::{FairmarkError, Result};
+
 /// A named frequency: periods a year and months per period.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -135,6 +137,40 @@ impl PeriodLength {
     }
 }
 
+/// The period length of an input that gives it in two optional fields, `frequency` and
+/// `period_months`, at the JSON pointer `prefix` (for example `` or `/timeline/periods`).
+/// With `required`, exactly one must be given (`dates.schedule`); otherwise at most one (the
+/// `periods` timeline of `series.project`), and `None` means no period length. Both, or neither
+/// when required, and a `period_months` of 0 are `FM-E001` naming the pointers with the fix.
+pub(crate) fn period_length(
+    frequency: Option<Frequency>,
+    period_months: Option<u32>,
+    prefix: &str,
+    required: bool,
+) -> Result<Option<PeriodLength>> {
+    match (frequency, period_months) {
+        (Some(_), Some(_)) => Err(FairmarkError::InvalidInput(format!(
+            "`{prefix}/frequency` and `{prefix}/period_months` are both given; give exactly one: \
+             a named frequency, or the number of months per period (for example `quarterly` or \
+             3), and remove the other"
+        ))),
+        (None, None) if required => Err(FairmarkError::InvalidInput(format!(
+            "no period length: give exactly one of `{prefix}/frequency` (`monthly`, \
+             `bimonthly`, `quarterly`, `four_monthly`, `semi_annual` or `annual`) and \
+             `{prefix}/period_months` (a positive whole number of months per period)"
+        ))),
+        (None, None) => Ok(None),
+        (Some(f), None) => Ok(Some(PeriodLength::Named(f))),
+        (None, Some(0)) => Err(FairmarkError::InvalidInputAt {
+            pointer: format!("{prefix}/period_months"),
+            detail: "must be a positive whole number of months per period (got 0); give for \
+                     example 3 for quarterly periods or 18 for periods of eighteen months"
+                .to_owned(),
+        }),
+        (None, Some(m)) => Ok(Some(PeriodLength::Months(m))),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -236,6 +272,46 @@ mod tests {
         assert_eq!(
             PeriodLength::Months(1).describe(),
             "period length: 1 month per period, given as `period_months` 1, 12 periods a year"
+        );
+    }
+
+    #[test]
+    fn exactly_one_or_at_most_one_form() {
+        let both = period_length(Some(Frequency::Monthly), Some(1), "", true).unwrap_err();
+        assert_eq!(both.code(), "FM-E001");
+        let m = both.to_string();
+        assert!(
+            m.contains("`/frequency`") && m.contains("`/period_months`"),
+            "{m}"
+        );
+        assert!(m.contains("give exactly one"), "{m}");
+        let neither = period_length(None, None, "", true).unwrap_err();
+        let m = neither.to_string();
+        assert!(
+            m.contains("`/frequency`") && m.contains("`/period_months`"),
+            "{m}"
+        );
+        assert_eq!(
+            period_length(None, None, "/timeline/periods", false),
+            Ok(None)
+        );
+        let both = period_length(
+            Some(Frequency::Monthly),
+            Some(1),
+            "/timeline/periods",
+            false,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(both.contains("`/timeline/periods/frequency`"), "{both}");
+        let zero = period_length(None, Some(0), "", true).unwrap_err();
+        assert_eq!(zero.code(), "FM-E001");
+        assert!(zero
+            .to_string()
+            .starts_with("invalid input at `/period_months`"));
+        assert_eq!(
+            period_length(None, Some(18), "", true),
+            Ok(Some(PeriodLength::Months(18)))
         );
     }
 }

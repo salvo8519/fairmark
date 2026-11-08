@@ -1,0 +1,20 @@
+method: dates.schedule
+description: "2024-02-29, annual, 4 periods"
+source: >
+  QuantLib Schedule (NullCalendar, Unadjusted, DateGeneration.Forward, endOfMonth true,
+  Period(12, Months)) and python-dateutil (start + relativedelta(months=k*p, day=31)), both
+  agreeing, QuantLib 1.44, python-dateutil 3.0.0; scripts/reference_schedule.py. SPEC-0010 AC1:
+  from 29 February, month ends in later Februaries, 29 February again in 2028.
+input: { start_date: "2024-02-29", frequency: annual, number_of_periods: 4 }
+expect:
+  "/start_dates/0": "2024-02-29"
+  "/start_dates/1": "2025-02-28"
+  "/start_dates/2": "2026-02-28"
+  "/start_dates/3": "2027-02-28"
+  "/end_dates/0": "2025-02-28"
+  "/end_dates/1": "2026-02-28"
+  "/end_dates/2": "2027-02-28"
+  "/end_dates/3": "2028-02-29"
+  "/months_per_period": "12"
+  "/periods_per_year": "1"
+tolerance: "0"

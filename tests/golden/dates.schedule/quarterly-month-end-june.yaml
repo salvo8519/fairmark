@@ -1,0 +1,20 @@
+method: dates.schedule
+description: "2025-06-30, quarterly, 4 periods"
+source: >
+  QuantLib Schedule (NullCalendar, Unadjusted, DateGeneration.Forward, endOfMonth true, Period(3,
+  Months)) and python-dateutil (start + relativedelta(months=k*p, day=31)), both agreeing,
+  QuantLib 1.44, python-dateutil 3.0.0; scripts/reference_schedule.py. SPEC-0010 AC1 and R2: 30
+  June is a month end, so 31 December and 31 March follow.
+input: { start_date: "2025-06-30", frequency: quarterly, number_of_periods: 4 }
+expect:
+  "/start_dates/0": "2025-06-30"
+  "/start_dates/1": "2025-09-30"
+  "/start_dates/2": "2025-12-31"
+  "/start_dates/3": "2026-03-31"
+  "/end_dates/0": "2025-09-30"
+  "/end_dates/1": "2025-12-31"
+  "/end_dates/2": "2026-03-31"
+  "/end_dates/3": "2026-06-30"
+  "/months_per_period": "3"
+  "/periods_per_year": "4"
+tolerance: "0"

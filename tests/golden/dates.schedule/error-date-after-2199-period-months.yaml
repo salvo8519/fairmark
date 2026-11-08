@@ -1,0 +1,5 @@
+method: dates.schedule
+description: "2190-01-01, 120 months, 1 period: the end date 2200-01-01 is out of range (AC4)"
+source: SPEC-0010 R7 and AC4; dates run from 1900-01-01 to 2199-12-31 (ADR 0008). The error code is part of the specification.
+input: { start_date: "2190-01-01", period_months: 120, number_of_periods: 1 }
+expect_error: FM-E009

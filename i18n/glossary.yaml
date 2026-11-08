@@ -111,6 +111,23 @@ terms:
   borrowing rate: tasso annuo nominale (TAN)
   annual percentage rate of charge (APRC): tasso annuo effettivo globale (TAEG)
   payment frequency: periodicità della rata
+  # SPEC-0010 (dates.schedule): Italian terms of the spec's terminology table, chosen by the
+  # maintainer (Decision 2 for the frequency names); the spec marks "piano dei periodi",
+  # "periodo di calcolo" and "regola di fine mese" as Italian to verify.
+  schedule (of periods): piano dei periodi
+  calculation period (accrual period): periodo di calcolo
+  period start date: data di inizio periodo
+  period end date: data di fine periodo
+  months per period (tenor): durata del periodo in mesi
+  frequency (periods a year): periodicità
+  monthly: mensile
+  bimonthly (every two months): bimestrale
+  quarterly: trimestrale
+  four-monthly (every four months): quadrimestrale
+  semi-annual: semestrale
+  annual: annuale
+  end-of-month rule: regola di fine mese
+  unadjusted dates: date non rettificate
   payment in arrears: rata posticipata
   payment in advance: rata anticipata
   number of instalments: numero delle rate

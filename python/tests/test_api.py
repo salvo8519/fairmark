@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -252,3 +253,22 @@ def test_input_errors_name_the_field_by_its_json_pointer() -> None:
         fm.tvm.irr([-100, 60, 60], guess={"value": "0.1"})  # type: ignore[arg-type]
     assert err.value.code == "FM-E001"
     assert "`/guess`" in str(err.value)
+
+
+def test_dates_schedule_helper() -> None:
+    """SPEC-0010: `fm.dates.schedule` builds [start, end) periods; the two period-length forms
+    give the same dates."""
+    named = fm.dates.schedule("2024-01-31", 4, frequency="monthly", day_count="act_360")
+    assert named.end_dates == ["2024-02-29", "2024-03-31", "2024-04-30", "2024-05-31"]
+    assert named.start_dates[1:] == named.end_dates[:-1]
+    assert round(named.year_fractions[0], 25) == round(Decimal(29) / 360, 25)
+    assert (named.months_per_period, named.periods_per_year) == (1, 12)
+    months = fm.dates.schedule(date(2024, 1, 31), 4, period_months=1, day_count="act_360")
+    assert months.value == named.value
+    eighteen = fm.dates.schedule("2025-03-15", 2, period_months=18)
+    assert eighteen.end_dates == ["2026-09-15", "2028-03-15"]
+    assert "periods_per_year" not in eighteen.value
+    assert "year_fractions" not in eighteen.value
+    with pytest.raises(fm.FairmarkError) as err:
+        fm.dates.schedule("2025-01-31", 4, frequency="quarterly", period_months=3)
+    assert err.value.code == "FM-E001"

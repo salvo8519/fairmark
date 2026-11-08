@@ -21,7 +21,8 @@ use std::str::FromStr;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Mutex;
 
-use fairmark_core::dates::{Date, DayCount};
+use fairmark_core::dates::{self, Date, DayCount, ScheduleInput};
+use fairmark_core::frequency::Frequency;
 use fairmark_core::loans::{self, InstalmentInput, NumberOfInstalmentsInput};
 use fairmark_core::rates::{self, Compounding, ConvertInput, FisherDirection, RealNominalInput};
 use fairmark_core::tvm::{
@@ -1291,6 +1292,105 @@ fn registry_is_deterministic() {
                 prop_assert!(hash.bytes().all(|b| b.is_ascii_hexdigit()));
                 prop_assert_eq!(input_hash(&reordered), Some(hash.clone()));
                 prop_assert_eq!(input_hash(&as_numbers), Some(hash));
+            }
+            Ok(())
+        },
+    );
+}
+
+// ---------------------------------------------------------------- schedules (SPEC-0010)
+
+/// The date `k × p` months after `start`, written out independently of the engine: the month
+/// is counted from the start date, the day is the last day of the month when the start is a
+/// month end, otherwise the start day clamped to the length of the month (SPEC-0010 R2).
+fn months_after(start: Date, months: u32) -> Date {
+    let length = |y: i32, m: u32| match m {
+        2 if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 => 29,
+        2 => 28,
+        4 | 6 | 9 | 11 => 30,
+        _ => 31,
+    };
+    let month_end = start.day() == length(start.year(), start.month());
+    let total = start.year() * 12 + start.month() as i32 - 1 + months as i32;
+    let (y, m) = (total / 12, (total % 12) as u32 + 1);
+    let day = if month_end {
+        length(y, m)
+    } else {
+        start.day().min(length(y, m))
+    };
+    Date::new(y, m, day).unwrap()
+}
+
+/// A start date from 1900 to 2150, a period length (one of the six names, or 1 to 36 months)
+/// and a number of periods that keeps the schedule within 2199.
+fn schedule_case() -> impl Strategy<Value = (Date, Option<Frequency>, u32, u32)> {
+    let length = prop_oneof![
+        prop::sample::select(Frequency::ALL.to_vec()).prop_map(|f| (Some(f), f.months())),
+        (1u32..=36).prop_map(|m| (None, m)),
+    ];
+    ((1900i32..=2150, 1u32..=12, 1u32..=31), length, 1u32..=16).prop_map(
+        |((y, m, day), (frequency, months), n)| {
+            let day = day.min(match m {
+                2 if Date::new(y, 2, 29).is_ok() => 29,
+                2 => 28,
+                4 | 6 | 9 | 11 => 30,
+                _ => 31,
+            });
+            (Date::new(y, m, day).unwrap(), frequency, months, n)
+        },
+    )
+}
+
+/// SPEC-0010 AC2: n contiguous periods [start, end) from the start date, strictly increasing,
+/// every date generated from the start date (no drift), and a named frequency equal, bit for
+/// bit, to `period_months` of its tenor.
+#[test]
+fn schedules_are_contiguous_and_do_not_drift() {
+    check(
+        "schedules_are_contiguous_and_do_not_drift",
+        512,
+        0x3310,
+        schedule_case(),
+        |(start, frequency, months, n)| {
+            let input = |frequency: Option<Frequency>, period_months: Option<u32>| ScheduleInput {
+                start_date: start,
+                frequency,
+                period_months,
+                number_of_periods: n,
+                day_count: Some(DayCount::ActActIsda),
+            };
+            let given = match frequency {
+                Some(f) => input(Some(f), None),
+                None => input(None, Some(months)),
+            };
+            let (out, _) = dates::schedule(&given)
+                .map_err(|e| TestCaseError::fail(format!("schedule failed: {e}")))?;
+            let n = n as usize;
+            prop_assert_eq!(out.start_dates.len(), n);
+            prop_assert_eq!(out.end_dates.len(), n);
+            prop_assert_eq!(out.start_dates[0], start);
+            for k in 0..n {
+                prop_assert!(out.start_dates[k] < out.end_dates[k]);
+                prop_assert_eq!(
+                    out.end_dates[k],
+                    months_after(start, (k as u32 + 1) * months)
+                );
+                if k + 1 < n {
+                    prop_assert_eq!(out.end_dates[k], out.start_dates[k + 1]);
+                }
+            }
+            prop_assert_eq!(out.months_per_period, months);
+            prop_assert_eq!(
+                out.periods_per_year,
+                (12 % months == 0).then_some(12 / months)
+            );
+            if let Some(f) = frequency {
+                let (by_months, _) = dates::schedule(&input(None, Some(f.months())))
+                    .map_err(|e| TestCaseError::fail(format!("schedule failed: {e}")))?;
+                prop_assert_eq!(
+                    serde_json::to_string(&out).unwrap(),
+                    serde_json::to_string(&by_months).unwrap()
+                );
             }
             Ok(())
         },

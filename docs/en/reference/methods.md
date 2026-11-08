@@ -19,6 +19,20 @@ Fraction of a year between two dates under an ISDA 2006 day-count convention: Ac
 | `end` | string | yes |  | End date (ISO 8601), not earlier than the start date. |
 | `day_count` | `act_365_fixed` \| `act_360` \| `act_act_isda` \| `thirty_360` \| `thirty_e_360` | yes |  | Day-count convention. |
 
+## `dates.schedule`
+
+**Schedule of accrual periods** · method version 1 · status preview · tool `fairmark_dates_schedule`
+
+Start and end dates of n contiguous accrual periods from a start date, each from and including its start date to but excluding its end date (2006 ISDA Definitions): the end date is the first day of the next period. Period length as a frequency (`monthly` 1 month, `bimonthly` 2, `quarterly` 3, `four_monthly` 4, `semi_annual` 6, `annual` 12) or as `period_months`; unadjusted dates with the end-of-month rule; optional year fractions under a day count.
+
+| Input | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `start_date` | string | yes |  | Start date of the first period (ISO 8601). Each period runs from and including its start date to but excluding its end date, [start, end); the end date of a period is the start date of the next one. |
+| `frequency` |  | no |  | Period length as a named frequency: `monthly` (1 month per period, 12 a year), `bimonthly` (2 months, every two months, 6 a year), `quarterly` (3 months, 4 a year), `four_monthly` (4 months, 3 a year), `semi_annual` (6 months, 2 a year) or `annual` (12 months, 1 a year). Give exactly one of `frequency` and `period_months`. |
+| `period_months` | integer \| null | no |  | Period length as a positive whole number of months per period (not periods a year), for tenors with or without a name: 1 = `monthly`, 2 = `bimonthly`, 3 = `quarterly`, 4 = `four_monthly`, 6 = `semi_annual`, 12 = `annual`, and any other such as 5, 18 or 24. Give exactly one of `frequency` and `period_months`. |
+| `number_of_periods` | integer | yes |  | Number of periods, from 1 to 10000. |
+| `day_count` |  | no |  | Day count for the year fraction of each period, measured on [start, end). Optional: without it no year fraction is computed (none is assumed). |
+
 ## `rates.convert`
 
 **Rate conversion between compounding conventions** · method version 1 · status available · tool `fairmark_rates_convert`

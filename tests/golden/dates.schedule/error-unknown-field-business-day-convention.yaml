@@ -1,0 +1,5 @@
+method: dates.schedule
+description: "Field `business_day_convention` is not part of version 1 (AC4)"
+source: SPEC-0010 R5 and AC4 (unadjusted dates, no end date, calendar, business-day convention or stub in version 1); the error code is part of the specification.
+input: { start_date: "2025-01-31", frequency: monthly, number_of_periods: 3, business_day_convention: "x" }
+expect_error: FM-E001

@@ -91,6 +91,16 @@
         }
       }
     },
+    "dates.schedule": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "dates.schedule/v1.json",
+          "introduced_in": "unreleased",
+          "sha256": "c27c9b084f6ea152a32c241292e2185dad9efaa07388647f084bfa51c163dce9"
+        }
+      }
+    },
     "dates.year_fraction": {
       "current": "1",
       "versions": {

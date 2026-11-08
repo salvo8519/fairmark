@@ -21,7 +21,7 @@ golden file is edited; if a task would change one, stop and ask the maintainer.
       `scripts/reference_loans.py` to m = 6 and m = 3.
 
 ## Tests (write first, they must fail)
-- [ ] T4 [P] Golden cases `tests/golden/dates.schedule/` (new folder): the fourteen schedules
+- [x] T4 [P] Golden cases `tests/golden/dates.schedule/` (new folder): the fourteen schedules
       of AC1, one case per day count (AC3), the error cases of AC4 (`expect_error`); `source`
       names QuantLib and python-dateutil with their pinned versions (R1 to R7).
 - [ ] T5 [P] Golden cases `tests/golden/series.project/` (new folder): AC6, AC7 (Damodaran
@@ -51,11 +51,11 @@ golden file is edited; if a task would change one, stop and ask the maintainer.
       existing golden case passes unchanged.
 - [x] T9 [P] ADR 0008 amendment note on §4: the compounding list gains `bimonthly` and
       `four_monthly`, defined once with the schedule frequencies (SPEC-0010 R20, Decision 5).
-- [ ] T10 `dates.schedule` types in `dates.rs`: `ScheduleInput`, `ScheduleOutput`, doc comment
+- [x] T10 `dates.schedule` types in `dates.rs`: `ScheduleInput`, `ScheduleOutput`, doc comment
       on every field with units and the [start, end) phrases, the name-to-tenor mapping in the
       descriptions of `frequency` and `period_months` and in the method `DESCRIPTION` (R1, R3,
       R5, R6).
-- [ ] T11 `dates.schedule` calculation: `add_months` in `i64` with the end-of-month rule,
+- [x] T11 `dates.schedule` calculation: `add_months` in `i64` with the end-of-month rule,
       `build_schedule`, year fractions through `DayCount::year_fraction`, errors with pointers
       and fixes, `explain` of R8 via `schedule_explain`; registry line; `FM-E001` and `FM-E009`
       cases in `docs/en/reference/errors.md` (R1 to R8). T4 and the schedule part of T7 pass.

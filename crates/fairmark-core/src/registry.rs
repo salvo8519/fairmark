@@ -167,6 +167,7 @@ registry! {
     // Grouped by theme, in the order of the documentation: dates, rates, time value of money,
     // loans, cost of capital, terminal value, discounted cash flow, ratios, analysis.
     dates::YearFraction,
+    dates::Schedule,
     rates::Convert,
     rates::RealNominal,
     tvm::Npv,

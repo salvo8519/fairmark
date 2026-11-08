@@ -1,0 +1,40 @@
+# Contract cases for dates.schedule: extreme inputs must return a result or a typed error,
+# never a panic (the longest schedule, the largest period length);
+# conventions must appear in explain.conventions (SPEC-0010 R1, R2, R5, R8).
+method: dates.schedule
+extreme_inputs:
+- start_date: '1900-01-31'
+  frequency: monthly
+  number_of_periods: 10000
+  day_count: act_act_isda
+- start_date: '2199-12-31'
+  period_months: 4294967295
+  number_of_periods: 10000
+  day_count: thirty_360
+- start_date: '1900-02-28'
+  period_months: 1
+  number_of_periods: 3599
+  day_count: act_365_fixed
+conventions:
+- input:
+    start_date: '2025-06-30'
+    frequency: quarterly
+    number_of_periods: 4
+    day_count: act_365_fixed
+  expect:
+  - 'from and including its start date to but excluding its end date, [start, end)'
+  - 'd_k = 2025-06-30 + k × 3 months'
+  - 'period length: 3 months per period, given as `frequency` `quarterly`, 4 periods a year'
+  - 'the start date 2025-06-30 is the last day of its month, so every date is the last day of its month'
+  - 'dates unadjusted'
+  - 'Actual/365 (Fixed)'
+- input:
+    start_date: '2025-03-15'
+    period_months: 18
+    number_of_periods: 2
+  expect:
+  - 'given as `period_months` 18'
+  - 'no whole number of periods a year'
+  - 'is not the last day of its month'
+  - 'no date changed by the rule'
+  - 'day count: none given, so no year fraction is computed'

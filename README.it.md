@@ -169,6 +169,7 @@ fairmark verify result.json --input company.json  # riproduce un risultato bit p
 | Metodo | Stato | Descrizione |
 | --- | --- | --- |
 | `dates.year_fraction` | Disponibile | Frazione d'anno (convenzione di calcolo dei giorni) |
+| `dates.schedule` | Anteprima | Piano dei periodi di calcolo |
 | `rates.convert` | Disponibile | Conversione di un tasso tra convenzioni di capitalizzazione |
 | `rates.real_nominal` | Disponibile | Tassi reali e nominali (Fisher) |
 | `tvm.npv` | Disponibile | Valore attuale netto (VAN, NPV) |

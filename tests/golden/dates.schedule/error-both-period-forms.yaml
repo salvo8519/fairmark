@@ -1,0 +1,5 @@
+method: dates.schedule
+description: "Both frequency and period_months (AC4)"
+source: SPEC-0010 R3 and AC4; the error code is part of the specification.
+input: { start_date: "2025-01-31", frequency: quarterly, period_months: 3, number_of_periods: 4 }
+expect_error: FM-E001

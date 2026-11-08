@@ -1,6 +1,6 @@
 ---
 source: methods/index.md
-source_hash: bb0717142114
+source_hash: b9c18cda43ec
 ---
 # Metodi
 
@@ -19,13 +19,14 @@ Stato di ogni metodo, come lo riporta il registro del motore a `fm.methods()`, `
 | Stato | Metodi |
 | --- | --- |
 | Disponibile | `dates.year_fraction`, `rates.convert`, `rates.real_nominal`, `tvm.npv`, `tvm.present_value`, `tvm.xnpv`, `tvm.irr`, `tvm.xirr`, `tvm.mirr`, `tvm.annuity`, `tvm.perpetuity`, `tvm.future_value`, `loans.instalment`, `loans.number_of_instalments`, `loans.amortisation_schedule`, `coc.cost_of_equity`, `coc.beta_relever`, `coc.beta_peers`, `coc.cost_of_debt`, `coc.wacc`, `tv.gordon`, `tv.value_driver`, `tv.h_model`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income`, `tv.liquidation`, `tv.compare`, `analysis.goal_seek`, `analysis.sensitivity`, `analysis.scenarios`, `analysis.tornado` |
-| Anteprima | `dcf.fcff`, `dcf.fcfe`, `dcf.free_cash_flows`, `ratios.profitability`, `ratios.capital_structure`, `ratios.liquidity`, `ratios.working_capital`, `ratios.debt_service`, `ratios.covenants` |
+| Anteprima | `dates.schedule`, `dcf.fcff`, `dcf.fcfe`, `dcf.free_cash_flows`, `ratios.profitability`, `ratios.capital_structure`, `ratios.liquidity`, `ratios.working_capital`, `ratios.debt_service`, `ratios.covenants` |
 
 <!-- generated:status:end -->
 
 | Metodo | Che cosa calcola |
 | --- | --- |
 | [`dates.year_fraction`](dates-year-fraction.md) | Frazione d'anno tra due date secondo una convenzione di calcolo dei giorni ISDA |
+| [`dates.schedule`](dates-schedule.md) | Date di inizio e di fine di periodi di calcolo contigui [inizio, fine), con le frazioni d'anno |
 | [`rates.convert`](rates-convert.md) | Tasso annuo equivalente con un'altra convenzione di capitalizzazione |
 | [`rates.real_nominal`](rates-real-nominal.md) | Tasso reale da un tasso nominale, o viceversa (relazione di Fisher) |
 | [`tvm.present_value`](tvm-present-value.md) | Valore attuale di flussi periodici con un unico tasso o un tasso per periodo |

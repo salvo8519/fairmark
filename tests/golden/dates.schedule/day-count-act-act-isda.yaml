@@ -1,0 +1,19 @@
+method: dates.schedule
+description: "2023-06-30, semi_annual, 4 periods, year fractions act_act_isda"
+source: >
+  QuantLib Schedule (NullCalendar, Unadjusted, DateGeneration.Forward, endOfMonth true, Period(6,
+  Months)) and python-dateutil (start + relativedelta(months=k*p, day=31)), both agreeing,
+  QuantLib 1.44, python-dateutil 3.0.0; scripts/reference_schedule.py. SPEC-0010 AC3: year
+  fractions from the ISDA 2006 section 4.16 definitions at 50 digits (scripts/reference_time.py),
+  confirmed by the QuantLib day counter ActualActual(ISDA) to 1e-12.
+input: { start_date: "2023-06-30", frequency: semi_annual, number_of_periods: 4, day_count: act_act_isda }
+expect:
+  "/end_dates/0": "2023-12-31"
+  "/end_dates/1": "2024-06-30"
+  "/end_dates/2": "2024-12-31"
+  "/end_dates/3": "2025-06-30"
+  "/year_fractions/0": "0.5041095890410958904109589"
+  "/year_fractions/1": "0.4972752451530803203832622"
+  "/year_fractions/2": "0.5027322404371584699453552"
+  "/year_fractions/3": "0.4958829253686653192604237"
+tolerance: "0.00000000000000000001"
