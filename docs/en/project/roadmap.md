@@ -15,9 +15,9 @@ generated from `roadmap/roadmap.yaml`, and a scheduled job reports any differenc
 | Milestone | Gate | Release | Done | Open |
 | --- | --- | --- | --- | --- |
 | M0 · Foundations | A 'hello NPV' package on TestPyPI installs on Linux, macOS and Windows. | 0.1.0 | 15 | 2 |
-| M1 · Numerical core | Golden harness green; NPV and IRR validated; property tests running. | 0.1.0 | 11 | 5 |
-| M2 · Complete DCF | DCF passes every golden case provided by practitioners. | 0.1.0 | 9 | 8 |
-| M3 · Agent layer and v0.1 release | An external user completes a DCF with Claude Code or Codex using only the README. | 0.1.0 | 10 | 7 |
+| M1 · Numerical core | Golden harness green; NPV and IRR validated; property tests running. | 0.1.0 | 12 | 5 |
+| M2 · Complete DCF | DCF passes every golden case provided by practitioners. | 0.1.0 | 9 | 9 |
+| M3 · Agent layer and v0.1 release | An external user completes a DCF with Claude Code or Codex using only the README. | 0.1.0 | 10 | 8 |
 | M4 · Traditional European methods | Golden cases green for every method. | 0.2.0 | 0 | 6 |
 | M5 · Opt-in usage statistics | CI proves the payload carries no financial data; privacy notice reviewed by counsel. | 0.3.0 | 0 | 4 |
 | M6 · v1.0 and real estate | Stable API with a published deprecation policy. | 1.0.0 | 0 | 8 |
@@ -68,6 +68,7 @@ Gate: Golden harness green; NPV and IRR validated; property tests running.
 | Errors and schema | Method trait per theme, single registry list, versioned input schemas | [#103](https://github.com/salvo8519/fairmark/issues/103) |  | Done |
 | Test harness | Golden YAML runner shared by Rust and Python | [#32](https://github.com/salvo8519/fairmark/issues/32) |  | Done |
 | Test harness | Property tests with proptest (NPV at IRR = 0, monotonicity) | [#33](https://github.com/salvo8519/fairmark/issues/33) |  | Open |
+| Test harness | Golden runners compare expected values exactly in Rust and Python | [#148](https://github.com/salvo8519/fairmark/issues/148) |  | Done |
 
 ### M2 · Complete DCF
 
@@ -92,6 +93,7 @@ Gate: DCF passes every golden case provided by practitioners.
 | Analysis: goal seek, sensitivity, scenarios, tornado | Implement analysis.goal_seek with Brent's method on decimals | [#108](https://github.com/salvo8519/fairmark/issues/108) | [0008](https://github.com/salvo8519/fairmark/tree/main/specs) | Done |
 | Analysis: goal seek, sensitivity, scenarios, tornado | Sensitivity tables, scenarios and tornado (SPEC-0008 R15 to R22) | [#116](https://github.com/salvo8519/fairmark/issues/116) | [0008](https://github.com/salvo8519/fairmark/tree/main/specs) | Done |
 | Financial ratios and covenants | Ratios and covenants: profitability, capital structure, liquidity, working capital, debt service (SPEC-0007) | [#114](https://github.com/salvo8519/fairmark/issues/114) | [0007](https://github.com/salvo8519/fairmark/tree/main/specs) | Open |
+| Financial ratios and covenants | Covenant tests on contractual definitions | [#147](https://github.com/salvo8519/fairmark/issues/147) | [0007](https://github.com/salvo8519/fairmark/tree/main/specs) | Open |
 
 ### M3 · Agent layer and v0.1 release
 
@@ -111,6 +113,7 @@ Gate: An external user completes a DCF with Claude Code or Codex using only the 
 | Agent skills and docs | Quickstarts for Claude Code, Codex, Python, n8n | [#59](https://github.com/salvo8519/fairmark/issues/59) |  | Open |
 | Agent skills and docs | Public pages state only what exists; plans live in the generated roadmap | [#121](https://github.com/salvo8519/fairmark/issues/121) |  | Done |
 | Agent skills and docs | Release notes and changelog pages always current | [#127](https://github.com/salvo8519/fairmark/issues/127) |  | Done |
+| Agent skills and docs | Preview status defined, checked and exposed to agents | [#149](https://github.com/salvo8519/fairmark/issues/149) |  | Open |
 | n8n node | Node/WASM build of the core | [#61](https://github.com/salvo8519/fairmark/issues/61) |  | Open |
 | n8n node | Community node n8n-nodes-fairmark; check verified-node requirements | [#62](https://github.com/salvo8519/fairmark/issues/62) |  | Open |
 | n8n node | Workflow template: financial statements PDF → valuation → report | [#63](https://github.com/salvo8519/fairmark/issues/63) |  | Open |
