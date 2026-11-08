@@ -203,6 +203,7 @@ milestones:
           - { issue: 127, title: "Release notes and changelog pages always current", status: done }
           - { issue: 149, title: "Preview status defined, checked and exposed to agents", status: open }
           - { issue: 161, title: "Decision record: release notes for Italian readers", tags: [parallel, maintainer], status: done }
+          - { issue: 163, title: "Release notes in Italian, translated with each fragment (ADR 0011)", status: open }
       - title: "n8n node"
         issue: 60
         labels: ["area:n8n"]
