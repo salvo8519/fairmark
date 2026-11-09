@@ -770,18 +770,22 @@ pub(crate) fn check_terms(choice: TerminalChoice<'_>, basis: TerminalBasis) -> V
         Err(e) => e
             .into_errors()
             .into_iter()
-            .filter(|e| {
-                !matches!(
-                    e.kind(),
-                    FairmarkError::GrowthNotBelowRate { .. }
-                        | FairmarkError::GrowthNotBelowTerminalRate { .. }
-                        | FairmarkError::RateOutOfRange(_)
-                        | FairmarkError::DiscountRateOutOfRange { .. }
-                        | FairmarkError::CompoundedRateOutOfRange { .. }
-                )
-            })
+            .filter(|e| !compares_with_rate(e))
             .collect(),
     }
+}
+
+/// True for an error of a technique's check that compares a term with the terminal rate, or
+/// checks the rate itself: it depends on every field that decides that rate.
+pub(crate) fn compares_with_rate(e: &FairmarkError) -> bool {
+    matches!(
+        e.kind(),
+        FairmarkError::GrowthNotBelowRate { .. }
+            | FairmarkError::GrowthNotBelowTerminalRate { .. }
+            | FairmarkError::RateOutOfRange(_)
+            | FairmarkError::DiscountRateOutOfRange { .. }
+            | FairmarkError::CompoundedRateOutOfRange { .. }
+    )
 }
 
 /// R19, R20: a technique on the basis of the DCF, with the first terminal flow stated; the

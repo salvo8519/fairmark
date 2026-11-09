@@ -954,12 +954,15 @@ type ResolvedRates = (Vec<Decimal>, Option<(Decimal, String)>);
 /// terminal rate when the terminal value uses none (`rate_use` not used, Decision 24),
 /// in which case a separate terminal rate is refused.
 /// `n` is the explicit horizon, `None` when the stages are refused: the rates are then checked
-/// on their own, without the count the horizon decides (ADR 0014 G5).
+/// on their own, without the count the horizon decides (ADR 0014 G5). Every error goes to
+/// `found`; the rates are returned when their form is valid and every rate is in range, also
+/// when a list does not have one rate per period, so that the checks against the rates are made.
 fn resolve_rates(
     r: &RateInput<'_>,
     n: Option<usize>,
     rate_use: TerminalRateUse,
-) -> Result<ResolvedRates> {
+    found: &mut Found,
+) -> Option<ResolvedRates> {
     let uses_terminal_rate = rate_use.is_used();
     let f = &r.fields;
     let (single, per_period, terminal_at) = (
@@ -971,7 +974,6 @@ fn resolve_rates(
     let decides_use = ["/terminal", "/timing", "/terminal_discount_time"];
     // The form of the rates first, then every rate given against its range: no refusal hides
     // another (ADR 0014 G5, review round 6).
-    let mut found = Found::new();
     if !uses_terminal_rate && r.single.is_none() && r.per_period.is_some() && r.terminal.is_some() {
         found.push(
             invalid(format!(
@@ -1058,8 +1060,10 @@ fn resolve_rates(
                 .map(|(k, rate)| (format!("{per_period}/{k}"), *rate)),
         )
         .chain(r.terminal.map(|rate| (terminal_at.clone(), rate)));
+    let mut in_range = true;
     for (field, rate) in given {
         if rate <= -Decimal::ONE {
+            in_range = false;
             found.push(FairmarkError::DiscountRateOutOfRange {
                 field,
                 rate,
@@ -1067,14 +1071,13 @@ fn resolve_rates(
             });
         }
     }
-    found.finish()?;
-    let (rates, terminal, terminal_field) = match (form_valid, r.single, r.per_period) {
+    let (rates, terminal, terminal_field) = match (form_valid && in_range, r.single, r.per_period) {
         (true, Some(rate), None) => (vec![rate; n.unwrap_or(1)], Some(rate), single),
         (true, None, Some(list)) => (list.to_vec(), r.terminal, terminal_at),
-        _ => return Err(FairmarkError::Internal("rate form not checked")),
+        _ => return None,
     };
     let terminal = terminal.filter(|_| uses_terminal_rate);
-    Ok((rates, terminal.map(|t| (t, terminal_field))))
+    Some((rates, terminal.map(|t| (t, terminal_field))))
 }
 
 /// Expected inflation after validation: the value of each explicit period, the value of the
@@ -1109,13 +1112,14 @@ fn resolve_inflation(
     i: &InflationInput<'_>,
     n: Option<usize>,
     rate_use: TerminalRateUse,
-) -> Result<Option<Inflation>> {
+    found: &mut Found,
+) -> Option<Option<Inflation>> {
     let uses_terminal_rate = rate_use.is_used();
     // Whether a terminal rate is used: the terminal option and the timing decide it.
     let decides_use = ["/terminal", "/timing", "/terminal_discount_time"];
     // The form first, then the count and every value given against its range: no refusal
-    // hides another (ADR 0014 G5, review round 6).
-    let mut found = Found::new();
+    // hides another (ADR 0014 G5, review round 6). The values are returned when their form is
+    // valid and every value is in range, also when the list does not have one value per period.
     let form = match (i.single, i.per_period, i.terminal) {
         (None, Some(_), Some(_)) if !uses_terminal_rate => Some(
             invalid(
@@ -1204,8 +1208,10 @@ fn resolve_inflation(
                 .map(|(k, v)| (format!("/inflation_per_period/{k}"), *v)),
         )
         .chain(i.terminal.map(|v| ("/terminal_inflation".to_owned(), v)));
+    let mut in_range = true;
     for (field, v) in given {
         if v <= -Decimal::ONE {
+            in_range = false;
             found.push(FairmarkError::DiscountRateOutOfRange {
                 field,
                 rate: v,
@@ -1213,21 +1219,20 @@ fn resolve_inflation(
             });
         }
     }
-    found.finish()?;
-    Ok(match (form_valid, i.single, i.per_period) {
-        (true, None, None) => None,
-        (true, Some(one), None) => Some(Inflation {
+    match (form_valid && in_range, i.single, i.per_period) {
+        (true, None, None) => Some(None),
+        (true, Some(one), None) => Some(Some(Inflation {
             per_period: vec![one; n.unwrap_or(1)],
             terminal: uses_terminal_rate.then_some(one),
             single: true,
-        }),
-        (true, None, Some(list)) => Some(Inflation {
+        })),
+        (true, None, Some(list)) => Some(Some(Inflation {
             per_period: list.to_vec(),
             terminal: i.terminal,
             single: false,
-        }),
-        _ => return Err(FairmarkError::Internal("inflation form not checked")),
-    })
+        })),
+        _ => None,
+    }
 }
 
 /// One rate restated in the terms `to` with the exact Fisher relation, through a typed call to
@@ -1401,6 +1406,8 @@ fn resolve_terms(
         },
         flows.label()
     ));
+    // Every converted rate out of range is reported, the terminal rate included.
+    let mut found = Found::new();
     let mut per_period = Vec::with_capacity(rates.len());
     for (k, (rate, infl)) in rates.iter().zip(&inflation.per_period).enumerate() {
         let (used, formula) = fisher(*rate, *infl, flows)?;
@@ -1409,7 +1416,7 @@ fn resolve_terms(
                 Some(_) => format!("/{}", f.single),
                 None => format!("/{}/{k}", f.per_period),
             };
-            return Err(FairmarkError::DiscountRateOutOfRange {
+            found.push(FairmarkError::DiscountRateOutOfRange {
                 field,
                 rate: used,
                 converted_with: Some(inflation.field(Some(k)).into()),
@@ -1422,6 +1429,7 @@ fn resolve_terms(
         Terms::Nominal => RateConversion::ToNominal,
     };
     let Some((terminal_rate, _)) = terminal else {
+        found.finish()?;
         return Ok(RatesUsed {
             conversion,
             per_period,
@@ -1437,12 +1445,13 @@ fn resolve_terms(
     let (used, formula) = fisher(terminal_rate, terminal_inflation, flows)?;
     let converted_with = inflation.field(None);
     if used <= -Decimal::ONE {
-        return Err(FairmarkError::DiscountRateOutOfRange {
+        found.push(FairmarkError::DiscountRateOutOfRange {
             field: terminal_field.to_owned(),
             rate: used,
             converted_with: Some(converted_with.as_str().into()),
         });
     }
+    found.finish()?;
     Ok(RatesUsed {
         conversion,
         per_period,
@@ -1532,7 +1541,8 @@ fn check_timing(
                 .to_owned(),
         )
         .at("/terminal_discount_time", Reason::Requires)
-        .between(["/terminal_discount_time", "/terminal"])),
+        .between(["/terminal_discount_time", "/terminal"])
+        .reads(["/timing"])),
         (Timing::MidPeriod, None) if !no_terminal_value => Err(invalid(
             "`/terminal_discount_time` is required with `/timing` = mid_period: give `horizon` \
              (t = N) or `mid_period` (t = N - 0.5)"
@@ -1540,7 +1550,8 @@ fn check_timing(
         )
         .at("/terminal_discount_time", Reason::Missing)
         .between(["/terminal_discount_time", "/timing"])
-        .expected(["horizon", "mid_period"])),
+        .expected(["horizon", "mid_period"])
+        .reads(["/terminal"])),
         _ => Ok(()),
     }
 }
@@ -1786,23 +1797,27 @@ fn stage_lines(
         }
         return Ok(());
     }
+    // Every field of the taxes given without lines is reported: none hides another.
+    let mut found = Found::new();
     for (field, given) in [
         ("notional_tax_rate", taxes.notional_tax_rate.is_some()),
         ("negative_ebit", taxes.negative_ebit.is_some()),
         ("interest_tax_rate", taxes.interest_tax_rate.is_some()),
     ] {
         if given {
-            return Err(invalid(format!(
-                "`/{field}` is used only by a `given` stage with `lines`; remove it, or give the \
-                 line items of a stage in `lines`"
-            ))
-            .at(format!("/{field}"), Reason::Requires)
-            .fix(format!(
-                "remove `/{field}`, or give the line items of a stage in `lines`"
-            )));
+            found.push(
+                invalid(format!(
+                    "`/{field}` is used only by a `given` stage with `lines`; remove it, or give \
+                     the line items of a stage in `lines`"
+                ))
+                .at(format!("/{field}"), Reason::Requires)
+                .fix(format!(
+                    "remove `/{field}`, or give the line items of a stage in `lines`"
+                )),
+            );
         }
     }
-    Ok(())
+    found.finish()
 }
 
 fn period_timing(t: Timing) -> PeriodTiming {
@@ -1854,21 +1869,21 @@ fn run_pass(
         Err(_) => TerminalRateUse::Technique,
     };
     let no_terminal_value = matches!(choice, Ok(TerminalChoice::None));
-    let rates = found.take(resolve_rates(&input.rates, n, rate_use));
-    let inflation = found.take(resolve_inflation(&input.inflation, n, rate_use));
-    let used = match (&rates, &inflation, n) {
-        (Some((given_rates, terminal_given)), Some(inflation), Some(_)) => {
-            found.take(resolve_terms(
-                ex,
-                input,
-                given_rates,
-                terminal_given.as_ref().map(|(r, f)| (*r, f.as_str())),
-                inflation.as_ref(),
-            ))
-        }
-        // Without the rates or the horizon nothing is converted; terms that differ without
-        // expected inflation are refused all the same.
-        (_, Some(None), _) if input.cash_flow_terms != input.discount_rate_terms => {
+    let rates = resolve_rates(&input.rates, n, rate_use, &mut found);
+    let inflation = resolve_inflation(&input.inflation, n, rate_use, &mut found);
+    // The rates in the terms of the flows, also without a horizon: the terminal rate does not
+    // depend on it, and the per-period rates are converted as far as both lists go.
+    let used = match (&rates, &inflation) {
+        (Some((given_rates, terminal_given)), Some(inflation)) => found.take(resolve_terms(
+            ex,
+            input,
+            given_rates,
+            terminal_given.as_ref().map(|(r, f)| (*r, f.as_str())),
+            inflation.as_ref(),
+        )),
+        // Without the rates nothing is converted; terms that differ without expected inflation
+        // are refused all the same.
+        (_, Some(None)) if input.cash_flow_terms != input.discount_rate_terms => {
             found.push(terms_mismatch(input));
             None
         }
@@ -1882,14 +1897,40 @@ fn run_pass(
     ));
     // The terms of the terminal technique are checked with the rest of the input: with the
     // terminal rate when it is known, otherwise every term that does not depend on it.
+    // The terminal rate is decided by the rates, the expected inflation and the terms: a
+    // comparison with it reads them all.
+    let f = &input.rates.fields;
+    let decide_rate = [
+        format!("/{}", f.single),
+        format!("/{}", f.per_period),
+        format!("/{}", f.terminal),
+        "/inflation".to_owned(),
+        "/inflation_per_period".to_owned(),
+        "/terminal_inflation".to_owned(),
+        "/cash_flow_terms".to_owned(),
+        "/discount_rate_terms".to_owned(),
+    ];
     let choice = match (found.take(choice), &used) {
-        (Some(choice), Some(used)) => found.take(terminal::check(
-            choice,
-            used.terminal,
-            &used.terminal_field,
-            used.terminal_converted_with.as_deref(),
-            input.basis,
-        )),
+        (Some(choice), Some(used)) => found.take(
+            terminal::check(
+                choice,
+                used.terminal,
+                &used.terminal_field,
+                used.terminal_converted_with.as_deref(),
+                input.basis,
+            )
+            .map_err(|e| {
+                let mut each = Found::new();
+                for e in e.into_errors() {
+                    each.push(if terminal::compares_with_rate(&e) {
+                        e.reads(decide_rate.clone())
+                    } else {
+                        e
+                    });
+                }
+                each.into_error()
+            }),
+        ),
         (Some(choice), None) => {
             for e in terminal::check_terms(choice, input.basis) {
                 found.push(e);
@@ -2433,7 +2474,8 @@ mod tests {
                 json!({"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}),
             );
         }));
-        match &growth {
+        // The variant within the details the report adds.
+        match growth.kind() {
             FairmarkError::GrowthNotBelowTerminalRate {
                 rate_field,
                 converted_with,

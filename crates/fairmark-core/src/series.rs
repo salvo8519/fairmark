@@ -578,6 +578,16 @@ fn prepare(input: &ProjectInput) -> Result<Prepared> {
             (n, length, built)
         }
     };
+    if let GrowthRule::Linear(l) = &input.growth {
+        // The ends are checked by name, even when no step reaches them (s = 0), and whatever
+        // the timeline; every step lies between them, so the steps add nothing.
+        found.check(check_rate(
+            l.from_growth,
+            "/growth/linear/from_growth",
+            None,
+        ));
+        found.check(check_rate(l.to_growth, "/growth/linear/to_growth", None));
+    }
     let (Some(n), Some(length)) = (n, length) else {
         return Err(found.into_error());
     };
@@ -592,16 +602,7 @@ fn prepare(input: &ProjectInput) -> Result<Prepared> {
     let stated = found.take(
         stated_rates(&input.growth, steps, n, input.base_period).map_err(|e| e.reads(steps_read)),
     );
-    if let GrowthRule::Linear(l) = &input.growth {
-        // The ends are checked by name, even when no step reaches them (s = 0); every step
-        // lies between them, so the steps add nothing.
-        found.check(check_rate(
-            l.from_growth,
-            "/growth/linear/from_growth",
-            None,
-        ));
-        found.check(check_rate(l.to_growth, "/growth/linear/to_growth", None));
-    } else {
+    if !matches!(input.growth, GrowthRule::Linear(_)) {
         for s in stated.iter().flatten() {
             found.check(check_rate(s.rate, &s.pointer, None).map_err(|e| e.reads(steps_read)));
         }
