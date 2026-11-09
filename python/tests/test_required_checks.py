@@ -30,9 +30,9 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python: ["3.10", "3.13"]
+        python: ["3.12", "3.15"]
         exclude:
-          - {os: windows-latest, python: "3.10"}
+          - {os: windows-latest, python: "3.12"}
     steps: [{run: "true"}]
   deploy:
     name: Deploy
@@ -62,9 +62,9 @@ def workflows(tmp_path: Path) -> Path:
 
 def test_matrix_names_are_expanded(tmp_path: Path) -> None:
     produced = rc.produced_on_pull_requests(workflows(tmp_path))
-    assert {"Python 3.10 · ubuntu-latest", "Python 3.13 · ubuntu-latest"} <= set(produced)
-    assert "Python 3.13 · windows-latest" in produced
-    assert "Python 3.10 · windows-latest" not in produced  # excluded
+    assert {"Python 3.12 · ubuntu-latest", "Python 3.15 · ubuntu-latest"} <= set(produced)
+    assert "Python 3.15 · windows-latest" in produced
+    assert "Python 3.12 · windows-latest" not in produced  # excluded
 
 
 def test_jobs_that_never_run_on_pull_requests_do_not_count(tmp_path: Path) -> None:
@@ -75,7 +75,7 @@ def test_jobs_that_never_run_on_pull_requests_do_not_count(tmp_path: Path) -> No
 
 def test_a_renamed_job_is_reported(tmp_path: Path) -> None:
     produced = rc.produced_on_pull_requests(workflows(tmp_path))
-    problems = rc.check(["Rust · MSRV 1.86", "Python 3.13 · ubuntu-latest"], produced)
+    problems = rc.check(["Rust · MSRV 1.86", "Python 3.15 · ubuntu-latest"], produced)
     assert len(problems) == 1 and "Rust · MSRV 1.86" in problems[0]
 
 
