@@ -138,7 +138,6 @@ def test_examples_validate_against_the_method_schema_and_run(method: str) -> Non
     for kind, example in EXAMPLES[method].items():
         source = yaml.safe_load((ROOT / example["source"]).read_text(encoding="utf-8"))
         assert "expect_error" not in source, f"{method} {kind}: source is an error case"
-        assert json.loads(json.dumps(example["input"])) is not None
         jsonschema.validate(example["input"], schema)
         result = fm.run(method, example["input"])
         assert result.value is not None, f"{method} {kind}"
@@ -158,32 +157,128 @@ def test_definitions_carry_the_examples(options: dict[str, Any]) -> None:
             jsonschema.validate(example, defs[method]["parameters"])
 
 
+def given_examples(definition: dict[str, Any]) -> list[Any]:
+    """The examples a definition gives: the `examples` keyword, or those in the description."""
+    if "examples" in definition["parameters"]:
+        return list(definition["parameters"]["examples"])
+    found = []
+    decoder = json.JSONDecoder()
+    for label in ("Minimal input example: ", "Complete input example: "):
+        start = definition["description"].find(label)
+        if start >= 0:
+            found.append(decoder.raw_decode(definition["description"], start + len(label))[0])
+    return found
+
+
 def test_portable_definitions_give_the_examples_in_the_description() -> None:
     defs = by_method(portable=True)
     for method in METHODS:
         assert "examples" not in defs[method]["parameters"]
-        minimal = json.dumps(
-            EXAMPLES[method]["minimal"]["input"], ensure_ascii=False, separators=(",", ":")
-        )
-        assert f"Minimal input example: {minimal}" in defs[method]["description"]
+        assert "Minimal input example: {" in defs[method]["description"]
+        assert len(given_examples(defs[method])) == len(EXAMPLES[method])
+
+
+@pytest.mark.parametrize("options", VARIANTS)
+def test_every_example_validates_against_every_variant(options: dict[str, Any]) -> None:
+    defs = by_method(**options)
+    for method in METHODS:
+        given = given_examples(defs[method])
+        assert given, method
+        validator = jsonschema.Draft202012Validator(defs[method]["parameters"])
+        for example in given:
+            errors = [e.message for e in validator.iter_errors(example)]
+            assert not errors, f"{method}: {errors[:3]}"
+            assert fm.run(method, example).value is not None, method
+
+
+def test_portable_examples_write_decimals_as_strings() -> None:
+    defs = by_method(portable=True)
+    for method in ("tvm.npv", "tvm.irr"):
+        assert any(isinstance(v, int) for v in EXAMPLES[method]["minimal"]["input"]["cash_flows"])
+        flows = given_examples(defs[method])[0]["cash_flows"]
+        assert flows and all(isinstance(v, str) for v in flows), method
+    # Integer fields (counts) stay integers.
+    instalment = given_examples(defs["loans.instalment"])[0]
+    assert isinstance(instalment["number_of_instalments"], int)
+
+
+def test_examples_of_an_unknown_method_are_refused() -> None:
+    with pytest.raises(fm.FairmarkError) as err:
+        tools.examples("dcf.nope")
+    assert err.value.code == "FM-E007"
+    assert tools.examples("tvm.npv")
 
 
 # 3. Compact profile -----------------------------------------------------------------------
 
 
+DECIMAL = re.compile(r"^-?\d+(\.\d+)?([eE]\d+)?$")
+PAIRS = [
+    pytest.param({}, {"compact": True}, id="default-compact"),
+    pytest.param({"portable": True}, {"portable": True, "compact": True}, id="portable"),
+]
+
+
+def decimal_pointers(value: Any, path: tuple[Any, ...] = ()) -> list[tuple[Any, ...]]:
+    """Paths of the leaves that are decimals written as strings."""
+    if isinstance(value, dict):
+        return [p for k, v in value.items() for p in decimal_pointers(v, (*path, k))]
+    if isinstance(value, list):
+        return [p for i, v in enumerate(value) for p in decimal_pointers(v, (*path, i))]
+    return [path] if isinstance(value, str) and DECIMAL.match(value) else []
+
+
+def replaced(value: Any, path: tuple[Any, ...], new: Any) -> Any:
+    copy = json.loads(json.dumps(value))
+    node = copy
+    for key in path[:-1]:
+        node = node[key]
+    node[path[-1]] = new
+    return copy
+
+
+def invalid_inputs(example: Any, portable: bool) -> list[Any]:
+    """Inputs the core refuses: thousands separators, percent signs, a float in place of a
+    decimal string (portable schemas require strings)."""
+    out = []
+    for path in decimal_pointers(example):
+        if portable:
+            out.append(replaced(example, path, 1200.5))
+        else:
+            out += [replaced(example, path, "1,200"), replaced(example, path, "5%")]
+    return out
+
+
+@pytest.mark.parametrize(("full_options", "compact_options"), PAIRS)
 @pytest.mark.parametrize("method", METHODS)
-def test_compact_schema_accepts_what_the_full_schema_accepts(method: str) -> None:
-    full = by_method()[method]["parameters"]
-    compact = by_method(compact=True)[method]["parameters"]
-    validator = jsonschema.Draft202012Validator(compact)
-    checked = 0
+def test_compact_and_full_schemas_accept_the_same_inputs(
+    method: str, full_options: dict[str, Any], compact_options: dict[str, Any]
+) -> None:
+    full_def = by_method(**full_options)[method]
+    full = jsonschema.Draft202012Validator(full_def["parameters"])
+    compact = jsonschema.Draft202012Validator(by_method(**compact_options)[method]["parameters"])
+    # Both directions, over every golden input, valid or not.
     for case_input in golden_inputs(method):
         value = plain(case_input)
-        if jsonschema.Draft202012Validator(full).is_valid(value):
-            errors = [e.message for e in validator.iter_errors(value)]
-            assert not errors, f"{method}: {errors[:3]}"
-            checked += 1
-    assert checked, f"{method}: no golden input checked"
+        assert full.is_valid(value) == compact.is_valid(value), f"{method}: {value}"
+    # Inputs the core refuses are refused by both, before any call.
+    refused = 0
+    for example in given_examples(full_def):
+        for value in invalid_inputs(example, portable=bool(full_options)):
+            assert full.is_valid(value) == compact.is_valid(value), f"{method}: {value}"
+            refused += not full.is_valid(value)
+    if decimal_pointers(given_examples(full_def)[0]):
+        assert refused, f"{method}: no invalid input refused"
+
+
+def test_thousands_separators_and_percent_signs_are_refused_up_front() -> None:
+    for options in ({}, {"compact": True}):
+        schema = by_method(**options)["tvm.npv"]["parameters"]
+        for bad in ("1,200", "5%", "1.200,50", "€100"):
+            value = {"rate": bad, "cash_flows": ["-100", "110"]}
+            assert not jsonschema.Draft202012Validator(schema).is_valid(value), (options, bad)
+            with pytest.raises(fm.FairmarkError):
+                fm.run("tvm.npv", value)
 
 
 def test_compact_is_smaller_and_drops_repetition() -> None:
@@ -194,11 +289,14 @@ def test_compact_is_smaller_and_drops_repetition() -> None:
     for method in METHODS:
         assert size(compact[method]) <= size(full[method]), method
     big = "statements.reorganise"
-    assert size(compact[big]) < 0.8 * size(full[big])
+    assert size(compact[big]) < 0.9 * size(full[big])
     schema = json.dumps(compact[big]["parameters"])
     assert '"default": null' not in schema
     assert re.search(r'"format": "u?int\d*"', schema) is None
-    assert "Decimals are" in compact[big]["description"]
+    assert '"pattern": "^-?' in schema
+    assert "Decimals are" not in compact[big]["description"]
+    portable = by_method(portable=True, compact=True)[big]
+    assert "Decimals are" in portable["description"]
 
 
 def test_compact_default_is_unchanged() -> None:
@@ -229,3 +327,23 @@ def test_definitions_by_area() -> None:
 def test_unknown_area_is_rejected() -> None:
     with pytest.raises(ValueError, match="Known areas"):
         tools.definitions(areas=["dfc"])
+
+
+@pytest.mark.parametrize("empty", [[], "", set()])
+def test_empty_area_selection_is_rejected(empty: Any) -> None:
+    with pytest.raises(ValueError, match="no area"):
+        tools.definitions(areas=empty)
+
+
+# Transformations ----------------------------------------------------------------------------
+
+
+def test_a_property_named_title_is_kept() -> None:
+    schema = {
+        "title": "Input",
+        "type": "object",
+        "properties": {"title": {"title": "Title", "type": "string"}, "x": {"type": "string"}},
+    }
+    out = tools._inline(schema)
+    assert "title" not in out
+    assert out["properties"]["title"] == {"type": "string"}

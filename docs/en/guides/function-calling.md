@@ -73,12 +73,13 @@ principal is repaid with the last instalment).
 
 Every definition carries input examples, taken from the golden cases of the method:
 
-- the minimal example: the smallest input that produces a result;
+- the minimal example: a small, typical input;
 - where useful, a maximal example: an input that shows most of the optional fields.
 
 In the default definitions they are in the JSON Schema `examples` keyword of the parameters
 (`[minimal, maximal]`). In the portable variant, where some providers reject keywords they do
-not know, they are written in the description instead ("Minimal input example: {...}").
+not know, they are written in the description instead ("Minimal input example: {...}"), with
+every decimal written as a string, as the portable schema requires.
 `fm.tools.examples("dcf.fcff")` returns them as data.
 
 Which golden case provides each example is set in one table, `TABLE` in
@@ -89,20 +90,26 @@ schema and runs through the engine without error.
 
 ## Compact profile
 
-`compact=True` produces smaller definitions for clients with a limited context. It accepts
-exactly the same inputs and keeps the meaning of every enum value; it removes only repetition:
+`compact=True` produces smaller definitions for clients with a limited context. It removes
+only annotations, never a validation keyword, so it accepts exactly the same inputs as the
+definition without `compact`, and it keeps the meaning of every enum value:
 
 - a description of 40 characters or more, or a list of enum values, already given earlier in
-  the same tool is given once;
+  the same tool is given once: later occurrences of the same field carry no description;
 - `"default": null` is removed (absent and null mean the same);
-- the decimal rule repeated on every amount (the `pattern`, or the portable hint) is stated
-  once in the tool description, where that is shorter;
 - non-standard `format` values (`uint32`) are removed; `minimum` still applies;
+- in the portable variant, the decimal hint repeated on every amount is stated once in the
+  tool description, where that is shorter;
 - only the minimal example is kept.
 
-The saving is largest for the largest methods (about a quarter for `statements.reorganise`,
-a sixth for `dcf.fcff`); small methods change little. Most of a large schema is documentation
-that is not repeated, and the compact profile keeps it.
+The decimal `pattern` stays on every amount, so an amount with thousands separators
+(`"1,200"`) or a percent sign (`"5%"`) is refused before the call, as the engine would refuse
+it.
+
+The saving is largest for the largest methods: about a sixth for `statements.reorganise` and
+a tenth for `dcf.fcff`, a third and a fifth in the portable variant; small methods change
+little. Most of a large schema is documentation that is not repeated, and the compact profile
+keeps it.
 
 ## Tool subsets by area
 
@@ -115,6 +122,6 @@ fm.tools.definitions(areas=["dcf", "tvm"])         # only dcf.* and tvm.* tools
 fm.tools.for_provider("ollama", compact=True, areas=["ratios"])
 ```
 
-An unknown area raises `ValueError` with the list of known areas. `dispatch` still executes
-every tool: a subset reduces what the model sees, not what Fairmark can run.
-
+An empty selection or an unknown area raises `ValueError` with the list of known areas.
+`dispatch` still executes every tool: a subset reduces what the model sees, not what Fairmark
+can run.

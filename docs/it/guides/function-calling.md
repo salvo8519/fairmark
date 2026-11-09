@@ -1,6 +1,6 @@
 ---
 source: guides/function-calling.md
-source_hash: 6c9b9a9143f5
+source_hash: b5514c691ef0
 ---
 # Function calling
 
@@ -81,39 +81,47 @@ principal is repaid with the last instalment).
 
 ## Esempi
 
-Ogni definizione contiene esempi di input, presi dai golden case del metodo:
+Ogni definizione contiene esempi di input, presi dai casi di riferimento (golden case) del
+metodo:
 
-- l'esempio minimo: l'input più piccolo che produce un risultato;
+- l'esempio minimo: un input piccolo e tipico;
 - dove utile, un esempio massimo: un input che mostra la maggior parte dei campi opzionali.
 
 Nelle definizioni predefinite si trovano nella parola chiave `examples` dello JSON Schema dei
 parametri (`[minimo, massimo]`). Nella variante portabile, dove alcuni fornitori rifiutano le
 parole chiave che non conoscono, sono scritti nella descrizione ("Minimal input example:
-{...}"). `fm.tools.examples("dcf.fcff")` li restituisce come dati.
+{...}"), con ogni decimale scritto come stringa, come richiede lo schema portabile.
+`fm.tools.examples("dcf.fcff")` li restituisce come dati.
 
-Quale golden case fornisce ogni esempio è stabilito in un'unica tabella, `TABLE` in
-`scripts/tool_examples.py`; `python scripts/tool_examples.py` copia gli input in
-`python/fairmark/tool_examples.json` (generato, mai modificato a mano, parte di
-`just generate`). I test verificano che ogni esempio sia valido rispetto allo schema del metodo
-e che il motore lo esegua senza errori.
+Quale caso di riferimento (golden case) fornisce ogni esempio è stabilito in un'unica tabella,
+`TABLE` in `scripts/tool_examples.py`; `python scripts/tool_examples.py` copia gli input in
+`python/fairmark/tool_examples.json` (generato, mai modificato a mano, parte di `just
+generate`). I test verificano che ogni esempio sia valido rispetto allo schema del metodo e che
+il motore lo esegua senza errori.
 
 ## Profilo compatto
 
-`compact=True` produce definizioni più piccole per i client con un contesto limitato. Accetta
-esattamente gli stessi input e conserva il significato di ogni valore enumerato; elimina solo
-le ripetizioni:
+`compact=True` produce definizioni più piccole per i client con un contesto limitato. Rimuove
+solo annotazioni, mai una parola chiave di validazione: accetta quindi esattamente gli stessi
+input della definizione senza `compact` e conserva il significato di ogni valore enumerato:
 
 - una descrizione di almeno 40 caratteri, o un elenco di valori enumerati, già data prima nello
-  stesso tool compare una sola volta;
+  stesso tool compare una sola volta: le occorrenze successive dello stesso campo non hanno
+  descrizione;
 - `"default": null` è rimosso (assente e null hanno lo stesso significato);
-- la regola dei decimali ripetuta su ogni importo (il `pattern`, o l'indicazione della
-  variante portabile) è dichiarata una volta nella descrizione del tool, dove è più breve;
 - i valori di `format` non standard (`uint32`) sono rimossi; `minimum` resta valido;
+- nella variante portabile, l'indicazione sui decimali ripetuta su ogni importo è dichiarata una
+  volta nella descrizione del tool, dove è più breve;
 - resta solo l'esempio minimo.
 
-Il risparmio è maggiore per i metodi più grandi (circa un quarto per `statements.reorganise`,
-un sesto per `dcf.fcff`); i metodi piccoli cambiano poco. Gran parte di uno schema grande è
-documentazione non ripetuta, e il profilo compatto la conserva.
+Il `pattern` dei decimali resta su ogni importo: un importo con separatori delle migliaia
+(`"1,200"`) o con il segno di percentuale (`"5%"`) è rifiutato prima della chiamata, come lo
+rifiuterebbe il motore.
+
+Il risparmio è maggiore per i metodi più grandi: circa un sesto per `statements.reorganise` e
+un decimo per `dcf.fcff`, un terzo e un quinto nella variante portabile; i metodi piccoli
+cambiano poco. Gran parte di uno schema grande è documentazione non ripetuta, e il profilo
+compatto la conserva.
 
 ## Sottoinsiemi di tool per area
 
@@ -126,7 +134,6 @@ fm.tools.definitions(areas=["dcf", "tvm"])         # solo i tool dcf.* e tvm.*
 fm.tools.for_provider("ollama", compact=True, areas=["ratios"])
 ```
 
-Un'area sconosciuta solleva `ValueError` con l'elenco delle aree note. `dispatch` esegue
-comunque ogni tool: un sottoinsieme riduce ciò che il modello vede, non ciò che Fairmark può
-eseguire.
-
+Una selezione vuota o un'area sconosciuta solleva `ValueError` con l'elenco delle aree note.
+`dispatch` esegue comunque ogni tool: un sottoinsieme riduce ciò che il modello vede, non ciò
+che Fairmark può eseguire.

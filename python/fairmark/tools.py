@@ -71,7 +71,7 @@ _VALUES = "_fairmark_values"
 
 
 def _values_sentence(variants: list[dict[str, Any]]) -> str:
-    """`Values: \`a\` (meaning); \`b\` (meaning).` from schemars `oneOf` of `const`."""
+    """The sentence "Values: `a` (meaning); `b` (meaning)." from schemars `oneOf` of `const`."""
     parts = []
     for variant in variants:
         meaning = " ".join(str(variant.get("description", "")).split()).rstrip(".")
@@ -84,11 +84,13 @@ def _inline(schema: dict[str, Any]) -> dict[str, Any]:
 
     The description of each enum value is kept: it is listed after the description of the
     field (`_VALUES`, finished by `_finish`), so no meaning is lost when `oneOf` collapses.
+    The `title` keyword is dropped; a property named `title` is kept.
     """
     defs = schema.get("$defs", {})
 
     def walk(node: Any) -> Any:
         if isinstance(node, dict):
+            properties = node.get("properties")
             if "$ref" in node:
                 target = walk(defs[node["$ref"].split("/")[-1]])
                 merged = {**target, **{k: v for k, v in node.items() if k != "$ref"}}
@@ -101,7 +103,11 @@ def _inline(schema: dict[str, Any]) -> dict[str, Any]:
                 if any(o.get("description") for o in variants):
                     out[_VALUES] = _values_sentence(variants)
                 return out
-            return {k: walk(v) for k, v in node.items() if k not in ("$defs", "$schema", "title")}
+            out = {k: walk(v) for k, v in node.items() if k not in ("$defs", "$schema", "title")}
+            if isinstance(properties, dict):
+                # Property names are data, not keywords: none is dropped.
+                out["properties"] = {name: walk(sub) for name, sub in properties.items()}
+            return out
         if isinstance(node, list):
             return [walk(v) for v in node]
         return node
@@ -162,7 +168,6 @@ def _portable(node: Any) -> Any:
     return out
 
 
-_DECIMAL_PATTERN = r"^-?\d+(\.\d+)?([eE]\d+)?$"
 # Formats defined by JSON Schema 2020-12; others (schemars' `uint32`) are dropped when compact.
 _STANDARD_FORMATS = frozenset(
     {
@@ -172,32 +177,35 @@ _STANDARD_FORMATS = frozenset(
     }
 )  # fmt: skip
 _REPEATED_MIN = 40
-"""Descriptions at least this long are given once per tool in the compact profile."""
+"""Descriptions at least this long are given once per tool in the compact profile: shorter
+ones cost about as much as a reference to them would, so they are kept."""
 
 DECIMAL_RULE = (
-    ' Decimals are JSON numbers or strings such as "0.095" or "1250000": decimal point,'
-    ' optional exponent ("1e6"), no thousands separators or currency symbols.'
+    ' Decimals are strings such as "0.095" or "1250000": decimal point, optional exponent'
+    ' ("1e6"), no thousands separators, percent signs or currency symbols.'
 )
-"""Sentence added once to a compact tool description in place of the per-field decimal rule."""
+"""Sentence added once to a portable compact tool description in place of the decimal hint
+repeated on every decimal field."""
 
 
 def _compact(schema: dict[str, Any]) -> tuple[dict[str, Any], bool]:
-    """Smaller schema with the same accepted inputs and the same meanings.
+    """Smaller schema that accepts exactly the same inputs, with the same meanings.
 
-    Removes `"default": null` (absent and null mean the same), the decimal `pattern` and the
-    portable decimal hint (stated once in the tool description instead), non-standard
-    `format` values, and every long description, or list of enum values, already given
-    earlier in the same tool. Returns the schema and whether a decimal rule was removed.
+    Removes only annotations, never a validation keyword: `"default": null` (absent and null
+    mean the same), non-standard `format` values (`uint32`, an annotation; `minimum` still
+    applies), the portable decimal hint (stated once in the tool description instead, where
+    that is shorter), and every long description, or list of enum values, already given
+    earlier in the same tool: a later occurrence carries no description. The decimal
+    `pattern` is kept, so thousands separators and percent signs are refused before a call
+    (ADR 0014 G7). Returns the schema and whether the decimal hint was removed.
     """
     seen: set[str] = set()
     decimals = False
     hints = (" Each item:" + _DECIMAL_HINT, _DECIMAL_HINT)
-    # State the decimal rule once only where that is shorter than repeating it per field.
-    text = json.dumps(schema)
-    repeated = text.count(json.dumps(_DECIMAL_PATTERN)) + text.count(
-        json.dumps(_DECIMAL_HINT)[1:-1]
-    )
-    strip_decimals = repeated * 40 > len(DECIMAL_RULE)
+    # The hint is replaced by one sentence only where that is shorter: the saving is the
+    # length of the hint on every field that carries it.
+    repeated = json.dumps(schema).count(json.dumps(_DECIMAL_HINT)[1:-1])
+    strip_hints = repeated * len(_DECIMAL_HINT) > len(DECIMAL_RULE)
 
     def walk(node: Any) -> Any:
         nonlocal decimals
@@ -209,14 +217,11 @@ def _compact(schema: dict[str, Any]) -> tuple[dict[str, Any], bool]:
         for key, value in node.items():
             if key == "default" and value is None:
                 continue
-            if key == "pattern" and value == _DECIMAL_PATTERN and strip_decimals:
-                decimals = True
-                continue
-            if key == "format" and value not in _STANDARD_FORMATS:
+            if key == "format" and isinstance(value, str) and value not in _STANDARD_FORMATS:
                 continue
             if key in ("description", _VALUES) and isinstance(value, str):
                 for hint in hints:
-                    if strip_decimals and value.endswith(hint):
+                    if strip_hints and value.endswith(hint):
                         value, decimals = value[: -len(hint)], True
                 if len(value) >= _REPEATED_MIN or key == _VALUES:
                     if value in seen:
@@ -247,8 +252,34 @@ def examples(method: str) -> list[dict[str, Any]]:
     Each is the input of a golden case (its path is in ``tool_examples.json``), validated
     against the method's schema and run through the engine by the test suite.
     """
+    if method not in {m["id"] for m in methods()}:
+        raise FairmarkError("FM-E007", f"unknown method: {method}")
     entry = _examples().get(method, {})
     return [entry[k]["input"] for k in ("minimal", "maximal") if k in entry]
+
+
+def _strings_for_decimals(value: Any, schema: Any) -> Any:
+    """An example as the portable schema expects it: numbers become strings where the schema
+    asks for a string (decimals), integers stay where it asks for an integer."""
+    if not isinstance(schema, dict):
+        return value
+    variants = [v for v in schema.get("anyOf", []) + schema.get("oneOf", []) if isinstance(v, dict)]
+    if isinstance(value, dict):
+        properties: dict[str, Any] = {}
+        for candidate in [*variants, schema]:
+            for name, sub in candidate.get("properties", {}).items():
+                properties.setdefault(name, sub)
+        return {k: _strings_for_decimals(v, properties.get(k)) for k, v in value.items()}
+    if isinstance(value, list):
+        items = schema.get("items")
+        if items is None:
+            items = next((v["items"] for v in variants if "items" in v), None)
+        return [_strings_for_decimals(v, items) for v in value]
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        kinds = {schema.get("type")} | {v.get("type") for v in variants}
+        if "string" in kinds and not kinds & {"number", "integer"}:
+            return str(value)
+    return value
 
 
 def areas() -> list[str]:
@@ -260,6 +291,9 @@ def _selected(selection: Iterable[str] | str | None) -> set[str] | None:
     if selection is None:
         return None
     wanted = {selection} if isinstance(selection, str) else set(selection)
+    wanted.discard("")
+    if not wanted:
+        raise ValueError(f"no area selected. Known areas: {', '.join(areas())}")
     unknown = sorted(wanted - set(areas()))
     if unknown:
         known = ", ".join(areas())
@@ -284,12 +318,13 @@ def definitions(
             support (decimals as strings, no `pattern`/`additionalProperties`). The input
             examples then go in the description instead of the `examples` keyword.
         compact: smaller schemas for large methods. Long descriptions repeated in a tool are
-            given once, `"default": null`, non-standard `format` values and the per-field
-            decimal rule are dropped (the rule is stated once in the description), and only
-            the minimal example is kept. The same inputs are accepted and every enum value
-            keeps its meaning.
+            given once (later occurrences carry no description), `"default": null` and
+            non-standard `format` values are dropped, the portable decimal hint is stated
+            once in the description, and only the minimal example is kept. Only annotations
+            are removed: exactly the same inputs are accepted, and every enum value keeps
+            its meaning.
         areas: only the tools of these areas (``areas()``: `dcf`, `statements`, `tvm`, ...).
-            Default: every tool.
+            Default: every tool. An empty selection or an unknown area raises ValueError.
 
     Preview methods are flagged in the description (title suffix and ``PREVIEW_NOTE``), so a
     model sees the status before it calls the tool; ``fm.methods()`` reports it as data.
@@ -311,6 +346,7 @@ def definitions(
         samples = examples(m["id"])[:1] if compact else examples(m["id"])
         sample_text = ""
         if portable:
+            samples = [_strings_for_decimals(sample, schema) for sample in samples]
             labels = ("Minimal input example", "Complete input example")
             sample_text = "".join(
                 f" {label}: {_compact_json(s)}." for label, s in zip(labels, samples, strict=False)

@@ -86,7 +86,7 @@ line-length = 100
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "PLW1514"]
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "RUF", "PLW1514"]
 # PLW1514 (explicit encoding on open, read_text, write_text) is a preview rule in ruff.
 # explicit-preview-rules keeps every other preview rule off unless selected by exact code.
 preview = true
