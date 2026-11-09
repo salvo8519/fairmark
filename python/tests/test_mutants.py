@@ -74,7 +74,9 @@ def test_entry_needs_reason_reviewer_and_one_function(
         f'[[equivalent]]\nfile = "{RATES}"\nmutation = "replace + with - in f"\nreason = ""\n',
     )
     _, problems = mt.load_exclusions()
-    assert any("function" in p and "reason" in p and "reviewer" in p for p in problems)
+    assert any(
+        all(key in p for key in ("function", "line", "reason", "reviewer")) for p in problems
+    )
 
 
 def test_entry_outside_the_core_is_rejected(
@@ -84,7 +86,7 @@ def test_entry_outside_the_core_is_rejected(
         tmp_path,
         monkeypatch,
         '[[equivalent]]\nfile = "crates/fairmark-cli/src/main.rs"\nfunction = "main"\n'
-        'mutation = "replace main with ()"\nreason = "r"\nreviewer = "x"\n',
+        'mutation = "replace main with ()"\nline = 1\nreason = "r"\nreviewer = "x"\n',
     )
     _, problems = mt.load_exclusions()
     assert any("under crates/fairmark-core/src/" in p for p in problems)
@@ -112,7 +114,8 @@ def test_gate_fails_on_missed_and_passes_when_recorded_as_equivalent(
         tmp_path,
         monkeypatch,
         f'[[equivalent]]\nfile = "{RATES}"\nfunction = "f"\nmutation = "{missed}"\n'
-        'reason = "both branches return the same value at the boundary"\nreviewer = "x"\n',
+        'line = 10\nreason = "both branches return the same value at the boundary"\n'
+        'reviewer = "x"\n',
     )
     assert mt.main(["summary", str(run), "--gate"]) == 0
     assert "| rates | 3 | 1 | 0 | 1 | 1 | 0 | 0 |" in capsys.readouterr().out
@@ -136,6 +139,70 @@ def test_entry_pinned_to_a_line_matches_only_that_line(
         'line = 10\nreason = "r"\nreviewer = "x"\n',
     )
     assert mt.main(["summary", str(run), "--gate"]) == 1
+
+
+def entry(function: str, mutation: str, line: int = 10) -> str:
+    return (
+        f'[[equivalent]]\nfile = "{RATES}"\nfunction = "{function}"\nmutation = "{mutation}"\n'
+        f'line = {line}\nreason = "r"\nreviewer = "x"\n'
+    )
+
+
+def test_stale_entry_is_reported_when_its_mutant_is_caught(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    mutation = "replace <= with < in f"
+    run = write_run(tmp_path / "run", [outcome(RATES, 10, "f", mutation, "CaughtMutant")])
+    exclusions(tmp_path, monkeypatch, entry("f", mutation))
+    assert mt.main(["summary", str(run), "--full"]) == 0
+    text = capsys.readouterr().out
+    assert "match no missed mutant" in text
+    assert mutation in text.split("match no missed mutant", 1)[1]
+
+
+def test_entry_still_equivalent_is_not_stale(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    mutation = "replace <= with < in f"
+    run = write_run(tmp_path / "run", [outcome(RATES, 10, "f", mutation, "MissedMutant")])
+    exclusions(tmp_path, monkeypatch, entry("f", mutation))
+    assert mt.main(["summary", str(run), "--full", "--gate"]) == 0
+    assert "match no missed mutant" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("function", "mutation", "accepted"),
+    [
+        ("f", "replace <= with < in f", True),
+        ("Outputs::note", "delete match arm Basis::Gross in Outputs::note", True),
+        ("f", "replace f -> Result<Decimal> with Ok(Default::default())", True),
+        ("f", "replace f with ()", True),
+        ("f", "replace <= with < in g", False),
+        ("f", "replace <= with < in ff", False),
+        ("f", "replace g -> u32 with 0", False),
+    ],
+)
+def test_mutation_must_belong_to_its_function(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, function: str, mutation: str, accepted: bool
+) -> None:
+    exclusions(tmp_path, monkeypatch, entry(function, mutation))
+    _, problems = mt.load_exclusions()
+    assert (problems == []) is accepted, problems
+
+
+def test_line_is_required_and_duplicates_are_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    no_line = f'[[equivalent]]\nfile = "{RATES}"\nfunction = "f"\n'
+    no_line += 'mutation = "replace + with - in f"\nreason = "r"\nreviewer = "x"\n'
+    exclusions(tmp_path, monkeypatch, no_line)
+    _, problems = mt.load_exclusions()
+    assert any("line" in p for p in problems)
+
+    twice = entry("f", "replace + with - in f") + entry("f", "replace + with - in f")
+    exclusions(tmp_path, monkeypatch, twice)
+    _, problems = mt.load_exclusions()
+    assert any("duplicate" in p for p in problems)
 
 
 def test_shards_are_merged_and_a_failing_baseline_fails(tmp_path: Path) -> None:

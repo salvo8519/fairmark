@@ -10,7 +10,8 @@ run or shard. This script reads their `outcomes.json` files and:
         print a Markdown table per module (caught, missed, equivalent, unviable, timeout) and
         the missed mutants; with --gate exit 1 when a missed mutant is not recorded as
         equivalent; with --full also report equivalent entries that no longer match a missed
-        mutant (stale entries, only meaningful on a run of the whole core)
+        mutant (stale entries: the mutant is now caught, unviable or gone; only meaningful on a run
+        of the whole core)
 
 Equivalent mutants are applied after the run, not passed to cargo-mutants as exclusions: they
 are still built and tested, so an entry that stops being equivalent (because a test now
@@ -42,8 +43,8 @@ SUMMARY_TO_OUTCOME = {
     "Timeout": "timeout",
     "Failure": "failure",
 }
-REQUIRED_KEYS = ("file", "function", "mutation", "reason", "reviewer")
-ALLOWED_KEYS = {*REQUIRED_KEYS, "line"}
+REQUIRED_KEYS = ("file", "function", "mutation", "line", "reason", "reviewer")
+ALLOWED_KEYS = set(REQUIRED_KEYS)
 
 
 @dataclass(frozen=True)
@@ -66,10 +67,10 @@ class Mutant:
 
 @dataclass(frozen=True)
 class Equivalent:
-    """A reviewed equivalent mutant: one mutation in one function, optionally at one line.
+    """A reviewed equivalent mutant: one mutation in one function at one line.
 
-    Matching is by exact text, never by pattern, so an entry cannot exclude more than the
-    mutation it names (and its repetitions in the same function when `line` is absent).
+    Matching is by exact text and line, never by pattern, so an entry cannot exclude more than
+    the one mutation it names.
     """
 
     file: str
@@ -77,14 +78,14 @@ class Equivalent:
     mutation: str
     reason: str
     reviewer: str
-    line: int | None = None
+    line: int
 
     def matches(self, m: Mutant) -> bool:
         return (
             m.file == self.file
             and m.function == self.function
             and m.mutation == self.mutation
-            and (self.line is None or m.line == self.line)
+            and m.line == self.line
         )
 
 
@@ -92,6 +93,17 @@ def module_of(path: str) -> str:
     """`crates/fairmark-core/src/dcf/engine.rs` -> `dcf/engine`; `tv/mod.rs` -> `tv`."""
     rel = path.removeprefix(CORE_SRC).removesuffix(".rs")
     return rel.removesuffix("/mod") if rel.endswith("/mod") else rel
+
+
+def belongs_to(mutation: str, function: str) -> bool:
+    """The mutation text names its function: "... in <function>" for a change inside the body,
+    "replace <function> -> <type> with ..." or "replace <function> with ..." for the whole body.
+    """
+    return (
+        mutation.endswith(f" in {function}")
+        or mutation.startswith(f"replace {function} -> ")
+        or mutation.startswith(f"replace {function} with ")
+    )
 
 
 def load_exclusions(path: Path | None = None) -> tuple[list[Equivalent], list[str]]:
@@ -103,6 +115,7 @@ def load_exclusions(path: Path | None = None) -> tuple[list[Equivalent], list[st
     if unknown:
         problems.append(f"unknown top-level keys: {sorted(unknown)}")
     entries: list[Equivalent] = []
+    seen: set[tuple[str, str, str, int]] = set()
     for i, raw in enumerate(data.get("equivalent", [])):
         where = f"equivalent[{i}]"
         if not isinstance(raw, dict):
@@ -123,9 +136,16 @@ def load_exclusions(path: Path | None = None) -> tuple[list[Equivalent], list[st
             problems.append(f"{where}: file {file} does not exist")
         if not mutation.startswith(("replace ", "delete ")):
             problems.append(f"{where}: mutation must be the text cargo-mutants prints")
-        line = raw.get("line")
-        if line is not None and (not isinstance(line, int) or line < 1):
+        if not belongs_to(mutation, function):
+            problems.append(f"{where}: mutation does not belong to function {function}")
+        line = raw["line"]
+        if not isinstance(line, int) or isinstance(line, bool) or line < 1:
             problems.append(f"{where}: line must be a positive integer")
+            continue
+        key = (file, function, mutation, line)
+        if key in seen:
+            problems.append(f"{where}: duplicate of an earlier entry")
+        seen.add(key)
         entries.append(
             Equivalent(
                 file=file,
@@ -133,7 +153,7 @@ def load_exclusions(path: Path | None = None) -> tuple[list[Equivalent], list[st
                 mutation=mutation,
                 reason=str(raw["reason"]).strip(),
                 reviewer=str(raw["reviewer"]).strip(),
-                line=line if isinstance(line, int) else None,
+                line=line,
             )
         )
     return entries, problems
@@ -232,7 +252,12 @@ def summary(args: argparse.Namespace) -> int:
                 lines += [f"- `{m.describe()}` in `{m.function}`" for m in items]
                 lines.append("")
     if args.full:
-        stale = [e for e in entries if not any(e.matches(m) for m in mutants)]
+        # Stale: no mutant it matches is still missed (caught now, unviable, or gone).
+        stale = [
+            e
+            for e in entries
+            if not any(m.outcome == "equivalent" and e.matches(m) for m in mutants)
+        ]
         if stale:
             lines += ["### Equivalent entries that match no missed mutant (review them)", ""]
             lines += [f"- `{e.file}`: `{e.mutation}` in `{e.function}`" for e in stale]

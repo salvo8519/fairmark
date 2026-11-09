@@ -1,8 +1,9 @@
 # Reviewed equivalent mutants of fairmark-core.
 #
 # An equivalent mutant changes the code but cannot change any observable result, so no test
-# can kill it. Each entry names exactly one mutation in one function, with a one-line reason
-# and the maintainer who reviewed it; an entry is added only in a reviewed pull request.
+# can kill it. Each entry names exactly one mutation in one function at one line, with a
+# one-line reason and the maintainer who reviewed it; an entry is added only in a reviewed
+# pull request.
 # Whole files, whole functions and patterns are never excluded: the rules are in
 # docs/en/project/mutation-testing.md and `python scripts/mutants.py check-exclusions`
 # enforces the format.
@@ -13,11 +14,17 @@
 #   file = "crates/fairmark-core/src/<module>.rs"
 #   function = "<function name as printed by cargo-mutants>"
 #   mutation = "replace <= with < in <function>"
-#   line = 123                # optional: pins one occurrence when the text repeats
+#   line = 123
 #   reason = "<one line: why no observable result can change>"
 #   reviewer = "<GitHub login of the maintainer who approved the entry>"
 #
+# All keys are required. The mutation must name its function: it ends with " in <function>"
+# (a change inside the body) or starts with "replace <function> -> " or "replace <function>
+# with " (the whole body replaced). The line is the one cargo-mutants prints; when the code
+# moves, the entry is updated in the same pull request. Duplicate entries are rejected.
+#
 # Missed mutants listed here are still built and tested; scripts/mutants.py reports them as
-# "equivalent" instead of "missed", and a full run lists entries that no longer match.
+# "equivalent" instead of "missed"; a full run lists entries whose mutant is no longer missed
+# (now caught, unviable or gone), to be removed.
 
 equivalent = []
