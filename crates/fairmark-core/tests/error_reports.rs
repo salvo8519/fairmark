@@ -227,7 +227,7 @@ fn unknown_fields_are_found_at_every_depth() {
 #[test]
 fn unknown_fields_inside_tagged_choices() {
     let mut input = golden_input("statements.reorganise/adjustment-non-recurring.yaml");
-    input["adjustments"][0]["sourc"] = json!("x");
+    input["adjustments"][0]["from_aggregate"] = json!("x");
     input["adjustments"][1]["labl"] = json!("x");
     input["years"][0]["statutory"]["balance_sheet"]["cashh"] = json!("1");
     let r = report("statements.reorganise", &input);
@@ -241,7 +241,7 @@ fn unknown_fields_inside_tagged_choices() {
         pointers,
         [
             "/years/0/statutory/balance_sheet/cashh",
-            "/adjustments/0/sourc",
+            "/adjustments/0/from_aggregate",
             "/adjustments/1/labl",
         ]
     );
