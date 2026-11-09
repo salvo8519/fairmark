@@ -51,7 +51,7 @@ where
     match Option::<T>::deserialize(d)? {
         Some(v) => Ok(Some(v)),
         None => Err(serde::de::Error::custom(
-            "null is not accepted: leave the field out to use the default, or give a value",
+            crate::registry::CustomRefusal::NullNotAccepted.text(),
         )),
     }
 }

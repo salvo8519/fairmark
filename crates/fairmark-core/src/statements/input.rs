@@ -986,10 +986,8 @@ impl<'de> Deserialize<'de> for Adjustment {
                 ) = rest.get("aggregate").and_then(Value::as_str)
                 {
                     let message = format!(
-                        "`{fixed}` cannot be moved by an adjustment: D18 and D19 are fixed in \
-                         the investing result (SPEC-0005 R17, Decision 17); remove the \
-                         adjustment, or name the aggregate of Appendix A.2 the non-recurring \
-                         part belongs to"
+                        "`{fixed}` {}",
+                        crate::registry::CustomRefusal::FixedAggregate.text()
                     );
                     return Err(D::Error::custom(crate::registry::nested_error_text(
                         &["aggregate".into()],

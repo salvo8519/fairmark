@@ -522,6 +522,59 @@ fn input_error(e: serde_path_to_error::Error<serde_json::Error>) -> FairmarkErro
     }
 }
 
+/// A refusal raised by one of the engine's own readers as a `serde` custom error. `serde`
+/// carries only text, so the registry recognises the refusal by its marker, the fixed text the
+/// producer writes through [`CustomRefusal::text`], and reports its sub-kind and fix. A new
+/// custom refusal gets a variant here, never a text matched elsewhere.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CustomRefusal {
+    /// `null` for a defaulted field of the DCF, which takes its default only when left out.
+    NullNotAccepted,
+    /// A non-recurring adjustment of D18 or D19, which are fixed in the investing result
+    /// (SPEC-0005 R17); the producer writes the aggregate before the text.
+    FixedAggregate,
+}
+
+impl CustomRefusal {
+    /// Every refusal, for the registry's lookup.
+    pub(crate) const ALL: [Self; 2] = [Self::NullNotAccepted, Self::FixedAggregate];
+
+    /// The fixed text of the refusal, written by its producer.
+    pub(crate) const fn text(self) -> &'static str {
+        match self {
+            Self::NullNotAccepted => {
+                "null is not accepted: leave the field out to use the default, or give a value"
+            }
+            Self::FixedAggregate => {
+                "cannot be moved by an adjustment: D18 and D19 are fixed in the investing result \
+                 (SPEC-0005 R17, Decision 17); remove the adjustment, or name the aggregate of \
+                 Appendix A.2 the non-recurring part belongs to"
+            }
+        }
+    }
+
+    /// The text that identifies the refusal in a message: its whole fixed text.
+    pub(crate) const fn marker(self) -> &'static str {
+        self.text()
+    }
+
+    pub(crate) const fn reason(self) -> Reason {
+        match self {
+            Self::NullNotAccepted => Reason::Type,
+            Self::FixedAggregate => Reason::Enum,
+        }
+    }
+
+    pub(crate) const fn fix(self) -> &'static str {
+        match self {
+            Self::NullNotAccepted => "leave the field out to use the default, or give a value",
+            Self::FixedAggregate => {
+                "remove the adjustment, or name the aggregate the non-recurring part belongs to"
+            }
+        }
+    }
+}
+
 /// The sub-kind, accepted values and fix of a `serde` error other than a missing, repeated or
 /// unknown field. An unknown enumeration value lists the values; a wrong type or value states
 /// what is expected. A custom error raised by a type of the engine keeps its own text and has
@@ -534,16 +587,16 @@ fn classify(detail: &str) -> (Option<Reason>, Vec<String>, Option<String>) {
             Some("use one of the values in `expected`".to_owned()),
         );
     }
-    // Custom errors of the engine's own readers, by their fixed texts.
-    if detail.starts_with("null is not accepted") {
+    // Custom errors of the engine's own readers: their texts come from `CustomRefusal`.
+    if let Some(refusal) = CustomRefusal::ALL
+        .into_iter()
+        .find(|r| detail.contains(r.marker()))
+    {
         return (
-            Some(Reason::Type),
+            Some(refusal.reason()),
             Vec::new(),
-            Some("leave the field out to use the default, or give a value".to_owned()),
+            Some(refusal.fix().to_owned()),
         );
-    }
-    if detail.contains("cannot be moved by an adjustment") {
-        return (Some(Reason::Enum), Vec::new(), None);
     }
     let typed = ["invalid type: ", "invalid value: ", "invalid length "]
         .iter()
@@ -835,6 +888,11 @@ mod tests {
                 );
             }
             assert!(result["$defs"]["FairmarkErrorReason"]["oneOf"].is_array());
+            assert_eq!(report["properties"]["errors"]["minItems"], 1, "{}", m.id);
+            assert!(report["required"]
+                .as_array()
+                .unwrap()
+                .contains(&Value::from("errors")));
         }
         // The compact report of an analysis cell keeps its name and shape.
         let sensitivity = result_schema("analysis.sensitivity").unwrap();
@@ -892,6 +950,31 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(err.code(), "FM-E001");
+    }
+
+    /// Review of #279: each custom refusal is recognised from the text its producer writes,
+    /// and only by its own marker.
+    #[test]
+    fn custom_refusals_round_trip() {
+        for r in CustomRefusal::ALL {
+            let written = format!("`x` {}", r.text());
+            let (reason, expected, fix) = classify(&written);
+            assert_eq!(reason, Some(r.reason()), "{r:?}");
+            assert!(expected.is_empty());
+            assert_eq!(fix.as_deref(), Some(r.fix()));
+            for other in CustomRefusal::ALL.into_iter().filter(|o| *o != r) {
+                assert!(
+                    !r.text().contains(other.marker()),
+                    "{r:?} contains {other:?}"
+                );
+            }
+        }
+        let err = run(
+            "dcf.fcff",
+            r#"{"stages": [{"flows": [1]}], "wacc": "0.1", "timing": null}"#,
+        )
+        .unwrap_err();
+        assert_eq!(err.details().reason, Some(Reason::Type));
     }
 
     #[test]
