@@ -1562,6 +1562,15 @@
         "growth": "0.03",
         "next_flow": "75"
       }
+    },
+    "maximal": {
+      "source": "tests/golden/tv.gordon/last-flow-grown.yaml",
+      "input": {
+        "rate": "0.09",
+        "growth": "0.025",
+        "last_flow": "100",
+        "growth_cap": "0.03"
+      }
     }
   },
   "tv.h_model": {
@@ -1573,6 +1582,17 @@
         "long_term_growth": "0.03",
         "half_life": "5",
         "rate": "0.09"
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/tv.h_model/fractional-half-life.yaml",
+      "input": {
+        "last_flow": "100",
+        "short_term_growth": "0.08",
+        "long_term_growth": "0.02",
+        "half_life": "2.5",
+        "rate": "0.075",
+        "growth_cap": "0.025"
       }
     }
   },
@@ -1666,6 +1686,16 @@
         "growth": "0.02",
         "ronic": "0.06",
         "rate": "0.10"
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/tv.value_driver/ronic-equals-rate.yaml",
+      "input": {
+        "nopat_next": "100",
+        "growth": "0.03",
+        "ronic": "0.10",
+        "rate": "0.10",
+        "growth_cap": "0.03"
       }
     }
   },
@@ -1819,6 +1849,26 @@
           {
             "date": "2009-04-01",
             "amount": "2750"
+          }
+        ]
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/tvm.xirr/thirty-360-same-time.yaml",
+      "input": {
+        "day_count": "thirty_360",
+        "cash_flows": [
+          {
+            "date": "2024-01-01",
+            "amount": "-100"
+          },
+          {
+            "date": "2024-01-31",
+            "amount": "200"
+          },
+          {
+            "date": "2024-02-01",
+            "amount": "-95"
           }
         ]
       }
