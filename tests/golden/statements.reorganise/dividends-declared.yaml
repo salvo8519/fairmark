@@ -117,4 +117,8 @@ expect_meta:
   /defaults_applied/8/value: operating_working_capital
   /defaults_applied/9/field: /years/0/statutory/balance_sheet/accruals_and_deferred_income
   /defaults_applied/9/value: operating_working_capital
+  /defaults_applied/10/field: /treatments/write_downs_of_receivables
+  /defaults_applied/10/value: operating
+  /defaults_applied/11/field: /treatments/write_downs_of_fixed_assets
+  /defaults_applied/11/value: operating
 tolerance: '0'

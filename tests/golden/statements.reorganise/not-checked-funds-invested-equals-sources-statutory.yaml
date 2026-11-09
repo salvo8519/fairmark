@@ -74,6 +74,10 @@ expect:
   /years/0/balance_sheet/sources/equity: '930000'
   /years/0/form: statutory
 expect_meta:
-  /defaults_applied/9/field: /years/0/statutory/balance_sheet/subscribed_capital_unpaid
-  /defaults_applied/9/value: '0'
+  /defaults_applied/9/field: /treatments/write_downs_of_receivables
+  /defaults_applied/9/value: operating
+  /defaults_applied/10/field: /treatments/write_downs_of_fixed_assets
+  /defaults_applied/10/value: operating
+  /defaults_applied/11/field: /years/0/statutory/balance_sheet/subscribed_capital_unpaid
+  /defaults_applied/11/value: '0'
 tolerance: '0'
