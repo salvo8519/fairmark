@@ -67,6 +67,10 @@ The same deterministic solver as [`tvm.irr`](tvm-irr.md#solver), with two differ
   rates of the grid interval with the XNPV at each of them.
 - **Sign changes are counted on the flows in date order**; flows on the same date are netted.
 
+As in `tvm.irr`, the result of Newton's method is accepted only inside the closed interval
+[lower rate, upper rate] of the grid, ends included; otherwise bisection runs inside the
+interval.
+
 The uniqueness rule is the one of `tvm.irr`: more than one root found, an odd gap between the
 sign changes $s$ and the roots found, or no root found with $s > 1$ give `FM-E011`. One root
 found with an even, positive gap is returned with `uniqueness_verified = false`, because
@@ -100,7 +104,7 @@ further rates in pairs cannot be excluded. With $s = 1$ the rate is proven uniqu
 | Compounding | annual, semi-annual, four-monthly, quarterly, bimonthly, monthly, continuous | annual, the ECMA-376 spreadsheet default |
 | Time origin | earliest flow date | fixed |
 | Solver grid | effective annual rates −0.99 to 10, converted to the compounding | fixed |
-| Stopping rule | step on the rate below $10^{-18}$, at most 200 iterations | fixed |
+| Stopping rule | step on the rate at most $10^{-18}$, at most 200 iterations | fixed |
 | Newton starting point | `guess` | `0.10` |
 
 Each convention is reported with whether it was given or is the default, and the result

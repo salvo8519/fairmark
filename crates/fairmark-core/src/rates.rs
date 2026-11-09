@@ -121,11 +121,25 @@ pub fn growth_factor(rate: Decimal, compounding: Compounding, t: Decimal) -> Res
 
 /// `base^-e` with full relative precision (audit D1, D2).
 ///
-/// When `base >= 1` the growth `base^e` is computed and inverted; if it overflows, the
-/// reciprocal is raised instead and may underflow towards zero, which is the correct limit.
-/// When `base < 1` the reciprocal (greater than one) is raised directly, so the result keeps
-/// all significant digits instead of inverting a tiny growth factor.
+/// A negative `e` (a time before the valuation date) gives `base^|e|` (issue #282): computed
+/// directly when `base >= 1`, `FM-E008` beyond the decimal range; when `base < 1` it is below
+/// one and is computed as `1 / (1/base)^|e|`, the same way as a positive `e` with `base >= 1`,
+/// so both directions keep the same precision and a value below the decimal precision is 0,
+/// its limit, for integer and fractional times alike. When `base >= 1` the growth `base^e` is computed
+/// and inverted; if it overflows, the reciprocal is raised instead and may underflow towards
+/// zero, which is the correct limit. When `base < 1` the reciprocal (greater than one) is
+/// raised directly, so the result keeps all significant digits instead of inverting a tiny
+/// growth factor.
 pub(crate) fn inverse_pow(base: Decimal, e: Decimal) -> Result<Decimal> {
+    if e.is_sign_negative() {
+        if base >= Decimal::ONE {
+            return pow(base, -e);
+        }
+        let inv = Decimal::ONE
+            .checked_div(base)
+            .ok_or(FairmarkError::Overflow("discount factor"))?;
+        return inverse_pow(inv, -e);
+    }
     let reciprocal = || -> Result<Decimal> {
         let inv = Decimal::ONE
             .checked_div(base)
@@ -134,7 +148,8 @@ pub(crate) fn inverse_pow(base: Decimal, e: Decimal) -> Result<Decimal> {
     };
     if base >= Decimal::ONE {
         match pow(base, e) {
-            Ok(g) if !g.is_zero() => Decimal::ONE
+            // A base of at least 1 to a non-negative power is at least 1, never 0.
+            Ok(g) => Decimal::ONE
                 .checked_div(g)
                 .ok_or(FairmarkError::Overflow("discount factor")),
             // Growth overflowed: the reciprocal underflows towards zero, the correct limit.

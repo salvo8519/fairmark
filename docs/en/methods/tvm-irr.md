@@ -73,11 +73,11 @@ print(flagged.conventions[-1])  # uniqueness not verified: the flows change sign
     | one or none | $s = 1$ | rate returned, `uniqueness_verified = true` |
 
 3. **Refinement.** With one interval, Newton's method starts from `guess` (default `0.10`)
-   and its result is accepted only inside the interval; otherwise bisection runs inside the
-   interval. A root exactly on a grid point is returned as is (solver `grid (exact root)`).
+   and its result is accepted only inside the closed interval [lower rate, upper rate], ends
+   included; otherwise bisection runs inside the interval. A root exactly on a grid point is returned as is (solver `grid (exact root)`).
    With no interval and $s = 1$, Newton's method from `guess` is accepted only if it
    converges; otherwise `FM-E005`.
-4. **Stopping rule.** Iteration stops when the step on the rate is below $10^{-18}$, at most
+4. **Stopping rule.** Iteration stops when the step on the rate is at most $10^{-18}$, at most
    200 iterations per stage.
 
 The remaining limit is the even gap: when one rate is found and $s - 1$ is even and
@@ -111,7 +111,7 @@ false` and a convention. When the rate is ambiguous, prefer NPV at the cost of c
 | Time origin | `cash_flows[0]` at $t = 0$ | fixed |
 | Solver grid | rates per period −0.99, −0.95, −0.90 to 1.00 step 0.05, 1.25 to 10 step 0.25 | fixed |
 | Solver order | Newton's method inside the root interval, bisection as fallback | fixed |
-| Stopping rule | step on the rate below $10^{-18}$, at most 200 iterations | fixed |
+| Stopping rule | step on the rate at most $10^{-18}$, at most 200 iterations | fixed |
 | Newton starting point | `guess`, reported as given or default | `0.10` |
 | Uniqueness | proven, or not verified with the reason | reported on every result |
 
