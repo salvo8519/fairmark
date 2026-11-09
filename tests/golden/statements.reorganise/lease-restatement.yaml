@@ -121,8 +121,10 @@ expect:
   /years/0/income_statement/materials_consumed: '2170000'
   /years/0/income_statement/value_added: '1546000'
   /years/0/income_statement/personnel_costs: '1000000'
+  /years/0/income_statement/external_costs: '3554000'
   /years/0/income_statement/ebitda: '546000'
   /years/0/income_statement/depreciation_and_amortisation: '216000'
+  /years/0/income_statement/other_charges_below_ebitda: '15000'
   /years/0/income_statement/operating_profit: '315000'
   /years/0/income_statement/investing_result: '-26000'
   /years/0/income_statement/profit_before_financing_and_taxes: '289000'
@@ -135,40 +137,40 @@ expect:
   /years/0/income_statement/reconciliations/operating_profit/start: '266000'
   /years/0/income_statement/reconciliations/operating_profit/lines/0/label: B10 c, write-downs of fixed
     assets (investing result)
-  /years/0/income_statement/reconciliations/operating_profit/lines/0/source: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_fixed_assets
+  /years/0/income_statement/reconciliations/operating_profit/lines/0/sources/0: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_fixed_assets
   /years/0/income_statement/reconciliations/operating_profit/lines/0/amount: '20000'
   /years/0/income_statement/reconciliations/operating_profit/lines/1/label: B10 d, write-downs of receivables
     (investing result)
-  /years/0/income_statement/reconciliations/operating_profit/lines/1/source: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_receivables
+  /years/0/income_statement/reconciliations/operating_profit/lines/1/sources/0: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_receivables
   /years/0/income_statement/reconciliations/operating_profit/lines/1/amount: '15000'
   /years/0/income_statement/reconciliations/operating_profit/lines/2/label: Warehouse lease (lease payments
     removed from B8)
-  /years/0/income_statement/reconciliations/operating_profit/lines/2/source: /adjustments/0
+  /years/0/income_statement/reconciliations/operating_profit/lines/2/sources/0: /adjustments/0
   /years/0/income_statement/reconciliations/operating_profit/lines/2/amount: '50000'
   /years/0/income_statement/reconciliations/operating_profit/lines/3/label: Warehouse lease (lease depreciation)
-  /years/0/income_statement/reconciliations/operating_profit/lines/3/source: /adjustments/0
+  /years/0/income_statement/reconciliations/operating_profit/lines/3/sources/0: /adjustments/0
   /years/0/income_statement/reconciliations/operating_profit/lines/3/amount: '-36000'
   /years/0/income_statement/reconciliations/operating_profit/end: '315000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/start: '266000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/label: Warehouse
     lease (lease payments removed from B8)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/source: /adjustments/0
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/sources/0: /adjustments/0
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/amount: '50000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/label: Warehouse
     lease (lease depreciation)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/source: /adjustments/0
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/sources/0: /adjustments/0
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/amount: '-36000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/label: C15, income
     from equity investments (investing result)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/source: /years/0/statutory/income_statement/income_from_equity_investments
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/sources/0: /years/0/statutory/income_statement/income_from_equity_investments
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/amount: '12000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/3/label: C16, other
     financial income (investing result)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/3/source: /years/0/statutory/income_statement/other_financial_income
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/3/sources/0: /years/0/statutory/income_statement/other_financial_income
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/3/amount: '3000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/4/label: D18 − D19,
     value adjustments of financial assets (investing result)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/4/source: /years/0/statutory/income_statement/value_adjustments_of_financial_assets
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/4/sources/0: /years/0/statutory/income_statement/value_adjustments_of_financial_assets
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/4/amount: '-6000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/end: '289000'
   /years/0/balance_sheet/operating/operating_fixed_assets: '1200000'

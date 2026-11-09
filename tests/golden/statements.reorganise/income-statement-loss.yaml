@@ -43,8 +43,10 @@ expect:
   /years/0/income_statement/materials_consumed: '432000'
   /years/0/income_statement/value_added: '19000'
   /years/0/income_statement/personnel_costs: '210000'
+  /years/0/income_statement/external_costs: '761000'
   /years/0/income_statement/ebitda: '-191000'
   /years/0/income_statement/depreciation_and_amortisation: '70000'
+  /years/0/income_statement/other_charges_below_ebitda: '0'
   /years/0/income_statement/operating_profit: '-261000'
   /years/0/income_statement/investing_result: '-3500'
   /years/0/income_statement/profit_before_financing_and_taxes: '-264500'
@@ -57,25 +59,26 @@ expect:
   /years/0/income_statement/reconciliations/operating_profit/start: '-265000'
   /years/0/income_statement/reconciliations/operating_profit/lines/0/label: B10 c, write-downs of fixed
     assets (investing result)
-  /years/0/income_statement/reconciliations/operating_profit/lines/0/source: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_fixed_assets
+  /years/0/income_statement/reconciliations/operating_profit/lines/0/sources/0: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_fixed_assets
   /years/0/income_statement/reconciliations/operating_profit/lines/0/amount: '0'
   /years/0/income_statement/reconciliations/operating_profit/lines/1/label: B10 d, write-downs of receivables
     (investing result)
-  /years/0/income_statement/reconciliations/operating_profit/lines/1/source: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_receivables
+  /years/0/income_statement/reconciliations/operating_profit/lines/1/sources/0: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_receivables
   /years/0/income_statement/reconciliations/operating_profit/lines/1/amount: '4000'
   /years/0/income_statement/reconciliations/operating_profit/end: '-261000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/start: '-265000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/label: C15, income
     from equity investments (investing result)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/source: /years/0/statutory/income_statement/income_from_equity_investments
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/sources/0: /years/0/statutory/income_statement/income_from_equity_investments
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/amount: '0'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/label: C16, other
     financial income (investing result)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/source: /years/0/statutory/income_statement/other_financial_income
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/sources/0: /years/0/statutory/income_statement/other_financial_income
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/amount: '500'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/label: D18 − D19,
     value adjustments of financial assets (investing result)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/source: /years/0/statutory/income_statement/revaluations_of_financial_assets
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/sources/0: /years/0/statutory/income_statement/revaluations_of_financial_assets
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/sources/1: /years/0/statutory/income_statement/write_downs_of_financial_assets
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/amount: '0'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/end: '-264500'
 tolerance: '0'

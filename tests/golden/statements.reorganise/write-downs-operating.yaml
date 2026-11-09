@@ -109,7 +109,7 @@ expect:
   /years/0/income_statement/profit_before_financing_and_taxes: '275000'
 expect_meta:
   /defaults_applied/11/field: /years/0/statutory/income_statement/other_operating_expenses
-  /defaults_applied/11/value: value_added
+  /defaults_applied/11/value: external_costs
   /defaults_applied/12/field: /years/0/statutory/balance_sheet/receivables/subscribed_capital_unpaid
   /defaults_applied/12/value: '0'
 tolerance: '0'

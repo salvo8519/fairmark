@@ -133,6 +133,7 @@ RECLASSIFIED_SIGNED_BS = {
     ("net_financial_position", "non_current"),
 }
 RECLASSIFIED_SIGNED_IS = {
+    "external_costs",
     "value_of_production",
     "materials_consumed",
     "value_added",
@@ -466,7 +467,7 @@ def defaults_applied(inp: dict[str, Any]) -> list[tuple[str, str]]:
         if "other_revenue_and_income" in inc:
             out.append((f"{ibase}/other_revenue_and_income", "value_of_production"))
         if "other_operating_expenses" in inc:
-            out.append((f"{ibase}/other_operating_expenses", "value_added"))
+            out.append((f"{ibase}/other_operating_expenses", "external_costs"))
         b10d = get(inc, "depreciation_and_write_downs", "write_downs_of_receivables")
         if not wdr_given and b10d is not None:
             out.append(
@@ -784,6 +785,8 @@ def income_statement_checks(inc: dict[str, Any], c: dict[str, str]) -> None:
     dd = opt(b10, "write_downs_of_receivables")
     ac_given = opt(b10, "value_adjustments_of_fixed_assets")
     check(c, "value_adjustments_of_fixed_assets_total", ac_given, plus(ab, cc))
+    # B10 c is a part of the group B10 a to c (review of PR 2, blocking 1).
+    check_at_most(c, "value_adjustments_of_fixed_assets_of_which", cc, ac_given)
     ac = ac_given if ac_given.known else plus(ab, cc)
     check(c, "depreciation_and_write_downs_total", opt(b10, "total"), plus(ac, dd))
     b10_amt = opt(b10, "total") if "total" in b10 else plus(ac, dd)
@@ -1444,7 +1447,7 @@ def obj(items: dict[str, Any] | None, why: Amt) -> Lst:
     return Lst(items, why)  # type: ignore[arg-type]
 
 
-def b10_reading(inc: dict[str, Any], base: str) -> tuple[Amt, Amt, Amt, bool]:
+def b10_reading(inc: dict[str, Any], base: str) -> tuple[Amt, Amt, Amt, bool, list[str], list[str]]:
     """B10 a and b, B10 c and B10 d as read (Decision 8): B10 a to c given as one group without
     its B10 c part is depreciation and amortisation, B10 c none; with B10 c given, the group less
     B10 c is depreciation and amortisation."""
@@ -1452,7 +1455,7 @@ def b10_reading(inc: dict[str, Any], base: str) -> tuple[Amt, Amt, Amt, bool]:
     b = f"{base}/depreciation_and_write_downs"
     if node is None:
         m = lacking(b)
-        return m, m, m, False
+        return m, m, m, False, [b], [b]
     va, ab, c, d = (
         node.get(k)
         for k in (
@@ -1476,7 +1479,16 @@ def b10_reading(inc: dict[str, Any], base: str) -> tuple[Amt, Amt, Amt, bool]:
     else:
         c_amt = lacking(f"{b}/write_downs_of_fixed_assets")
     d_amt = known(dec(d)) if d is not None else lacking(f"{b}/write_downs_of_receivables")
-    return ab_amt, c_amt, d_amt, grouped
+    # The pointers actually read (review of PR 2, blocking 2).
+    va_ptr = f"{b}/value_adjustments_of_fixed_assets"
+    if ab is not None:
+        ab_read = [f"{b}/depreciation_and_amortisation"]
+    elif va is not None:
+        ab_read = [va_ptr] + ([f"{b}/write_downs_of_fixed_assets"] if c is not None else [])
+    else:
+        ab_read = [f"{b}/depreciation_and_amortisation"]
+    c_read = [va_ptr] if grouped else [f"{b}/write_downs_of_fixed_assets"]
+    return ab_amt, c_amt, d_amt, grouped, ab_read, c_read
 
 
 def statutory_a_minus_b(inc: dict[str, Any], base: str) -> Amt:
@@ -1550,7 +1562,8 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
     inc = get(y, "statutory", "income_statement") or {}
     base = f"/years/{i}/statutory/income_statement"
     wdr = get(inp, "treatments", "write_downs_of_receivables") or "investing"
-    ab, c10, d10, _grouped = b10_reading(inc, base)
+    ab, c10, d10, grouped, _ab_read, c_read = b10_reading(inc, base)
+    has_income_statement = get(y, "statutory", "income_statement") is not None
 
     def item(key: str) -> Amt:
         if key == "depreciation_and_amortisation":
@@ -1630,20 +1643,17 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
         core["use_of_third_party_assets"],
         core["other_operating_expenses"],
     )
-    value_added = total((1, vop), (-1, external))
+    value_added = total((1, vop), (-1, external))  # E1: external costs
     personnel = core["personnel_costs"]
     ebitda = total((1, value_added), (-1, personnel))
     dna = plus(core["depreciation_and_amortisation"], *(known(dep) for *_, dep, _ in leases))
     operating_wdr = wdr == "operating"
-    op_terms = [
-        (1, ebitda),
-        (-1, dna),
-        (-1, core["provisions_for_risks"]),
-        (-1, core["other_provisions"]),
-    ]
+    # E2: provisions, and B10 d when operating, below EBITDA besides depreciation.
+    other_terms = [core["provisions_for_risks"], core["other_provisions"]]
     if operating_wdr:
-        op_terms.append((-1, core["write_downs_of_receivables"]))
-    operating_profit = total(*op_terms)
+        other_terms.append(core["write_downs_of_receivables"])
+    other_charges = plus(*other_terms)
+    operating_profit = total((1, ebitda), (-1, dna), (-1, other_charges))
     if "value_adjustments_of_financial_assets" in inc:
         d_total = leaf(inc, base, "value_adjustments_of_financial_assets")
     else:
@@ -1666,6 +1676,9 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
     nr_income = [a for _, _, key, a in non_recurring if key in IS_INCOME]
     nr_charges = [a for _, _, key, a in non_recurring if key not in IS_INCOME]
     nr_result = total(*((1, a) for a in nr_income), *((-1, a) for a in nr_charges))
+    if not has_income_statement:
+        # E6: null when the year gives no income statement.
+        nr_result = plus(nr_result, lacking(f"/years/{i}/statutory/income_statement"))
     interest = plus(core["interest_and_other_financial_charges"], *(known(it) for *_, it in leases))
     financing = total((1, core["exchange_gains_and_losses"]), (-1, interest))
     pbt = plus(pbft, nr_result, financing)
@@ -1682,30 +1695,26 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
                 (
                     k,
                     f"{label} (non-recurring part of {IS_REFERENCES[key]})",
-                    f"/adjustments/{k}",
+                    [f"/adjustments/{k}"],
                     total((sign, a)),
                 )
             )
     lease_lines = []
     for k, label, paid, dep, _ in leases:
         lease_lines.append(
-            (k, f"{label} (lease payments removed from B8)", f"/adjustments/{k}", paid)
+            (k, f"{label} (lease payments removed from B8)", [f"/adjustments/{k}"], paid)
         )
-        lease_lines.append((k, f"{label} (lease depreciation)", f"/adjustments/{k}", known(-dep)))
-    op_lines = [
-        (
-            -1,
-            "B10 c, write-downs of fixed assets (investing result)",
-            src_pointer("write_downs_of_fixed_assets"),
-            core["write_downs_of_fixed_assets"],
-        )
-    ]
+        lease_lines.append((k, f"{label} (lease depreciation)", [f"/adjustments/{k}"], known(-dep)))
+    c_label = "B10 c, write-downs of fixed assets (investing result)"
+    if grouped:
+        c_label += ": read as none, give the B10 c part (Decision 8)"
+    op_lines = [(-1, c_label, c_read, core["write_downs_of_fixed_assets"])]
     if not operating_wdr:
         op_lines.append(
             (
                 -1,
                 "B10 d, write-downs of receivables (investing result)",
-                src_pointer("write_downs_of_receivables"),
+                [src_pointer("write_downs_of_receivables")],
                 core["write_downs_of_receivables"],
             )
         )
@@ -1716,36 +1725,39 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
             (
                 k,
                 f"{label} (investing part of {IS_REFERENCES[key]})",
-                f"/adjustments/{k}",
+                [f"/adjustments/{k}"],
                 total((sign, a)),
             )
         )
     op_lines += sorted(inv_lines + nr_lines + lease_lines, key=lambda x: x[0])
+    d_read = (
+        [f"{base}/value_adjustments_of_financial_assets"]
+        if "value_adjustments_of_financial_assets" in inc
+        else [f"{base}/revaluations_of_financial_assets", f"{base}/write_downs_of_financial_assets"]
+    )
     pbft_lines = sorted(nr_lines + lease_lines, key=lambda x: x[0])
     pbft_lines += [
         (
             -1,
             "C15, income from equity investments (investing result)",
-            f"{base}/income_from_equity_investments",
+            [f"{base}/income_from_equity_investments"],
             core["income_from_equity_investments"],
         ),
         (
             -1,
             "C16, other financial income (investing result)",
-            f"{base}/other_financial_income",
+            [f"{base}/other_financial_income"],
             core["other_financial_income"],
         ),
         (
             -1,
             "D18 \u2212 D19, value adjustments of financial assets (investing result)",
-            f"{base}/value_adjustments_of_financial_assets"
-            if "value_adjustments_of_financial_assets" in inc
-            else f"{base}/revaluations_of_financial_assets",
+            d_read,
             d_total,
         ),
     ]
 
-    def reconciliation(lines: list[tuple[int, str, str, Amt]], end: Amt) -> Lst:
+    def reconciliation(lines: list[tuple[int, str, list[str], Amt]], end: Amt) -> Lst:
         amounts = [a for *_, a in lines]
         summed = plus(a_b, *amounts)
         if not (summed.known and end.known):
@@ -1756,8 +1768,8 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
             {
                 "start": a_b.value,
                 "lines": [
-                    {"label": label, "source": source, "amount": a.value}
-                    for _, label, source, a in lines
+                    {"label": label, "sources": sources, "amount": a.value}
+                    for _, label, sources, a in lines
                 ],
                 "end": end.value,
             },
@@ -1769,11 +1781,13 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
         "value_of_production": vop,
         "purchases": purchases,
         "materials_consumed": materials,
+        "external_costs": external,
         "value_added": value_added,
         "personnel_costs": personnel,
         "ebitda": ebitda,
         "ebitda_definition": EBITDA_DEFINITION,
         "depreciation_and_amortisation": dna,
+        "other_charges_below_ebitda": other_charges,
         "operating_profit": operating_profit,
         "investing_result": investing_result,
         "profit_before_financing_and_taxes": pbft,
@@ -1807,13 +1821,28 @@ def reclassified_income_statement(inp: dict[str, Any], i: int) -> tuple[dict[str
         check(c, relation, given, derived)
         return given if given.known or not derived.known else derived
 
+    # E1, E2: value added and operating profit derived from the fields of 2026-11-09.
+    value_added = given_or_derived(
+        "value_added_total",
+        "value_added",
+        total((1, f("value_of_production")), (-1, f("external_costs"))),
+    )
     ebitda = given_or_derived(
-        "ebitda_total", "ebitda", total((1, f("value_added")), (-1, f("personnel_costs")))
+        "ebitda_total", "ebitda", total((1, value_added), (-1, f("personnel_costs")))
+    )
+    operating_profit = given_or_derived(
+        "operating_profit_total",
+        "operating_profit",
+        total(
+            (1, ebitda),
+            (-1, f("depreciation_and_amortisation")),
+            (-1, f("other_charges_below_ebitda")),
+        ),
     )
     pbft = given_or_derived(
         "profit_before_financing_and_taxes_total",
         "profit_before_financing_and_taxes",
-        plus(f("operating_profit"), f("investing_result")),
+        plus(operating_profit, f("investing_result")),
     )
     pbt = given_or_derived(
         "profit_before_tax_total",
@@ -1829,12 +1858,14 @@ def reclassified_income_statement(inp: dict[str, Any], i: int) -> tuple[dict[str
         "value_of_production": f("value_of_production"),
         "purchases": f("purchases"),
         "materials_consumed": f("materials_consumed"),
-        "value_added": f("value_added"),
+        "external_costs": f("external_costs"),
+        "value_added": value_added,
         "personnel_costs": f("personnel_costs"),
         "ebitda": ebitda,
         "ebitda_definition": EBITDA_DEFINITION,
         "depreciation_and_amortisation": f("depreciation_and_amortisation"),
-        "operating_profit": f("operating_profit"),
+        "other_charges_below_ebitda": f("other_charges_below_ebitda"),
+        "operating_profit": operating_profit,
         "investing_result": f("investing_result"),
         "profit_before_financing_and_taxes": pbft,
         "non_recurring_result": f("non_recurring_result"),

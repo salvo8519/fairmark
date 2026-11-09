@@ -127,8 +127,10 @@ expect:
   /years/0/income_statement/materials_consumed: '2170000'
   /years/0/income_statement/value_added: '1520000'
   /years/0/income_statement/personnel_costs: '1000000'
+  /years/0/income_statement/external_costs: '3560000'
   /years/0/income_statement/ebitda: '520000'
   /years/0/income_statement/depreciation_and_amortisation: '180000'
+  /years/0/income_statement/other_charges_below_ebitda: '15000'
   /years/0/income_statement/operating_profit: '325000'
   /years/0/income_statement/investing_result: '-6000'
   /years/0/income_statement/profit_before_financing_and_taxes: '319000'
@@ -141,49 +143,49 @@ expect:
   /years/0/income_statement/reconciliations/operating_profit/start: '266000'
   /years/0/income_statement/reconciliations/operating_profit/lines/0/label: B10 c, write-downs of fixed
     assets (investing result)
-  /years/0/income_statement/reconciliations/operating_profit/lines/0/source: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_fixed_assets
+  /years/0/income_statement/reconciliations/operating_profit/lines/0/sources/0: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_fixed_assets
   /years/0/income_statement/reconciliations/operating_profit/lines/0/amount: '0'
   /years/0/income_statement/reconciliations/operating_profit/lines/1/label: B10 d, write-downs of receivables
     (investing result)
-  /years/0/income_statement/reconciliations/operating_profit/lines/1/source: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_receivables
+  /years/0/income_statement/reconciliations/operating_profit/lines/1/sources/0: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_receivables
   /years/0/income_statement/reconciliations/operating_profit/lines/1/amount: '15000'
   /years/0/income_statement/reconciliations/operating_profit/lines/2/label: Gain on the sale of a plant
     (non-recurring part of A5)
-  /years/0/income_statement/reconciliations/operating_profit/lines/2/source: /adjustments/0
+  /years/0/income_statement/reconciliations/operating_profit/lines/2/sources/0: /adjustments/0
   /years/0/income_statement/reconciliations/operating_profit/lines/2/amount: '-20000'
   /years/0/income_statement/reconciliations/operating_profit/lines/3/label: Restructuring consultancy
     (non-recurring part of B7)
-  /years/0/income_statement/reconciliations/operating_profit/lines/3/source: /adjustments/1
+  /years/0/income_statement/reconciliations/operating_profit/lines/3/sources/0: /adjustments/1
   /years/0/income_statement/reconciliations/operating_profit/lines/3/amount: '44000'
   /years/0/income_statement/reconciliations/operating_profit/lines/4/label: Impairment of an idle plant
     (non-recurring part of B10 c)
-  /years/0/income_statement/reconciliations/operating_profit/lines/4/source: /adjustments/2
+  /years/0/income_statement/reconciliations/operating_profit/lines/4/sources/0: /adjustments/2
   /years/0/income_statement/reconciliations/operating_profit/lines/4/amount: '20000'
   /years/0/income_statement/reconciliations/operating_profit/end: '325000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/start: '266000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/label: Gain on the
     sale of a plant (non-recurring part of A5)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/source: /adjustments/0
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/sources/0: /adjustments/0
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/amount: '-20000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/label: Restructuring
     consultancy (non-recurring part of B7)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/source: /adjustments/1
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/sources/0: /adjustments/1
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/amount: '44000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/label: Impairment
     of an idle plant (non-recurring part of B10 c)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/source: /adjustments/2
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/sources/0: /adjustments/2
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/amount: '20000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/3/label: C15, income
     from equity investments (investing result)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/3/source: /years/0/statutory/income_statement/income_from_equity_investments
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/3/sources/0: /years/0/statutory/income_statement/income_from_equity_investments
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/3/amount: '12000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/4/label: C16, other
     financial income (investing result)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/4/source: /years/0/statutory/income_statement/other_financial_income
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/4/sources/0: /years/0/statutory/income_statement/other_financial_income
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/4/amount: '3000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/5/label: D18 − D19,
     value adjustments of financial assets (investing result)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/5/source: /years/0/statutory/income_statement/value_adjustments_of_financial_assets
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/5/sources/0: /years/0/statutory/income_statement/value_adjustments_of_financial_assets
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/5/amount: '-6000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/end: '319000'
 tolerance: '0'
