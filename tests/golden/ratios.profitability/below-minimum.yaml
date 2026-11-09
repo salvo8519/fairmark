@@ -1,0 +1,11 @@
+method: ratios.profitability
+description: 'R12: revenue alone gives no ratio: refused with FM-E027'
+source: 'Constructed: no output has every input it needs. Alternative minimum sets from scripts/reference_ratios_partial.py:
+  [[''/closing/total_assets''], [''/income_statement/ebit''], [''/income_statement/net_income''], [''/ebitda_definition'',
+  ''/income_statement/ebitda'']].'
+input:
+  balances: closing
+  operating_return_base: total_assets
+  income_statement:
+    revenue: '5000'
+expect_error: FM-E027

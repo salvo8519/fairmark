@@ -22,4 +22,6 @@ expect:
   /not_computed/0/missing/0: '/income_statement/purchases'
   /not_computed/1/output: '/cash_conversion_cycle'
   /not_computed/1/missing/0: '/income_statement/purchases'
+expect_length:
+  /not_computed: '2'
 tolerance: '0.00000000000000000001'

@@ -1,0 +1,9 @@
+method: ratios.liquidity
+description: 'R12: current liabilities alone (zero) give no ratio with all its inputs: refused with FM-E027'
+source: 'Constructed: every ratio lacks its numerator; a zero denominator given does not make an output
+  complete. Alternative minimum sets from scripts/reference_ratios_partial.py: [[''/closing/cash''], [''/closing/current_assets'']].'
+input:
+  balances: closing
+  closing:
+    current_liabilities: '0'
+expect_error: FM-E027

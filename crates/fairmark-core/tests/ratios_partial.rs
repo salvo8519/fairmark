@@ -1,6 +1,7 @@
-//! SPEC-0007 R7 to R11, AC6: every row of the computability tables. For each method a complete
+//! SPEC-0007 R7 to R13, AC6: every row of the computability tables. For each method a complete
 //! input is run, then one input at a time is removed: the outputs of the row become null and are
-//! listed in `not_computed` with the pointer removed, and every other output is unchanged.
+//! listed in `not_computed` with the pointer removed, and every other output is unchanged. Also
+//! the floor (R12, `FM-E027`) and the two documented defaults (R13).
 
 use serde_json::{json, Value};
 
@@ -254,13 +255,7 @@ fn profitability_without_leverage_keeps_the_version_1_reason() {
 }
 
 #[test]
-fn a_missing_amount_is_never_an_error_and_a_blank_definition_is() {
-    let minimal = json!({"balances": "closing", "operating_return_base": "total_assets"});
-    let out = run("ratios.profitability", &minimal);
-    assert_eq!(
-        out["value"]["not_computed"].as_array().unwrap().len(),
-        PROFITABILITY.len()
-    );
+fn a_blank_definition_is_refused_and_null_equals_absent() {
     let mut blank = profitability("closing").input;
     blank["ebitda_definition"] = json!("  ");
     let err = fairmark_core::run("ratios.profitability", &blank.to_string()).unwrap_err();
@@ -368,6 +363,42 @@ fn capital_structure_rows() {
                     "/debt_to_equity",
                     "/nfp_to_equity",
                 ],
+            ),
+            (
+                "/closing/net_financial_position/other_items/0/amount",
+                "/closing/net_financial_position/other_items/0/amount",
+                &["/net_financial_position", "/nfp_to_equity"],
+            ),
+        ],
+    );
+    let mut average = table.input.clone();
+    average["balances"] = json!("average");
+    average["opening"] = average["closing"].clone();
+    let table = Table {
+        input: average,
+        ..table
+    };
+    check(
+        &table,
+        &[
+            (
+                "/opening/net_financial_position/gross_debt",
+                "/opening/net_financial_position/gross_debt",
+                &[
+                    "/net_financial_position",
+                    "/debt_to_equity",
+                    "/nfp_to_equity",
+                ],
+            ),
+            (
+                "/opening/net_financial_position/cash",
+                "/opening/net_financial_position/cash",
+                &["/net_financial_position", "/nfp_to_equity"],
+            ),
+            (
+                "/opening/net_financial_position/other_items/0/amount",
+                "/opening/net_financial_position/other_items/0/amount",
+                &["/net_financial_position", "/nfp_to_equity"],
             ),
         ],
     );
@@ -563,6 +594,28 @@ fn debt_service_rows() {
             ),
         ],
     );
+    let mut average = debt_service_input();
+    average["balances"] = json!("average");
+    average["opening"] = average["closing"].clone();
+    check(
+        &Table {
+            method: "ratios.debt_service",
+            input: average,
+            outputs: DEBT_SERVICE,
+        },
+        &[
+            (
+                "/opening/net_financial_position/gross_debt",
+                "/opening/net_financial_position/gross_debt",
+                nfp,
+            ),
+            (
+                "/opening/net_financial_position/cash",
+                "/opening/net_financial_position/cash",
+                nfp,
+            ),
+        ],
+    );
     // Without a schedule: DSCR empty, PV and LLCR listed, LLCR keeps its version 1 reason.
     let out = run(
         "ratios.debt_service",
@@ -634,4 +687,259 @@ fn every_ratios_method_is_version_2() {
     ] {
         assert_eq!(fairmark_core::method(id).unwrap().version, "2", "{id}");
     }
+}
+
+// ---------------------------------------------------------------- R12: the floor
+
+fn floor_error(method: &str, input: &Value) -> String {
+    let err = fairmark_core::run(method, &input.to_string()).unwrap_err();
+    assert_eq!(err.code(), "FM-E027", "{method}: {err}");
+    err.to_string()
+}
+
+#[test]
+fn below_the_floor_every_method_refuses_with_the_alternative_sets() {
+    let cases = [
+        (
+            "ratios.profitability",
+            json!({"balances": "closing", "operating_return_base": "total_assets",
+                   "income_statement": {"revenue": "5000"}}),
+            "[`/closing/total_assets`] or [`/income_statement/ebit`] or \
+             [`/income_statement/net_income`] or [`/ebitda_definition`, `/income_statement/ebitda`]",
+        ),
+        (
+            "ratios.capital_structure",
+            json!({"balances": "closing", "closing": {"equity": "2000"}}),
+            "[`/closing/fixed_assets`] or [`/closing/net_financial_position/gross_debt`] or \
+             [`/closing/total_assets`]",
+        ),
+        (
+            "ratios.liquidity",
+            json!({"balances": "closing", "closing": {"current_liabilities": "0"}}),
+            "[`/closing/cash`] or [`/closing/current_assets`]",
+        ),
+        (
+            "ratios.working_capital",
+            json!({"balances": "closing", "day_basis": "360",
+                   "income_statement": {"revenue": "5000"}}),
+            "[`/closing/trade_receivables`] or [`/closing/inventories`, \
+             `/income_statement/cost_of_sales`] or [`/closing/trade_payables`, \
+             `/income_statement/purchases`]",
+        ),
+        (
+            "ratios.debt_service",
+            json!({"balances": "closing", "ebitda_definition": "reported",
+                   "income_statement": {"ebitda": "800"}}),
+            "[`/closing/net_financial_position/cash`, `/closing/net_financial_position/gross_debt`] \
+             or [`/income_statement/interest`, `/interest_definition`]",
+        ),
+        (
+            "ratios.covenants",
+            json!({"covenants": [{"name": "net leverage", "test_date": "2026-12-31",
+                "numerator": {"definition": "net debt"}, "denominator": {"definition": "EBITDA"},
+                "operator": "at_most", "threshold": "3.5",
+                "if_denominator_not_positive": "breached"}]}),
+            "[`/covenants/0/denominator/amount`, `/covenants/0/numerator/amount`]",
+        ),
+    ];
+    for (method, input, sets) in cases {
+        let message = floor_error(method, &input);
+        assert!(message.contains(&format!("`{method}`")), "{message}");
+        assert!(message.contains(sets), "{method}: {message}");
+        assert!(
+            message.contains("give at least one of these sets"),
+            "{message}"
+        );
+    }
+    // The method choices alone are below the floor of every method.
+    let choices = [
+        (
+            "ratios.profitability",
+            json!({"balances": "closing", "operating_return_base": "total_assets"}),
+        ),
+        ("ratios.capital_structure", json!({"balances": "closing"})),
+        ("ratios.liquidity", json!({"balances": "average"})),
+        (
+            "ratios.working_capital",
+            json!({"balances": "closing", "day_basis": "365"}),
+        ),
+        ("ratios.debt_service", json!({"balances": "closing"})),
+    ];
+    for (method, input) in choices {
+        floor_error(method, &input);
+    }
+}
+
+#[test]
+fn one_output_with_every_input_is_above_the_floor_even_when_not_defined() {
+    // Current assets 0 and current liabilities 0: the ratios are not defined, the margins are
+    // computed; the input has the terms of an output, so it is accepted.
+    let out = run(
+        "ratios.liquidity",
+        &json!({"balances": "closing",
+                "closing": {"current_assets": "0", "current_liabilities": "0"}}),
+    );
+    assert_eq!(
+        out["value"]["current_ratio"]["not_defined"],
+        "current liabilities is zero"
+    );
+    // Every DSO term given with zero revenue: not defined, but complete, so accepted.
+    let out = run(
+        "ratios.working_capital",
+        &json!({"balances": "closing", "day_basis": "365",
+                "income_statement": {"revenue": "0"}, "closing": {"trade_receivables": "10"}}),
+    );
+    assert_eq!(
+        out["value"]["days_sales_outstanding"]["not_defined"],
+        "revenue is zero"
+    );
+    // A covenant decided by its rule without the numerator is above the floor (R11).
+    let out = run(
+        "ratios.covenants",
+        &json!({"covenants": [{"name": "net leverage", "test_date": "2026-12-31",
+            "numerator": {"definition": "net debt"},
+            "denominator": {"definition": "EBITDA", "amount": "0"},
+            "operator": "at_most", "threshold": "3.5",
+            "if_denominator_not_positive": "breached"}]}),
+    );
+    assert_eq!(out["value"]["covenants"][0]["outcome"], "breached");
+}
+
+// ---------------------------------------------------------------- the discount rate
+
+#[test]
+fn an_invalid_discount_rate_is_refused_even_when_the_present_value_is_not_computed() {
+    let mut input = debt_service_input();
+    input["debt_schedule"]["discount_rate"] = json!("-1");
+    input["debt_schedule"]["periods"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("cfads");
+    let err = fairmark_core::run("ratios.debt_service", &input.to_string()).unwrap_err();
+    assert_eq!(err.code(), "FM-E003");
+    assert!(
+        err.to_string().contains("/debt_schedule/discount_rate"),
+        "{err}"
+    );
+}
+
+// ---------------------------------------------------------------- R13: documented defaults
+
+fn defaults(out: &Value) -> Vec<String> {
+    out["meta"]["defaults_applied"]
+        .as_array()
+        .map(|d| {
+            d.iter()
+                .map(|e| e["field"].as_str().unwrap().to_owned())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn warnings(out: &Value) -> Vec<String> {
+    out["explain"]["conventions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|c| {
+            c.as_str()
+                .filter(|c| c.starts_with("warning: "))
+                .map(str::to_owned)
+        })
+        .collect()
+}
+
+#[test]
+fn other_items_not_given_is_a_reported_default_with_a_warning() {
+    let input = json!({"balances": "closing",
+        "closing": {"equity": "2000",
+                    "net_financial_position": {"gross_debt": "2200", "cash": "300"}}});
+    let out = run("ratios.capital_structure", &input);
+    assert_eq!(
+        defaults(&out),
+        ["/closing/net_financial_position/other_items"]
+    );
+    assert_eq!(out["meta"]["defaults_applied"][0]["value"], json!([]));
+    assert_eq!(warnings(&out).len(), 1, "{:?}", warnings(&out));
+    assert!(warnings(&out)[0].contains("/closing/net_financial_position/other_items"));
+    // Given as an empty list: none, a true value, no default and no warning; the same hash,
+    // since the default fills in the same list.
+    let mut explicit = input.clone();
+    explicit["closing"]["net_financial_position"]["other_items"] = json!([]);
+    let out_explicit = run("ratios.capital_structure", &explicit);
+    assert!(defaults(&out_explicit).is_empty());
+    assert!(warnings(&out_explicit).is_empty());
+    assert_eq!(
+        out["meta"]["input_hash"],
+        out_explicit["meta"]["input_hash"]
+    );
+    assert_eq!(out["value"], out_explicit["value"]);
+    // Without cash the net financial position is not computed: no default is applied.
+    let mut no_cash = input;
+    no_cash["closing"]["net_financial_position"]
+        .as_object_mut()
+        .unwrap()
+        .remove("cash");
+    no_cash["closing"]["total_assets"] = json!("6000");
+    assert!(defaults(&run("ratios.capital_structure", &no_cash)).is_empty());
+}
+
+#[test]
+fn reserve_balance_not_given_is_a_reported_default_not_written_into_the_input() {
+    let mut input = debt_service_input();
+    input["debt_schedule"]
+        .as_object_mut()
+        .unwrap()
+        .remove("reserve_balance");
+    input["closing"]["net_financial_position"]["other_items"] = json!([]);
+    let out = run("ratios.debt_service", &input);
+    assert_eq!(defaults(&out), ["/debt_schedule/reserve_balance"]);
+    assert_eq!(out["meta"]["defaults_applied"][0]["value"], "0");
+    assert!(warnings(&out)
+        .iter()
+        .any(|w| w.contains("/debt_schedule/reserve_balance")));
+    let mut zero = input.clone();
+    zero["debt_schedule"]["reserve_balance"] = json!("0");
+    let out_zero = run("ratios.debt_service", &zero);
+    assert!(defaults(&out_zero).is_empty());
+    assert_eq!(out["value"]["llcr"], out_zero["value"]["llcr"]);
+    // Reported, not filled in: the hash differs from a reserve given as zero (Decision 25).
+    assert_ne!(out["meta"]["input_hash"], out_zero["meta"]["input_hash"]);
+    // Without the discount rate the LLCR is not computed: no default is applied.
+    let mut no_rate = input;
+    no_rate["debt_schedule"]
+        .as_object_mut()
+        .unwrap()
+        .remove("discount_rate");
+    assert!(defaults(&run("ratios.debt_service", &no_rate)).is_empty());
+}
+
+#[test]
+fn missing_pointers_sort_array_indices_as_numbers() {
+    let periods: Vec<Value> = (0..12)
+        .map(|_| json!({"cfads": "100", "debt_service": "90"}))
+        .collect();
+    let mut input = debt_service_input();
+    input["debt_schedule"]["periods"] = json!(periods);
+    for i in [2, 10] {
+        input["debt_schedule"]["periods"][i]
+            .as_object_mut()
+            .unwrap()
+            .remove("cfads");
+    }
+    let out = run("ratios.debt_service", &input);
+    let pv = out["value"]["not_computed"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["output"] == "/pv_cfads")
+        .unwrap()
+        .clone();
+    assert_eq!(
+        pv["missing"],
+        json!([
+            "/debt_schedule/periods/2/cfads",
+            "/debt_schedule/periods/10/cfads"
+        ])
+    );
 }

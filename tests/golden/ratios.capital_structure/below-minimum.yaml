@@ -1,0 +1,9 @@
+method: ratios.capital_structure
+description: 'R12: equity alone gives no output: refused with FM-E027'
+source: 'Constructed: no output has every input it needs. Alternative minimum sets from scripts/reference_ratios_partial.py:
+  [[''/closing/fixed_assets''], [''/closing/net_financial_position/gross_debt''], [''/closing/total_assets'']].'
+input:
+  balances: closing
+  closing:
+    equity: '2000'
+expect_error: FM-E027

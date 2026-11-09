@@ -23,6 +23,9 @@ def test_golden(path: Path) -> None:
         assert err.value.code == case["expect_error"]
         return
     result = fm.run(case["method"], case["input"])
+    for field, count in case.get("expect_length", {}).items():
+        items = resolve(result.value, field)
+        assert isinstance(items, list) and len(items) == int(count), f"{field}: length"
     tolerance = Decimal(case["tolerance"])
     expectations = [(result.value, f, e) for f, e in case["expect"].items()]
     expectations += [(result.meta, f, e) for f, e in case.get("expect_meta", {}).items()]
@@ -69,6 +72,7 @@ NEW_CASE_KEYS = {
     "input",
     "expect",
     "expect_meta",
+    "expect_length",
     "expect_error",
     "tolerance",
 }

@@ -40,4 +40,6 @@ expect:
   /not_computed/1/missing/0: '/interest_definition'
   /not_computed/2/output: '/dscr/1'
   /not_computed/2/missing/0: '/debt_schedule/periods/1/debt_service'
+expect_length:
+  /not_computed: '3'
 tolerance: '0.00000000000000000001'

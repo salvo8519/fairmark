@@ -36,4 +36,6 @@ expect:
   /not_computed/1/missing/0: '/debt_schedule/discount_rate'
   /not_computed/2/output: '/llcr'
   /not_computed/2/missing/0: '/debt_schedule/discount_rate'
+expect_length:
+  /not_computed: '3'
 tolerance: '0.00000000000000000001'

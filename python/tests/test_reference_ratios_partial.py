@@ -2,9 +2,11 @@
 
 Seeded random inputs for every `ratios.*` method, with random gaps (any amount, the opening
 balance sheet, the definitions, the leverage block, the debt schedule), zero and negative
-amounts that make ratios not defined, and both balance conventions: every output value and
-every `not_computed` entry (output and missing pointers) must equal the reference. The golden
-cases pin selected inputs; this test covers the space between them.
+amounts that make ratios not defined, and both balance conventions: every output value, every
+`not_computed` entry (output and missing pointers) and every documented default applied must
+equal the reference, and an input below the floor must be refused with `FM-E027` and the
+alternative sets of the reference. The golden cases pin selected inputs; this test covers the
+space between them.
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ from typing import Any
 
 import pytest
 
-from fairmark._core import run_json
+from fairmark._core import FairmarkError, run_json
 
 ROOT = Path(__file__).resolve().parents[2]
 _spec = importlib.util.spec_from_file_location(
@@ -206,11 +208,25 @@ def close(got: Any, want: Any) -> bool:
 def test_engine_matches_the_reference_on_random_partial_inputs(method: str) -> None:
     make, reference = GENERATORS[method]
     rng = random.Random(f"{method}-20261109")
+    refused = 0
     for case in range(CASES):
         data = make(rng)
         expected = reference(data)
-        value = run_json(method, data)["value"]
         context = f"{method} case {case}: {data}"
+        if "error" in expected:
+            refused += 1
+            with pytest.raises(FairmarkError) as err:
+                run_json(method, data)
+            assert err.value.code == expected["error"], context
+            sets = " or ".join("[" + ", ".join(f"`{p}`" for p in s) + "]" for s in expected["sets"])
+            assert f"give at least one of these sets of inputs: {sets};" in str(err.value), (
+                f"{context}: {err.value}"
+            )
+            continue
+        out = run_json(method, data)
+        value = out["value"]
+        applied = [d["field"] for d in out["meta"].get("defaults_applied", [])]
+        assert applied == expected["defaults"], context
         for pointer, want in expected["values"].items():
             path = pointer.strip("/").split("/")
             if method != "ratios.covenants" and pointer not in AMOUNTS:
@@ -221,3 +237,5 @@ def test_engine_matches_the_reference_on_random_partial_inputs(method: str) -> N
             assert close(got, want), f"{context}: {pointer} = {got}, reference {want}"
         listed = [(e["output"], e["missing"]) for e in value["not_computed"]]
         assert listed == expected["not_computed"], context
+    # The generators reach both sides of the floor.
+    assert 0 < refused < CASES, f"{method}: {refused} inputs below the floor"

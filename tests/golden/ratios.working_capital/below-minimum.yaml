@@ -1,0 +1,11 @@
+method: ratios.working_capital
+description: 'R12: revenue alone gives no ratio: refused with FM-E027'
+source: 'Constructed: no output has every input it needs. Alternative minimum sets from scripts/reference_ratios_partial.py:
+  [[''/closing/trade_receivables''], [''/closing/inventories'', ''/income_statement/cost_of_sales''],
+  [''/closing/trade_payables'', ''/income_statement/purchases'']].'
+input:
+  balances: closing
+  day_basis: '360'
+  income_statement:
+    revenue: '5000'
+expect_error: FM-E027

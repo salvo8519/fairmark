@@ -11,7 +11,16 @@ pointer in the result value, and the list `not_computed` of `(output, missing)` 
 - a ratio is not defined when the terms that are given already make it not defined (zero
   denominator, a sign rule); it is then `None` and not listed (R10);
 - a ratio built from other ratios is not defined when a part is not defined, otherwise not
-  computed when a part is not computed, with the union of their missing pointers (R10).
+  computed when a part is not computed, with the union of their missing pointers (R10);
+- the floor (R12): when no output has every input it needs (for covenants, when no covenant
+  can be tested or decided), the input is refused with `FM-E027` and the minimal alternative
+  sets of missing inputs, without the sets that only name a missing block (`/leverage`,
+  `/debt_schedule`);
+- the documented defaults (R13): `other_items` absent from a net financial position whose gross
+  debt and cash are given, and `reserve_balance` absent from a schedule whose LLCR inputs are
+  all given, are listed by pointer.
+
+Pointers are sorted with array indices compared as numbers (`/periods/2` before `/periods/10`).
 
 Usage (prints the `expect` block of every partial-input golden case):
 
@@ -30,13 +39,27 @@ from typing import Any
 CONTEXT = Context(prec=50)
 
 
+def pointer_key(pointer: str) -> list[tuple[int, int, str]]:
+    """Sort key of a JSON pointer: array indices compared as numbers."""
+    return [(0, int(t), "") if t.isdigit() else (1, 0, t) for t in pointer.split("/")]
+
+
+def ordered(pointers: Any) -> list[str]:
+    return sorted(set(pointers), key=pointer_key)
+
+
 @dataclass
 class Val:
-    """A computed amount, a value not defined, or a value not computed (with its pointers)."""
+    """A computed amount, a value not defined, or a value not computed (with its pointers).
+
+    `gaps` lists every input the output lacks, also when a given term already makes it not
+    defined; an output with no gaps has every input it needs (R12).
+    """
 
     value: D | None = None
     undefined: bool = False
     missing: list[str] = field(default_factory=list)
+    gaps: list[str] = field(default_factory=list)
 
     @property
     def known(self) -> bool:
@@ -48,10 +71,11 @@ def given(value: D) -> Val:
 
 
 def lacking(*pointers: str) -> Val:
-    return Val(missing=sorted(set(pointers)))
+    return Val(missing=ordered(pointers), gaps=ordered(pointers))
 
 
-UNDEFINED = Val(undefined=True)
+def undefined(*parts: Val) -> Val:
+    return Val(undefined=True, gaps=ordered(g for p in parts for g in p.gaps))
 
 
 def get(data: dict[str, Any] | None, *path: str) -> Any:
@@ -90,9 +114,9 @@ def ratio(
 ) -> Val:
     """num / den (times days): not defined first on the terms given, then not computed."""
     if den.known and (den.value == 0 or (positive_den and den.value < 0)):  # type: ignore[operator]
-        return UNDEFINED
+        return undefined(num, den)
     if num.known and positive_num and num.value <= 0:  # type: ignore[operator]
-        return UNDEFINED
+        return undefined(num, den)
     if not (num.known and den.known):
         return lacking(*num.missing, *den.missing)
     top = num.value * days if days else num.value  # type: ignore[operator]
@@ -101,7 +125,7 @@ def ratio(
 
 def composite(parts: list[Val], fn: Any) -> Val:
     if any(p.undefined for p in parts):
-        return UNDEFINED
+        return undefined(*parts)
     if any(not p.known for p in parts):
         return lacking(*(m for p in parts for m in p.missing))
     return given(fn(*(p.value for p in parts)))
@@ -120,10 +144,38 @@ def with_definition(value: Val, data: dict[str, Any], definition: str) -> Val:
     return value
 
 
-def report(outputs: dict[str, Val]) -> dict[str, Any]:
+BLOCKS = {"/leverage", "/debt_schedule"}
+
+
+def floor_sets(gaps: list[list[str]]) -> list[list[str]]:
+    """Minimal alternative sets of missing inputs, shortest first (R12)."""
+    sets = {tuple(g) for g in gaps if g and not BLOCKS & set(g)}
+    minimal = [s for s in sets if not any(set(o) < set(s) for o in sets)]
+    return sorted((list(s) for s in minimal), key=lambda s: (len(s), [pointer_key(p) for p in s]))
+
+
+def report(outputs: dict[str, Val], defaults: list[str] | None = None) -> dict[str, Any]:
+    if all(v.gaps for v in outputs.values()):
+        return {"error": "FM-E027", "sets": floor_sets([v.gaps for v in outputs.values()])}
     values = {k: v.value for k, v in outputs.items()}
     nc = [(k, v.missing) for k, v in outputs.items() if not v.known and not v.undefined]
-    return {"values": values, "not_computed": nc}
+    return {"values": values, "not_computed": nc, "defaults": defaults or []}
+
+
+def nfp_defaults(data: dict[str, Any]) -> list[str]:
+    """`other_items` absent from a net financial position whose gross debt and cash are given."""
+    sheets = ["closing"] + (["opening"] if data["balances"] == "average" else [])
+    out = []
+    for sheet in sheets:
+        block = get(data, sheet, "net_financial_position")
+        if (
+            block is not None
+            and block.get("gross_debt") is not None
+            and block.get("cash") is not None
+            and block.get("other_items") is None
+        ):
+            out.append(f"/{sheet}/net_financial_position/other_items")
+    return out
 
 
 def nfp(data: dict[str, Any], which: str) -> Val:
@@ -229,7 +281,8 @@ def capital_structure(data: dict[str, Any]) -> dict[str, Any]:
                 "/secondary_structure_margin": arith(lambda lt, f: lt - f, long_term, fixed),
                 "/primary_fixed_asset_coverage": ratio(equity, fixed),
                 "/secondary_fixed_asset_coverage": ratio(long_term, fixed),
-            }
+            },
+            nfp_defaults(data),
         )
 
 
@@ -290,7 +343,7 @@ def debt_service(data: dict[str, Any]) -> dict[str, Any]:
         if schedule is None:
             out["/pv_cfads"] = lacking("/debt_schedule")
             out["/llcr"] = lacking("/debt_schedule")
-            return report(out)
+            return report(out, nfp_defaults(data))
         periods = schedule["periods"]
         cfads = [
             given(D(str(p["cfads"])))
@@ -318,7 +371,15 @@ def debt_service(data: dict[str, Any]) -> dict[str, Any]:
             amount(data, "debt_schedule", "debt_outstanding"),
             positive_den=True,
         )
-        return report(out)
+        defaults = nfp_defaults(data)
+        if (
+            schedule.get("reserve_balance") is None
+            and rate.known
+            and all(c.known for c in cfads)
+            and schedule.get("debt_outstanding") is not None
+        ):
+            defaults.append("/debt_schedule/reserve_balance")
+        return report(out, defaults)
 
 
 def covenants(data: dict[str, Any]) -> dict[str, Any]:
@@ -326,6 +387,7 @@ def covenants(data: dict[str, Any]) -> dict[str, Any]:
     with localcontext(CONTEXT):
         values: dict[str, Any] = {}
         nc: list[tuple[str, list[str]]] = []
+        gaps: list[list[str]] = []
         for i, c in enumerate(data["covenants"]):
             num = (
                 given(D(str(c["numerator"]["amount"])))
@@ -342,15 +404,18 @@ def covenants(data: dict[str, Any]) -> dict[str, Any]:
                 rule = c["if_denominator_not_positive"]
                 values[f"{at}/outcome"] = rule
                 values[f"{at}/value"] = None
+                gaps.append([])
                 continue
             if not (num.known and den.known):
-                missing = sorted(set(num.missing + den.missing))
+                missing = ordered(num.missing + den.missing)
                 values[f"{at}/outcome"] = "not_tested"
                 values[f"{at}/not_tested_code"] = "missing_input"
                 values[f"{at}/value"] = None
                 for out in ("value", "headroom", "headroom_relative"):
                     nc.append((f"{at}/{out}", missing))
+                gaps.append(missing)
                 continue
+            gaps.append([])
             value = num.value / den.value  # type: ignore[operator]
             threshold = D(str(c["threshold"]))
             maximum = c["operator"] in ("at_most", "less_than")
@@ -364,7 +429,9 @@ def covenants(data: dict[str, Any]) -> dict[str, Any]:
             values[f"{at}/outcome"] = "passed" if passes else "breached"
             values[f"{at}/value"] = value
             values[f"{at}/headroom"] = headroom
-        return {"values": values, "not_computed": nc}
+        if all(gaps):
+            return {"error": "FM-E027", "sets": floor_sets(gaps)}
+        return {"values": values, "not_computed": nc, "defaults": []}
 
 
 # ----------------------------------------------------------------------------- cases
@@ -558,6 +625,80 @@ CASES: dict[str, tuple[Any, dict[str, Any]]] = {
             ]
         },
     ),
+    # Minimal inputs (ADR 0014 G1, R12): the method choices and the terms of one output.
+    "ratios.capital_structure/equity-ratio-only": (
+        capital_structure,
+        {"balances": "closing", "closing": {"equity": "2000", "total_assets": "6000"}},
+    ),
+    "ratios.liquidity/current-ratio-only": (
+        liquidity,
+        {
+            "balances": "closing",
+            "closing": {"current_assets": "2500", "current_liabilities": "2000"},
+        },
+    ),
+    "ratios.working_capital/dso-only": (
+        working_capital,
+        {
+            "balances": "closing",
+            "day_basis": "365",
+            "income_statement": {"revenue": "5000"},
+            "closing": {"trade_receivables": "1200"},
+        },
+    ),
+    "ratios.debt_service/interest-cover-only": (
+        debt_service,
+        {
+            "balances": "closing",
+            "interest_definition": "gross interest expense",
+            "income_statement": {"ebit": "500", "interest": "100"},
+        },
+    ),
+    # Below the floor (R12): refused with FM-E027.
+    "ratios.profitability/below-minimum": (
+        profitability,
+        {
+            "balances": "closing",
+            "operating_return_base": "total_assets",
+            "income_statement": {"revenue": "5000"},
+        },
+    ),
+    "ratios.capital_structure/below-minimum": (
+        capital_structure,
+        {"balances": "closing", "closing": {"equity": "2000"}},
+    ),
+    "ratios.liquidity/below-minimum": (
+        liquidity,
+        {"balances": "closing", "closing": {"current_liabilities": "0"}},
+    ),
+    "ratios.working_capital/below-minimum": (
+        working_capital,
+        {"balances": "closing", "day_basis": "360", "income_statement": {"revenue": "5000"}},
+    ),
+    "ratios.debt_service/below-minimum": (
+        debt_service,
+        {
+            "balances": "closing",
+            "ebitda_definition": DEFINITION,
+            "income_statement": {"ebitda": "800"},
+        },
+    ),
+    "ratios.covenants/below-minimum": (
+        covenants,
+        {
+            "covenants": [
+                {
+                    "name": "net leverage",
+                    "test_date": "2026-12-31",
+                    "numerator": {"definition": "net financial debt at the test date"},
+                    "denominator": {"definition": "consolidated EBITDA, 12 months"},
+                    "operator": "at_most",
+                    "threshold": "3.5",
+                    "if_denominator_not_positive": "breached",
+                }
+            ]
+        },
+    ),
 }
 
 
@@ -568,9 +709,12 @@ def text(v: Any) -> str:
 
 
 def expect(name: str) -> dict[str, str]:
-    """The `expect` block of a case: every value and every entry of `not_computed`."""
+    """The `expect` block of a case: every value and every entry of `not_computed`; for an
+    input below the floor, `expect_error` and the alternative sets."""
     fn, data = CASES[name]
     result = fn(data)
+    if "error" in result:
+        return {"expect_error": result["error"], "sets": str(result["sets"])}
     out = {k: text(v) for k, v in result["values"].items()}
     for i, (output, missing) in enumerate(result["not_computed"]):
         out[f"/not_computed/{i}/output"] = output

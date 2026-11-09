@@ -71,4 +71,6 @@ expect:
   /not_computed/4/missing/0: '/covenants/2/denominator/amount'
   /not_computed/5/output: '/covenants/2/headroom_relative'
   /not_computed/5/missing/0: '/covenants/2/denominator/amount'
+expect_length:
+  /not_computed: '6'
 tolerance: '0.00000000000000000001'

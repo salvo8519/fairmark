@@ -19,4 +19,6 @@ expect:
   /not_computed/0/missing/0: '/closing/inventories'
   /not_computed/1/output: '/treasury_margin'
   /not_computed/1/missing/0: '/closing/inventories'
+expect_length:
+  /not_computed: '2'
 tolerance: '0.00000000000000000001'

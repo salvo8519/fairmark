@@ -30,4 +30,6 @@ expect:
   /not_computed/3/missing/0: '/closing/non_current_liabilities'
   /not_computed/4/output: '/secondary_fixed_asset_coverage'
   /not_computed/4/missing/0: '/closing/non_current_liabilities'
+expect_length:
+  /not_computed: '5'
 tolerance: '0.00000000000000000001'

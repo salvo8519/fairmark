@@ -49,4 +49,6 @@ expect:
   /not_computed/6/missing/0: '/leverage'
   /not_computed/7/output: '/roe_leverage/roe'
   /not_computed/7/missing/0: '/leverage'
+expect_length:
+  /not_computed: '8'
 tolerance: '0.00000000000000000001'

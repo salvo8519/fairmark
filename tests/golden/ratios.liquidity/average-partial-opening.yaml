@@ -23,4 +23,6 @@ expect:
   /treasury_margin: '-400'
   /not_computed/0/output: '/cash_ratio'
   /not_computed/0/missing/0: '/opening/cash'
+expect_length:
+  /not_computed: '1'
 tolerance: '0.00000000000000000001'
