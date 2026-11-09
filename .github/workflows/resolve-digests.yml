@@ -29,5 +29,10 @@ jobs:
             echo "::group::$image"
             docker buildx imagetools inspect "$image"
             echo "MANIFEST_JSON $image $(docker buildx imagetools inspect "$image" --format '{{json .Manifest}}')"
+            # os/architecture from the image configuration: one line per platform of an
+            # index, one line for a single-platform manifest.
+            docker buildx imagetools inspect "$image" --format '{{json .Image}}' \
+              | jq -r --arg image "$image" 'if has("architecture") then [.] else [.[]] end
+                  | .[] | "PLATFORM \($image) \(.os)/\(.architecture)\(if .variant then "/" + .variant else "" end)"'
             echo "::endgroup::"
           done
