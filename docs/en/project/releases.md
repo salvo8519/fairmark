@@ -29,8 +29,10 @@ Each method has its own version, a positive integer independent of the release v
 - a **breaking output change** (ADR 0014 G8): an output field removed, renamed or retyped, a
   field that becomes nullable, or a field that was always present and may now be absent.
 
-A new optional input field, a new output field and a value added to an enumeration are
-additive: they keep the method version. Every version keeps two schema snapshots,
+A new optional input field, a new output field and a value added to an enumeration, of an
+input or of an output, are additive: they keep the method version; removing a value from an
+enumeration is breaking. Clients therefore accept output enumeration values they do not know
+(maintainer decision of 2026-11-09, recorded in ADR 0014 G8). Every version keeps two schema snapshots,
 `schemas/<method>/v<N>.json` (input) and `schemas/<method>/v<N>.output.json` (output, the
 `value` of the result), recorded with their hashes in `schemas/index.json`. Snapshots of
 earlier versions are never rewritten; `scripts/schema_snapshots.py` enforces both rules in CI,

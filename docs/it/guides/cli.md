@@ -1,6 +1,6 @@
 ---
 source: guides/cli.md
-source_hash: 5654470e5bd5
+source_hash: bf614970d43a
 ---
 # Riga di comando
 
@@ -58,9 +58,12 @@ può mancare non è `required` e un campo che può essere `null` lo dichiara. `-
 lo schema del risultato completo, con `explain` e `meta`. Lo schema di output di ogni versione
 del metodo è conservato in `schemas/<metodo>/v<N>.output.json`; una modifica incompatibile è
 una nuova versione del metodo (vedi
-[versioni dei metodi](https://salvo8519.github.io/fairmark/project/releases/#method-versions), in inglese).
+[versioni dei metodi](https://salvo8519.github.io/fairmark/project/releases/#method-versions),
+in inglese). Un valore aggiunto a un'enumerazione di output non è una modifica incompatibile:
+un client accetta i valori enumerati che non conosce.
 
-Un campo che contiene l'input o l'output di un altro metodo, come `solved_input` e
-`inner_value` di `analysis.goal_seek`, riporta `x-fairmark-input-of` o `x-fairmark-output-of`:
-il JSON pointer, all'interno del valore, dell'id di quel metodo. Il suo schema è lo schema di
-input o di output di quel metodo.
+Un campo che contiene l'input o l'output di un altro metodo, come `solved_input` e `inner_value`
+di `analysis.goal_seek`, riporta `x-fairmark-input-of` o `x-fairmark-output-of`: un JSON pointer
+(RFC 6901) all'id di quel metodo, relativo all'oggetto che contiene il campo (`/inner_method/id`
+per la ricerca obiettivo, il cui `inner_method` è nello stesso oggetto). Il suo schema è lo
+schema di input o di output di quel metodo.

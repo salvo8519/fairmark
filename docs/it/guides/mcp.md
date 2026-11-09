@@ -1,6 +1,6 @@
 ---
 source: guides/mcp.md
-source_hash: 35fec834a879
+source_hash: 7e8e35b03d7d
 ---
 # Server MCP
 
@@ -70,11 +70,17 @@ finanziari.
 - Lo stato e la versione di ogni metodo nel campo `_meta` del tool, per esempio
   `{"fairmark/status": "available", "fairmark/method_version": "2"}`; lo stato è
   `"available"` oppure `"preview"` e la versione è quella che ogni risultato riporta in
-  `meta.method_version` (vedi [versioni dei metodi](https://salvo8519.github.io/fairmark/project/releases/#method-versions), in inglese). La descrizione di un tool in anteprima riporta "(preview)" dopo il
-  titolo e una frase che inizia con "Status: preview", così il modello lo vede prima della
-  chiamata. La pagina sullo
+  `meta.method_version` (vedi
+  [versioni dei metodi](https://salvo8519.github.io/fairmark/project/releases/#method-versions),
+  in inglese). La descrizione di un tool in anteprima riporta "(preview)" dopo il titolo e una
+  frase che inizia con "Status: preview", così il modello lo vede prima della chiamata. La
+  pagina sullo
   [stato dei metodi](https://salvo8519.github.io/fairmark/project/releases/#method-status)
   (in inglese) definisce i due stati.
+- Risultati che possono acquisire nuovi valori enumerati all'interno di una versione del
+  metodo: un valore aggiunto a un'enumerazione di output non è una modifica incompatibile,
+  quindi un client accetta un valore che non conosce (per esempio mostrandolo come testo)
+  invece di rifiutare il risultato.
 - Istruzioni del server che chiedono al modello di usare i tool per ogni numero, di citare
   `explain.steps`, di dichiarare all'utente quando un risultato proviene da un metodo in
   anteprima e di presentare ogni risultato come un calcolo sotto la responsabilità

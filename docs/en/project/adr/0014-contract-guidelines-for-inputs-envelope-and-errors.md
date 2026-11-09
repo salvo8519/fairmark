@@ -172,6 +172,8 @@ output field that is removed, renamed, retyped or becomes nullable. A new option
 field and a new output field are additive. Input and output schemas are both snapshotted
 (`schemas/<method>/v<N>.json` and `v<N>.output.json`); the immutability rules of ADR 0009
 apply to both. The MCP `_meta` of each tool reports the method version beside its status.
+A value added to an output enumeration is additive and a value removed is breaking, so
+clients accept enumeration values they do not know (maintainer decision of 2026-11-09).
 
 ### G9. Interoperability between methods
 When a method produces what another consumes, the producing spec names the consuming field,

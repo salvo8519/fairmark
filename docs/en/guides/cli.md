@@ -52,9 +52,11 @@ writes it: every decimal is a string matching `^-?\d+(\.\d+)?$`, a field that ma
 not `required`, and a field that may be `null` says so. `--envelope` prints the schema of the
 whole result, with `explain` and `meta`. The output schema of each method version is kept in
 `schemas/<method>/v<N>.output.json`; a breaking change to it is a new method version (see
-[method versions](../project/releases.md#method-versions)).
+[method versions](../project/releases.md#method-versions)). A value added to an output
+enumeration is not breaking: a client accepts enumeration values it does not know.
 
 A field that holds the input or the output of another method, such as `solved_input` and
 `inner_value` of `analysis.goal_seek`, carries `x-fairmark-input-of` or
-`x-fairmark-output-of`: the JSON pointer, within the value, of that method's id. Its schema is
-that method's input or output schema.
+`x-fairmark-output-of`: an RFC 6901 pointer to that method's id, relative to the object that
+holds the field (`/inner_method/id` for goal seek, whose `inner_method` is in the same object).
+Its schema is that method's input or output schema.
