@@ -178,18 +178,29 @@ The amounts are optional (version 2, SPEC-0007 R11). A covenant whose denominato
 given, or whose denominator is positive and numerator amount is not given, is not tested with
 `not_tested_code` `missing_input`, never breached, and its outputs are listed in
 `not_computed`. A denominator given zero or negative gives the outcome of
-`if_denominator_not_positive` whatever the numerator, since the agreement decides that case
-without it. A missing amount is never taken as zero.
+`if_denominator_not_positive` whatever the numerator, also when the numerator amount is not
+given, since the agreement decides that case without it: the covenant is decided, not listed.
+A missing amount is never taken as zero. The floor: at least one covenant must be testable or
+decided by its rule; otherwise the input is refused with `FM-E027`, whose message lists the
+amounts that would lift it.
 
 ```python
-r = fm.ratios.covenants(covenants=[{"name": "net leverage", "test_date": "2026-12-31",
-    "numerator": {"definition": "net debt"},
-    "denominator": {"definition": "EBITDA, last 12 months", "amount": 1000},
-    "operator": "at_most", "threshold": "3.5",
-    "if_denominator_not_positive": "breached"}])
+r = fm.ratios.covenants(covenants=[
+    {"name": "net leverage", "test_date": "2026-12-31",
+     "numerator": {"definition": "net debt"},
+     "denominator": {"definition": "EBITDA, last 12 months", "amount": 1000},
+     "operator": "at_most", "threshold": "3.5",
+     "if_denominator_not_positive": "breached"},
+    {"name": "interest cover", "test_date": "2026-12-31",
+     "numerator": {"definition": "EBITDA, last 12 months", "amount": 1000},
+     "denominator": {"definition": "net finance charges", "amount": 200},
+     "operator": "at_least", "threshold": "4",
+     "if_denominator_not_positive": "breached"}])
 c = r.covenants[0]
 assert (c["outcome"], c["not_tested_code"]) == ("not_tested", "missing_input")
 assert r.not_computed[0]["missing"] == ["/covenants/0/numerator/amount"]
+assert r.covenants[1]["outcome"] == "passed"  # 1000 / 200 = 5, at least 4
+# With the first covenant alone the input would be below the floor (FM-E027).
 ```
 
 ## Conventions (explicit, reported in `explain.conventions`)
@@ -230,6 +241,7 @@ a maximum; a negative EBITDA gives a negative cover, which breaches a minimum.
 | Code | When |
 | --- | --- |
 | `FM-E001` | `covenants` is empty; a blank `name` or `definition`; `rounding.decimal_places` above 6; a missing or unknown field (including `operator`, `if_denominator_not_positive`, or `rounding.mode` when `rounding` is given), or an unknown value |
+| `FM-E027` | Below the minimum input: no covenant can be tested or decided by its rule, because each lacks an amount; the message lists the alternative sets of amounts (any one is enough) |
 | `FM-E009` | A `test_date` that is not a valid `YYYY-MM-DD` date |
 
 ## Accuracy

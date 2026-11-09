@@ -92,8 +92,11 @@ Ratios are objects `{"value": ..., "not_defined": ...}`, as in every ratio group
 
 Every amount is optional (version 2, SPEC-0007 R7). Give what the statements show: each output
 is computed when its own amounts are given; otherwise it is null and listed in `not_computed`
-with the JSON pointers of the inputs it lacks. A missing amount is never taken as zero, and
-missing data is never an error. With average balances an amount needs both `/closing/<field>`
+with the JSON pointers of the inputs it lacks. A missing amount is never taken as zero and is
+not an error by itself. The floor: at least one output must have every input it needs (a ratio
+not defined by its own inputs counts); below it the input is refused with `FM-E027`, whose
+message lists the alternative sets of inputs that would lift it, so a result made only of nulls
+is never returned. With average balances an amount needs both `/closing/<field>`
 and `/opening/<field>`. A given amount that already makes a ratio not defined (a zero
 denominator, for example) decides first: the ratio is then not defined, with its reason, and not
 listed.
@@ -120,7 +123,8 @@ Without a debt schedule `dscr` is empty and `pv_cfads` and `llcr` are listed wit
 | Interest definition | as given by the analyst (gross, or net of interest income), non-empty | optional; without it the interest covers are not computed |
 | Debt service | as given | fixed |
 | LLCR discounting | end of each period, at `discount_rate` per period, the cost of debt chosen by the analyst | fixed |
-| Reserve balance | added undiscounted to the LLCR numerator | none |
+| Reserve balance | added undiscounted to the LLCR numerator; when absent and the LLCR has its other inputs, none: reported in `meta.defaults_applied` (`/debt_schedule/reserve_balance`, `"0"`) with a warning, and not written into the input, so `meta.input_hash` differs from a reserve given as `0` | none (documented default) |
+| Other items of the net financial position | none when `other_items` is absent and gross debt and cash are given: reported in `meta.defaults_applied` with a warning | none (documented default) |
 | Debt schedule | optional; without it DSCR and LLCR are not defined ("no debt schedule given") | none |
 | Not defined | zero denominator; interest covers when interest or the numerator (EBIT or EBITDA) is zero or negative; NFP / EBITDA when EBITDA is zero or negative; DSCR when debt service is zero or negative; LLCR when debt outstanding is zero or negative | fixed |
 
@@ -131,6 +135,7 @@ Without a debt schedule `dscr` is empty and `pv_cfads` and `llcr` are listed wit
 | `FM-E001` | `balances` missing; an empty or blank `ebitda_definition` or `interest_definition`; an unknown field; an amount that is not a decimal |
 | `FM-E002` | A debt schedule is given with no periods |
 | `FM-E003` | Discount rate at or below −100% per period; the message names `/debt_schedule/discount_rate` |
+| `FM-E027` | Below the minimum input: no output has every input it needs; the message lists the alternative sets of inputs (any one is enough) |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 
 ## Accuracy

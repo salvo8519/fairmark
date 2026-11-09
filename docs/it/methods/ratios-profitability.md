@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-profitability.md
-source_hash: 34b1cdd6d370
+source_hash: 4ad682dde358
 ---
 # Indici di redditività (`ratios.profitability`)
 
@@ -149,7 +149,10 @@ non è definito, e `not_defined` ne indica allora il motivo.
 Ogni importo è facoltativo (versione 2, SPEC-0007 R7). Si fornisce ciò che il bilancio riporta:
 ogni output è calcolato quando sono forniti i suoi importi; altrimenti è null ed è elencato in
 `not_computed` con i JSON pointer degli input che gli mancano. Un importo mancante non è mai
-considerato zero, e un dato mancante non è mai un errore. Con i saldi medi un importo richiede sia
+considerato zero e da solo non è un errore. La soglia minima: almeno un output deve avere tutti
+gli input che gli servono (conta anche un indice non definito dai propri input); sotto la soglia
+l'input è rifiutato con `FM-E027`, il cui messaggio elenca gli insiemi alternativi di input che
+la superano, così non si restituisce mai un risultato fatto solo di null. Con i saldi medi un importo richiede sia
 `/closing/<campo>` sia `/opening/<campo>`. Un importo fornito che rende già l'indice non definito
 (per esempio un denominatore nullo) prevale: l'indice è allora non definito, con il suo motivo, e
 non è elencato.
@@ -199,6 +202,7 @@ la catena ROI = ROS × rotazione del capitale investito si legga direttamente.
 | Codice | Quando |
 | --- | --- |
 | `FM-E001` | `balances` o `operating_return_base` mancante; `debt_basis` mancante in un blocco `leverage`; `ebitda_definition` vuoto o composto solo da spazi; un campo sconosciuto; un importo che non è un decimale |
+| `FM-E027` | Sotto la soglia minima di input: nessun output ha tutti gli input che gli servono; il messaggio elenca gli insiemi alternativi di input (ne basta uno) |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 
 ## Precisione

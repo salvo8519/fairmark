@@ -68,8 +68,11 @@ are amounts, null when not computed.
 
 Every amount is optional (version 2, SPEC-0007 R7). Give what the statements show: each output
 is computed when its own amounts are given; otherwise it is null and listed in `not_computed`
-with the JSON pointers of the inputs it lacks. A missing amount is never taken as zero, and
-missing data is never an error. With average balances an amount needs both `/closing/<field>`
+with the JSON pointers of the inputs it lacks. A missing amount is never taken as zero and is
+not an error by itself. The floor: at least one output must have every input it needs (a ratio
+not defined by its own inputs counts); below it the input is refused with `FM-E027`, whose
+message lists the alternative sets of inputs that would lift it, so a result made only of nulls
+is never returned. With average balances an amount needs both `/closing/<field>`
 and `/opening/<field>`. A given amount that already makes a ratio not defined (a zero
 denominator, for example) decides first: the ratio is then not defined, with its reason, and not
 listed.
@@ -106,6 +109,7 @@ assert r.not_computed[0] == {
 | Code | When |
 | --- | --- |
 | `FM-E001` | `balances` missing or not `closing` or `average`; an unknown field; an amount that is not a decimal |
+| `FM-E027` | Below the minimum input: no output has every input it needs; the message lists the alternative sets of inputs (any one is enough) |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 
 ## Accuracy

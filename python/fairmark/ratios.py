@@ -10,7 +10,9 @@ given has ``value`` ``None`` and is listed in ``not_computed`` with the JSON poi
 inputs it lacks; a missing amount is never taken as zero. A ratio that is not meaningful (a zero
 denominator, negative equity) has ``value`` ``None`` and the reason in ``not_defined``. The
 other ratios of the group are still computed. Only the method choices are required:
-``balances``, and ``operating_return_base`` or ``day_basis`` where the group uses them.
+``balances``, and ``operating_return_base`` or ``day_basis`` where the group uses them. At
+least one output must have every input it needs: otherwise the engine raises ``FM-E027``,
+whose message lists the sets of inputs that would be enough.
 
 ``covenants`` tests covenants on the definitions of the loan agreement, with an explicit
 outcome per covenant.

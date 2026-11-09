@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-debt-service.md
-source_hash: b9225adeacfe
+source_hash: c5cb64f5e9a2
 ---
 # Indici di servizio del debito (`ratios.debt_service`)
 
@@ -100,7 +100,10 @@ Gli indici sono oggetti `{"value": ..., "not_defined": ...}`, come in ogni grupp
 Ogni importo è facoltativo (versione 2, SPEC-0007 R7). Si fornisce ciò che il bilancio riporta:
 ogni output è calcolato quando sono forniti i suoi importi; altrimenti è null ed è elencato in
 `not_computed` con i JSON pointer degli input che gli mancano. Un importo mancante non è mai
-considerato zero, e un dato mancante non è mai un errore. Con i saldi medi un importo richiede sia
+considerato zero e da solo non è un errore. La soglia minima: almeno un output deve avere tutti
+gli input che gli servono (conta anche un indice non definito dai propri input); sotto la soglia
+l'input è rifiutato con `FM-E027`, il cui messaggio elenca gli insiemi alternativi di input che
+la superano, così non si restituisce mai un risultato fatto solo di null. Con i saldi medi un importo richiede sia
 `/closing/<campo>` sia `/opening/<campo>`. Un importo fornito che rende già l'indice non definito
 (per esempio un denominatore nullo) prevale: l'indice è allora non definito, con il suo motivo, e
 non è elencato.
@@ -127,7 +130,8 @@ Senza piano di rimborso `dscr` è vuoto e `pv_cfads` e `llcr` sono elencati con
 | Definizione degli oneri finanziari | come indicata dall'analista (lordi, o al netto dei proventi finanziari), non vuota | facoltativa; senza di essa le coperture degli oneri finanziari non sono calcolate |
 | Servizio del debito | come fornito | fissa |
 | Attualizzazione dell'LLCR | a fine periodo, a `discount_rate` per periodo, il costo del debito scelto dall'analista | fissa |
-| Riserva | sommata senza attualizzazione al numeratore dell'LLCR | nessuna |
+| Riserva | sommata senza attualizzazione al numeratore dell'LLCR; quando assente e l'LLCR ha gli altri input, nessuna: riportata in `meta.defaults_applied` (`/debt_schedule/reserve_balance`, `"0"`) con un avvertimento, e non scritta nell'input, così `meta.input_hash` differisce da una riserva fornita come `0` | nessuna (default documentato) |
+| Altre voci della posizione finanziaria netta | nessuna quando `other_items` è assente e sono forniti debiti finanziari lordi e disponibilità liquide: riportato in `meta.defaults_applied` con un avvertimento | nessuna (default documentato) |
 | Piano di rimborso | facoltativo; senza di esso DSCR e LLCR non sono definiti ("no debt schedule given") | nessuno |
 | Non definito | denominatore nullo; copertura degli oneri finanziari quando gli oneri o il numeratore (EBIT o EBITDA) sono nulli o negativi; PFN / EBITDA quando l'EBITDA è nullo o negativo; DSCR quando il servizio del debito è nullo o negativo; LLCR quando il debito residuo è nullo o negativo | fissa |
 
@@ -138,6 +142,7 @@ Senza piano di rimborso `dscr` è vuoto e `pv_cfads` e `llcr` sono elencati con
 | `FM-E001` | `balances` mancante; `ebitda_definition` o `interest_definition` vuoto o composto solo da spazi; un campo sconosciuto; un importo che non è un decimale |
 | `FM-E002` | È fornito un piano di rimborso senza periodi |
 | `FM-E003` | Tasso di attualizzazione pari o inferiore a −100% per periodo; il messaggio indica `/debt_schedule/discount_rate` |
+| `FM-E027` | Sotto la soglia minima di input: nessun output ha tutti gli input che gli servono; il messaggio elenca gli insiemi alternativi di input (ne basta uno) |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 
 ## Precisione

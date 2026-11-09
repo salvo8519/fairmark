@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-covenants.md
-source_hash: 4fd4169844ab
+source_hash: 752c2aca5581
 ---
 # Verifica dei covenant (`ratios.covenants`)
 
@@ -185,18 +185,29 @@ Gli importi sono facoltativi (versione 2, SPEC-0007 R11). Un covenant di cui non
 l'importo del denominatore, oppure con denominatore positivo e senza l'importo del numeratore,
 non è verificato con `not_tested_code` `missing_input`, mai una violazione, e i suoi output sono
 elencati in `not_computed`. Un denominatore fornito nullo o negativo dà l'esito di
-`if_denominator_not_positive` qualunque sia il numeratore, perché il contratto decide quel caso
-senza di esso. Un importo mancante non è mai considerato zero.
+`if_denominator_not_positive` qualunque sia il numeratore, anche quando l'importo del numeratore
+non è fornito, perché il contratto decide quel caso senza di esso: il covenant è deciso, non
+elencato. Un importo mancante non è mai considerato zero. La soglia minima: almeno un covenant
+deve poter essere verificato o deciso dalla sua regola; altrimenti l'input è rifiutato con
+`FM-E027`, il cui messaggio elenca gli importi che la superano.
 
 ```python
-r = fm.ratios.covenants(covenants=[{"name": "net leverage", "test_date": "2026-12-31",
-    "numerator": {"definition": "net debt"},
-    "denominator": {"definition": "EBITDA, last 12 months", "amount": 1000},
-    "operator": "at_most", "threshold": "3.5",
-    "if_denominator_not_positive": "breached"}])
+r = fm.ratios.covenants(covenants=[
+    {"name": "net leverage", "test_date": "2026-12-31",
+     "numerator": {"definition": "net debt"},
+     "denominator": {"definition": "EBITDA, last 12 months", "amount": 1000},
+     "operator": "at_most", "threshold": "3.5",
+     "if_denominator_not_positive": "breached"},
+    {"name": "interest cover", "test_date": "2026-12-31",
+     "numerator": {"definition": "EBITDA, last 12 months", "amount": 1000},
+     "denominator": {"definition": "net finance charges", "amount": 200},
+     "operator": "at_least", "threshold": "4",
+     "if_denominator_not_positive": "breached"}])
 c = r.covenants[0]
 assert (c["outcome"], c["not_tested_code"]) == ("not_tested", "missing_input")
 assert r.not_computed[0]["missing"] == ["/covenants/0/numerator/amount"]
+assert r.covenants[1]["outcome"] == "passed"  # 1000 / 200 = 5, at least 4
+# Con il solo primo covenant l'input sarebbe sotto la soglia minima (FM-E027).
 ```
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
@@ -240,6 +251,7 @@ negativo dà una copertura negativa, che viola un minimo.
 | Codice | Quando |
 | --- | --- |
 | `FM-E001` | `covenants` è vuoto; `name` o `definition` vuoti o composti solo da spazi; `rounding.decimal_places` superiore a 6; un campo mancante o sconosciuto (compresi `operator`, `if_denominator_not_positive`, o `rounding.mode` quando è indicato `rounding`), o un valore sconosciuto |
+| `FM-E027` | Sotto la soglia minima di input: nessun covenant può essere verificato o deciso dalla sua regola, perché a ciascuno manca un importo; il messaggio elenca gli insiemi alternativi di importi (ne basta uno) |
 | `FM-E009` | Una `test_date` che non è una data `YYYY-MM-DD` valida |
 
 ## Precisione

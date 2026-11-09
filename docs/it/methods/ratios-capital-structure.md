@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-capital-structure.md
-source_hash: cc206c88d587
+source_hash: 78750697aefc
 ---
 # Indici di struttura finanziaria (`ratios.capital_structure`)
 
@@ -80,9 +80,14 @@ assert r.secondary_structure_margin == Decimal("300")  # 2000 + 1800 − 3500
 
 `net_financial_position` contiene `gross_debt`, `cash` e `other_items`, un elenco di
 `{"name", "amount"}` sommati con il loro segno (positivo per le voci assimilabili al debito,
-negativo per le attività finanziarie; default: nessuna). `gross_debt`, `cash` e l'`amount` di
-ogni voce sono facoltativi; la posizione finanziaria netta è calcolata solo quando sono tutti
-forniti.
+negativo per le attività finanziarie). `gross_debt`, `cash` e l'`amount` di ogni voce sono
+facoltativi; la posizione finanziaria netta è calcolata solo quando sono tutti forniti.
+
+`other_items` assente, con `gross_debt` e `cash` forniti, è un default documentato: nessuna
+altra voce. È elencato in `meta.defaults_applied` (`/closing/net_financial_position/other_items`,
+valore `[]`) con una convenzione che inizia con "warning:"; `"other_items": []` indica nessuna
+voce in modo esplicito, senza voce di default né avvertimento, e con lo stesso
+`meta.input_hash`.
 
 ## Output
 
@@ -106,7 +111,10 @@ posizione finanziaria netta e i margini sono importi, null quando non calcolati.
 Ogni importo è facoltativo (versione 2, SPEC-0007 R7). Si fornisce ciò che il bilancio riporta:
 ogni output è calcolato quando sono forniti i suoi importi; altrimenti è null ed è elencato in
 `not_computed` con i JSON pointer degli input che gli mancano. Un importo mancante non è mai
-considerato zero, e un dato mancante non è mai un errore. Con i saldi medi un importo richiede sia
+considerato zero e da solo non è un errore. La soglia minima: almeno un output deve avere tutti
+gli input che gli servono (conta anche un indice non definito dai propri input); sotto la soglia
+l'input è rifiutato con `FM-E027`, il cui messaggio elenca gli insiemi alternativi di input che
+la superano, così non si restituisce mai un risultato fatto solo di null. Con i saldi medi un importo richiede sia
 `/closing/<campo>` sia `/opening/<campo>`. Un importo fornito che rende già l'indice non definito
 (per esempio un denominatore nullo) prevale: l'indice è allora non definito, con il suo motivo, e
 non è elencato.
@@ -126,6 +134,7 @@ non è elencato.
 | --- | --- | --- |
 | Saldi | di chiusura, media tra apertura e chiusura (applicata a ogni saldo, PFN inclusa) | obbligatorio |
 | Posizione finanziaria netta | debiti finanziari lordi − disponibilità liquide + altre voci, positiva se indebitamento netto | fissa |
+| Altre voci | nessuna quando `other_items` è assente: riportato in `meta.defaults_applied`, con un avvertimento | nessuna (default documentato) |
 | D/E | solo debiti finanziari lordi: disponibilità liquide e altre voci della posizione finanziaria netta escluse | fissa |
 | Non definito | denominatore nullo; capitale proprio nullo o negativo per D/E e PFN/E | fissa |
 
@@ -134,6 +143,7 @@ non è elencato.
 | Codice | Quando |
 | --- | --- |
 | `FM-E001` | `balances` mancante o diverso da `closing` e `average`; un campo sconosciuto; un'altra voce senza `name`; un importo che non è un decimale |
+| `FM-E027` | Sotto la soglia minima di input: nessun output ha tutti gli input che gli servono; il messaggio elenca gli insiemi alternativi di input (ne basta uno) |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 
 ## Precisione

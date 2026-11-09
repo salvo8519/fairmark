@@ -74,8 +74,13 @@ assert r.secondary_structure_margin == Decimal("300")  # 2000 + 1800 − 3500
 
 `net_financial_position` has `gross_debt`, `cash` and `other_items`, a list of
 `{"name", "amount"}` added with their sign (positive for debt-like items, negative for financial
-assets; default: none). `gross_debt`, `cash` and the `amount` of each item are optional; the
-net financial position is computed only when all of them are given.
+assets). `gross_debt`, `cash` and the `amount` of each item are optional; the net financial
+position is computed only when all of them are given.
+
+`other_items` absent, with `gross_debt` and `cash` given, is a documented default: no other
+items. It is listed in `meta.defaults_applied` (`/closing/net_financial_position/other_items`,
+value `[]`) with a convention starting with "warning:"; `"other_items": []` states none
+explicitly, with no default entry and no warning, and the same `meta.input_hash`.
 
 ## Outputs
 
@@ -98,8 +103,11 @@ financial position and the margins are amounts, null when not computed.
 
 Every amount is optional (version 2, SPEC-0007 R7). Give what the statements show: each output
 is computed when its own amounts are given; otherwise it is null and listed in `not_computed`
-with the JSON pointers of the inputs it lacks. A missing amount is never taken as zero, and
-missing data is never an error. With average balances an amount needs both `/closing/<field>`
+with the JSON pointers of the inputs it lacks. A missing amount is never taken as zero and is
+not an error by itself. The floor: at least one output must have every input it needs (a ratio
+not defined by its own inputs counts); below it the input is refused with `FM-E027`, whose
+message lists the alternative sets of inputs that would lift it, so a result made only of nulls
+is never returned. With average balances an amount needs both `/closing/<field>`
 and `/opening/<field>`. A given amount that already makes a ratio not defined (a zero
 denominator, for example) decides first: the ratio is then not defined, with its reason, and not
 listed.
@@ -119,6 +127,7 @@ listed.
 | --- | --- | --- |
 | Balances | closing, average of opening and closing (applied to every balance, NFP included) | required |
 | Net financial position | gross debt − cash + other items, positive for net debt | fixed |
+| Other items | none when `other_items` is absent: reported in `meta.defaults_applied`, with a warning | none (documented default) |
 | D/E | gross debt only: cash and the other items of the net financial position are excluded | fixed |
 | Not defined | zero denominator; equity zero or negative for D/E and NFP/E | fixed |
 
@@ -127,6 +136,7 @@ listed.
 | Code | When |
 | --- | --- |
 | `FM-E001` | `balances` missing or not `closing` or `average`; an unknown field; an other item without `name`; an amount that is not a decimal |
+| `FM-E027` | Below the minimum input: no output has every input it needs; the message lists the alternative sets of inputs (any one is enough) |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 
 ## Accuracy
