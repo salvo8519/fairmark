@@ -29,8 +29,8 @@ defaults:
 env:
   CARGO_TERM_COLOR: always
   # Wheels are tested on the oldest and the newest Python version that CI tests (ci.yml).
-  # The wheels are abi3 (cp310-abi3): one wheel per platform serves Python 3.10 and later.
-  SMOKE_PYTHONS: "3.10 3.13"
+  # The wheels are abi3 (cp312-abi3): one wheel per platform serves Python 3.12 and later.
+  SMOKE_PYTHONS: "3.12 3.15"
   # The maturin that builds the packages: the version locked in uv.lock (checked below).
   MATURIN_VERSION: "1.16.0"
 
@@ -123,7 +123,7 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         if: matrix.smoke == 'host'
         with:
-          version: "0.11.32"
+          version: "0.13.7"
           enable-cache: false   # no cache in a workflow that publishes
       - name: Smoke test in new environments
         if: matrix.smoke == 'host'
@@ -182,7 +182,7 @@ jobs:
           toolchain: stable
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          version: "0.11.32"
+          version: "0.13.7"
           enable-cache: false   # no cache in a workflow that publishes
       # What a user without a matching wheel gets: a build from the sdist alone. The build
       # backend comes from a hashed requirements file, not from build isolation.
@@ -212,7 +212,7 @@ jobs:
           merge-multiple: true
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          version: "0.11.32"
+          version: "0.13.7"
           enable-cache: false   # no cache in a workflow that publishes
       - name: One wheel per platform and the sdist, all of this version
         working-directory: release
@@ -221,13 +221,13 @@ jobs:
           ls -l dist
           problems=0
           for pattern in \
-            "fairmark-$version-cp310-abi3-manylinux*_x86_64.whl" \
-            "fairmark-$version-cp310-abi3-manylinux*_aarch64.whl" \
-            "fairmark-$version-cp310-abi3-musllinux_*_x86_64.whl" \
-            "fairmark-$version-cp310-abi3-musllinux_*_aarch64.whl" \
-            "fairmark-$version-cp310-abi3-macosx_*_x86_64.whl" \
-            "fairmark-$version-cp310-abi3-macosx_*_arm64.whl" \
-            "fairmark-$version-cp310-abi3-win_amd64.whl" \
+            "fairmark-$version-cp312-abi3-manylinux*_x86_64.whl" \
+            "fairmark-$version-cp312-abi3-manylinux*_aarch64.whl" \
+            "fairmark-$version-cp312-abi3-musllinux_*_x86_64.whl" \
+            "fairmark-$version-cp312-abi3-musllinux_*_aarch64.whl" \
+            "fairmark-$version-cp312-abi3-macosx_*_x86_64.whl" \
+            "fairmark-$version-cp312-abi3-macosx_*_arm64.whl" \
+            "fairmark-$version-cp312-abi3-win_amd64.whl" \
             "fairmark-$version.tar.gz"; do
             found=$(find dist -maxdepth 1 -type f -name "$pattern" | wc -l)
             if [ "$found" -ne 1 ]; then
