@@ -144,32 +144,41 @@ with `missing_any_of` for `FM-E027` and `errors` at the top level:
 
 - `pointer` is the field to correct, always from the root of the input the client sent: an
   error of the method evaluated by an analysis is located under `/base_input`, while its
-  message keeps the pointer within `base_input`. `pointer` is `null` only for a text that is
-  not JSON (`reason` `syntax`, the message keeps the line and column), for an error raised
-  during the computation that no single field causes, and for `FM-E027`, whose inputs are in
-  `missing_any_of`.
+  message keeps the pointer within `base_input`. The input as a whole is the empty pointer
+  `""`. `pointer` is `null` only for a text that is not JSON (`reason` `syntax`, the message
+  keeps the line and column), for an error raised during the computation that no single field
+  causes, for `FM-E027`, whose inputs are in `missing_any_of`, and for `FM-E007` when the
+  method id is an argument rather than part of the input.
 - `pointers` lists every field of a relation (both sides of an `FM-E026` reconciliation, both
-  fields of a conflict); empty when the error concerns one field.
+  fields of a conflict, a growth and the rate it must stay below); empty when the error
+  concerns one field.
 - `reason` is a sub-kind: `syntax`, `missing`, `unknown_field`, `duplicate`, `type`, `enum`,
   `conflict`, `requires`, `sign`, `blank`, `range`, `length` (a list with the wrong number of
-  entries), `reconcile`. Values are added, never renamed or removed; clients accept a value
-  they do not know. `reason` separates the meanings now grouped under `FM-E001` without new
-  codes.
-- `expected` is a list of strings: the literal accepted values when `reason` is `enum` or
-  `unknown_field` (the values of the enumeration, the fields of the object), short
-  descriptions of the accepted form otherwise (for example "an amount greater than 0");
-  empty when not known.
+  entries, or a choice written as an object with no key or two), `reconcile`. Values are
+  added, never renamed or removed; clients accept a value they do not know. `reason` separates
+  the meanings now grouped under `FM-E001` without new codes; `syntax` is used only for a text
+  that is not JSON.
+- `expected` is a list of strings: the literal accepted values when they form a closed list
+  (the values of an enumeration, the method ids of `FM-E007`, the fields an object accepts,
+  the keys of a single-key choice), short descriptions of the accepted form in plain words
+  otherwise (for example "an amount greater than 0", "a whole number of 0 or more", never a
+  Rust type name); empty when not known.
 - `fix` is one sentence that resolves the error, or `null`; its wording is guidance, not part
-  of the contract.
+  of the contract. For an unknown key it names the closest accepted field (an edit distance of
+  at most 2, ignoring case).
 - `errors` lists every error found, at least one, the first equal to the top level. Every
   method validates its whole input before computing and reports every error it finds, in the
-  order of its checks. Reading the input stops at the first field that cannot be read (ADR
-  0013); when that field is unknown, the input is walked against the method's schema and every
-  unknown key is reported, with the accepted fields in `expected` and the closest one in `fix`
-  when the key looks like a typing error; any other reading error is reported alone. An error
-  of the computation (an overflow, a solver that does not converge, a defect) never sits in
-  `errors` next to input errors: it is reached only by an input without errors, and it stops
-  the computation and is reported alone.
+  order of its checks; a check is skipped only when it needs an input already refused. An
+  analysis checks its own fields and its `base_input` (by the method it names) in the same
+  pass. Reading the input stops at the first field `serde` cannot read (ADR 0013); the input
+  is then walked against the method's schema, and every unknown key, every key repeated in an
+  object and every object given as a positional array is reported with that first error. A
+  repeated key and a positional array are refused in every method, never read with the last
+  value or by position. An error of the computation (an overflow, a solver that does not
+  converge, a defect) never sits in `errors` next to input errors: it is reached only by an
+  input without errors, and it stops the computation and is reported alone. When an input
+  error and a computation error met earlier coexist, the input error is reported, so the
+  top-level error of such an input differs from the one reported before this rule.
 
 A new meaning gets a new code; a new location keeps the code of its condition (ADR 0013).
 Python, the CLI, MCP and function calling pass the whole report. The cells of an analysis table
