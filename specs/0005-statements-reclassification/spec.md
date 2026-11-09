@@ -204,11 +204,17 @@ Approved by the maintainer on 2026-11-08.
     only the check that the interest cost is at most what remains of B9 needs it
     (`interest_cost_within_personnel_costs`, `not_checked` when B9 is missing).
   - **Practice basis of D1, D2 and M2** (ADR 0014, default admission test 1). An absent line of
-    the statutory layouts is read as zero because items with nil amounts are omitted in the
-    filed statements: art. 2423-ter of the Civil Code and OIC 12 (items with nil amounts in both
-    years are not presented). To verify: the exact text and paragraph of OIC 12 and the
-    paragraph of art. 2423-ter were not verified in this revision; listed in the open points of
-    the pull request.
+    the statutory layouts is read as zero because items with a nil amount are not presented in
+    the filed statements. OIC 12, consultation draft of 2016, paragraph 12 (formerly 7): "Le voci
+    non sono indicate negli schemi di stato patrimoniale e di conto economico se hanno un importo
+    pari a zero" ("Items are not presented in the balance sheet and income statement layouts if
+    their amount is zero"); an item with an amount in the previous year is still presented, for
+    comparison. Source: Fondazione OIC,
+    https://www.fondazioneoic.eu/wp-content/uploads/downloads/2016/07/OIC-12-composizione-e-schemi-del-bilancio-desercizio-revisione.pdf.
+    The quotation was supplied by the review of 2026-11-09; the source could not be opened from
+    the environment of this revision. To verify: the paragraph number in the published OIC 12,
+    and the reference to art. 2423-ter of the Civil Code for the same rule. The maintainer's
+    explicit acceptance of this practice basis is requested in the pull request.
 
 ## Analysis
 
