@@ -5,8 +5,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    check_below_rate, check_growth, check_growth_cap, domain, on, rate_convention, Checked,
-    GrowthCapCheck, NOT_DISCOUNTED,
+    check_below_rate, check_growth, check_growth_cap, checked, domain, on, rate_convention,
+    Checked, GrowthCapCheck, NOT_DISCOUNTED,
 };
 use crate::error::Result;
 use crate::explain::Explain;
@@ -87,19 +87,30 @@ pub struct ValueDriverOutput {
 /// Validates the input; each error names its field.
 pub(crate) fn check(input: &ValueDriverInput) -> Checked {
     let (g, ronic) = (input.growth, input.ronic);
-    check_growth(g, "growth").map_err(on("growth"))?;
+    let mut errors = Vec::new();
+    let growth_valid = match check_growth(g, "growth") {
+        Err(e) => {
+            errors.push(on("growth")(e));
+            false
+        }
+        Ok(()) => true,
+    };
     if ronic <= Decimal::ZERO {
-        return Err(on("ronic")(domain(format!(
+        errors.push(on("ronic")(domain(format!(
             "the return on new invested capital must be greater than 0 (got {ronic})"
         ))));
     }
-    check_below_rate(g, input.rate).map_err(on("growth"))?;
-    Ok(())
+    if growth_valid {
+        if let Err(e) = check_below_rate(g, input.rate) {
+            errors.push(on("growth")(e));
+        }
+    }
+    checked(errors)
 }
 
 /// TV_N = NOPAT_{N+1} × (1 − g / RONIC) / (r − g); NOPAT_{N+1} / r when RONIC = r.
 pub fn value_driver(input: &ValueDriverInput) -> Result<(ValueDriverOutput, Explain)> {
-    check(input).map_err(super::FieldError::into_error)?;
+    check(input).map_err(super::into_error)?;
     let (nopat, g, ronic, r) = (input.nopat_next, input.growth, input.ronic, input.rate);
     let mut ex = Explain::new(
         "tv.value_driver",

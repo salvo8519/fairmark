@@ -5,8 +5,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    check_below_rate, check_growth, check_growth_cap, invalid, on, rate_convention, Checked,
-    GrowthCapCheck, NOT_DISCOUNTED,
+    check_below_rate, check_growth, check_growth_cap, checked, invalid, on, rate_convention,
+    Checked, GrowthCapCheck, NOT_DISCOUNTED,
 };
 use crate::error::Result;
 use crate::explain::Explain;
@@ -90,21 +90,28 @@ pub struct GordonOutput {
 /// Validates the input; each error names its field.
 pub(crate) fn check(input: &GordonInput) -> Checked {
     let (r, g) = (input.rate, input.growth);
-    check_growth(g, "growth").map_err(on("growth"))?;
-    check_below_rate(g, r).map_err(on("growth"))?;
+    let mut errors = Vec::new();
+    match check_growth(g, "growth") {
+        Err(e) => errors.push(on("growth")(e)),
+        Ok(()) => {
+            if let Err(e) = check_below_rate(g, r) {
+                errors.push(on("growth")(e));
+            }
+        }
+    }
     if input.next_flow.is_some() == input.last_flow.is_some() {
-        return Err(on("next_flow")(
+        errors.push(on("next_flow")(
             invalid("give exactly one of next_flow (CF_{N+1}) and last_flow (CF_N)")
                 .because(crate::error::Reason::Conflict)
                 .between(["/next_flow", "/last_flow"]),
         ));
     }
-    Ok(())
+    checked(errors)
 }
 
 /// TV_N = CF_{N+1} / (r − g).
 pub fn gordon(input: &GordonInput) -> Result<(GordonOutput, Explain)> {
-    check(input).map_err(super::FieldError::into_error)?;
+    check(input).map_err(super::into_error)?;
     let (r, g) = (input.rate, input.growth);
     let mut ex = Explain::new("tv.gordon", "TV_N = CF_{N+1} / (r − g)");
     ex.convention(NOT_DISCOUNTED);

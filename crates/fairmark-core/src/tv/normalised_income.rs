@@ -6,7 +6,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    check_below_rate, check_growth, check_growth_cap, domain, on, Checked, GrowthCapCheck,
+    check_below_rate, check_growth, check_growth_cap, checked, domain, on, Checked, GrowthCapCheck,
     TerminalBasis, NOT_DISCOUNTED,
 };
 use crate::error::Result;
@@ -78,22 +78,31 @@ pub struct NormalisedIncomeOutput {
 /// Validates the input; each error names its field.
 pub(crate) fn check(input: &NormalisedIncomeInput) -> Checked {
     let i = input.capitalisation_rate;
-    if i <= Decimal::ZERO {
-        return Err(on("capitalisation_rate")(domain(format!(
+    let mut errors = Vec::new();
+    let rate_valid = i > Decimal::ZERO;
+    if !rate_valid {
+        errors.push(on("capitalisation_rate")(domain(format!(
             "the capitalisation_rate must be greater than 0 (got {i})"
         ))));
     }
     let g = input.growth.unwrap_or_default();
-    check_growth(g, "growth").map_err(on("growth"))?;
-    check_below_rate(g, i).map_err(on("growth"))?;
-    Ok(())
+    match check_growth(g, "growth") {
+        Err(e) => errors.push(on("growth")(e)),
+        Ok(()) if rate_valid => {
+            if let Err(e) = check_below_rate(g, i) {
+                errors.push(on("growth")(e));
+            }
+        }
+        Ok(()) => {}
+    }
+    checked(errors)
 }
 
 /// TV_N = R / i, or R / (i − g) with a growth.
 pub fn normalised_income(
     input: &NormalisedIncomeInput,
 ) -> Result<(NormalisedIncomeOutput, Explain)> {
-    check(input).map_err(super::FieldError::into_error)?;
+    check(input).map_err(super::into_error)?;
     let (income, i) = (input.income, input.capitalisation_rate);
     let g = input.growth.unwrap_or_default();
     let mut ex = Explain::new(

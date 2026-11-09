@@ -5,7 +5,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    check_growth_cap, domain, invalid, on, Checked, GrowthCapCheck, TerminalBasis, NOT_DISCOUNTED,
+    check_growth_cap, checked, domain, invalid, on, Checked, GrowthCapCheck, TerminalBasis,
+    NOT_DISCOUNTED,
 };
 use crate::error::Result;
 use crate::explain::Explain;
@@ -134,38 +135,39 @@ pub struct ExitMultipleOutput {
 /// Validates the input; each error names its field.
 pub(crate) fn check(input: &ExitMultipleInput) -> Checked {
     let (m, x, metric) = (input.multiple, input.metric_value, input.metric);
+    let mut errors = Vec::new();
     if m <= Decimal::ZERO {
-        return Err(on("multiple")(domain(format!(
+        errors.push(on("multiple")(domain(format!(
             "the multiple must be greater than 0 (got {m})"
         ))));
     }
     if x <= Decimal::ZERO {
-        return Err(on("metric_value")(domain(format!(
+        errors.push(on("metric_value")(domain(format!(
             "the metric {} must be greater than 0 to carry a multiple (got {x})",
             metric.name()
         ))));
     }
     if input.rate.is_some() != input.next_flow.is_some() {
-        return Err(on("next_flow")(
+        errors.push(on("next_flow")(
             invalid("give both rate and next_flow, or neither")
                 .because(crate::error::Reason::Requires)
                 .between(["/next_flow", "/rate"]),
         ));
     }
     if input.next_flow.is_none() && input.growth_cap.is_some() {
-        return Err(on("growth_cap")(
+        errors.push(on("growth_cap")(
             invalid(
                 "growth_cap needs rate and next_flow: the cap is checked on the implied growth",
             )
             .because(crate::error::Reason::Requires),
         ));
     }
-    Ok(())
+    checked(errors)
 }
 
 /// TV_N = multiple × metric_N; implied growth g = r − CF_{N+1} / TV_N.
 pub fn exit_multiple(input: &ExitMultipleInput) -> Result<(ExitMultipleOutput, Explain)> {
-    check(input).map_err(super::FieldError::into_error)?;
+    check(input).map_err(super::into_error)?;
     let (m, x, metric) = (input.multiple, input.metric_value, input.metric);
     let pair = input.rate.zip(input.next_flow);
     let basis = metric.basis();

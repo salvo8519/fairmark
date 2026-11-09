@@ -137,8 +137,27 @@ impl FieldError {
     }
 }
 
-/// Validation result of a `tv.*` input.
-pub(crate) type Checked = std::result::Result<(), FieldError>;
+/// Validation result of a `tv.*` input: every input error found, in the order of the checks
+/// (ADR 0014 G5).
+pub(crate) type Checked = std::result::Result<(), Vec<FieldError>>;
+
+/// `Ok` when no error was found.
+pub(crate) fn checked(errors: Vec<FieldError>) -> Checked {
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
+}
+
+/// The error a standalone method reports: every error found, each named by its field.
+pub(crate) fn into_error(errors: Vec<FieldError>) -> FairmarkError {
+    let mut found = crate::error::Found::new();
+    for e in errors {
+        found.push(e.into_error());
+    }
+    found.into_error()
+}
 
 /// Attaches the field to an error.
 pub(crate) fn on(field: impl Into<String>) -> impl FnOnce(FairmarkError) -> FieldError {

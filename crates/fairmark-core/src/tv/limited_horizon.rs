@@ -6,7 +6,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    check_growth_cap, domain, on, rate_convention, Checked, GrowthCapCheck, NOT_DISCOUNTED,
+    check_growth_cap, checked, domain, on, rate_convention, Checked, GrowthCapCheck, NOT_DISCOUNTED,
 };
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
@@ -92,26 +92,27 @@ pub struct LimitedHorizonOutput {
 /// the annuity factor of `tvm.annuity` checks them, with the same errors.
 pub(crate) fn check(input: &LimitedHorizonInput) -> Checked {
     let (r, n) = (input.rate, input.periods);
+    let mut errors = Vec::new();
     if !(1..=MAX_PERIODS).contains(&n) {
-        return Err(on("periods")(domain(format!(
+        errors.push(on("periods")(domain(format!(
             "a finite horizon needs between 1 and {MAX_PERIODS} periods (got {n})"
         ))));
     }
     if r <= -Decimal::ONE {
-        return Err(on("rate")(FairmarkError::RateOutOfRange(r)));
+        errors.push(on("rate")(FairmarkError::RateOutOfRange(r)));
     }
     let g = input.growth.unwrap_or_default();
     if g <= -Decimal::ONE {
-        return Err(on("growth")(FairmarkError::InvalidInput(format!(
+        errors.push(on("growth")(FairmarkError::InvalidInput(format!(
             "growth must be greater than -1 (got {g})"
         ))));
     }
-    Ok(())
+    checked(errors)
 }
 
 /// TV_N = flow × annuity factor(r, g, n) + RV × (1 + r)^−n.
 pub fn limited_horizon(input: &LimitedHorizonInput) -> Result<(LimitedHorizonOutput, Explain)> {
-    check(input).map_err(super::FieldError::into_error)?;
+    check(input).map_err(super::into_error)?;
     let (cf, r, n) = (input.flow, input.rate, input.periods);
     // Rate and growth are validated by the annuity factor shared with `tvm.annuity` (R5:
     // reused). Only the factor is used: no value at N + n is computed, so long horizons do not

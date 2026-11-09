@@ -206,6 +206,13 @@ fn technique_id(t: &Technique) -> &'static str {
 /// technique under `/techniques/k/<id>`; the shared `rate` and `growth_cap` stay at the root;
 /// an error without a field is located at the technique.
 fn in_technique(e: FairmarkError, k: usize, t: &Technique) -> FairmarkError {
+    if matches!(e, FairmarkError::Several(_)) {
+        let mut found = crate::error::Found::new();
+        for one in e.into_errors() {
+            found.push(in_technique(one, k, t));
+        }
+        return found.into_error();
+    }
     let at = format!("/techniques/{k}/{}", technique_id(t));
     match e.details().pointer.as_deref() {
         None => e.located(at),
@@ -378,11 +385,18 @@ pub fn compare(input: &CompareInput) -> Result<(CompareOutput, Explain)> {
             growth cap",
         );
     }
-    let mut results = Vec::with_capacity(input.techniques.len());
+    // Every technique is run before any is reported: the errors of all of them are reported
+    // together (ADR 0014 G5), each located at its technique.
+    let mut found = crate::error::Found::new();
+    let mut runs = Vec::with_capacity(input.techniques.len());
     for (k, t) in input.techniques.iter().enumerate() {
+        let run = run_one(&t.0, r, cap, basis, k + 1).map_err(|e| in_technique(e, k, &t.0));
+        runs.extend(found.take(run));
+    }
+    found.finish()?;
+    let mut results = Vec::with_capacity(input.techniques.len());
+    for (k, (id, version, tv, output, inner)) in runs.into_iter().enumerate() {
         let position = k + 1;
-        let (id, version, tv, output, inner) =
-            run_one(&t.0, r, cap, basis, position).map_err(|e| in_technique(e, k, &t.0))?;
         for c in inner.conventions {
             if c != NOT_DISCOUNTED {
                 ex.convention(format!("[{position}] {id}: {c}"));

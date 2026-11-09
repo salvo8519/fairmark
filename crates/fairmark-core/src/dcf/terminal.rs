@@ -600,7 +600,7 @@ fn tv_input(technique: Technique<'_>, rate: Decimal, last_flow: Decimal) -> TvIn
 }
 
 /// The checks of the technique's own method (SPEC-0006), each naming its field.
-fn tv_check(input: &TvInput) -> std::result::Result<(), FieldError> {
+fn tv_check(input: &TvInput) -> std::result::Result<(), Vec<FieldError>> {
     match input {
         TvInput::Gordon(i) => tv::gordon::check(i),
         TvInput::HModel(i) => tv::h_model::check(i),
@@ -827,8 +827,13 @@ pub(crate) fn check<'a>(
     }
     // The terms, by the technique's own checks. CF_N is not known yet and no technique checks
     // its value: zero stands in for it.
-    tv_check(&tv_input(technique, rate, Decimal::ZERO))
-        .map_err(|e| at_pointer(e, technique, rate_field, converted_with))?;
+    tv_check(&tv_input(technique, rate, Decimal::ZERO)).map_err(|errors| {
+        let mut found = crate::error::Found::new();
+        for e in errors {
+            found.push(at_pointer(e, technique, rate_field, converted_with));
+        }
+        found.into_error()
+    })?;
     Ok(choice)
 }
 

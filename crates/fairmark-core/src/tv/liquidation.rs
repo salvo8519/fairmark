@@ -4,7 +4,9 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::{domain, invalid, on, Checked, Line, TerminalBasis, NOT_DISCOUNTED};
+use super::{
+    checked, domain, invalid, on, Checked, FieldError, Line, TerminalBasis, NOT_DISCOUNTED,
+};
 use crate::error::Result;
 use crate::explain::Explain;
 use crate::method::Method;
@@ -49,41 +51,41 @@ pub struct LiquidationOutput {
 }
 
 /// The lines of one group: a label and a value of zero or more.
-fn check_lines(field: &str, lines: &[Line]) -> Checked {
+fn check_lines(field: &str, lines: &[Line], errors: &mut Vec<FieldError>) {
     for (i, line) in lines.iter().enumerate() {
         if line.label.trim().is_empty() {
-            return Err(on(format!("{field}/{i}/label"))(
+            errors.push(on(format!("{field}/{i}/label"))(
                 invalid(format!("every line of {field} needs a label"))
                     .because(crate::error::Reason::Blank),
             ));
         }
         if line.value < Decimal::ZERO {
-            return Err(on(format!("{field}/{i}/value"))(domain(format!(
+            errors.push(on(format!("{field}/{i}/value"))(domain(format!(
                 "{field} '{}' cannot be negative (got {})",
                 line.label, line.value
             ))));
         }
     }
-    Ok(())
 }
 
-/// Validates the input; each error names its field.
+/// Validates the input; each error names its field, and every error is reported.
 pub(crate) fn check(input: &LiquidationInput) -> Checked {
+    let mut errors = Vec::new();
     if input.assets.is_empty() {
-        return Err(on("assets")(
+        errors.push(on("assets")(
             invalid("give at least one asset to liquidate").because(crate::error::Reason::Length),
         ));
     }
     let tax = input.tax_on_gains;
     if tax < Decimal::ZERO {
-        return Err(on("tax_on_gains")(domain(format!(
+        errors.push(on("tax_on_gains")(domain(format!(
             "the tax on gains cannot be negative (got {tax})"
         ))));
     }
-    check_lines("assets", &input.assets)?;
-    check_lines("liabilities", &input.liabilities)?;
-    check_lines("liquidation_costs", &input.liquidation_costs)?;
-    Ok(())
+    check_lines("assets", &input.assets, &mut errors);
+    check_lines("liabilities", &input.liabilities, &mut errors);
+    check_lines("liquidation_costs", &input.liquidation_costs, &mut errors);
+    checked(errors)
 }
 
 /// Adds the lines of one group, one explain step per line, then the total. The lines are
@@ -107,7 +109,7 @@ fn total(ex: &mut Explain, group: &str, lines: &[Line]) -> Result<Decimal> {
 
 /// Net liquidation value = Σ assets − Σ liabilities − Σ liquidation costs − tax on gains.
 pub fn liquidation(input: &LiquidationInput) -> Result<(LiquidationOutput, Explain)> {
-    check(input).map_err(super::FieldError::into_error)?;
+    check(input).map_err(super::into_error)?;
     let tax = input.tax_on_gains;
     let mut ex = Explain::new(
         "tv.liquidation",
