@@ -1472,12 +1472,21 @@ pub fn perpetuity(input: &PerpetuityInput) -> Result<(PerpetuityOutput, Explain)
     }
     found.finish()?;
     if g >= r {
-        return Err(FairmarkError::GrowthNotBelowTerminalRate {
+        let error = FairmarkError::GrowthNotBelowTerminalRate {
             growth_field: "/growth".to_owned(),
             growth: g,
             rate_field: "/rate".to_owned(),
             rate: r,
             converted_with: None,
+        };
+        // A growth left out is the default 0: the rate given is the field to correct.
+        return Err(match input.growth {
+            Some(_) => error,
+            None => error
+                .at("/rate", Reason::Range)
+                .between(["/rate"])
+                .expected(["a rate greater than the growth, 0 by default"])
+                .fix("raise `rate` above 0, or give the `growth` of the payments"),
         });
     }
     let mut ex = Explain::new("tvm.perpetuity", "PV = P / (r − g); × (1 + r) if due");
