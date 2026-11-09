@@ -12,7 +12,7 @@ Loop over unticked tasks in order (respect `[P]` only when working in parallel w
    and confirm they fail for the expected reason.
 3. Implement the minimum to make them pass, following AGENTS.md hard rules.
 4. `uv run just check` must pass.
-5. Run `code-reviewer`; if numbers changed, also `numerical-auditor`. Fix blocking findings.
+5. Do not review each task. Review the branch once, by tier, in `/pre-pr`.
 6. Tick the task in `tasks.md`, commit with a Conventional Commit message citing the spec:
    `feat(<scope>): <what> [SPEC-NNNN R<n>]`, signed off (`git commit -s`).
 

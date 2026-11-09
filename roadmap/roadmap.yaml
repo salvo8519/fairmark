@@ -68,6 +68,7 @@ milestones:
           - { issue: 208, title: "ADR on the sources policy (constitution VII)", status: open }
           - { issue: 211, title: "Unique task ids in tasks.md files, checked in CI", status: open }
           - { issue: 249, title: "Computability table in specs and partial-input audits", status: done }
+          - { issue: 297, title: "Smaller debug builds and a read-only workspace report", status: done }
       - title: "CI/CD"
         issue: 10
         labels: ["area:infra"]
@@ -290,6 +291,7 @@ milestones:
           - { issue: 288, title: "Documentation accuracy review", status: open }
           - { issue: 292, title: "Close the open Dependabot alerts in the dev tools", status: done }
           - { issue: 302, title: "Numerical edge cases in the time value of money found by the #298 audit", status: open }
+          - { issue: 304, title: "Proportional review and audit policy", status: done }
 
   - title: "M4 · Traditional European methods"
     gate: "Golden cases green for every method."
