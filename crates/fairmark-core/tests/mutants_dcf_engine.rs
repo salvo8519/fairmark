@@ -270,24 +270,35 @@ fn negative_flow_warning_only_for_negative_flows() {
 /// pointer to the line.
 #[test]
 fn financing_lines_refused_on_the_enterprise_basis_one_at_a_time() {
-    let cases: [(&[(&str, &str)], &[&str], &[&str]); 3] = [
-        (
-            &[("interest_expense", "10")],
-            &["interest_expense"],
-            &["net_borrowing"],
-        ),
-        (
-            &[("net_borrowing", "5")],
-            &["net_borrowing"],
-            &["interest_expense"],
-        ),
-        (
-            &[("interest_expense", "10"), ("net_borrowing", "5")],
-            &["interest_expense", "net_borrowing"],
-            &[],
-        ),
+    /// The financing fields given on the line, those the message must name, those it must not.
+    struct Case {
+        given: &'static [(&'static str, &'static str)],
+        named: &'static [&'static str],
+        absent: &'static [&'static str],
+    }
+    let cases = [
+        Case {
+            given: &[("interest_expense", "10")],
+            named: &["interest_expense"],
+            absent: &["net_borrowing"],
+        },
+        Case {
+            given: &[("net_borrowing", "5")],
+            named: &["net_borrowing"],
+            absent: &["interest_expense"],
+        },
+        Case {
+            given: &[("interest_expense", "10"), ("net_borrowing", "5")],
+            named: &["interest_expense", "net_borrowing"],
+            absent: &[],
+        },
     ];
-    for (given, named, absent) in cases {
+    for Case {
+        given,
+        named,
+        absent,
+    } in cases
+    {
         let mut line = line();
         for (field, value) in given {
             line[*field] = json!(value);
