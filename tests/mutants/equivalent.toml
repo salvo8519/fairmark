@@ -32,13 +32,5 @@ file = "crates/fairmark-core/src/dcf/engine.rs"
 function = "check_stages"
 mutation = "replace && with || in check_stages"
 line = 713
-reason = "check_stages runs only on inputs whose defaults are filled in (registry, fcff, fcfe; compute_with_defaults requires it), and apply_defaults gives a projection to every stage with exactly one of flows and lines, so a stage without projection has both or neither, where && and || agree"
-reviewer = "coordinator review pending"
-
-[[equivalent]]
-file = "crates/fairmark-core/src/tvm.rs"
-function = "level_factor_steps"
-mutation = "delete match arm \"Annuity factor (r = g)\" in level_factor_steps"
-line = 1422
-reason = "the arm is unreachable: both callers (future_value, loans instalment) take the rate-zero limit form before calling annuity_factor with g = 0, and annuity_factor writes the step \"Annuity factor (r = g)\" only when r = g, that is r = 0"
+reason = "check_stages runs only on inputs whose defaults are filled in (registry, fcff, fcfe; compute_with_defaults requires it), and apply_defaults gives a projection to every stage with exactly one of flows and lines, so a stage without projection has both or neither, where && and || agree; Method::compute_with_defaults is public and its documented precondition is that the defaults were applied, so a caller that skips apply_defaults is outside its contract"
 reviewer = "coordinator review pending"

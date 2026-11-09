@@ -82,6 +82,14 @@ No value returned by a method changes; golden cases and contract cases are uncha
    decimal range. The zero check that guarded the inversion is removed: a base of at least 1
    to a non-negative power is at least 1.
 
+### Dead code removed
+
+The arm `"Annuity factor (r = g)"` of `level_factor_steps` (`tvm.rs`, baseline line 1432) was
+unreachable: both callers, `tvm.future_value` and the loan methods, return the rate-zero limit
+form before calling `annuity_factor` with g = 0, and `annuity_factor` writes that label only when
+r = g, that is r = 0. The arm and its mutant are removed; the rerun table above still counts the
+mutant as equivalent.
+
 Rerun on the changed functions (`annuity_factor`, `annuity`, `inverse_pow`, both
 `discount_factor`): 25 mutants, 23 caught, 0 missed, 2 unviable.
 
@@ -89,9 +97,9 @@ Rerun on the changed functions (`annuity_factor`, `annuity`, `inverse_pow`, both
 
 67 mutants killed by new behaviour tests in `crates/fairmark-core/tests/` (`mutants_tvm.rs`,
 `mutants_dcf_engine.rs`, `mutants_balance_sheet.rs`; expected solver iterations and rates from
-`scripts/reference_solver.py`), 2 recorded as equivalent in `equivalent.toml` (pending review),
-and 4 removed with the code of the two defects fixed above, each covered by a test that failed
-before the fix. Each outcome was confirmed by rerunning cargo-mutants 27.1.0 on the functions
+`scripts/reference_solver.py`), 1 recorded as equivalent in `equivalent.toml` (pending review),
+4 removed with the code of the two defects fixed above, each covered by a test that failed
+before the fix, and 1 removed with dead code (below). Each outcome was confirmed by rerunning cargo-mutants 27.1.0 on the functions
 concerned. These rows can be removed once the pull request is merged.
 
 | Category | Location | Function | Mutation | Status |
@@ -108,7 +116,6 @@ concerned. These rows can be removed once the pull request is merged.
 | A | `tvm.rs:1420` | `level_factor_steps` | `replace level_factor_steps -> Vec<Step> with vec![]` | Killed: `mutants_tvm.rs::future_value_reports_the_level_annuity_factor` |
 | A | `tvm.rs:1424` | `level_factor_steps` | `delete match arm "Annuity factor" in level_factor_steps` | Killed: `mutants_tvm.rs::future_value_reports_the_level_annuity_factor` |
 | A | `tvm.rs:1428` | `level_factor_steps` | `delete match arm "Annuity factor (r close to g, direct sum)" in level_factor_steps` | Killed: `mutants_tvm.rs::future_value_reports_the_level_annuity_factor` |
-| A | `tvm.rs:1432` | `level_factor_steps` | `delete match arm "Annuity factor (r = g)" in level_factor_steps` | Equivalent (`equivalent.toml`) |
 | B | `rates.rs:171` | `discount_factor_derivative` | `replace discount_factor_derivative -> Result<Decimal> with Ok(Default::default())` | Killed: `mutants_tvm.rs::xirr_documented_example_converges_by_newton_in_six_iterations` |
 | B | `rates.rs:174` | `discount_factor_derivative` | `delete - in discount_factor_derivative` | Killed: `mutants_tvm.rs::xirr_monthly_compounding_converges_by_newton_in_six_iterations` |
 | B | `rates.rs:175` | `discount_factor_derivative` | `delete - in discount_factor_derivative` | Killed: `mutants_tvm.rs::xirr_continuous_compounding_converges_by_newton_in_six_iterations` |
@@ -129,9 +136,9 @@ concerned. These rows can be removed once the pull request is merged.
 | B | `tvm.rs:501` | `newton` | `replace > with < in newton` | Killed: `mutants_tvm.rs::irr_documented_example_converges_by_newton_in_five_iterations` |
 | B | `tvm.rs:501` | `newton` | `replace > with == in newton` | Killed: `mutants_tvm.rs::irr_newton_result_above_the_interval_falls_back_to_bisection` |
 | B | `tvm.rs:501` | `newton` | `replace > with >= in newton` | Killed: `mutants_tvm.rs::irr_newton_result_on_the_upper_end_of_the_interval_is_accepted` |
-| B | `tvm.rs:501` | `newton` | `replace match guard next < lo |  | next > hi with false in newton` | Killed: `mutants_tvm.rs::irr_newton_result_below_the_interval_falls_back_to_bisection` |
-| B | `tvm.rs:501` | `newton` | `replace match guard next < lo |  | next > hi with true in newton` | Killed: `mutants_tvm.rs::irr_documented_example_converges_by_newton_in_five_iterations` |
-| B | `tvm.rs:501` | `newton` | `replace |  | with && in newton` | Killed: `mutants_tvm.rs::irr_newton_result_below_the_interval_falls_back_to_bisection` |
+| B | `tvm.rs:501` | `newton` | `replace match guard next < lo \|\| next > hi with false in newton` | Killed: `mutants_tvm.rs::irr_newton_result_below_the_interval_falls_back_to_bisection` |
+| B | `tvm.rs:501` | `newton` | `replace match guard next < lo \|\| next > hi with true in newton` | Killed: `mutants_tvm.rs::irr_documented_example_converges_by_newton_in_five_iterations` |
+| B | `tvm.rs:501` | `newton` | `replace \|\| with && in newton` | Killed: `mutants_tvm.rs::irr_newton_result_below_the_interval_falls_back_to_bisection` |
 | B | `tvm.rs:811` | `dated_npv_derivative` | `replace dated_npv_derivative -> Result<Decimal> with Ok(Default::default())` | Killed: `mutants_tvm.rs::xirr_documented_example_converges_by_newton_in_six_iterations` |
 | C | `dcf/engine.rs:695` | `check_stages` | `replace > with >= in check_stages` | Killed: `mutants_dcf_engine.rs::three_stages_are_accepted` |
 | C | `dcf/engine.rs:862` | `check_stages` | `replace > with >= in check_stages` | Killed: `mutants_dcf_engine.rs::horizon_of_ten_thousand_periods_is_accepted` |
@@ -140,7 +147,7 @@ concerned. These rows can be removed once the pull request is merged.
 | C | `tvm.rs:1246` | `factor_with` | `replace < with <= in factor_with` | Killed: `mutants_tvm.rs::annuity_closed_form_applies_at_a_rate_gap_of_exactly_one_billionth` |
 | C | `tvm.rs:1483` | `future_value` | `replace > with >= in future_value` | Killed: `mutants_tvm.rs::future_value_accepts_one_to_ten_thousand_periods` |
 | D | `dcf/engine.rs:509` | `apply_defaults` | `replace == with != in apply_defaults` | Killed: `mutants_dcf_engine.rs::default_periods_reason_names_flows_or_lines` |
-| D | `dcf/engine.rs:713` | `check_stages` | `replace && with |  | in check_stages` | Equivalent (`equivalent.toml`) |
+| D | `dcf/engine.rs:713` | `check_stages` | `replace && with \|\| in check_stages` | Equivalent (`equivalent.toml`) |
 | D | `dcf/engine.rs:733` | `check_stages` | `delete match arm (None, None) in check_stages` | Killed: `mutants_dcf_engine.rs::given_stage_without_flows_or_lines_names_both_fields` |
 | D | `dcf/engine.rs:752` | `check_stages` | `replace match guard s.lines.is_some() with true in check_stages` | Killed: `mutants_dcf_engine.rs::empty_flows_or_lines_name_the_empty_field` |
 | D | `dcf/engine.rs:756` | `check_stages` | `delete match arm Projection::Given in check_stages` | Killed: `mutants_dcf_engine.rs::empty_flows_or_lines_name_the_empty_field` |
@@ -148,23 +155,23 @@ concerned. These rows can be removed once the pull request is merged.
 | D | `dcf/engine.rs:1022` | `resolve_inflation` | `replace match guard uses_terminal_rate with true in resolve_inflation` | Killed: `mutants_dcf_engine.rs::per_period_inflation_without_terminal_rate_needs_no_terminal_inflation` |
 | D | `dcf/engine.rs:1125` | `resolve_terms` | `replace match guard i.single with true in resolve_terms` | Killed: `mutants_dcf_engine.rs::per_period_inflation_without_terminal_rate_needs_no_terminal_inflation` |
 | D | `dcf/engine.rs:1397` | `project` | `replace match guard s.built_up.is_some() with true in project` | Killed: `mutants_dcf_engine.rs::given_flows_stage_convention` |
-| D | `dcf/engine.rs:1448` | `project` | `replace && with |  | in project` | Killed: `mutants_dcf_engine.rs::negative_flow_warning_only_for_negative_flows` |
-| D | `dcf/engine.rs:1497` | `build_up_stages` | `replace |  | with && in build_up_stages` | Killed: `mutants_dcf_engine.rs::financing_lines_refused_on_the_enterprise_basis_one_at_a_time` |
+| D | `dcf/engine.rs:1448` | `project` | `replace && with \|\| in project` | Killed: `mutants_dcf_engine.rs::negative_flow_warning_only_for_negative_flows` |
+| D | `dcf/engine.rs:1497` | `build_up_stages` | `replace \|\| with && in build_up_stages` | Killed: `mutants_dcf_engine.rs::financing_lines_refused_on_the_enterprise_basis_one_at_a_time` |
 | D | `dcf/engine.rs:1670` | `run` | `replace + with * in run` | Killed: `mutants_dcf_engine.rs::periods_are_numbered_from_one_and_discount_factors_chain` |
 | D | `dcf/engine.rs:1671` | `run` | `replace - with / in run` | Killed: `mutants_dcf_engine.rs::periods_are_numbered_from_one_and_discount_factors_chain` |
 | D | `statements/balance_sheet.rs:529` | `statutory` | `delete ! in statutory` | Killed: `mutants_balance_sheet.rs::stated_treatments_are_assignments_of_analyst_origin` |
 | D | `statements/balance_sheet.rs:530` | `statutory` | `delete ! in statutory` | Killed: `mutants_balance_sheet.rs::stated_treatments_are_assignments_of_analyst_origin` |
 | D | `statements/balance_sheet.rs:572` | `statutory` | `delete ! in statutory` | Killed: `mutants_balance_sheet.rs::stated_treatments_are_assignments_of_analyst_origin` |
-| D | `statements/balance_sheet.rs:869` | `statutory` | `replace && with |  | in statutory` | Killed: `mutants_balance_sheet.rs::lease_prepayment_without_a_source_is_noted_and_not_computed` |
+| D | `statements/balance_sheet.rs:869` | `statutory` | `replace && with \|\| in statutory` | Killed: `mutants_balance_sheet.rs::lease_prepayment_without_a_source_is_noted_and_not_computed` |
 | D | `statements/balance_sheet.rs:940` | `statutory` | `delete ! in statutory` | Killed: `mutants_balance_sheet.rs::lease_prepayment_without_a_source_is_noted_and_not_computed` |
-| D | `statements/balance_sheet.rs:1358` | `statutory` | `replace |  | with && in statutory` | Killed: `mutants_balance_sheet.rs::gross_debt_and_cash_steps_are_written_once` |
+| D | `statements/balance_sheet.rs:1358` | `statutory` | `replace \|\| with && in statutory` | Killed: `mutants_balance_sheet.rs::gross_debt_and_cash_steps_are_written_once` |
 | D | `tvm.rs:623` | `present_value` | `delete match arm (None, Some(curve)) in present_value` | Killed: `mutants_tvm.rs::present_value_period_rates_of_the_wrong_length_name_both_counts` |
 | D | `tvm.rs:658` | `present_value` | `replace - with / in present_value` | Killed: `mutants_tvm.rs::present_value_explain_chains_the_discount_factors` |
-| D | `tvm.rs:1274` | `factor_with` | `replace && with |  | in factor_with` | Killed: `mutants_tvm.rs::annuity_long_horizon_is_an_overflow` |
+| D | `tvm.rs:1274` | `factor_with` | `replace && with \|\| in factor_with` | Killed: `mutants_tvm.rs::annuity_long_horizon_is_an_overflow` |
 | D | `tvm.rs:1274` | `factor_with` | `replace < with > in factor_with` | Killed: `mutants_tvm.rs::limited_horizon_growth_above_rate_overflows_at_a_long_horizon` |
 | D | `tvm.rs:1274` | `factor_with` | `replace match guard underflow_to_zero && ratio < one with true in factor_with` | Killed: `mutants_tvm.rs::limited_horizon_growth_above_rate_overflows_at_a_long_horizon` |
 | D | `tvm.rs:1483` | `future_value` | `replace > with == in future_value` | Killed: `mutants_tvm.rs::future_value_accepts_one_to_ten_thousand_periods` |
-| D | `tvm.rs:1483` | `future_value` | `replace |  | with && in future_value` | Killed: `mutants_tvm.rs::future_value_accepts_one_to_ten_thousand_periods` |
+| D | `tvm.rs:1483` | `future_value` | `replace \|\| with && in future_value` | Killed: `mutants_tvm.rs::future_value_accepts_one_to_ten_thousand_periods` |
 | C | `tvm.rs:1274` | `factor_with` | `replace < with <= in factor_with` | Fixed (defect 1): dead branch removed; `mutants_tvm.rs::limited_horizon_reports_the_power_taken_as_zero` |
 | D | `rates.rs:137` | `inverse_pow` | `replace match guard !g.is_zero() with true in inverse_pow` | Fixed (defect 2): branch removed; `mutants_tvm.rs::discount_factor_at_a_negative_time_is_the_compounding_factor` |
 | D | `tvm.rs:1274` | `factor_with` | `replace < with == in factor_with` | Fixed (defect 1): dead branch removed; `mutants_tvm.rs::limited_horizon_reports_the_power_taken_as_zero` |
