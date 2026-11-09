@@ -49,7 +49,8 @@ Names follow [the conventions](docs/en/project/conventions.md) and are checked a
 - commits and pull request titles `<type>(<scope>): <subject>` (Conventional Commits), signed off;
 - the pull request body links its issue with `Closes #42`.
 
-Install the hooks once: `uv run pre-commit install` (checks formatting and commit messages).
+Install the hooks once: `uv run pre-commit install` (checks formatting and commit messages). The
+hooks need Python 3.11 or later in the development environment.
 Check a title before opening a pull request:
 `uv run just conventions "feat(dcf): add mid-year discounting" feat/42-mid-year-discounting "Closes #42"`.
 

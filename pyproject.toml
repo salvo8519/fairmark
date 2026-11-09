@@ -39,7 +39,9 @@ dev = [
   "maturin>=1.9,<2",
   "rust-just>=1.40",
   "typos>=1.30",
-  "pre-commit>=4",
+  # pre-commit only on Python 3.11 or later: on 3.10 it resolves filelock 4.1.0, which has open
+  # security advisories with no fix for 3.10 (#292). Contributors use 3.11 or later for hooks.
+  "pre-commit>=4; python_version >= '3.11'",
   "git-cliff>=2.6",
   "tomli-w>=1.0",
   "towncrier>=24.8",
