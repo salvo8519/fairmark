@@ -1305,7 +1305,9 @@ fn terms_mismatch(input: &EngineInput<'_>) -> FairmarkError {
         given.label(),
         flows.label()
     ))
-    .at("/cash_flow_terms", Reason::Conflict)
+    // Terms that differ are given without the inflation they need: `requires`, and
+    // `/inflation`, absent by definition, is the field to give (review round 6).
+    .at("/cash_flow_terms", Reason::Requires)
     .between(["/cash_flow_terms", "/discount_rate_terms", "/inflation"])
     // No inflation in any form: the per-period form is read too.
     .reads(["/inflation_per_period", "/terminal_inflation"])

@@ -687,7 +687,23 @@ fn debt_form_error(input: &CostOfDebtInput) -> FairmarkError {
                 Reason::Missing
             },
         )
-        .between(["/pre_tax_cost_of_debt", "/risk_free_rate", "/credit_spread"])
+        .between(debt_form_fields(input))
+        // Whether the error is raised depends on all three, named or not.
+        .reads(["/pre_tax_cost_of_debt", "/risk_free_rate", "/credit_spread"])
+}
+
+/// The fields a debt form error names: every field of the two forms when the pre-tax cost of
+/// debt is missing (any of them is to be given), only the fields given when they conflict.
+fn debt_form_fields(input: &CostOfDebtInput) -> Vec<&'static str> {
+    let mut fields = vec!["/pre_tax_cost_of_debt"];
+    let missing = input.pre_tax_cost_of_debt.is_none();
+    if missing || input.risk_free_rate.is_some() {
+        fields.push("/risk_free_rate");
+    }
+    if missing || input.credit_spread.is_some() {
+        fields.push("/credit_spread");
+    }
+    fields
 }
 
 /// Every input error of `cost_of_debt`, without computing (ADR 0014 G5).

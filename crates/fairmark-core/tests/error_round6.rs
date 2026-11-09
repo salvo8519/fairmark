@@ -417,3 +417,114 @@ fn an_analysis_variable_that_names_no_input_is_still_refused() {
     assert_eq!(r["code"], "FM-E015", "{r:#}");
     assert_eq!(entries(&r)[0].0, "/rows/variable", "{r:#}");
 }
+
+// ------------------------------------------------- every named field can be acted on
+
+/// The pointers of the first entry of a report.
+fn named(r: &Value) -> Vec<String> {
+    r["pointers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p.as_str().unwrap().to_owned())
+        .collect()
+}
+
+#[test]
+fn neither_flow_of_a_gordon_is_missing() {
+    let r = report("tv.gordon", &json!({"rate": "0.09", "growth": "0.025"}));
+    assert_eq!(entries(&r), vec![entry("/next_flow", "missing")], "{r:#}");
+    assert_eq!(named(&r), vec!["/next_flow", "/last_flow"], "{r:#}");
+    // Both given: a conflict between two fields the input holds.
+    let r = report(
+        "tv.gordon",
+        &json!({"rate": "0.09", "growth": "0.025", "next_flow": "1", "last_flow": "1"}),
+    );
+    assert_eq!(entries(&r), vec![entry("/next_flow", "conflict")], "{r:#}");
+    assert_eq!(named(&r), vec!["/next_flow", "/last_flow"], "{r:#}");
+}
+
+#[test]
+fn neither_flow_of_a_compared_gordon_is_missing() {
+    let r = report(
+        "tv.compare",
+        &json!({"rate": "0.09", "techniques": [{"tv.gordon": {"growth": "0.025"}}]}),
+    );
+    assert!(
+        has(&r, "/techniques/0/tv.gordon/next_flow", "missing"),
+        "{r:#}"
+    );
+}
+
+#[test]
+fn a_debt_form_conflict_names_only_the_fields_given() {
+    let r = report(
+        "coc.cost_of_debt",
+        &json!({"pre_tax_cost_of_debt": "0.05", "credit_spread": "0.02", "tax_rate": "0.24"}),
+    );
+    assert_eq!(
+        entries(&r),
+        vec![entry("/pre_tax_cost_of_debt", "conflict")],
+        "{r:#}"
+    );
+    assert_eq!(
+        named(&r),
+        vec!["/pre_tax_cost_of_debt", "/credit_spread"],
+        "{r:#}"
+    );
+    // A missing form names every field the user can give.
+    let r = report(
+        "coc.cost_of_debt",
+        &json!({"credit_spread": "0.02", "tax_rate": "0.24"}),
+    );
+    assert_eq!(
+        entries(&r),
+        vec![entry("/pre_tax_cost_of_debt", "missing")],
+        "{r:#}"
+    );
+    assert_eq!(
+        named(&r),
+        vec!["/pre_tax_cost_of_debt", "/risk_free_rate", "/credit_spread"],
+        "{r:#}"
+    );
+}
+
+#[test]
+fn a_default_compounding_is_never_named() {
+    let mut input = golden_input("tvm.xnpv/ecma-376-example.yaml");
+    input["rate"] = json!("-1");
+    let r = report("tvm.xnpv", &input);
+    assert_eq!(entries(&r), vec![entry("/rate", "range")], "{r:#}");
+    assert!(named(&r).is_empty(), "{r:#}");
+    // Given, the compounding is a side of the rule.
+    input["compounding"] = json!("annual");
+    let r = report("tvm.xnpv", &input);
+    assert_eq!(named(&r), vec!["/rate", "/compounding"], "{r:#}");
+}
+
+#[test]
+fn a_default_compounding_is_never_named_for_the_guess() {
+    let mut input = golden_input("tvm.xirr/ecma-376-example.yaml");
+    input["guess"] = json!("-1");
+    let r = report("tvm.xirr", &input);
+    assert_eq!(entries(&r), vec![entry("/guess", "range")], "{r:#}");
+    assert!(named(&r).is_empty(), "{r:#}");
+    input["compounding"] = json!("annual");
+    let r = report("tvm.xirr", &input);
+    assert_eq!(named(&r), vec!["/guess", "/compounding"], "{r:#}");
+}
+
+#[test]
+fn terms_without_inflation_require_the_inflation() {
+    let r = report(
+        "dcf.fcff",
+        &golden_input("dcf.fcff/error-nominal-flows-real-rates.yaml"),
+    );
+    assert_eq!(r["code"], "FM-E024", "{r:#}");
+    assert_eq!(r["reason"], "requires", "{r:#}");
+    assert_eq!(
+        named(&r),
+        vec!["/cash_flow_terms", "/discount_rate_terms", "/inflation"],
+        "{r:#}"
+    );
+}

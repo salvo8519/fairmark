@@ -8,7 +8,7 @@ use super::{
     check_below_rate, check_growth, check_growth_cap, checked, invalid, on, rate_convention,
     Checked, GrowthCapCheck, NOT_DISCOUNTED,
 };
-use crate::error::Result;
+use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num::{div, mul, one_plus, sub};
@@ -100,13 +100,21 @@ pub(crate) fn check(input: &GordonInput) -> Checked {
         }
     }
     if input.next_flow.is_some() == input.last_flow.is_some() {
-        errors.push(on("next_flow")(
-            invalid("give exactly one of next_flow (CF_{N+1}) and last_flow (CF_N)")
-                .because(crate::error::Reason::Conflict)
-                .between(["/next_flow", "/last_flow"]),
-        ));
+        errors.push(on("next_flow")(flow_form_error(input.next_flow.is_some())));
     }
     checked(errors)
+}
+
+/// `FM-E001`: not exactly one of `next_flow` and `last_flow`; both given is a conflict, neither
+/// a missing field (one of the two is to be given).
+fn flow_form_error(both_given: bool) -> FairmarkError {
+    invalid("give exactly one of next_flow (CF_{N+1}) and last_flow (CF_N)")
+        .because(if both_given {
+            crate::error::Reason::Conflict
+        } else {
+            crate::error::Reason::Missing
+        })
+        .between(["/next_flow", "/last_flow"])
 }
 
 /// TV_N = CF_{N+1} / (r − g).
@@ -126,13 +134,7 @@ pub fn gordon(input: &GordonInput) -> Result<(GordonOutput, Explain)> {
             ex.step("Flow at N + 1", format!("{last} × (1 + {g})"), next);
             (next, FlowBasis::LastFlowGrown)
         }
-        _ => {
-            return Err(
-                invalid("give exactly one of next_flow (CF_{N+1}) and last_flow (CF_N)")
-                    .because(crate::error::Reason::Conflict)
-                    .between(["/next_flow", "/last_flow"]),
-            )
-        }
+        (next, _) => return Err(flow_form_error(next.is_some())),
     };
     rate_convention(&mut ex, r);
     let tv = div(next, sub(r, g)?)?;

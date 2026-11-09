@@ -1140,4 +1140,113 @@ mod tests {
             failures.join("\n")
         );
     }
+
+    /// Review round 6: every field an error names is one the user can act on. Its pointer and
+    /// pointers are declared reads of the error (so the reading can skip it beside a refused
+    /// field), and each of them either exists in the input the user sent or is a field the
+    /// user must give: an entry whose reason is `missing` or `requires`, or an item a
+    /// reconciliation took as zero (`reconcile`, `FM-E026`; the alternatives of
+    /// `FM-E027`, in `missing_any_of`, are fields to give by definition). No error names a field that
+    /// only a value put in place of a refused one, or a default, brought into the input.
+    ///
+    /// On golden inputs of every method (analyses included), each leaf, in turn, is given
+    /// every candidate value of its kind or left out. `FAIRMARK_ACTIONABLE_FILES` (golden files per
+    /// method, default 4) and `FAIRMARK_ACTIONABLE_LEAVES` (leaves per file, default 16)
+    /// widen the search.
+    #[test]
+    fn every_pointer_an_error_names_is_declared_and_actionable() {
+        let setting = |name: &str, default: usize| -> usize {
+            std::env::var(name)
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(default)
+        };
+        let per_method = setting("FAIRMARK_ACTIONABLE_FILES", 4);
+        let leaves_per_file = setting("FAIRMARK_ACTIONABLE_LEAVES", 16);
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
+        let mut failures: Vec<String> = Vec::new();
+        let mut checked = 0u32;
+        let mut dirs: Vec<_> = std::fs::read_dir(&root)
+            .unwrap()
+            .map(|d| d.unwrap().path())
+            .collect();
+        dirs.sort();
+        for dir in dirs {
+            let mut files: Vec<_> = std::fs::read_dir(&dir)
+                .unwrap()
+                .map(|f| f.unwrap().path())
+                .collect();
+            files.sort();
+            for file in files.into_iter().take(per_method) {
+                let case: Value =
+                    serde_norway::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+                let (Some(id), Some(input)) = (case["method"].as_str(), case.get("input")) else {
+                    continue;
+                };
+                let Ok(schema) = input_schema(id) else {
+                    continue;
+                };
+                let name = file.file_name().unwrap().to_string_lossy().into_owned();
+                let mut closed = Vec::new();
+                closed_values(&schema, &mut closed);
+                let mut all = Vec::new();
+                leaves(input, String::new(), &mut all);
+                let stride = (all.len() / leaves_per_file.max(1)).max(1);
+                let mut variants = vec![input.clone()];
+                for (f, fv) in all.iter().step_by(stride) {
+                    for c in candidates(fv, &closed) {
+                        variants.push(with(input, f, &c));
+                    }
+                }
+                for x in variants {
+                    let Err(e) = run(id, &x.to_string()) else {
+                        continue;
+                    };
+                    checked += 1;
+                    // Declared reads: the pointer and pointers of every entry.
+                    for inner in e.clone().into_errors() {
+                        let d = inner.details();
+                        let declared = d.declared();
+                        for p in d.pointer.iter().chain(&d.pointers) {
+                            if !declared.contains(p) {
+                                failures.push(format!("{name} {id}: {p} not declared"));
+                            }
+                        }
+                    }
+                    // Actionable: each named field exists or is one the user must give.
+                    let report = serde_json::to_value(e.to_report()).unwrap();
+                    for entry in report["errors"].as_array().unwrap() {
+                        let reason = entry["reason"].as_str().unwrap_or("");
+                        // A reconciliation also names an item it took as zero, which the
+                        // user gives when it is not zero (`FM-E026`).
+                        let to_give = matches!(reason, "missing" | "requires" | "reconcile");
+                        let named = entry["pointer"].as_str().into_iter().chain(
+                            entry["pointers"]
+                                .as_array()
+                                .unwrap()
+                                .iter()
+                                .filter_map(Value::as_str),
+                        );
+                        for p in named {
+                            if x.pointer(p).is_none() && !to_give {
+                                failures.push(format!(
+                                    "{name} {id}: {} {reason} names {p}, absent from the input",
+                                    entry["code"]
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        failures.sort();
+        failures.dedup();
+        assert!(checked > 1000, "{checked}");
+        assert!(
+            failures.is_empty(),
+            "{}\n{}",
+            failures.len(),
+            failures.join("\n")
+        );
+    }
 }

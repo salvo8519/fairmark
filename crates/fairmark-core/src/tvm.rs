@@ -960,6 +960,16 @@ fn dated_conventions(
     (day_count, compounding)
 }
 
+/// An error on `field` whose domain depends on the compounding: a given compounding is the
+/// other side of the rule (`pointers`); the default (annual) is read, never named, since the
+/// input holds no such field (ADR 0014 G5, review round 6).
+fn with_compounding(e: FairmarkError, field: &str, given: Option<Compounding>) -> FairmarkError {
+    match given {
+        Some(_) => e.between([field, "/compounding"]),
+        None => e.reads(["/compounding"]),
+    }
+}
+
 /// Every input error of `xnpv`, without computing (ADR 0014 G5): the dates, then the rate.
 fn check_xnpv(input: &XnpvInput) -> Result<()> {
     let mut ex = Explain::new("tvm.xnpv", "");
@@ -971,8 +981,12 @@ fn check_xnpv(input: &XnpvInput) -> Result<()> {
             .map(|_| ())
             .map_err(|e| {
                 // The domain of the rate depends on its compounding (a continuous rate may be
-                // -2), given or annual by default.
-                rate_field("/rate", c.per_year())(e).between(["/rate", "/compounding"])
+                // -2), given or annual by default; a default is read, never named.
+                with_compounding(
+                    rate_field("/rate", c.per_year())(e),
+                    "/rate",
+                    input.compounding,
+                )
             }),
     );
     found.finish()
@@ -1094,8 +1108,10 @@ fn check_xirr(input: &XirrInput) -> Result<()> {
     }
     let start = input.guess.unwrap_or(Decimal::new(10, 2));
     // The domain of the guess depends on the compounding of the result.
-    found
-        .check(check_guess(start, c.per_year()).map_err(|e| e.between(["/guess", "/compounding"])));
+    found.check(
+        check_guess(start, c.per_year())
+            .map_err(|e| with_compounding(e, "/guess", input.compounding)),
+    );
     found.finish()
 }
 
