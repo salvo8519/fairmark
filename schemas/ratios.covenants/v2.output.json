@@ -28,7 +28,7 @@
               "type": "null"
             }
           ],
-          "description": "Why the covenant was not tested: `denominator_not_positive` or `overflow`; null when\nthe outcome is `passed` or `breached`."
+          "description": "Why the covenant was not tested: `denominator_not_positive`, `overflow` or\n`missing_input`; null when the outcome is `passed` or `breached`."
         },
         "not_tested_reason": {
           "description": "Why the covenant was not tested, in words, for example \"denominator is zero:\nconsolidated EBITDA for the 12 months ending on the test date\"; null when the outcome is\n`passed` or `breached`.",
@@ -133,6 +133,41 @@
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
       "type": "string"
     },
+    "NotComputedEntry": {
+      "description": "An output not computed, with the pointers of its missing inputs.",
+      "properties": {
+        "missing": {
+          "description": "JSON pointers of the inputs it needs and lacks, sorted.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "output": {
+          "description": "JSON pointer of the output in the result value.",
+          "type": "string"
+        },
+        "permitted": {
+          "description": "For a missing treatment, its permitted destinations; omitted otherwise.",
+          "items": {
+            "$ref": "#/$defs/Permitted"
+          },
+          "type": "array"
+        },
+        "reason": {
+          "description": "Why the output is not computed, one sentence; omitted when the method gives none.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "output",
+        "missing"
+      ],
+      "type": "object"
+    },
     "NotTestedCode": {
       "description": "Why a covenant was not tested, machine-readable.",
       "oneOf": [
@@ -144,6 +179,11 @@
         {
           "const": "overflow",
           "description": "The tested value, the rounded value or the headroom exceeds the range of the decimal\ntype.",
+          "type": "string"
+        },
+        {
+          "const": "missing_input",
+          "description": "An amount the test needs is not given: the denominator, or the numerator with a\npositive denominator. The outputs are listed in `not_computed`.",
           "type": "string"
         }
       ]
@@ -208,18 +248,39 @@
         }
       ]
     },
+    "Permitted": {
+      "description": "A missing treatment and the destinations it permits (SPEC-0005 R8).",
+      "properties": {
+        "destinations": {
+          "description": "Its permitted values.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "treatment": {
+          "description": "JSON pointer of the treatment to give.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "treatment",
+        "destinations"
+      ],
+      "type": "object"
+    },
     "RatioValue": {
-      "description": "A ratio, or the reason it is not defined (SPEC-0007 R3).",
+      "description": "A ratio, or the reason it is not defined (SPEC-0007 R3), or not computed (R7).",
       "properties": {
         "not_defined": {
-          "description": "Why the ratio is not defined, for example \"equity is negative (-100)\"; null when it is\ndefined.",
+          "description": "Why the ratio is not defined, for example \"equity is negative (-100)\"; null when it is\ndefined, and when it is not computed for a missing input (listed in `not_computed`).",
           "type": [
             "string",
             "null"
           ]
         },
         "value": {
-          "description": "The ratio, in the unit stated by the field that holds it (decimal fraction, multiple or\ndays); null when the ratio is not defined.",
+          "description": "The ratio, in the unit stated by the field that holds it (decimal fraction, multiple or\ndays); null when the ratio is not defined or not computed.",
           "pattern": "^-?\\d+(\\.\\d+)?$",
           "type": [
             "string",
@@ -234,7 +295,7 @@
       "type": "object"
     }
   },
-  "$id": "urn:fairmark:schema:ratios.covenants:v1:output",
+  "$id": "urn:fairmark:schema:ratios.covenants:v2:output",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Output of `ratios.covenants`.",
   "properties": {
@@ -245,6 +306,13 @@
       },
       "type": "array"
     },
+    "not_computed": {
+      "description": "Outputs not computed because an amount is missing, in the order of the covenants, each\nwith the JSON pointers of the amounts it lacks (SPEC-0007 R11).",
+      "items": {
+        "$ref": "#/$defs/NotComputedEntry"
+      },
+      "type": "array"
+    },
     "summary": {
       "$ref": "#/$defs/CovenantSummary",
       "description": "Count of each outcome."
@@ -252,10 +320,11 @@
   },
   "required": [
     "covenants",
-    "summary"
+    "summary",
+    "not_computed"
   ],
   "title": "CovenantsOutput",
   "type": "object",
   "x-fairmark-method": "ratios.covenants",
-  "x-fairmark-method-version": "1"
+  "x-fairmark-method-version": "2"
 }

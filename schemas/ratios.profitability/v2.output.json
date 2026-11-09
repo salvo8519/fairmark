@@ -1,17 +1,73 @@
 {
   "$defs": {
+    "NotComputedEntry": {
+      "description": "An output not computed, with the pointers of its missing inputs.",
+      "properties": {
+        "missing": {
+          "description": "JSON pointers of the inputs it needs and lacks, sorted.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "output": {
+          "description": "JSON pointer of the output in the result value.",
+          "type": "string"
+        },
+        "permitted": {
+          "description": "For a missing treatment, its permitted destinations; omitted otherwise.",
+          "items": {
+            "$ref": "#/$defs/Permitted"
+          },
+          "type": "array"
+        },
+        "reason": {
+          "description": "Why the output is not computed, one sentence; omitted when the method gives none.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "output",
+        "missing"
+      ],
+      "type": "object"
+    },
+    "Permitted": {
+      "description": "A missing treatment and the destinations it permits (SPEC-0005 R8).",
+      "properties": {
+        "destinations": {
+          "description": "Its permitted values.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "treatment": {
+          "description": "JSON pointer of the treatment to give.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "treatment",
+        "destinations"
+      ],
+      "type": "object"
+    },
     "RatioValue": {
-      "description": "A ratio, or the reason it is not defined (SPEC-0007 R3).",
+      "description": "A ratio, or the reason it is not defined (SPEC-0007 R3), or not computed (R7).",
       "properties": {
         "not_defined": {
-          "description": "Why the ratio is not defined, for example \"equity is negative (-100)\"; null when it is\ndefined.",
+          "description": "Why the ratio is not defined, for example \"equity is negative (-100)\"; null when it is\ndefined, and when it is not computed for a missing input (listed in `not_computed`).",
           "type": [
             "string",
             "null"
           ]
         },
         "value": {
-          "description": "The ratio, in the unit stated by the field that holds it (decimal fraction, multiple or\ndays); null when the ratio is not defined.",
+          "description": "The ratio, in the unit stated by the field that holds it (decimal fraction, multiple or\ndays); null when the ratio is not defined or not computed.",
           "pattern": "^-?\\d+(\\.\\d+)?$",
           "type": [
             "string",
@@ -97,7 +153,7 @@
       "type": "object"
     }
   },
-  "$id": "urn:fairmark:schema:ratios.profitability:v1:output",
+  "$id": "urn:fairmark:schema:ratios.profitability:v2:output",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Output of `ratios.profitability`. Fractions: 0.13 means 13%.",
   "properties": {
@@ -112,6 +168,13 @@
     "ebitda_margin": {
       "$ref": "#/$defs/RatioValue",
       "description": "EBITDA / revenue, decimal fraction."
+    },
+    "not_computed": {
+      "description": "Outputs not computed because an input is missing, in the order of the fields above,\neach with the JSON pointers of the inputs it lacks (SPEC-0007 R7).",
+      "items": {
+        "$ref": "#/$defs/NotComputedEntry"
+      },
+      "type": "array"
     },
     "roa": {
       "$ref": "#/$defs/RatioValue",
@@ -147,10 +210,11 @@
     "ebit_margin",
     "capital_turnover",
     "roe_three_factor",
-    "roe_leverage"
+    "roe_leverage",
+    "not_computed"
   ],
   "title": "ProfitabilityOutput",
   "type": "object",
   "x-fairmark-method": "ratios.profitability",
-  "x-fairmark-method-version": "1"
+  "x-fairmark-method-version": "2"
 }

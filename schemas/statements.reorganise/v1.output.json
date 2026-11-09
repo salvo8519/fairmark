@@ -606,10 +606,10 @@
       "type": "object"
     },
     "NotComputedEntry": {
-      "description": "An output not computed, with the pointers of its missing inputs (R6).",
+      "description": "An output not computed, with the pointers of its missing inputs.",
       "properties": {
         "missing": {
-          "description": "JSON pointers of the inputs it needs and lacks.",
+          "description": "JSON pointers of the inputs it needs and lacks, sorted.",
           "items": {
             "type": "string"
           },
@@ -625,6 +625,13 @@
             "$ref": "#/$defs/Permitted"
           },
           "type": "array"
+        },
+        "reason": {
+          "description": "Why the output is not computed, one sentence; omitted when the method gives none.",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "required": [
@@ -702,7 +709,7 @@
       ]
     },
     "Permitted": {
-      "description": "A missing treatment and the destinations it permits (R8).",
+      "description": "A missing treatment and the destinations it permits (SPEC-0005 R8).",
       "properties": {
         "destinations": {
           "description": "Its permitted values.",

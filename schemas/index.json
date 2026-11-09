@@ -250,13 +250,13 @@
         "1": {
           "file": "ratios.capital_structure/v1.json",
           "introduced_in": "unreleased",
-          "output_file": "ratios.capital_structure/v1.output.json",
-          "output_sha256": "45348ed05ba1674e26621b3ae49d79fd4e61ae25d4e28834fdcedb18aa878770",
           "sha256": "86a9ef31d167a047893507837e85780e56deac3e662d61faab00d02076dae7ec"
         },
         "2": {
           "file": "ratios.capital_structure/v2.json",
           "introduced_in": "unreleased",
+          "output_file": "ratios.capital_structure/v2.output.json",
+          "output_sha256": "b1fe8c67ae50c6f7993e2caf118cd4617a77820987e041796f4c378a92273ed7",
           "sha256": "273135992a21cbdd2604917e9c4b6739bc7f92b849718025ba672cad9bab447b"
         }
       }
@@ -267,13 +267,13 @@
         "1": {
           "file": "ratios.covenants/v1.json",
           "introduced_in": "unreleased",
-          "output_file": "ratios.covenants/v1.output.json",
-          "output_sha256": "e7f92ce134a5c01aa1e16d4cb613ce89f60a2f5104b8923f13f0de2394e149f6",
           "sha256": "28e7e3eda8073f3b693143ad3c6da07629c054560a61736ba3e2a886a4b7adf4"
         },
         "2": {
           "file": "ratios.covenants/v2.json",
           "introduced_in": "unreleased",
+          "output_file": "ratios.covenants/v2.output.json",
+          "output_sha256": "abe33e5a824481de662548ccb9842ae8e31e5c5cf4416d1b59df3a9c24fe69b0",
           "sha256": "ca0d866e9d9958b0b64aea16713512b29cb7a2eb97d16b8bb0bc9668f2629602"
         }
       }
@@ -284,13 +284,13 @@
         "1": {
           "file": "ratios.debt_service/v1.json",
           "introduced_in": "unreleased",
-          "output_file": "ratios.debt_service/v1.output.json",
-          "output_sha256": "8274ae032e9045d01075a95cbd11c7c85b51e0de140a56501defe4a44ab06ed7",
           "sha256": "e40767bbd103c3029383d4cbb9f0821a4cc3a26a18026c4f5a951328526b4cab"
         },
         "2": {
           "file": "ratios.debt_service/v2.json",
           "introduced_in": "unreleased",
+          "output_file": "ratios.debt_service/v2.output.json",
+          "output_sha256": "2f8388ac32d96da621439596689936a4e5be59ab8c34369d725aafc578c494eb",
           "sha256": "cc252a4cd59102cbfcb24adb47e2a55addc32b12eaff545a9667e3328a97cc8e"
         }
       }
@@ -301,13 +301,13 @@
         "1": {
           "file": "ratios.liquidity/v1.json",
           "introduced_in": "unreleased",
-          "output_file": "ratios.liquidity/v1.output.json",
-          "output_sha256": "5f918cebb23efc21655fde25b2ae679dc4a26d42e9a482b38ab2e67d1ea9d0a7",
           "sha256": "606b1e97ae4193aef5babaa8052322757e27fb30875e0bb7d409235dcd52b7dd"
         },
         "2": {
           "file": "ratios.liquidity/v2.json",
           "introduced_in": "unreleased",
+          "output_file": "ratios.liquidity/v2.output.json",
+          "output_sha256": "18963c0f51645151c1d57f1a9b78e085077434bcab423771670ad8846ad462e1",
           "sha256": "b7efc0e28dc9921df3b7a4a801d073a6ebb3576a9969a5494c2e23a485b60e48"
         }
       }
@@ -318,13 +318,13 @@
         "1": {
           "file": "ratios.profitability/v1.json",
           "introduced_in": "unreleased",
-          "output_file": "ratios.profitability/v1.output.json",
-          "output_sha256": "4ea947d4b0dc7c76c10b9677bfbae0ff2976d3de7656ac929dec691ca70fdaeb",
           "sha256": "e97765b6c61b13fe3ba243810d40cb32e22c8a9a977766c770145c6aaf8f8c19"
         },
         "2": {
           "file": "ratios.profitability/v2.json",
           "introduced_in": "unreleased",
+          "output_file": "ratios.profitability/v2.output.json",
+          "output_sha256": "76d5309605c4227664bf09fb394fe917c5afad66a68524c589d9d017d4484f22",
           "sha256": "9bd8e3d81a7160fc19a021624633b6a9edb1e8fb4b072250d2a86da3daab1fe4"
         }
       }
@@ -335,13 +335,13 @@
         "1": {
           "file": "ratios.working_capital/v1.json",
           "introduced_in": "unreleased",
-          "output_file": "ratios.working_capital/v1.output.json",
-          "output_sha256": "860a0483f9fd37576773e64fa11db5065402f019760a45a49a5a4a24336acd11",
           "sha256": "b90dfe455ca0d4adaa88d071f21bac192a14da2558a78f7398da4e96a1f74c21"
         },
         "2": {
           "file": "ratios.working_capital/v2.json",
           "introduced_in": "unreleased",
+          "output_file": "ratios.working_capital/v2.output.json",
+          "output_sha256": "34dea1694454785f2ead93218d0994116b7d14da863af6a1b45cc547b8641e83",
           "sha256": "8d62175cdff9cd251a44f011c7f082894f27734328d233f14cef41eae1da3d52"
         }
       }
@@ -365,7 +365,7 @@
           "file": "statements.reorganise/v1.json",
           "introduced_in": "unreleased",
           "output_file": "statements.reorganise/v1.output.json",
-          "output_sha256": "a13309a0cd91fd37a5641d6b627143145352457fafb3bea9b5e00999d23a335f",
+          "output_sha256": "b10bd05595c2b0f221c84090be83a05901e8218629e46f95716e7f2535b53d12",
           "sha256": "987750c248904e9f71dd9b4a38725ef83b709df424cd3f08f821ca0ab68130a0"
         }
       }
