@@ -319,7 +319,9 @@ nominal before taxes; a leading exit multiple.
   `meta.defaults_applied` (JSON pointer of the field, value filled in, one-line reason), and
   SHALL compute `meta.input_hash` on the input with the defaults filled in, so that a minimal
   input and its explicit equivalent have the same hash. A field given explicitly SHALL always
-  prevail and SHALL produce no default entry. (Added 2026-11-08, Decision 24.)
+  prevail and SHALL produce no default entry. (Added 2026-11-08, Decision 24.) Except the net
+  financial position of `dcf.fcff` (Decision 25): reported, not filled in, not part of the
+  hash. (Amended 2026-11-09.)
 
 ## Conventions and parameters (Revised 2026-11-08)
 | Convention | Options | Default | Source |
@@ -724,8 +726,8 @@ the source verification.
       terminal value at the horizon N"), as an exit multiple, a liquidation and a limited
       horizon do; with `none` the discounting time and factor are `null`.
 - [x] **25. Net financial position not given in `dcf.fcff`** (approved by the maintainer on
-      2026-11-09, issue #261; follows the intent of the contract guidelines ADR, #257: a
-      missing input is never a silent zero). The DCF is always computed, best effort. When
+      2026-11-09, issue #261; ADR 0014, maintainer decision 2 and guidelines G2, G3 and G10:
+      a missing input is never a silent zero). The DCF is always computed, best effort. When
       `net_financial_position` is absent, `dcf.fcff` keeps subtracting zero, but as a
       documented default: (a) the description of the field in the schema states the default;
       (b) `meta.defaults_applied` lists it (field `/net_financial_position`, value `"0"`,
@@ -746,8 +748,14 @@ the source verification.
       (`scripts/schema_snapshots.py`); the version stays 3, because neither a number nor the
       input contract changes. `dcf.fcfe` is unaffected: it refuses a net financial position
       (R24, Decision 9) and its equity value comes from the FCFE, which already reflect the
-      debt. `dcf.free_cash_flows` has no bridge. No existing golden case changes. Amends R23
-      and the conventions table.
+      debt. `dcf.free_cash_flows` has no bridge. No existing golden case changes. Against
+      the default admission tests of ADR 0014 G3: practice and acceptance are the maintainer's
+      decision 2 of that ADR; the default is reported (schema description and
+      `meta.defaults_applied`) and warned, since it determines the equity value. The schema
+      `default` keyword is absent, which G3 allows. G10.2 holds: the equity value always rests
+      on the flows and the rate given. In `meta.defaults_applied` the `value` of this entry is
+      the amount subtracted, not a value to write in the field. Amends R23, R31 and the
+      conventions table.
 
 Terminology decisions from the source verification:
 - [x] **a.** The projection option `linear_fade` is renamed `linear_decline` everywhere

@@ -232,11 +232,15 @@ fn bridge(
     )?;
     if nfp.is_none() {
         // Decision 25: zero, the documented default reported in `meta.defaults_applied`.
-        let rest = if input.debt_like_items.is_empty() && input.non_controlling_interests.is_empty()
-        {
-            ""
-        } else {
-            " less the debt-like items and non-controlling interests given"
+        // Name only the claims actually given.
+        let rest = match (
+            input.debt_like_items.is_empty(),
+            input.non_controlling_interests.is_empty(),
+        ) {
+            (true, true) => "",
+            (false, true) => " less the debt-like items given",
+            (true, false) => " less the non-controlling interests given",
+            (false, false) => " less the debt-like items and non-controlling interests given",
         };
         ex.convention(format!(
             "warning: no net financial position given (`{NFP_POINTER}`): zero is subtracted, so \
@@ -967,6 +971,29 @@ mod tests {
         let c = conventions(&v);
         assert!(c.contains(&WARNING_WITH_CLAIMS.to_owned()), "{c:?}");
         assert!(!c.contains(&WARNING_NO_CLAIMS.to_owned()), "{c:?}");
+        // Only the lists given are named (code review of #261).
+        let only = |drop: &str| {
+            let v = with(v.clone(), |m| {
+                m.remove(drop);
+            });
+            conventions(&v)
+                .into_iter()
+                .find(|c| c.starts_with("warning: no net financial position given"))
+                .unwrap()
+        };
+        assert!(
+            only("non_controlling_interests")
+                .contains("equals the enterprise value less the debt-like items given; give"),
+            "{}",
+            only("non_controlling_interests")
+        );
+        assert!(
+            only("debt_like_items").contains(
+                "equals the enterprise value less the non-controlling interests given; give"
+            ),
+            "{}",
+            only("debt_like_items")
+        );
     }
 
     /// Decision 25 (#261): a net financial position given as zero is a true zero: the same

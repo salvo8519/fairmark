@@ -1,6 +1,6 @@
 ---
 source: concepts/audit-trail.md
-source_hash: c6660d4bd213
+source_hash: dc170d377e49
 ---
 # La tracciabilità del calcolo (audit trail)
 
@@ -38,8 +38,9 @@ Ogni risultato è una busta in quattro parti:
   fornito esplicitamente prevale sempre e non è mai elencato. I metodi DCF la usano per il loro
   input minimo (Decision 24 di SPEC-0001, si veda
   [`dcf.fcff`](../methods/dcf-fcff.md#input-minimo)); `dcf.fcff` elenca anche una posizione
-  finanziaria netta non fornita, sottratta come zero (`value` `"0"`) con un'avvertenza
-  (Decision 25). Un metodo che assegna voci dell'input a
+  finanziaria netta non fornita, sottratta come zero con un'avvertenza (Decision 25): per
+  questa voce `value` (`"0"`) è l'importo sottratto, non un valore da scrivere nel campo, che è
+  una struttura, e il valore predefinito non entra in `meta.input_hash`. Un metodo che assegna voci dell'input a
   destinazioni vi elenca anche ogni voce fornita la cui destinazione è un valore predefinito
   documentato: `field` è il pointer della voce, `value` la destinazione, e la convenzione
   riporta "assigned to" invece di "not given, set to" (R8 di SPEC-0005, si veda

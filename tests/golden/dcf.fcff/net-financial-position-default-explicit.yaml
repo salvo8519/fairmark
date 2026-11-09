@@ -1,5 +1,5 @@
 method: dcf.fcff
-description: "Every choice of Decision 24 given and no net financial position: the default of zero is the only entry of meta.defaults_applied; same values as flows-only-explicit-equivalent (Decision 25, R23)"
+description: "Meta-only companion of flows-only-explicit-equivalent.yaml (same input, which the protected file does not assert in meta): every choice of Decision 24 given and no net financial position, so the default of zero is the only entry of meta.defaults_applied (Decision 25, R23)"
 source: >
   Hand computation from SPEC-0001 Decision 25 (approved 2026-11-09, issue #261): equity value =
   enterprise value - 0 (default); the enterprise value is the expected value of the existing
