@@ -103,9 +103,11 @@ pub(crate) fn check(input: &LimitedHorizonInput) -> Checked {
     }
     let g = input.growth.unwrap_or_default();
     if g <= -Decimal::ONE {
-        errors.push(on("growth")(FairmarkError::InvalidInput(format!(
-            "growth must be greater than -1 (got {g})"
-        ))));
+        errors.push(on("growth")(
+            FairmarkError::InvalidInput(format!("growth must be greater than -1 (got {g})"))
+                .because(crate::error::Reason::Range)
+                .expected(["a growth greater than -1 (-100%)"]),
+        ));
     }
     checked(errors)
 }

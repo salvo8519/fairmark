@@ -188,9 +188,10 @@ pub(crate) fn check_growth(g: Decimal, field: &str) -> Result<()> {
 }
 
 /// `FM-E004` when the perpetual growth is not below the rate (R10).
-pub(crate) fn check_below_rate(g: Decimal, r: Decimal) -> Result<()> {
+pub(crate) fn check_below_rate(g: Decimal, r: Decimal, growth: &str, rate: &str) -> Result<()> {
     if g >= r {
-        return Err(FairmarkError::GrowthNotBelowRate { growth: g, rate: r });
+        return Err(FairmarkError::GrowthNotBelowRate { growth: g, rate: r }
+            .between([format!("/{growth}"), format!("/{rate}")]));
     }
     Ok(())
 }

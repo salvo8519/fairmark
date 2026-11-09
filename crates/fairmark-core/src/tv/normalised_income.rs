@@ -89,7 +89,7 @@ pub(crate) fn check(input: &NormalisedIncomeInput) -> Checked {
     match check_growth(g, "growth") {
         Err(e) => errors.push(on("growth")(e)),
         Ok(()) if rate_valid => {
-            if let Err(e) = check_below_rate(g, i) {
+            if let Err(e) = check_below_rate(g, i, "growth", "capitalisation_rate") {
                 errors.push(on("growth")(e));
             }
         }

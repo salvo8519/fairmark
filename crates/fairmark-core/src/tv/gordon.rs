@@ -94,7 +94,7 @@ pub(crate) fn check(input: &GordonInput) -> Checked {
     match check_growth(g, "growth") {
         Err(e) => errors.push(on("growth")(e)),
         Ok(()) => {
-            if let Err(e) = check_below_rate(g, r) {
+            if let Err(e) = check_below_rate(g, r, "growth", "rate") {
                 errors.push(on("growth")(e));
             }
         }

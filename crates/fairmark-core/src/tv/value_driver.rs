@@ -101,7 +101,7 @@ pub(crate) fn check(input: &ValueDriverInput) -> Checked {
         ))));
     }
     if growth_valid {
-        if let Err(e) = check_below_rate(g, input.rate) {
+        if let Err(e) = check_below_rate(g, input.rate, "growth", "rate") {
             errors.push(on("growth")(e));
         }
     }

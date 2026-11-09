@@ -104,7 +104,7 @@ pub(crate) fn check(input: &HModelInput) -> Checked {
         ))));
     }
     if long_valid {
-        if let Err(e) = check_below_rate(gl, input.rate) {
+        if let Err(e) = check_below_rate(gl, input.rate, "long_term_growth", "rate") {
             errors.push(on("long_term_growth")(e));
         }
     }

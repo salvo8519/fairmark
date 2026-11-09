@@ -229,9 +229,13 @@ fn in_technique(e: FairmarkError, k: usize, t: &Technique) -> FairmarkError {
     let at = format!("/techniques/{k}/{}", technique_id(t));
     match e.details().pointer.as_deref() {
         None => e.located(at),
-        Some("/rate" | "/growth_cap") => e,
         Some(p) if p.starts_with("/techniques/") => e,
-        Some(_) => e.under(&at),
+        // The shared fields stay at the root; the technique's own move under its entry.
+        Some(_) => e.map_pointers(&|p: &str| match p {
+            "/rate" | "/growth_cap" => p.to_owned(),
+            p if p.starts_with("/techniques/") => p.to_owned(),
+            p => format!("{at}{p}"),
+        }),
     }
 }
 
