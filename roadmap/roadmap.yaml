@@ -352,19 +352,10 @@ milestones:
           - { issue: 81, title: "Open-source collector without IP storage", tags: [parallel], status: open }
           - { issue: 82, title: "Public aggregated dashboard", tags: [parallel], status: open }
 
-  - title: "M6 · v1.0 and real estate"
+  - title: "M6 · v1.0 corporate valuation"
     gate: "Stable API with a published deprecation policy."
     release: "1.0.0"
     epics:
-      - title: "Real estate module"
-        issue: 83
-        labels: ["area:core", "method:real-estate"]
-        tasks:
-          - { issue: 84, title: "Property DCF and direct capitalisation", tags: [parallel, needs-methodology], status: open }
-          - { issue: 85, title: "Debt schedule, levered returns and equity waterfall", tags: [parallel], status: open }
-          - { issue: 86, title: "Market comparison approach with explicit adjustments", tags: [parallel, needs-methodology], status: open }
-          - { issue: 207, title: "Lease-based income: passing rent, ERV, reversion and lease expiries", tags: [needs-methodology], status: open }
-          - { issue: 228, title: "Build-up approach for property discount rates", tags: [needs-methodology], status: open }
       - title: "Platform"
         issue: 87
         labels: ["area:core"]
@@ -377,3 +368,17 @@ milestones:
           - { issue: 167, title: "Dated periods and a stub first period in the DCF", spec: "0001", status: open }
           - { issue: 232, title: "Integrations with ChatGPT, Gemini and Copilot through the hosted MCP", status: open }
           - { issue: 283, title: "Mutation testing release gate for v1.0", status: open }
+
+  - title: "M7 · v2.0 real estate"
+    gate: "Property valuation methods released with the same contract, golden cases and audits as the corporate methods."
+    release: "2.0.0"
+    epics:
+      - title: "Real estate module"
+        issue: 83
+        labels: ["area:core", "method:real-estate"]
+        tasks:
+          - { issue: 84, title: "Property DCF and direct capitalisation", tags: [parallel, needs-methodology], status: open }
+          - { issue: 85, title: "Debt schedule, levered returns and equity waterfall", tags: [parallel], status: open }
+          - { issue: 86, title: "Market comparison approach with explicit adjustments", tags: [parallel, needs-methodology], status: open }
+          - { issue: 207, title: "Lease-based income: passing rent, ERV, reversion and lease expiries", tags: [needs-methodology], status: open }
+          - { issue: 228, title: "Build-up approach for property discount rates", tags: [needs-methodology], status: open }
