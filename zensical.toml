@@ -104,6 +104,7 @@ nav = [
     "project/conventions.md",
     "project/maintainers.md",
     "project/dependencies.md",
+    "project/mutation-testing.md",
     "project/changelog.md",
     "project/telemetry.md",
     { "Decisions (ADR)" = [

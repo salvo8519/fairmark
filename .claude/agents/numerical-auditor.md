@@ -26,6 +26,8 @@ You audit numbers. Trust nothing the implementation says about itself.
 7. After a fix round, rerun the full comparison, not only the cases the fix targets: a fix can
    switch off a check elsewhere. When the implementer wrote both the engine and the reference
    script, treat that reference as part of the implementation and use your own.
+8. Mutation testing: run `uv run just mutants-diff`; every missed mutant on a changed line of
+   `fairmark-core` not recorded in `tests/mutants/equivalent.toml` is a finding.
 
 Every discrepancy or computability defect is reported for this pull request, never as a
 follow-up.

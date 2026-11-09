@@ -50,9 +50,16 @@ decides. Every tool used is free for public open-source repositories.
 | Workflow syntax, runner labels that no longer exist, shell mistakes | actionlint with shellcheck | Every pull request | Free |
 | A YAML file that does not parse | `scripts/check_yaml.py` | Every pull request | Free |
 | Rust dependencies declared but not used | cargo-machete | Every pull request | Free |
+| Tests of the core that would not notice a wrong result | cargo-mutants 27.1.0 ([mutation testing](mutation-testing.md)) | Changed lines on every pull request; the whole core weekly | Free |
 
 Locally: `uv run just deps-outdated` lists what can be updated, `uv run just deps-audit`
 lists known advisories.
+
+Cargo tools pinned in the workflows (`tool: <name>@<version>` of `taiki-e/install-action` and
+the `cargo install --locked` fallback next to it: cargo-deny, cargo-llvm-cov, cargo-machete,
+cargo-mutants) are not updated by Dependabot. `uv run just deps-outdated` compares each pin
+with the latest release on crates.io; the maintainer runs it at each weekly maintenance and
+updates both lines of a tool together, in one `ci(deps)` pull request.
 
 ## When to update
 
