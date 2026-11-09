@@ -524,13 +524,13 @@ fn justification_error() -> FairmarkError {
 /// calculation, which repeats them.
 fn check_cost_of_equity(input: &CostOfEquityInput) -> Result<()> {
     let mut found = Found::new();
-    match (&input.levered_beta, &input.relever) {
-        (Some(_), None) => {}
-        (None, Some(r)) => {
-            found.check(check_leverage(r.debt_to_equity, "relever.debt_to_equity"));
-            found.check(check_tax_rate(r.tax_rate, "relever.tax_rate"));
-        }
-        _ => found.push(beta_form_error(input.levered_beta.is_some())),
+    // The form first; then the terms of `relever`, when given, whatever the form.
+    if input.levered_beta.is_some() == input.relever.is_some() {
+        found.push(beta_form_error(input.levered_beta.is_some()));
+    }
+    if let Some(r) = &input.relever {
+        found.check(check_leverage(r.debt_to_equity, "relever.debt_to_equity"));
+        found.check(check_tax_rate(r.tax_rate, "relever.tax_rate"));
     }
     let crp = input.country_risk_premium.unwrap_or_default();
     if crp < Decimal::ZERO {
@@ -808,15 +808,18 @@ fn check_wacc(input: &WaccInput) -> Result<()> {
     // Every input error is reported (ADR 0014 G5): the tax rate, then the weights.
     let mut found = Found::new();
     found.check(check_tax_rate(input.tax_rate, "tax_rate"));
-    match (input.debt_to_equity, input.debt_weight) {
-        (Some(de), None) => {
-            found.check(check_leverage(de, "debt_to_equity"));
-        }
-        (None, Some(w)) if w < Decimal::ZERO || w >= Decimal::ONE => {
-            found.push(debt_weight_error(w));
-        }
-        (None, Some(_)) => {}
-        _ => found.push(weights_form_error(input)),
+    // The form first; then each weight given is checked on its own, whatever the other.
+    if input.debt_to_equity.is_some() == input.debt_weight.is_some() {
+        found.push(weights_form_error(input));
+    }
+    if let Some(de) = input.debt_to_equity {
+        found.check(check_leverage(de, "debt_to_equity"));
+    }
+    if let Some(w) = input
+        .debt_weight
+        .filter(|w| *w < Decimal::ZERO || *w >= Decimal::ONE)
+    {
+        found.push(debt_weight_error(w));
     }
     found.finish()
 }

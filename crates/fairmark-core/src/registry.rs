@@ -179,6 +179,15 @@ macro_rules! registry {
             None
         }
 
+        /// True when `serde` reads `input_json` as the input of method `id`.
+        #[cfg(test)]
+        fn reads(id: &str, input_json: &str) -> bool {
+            $(if id == <$m as Method>::ID {
+                return serde_json::from_str::<<$m as Method>::Input>(input_json).is_ok();
+            })+
+            false
+        }
+
         fn dispatch_to(id: &str, input_json: &str, source: Source) -> Option<Result<Value>> {
             $(if id == <$m as Method>::ID {
                 return Some(execute::<$m>(input_json, source));
@@ -825,6 +834,18 @@ mod tests {
     /// already checked is not walked against the schema again, and schemas are built once.
     #[test]
     fn an_analysis_evaluation_costs_about_one_computation() {
+        let (request, _) = sensitivity_of_a_dcf();
+        run("analysis.sensitivity", &request).unwrap();
+        // Deterministic: the request and its base input are walked against their schemas,
+        // the 41 inputs the analysis builds are not.
+        let before = crate::reading::WALKS.with(std::cell::Cell::get);
+        run("analysis.sensitivity", &request).unwrap();
+        let walks = crate::reading::WALKS.with(std::cell::Cell::get) - before;
+        assert!(walks <= 2, "{walks} walks for one analysis");
+    }
+
+    /// A sensitivity of 41 evaluations of a golden DCF, and the DCF input alone.
+    fn sensitivity_of_a_dcf() -> (String, String) {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../tests/golden/dcf.fcff/three-stage-given-linear-decline-gordon.yaml");
         let case: Value = serde_norway::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
@@ -836,6 +857,16 @@ mod tests {
             "rows": {"variable": "/wacc", "values": values}
         })
         .to_string();
+        (request, text)
+    }
+
+    /// Benchmark of S2, not run by default (a timing depends on the machine): 41 evaluations
+    /// inside the analysis cost less than 41 direct runs, which read and check their input
+    /// fully. Run with `cargo test --release -- --ignored analysis_evaluations_are_cheaper`.
+    #[test]
+    #[ignore = "benchmark: timing depends on the machine"]
+    fn analysis_evaluations_are_cheaper_than_direct_runs() {
+        let (request, text) = sensitivity_of_a_dcf();
         let time = |f: &dyn Fn()| {
             let mut best = std::time::Duration::MAX;
             for _ in 0..5 {
@@ -846,14 +877,6 @@ mod tests {
             best
         };
         run("analysis.sensitivity", &request).unwrap();
-        // Deterministic: the request and its base input are walked against their schemas,
-        // the 41 inputs the analysis builds are not.
-        let before = crate::reading::WALKS.with(std::cell::Cell::get);
-        run("analysis.sensitivity", &request).unwrap();
-        let walks = crate::reading::WALKS.with(std::cell::Cell::get) - before;
-        assert!(walks <= 2, "{walks} walks for one analysis");
-        // Timed, as a ratio on the same machine: 41 evaluations inside the analysis cost less
-        // than 41 direct runs, which read and check their input fully.
         let analysis = time(&|| {
             run("analysis.sensitivity", &request).unwrap();
         });
@@ -865,6 +888,256 @@ mod tests {
         assert!(
             analysis * 10 <= direct * 9,
             "analysis {analysis:?} for 41 evaluations, 41 direct runs {direct:?}"
+        );
+    }
+
+    /// The fields every input error declares it read: its pointer, the fields of its relation
+    /// and the fields it otherwise read (ADR 0014 G5, review round 6).
+    fn declared(e: &FairmarkError) -> Vec<String> {
+        e.details().declared()
+    }
+
+    fn related(a: &str, b: &str) -> bool {
+        let within =
+            |i: &str, o: &str| i == o || i.strip_prefix(o).is_some_and(|r| r.starts_with('/'));
+        within(a, b) || within(b, a)
+    }
+
+    /// Every leaf of `value`, with its JSON pointer.
+    fn leaves(value: &Value, at: String, out: &mut Vec<(String, Value)>) {
+        match value {
+            Value::Object(map) => {
+                for (k, v) in map {
+                    leaves(
+                        v,
+                        format!("{at}/{}", k.replace('~', "~0").replace('/', "~1")),
+                        out,
+                    );
+                }
+            }
+            Value::Array(items) => {
+                for (i, v) in items.iter().enumerate() {
+                    leaves(v, format!("{at}/{i}"), out);
+                }
+            }
+            leaf => out.push((at, leaf.clone())),
+        }
+    }
+
+    /// Every string of an `enum` or `const` in `schema`.
+    fn closed_values(schema: &Value, out: &mut Vec<String>) {
+        match schema {
+            Value::Object(map) => {
+                for (k, v) in map {
+                    match (k.as_str(), v) {
+                        ("enum", Value::Array(values)) => {
+                            out.extend(values.iter().filter_map(|v| v.as_str().map(str::to_owned)))
+                        }
+                        ("const", Value::String(c)) => out.push(c.clone()),
+                        _ => closed_values(v, out),
+                    }
+                }
+            }
+            Value::Array(items) => items.iter().for_each(|v| closed_values(v, out)),
+            _ => {}
+        }
+    }
+
+    /// Values of the kind of `leaf` to put in its place; `None` stands for leaving it out.
+    fn candidates(leaf: &Value, closed: &[String]) -> Vec<Option<Value>> {
+        let mut out: Vec<Option<Value>> = vec![None];
+        match leaf {
+            Value::String(s) if crate::reading::is_decimal_text(s) => {
+                for v in ["-5", "-1", "-0.5", "0", "0.03", "0.5", "1", "150"] {
+                    out.push(Some(Value::from(v)));
+                }
+            }
+            Value::Number(_) => {
+                for v in [0u32, 1, 2, 7, 120] {
+                    out.push(Some(Value::from(v)));
+                }
+                for v in ["-5", "0", "0.03", "150"] {
+                    out.push(Some(Value::from(v)));
+                }
+            }
+            Value::String(s) if closed.contains(s) => {
+                out.extend(closed.iter().map(|c| Some(Value::from(c.as_str()))));
+            }
+            Value::String(_) => {
+                for v in ["2020-01-31", "2030-06-30", "label", " "] {
+                    out.push(Some(Value::from(v)));
+                }
+            }
+            Value::Bool(b) => out.push(Some(Value::Bool(!b))),
+            _ => {}
+        }
+        out
+    }
+
+    fn with(base: &Value, at: &str, v: &Option<Value>) -> Value {
+        let mut x = base.clone();
+        match v {
+            Some(v) => {
+                if let Some(slot) = x.pointer_mut(at) {
+                    *slot = v.clone();
+                }
+            }
+            None => {
+                let (parent, key) = at.rsplit_once('/').unwrap();
+                match x.pointer_mut(parent) {
+                    Some(Value::Object(m)) => {
+                        m.shift_remove(&key.replace("~1", "/").replace("~0", "~"));
+                    }
+                    _ => return base.clone(),
+                }
+            }
+        }
+        x
+    }
+
+    /// The input errors of `validate` on an input `serde` reads; `None` when it does not.
+    fn errors_of(id: &str, input: &Value) -> Option<Vec<FairmarkError>> {
+        let text = input.to_string();
+        if !reads(id, &text) {
+            return None;
+        }
+        Some(match validate(id, input) {
+            Ok(()) => Vec::new(),
+            Err(e) => e.into_errors(),
+        })
+    }
+
+    /// Review round 6: every check declares the fields it reads (its pointer, the fields of its
+    /// relation and the fields it otherwise read), and the declaration is complete: an error
+    /// that declares no field `f` is found whatever value `f` has, or whether `f` is left out,
+    /// among the values `serde` reads, those the method refuses included. This is what lets the
+    /// reading run the method's checks beside a refused field, with a value put in its place:
+    /// an error that declares no refused field does not depend on that value, and no check
+    /// stops on that value before an independent check runs.
+    ///
+    /// On golden inputs, a first field is given a value that raises an error; then every other
+    /// field, in turn, is given every candidate value of its kind, and the errors that do not
+    /// declare it must be the same for every candidate. `FAIRMARK_SOUNDNESS_FILES` (golden
+    /// files per method, default 3) and `FAIRMARK_SOUNDNESS_SINGLES` (first fields per file,
+    /// default 4) widen the search.
+    #[test]
+    fn every_error_declares_the_fields_it_reads() {
+        let setting = |name: &str, default: usize| -> usize {
+            std::env::var(name)
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(default)
+        };
+        let per_method = setting("FAIRMARK_SOUNDNESS_FILES", 3);
+        let singles_per_file = setting("FAIRMARK_SOUNDNESS_SINGLES", 4);
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
+        let key = |e: &FairmarkError| (e.code(), e.details().pointer, e.to_string());
+        let mut failures: Vec<String> = Vec::new();
+        let mut compared = 0u32;
+        let mut dirs: Vec<_> = std::fs::read_dir(&root)
+            .unwrap()
+            .map(|d| d.unwrap().path())
+            .collect();
+        dirs.sort();
+        for dir in dirs {
+            let mut files: Vec<_> = std::fs::read_dir(&dir)
+                .unwrap()
+                .map(|f| f.unwrap().path())
+                .collect();
+            files.sort();
+            for file in files.into_iter().take(per_method) {
+                let case: Value =
+                    serde_norway::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+                let (Some(id), Some(input)) = (case["method"].as_str(), case.get("input")) else {
+                    continue;
+                };
+                if id.starts_with("analysis.") || method(id).is_err() {
+                    continue;
+                }
+                let name = file.file_name().unwrap().to_string_lossy().into_owned();
+                let mut closed = Vec::new();
+                closed_values(&input_schema(id).unwrap(), &mut closed);
+                let mut all = Vec::new();
+                leaves(input, String::new(), &mut all);
+                if all.len() < 2 {
+                    continue;
+                }
+                // First fields spread over the input, each with its first value that raises an
+                // input error.
+                let mut singles: Vec<(String, Value)> = Vec::new();
+                let stride = (all.len() / singles_per_file.max(1)).max(1);
+                for (g, gv) in all.iter().step_by(stride) {
+                    if singles.len() == singles_per_file {
+                        break;
+                    }
+                    for c in candidates(gv, &closed) {
+                        let x = with(input, g, &c);
+                        if errors_of(id, &x).is_some_and(|e| !e.is_empty()) {
+                            singles.push((g.clone(), x));
+                            break;
+                        }
+                    }
+                }
+                for (g, x) in &singles {
+                    for (f, fv) in &all {
+                        if related(f, g) {
+                            continue;
+                        }
+                        let mut values = candidates(fv, &closed);
+                        values.push(Some(fv.clone()));
+                        let found: Vec<(Option<Value>, Vec<FairmarkError>)> = values
+                            .into_iter()
+                            .filter_map(|v| errors_of(id, &with(x, f, &v)).map(|e| (v, e)))
+                            .collect();
+                        if found.len() < 2 {
+                            continue;
+                        }
+                        compared += 1;
+                        let undeclared = |errors: &[FairmarkError]| {
+                            let mut keys: Vec<_> = errors
+                                .iter()
+                                .filter(|e| {
+                                    let named = declared(e);
+                                    !named.is_empty() && !named.iter().any(|p| related(p, f))
+                                })
+                                .map(key)
+                                .collect();
+                            keys.sort();
+                            keys.dedup();
+                            keys
+                        };
+                        let (first_value, first) = (&found[0].0, undeclared(&found[0].1));
+                        for (v, errors) in &found[1..] {
+                            let other = undeclared(errors);
+                            if other == first {
+                                continue;
+                            }
+                            type Key = (&'static str, Option<String>, String);
+                            let only = |a: &[Key], b: &[Key]| -> Vec<String> {
+                                a.iter()
+                                    .filter(|k| !b.contains(k))
+                                    .map(|(code, _, message)| format!("{code} {message}"))
+                                    .collect()
+                            };
+                            failures.push(format!(
+                                "{name} {id} [{g} changed]: {f} = {first_value:?} gives {:?}, \
+                                 {f} = {v:?} gives {:?}",
+                                only(&first, &other),
+                                only(&other, &first),
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        failures.sort();
+        failures.dedup();
+        assert!(compared > 1000, "{compared}");
+        assert!(
+            failures.is_empty(),
+            "{}\n{}",
+            failures.len(),
+            failures.join("\n")
         );
     }
 }

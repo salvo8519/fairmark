@@ -73,7 +73,12 @@ fn check_axis(
 ) {
     let at = |e: FairmarkError| e.located(format!("/{name}/variable"));
     match inner {
-        Some(inner) => found.check(inner.check_variable(base, &axis.variable).map_err(at)),
+        Some(inner) => found.check(
+            inner
+                .check_variable(base, &axis.variable)
+                .map(|_| ())
+                .map_err(at),
+        ),
         // A refused method is reported alone: its variables are not checked against it.
         None => false,
     };

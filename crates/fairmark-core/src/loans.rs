@@ -112,26 +112,32 @@ pub struct Rounding {
 }
 
 impl Rounding {
+    /// The mode and the decimal places are checked apart: neither hides the other.
     fn validate(&self) -> Result<()> {
+        let mut found = Found::new();
         if self.mode.is_none() {
-            return Err(FairmarkError::InvalidInput(
-                "`rounding.mode` is required when `rounding` is given: `half_up` or `half_even` \
-                 (there is no default mode); omit `rounding` for no rounding"
-                    .to_owned(),
-            )
-            .at("/rounding/mode", Reason::Missing)
-            .expected(["half_up", "half_even"])
-            .fix("give `mode`, or omit `rounding` for no rounding"));
+            found.push(
+                FairmarkError::InvalidInput(
+                    "`rounding.mode` is required when `rounding` is given: `half_up` or \
+                     `half_even` (there is no default mode); omit `rounding` for no rounding"
+                        .to_owned(),
+                )
+                .at("/rounding/mode", Reason::Missing)
+                .expected(["half_up", "half_even"])
+                .fix("give `mode`, or omit `rounding` for no rounding"),
+            );
         }
         if self.decimal_places > 6 {
-            return Err(FairmarkError::InvalidInput(format!(
-                "`rounding.decimal_places` must be between 0 and 6 (got {})",
-                self.decimal_places
-            ))
-            .at("/rounding/decimal_places", Reason::Range)
-            .expected(["a whole number from 0 to 6"]));
+            found.push(
+                FairmarkError::InvalidInput(format!(
+                    "`rounding.decimal_places` must be between 0 and 6 (got {})",
+                    self.decimal_places
+                ))
+                .at("/rounding/decimal_places", Reason::Range)
+                .expected(["a whole number from 0 to 6"]),
+            );
         }
-        Ok(())
+        found.finish()
     }
 
     fn apply(&self, x: Decimal) -> Decimal {
@@ -163,6 +169,18 @@ struct RateForm {
 /// R1, R1a, R3: one rate form, complete, and a periodic rate above -100%; the checks that need
 /// no conversion, so that they are reported with the other input errors (ADR 0014 G5).
 fn check_rate_form(form: &RateForm) -> Result<()> {
+    // Which form is given decides every check: each error reads the four fields.
+    rate_form_errors(form).map_err(|e| {
+        e.reads([
+            "/rate",
+            "/compounding",
+            "/payment_frequency",
+            "/periodic_rate",
+        ])
+    })
+}
+
+fn rate_form_errors(form: &RateForm) -> Result<()> {
     let form_a = [
         ("rate", form.rate.is_some()),
         ("compounding", form.compounding.is_some()),
@@ -203,7 +221,10 @@ fn check_rate_form(form: &RateForm) -> Result<()> {
             to: frequency.compounding(),
         })
         .map(|_| ())
-        .map_err(rate_field("/rate", compounding.per_year()));
+        .map_err(|e| {
+            // The domain of the rate depends on its compounding (a continuous rate may be -2).
+            rate_field("/rate", compounding.per_year())(e).between(["/rate", "/compounding"])
+        });
     }
     if given.is_empty() {
         return Err(FairmarkError::InvalidInput(
@@ -965,7 +986,9 @@ fn check_amortisation_schedule(input: &AmortisationScheduleInput) -> Result<()> 
                  {g}"
             ))
             .at("/principal_grace_periods", Reason::Range)
-            .between(["/principal_grace_periods", "/number_of_instalments"]),
+            .between(["/principal_grace_periods", "/number_of_instalments"])
+            // Checked when the amortisation type accepts a grace period.
+            .reads(["/amortisation_type"]),
         );
     }
     found.check(check_rate_form(&RateForm {
@@ -977,7 +1000,12 @@ fn check_amortisation_schedule(input: &AmortisationScheduleInput) -> Result<()> 
     // The balloon is compared with the principal: skipped when the principal is refused.
     if principal_valid && kind != AmortisationType::Bullet {
         let mut scratch = Explain::new("", "");
-        found.check(balloon(input.principal, input.balloon_amount, &mut scratch).map(|_| ()));
+        found.check(
+            balloon(input.principal, input.balloon_amount, &mut scratch)
+                .map(|_| ())
+                // Checked when the amortisation type accepts a balloon.
+                .map_err(|e| e.reads(["/amortisation_type"])),
+        );
     }
     found.finish()
 }

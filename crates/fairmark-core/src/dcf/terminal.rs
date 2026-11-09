@@ -220,6 +220,19 @@ pub struct GivenTerminal {
 #[serde(deny_unknown_fields)]
 pub struct NoTerminal {}
 
+/// The keys of [`Terminal`], in the order of its fields: the `expected` of an empty choice.
+const TERMINAL_OPTIONS: [&str; 9] = [
+    "tv.gordon",
+    "tv.h_model",
+    "tv.value_driver",
+    "tv.exit_multiple",
+    "tv.limited_horizon",
+    "tv.normalised_income",
+    "tv.liquidation",
+    "given",
+    "none",
+];
+
 /// The terminal option, written as an object with exactly one key: a `tv.*` method id, as in
 /// `tv.compare` (`{"tv.gordon": {...}}`), `given` (`{"given": {"value": ...}}`, an amount at N
 /// given by the analyst) or `none` (`{"none": {}}`, no terminal value).
@@ -622,6 +635,30 @@ fn at_pointer(
     rate_field: &str,
     converted_with: Option<&str>,
 ) -> FairmarkError {
+    // Every field the technique's check read, at its place in the DCF input (review round 6).
+    let at = format!("/terminal/{}", technique.id());
+    let place = |p: &str| match (technique, p) {
+        (_, "/rate" | "/capitalisation_rate") => rate_field.to_owned(),
+        (Technique::Gordon(_), "/next_flow") => format!("{at}/normalised_next_flow"),
+        (_, p) => format!("{at}{p}"),
+    };
+    let read: Vec<String> = e
+        .error
+        .details()
+        .declared()
+        .iter()
+        .filter(|p| p.starts_with('/'))
+        .map(|p| place(p))
+        .collect();
+    terminal_error(e, technique, rate_field, converted_with).reads(read)
+}
+
+fn terminal_error(
+    e: FieldError,
+    technique: Technique<'_>,
+    rate_field: &str,
+    converted_with: Option<&str>,
+) -> FairmarkError {
     let at = format!("/terminal/{}", technique.id());
     let (pointer, note) = match (technique, e.field.as_str()) {
         (_, "rate" | "capitalisation_rate") => (
@@ -696,8 +733,10 @@ pub(crate) fn choose(t: &Terminal) -> Result<TerminalChoice<'_>> {
              for example {\"tv.gordon\": {\"growth\": 0.02, \"first_flow\": \"last_flow_grown\"}}"
                 .to_owned(),
         )
-        // No key where exactly one is expected: `length`, like any single-key choice.
-        .at("/terminal", Reason::Length)),
+        // No key where exactly one is expected: `length`, like any single-key choice; the
+        // keys it accepts are listed.
+        .at("/terminal", Reason::Length)
+        .expected(TERMINAL_OPTIONS)),
         [one] => Ok(*one),
         many => {
             let ids: Vec<&str> = many.iter().map(|t| t.id()).collect();
@@ -761,7 +800,31 @@ pub(crate) fn check<'a>(
     let rate = rate.ok_or(FairmarkError::Internal("technique without a terminal rate"))?;
     let at = format!("/terminal/{}", technique.id());
     let at = at.as_str();
-    // What only the DCF knows: the first terminal flow (R20) and the basis (R19).
+    // What only the DCF knows and the technique's own terms are checked apart: neither hides
+    // the other (ADR 0014 G5, review round 6).
+    let mut found = crate::error::Found::new();
+    let dcf_only = dcf_checks(technique, at, basis);
+    let refused: Option<String> = dcf_only.as_ref().err().and_then(|e| e.details().pointer);
+    found.check(dcf_only);
+    // The terms, by the technique's own checks. CF_N is not known yet and no technique checks
+    // its value: zero stands in for it.
+    if let Err(errors) = tv_check(&tv_input(technique, rate, Decimal::ZERO)) {
+        for e in errors {
+            let e = at_pointer(e, technique, rate_field, converted_with);
+            // A first flow the DCF already refused is one condition, reported once.
+            if refused.is_some() && e.details().pointer == refused {
+                continue;
+            }
+            found.push(e);
+        }
+    }
+    found.finish()?;
+    Ok(choice)
+}
+
+/// What only the DCF knows about its terminal technique: the first terminal flow (R20) and the
+/// basis (R19).
+fn dcf_checks(technique: Technique<'_>, at: &str, basis: TerminalBasis) -> Result<()> {
     match technique {
         Technique::Gordon(g) => match (g.first_flow, g.normalised_next_flow) {
             (FirstTerminalFlow::NormalisedNextFlow, None) => {
@@ -849,16 +912,7 @@ pub(crate) fn check<'a>(
         }
         Technique::ValueDriver(_) | Technique::LimitedHorizon(_) => {}
     }
-    // The terms, by the technique's own checks. CF_N is not known yet and no technique checks
-    // its value: zero stands in for it.
-    tv_check(&tv_input(technique, rate, Decimal::ZERO)).map_err(|errors| {
-        let mut found = crate::error::Found::new();
-        for e in errors {
-            found.push(at_pointer(e, technique, rate_field, converted_with));
-        }
-        found.into_error()
-    })?;
-    Ok(choice)
+    Ok(())
 }
 
 // ---------------------------------------------------------------- calculation
@@ -1251,6 +1305,19 @@ mod tests {
     use rust_decimal::MathematicalOps;
 
     use crate::registry::run;
+
+    /// The options an empty terminal lists are the keys of `Terminal`, in its order.
+    #[test]
+    fn terminal_options_are_the_keys_of_terminal() {
+        let schema = serde_json::to_value(schemars::schema_for!(super::Terminal)).unwrap();
+        let keys: Vec<&str> = schema["properties"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(keys, super::TERMINAL_OPTIONS);
+    }
 
     fn with_terminal(terminal: Value, timing: Option<&str>) -> Value {
         let mut v = json!({

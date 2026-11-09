@@ -94,7 +94,12 @@ fn check(input: &TornadoInput) -> Result<Inner> {
     for (k, v) in input.variables.iter().enumerate() {
         let at = |e: FairmarkError| e.located(format!("/variables/{k}/variable"));
         match &inner {
-            Some(inner) => found.check(inner.check_variable(&base, &v.variable).map_err(at)),
+            Some(inner) => found.check(
+                inner
+                    .check_variable(&base, &v.variable)
+                    .map(|_| ())
+                    .map_err(at),
+            ),
             // A refused method is reported alone: its variables are not checked against it.
             None => false,
         };

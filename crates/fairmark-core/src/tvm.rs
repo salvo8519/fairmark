@@ -969,7 +969,11 @@ fn check_xnpv(input: &XnpvInput) -> Result<()> {
     found.check(
         rates::discount_factor(input.rate, c, Decimal::ZERO)
             .map(|_| ())
-            .map_err(rate_field("/rate", c.per_year())),
+            .map_err(|e| {
+                // The domain of the rate depends on its compounding (a continuous rate may be
+                // -2), given or annual by default.
+                rate_field("/rate", c.per_year())(e).between(["/rate", "/compounding"])
+            }),
     );
     found.finish()
 }
@@ -1082,11 +1086,16 @@ fn check_xirr(input: &XirrInput) -> Result<()> {
         // Say whether the flows lacked a sign change as given or only after netting.
         let as_given = require_sign_change(flows.iter().map(|f| &f.amount), false);
         if found.check(as_given) {
-            found.check(require_sign_change(netted.iter(), true));
+            // Netting puts together the flows at the same time, which the day count decides.
+            found.check(
+                require_sign_change(netted.iter(), true).map_err(|e| e.reads(["/day_count"])),
+            );
         }
     }
     let start = input.guess.unwrap_or(Decimal::new(10, 2));
-    found.check(check_guess(start, c.per_year()));
+    // The domain of the guess depends on the compounding of the result.
+    found
+        .check(check_guess(start, c.per_year()).map_err(|e| e.between(["/guess", "/compounding"])));
     found.finish()
 }
 
@@ -1562,6 +1571,7 @@ fn check_perpetuity(input: &PerpetuityInput) -> Result<()> {
         return Err(match input.growth {
             Some(_) => error,
             None => error
+                .reads(["/growth"])
                 .at("/rate", Reason::Range)
                 .between(["/rate"])
                 .expected(["a rate greater than the growth, 0 by default"])

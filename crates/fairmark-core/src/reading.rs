@@ -465,9 +465,14 @@ fn reading_errors(
         errors.push(duplicate_error(t));
     }
     let mut found = crate::error::Found::new();
+    // A misspelt key stands for the field it names (`rename `wac` to `wacc``): that field is
+    // treated as refused, and its missing entry points to both and carries the same fix.
+    let renames: Vec<Rename> = errors.iter().filter_map(rename_of).collect();
     let mut reported: Vec<(Option<String>, Option<Reason>)> = Vec::new();
     let mut refused: Vec<String> = scope.poisoned.iter().filter_map(|t| pointer(t)).collect();
+    refused.extend(renames.iter().map(|r| r.target.clone()));
     for error in errors {
+        let error = renamed(error, &renames);
         let d = error.details();
         let key = (d.pointer.clone(), d.reason);
         if reported.contains(&key) {
@@ -482,55 +487,112 @@ fn reading_errors(
         return Ok(());
     }
     if reads {
-        for error in method_errors(&value, &repairs, &replaced, &refused, &walk, reading) {
-            found.push(error);
+        for error in method_errors(
+            &value, &repairs, &replaced, &refused, &renames, &walk, reading,
+        ) {
+            let d = error.details();
+            if !reported.contains(&(d.pointer.clone(), d.reason)) {
+                found.push(error);
+            }
         }
     }
     found.finish()
 }
 
-/// The method's own checks on the input as read, with every refused value replaced by one the
-/// schema accepts: only the errors that do not come from a replaced value. An error is kept
-/// when it names no refused field (by its pointer or the fields of its relation, at, above or
-/// below it) and when the same error is found with two different sets of replacing values, so
-/// that a value put in place of a refused one never raises an error itself.
+/// A key that looks like a misspelt field: the field it stands for, the key, and the rename.
+struct Rename {
+    target: String,
+    key: String,
+    fix: String,
+}
+
+/// The rename an unknown key suggests, if any.
+fn rename_of(error: &FairmarkError) -> Option<Rename> {
+    let d = error.details();
+    if d.reason != Some(Reason::UnknownField) {
+        return None;
+    }
+    let key = d.pointer?;
+    let fix = d.fix?;
+    let target = fix
+        .strip_prefix("rename `")?
+        .split_once("` to `")?
+        .1
+        .strip_suffix('`')?;
+    let parent = key.rsplit_once('/')?.0;
+    Some(Rename {
+        target: format!("{parent}/{}", target.replace('~', "~0").replace('/', "~1")),
+        key,
+        fix,
+    })
+}
+
+/// A missing field that a misspelt key stands for: at the field and the key, with the rename
+/// as its fix, so that the key is renamed rather than the field added beside it.
+fn renamed(error: FairmarkError, renames: &[Rename]) -> FairmarkError {
+    let d = error.details();
+    match renames
+        .iter()
+        .find(|r| d.reason == Some(Reason::Missing) && d.pointer.as_deref() == Some(&r.target))
+    {
+        Some(r) => error
+            .between([r.target.clone(), r.key.clone()])
+            .fix(r.fix.clone()),
+        None => error,
+    }
+}
+
+/// The method's own checks on the input as read (ADR 0014 G5, review round 6). A refused value
+/// is replaced by one its schema accepts only so that the input can be read; every error is
+/// kept only when none of the fields it depends on (its pointer, the fields of its relation and
+/// the fields it otherwise read, [`crate::error::Details::declared`]) is a refused field, a field
+/// within one or one that holds one. The declarations are complete (the property test
+/// `every_error_declares_the_fields_it_reads` checks that an error that does not declare a field
+/// is the same whatever value `serde` reads for that field, or whether it is left out), so a
+/// replaced value never decides an error that is reported, and no check stops at it. An error that declares no field is
+/// not reported beside reading errors. A field a misspelt key stands for counts as refused;
+/// its own missing entry is kept, with the rename.
 fn method_errors(
     value: &Value,
     repairs: &[(Vec<String>, Option<Reason>)],
     replaced: &[Vec<String>],
     refused: &[String],
+    renames: &[Rename],
     walk: &UnknownKeys<'_>,
     reading: &Reading<'_>,
 ) -> Vec<FairmarkError> {
-    let variant = |alternate: bool| -> Option<Vec<FairmarkError>> {
-        let mut v = value.clone();
-        for (tokens, reason) in repairs {
-            if !repair(&mut v, tokens, *reason, walk, alternate) {
-                return None;
-            }
+    let mut v = value.clone();
+    for (tokens, reason) in repairs {
+        if !repair(&mut v, tokens, *reason, walk) {
+            return Vec::new();
         }
-        for tokens in replaced {
-            if !repair(&mut v, tokens, Some(Reason::Type), walk, alternate) {
-                return None;
-            }
+    }
+    for tokens in replaced {
+        if !repair(&mut v, tokens, Some(Reason::Type), walk) {
+            return Vec::new();
         }
-        (reading.check)(&v)
-    };
-    let (Some(first), Some(second)) = (variant(false), variant(true)) else {
+    }
+    let Some(errors) = (reading.check)(&v) else {
         return Vec::new();
     };
-    let same = |a: &FairmarkError, b: &FairmarkError| {
-        a.code() == b.code()
-            && a.details().pointer == b.details().pointer
-            && a.to_string() == b.to_string()
-    };
-    first
+    errors
         .into_iter()
-        .filter(|e| second.iter().any(|b| same(e, b)))
+        .map(|e| renamed(e, renames))
         .filter(|e| {
             let d = e.details();
-            let named: Vec<&String> = d.pointer.iter().chain(d.pointers.iter()).collect();
-            !named.is_empty() && !named.iter().any(|p| refused.iter().any(|r| related(p, r)))
+            // The missing entry of a field a misspelt key stands for is kept, with the rename.
+            if d.reason == Some(Reason::Missing)
+                && renames
+                    .iter()
+                    .any(|r| d.pointer.as_deref() == Some(&r.target))
+            {
+                return true;
+            }
+            let declared = d.declared();
+            !declared.is_empty()
+                && !declared
+                    .iter()
+                    .any(|p| refused.iter().any(|r| related(p, r)))
         })
         .collect()
 }
@@ -626,7 +688,7 @@ fn every_reading_error(
     let mut at = first;
     let mut reason = reason;
     for _ in 0..MAX_READING_ERRORS {
-        if !repair(&mut value, &at, reason, walk, false) {
+        if !repair(&mut value, &at, reason, walk) {
             return (errors, repairs, false);
         }
         repairs.push((at.clone(), reason));
@@ -638,7 +700,15 @@ fn every_reading_error(
             // The repair did not let the reader go past this location: stop.
             return (errors, repairs, false);
         }
-        if !scope.hides(&tokens, next, &value, walk) {
+        // An unknown key that was the only key of a single-key choice (`tv.godon` in a
+        // technique of `tv.compare`): the choice left empty is the same condition, reported
+        // once, at the key. The choice is refused: nothing within it is checked.
+        let emptied = reason == Some(Reason::UnknownField)
+            && next == Some(Reason::Length)
+            && at.split_last().is_some_and(|(_, parent)| parent == tokens);
+        if emptied {
+            scope.poisoned.push(tokens.clone());
+        } else if !scope.hides(&tokens, next, &value, walk) {
             errors.push(error);
         }
         reason = next;
@@ -648,14 +718,12 @@ fn every_reading_error(
 }
 
 /// Lets the reader go past an error at `tokens`: an unknown key is removed, a missing field is
-/// added, any other value is replaced by one its schema accepts (the second of two sets of
-/// values when `alternate`). False when it cannot.
+/// added, any other value is replaced by one its schema accepts. False when it cannot.
 fn repair(
     value: &mut Value,
     tokens: &[String],
     reason: Option<Reason>,
     walk: &UnknownKeys<'_>,
-    alternate: bool,
 ) -> bool {
     let Some((key, parent)) = tokens.split_last() else {
         return false;
@@ -676,7 +744,7 @@ fn repair(
             let Some(schema) = schema else {
                 return false;
             };
-            let filler = walk.placeholder(&schema, 0, alternate);
+            let filler = walk.placeholder(&schema, 0);
             match value.pointer_mut(&parent_at) {
                 Some(Value::Object(map)) => {
                     map.insert(key.clone(), filler);
@@ -1534,10 +1602,9 @@ impl UnknownKeys<'_> {
     /// A value the schema accepts when read, to stand in for a refused value while the reading
     /// goes on: the first constant or enumeration value, the first branch of a choice, an object
     /// with its required fields, a list of its required length, `"0"` for a decimal, a date for
-    /// a date. With `alternate`, another value of the same shape where there is one (the last
-    /// enumeration value, `"1"`, a larger count, another date), so that an error that comes from
-    /// the value put in place shows as a difference between the two.
-    fn placeholder(&self, schema: &Value, depth: usize, alternate: bool) -> Value {
+    /// a date. No error is ever reported on account of it: the checks that read a replaced
+    /// value are skipped (see [`method_errors`]).
+    fn placeholder(&self, schema: &Value, depth: usize) -> Value {
         let schema = self.resolve(schema);
         if depth > 32 {
             return Value::Null;
@@ -1546,17 +1613,12 @@ impl UnknownKeys<'_> {
             return c.clone();
         }
         if let Some(values) = schema.get("enum").and_then(Value::as_array) {
-            let pick = if alternate {
-                values.last()
-            } else {
-                values.first()
-            };
-            if let Some(v) = pick {
+            if let Some(v) = values.first() {
                 return v.clone();
             }
         }
         if self.is_decimal(&schema) {
-            return Value::from(if alternate { "1" } else { "0" });
+            return Value::from("0");
         }
         let branches = self.branches(&schema);
         if schema.get("properties").is_none() && !branches.is_empty() {
@@ -1564,7 +1626,7 @@ impl UnknownKeys<'_> {
                 .iter()
                 .find(|b| !(has_type(b, "null") && b.get("type").is_some_and(Value::is_string)))
                 .unwrap_or(&branches[0]);
-            return self.placeholder(branch, depth + 1, alternate);
+            return self.placeholder(branch, depth + 1);
         }
         if schema.get("properties").is_some() || has_type(&schema, "object") {
             let shape = self.shape(&schema);
@@ -1602,8 +1664,7 @@ impl UnknownKeys<'_> {
                         .first()
                         .and_then(|b| self.shape(b).properties.get(&r).cloned())
                 });
-                let filler =
-                    sub.map_or(Value::Null, |s| self.placeholder(&s, depth + 1, alternate));
+                let filler = sub.map_or(Value::Null, |s| self.placeholder(&s, depth + 1));
                 map.insert(r, filler);
             }
             return Value::Object(map);
@@ -1613,7 +1674,7 @@ impl UnknownKeys<'_> {
                 return Value::Array(
                     prefix
                         .iter()
-                        .map(|p| self.placeholder(p, depth + 1, alternate))
+                        .map(|p| self.placeholder(p, depth + 1))
                         .collect(),
                 );
             }
@@ -1621,19 +1682,15 @@ impl UnknownKeys<'_> {
             let item = schema.get("items").cloned().unwrap_or(Value::Null);
             return Value::Array(
                 (0..length)
-                    .map(|_| self.placeholder(&item, depth + 1, alternate))
+                    .map(|_| self.placeholder(&item, depth + 1))
                     .collect(),
             );
         }
         if has_type(&schema, "string") {
             if schema.get("format").and_then(Value::as_str) == Some("date") {
-                return Value::from(if alternate {
-                    "2001-06-30"
-                } else {
-                    "2000-01-01"
-                });
+                return Value::from("2000-01-01");
             }
-            return Value::from(if alternate { "y" } else { "x" });
+            return Value::from("x");
         }
         if has_type(&schema, "integer") {
             let min = schema
@@ -1641,18 +1698,13 @@ impl UnknownKeys<'_> {
                 .and_then(Value::as_u64)
                 .unwrap_or(1)
                 .max(1);
-            let max = schema
-                .get("maximum")
-                .and_then(Value::as_u64)
-                .unwrap_or(u64::MAX);
-            let n = if alternate { (min + 1).min(max) } else { min };
-            return Value::from(n);
+            return Value::from(min);
         }
         if has_type(&schema, "number") {
-            return Value::from(u8::from(alternate));
+            return Value::from(0);
         }
         if has_type(&schema, "boolean") {
-            return Value::Bool(alternate);
+            return Value::Bool(false);
         }
         Value::Null
     }

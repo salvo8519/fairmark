@@ -311,6 +311,25 @@ pub struct Details {
     pub fix: Option<String>,
     /// `FM-E027` only: alternative sets of input pointers, any one of which is enough.
     pub missing_any_of: Vec<Vec<String>>,
+    /// Fields the check read that are neither the field to correct nor a side of its
+    /// relation (a label or a choice quoted in the message, a field that decides whether the
+    /// check applies). Not part of the report: with `pointer` and `pointers`, the complete
+    /// list of what the error depends on, by which the reading skips an error that depends on
+    /// a refused field (ADR 0014 G5, review round 6).
+    pub reads: Vec<String>,
+}
+
+impl Details {
+    /// Every field the error depends on: its pointer, the fields of its relation and the
+    /// fields it otherwise read.
+    pub fn declared(&self) -> Vec<String> {
+        self.pointer
+            .iter()
+            .chain(&self.pointers)
+            .chain(&self.reads)
+            .cloned()
+            .collect()
+    }
 }
 
 /// Collects the input errors of a validation pass (ADR 0014 G5): the validation goes on after
@@ -587,6 +606,39 @@ impl FairmarkError {
         self.with(|d| d.expected = values)
     }
 
+    /// This error with the fields its check also read, besides its pointer and pointers (see
+    /// [`Details::reads`]).
+    /// Every error of `Several` gains them; an error that already declares them all is
+    /// returned unchanged.
+    pub(crate) fn reads<S: Into<String>>(self, pointers: impl IntoIterator<Item = S>) -> Self {
+        let pointers: Vec<String> = pointers.into_iter().map(Into::into).collect();
+        self.read_also(&pointers)
+    }
+
+    fn read_also(self, pointers: &[String]) -> Self {
+        match self {
+            Self::Several(several) => Self::Several(Box::new(Several(
+                several
+                    .0
+                    .into_iter()
+                    .map(|e| e.read_also(pointers))
+                    .collect(),
+            ))),
+            error => {
+                let declared = error.details().declared();
+                let new: Vec<String> = pointers
+                    .iter()
+                    .filter(|p| !declared.contains(p))
+                    .cloned()
+                    .collect();
+                if new.is_empty() {
+                    return error;
+                }
+                error.with(|d| d.reads.extend(new))
+            }
+        }
+    }
+
     /// This error with the sentence that resolves it.
     pub(crate) fn fix(self, fix: impl Into<String>) -> Self {
         let fix = fix.into();
@@ -632,7 +684,11 @@ impl FairmarkError {
             ))),
             error => {
                 let d = error.details();
-                if d.pointer.is_none() && d.pointers.is_empty() && d.missing_any_of.is_empty() {
+                if d.pointer.is_none()
+                    && d.pointers.is_empty()
+                    && d.missing_any_of.is_empty()
+                    && d.reads.is_empty()
+                {
                     return error;
                 }
                 let at = |p: &mut String| *p = f(p);
@@ -640,6 +696,7 @@ impl FairmarkError {
                     d.pointer.iter_mut().for_each(at);
                     d.pointers.iter_mut().for_each(at);
                     d.missing_any_of.iter_mut().flatten().for_each(at);
+                    d.reads.iter_mut().for_each(at);
                 })
             }
         }
@@ -841,6 +898,7 @@ impl FairmarkError {
             expected,
             fix,
             missing_any_of,
+            reads: _,
         } = self.details();
         ErrorEntry {
             code: self.code(),

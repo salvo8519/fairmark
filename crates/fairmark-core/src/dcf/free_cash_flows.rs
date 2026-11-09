@@ -307,7 +307,9 @@ fn validate(
                     .between([
                         "/notional_tax_rate".to_owned(),
                         at.pointer(i, "operating_taxes"),
-                    ]),
+                    ])
+                    // The first line with amounts: the lines before it are read too.
+                    .reads([at.pointer_prefix]),
                 );
             }
             valid &= found.check(check_tax_rate(t, "/notional_tax_rate"));
@@ -337,7 +339,9 @@ fn validate(
                      `operating_taxes` in every line of `{}`",
                         at.pointer_prefix
                     ))
-                    .at("/notional_tax_rate", Reason::Missing),
+                    .at("/notional_tax_rate", Reason::Missing)
+                    // No line gives amounts: every line is read.
+                    .reads([at.pointer_prefix]),
                 );
             } else {
                 for i in (0..p.len()).filter(|&i| p[i].operating_taxes.is_none()) {
@@ -349,7 +353,9 @@ fn validate(
                     at.field(i, "operating_taxes")?,
                     at.pointer_prefix
                 ))
-                        .at(at.pointer(i, "operating_taxes"), Reason::Missing),
+                        .at(at.pointer(i, "operating_taxes"), Reason::Missing)
+                        // Required because another line gives amounts and no rate is given.
+                        .reads(["/notional_tax_rate", at.pointer_prefix]),
                     );
                 }
             }
@@ -360,6 +366,7 @@ fn validate(
                      as amounts in `operating_taxes`; remove `negative_ebit`",
                 )
                 .at("/negative_ebit", Reason::Requires)
+                .between(["/negative_ebit", "/notional_tax_rate"])
                 .fix("remove `negative_ebit`"));
             }
             valid.then_some(Taxes::Amounts)
@@ -445,15 +452,23 @@ fn validate(
             .between([
                 at.pointer(missing, "interest_expense"),
                 at.pointer(missing, "net_borrowing"),
-            ]),
+            ])
+            // Decided by the first period and the first period that differs from it.
+            .reads([at.pointer_prefix]),
         );
     }
 
-    // The interest tax shield, checked on the form given, whether or not the form is valid.
+    // The interest tax shield, checked on the form given, whether or not the form is valid:
+    // every error reads the tax form and whether the first period has financing lines.
+    let decided_by = [
+        "/notional_tax_rate".to_owned(),
+        at.pointer(0, "interest_expense"),
+    ];
+    let mut shield_found = Found::new();
     let shield =
         match (rate_form, financing, choice.interest_tax_rate) {
             (true, _, Some(_)) => {
-                found.push(invalid(
+                shield_found.push(invalid(
                 "`/interest_tax_rate` is not accepted with `/notional_tax_rate`: the interest tax \
                  shield uses the tax rate on EBIT (SPEC-0001 R3); remove `interest_tax_rate`",
             )
@@ -464,11 +479,11 @@ fn validate(
             }
             (true, true, None) => choice.notional_tax_rate,
             (false, true, Some(t)) => {
-                found.check(check_tax_rate(t, "/interest_tax_rate"));
+                shield_found.check(check_tax_rate(t, "/interest_tax_rate"));
                 Some(t)
             }
             (false, true, None) => {
-                found.push(invalid(
+                shield_found.push(invalid(
                     "`/interest_tax_rate` is required: the taxes on EBIT are given as amounts, so \
                  the rate t of the interest tax shield in the FCFE must be given separately",
                 )
@@ -476,7 +491,7 @@ fn validate(
                 None
             }
             (false, false, Some(_)) => {
-                found.push(
+                shield_found.push(
                     invalid(format!(
                     "`/interest_tax_rate` is used only for the FCFE: give `interest_expense` and \
                      `net_borrowing` in every line of `{}`, or remove `interest_tax_rate`",
@@ -488,6 +503,11 @@ fn validate(
             }
             (_, false, None) => None,
         };
+    if let Err(e) = shield_found.finish() {
+        for e in e.into_errors() {
+            found.push(e.reads(decided_by.clone()));
+        }
+    }
     found.finish()?;
     let taxes = taxes.ok_or(FairmarkError::Internal("tax form not checked"))?;
     Ok((taxes, financing, shield))

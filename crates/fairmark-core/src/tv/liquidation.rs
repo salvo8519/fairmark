@@ -60,10 +60,14 @@ fn check_lines(field: &str, lines: &[Line], errors: &mut Vec<FieldError>) {
             ));
         }
         if line.value < Decimal::ZERO {
-            errors.push(on(format!("{field}/{i}/value"))(domain(format!(
-                "{field} '{}' cannot be negative (got {})",
-                line.label, line.value
-            ))));
+            // The message quotes the label: the error reads it.
+            errors.push(on(format!("{field}/{i}/value"))(
+                domain(format!(
+                    "{field} '{}' cannot be negative (got {})",
+                    line.label, line.value
+                ))
+                .reads([format!("/{field}/{i}/label")]),
+            ));
         }
     }
 }

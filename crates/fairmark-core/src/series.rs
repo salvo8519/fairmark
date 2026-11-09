@@ -586,7 +586,12 @@ fn prepare(input: &ProjectInput) -> Result<Prepared> {
         BasePeriod::Period0 => n,
         BasePeriod::Period1 => n - 1,
     };
-    let stated = found.take(stated_rates(&input.growth, steps, n, input.base_period));
+    // The number of growth steps comes from the timeline and the base period: the rates stated
+    // per step read both.
+    let steps_read = ["/timeline", "/base_period"];
+    let stated = found.take(
+        stated_rates(&input.growth, steps, n, input.base_period).map_err(|e| e.reads(steps_read)),
+    );
     if let GrowthRule::Linear(l) = &input.growth {
         // The ends are checked by name, even when no step reaches them (s = 0); every step
         // lies between them, so the steps add nothing.
@@ -598,10 +603,12 @@ fn prepare(input: &ProjectInput) -> Result<Prepared> {
         found.check(check_rate(l.to_growth, "/growth/linear/to_growth", None));
     } else {
         for s in stated.iter().flatten() {
-            found.check(check_rate(s.rate, &s.pointer, None));
+            found.check(check_rate(s.rate, &s.pointer, None).map_err(|e| e.reads(steps_read)));
         }
     }
-    let basis = found.take(resolve_basis(input.growth_basis, length));
+    // The basis needs the period length, which the timeline gives.
+    let basis =
+        found.take(resolve_basis(input.growth_basis, length).map_err(|e| e.reads(["/timeline"])));
     found.finish()?;
     let (Some(stated), Some((conversion, basis_convention))) = (stated, basis) else {
         return Err(FairmarkError::Internal(

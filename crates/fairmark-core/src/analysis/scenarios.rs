@@ -141,7 +141,12 @@ fn check(input: &ScenariosInput) -> Result<Inner> {
         for (k, o) in s.overrides.iter().enumerate() {
             let at = |e: FairmarkError| e.located(format!("/scenarios/{i}/overrides/{k}/pointer"));
             match &inner {
-                Some(inner) => found.check(inner.check_variable(&base, &o.pointer).map_err(at)),
+                Some(inner) => found.check(
+                    inner
+                        .check_variable(&base, &o.pointer)
+                        .map(|_| ())
+                        .map_err(at),
+                ),
                 // A refused method is reported alone: its variables are not checked against it.
                 None => false,
             };

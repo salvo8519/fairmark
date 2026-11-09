@@ -142,10 +142,14 @@ pub(crate) fn check(input: &ExitMultipleInput) -> Checked {
         ))));
     }
     if x <= Decimal::ZERO {
-        errors.push(on("metric_value")(domain(format!(
-            "the metric {} must be greater than 0 to carry a multiple (got {x})",
-            metric.name()
-        ))));
+        // The message names the metric: its field is a side of the error.
+        errors.push(on("metric_value")(
+            domain(format!(
+                "the metric {} must be greater than 0 to carry a multiple (got {x})",
+                metric.name()
+            ))
+            .between(["/metric_value", "/metric"]),
+        ));
     }
     if input.rate.is_some() != input.next_flow.is_some() {
         errors.push(on("next_flow")(
@@ -159,7 +163,8 @@ pub(crate) fn check(input: &ExitMultipleInput) -> Checked {
             invalid(
                 "growth_cap needs rate and next_flow: the cap is checked on the implied growth",
             )
-            .because(crate::error::Reason::Requires),
+            .because(crate::error::Reason::Requires)
+            .between(["/growth_cap", "/next_flow"]),
         ));
     }
     checked(errors)

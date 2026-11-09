@@ -661,8 +661,9 @@ fn invalid(msg: String) -> FairmarkError {
     FairmarkError::InvalidInput(msg)
 }
 
+/// A count that must match the stages: it reads the stages and their periods.
 fn count(msg: String) -> FairmarkError {
-    FairmarkError::CountMismatch(msg)
+    FairmarkError::CountMismatch(msg).reads(["/stages"])
 }
 
 // ---------------------------------------------------------------- checks
@@ -707,7 +708,10 @@ fn check_stages(
     let mut found = Found::new();
     for (i, s) in stages.iter().enumerate() {
         // Each stage is checked: the first refusal of a stage ends its checks, not the others.
-        if let Some(stage) = found.take(check_stage(i, s)) {
+        // A stage's checks follow one another (its projection decides which fields it takes,
+        // its periods how many flows): every error of a stage reads the whole stage.
+        let stage = check_stage(i, s).map_err(|e| e.reads([format!("/stages/{i}")]));
+        if let Some(stage) = found.take(stage) {
             horizon += u64::from(stage.periods);
             resolved.push(stage);
         }
@@ -949,95 +953,127 @@ type ResolvedRates = (Vec<Decimal>, Option<(Decimal, String)>);
 /// terminal rate. Returns the period rates and the terminal rate with its field name; no
 /// terminal rate when the terminal value uses none (`rate_use` not used, Decision 24),
 /// in which case a separate terminal rate is refused.
-fn resolve_rates(r: &RateInput<'_>, n: usize, rate_use: TerminalRateUse) -> Result<ResolvedRates> {
+/// `n` is the explicit horizon, `None` when the stages are refused: the rates are then checked
+/// on their own, without the count the horizon decides (ADR 0014 G5).
+fn resolve_rates(
+    r: &RateInput<'_>,
+    n: Option<usize>,
+    rate_use: TerminalRateUse,
+) -> Result<ResolvedRates> {
     let uses_terminal_rate = rate_use.is_used();
     let f = &r.fields;
+    let (single, per_period, terminal_at) = (
+        format!("/{}", f.single),
+        format!("/{}", f.per_period),
+        format!("/{}", f.terminal),
+    );
+    // Whether a terminal rate is used: the terminal option and the timing decide it.
+    let decides_use = ["/terminal", "/timing", "/terminal_discount_time"];
+    // The form of the rates first, then every rate given against its range: no refusal hides
+    // another (ADR 0014 G5, review round 6).
+    let mut found = Found::new();
     if !uses_terminal_rate && r.single.is_none() && r.per_period.is_some() && r.terminal.is_some() {
-        return Err(invalid(format!(
-            "`/{}` is not used: the terminal value takes no terminal rate (no terminal value, or \
-             a given terminal value discounted at the horizon N); remove `/{}`",
-            f.terminal, f.terminal
-        ))
-        .at(format!("/{}", f.terminal), Reason::Requires)
-        .fix(format!("remove `/{}`", f.terminal)));
+        found.push(
+            invalid(format!(
+                "`/{}` is not used: the terminal value takes no terminal rate (no terminal value, \
+                 or a given terminal value discounted at the horizon N); remove `/{}`",
+                f.terminal, f.terminal
+            ))
+            .at(terminal_at.clone(), Reason::Requires)
+            .fix(format!("remove `/{}`", f.terminal))
+            .reads([single.clone(), per_period.clone()])
+            .reads(decides_use),
+        );
     }
-    let (rates, terminal, terminal_field) = match (r.single, r.per_period, r.terminal) {
-        (Some(_), Some(_), _) => {
-            return Err(invalid(format!(
+    let form = match (r.single, r.per_period, r.terminal) {
+        (Some(_), Some(_), _) => Some(
+            invalid(format!(
                 "give exactly one of `/{}` and `/{}`, not both",
                 f.single, f.per_period
             ))
-            .at(format!("/{}", f.single), Reason::Conflict)
-            .between([format!("/{}", f.single), format!("/{}", f.per_period)]))
-        }
-        (None, None, _) => {
-            return Err(invalid(format!(
+            .at(single.clone(), Reason::Conflict)
+            .between([single.clone(), per_period.clone()]),
+        ),
+        (None, None, _) => Some(
+            invalid(format!(
                 "give the discount rate: `/{}` for every period, or `/{}` with `/{}`",
                 f.single, f.per_period, f.terminal
             ))
-            .at(format!("/{}", f.single), Reason::Missing)
-            .between([format!("/{}", f.single), format!("/{}", f.per_period)])
-            .fix(format!("give `/{}`", f.single)))
-        }
-        (Some(_), None, Some(_)) => {
-            return Err(invalid(format!(
+            .at(single.clone(), Reason::Missing)
+            .between([single.clone(), per_period.clone()])
+            .fix(format!("give `/{}`", f.single)),
+        ),
+        (Some(_), None, Some(_)) => Some(
+            invalid(format!(
                 "`/{}` is not accepted with `/{}`: one rate is used for every period and for \
                  the terminal value; remove `/{}`, or give `/{}` instead",
                 f.terminal, f.single, f.terminal, f.per_period
             ))
-            .at(format!("/{}", f.terminal), Reason::Conflict)
-            .between([format!("/{}", f.terminal), format!("/{}", f.single)]))
-        }
-        (None, Some(_), None) if uses_terminal_rate => {
-            return Err(invalid(format!(
+            .at(terminal_at.clone(), Reason::Conflict)
+            .between([terminal_at.clone(), single.clone()])
+            .reads([per_period.clone()]),
+        ),
+        (None, Some(_), None) if uses_terminal_rate => Some(
+            invalid(format!(
                 "`/{}` is required with `/{}`: give the rate of the terminal phase{}",
                 f.terminal,
                 f.per_period,
                 rate_use.note()
             ))
-            .at(format!("/{}", f.terminal), Reason::Missing)
-            .between([format!("/{}", f.terminal), format!("/{}", f.per_period)]))
-        }
-        (Some(rate), None, None) => (vec![rate; n], Some(rate), format!("/{}", f.single)),
-        (None, Some(list), term) => {
-            if list.len() != n {
-                return Err(count(format!(
+            .at(terminal_at.clone(), Reason::Missing)
+            .between([terminal_at.clone(), per_period.clone()])
+            .reads([single.clone()])
+            .reads(decides_use),
+        ),
+        _ => None,
+    };
+    let form_valid = form.is_none();
+    if let Some(e) = form {
+        found.push(e);
+    }
+    if let (Some(list), Some(n)) = (r.per_period, n) {
+        if list.len() != n {
+            found.push(
+                count(format!(
                     "`/{}` has {} rates for an explicit horizon of {n} periods (the sum of \
                      `/stages/*/periods`); give exactly {n} rates",
                     f.per_period,
                     list.len()
                 ))
-                .at(format!("/{}", f.per_period), Reason::Length)
-                .expected([format!("{n} rates")]));
-            }
-            (list.to_vec(), term, format!("/{}", f.terminal))
+                .at(per_period.clone(), Reason::Length)
+                .expected([format!("{n} rates")]),
+            );
         }
-    };
-    let terminal = terminal.filter(|_| uses_terminal_rate);
-    // Every rate out of range is reported (ADR 0014 G5); one rate given is reported once.
-    let mut found = Found::new();
-    for (k, rate) in rates.iter().enumerate() {
-        if *rate <= -Decimal::ONE {
-            let field = match r.single {
-                Some(_) if k > 0 => continue,
-                Some(_) => format!("/{}", f.single),
-                None => format!("/{}/{k}", f.per_period),
-            };
+    }
+    // Every rate given out of range is reported; one rate given is reported once.
+    let given = r
+        .single
+        .map(|rate| (single.clone(), rate))
+        .into_iter()
+        .chain(
+            r.per_period
+                .unwrap_or_default()
+                .iter()
+                .enumerate()
+                .map(|(k, rate)| (format!("{per_period}/{k}"), *rate)),
+        )
+        .chain(r.terminal.map(|rate| (terminal_at.clone(), rate)));
+    for (field, rate) in given {
+        if rate <= -Decimal::ONE {
             found.push(FairmarkError::DiscountRateOutOfRange {
                 field,
-                rate: *rate,
+                rate,
                 converted_with: None,
             });
         }
     }
-    if let Some(t) = terminal.filter(|t| *t <= -Decimal::ONE && r.single.is_none()) {
-        found.push(FairmarkError::DiscountRateOutOfRange {
-            field: terminal_field.clone(),
-            rate: t,
-            converted_with: None,
-        });
-    }
     found.finish()?;
+    let (rates, terminal, terminal_field) = match (form_valid, r.single, r.per_period) {
+        (true, Some(rate), None) => (vec![rate; n.unwrap_or(1)], Some(rate), single),
+        (true, None, Some(list)) => (list.to_vec(), r.terminal, terminal_at),
+        _ => return Err(FairmarkError::Internal("rate form not checked")),
+    };
+    let terminal = terminal.filter(|_| uses_terminal_rate);
     Ok((rates, terminal.map(|t| (t, terminal_field))))
 }
 
@@ -1066,100 +1102,132 @@ impl Inflation {
 /// a terminal inflation, or none; each greater than -1 (`FM-E003` otherwise, Decision 19).
 /// Checked whenever given (R18 too). A terminal inflation next to one inflation is refused
 /// (Decision 18).
+///
+/// `n` is the explicit horizon, `None` when the stages are refused: the values are then checked
+/// on their own, without the count the horizon decides (ADR 0014 G5).
 fn resolve_inflation(
     i: &InflationInput<'_>,
-    n: usize,
+    n: Option<usize>,
     rate_use: TerminalRateUse,
 ) -> Result<Option<Inflation>> {
     let uses_terminal_rate = rate_use.is_used();
-    let resolved =
-        match (i.single, i.per_period, i.terminal) {
-            (None, None, None) => return Ok(None),
-            (None, Some(_), Some(_)) if !uses_terminal_rate => {
-                return Err(invalid(
-                    "`/terminal_inflation` is not used: the terminal value takes no terminal rate \
+    // Whether a terminal rate is used: the terminal option and the timing decide it.
+    let decides_use = ["/terminal", "/timing", "/terminal_discount_time"];
+    // The form first, then the count and every value given against its range: no refusal
+    // hides another (ADR 0014 G5, review round 6).
+    let mut found = Found::new();
+    let form = match (i.single, i.per_period, i.terminal) {
+        (None, Some(_), Some(_)) if !uses_terminal_rate => Some(
+            invalid(
+                "`/terminal_inflation` is not used: the terminal value takes no terminal rate \
                  (no terminal value, or a given terminal value discounted at the horizon N); \
                  remove `/terminal_inflation`"
-                        .to_owned(),
-                )
-                .at("/terminal_inflation", Reason::Requires)
-                .fix("remove `/terminal_inflation`"))
-            }
-            (Some(_), Some(_), _) => {
-                return Err(invalid(
-                    "give exactly one of `/inflation` and `/inflation_per_period`, not both: one \
+                    .to_owned(),
+            )
+            .at("/terminal_inflation", Reason::Requires)
+            .fix("remove `/terminal_inflation`")
+            .reads(["/inflation", "/inflation_per_period"])
+            .reads(decides_use),
+        ),
+        (Some(_), Some(_), _) => Some(
+            invalid(
+                "give exactly one of `/inflation` and `/inflation_per_period`, not both: one \
                  expected inflation for every period, or one per period with \
                  `/terminal_inflation`"
-                        .to_owned(),
-                )
-                .at("/inflation", Reason::Conflict)
-                .between(["/inflation", "/inflation_per_period"]))
-            }
-            (Some(_), None, Some(_)) => return Err(invalid(
+                    .to_owned(),
+            )
+            .at("/inflation", Reason::Conflict)
+            .between(["/inflation", "/inflation_per_period"]),
+        ),
+        (Some(_), None, Some(_)) => Some(
+            invalid(
                 "`/terminal_inflation` is not accepted with `/inflation`: one expected inflation \
                  applies to every period and to the terminal phase; remove \
                  `/terminal_inflation`, or give `/inflation_per_period` instead"
                     .to_owned(),
             )
             .at("/terminal_inflation", Reason::Conflict)
-            .between(["/terminal_inflation", "/inflation"])),
-            (None, Some(_), None) if uses_terminal_rate => {
-                return Err(invalid(format!(
-                    "`/terminal_inflation` is required with `/inflation_per_period`: give the \
-                     expected inflation of the terminal phase{}",
-                    rate_use.note()
-                ))
-                .at("/terminal_inflation", Reason::Missing)
-                .between(["/terminal_inflation", "/inflation_per_period"]))
-            }
-            (None, None, Some(_)) => {
-                return Err(invalid(
-                    "`/terminal_inflation` is used only with `/inflation_per_period`; give \
+            .between(["/terminal_inflation", "/inflation"])
+            .reads(["/inflation_per_period"]),
+        ),
+        (None, Some(_), None) if uses_terminal_rate => Some(
+            invalid(format!(
+                "`/terminal_inflation` is required with `/inflation_per_period`: give the \
+                 expected inflation of the terminal phase{}",
+                rate_use.note()
+            ))
+            .at("/terminal_inflation", Reason::Missing)
+            .between(["/terminal_inflation", "/inflation_per_period"])
+            .reads(["/inflation"])
+            .reads(decides_use),
+        ),
+        (None, None, Some(_)) => Some(
+            invalid(
+                "`/terminal_inflation` is used only with `/inflation_per_period`; give \
                  `/inflation_per_period` too, or give one expected inflation in `/inflation`"
-                        .to_owned(),
-                )
-                .at("/terminal_inflation", Reason::Requires)
-                .between(["/terminal_inflation", "/inflation_per_period"]))
-            }
-            (Some(one), None, None) => Inflation {
-                per_period: vec![one; n],
-                terminal: uses_terminal_rate.then_some(one),
-                single: true,
-            },
-            (None, Some(list), terminal) => {
-                if list.len() != n {
-                    return Err(count(format!(
-                        "`/inflation_per_period` has {} values for an explicit horizon of {n} \
+                    .to_owned(),
+            )
+            .at("/terminal_inflation", Reason::Requires)
+            .between(["/terminal_inflation", "/inflation_per_period"])
+            .reads(["/inflation"]),
+        ),
+        _ => None,
+    };
+    let form_valid = form.is_none();
+    if let Some(e) = form {
+        found.push(e);
+    }
+    if let (Some(list), Some(n)) = (i.per_period, n) {
+        if list.len() != n {
+            found.push(
+                count(format!(
+                    "`/inflation_per_period` has {} values for an explicit horizon of {n} \
                      periods (the sum of `/stages/*/periods`); give exactly {n} values",
-                        list.len()
-                    ))
-                    .at("/inflation_per_period", Reason::Length)
-                    .expected([format!("{n} values")]));
-                }
-                Inflation {
-                    per_period: list.to_vec(),
-                    terminal,
-                    single: false,
-                }
-            }
-        };
-    let values = resolved
-        .per_period
-        .iter()
-        .enumerate()
-        .map(|(k, v)| (Some(k), *v))
-        .chain(resolved.terminal.map(|t| (None, t)));
-    for (k, v) in values {
+                    list.len()
+                ))
+                .at("/inflation_per_period", Reason::Length)
+                .expected([format!("{n} values")]),
+            );
+        }
+    }
+    // Every value given out of range is reported; Decision 19: the code of
+    // `rates.real_nominal` for the same value (FM-E003).
+    let given = i
+        .single
+        .map(|v| ("/inflation".to_owned(), v))
+        .into_iter()
+        .chain(
+            i.per_period
+                .unwrap_or_default()
+                .iter()
+                .enumerate()
+                .map(|(k, v)| (format!("/inflation_per_period/{k}"), *v)),
+        )
+        .chain(i.terminal.map(|v| ("/terminal_inflation".to_owned(), v)));
+    for (field, v) in given {
         if v <= -Decimal::ONE {
-            // Decision 19: the code of `rates.real_nominal` for the same value (FM-E003).
-            return Err(FairmarkError::DiscountRateOutOfRange {
-                field: resolved.field(k),
+            found.push(FairmarkError::DiscountRateOutOfRange {
+                field,
                 rate: v,
                 converted_with: None,
             });
         }
     }
-    Ok(Some(resolved))
+    found.finish()?;
+    Ok(match (form_valid, i.single, i.per_period) {
+        (true, None, None) => None,
+        (true, Some(one), None) => Some(Inflation {
+            per_period: vec![one; n.unwrap_or(1)],
+            terminal: uses_terminal_rate.then_some(one),
+            single: true,
+        }),
+        (true, None, Some(list)) => Some(Inflation {
+            per_period: list.to_vec(),
+            terminal: i.terminal,
+            single: false,
+        }),
+        _ => return Err(FairmarkError::Internal("inflation form not checked")),
+    })
 }
 
 /// One rate restated in the terms `to` with the exact Fisher relation, through a typed call to
@@ -1196,6 +1264,46 @@ struct RatesUsed {
     terminal_field: String,
     /// JSON pointer of the inflation the terminal rate was converted with, if it was.
     terminal_converted_with: Option<String>,
+}
+
+/// `FM-E024`: cash flows and discount rates in different terms without expected inflation
+/// (R14, Decision 24 (c)). It needs no rate and no horizon.
+fn terms_mismatch(input: &EngineInput<'_>) -> FairmarkError {
+    let (flows, given) = (input.cash_flow_terms, input.discount_rate_terms);
+    // Decision 24 (c): say which term came from its default and how to state it.
+    let d = input.defaulted;
+    let defaulted = if d.cash_flow_terms {
+        Some(("cash_flow_terms", flows, given))
+    } else if d.discount_rate_terms {
+        Some(("discount_rate_terms", given, flows))
+    } else {
+        None
+    };
+    let note = match defaulted {
+        Some((field, default, other)) => format!(
+            "; `/{field}` was not given and defaults to {}: give `{field}: {}`, or give \
+             expected inflation",
+            default.label(),
+            other.label()
+        ),
+        None => String::new(),
+    };
+    FairmarkError::TermsMismatch(format!(
+        "`/cash_flow_terms` is {} and `/discount_rate_terms` is {}, and no expected \
+         inflation is given; discounting {} flows at {} rates misstates the value. Either \
+         give expected inflation in `/inflation` (or `/inflation_per_period` with \
+         `/terminal_inflation`), so that the discount rates are converted to {} terms, or \
+         restate the discount rates or the cash flows in the same terms{note}",
+        flows.label(),
+        given.label(),
+        flows.label(),
+        given.label(),
+        flows.label()
+    ))
+    .at("/cash_flow_terms", Reason::Conflict)
+    .between(["/cash_flow_terms", "/discount_rate_terms", "/inflation"])
+    // No inflation in any form: the per-period form is read too.
+    .reads(["/inflation_per_period", "/terminal_inflation"])
 }
 
 /// R14 to R16, R18: equal terms use the rates as given; different terms are refused without
@@ -1276,38 +1384,7 @@ fn resolve_terms(
         });
     }
     let Some(inflation) = inflation else {
-        // Decision 24 (c): say which term came from its default and how to state it.
-        let d = input.defaulted;
-        let defaulted = if d.cash_flow_terms {
-            Some(("cash_flow_terms", flows, given))
-        } else if d.discount_rate_terms {
-            Some(("discount_rate_terms", given, flows))
-        } else {
-            None
-        };
-        let note = match defaulted {
-            Some((field, default, other)) => format!(
-                "; `/{field}` was not given and defaults to {}: give `{field}: {}`, or give \
-                 expected inflation",
-                default.label(),
-                other.label()
-            ),
-            None => String::new(),
-        };
-        return Err(FairmarkError::TermsMismatch(format!(
-            "`/cash_flow_terms` is {} and `/discount_rate_terms` is {}, and no expected \
-             inflation is given; discounting {} flows at {} rates misstates the value. Either \
-             give expected inflation in `/inflation` (or `/inflation_per_period` with \
-             `/terminal_inflation`), so that the discount rates are converted to {} terms, or \
-             restate the discount rates or the cash flows in the same terms{note}",
-            flows.label(),
-            given.label(),
-            flows.label(),
-            given.label(),
-            flows.label()
-        ))
-        .at("/cash_flow_terms", Reason::Conflict)
-        .between(["/cash_flow_terms", "/discount_rate_terms", "/inflation"]));
+        return Err(terms_mismatch(input));
     };
     let source = format!("{} v{}", RealNominal::ID, RealNominal::VERSION);
     ex.convention(format!(
@@ -1597,6 +1674,18 @@ fn build_up_stages(
     ex: &mut Explain,
     pass: Pass,
 ) -> Result<()> {
+    // Which stages have lines decides every check here: each error reads the projections and
+    // the lines of the stages.
+    stage_lines(stages, basis, taxes, ex, pass).map_err(|e| e.reads(["/stages"]))
+}
+
+fn stage_lines(
+    stages: &mut [ResolvedStage<'_>],
+    basis: TerminalBasis,
+    taxes: &TaxChoice,
+    ex: &mut Explain,
+    pass: Pass,
+) -> Result<()> {
     let mut first = 1u32;
     let mut any = false;
     let mut conventions: Vec<String> = Vec::new();
@@ -1638,11 +1727,19 @@ fn build_up_stages(
                     format!("{pointer}/0/net_borrowing"),
                 ])
             };
-            if pass == Pass::Validate {
-                let financing = check_lines(lines, taxes, &at)?;
-                if basis == TerminalBasis::Equity && !financing {
-                    return Err(missing_financing());
+            // No line gives financing: the FCFE cannot be built, whatever the taxes. Reported
+            // with the errors of the lines, which do not hide it.
+            let no_financing = basis == TerminalBasis::Equity
+                && lines
+                    .iter()
+                    .all(|l| l.interest_expense.is_none() && l.net_borrowing.is_none());
+            if pass == Pass::Validate || no_financing {
+                let mut found = Found::new();
+                found.check(check_lines(lines, taxes, &at).map(|_| ()));
+                if no_financing {
+                    found.push(missing_financing().reads([pointer.clone()]));
                 }
+                found.finish()?;
                 first += s.periods;
                 continue;
             }
@@ -1742,16 +1839,13 @@ fn run_pass(
     mut found: Found,
     pass: Pass,
 ) -> Result<Option<EngineOutput>> {
-    let Some((mut stages, n)) = found.take(check_stages(input.stages, input.base_flow)) else {
-        return Err(found.into_error());
-    };
-    found.check(build_up_stages(
-        &mut stages,
-        input.basis,
-        &input.taxes,
-        ex,
-        pass,
-    ));
+    // Refused stages leave the horizon unknown: the checks that need it are skipped, every other
+    // check is made (ADR 0014 G5), and nothing is computed.
+    let mut stages = found.take(check_stages(input.stages, input.base_flow));
+    if let Some((stages, _)) = stages.as_mut() {
+        found.check(build_up_stages(stages, input.basis, &input.taxes, ex, pass));
+    }
+    let n = stages.as_ref().map(|(_, n)| *n);
     // The terminal option is read first, because it decides whether a terminal rate is used
     // (Decision 24); an error in it is reported where the technique is checked, as before.
     let choice = terminal::choose(input.terminal);
@@ -1762,14 +1856,22 @@ fn run_pass(
     let no_terminal_value = matches!(choice, Ok(TerminalChoice::None));
     let rates = found.take(resolve_rates(&input.rates, n, rate_use));
     let inflation = found.take(resolve_inflation(&input.inflation, n, rate_use));
-    let used = match (&rates, &inflation) {
-        (Some((given_rates, terminal_given)), Some(inflation)) => found.take(resolve_terms(
-            ex,
-            input,
-            given_rates,
-            terminal_given.as_ref().map(|(r, f)| (*r, f.as_str())),
-            inflation.as_ref(),
-        )),
+    let used = match (&rates, &inflation, n) {
+        (Some((given_rates, terminal_given)), Some(inflation), Some(_)) => {
+            found.take(resolve_terms(
+                ex,
+                input,
+                given_rates,
+                terminal_given.as_ref().map(|(r, f)| (*r, f.as_str())),
+                inflation.as_ref(),
+            ))
+        }
+        // Without the rates or the horizon nothing is converted; terms that differ without
+        // expected inflation are refused all the same.
+        (_, Some(None), _) if input.cash_flow_terms != input.discount_rate_terms => {
+            found.push(terms_mismatch(input));
+            None
+        }
         _ => None,
     };
     found.check(check_timing(
@@ -1796,8 +1898,14 @@ fn run_pass(
         }
         (None, _) => None,
     };
-    let (Some(choice), Some(used), Some((given_rates, terminal_given)), Some(inflation), true) =
-        (choice, used, rates, inflation, found.is_empty())
+    let (
+        Some(choice),
+        Some(used),
+        Some((given_rates, terminal_given)),
+        Some(inflation),
+        Some((stages, n)),
+        true,
+    ) = (choice, used, rates, inflation, stages, found.is_empty())
     else {
         return Err(found.into_error());
     };

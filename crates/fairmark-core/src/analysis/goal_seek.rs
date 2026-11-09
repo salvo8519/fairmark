@@ -115,22 +115,28 @@ fn check(input: &GoalSeekInput) -> Result<Inner> {
         );
     }
     let base = base_value(&input.base_input);
-    let variable_valid = match &inner {
-        Some(inner) => found.check(
+    let variable = match &inner {
+        Some(inner) => found.take(
             inner
                 .check_variable(&base, &input.variable)
                 .map_err(|e| e.located("/variable")),
         ),
         // A refused method is reported alone: its variables are not checked against it.
-        None => false,
+        None => None,
     };
     found.check(pointer::check_syntax(&input.output).map_err(|e| e.located("/output")));
-    // The base input as the search first evaluates it: with the variable at the low end.
-    if let (Some(inner), true) = (&inner, variable_valid) {
-        let mut first = base.clone();
-        if pointer::write_decimal(&mut first, &input.variable, low).is_ok() {
-            inner.check_input(&first, 2 + u64::from(input.max_iterations), &mut found);
+    let needed = 2 + u64::from(input.max_iterations);
+    match (&inner, variable) {
+        // The base input as the search first evaluates it: with the variable at the low end.
+        (Some(inner), Some(true)) => {
+            let mut first = base.clone();
+            if pointer::write_decimal(&mut first, &input.variable, low).is_ok() {
+                inner.check_input(&first, needed, &mut found);
+            }
         }
+        // The base input refuses the value the variable names: it is reported as given.
+        (Some(inner), Some(false)) => inner.check_input(&base, needed, &mut found),
+        _ => {}
     }
     found.finish()?;
     inner.ok_or(FairmarkError::Internal("inner method not checked"))

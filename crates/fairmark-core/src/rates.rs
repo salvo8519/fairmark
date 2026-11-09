@@ -229,7 +229,10 @@ pub struct ConvertOutput {
 fn check_convert(input: &ConvertInput) -> Result<()> {
     growth_factor(input.rate, input.from, Decimal::ZERO)
         .map(|_| ())
-        .map_err(rate_field("/rate", input.from.per_year()))
+        .map_err(|e| {
+            // The domain of the rate depends on its compounding (a continuous rate may be -2).
+            rate_field("/rate", input.from.per_year())(e).between(["/rate", "/from"])
+        })
 }
 
 pub fn convert(input: &ConvertInput) -> Result<(ConvertOutput, Explain)> {
@@ -239,6 +242,8 @@ pub fn convert(input: &ConvertInput) -> Result<(ConvertOutput, Explain)> {
     );
     ex.convention(format!("from: {}", input.from.label()));
     ex.convention(format!("to: {}", input.to.label()));
+    // The domain of the rate, reported as the validation reports it (with `/from`).
+    check_convert(input)?;
     let g = growth_factor(input.rate, input.from, Decimal::ONE)
         .map_err(rate_field("/rate", input.from.per_year()))?;
     ex.step(

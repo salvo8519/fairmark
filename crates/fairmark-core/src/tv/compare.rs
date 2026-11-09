@@ -254,7 +254,11 @@ fn basis_error(t: &Technique, basis: TerminalBasis, position: usize) -> Option<F
             .at(
                 format!("/techniques/{}/tv.exit_multiple/metric", position - 1),
                 Reason::Conflict,
-            ),
+            )
+            .between([
+                format!("/techniques/{}/tv.exit_multiple/metric", position - 1),
+                "/basis".to_owned(),
+            ]),
         ),
         Technique::NormalisedIncome(terms) if terms.basis != basis => Some(
             FairmarkError::MixedBasis(format!(
@@ -266,7 +270,11 @@ fn basis_error(t: &Technique, basis: TerminalBasis, position: usize) -> Option<F
             .at(
                 format!("/techniques/{}/tv.normalised_income/basis", position - 1),
                 Reason::Conflict,
-            ),
+            )
+            .between([
+                format!("/techniques/{}/tv.normalised_income/basis", position - 1),
+                "/basis".to_owned(),
+            ]),
         ),
         Technique::Liquidation(input) if input.basis != basis => Some(
             FairmarkError::MixedBasis(format!(
@@ -278,7 +286,11 @@ fn basis_error(t: &Technique, basis: TerminalBasis, position: usize) -> Option<F
             .at(
                 format!("/techniques/{}/tv.liquidation/basis", position - 1),
                 Reason::Conflict,
-            ),
+            )
+            .between([
+                format!("/techniques/{}/tv.liquidation/basis", position - 1),
+                "/basis".to_owned(),
+            ]),
         ),
         _ => None,
     }
@@ -293,8 +305,10 @@ fn check_technique(
     basis: TerminalBasis,
     position: usize,
 ) -> Result<()> {
+    // The basis and the technique's own terms are checked apart: neither hides the other.
+    let mut found = crate::error::Found::new();
     if let Some(e) = basis_error(t, basis, position) {
-        return Err(e);
+        found.push(e);
     }
     let checked = match t {
         Technique::Gordon(terms) => super::gordon::check(&terms.with(rate, cap)),
@@ -305,7 +319,8 @@ fn check_technique(
         Technique::NormalisedIncome(terms) => super::normalised_income::check(&terms.with(cap)),
         Technique::Liquidation(input) => super::liquidation::check(input),
     };
-    checked.map_err(super::into_error)
+    found.check(checked.map_err(super::into_error));
+    found.finish()
 }
 
 /// Every input error of a comparison, without computing any technique.
@@ -338,8 +353,12 @@ fn run_one(
     TechniqueOutput,
     Explain,
 )> {
-    if let Some(e) = basis_error(t, basis, position) {
-        return Err(e);
+    if basis_error(t, basis, position).is_some() {
+        // A technique of another basis is not computed; its own terms are reported with the
+        // basis, as the validation reports them.
+        return Err(check_technique(t, rate, cap, basis, position)
+            .err()
+            .unwrap_or(FairmarkError::Internal("basis refusal recorded no error")));
     }
     Ok(match t {
         Technique::Gordon(terms) => {

@@ -216,17 +216,58 @@ impl Inner {
 
     /// `FM-E015` unless `pointer` names a decimal input of the method in `base`: a field that
     /// takes a whole number (a count of periods) cannot take the decimals an analysis writes.
-    pub(crate) fn check_variable(&self, base: &Value, pointer: &str) -> Result<()> {
-        pointer::read_decimal(base, pointer)?;
-        if registry::takes_whole_number(self.id, base, pointer) {
-            return Err(FairmarkError::InvalidPointer {
-                pointer: pointer.to_owned(),
-                reason: "the field takes a whole number, not a decimal; give the pointer of a \
-                         decimal input"
-                    .to_owned(),
-            });
+    ///
+    /// `Ok(true)` when it does. `Ok(false)` when the check is skipped because the method refuses
+    /// the value at `pointer` or a value that holds it as `base_input` is read (a value of the
+    /// wrong kind, a missing field, a misspelt key that stands for it): that refusal is reported
+    /// under `/base_input`, and the variable is not checked against a value the method does
+    /// not read (ADR 0014 G5, review round 6).
+    pub(crate) fn check_variable(&self, base: &Value, pointer: &str) -> Result<bool> {
+        let checked = pointer::read_decimal(base, pointer).and_then(|_| {
+            if registry::takes_whole_number(self.id, base, pointer) {
+                return Err(FairmarkError::InvalidPointer {
+                    pointer: pointer.to_owned(),
+                    reason: "the field takes a whole number, not a decimal; give the pointer of \
+                             a decimal input"
+                        .to_owned(),
+                });
+            }
+            Ok(())
+        });
+        match checked {
+            Ok(()) => Ok(true),
+            // Only on a refusal: the base input is read again to find what it refuses.
+            Err(_) if self.refuses(base, pointer) => Ok(false),
+            Err(e) => Err(e),
         }
-        Ok(())
+    }
+
+    /// True when reading `base` refuses the value at `pointer` or a value that holds it.
+    fn refuses(&self, base: &Value, pointer: &str) -> bool {
+        let Err(e) = registry::validate(self.id, base) else {
+            return false;
+        };
+        let holds = |p: &str| {
+            pointer == p
+                || pointer
+                    .strip_prefix(p)
+                    .is_some_and(|rest| rest.starts_with('/'))
+        };
+        e.into_errors().iter().any(|e| {
+            let d = e.details();
+            matches!(
+                d.reason,
+                Some(
+                    Reason::Syntax
+                        | Reason::Missing
+                        | Reason::UnknownField
+                        | Reason::Duplicate
+                        | Reason::Type
+                        | Reason::Enum
+                        | Reason::Length
+                )
+            ) && d.pointer.iter().chain(&d.pointers).any(|p| holds(p))
+        })
     }
 }
 
