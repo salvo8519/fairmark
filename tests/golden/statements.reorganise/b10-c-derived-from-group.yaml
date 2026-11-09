@@ -1,7 +1,9 @@
 method: statements.reorganise
 description: 'D1-IS: B10 a to c (200000) and its B10 a, b part (180000) given, B10 c not given: B10 c
-  is the difference (20000) and every layer equals abridged-aggregates, where B10 c is given; more input
-  never gives fewer outputs'
+  is the difference (20000), assigned at the group it is read from, and every layer equals abridged-aggregates,
+  where B10 c is given; more input never gives fewer outputs; the step B10 c = B10 a to c 200000 - B10
+  a, b 180000 and its convention are asserted by the Rust test a_derived_b10_c_is_explained_and_assigned
+  (golden cases assert value and meta only)'
 source: 'scripts/reference_statements.py (Python decimal, 50 digits, local context). Written by the same
   agent as the engine and after the engine''s income statement code existed: the reference section for
   D1-IS was changed from the decisions recorded in specs/0005-statements-reclassification/spec.md before
@@ -44,4 +46,9 @@ expect:
   /years/0/income_statement/operating_profit: '266000'
   /years/0/income_statement/investing_result: '9000'
   /years/0/income_statement/profit_before_financing_and_taxes: '275000'
+  /years/0/assignments/17/reference: B10 c (B10 a to c less B10 a, b)
+  /years/0/assignments/17/aggregate: /years/0/statutory/income_statement/depreciation_and_write_downs/value_adjustments_of_fixed_assets
+  /years/0/assignments/17/amount: '20000'
+  /years/0/assignments/17/destination: depreciation_and_amortisation
+  /years/0/assignments/17/origin: mapping
 tolerance: '0'

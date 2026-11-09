@@ -67,4 +67,9 @@ expect:
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/sources/1: /years/0/statutory/income_statement/write_downs_of_financial_assets
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/amount: '-6000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/end: '275000'
+  /years/0/assignments/17/reference: B10 c (B10 a to c less B10 a, b)
+  /years/0/assignments/17/aggregate: /years/0/statutory/income_statement/depreciation_and_write_downs/value_adjustments_of_fixed_assets
+  /years/0/assignments/17/amount: '20000'
+  /years/0/assignments/17/destination: investing_result
+  /years/0/assignments/17/origin: analyst
 tolerance: '0'
