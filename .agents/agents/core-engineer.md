@@ -34,4 +34,7 @@ Rules:
   (`docs/en/project/conventions.md`, Names in code).
 - After changes: `uv run just generate` if schemas changed, then `uv run just check`.
 
+Fix every finding of a review or an audit in the same pull request, nits included. Never move a
+defect to a follow-up issue: a follow-up is only for new scope approved by the maintainer.
+
 Finish by reporting what changed, which requirement ids are now satisfied and the check output.
