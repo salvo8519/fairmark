@@ -25,7 +25,9 @@ pub const IRR_MAX_ITERATIONS: u32 = 200;
 
 /// `1 / (1 + rate)^t`. Integer `t` uses exact repeated multiplication, fractional `t`
 /// (mid-period) decimal `powd`; rates below zero raise the reciprocal of the base so that no
-/// precision is lost, and very long horizons underflow to zero instead of overflowing.
+/// precision is lost, and very long horizons underflow to zero instead of overflowing. A
+/// negative `t` (before the valuation date) gives the compounding factor (1 + rate)^|t|, or
+/// `FM-E008` beyond the decimal range.
 pub fn discount_factor(rate: Decimal, t: Decimal) -> Result<Decimal> {
     if rate <= -Decimal::ONE {
         return Err(FairmarkError::RateOutOfRange(rate));
@@ -1198,25 +1200,14 @@ pub struct AnnuityOutput {
 /// growth factor (1 + r)^n.
 ///
 /// For a long horizon ((1 + g)/(1 + r))^n can fall below the decimal precision (about
-/// 10^−28); the power then underflows, and the factor takes it as 0, its correct limit, with an
-/// explain step that says so. The result is the perpetuity factor to within that precision.
+/// 10^−28); the integer power then rounds to 0, its correct limit, and the factor reports it
+/// with an explain step that says so. The result is the perpetuity factor to within that
+/// precision. A ratio above 1 that leaves the decimal range is `FM-E008`.
 pub(crate) fn annuity_factor(
     r: Decimal,
     g: Decimal,
     n: u32,
     timing: AnnuityTiming,
-) -> Result<(Decimal, Vec<Step>)> {
-    factor_with(r, g, n, timing, true)
-}
-
-/// `underflow_to_zero: false` keeps the behaviour of `tvm.annuity` version 1 unchanged: an
-/// underflowing power is `FM-E008` there.
-fn factor_with(
-    r: Decimal,
-    g: Decimal,
-    n: u32,
-    timing: AnnuityTiming,
-    underflow_to_zero: bool,
 ) -> Result<(Decimal, Vec<Step>)> {
     if n == 0 || n > MAX_PERIODS {
         return Err(FairmarkError::InvalidInput(format!(
@@ -1269,18 +1260,17 @@ fn factor_with(
         let ratio = one_g
             .checked_div(one_r)
             .ok_or(FairmarkError::Overflow("annuity factor"))?;
-        let q = match rates::pow(ratio, periods) {
-            // Only a ratio below 1 can underflow; its power is then below 10^−28.
-            Err(FairmarkError::Overflow(_)) if underflow_to_zero && ratio < one => {
-                ex.step(
-                    "Growth-to-discount ratio to the power n (below the decimal precision, taken as 0)",
-                    format!("((1 + {g}) / (1 + {r}))^{n}"),
-                    Decimal::ZERO,
-                );
-                Decimal::ZERO
-            }
-            other => other?,
-        };
+        // The integer power of a ratio below 1 never overflows: below the decimal precision
+        // (about 10^−28) it rounds to 0, its limit, which the explain reports (issue #282). A
+        // ratio above 1 that leaves the decimal range is an overflow, `FM-E008`.
+        let q = rates::pow(ratio, periods)?;
+        if q.is_zero() {
+            ex.step(
+                "Growth-to-discount ratio to the power n (below the decimal precision, taken as 0)",
+                format!("((1 + {g}) / (1 + {r}))^{n}"),
+                q,
+            );
+        }
         let f = num::sub(one, q)?
             .checked_div(diff)
             .ok_or(FairmarkError::Overflow("annuity factor"))?;
@@ -1311,7 +1301,7 @@ fn factor_with(
 pub fn annuity(input: &AnnuityInput) -> Result<(AnnuityOutput, Explain)> {
     let (r, g, n) = (input.rate, input.growth.unwrap_or_default(), input.periods);
     let (factor, steps) =
-        factor_with(r, g, n, input.timing, false).map_err(rate_field("/rate", None))?;
+        annuity_factor(r, g, n, input.timing).map_err(rate_field("/rate", None))?;
     let periods = Decimal::from(n);
     let one_r = num::one_plus(r)?;
     let mut ex = Explain::new(

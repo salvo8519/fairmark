@@ -121,11 +121,16 @@ pub fn growth_factor(rate: Decimal, compounding: Compounding, t: Decimal) -> Res
 
 /// `base^-e` with full relative precision (audit D1, D2).
 ///
-/// When `base >= 1` the growth `base^e` is computed and inverted; if it overflows, the
-/// reciprocal is raised instead and may underflow towards zero, which is the correct limit.
-/// When `base < 1` the reciprocal (greater than one) is raised directly, so the result keeps
-/// all significant digits instead of inverting a tiny growth factor.
+/// A negative `e` (a time before the valuation date) gives the growth `base^|e|`, computed
+/// directly; beyond the decimal range it is `FM-E008` (issue #282). When `base >= 1` the
+/// growth `base^e` is computed and inverted; if it overflows, the reciprocal is raised instead
+/// and may underflow towards zero, which is the correct limit. When `base < 1` the reciprocal
+/// (greater than one) is raised directly, so the result keeps all significant digits instead of
+/// inverting a tiny growth factor.
 pub(crate) fn inverse_pow(base: Decimal, e: Decimal) -> Result<Decimal> {
+    if e.is_sign_negative() {
+        return pow(base, -e);
+    }
     let reciprocal = || -> Result<Decimal> {
         let inv = Decimal::ONE
             .checked_div(base)
@@ -134,7 +139,8 @@ pub(crate) fn inverse_pow(base: Decimal, e: Decimal) -> Result<Decimal> {
     };
     if base >= Decimal::ONE {
         match pow(base, e) {
-            Ok(g) if !g.is_zero() => Decimal::ONE
+            // A base of at least 1 to a non-negative power is at least 1, never 0.
+            Ok(g) => Decimal::ONE
                 .checked_div(g)
                 .ok_or(FairmarkError::Overflow("discount factor")),
             // Growth overflowed: the reciprocal underflows towards zero, the correct limit.

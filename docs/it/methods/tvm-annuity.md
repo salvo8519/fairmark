@@ -1,6 +1,6 @@
 ---
 source: methods/tvm-annuity.md
-source_hash: decc31eb5c9e
+source_hash: 8dda73685601
 ---
 # Rendita (`tvm.annuity`)
 
@@ -125,6 +125,10 @@ finito. Per il valore attuale di una rendita posticipata lunga, usa
 (per la rendita anticipata, moltiplica il risultato per $1 + r$). Separare i due valori
 cambierebbe gli output del metodo e richiede una nuova versione del metodo; è registrato come
 attività successiva nel piano della SPEC-0002.
+
+Quando il montante rientra ancora nell'intervallo ma $((1 + g)/(1 + r))^n$ scende sotto la
+precisione dei decimali (circa $10^{-28}$), la potenza è considerata pari a 0, il suo limite, e
+un passaggio di explain lo dichiara, come in `tv.limited_horizon`.
 
 ## Verificato con
 

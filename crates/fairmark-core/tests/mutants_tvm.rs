@@ -481,33 +481,35 @@ fn rates_convert_explain_writes_out_both_conversions() {
 
 /// tv-limited-horizon.md: when ((1 + g)/(1 + r))^n falls below the decimal precision "it is
 /// taken as 0, its limit, and an explain step says so". At 50% per period over 10,000 periods
-/// the ratio (1/1.5)^10000 is far below 10^-28, but the integer power of a base below 1 returns
-/// 0 instead of an overflow, so the step is never written: the value (factor 2 = 1 / 0.5) is
-/// right, the audit trail is not what the page documents. Reported on issue #282; awaits the
-/// maintainer.
+/// the ratio (1/1.5)^10000 is far below 10^-28: the factor is 1 / 0.5 = 2 and the step is
+/// written with the numbers substituted. At 10 periods the power is well inside the precision
+/// and no such step is written. Defect found by the triage of issue #282.
 #[test]
-#[ignore = "defect reported on #282: the documented underflow step is never written"]
 fn limited_horizon_reports_the_power_taken_as_zero() {
     let out = ok(
         "tv.limited_horizon",
         &json!({"flow": "1", "rate": "0.5", "periods": 10000}),
     );
     assert_eq!(dec(&out["value"]["annuity_factor"]), Decimal::TWO);
+    let label = "Growth-to-discount ratio to the power n (below the decimal precision, taken as 0)";
+    assert_eq!(formula(&out, label), "((1 + 0) / (1 + 0.5))^10000");
+    let short = ok(
+        "tv.limited_horizon",
+        &json!({"flow": "1", "rate": "0.5", "periods": 10}),
+    );
     assert!(
-        labels(&out).iter().any(|l| l.contains("taken as 0")),
+        !labels(&short).contains(&label.to_owned()),
         "{:?}",
-        labels(&out)
+        labels(&short)
     );
 }
 
-/// `tvm::discount_factor` (public Rust API) is documented as `1 / (1 + rate)^t` with no bound
-/// on t. For t = −163 at 50% the value is 1.5^163 = 5.0451632789815171509443825809 × 10^28
-/// (Python `decimal`, 50 digits), inside the decimal range, but the function returns 0: the
-/// underflow fallback of `rates::inverse_pow` assumes a non-negative exponent. No method passes
-/// a negative time, so no method result is affected. Reported on issue #282; awaits the
-/// maintainer (refuse a negative time, or compute it).
+/// `tvm::discount_factor` (public Rust API) is documented as `1 / (1 + rate)^t`. For t = −163 at
+/// 50% the value is 1.5^163 = 5.0451632789815171509443825809 × 10^28 (Python `decimal`, 50
+/// digits), inside the decimal range; SPEC-0002 does not restrict t, so the value is computed,
+/// never 0. Beyond the decimal range (t = −200) it is `FM-E008`. Defect found by the triage of
+/// issue #282.
 #[test]
-#[ignore = "defect reported on #282: a negative time returns 0 instead of the compounding factor"]
 fn discount_factor_at_a_negative_time_is_the_compounding_factor() {
     let df = fairmark_core::tvm::discount_factor(Decimal::new(5, 1), Decimal::from(-163))
         .expect("inside the decimal range");
@@ -515,5 +517,13 @@ fn discount_factor_at_a_negative_time_is_the_compounding_factor() {
         df,
         "50451632789815171509443825808.995501445114117692757",
         "1e10",
+    );
+    let e = fairmark_core::tvm::discount_factor(Decimal::new(5, 1), Decimal::from(-200))
+        .expect_err("beyond the decimal range");
+    assert_eq!(e.code(), "FM-E008");
+    // At a negative rate the compounding factor is below 1: (1 − 0.5)^2 = 0.25.
+    assert_eq!(
+        fairmark_core::tvm::discount_factor(Decimal::new(-5, 1), Decimal::from(-2)).unwrap(),
+        Decimal::new(25, 2)
     );
 }
