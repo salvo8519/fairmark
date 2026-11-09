@@ -311,7 +311,11 @@ fn financing_lines_refused_on_the_enterprise_basis_one_at_a_time() {
             .map(|f| format!("`/stages/0/lines/0/{f}`"))
             .collect();
         let mut parts: Vec<&str> = pointers.iter().map(String::as_str).collect();
-        parts.push("enterprise basis");
+        parts.extend(if named.len() == 1 {
+            ["is not used on the enterprise basis", "remove it"]
+        } else {
+            ["are not used on the enterprise basis", "remove them"]
+        });
         assert_refused(&input, "FM-E001", &parts);
         let (_, message) = err("dcf.fcff", &input);
         for f in absent {
