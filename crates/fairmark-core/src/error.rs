@@ -608,16 +608,22 @@ impl FairmarkError {
     /// located under `/base_input`, so that every pointer of a report starts at the root of
     /// the input the client sent.
     pub(crate) fn under(self, prefix: &str) -> Self {
+        self.map_pointers(&|p: &str| format!("{prefix}{p}"))
+    }
+
+    /// This error with every pointer of its report (pointer, pointers, alternative sets, and
+    /// those of every error it carries) rewritten by `f`; its message is unchanged.
+    pub(crate) fn map_pointers(self, f: &dyn Fn(&str) -> String) -> Self {
         match self {
             Self::Several(several) => Self::Several(Box::new(Several(
-                several.0.into_iter().map(|e| e.under(prefix)).collect(),
+                several.0.into_iter().map(|e| e.map_pointers(f)).collect(),
             ))),
             error => {
                 let d = error.details();
                 if d.pointer.is_none() && d.pointers.is_empty() && d.missing_any_of.is_empty() {
                     return error;
                 }
-                let at = |p: &mut String| p.insert_str(0, prefix);
+                let at = |p: &mut String| *p = f(p);
                 error.with(|d| {
                     d.pointer.iter_mut().for_each(at);
                     d.pointers.iter_mut().for_each(at);
@@ -732,6 +738,14 @@ impl FairmarkError {
                     ..Details::default()
                 }
             }
+            Self::UnknownMethod(_) => Details {
+                reason: Some(Reason::Enum),
+                expected: crate::registry::METHODS
+                    .iter()
+                    .map(|m| m.id.to_owned())
+                    .collect(),
+                ..Details::default()
+            },
             Self::EmptyCashFlows => Details {
                 pointer: Some("/cash_flows".to_owned()),
                 reason: Some(Reason::Length),
@@ -780,10 +794,17 @@ impl FairmarkError {
                 fix: Some("raise `instalment` above the interest of the first period".to_owned()),
                 ..Details::default()
             },
+            // The rounding chosen is too coarse for the loan: an input condition, found while the
+            // schedule is computed (FM-E023).
+            Self::RoundingTooCoarse(_) => Details {
+                pointer: Some("/rounding/decimal_places".to_owned()),
+                reason: Some(range),
+                fix: Some("round to more decimal places".to_owned()),
+                ..Details::default()
+            },
             Self::TerminalValueDomain(_)
             | Self::BalloonOutOfRange(_)
-            | Self::GracePeriodOutOfRange(_)
-            | Self::RoundingTooCoarse(_) => Details {
+            | Self::GracePeriodOutOfRange(_) => Details {
                 reason: Some(range),
                 ..Details::default()
             },

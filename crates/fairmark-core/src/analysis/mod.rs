@@ -107,7 +107,14 @@ pub(crate) struct Inner {
 impl Inner {
     /// `FM-E007` for an unknown id, `FM-E017` for an analysis method.
     pub(crate) fn new(id: &str) -> Result<Self> {
-        let info = registry::method(id).map_err(|e| e.at("/method", Reason::Enum))?;
+        let info = registry::method(id).map_err(|e| {
+            e.at("/method", Reason::Enum).expected(
+                registry::METHODS
+                    .iter()
+                    .filter(|m| !m.id.starts_with(THEME))
+                    .map(|m| m.id),
+            )
+        })?;
         if info.id.starts_with(THEME) {
             return Err(FairmarkError::NestedAnalysis(info.id.to_owned())
                 .at("/method", Reason::Conflict)
