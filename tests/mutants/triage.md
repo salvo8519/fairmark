@@ -38,7 +38,7 @@ branch, Linux with 2 cores: 256 mutants in 61 minutes.
 | tvm | 96 | 87 | 3 | 1 | 5 | 0 | 0 |
 | Total | 256 | 237 | 4 | 2 | 13 | 0 | 0 |
 
-The four missed mutants are the open rows below.
+The four missed mutants were the ones behind the two defects, since fixed (below).
 
 ## Provisional categories
 
@@ -58,43 +58,41 @@ does not make a mutant equivalent. Each row is confirmed or reclassified when it
 
 ## Missed mutants
 
-Still open: each is blocked by a defect found during the triage (below), which the maintainer
-decides on first.
+None open: every missed mutant of the baseline is killed, recorded as equivalent, or removed
+with the code of a defect fixed in the same pull request (below).
 
-| Category | Location | Function | Mutation | Status |
-| --- | --- | --- | --- | --- |
-| C | `tvm.rs:1274` | `factor_with` | `replace < with <= in factor_with` | Open: blocked by defect 1 below |
-| D | `rates.rs:137` | `inverse_pow` | `replace match guard !g.is_zero() with true in inverse_pow` | Open: blocked by defect 2 below |
-| D | `tvm.rs:1274` | `factor_with` | `replace < with == in factor_with` | Open: blocked by defect 1 below |
-| D | `tvm.rs:1274` | `factor_with` | `replace match guard underflow_to_zero && ratio < one with false in factor_with` | Open: blocked by defect 1 below |
+### Defects found and fixed by the triage
 
-### Defects found by the triage
+No value returned by a method changes; golden cases and contract cases are unchanged.
 
-1. **The documented underflow step of the annuity factor is never written**
-   (`tvm.rs` `factor_with`, line 1274). `tv-limited-horizon.md` states that when
+1. **The documented underflow step of the annuity factor was never written** (`tvm.rs`,
+   `factor_with`, baseline line 1274). `tv-limited-horizon.md` states that when
    ((1 + g)/(1 + r))^n falls below the decimal precision "it is taken as 0, its limit, and an
-   explain step says so". The integer power of `rust_decimal` returns 0 for a base below 1
-   instead of an overflow, so the branch that writes the step is never reached: the value is
-   right (for example the factor 2 = 1 / 0.5 at 50% over 10,000 periods), the audit trail is not
-   the documented one. The three open mutants of line 1274 only change that unreachable branch.
-   Failing test, ignored until the maintainer decides:
-   `mutants_tvm.rs::limited_horizon_reports_the_power_taken_as_zero`.
-2. **`tvm::discount_factor` at a negative time returns 0** (`rates.rs` `inverse_pow`, line 137,
-   public Rust API only). The function is documented as `1 / (1 + rate)^t` with no bound on t;
-   at 50% and t = −163 the value is 1.5^163 ≈ 5.045 × 10^28, inside the decimal range, but the
-   underflow fallback of `inverse_pow` assumes a non-negative exponent and returns 0. No method
-   passes a negative time, so no method result is affected; for every non-negative exponent the
-   open mutant is equivalent. Failing test, ignored until the maintainer decides (refuse a
-   negative time or compute it):
-   `mutants_tvm.rs::discount_factor_at_a_negative_time_is_the_compounding_factor`.
+   explain step says so". The integer power of `rust_decimal` rounds a base below 1 to 0
+   instead of overflowing, so the branch that wrote the step, guarded on an overflow, was never
+   reached. Fix: `annuity_factor` writes the step whenever the power is 0, with the numbers
+   substituted, for `tv.limited_horizon`, `tvm.annuity`, `tvm.future_value` and the loan
+   methods; the unreachable overflow branch and the `underflow_to_zero` flag are removed (a
+   ratio above 1 out of range is still `FM-E008`). `tvm-annuity.md` (both editions) states the
+   step. The three open mutants of line 1274 were in the removed branch.
+2. **`tvm::discount_factor` at a negative time returned 0** (`rates.rs`, `inverse_pow`, baseline
+   line 137; public Rust API only, no method passes a negative time). SPEC-0002 does not restrict
+   the time (R7 refuses flows before the valuation date only for dated flows), so the value is
+   computed: a negative exponent gives the growth (1 + r)^|t| directly, `FM-E008` beyond the
+   decimal range. The zero check that guarded the inversion is removed: a base of at least 1
+   to a non-negative power is at least 1.
+
+Rerun on the changed functions (`annuity_factor`, `annuity`, `inverse_pow`, both
+`discount_factor`): 25 mutants, 23 caught, 0 missed, 2 unviable.
 
 ## Resolved
 
-67 mutants killed by new behaviour tests in `crates/fairmark-core/tests/` (`mutants_tvm.rs`, `mutants_dcf_engine.rs`, `mutants_balance_sheet.rs`;
-expected solver iterations and rates from `scripts/reference_solver.py`), 2 recorded as
-equivalent in `equivalent.toml`, pending the maintainer's review. Each kill was confirmed by
-rerunning cargo-mutants 27.1.0 on the functions concerned. These rows can be removed once the
-pull request is merged.
+67 mutants killed by new behaviour tests in `crates/fairmark-core/tests/` (`mutants_tvm.rs`,
+`mutants_dcf_engine.rs`, `mutants_balance_sheet.rs`; expected solver iterations and rates from
+`scripts/reference_solver.py`), 2 recorded as equivalent in `equivalent.toml` (pending review),
+and 4 removed with the code of the two defects fixed above, each covered by a test that failed
+before the fix. Each outcome was confirmed by rerunning cargo-mutants 27.1.0 on the functions
+concerned. These rows can be removed once the pull request is merged.
 
 | Category | Location | Function | Mutation | Status |
 | --- | --- | --- | --- | --- |
@@ -167,3 +165,7 @@ pull request is merged.
 | D | `tvm.rs:1274` | `factor_with` | `replace match guard underflow_to_zero && ratio < one with true in factor_with` | Killed: `mutants_tvm.rs::limited_horizon_growth_above_rate_overflows_at_a_long_horizon` |
 | D | `tvm.rs:1483` | `future_value` | `replace > with == in future_value` | Killed: `mutants_tvm.rs::future_value_accepts_one_to_ten_thousand_periods` |
 | D | `tvm.rs:1483` | `future_value` | `replace |  | with && in future_value` | Killed: `mutants_tvm.rs::future_value_accepts_one_to_ten_thousand_periods` |
+| C | `tvm.rs:1274` | `factor_with` | `replace < with <= in factor_with` | Fixed (defect 1): dead branch removed; `mutants_tvm.rs::limited_horizon_reports_the_power_taken_as_zero` |
+| D | `rates.rs:137` | `inverse_pow` | `replace match guard !g.is_zero() with true in inverse_pow` | Fixed (defect 2): branch removed; `mutants_tvm.rs::discount_factor_at_a_negative_time_is_the_compounding_factor` |
+| D | `tvm.rs:1274` | `factor_with` | `replace < with == in factor_with` | Fixed (defect 1): dead branch removed; `mutants_tvm.rs::limited_horizon_reports_the_power_taken_as_zero` |
+| D | `tvm.rs:1274` | `factor_with` | `replace match guard underflow_to_zero && ratio < one with false in factor_with` | Fixed (defect 1): dead branch removed; `mutants_tvm.rs::limited_horizon_reports_the_power_taken_as_zero` |
