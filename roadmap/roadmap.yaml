@@ -162,6 +162,7 @@ milestones:
           - { issue: 236, title: "Reorganised income statement with IFRS 18 aligned subtotals", spec: "0005", status: open }
           - { issue: 245, title: "Intercompany financial payables in the net financial position", tags: [needs-methodology], spec: "0005", status: open }
           - { issue: 251, title: "Non-recurring exchange losses in the reorganised income statement", tags: [needs-methodology], spec: "0005", status: open }
+          - { issue: 253, title: "OIC 10 cash flow statement from the reorganised statements", tags: [needs-methodology], status: open }
       - title: "Free cash flows"
         issue: 37
         labels: ["area:core", "method:dcf"]
@@ -345,7 +346,7 @@ milestones:
         labels: ["area:core"]
         tasks:
           - { issue: 88, title: "Scenarios and seeded Monte Carlo", tags: [parallel], status: open }
-          - { issue: 89, title: "WASM playground in the docs", tags: [parallel], status: open }
+          - { issue: 89, title: "WASM playground: try, compare and demo the methods in the browser", tags: [parallel], status: open }
           - { issue: 90, title: "Hosted MCP with API key and free tier", tags: [maintainer], status: open }
           - { issue: 91, title: "External methodological review", tags: [maintainer], status: open }
           - { issue: 92, title: "Jurisdiction profiles and translated manuals", tags: [parallel], status: open }
