@@ -275,13 +275,14 @@ terms:
   exchange gains and losses: utili e perdite su cambi
   value adjustments of financial assets: rettifiche di valore di attività e passività finanziarie
   profit before tax: risultato prima delle imposte
-  # SPEC-0005, Terminology and sources: verified Italian equivalents (V12, V30, V32, V33)
+  # SPEC-0005, Terminology and sources: Italian equivalents the spec records as verified
+  # (status "verified" in its table; V12, V30, V32)
   EBITDA: margine operativo lordo (MOL)
   operating profit: reddito operativo della gestione caratteristica (margine operativo netto, MON)
   profit before financing and income taxes: reddito operativo aziendale (EBIT nella prassi italiana)
   non-recurring items: componenti non ricorrenti
   write-downs: svalutazioni
-  # Art. 2427, paragraph 1, n. 22 c.c.
+  # Leases, OIC 12
   financial method (leases): metodo finanziario
   # Italian equivalent "to verify" in the spec or only partly verified: English kept with an
   # Italian explanation (glossary rule of 2026-11-08).
@@ -289,6 +290,8 @@ terms:
   investing result: investing result (risultato della gestione accessoria)
   financing result: financing result (risultato della gestione finanziaria)
   materials consumed: materials consumed (consumi di materie prime, sussidiarie, di consumo e merci)
+  external costs: external costs (costi esterni)
+  other charges below EBITDA: other charges below EBITDA (altri oneri sotto il MOL)
   available (method status): disponibile
   preview (method status): anteprima
   promotion rule (method status): regola di promozione

@@ -1,6 +1,6 @@
 ---
 source: methods/statements-reorganise.md
-source_hash: 161fa816cf1c
+source_hash: be67d336082e
 ---
 # Bilancio riclassificato (`statements.reorganise`)
 
@@ -116,24 +116,32 @@ con, per un esercizio in forma civilistica:
 
 - valore della produzione = A1 + A2 e A3 + A4 + A5, parte caratteristica (al netto delle parti
   spostate dalle rettifiche `investing` e `non_recurring`); il totale A è usato quando fornito;
-- value added (valore aggiunto) = valore della produzione − (B6 + B11 + B7 + B8 + B14), ciascuna
-  parte caratteristica; `materials_consumed` = B6 + B11;
+- external costs (costi esterni) = B6 + B7 + B8 + B11 + B14, ciascuna parte caratteristica, B8
+  anche al netto dei canoni di leasing (con segno; decisione E1 del 2026-11-09); value added
+  (valore aggiunto) = valore della produzione − external costs; `materials_consumed` = B6 + B11;
 - margine operativo lordo (MOL, EBITDA) = value added − B9; ammortamenti e svalutazioni (B10),
   accantonamenti (B12, B13), investing result, financing result e componenti non ricorrenti sono
   sotto di esso. La definizione è restituita a parole in `ebitda_definition`, pronta per i
   gruppi `ratios.*`;
+- other charges below EBITDA (altri oneri sotto il MOL) = B12 + B13, e + B10 d con la
+  classificazione `write_downs_of_receivables: operating`, ciascuna parte caratteristica (E2);
 - reddito operativo della gestione caratteristica (margine operativo netto, MON) = MOL −
-  ammortamenti (B10 a e b, più l'ammortamento dei beni in leasing) − B12 − B13, e − B10 d con
-  la classificazione `write_downs_of_receivables: operating`;
+  ammortamenti (B10 a e b, più l'ammortamento dei beni in leasing) − other charges below
+  EBITDA;
 - investing result (risultato della gestione accessoria) = parti `investing` di A5 − parti
   `investing` di B14 + C15 + C16 + (D18 − D19) − B10 c − B10 d (salvo `operating`); il totale D
   è usato quando fornito;
 - reddito operativo aziendale (EBIT nella prassi italiana) = reddito operativo + investing
   result;
 - componenti non ricorrenti = Σ proventi non ricorrenti − Σ oneri non ricorrenti, dalle
-  rettifiche `non_recurring` (zero se assenti);
+  rettifiche `non_recurring`: zero, con la convenzione "no item labelled non-recurring", se
+  assenti; nullo, ed elencato in `not_computed`, quando l'esercizio non fornisce il conto
+  economico (E6);
 - financing result (risultato della gestione finanziaria) = C17-bis − C17 (C17 più gli
-  interessi dei beni in leasing, restituito come `interest_and_other_financial_charges`);
+  interessi dei beni in leasing, restituito come `interest_and_other_financial_charges`). C16,
+  che comprende gli interessi sulle disponibilità liquide e sui crediti finanziari della
+  posizione finanziaria netta, è nell'investing result (categoria investing di IFRS 18), quindi
+  il financing result è al lordo di quegli interessi;
 - utile netto = risultato prima delle imposte − voce 20, imposte come fornite.
 
 I due subtotali hanno il contenuto dei subtotali richiesti da IFRS 18, "operating profit or
@@ -157,9 +165,11 @@ lo indicano; fornire la parte B10 c per collocarla nell'investing result (Decisi
 **Riconciliazioni** (R19). `reconciliations.operating_profit` e
 `reconciliations.profit_before_financing_and_taxes` partono da A − B del conto economico
 civilistico, elencano ogni importo spostato (svalutazioni, parti `investing` e `non_recurring`,
-righe del leasing, C15, C16 e D) con il pointer della sua origine, e arrivano al subtotale, in
-modo esatto. Senza leasing, il risultato prima delle imposte è uguale ad A − B ± C ± D e l'utile
-netto alla voce 21.
+righe del leasing, C15, C16 e D) con i pointer effettivamente letti (`sources`: D18 e D19
+entrambe quando sono lette entrambe; il gruppo B10 a-c, con la correzione, quando B10 c è letta
+come assente), e arrivano al subtotale, in modo esatto. Il risultato prima delle imposte è
+uguale ad A − B ± C ± D e l'utile netto alla voce 21, salvo la differenza dei leasing, canoni −
+ammortamento − interessi (E4).
 
 ## Esempio
 
@@ -358,14 +368,18 @@ voci D18 e D19 nell'investing result, quando le voci non sono fornite.
 ### Conto economico riclassificato (Appendice B.2)
 
 `revenue`, `value_of_production`, `purchases`, `materials_consumed`, `value_added`,
-`personnel_costs`, `ebitda`, `depreciation_and_amortisation`, `operating_profit`,
+`external_costs`, `personnel_costs`, `ebitda`, `depreciation_and_amortisation`,
+`other_charges_below_ebitda`, `operating_profit`,
 `investing_result`, `profit_before_financing_and_taxes`, `non_recurring_result`,
 `financing_result`, `interest_and_other_financial_charges`, `profit_before_tax`,
 `income_taxes` e `net_income`, tutti facoltativi. MOL (value added − costi per il personale),
 reddito operativo aziendale (reddito operativo + investing result), risultato prima delle
 imposte e utile netto sono derivati quando non forniti e verificati in modo esatto quando
-forniti. Le riconciliazioni con A − B richiedono la forma civilistica e sono elencate in
-`not_computed` senza un pointer da fornire.
+forniti, e così il value added (valore della produzione − `external_costs`) e il reddito
+operativo (MOL − ammortamenti − `other_charges_below_ebitda`), con `external_costs` (con segno)
+e `other_charges_below_ebitda` (zero o più) definiti come nella forma civilistica (E1, E2). Le
+riconciliazioni con A − B richiedono la forma civilistica e sono elencate in `not_computed`
+senza un pointer da fornire.
 
 ## Classificazioni
 
@@ -416,7 +430,7 @@ OIC 12): esce dal suo aggregato e dai subtotali superiori ed entra nelle compone
 ricorrenti. Una rettifica `investing` sposta proventi od oneri di un'attività non operativa (per
 esempio l'affitto di un immobile non strumentale) da A5 o B14 all'investing result.
 
-Una rettifica `lease` rappresenta un leasing con il metodo finanziario (art. 2427 n. 22): il
+Una rettifica `lease` rappresenta un leasing con il metodo finanziario (OIC 12): il
 bene entra negli operating fixed assets; il debito entra nella posizione finanziaria netta come
 altra passività finanziaria, con la parte `liability_current` corrente; il maxicanone
 (`prepayment`) esce dalla voce D dell'attivo (la voce separata quando fornita, altrimenti la
@@ -470,7 +484,7 @@ quest'ordine:
 1. per esercizio, ogni aggregato civilistico fornito la cui destinazione è una predefinita
    dell'Appendice A (B.I, B.II, C.II, C.III, C.IV, voce D dell'attivo, fondi per rischi e oneri B,
    trattamento di fine rapporto C, debiti D, voce E del passivo; poi A5 verso
-   `value_of_production`, B14 verso `value_added` e B10 d verso `investing_result` finché la
+   `value_of_production`, B14 verso `external_costs` e B10 d verso `investing_result` finché la
    classificazione `write_downs_of_receivables` non è fornita): `field` è il pointer della voce,
    `value` la destinazione, e la convenzione riporta "assigned to". Un aggregato è fornito quando
    è fornito il suo importo: un nodo che ne contiene solo una parte (per esempio
@@ -523,12 +537,13 @@ netto, totale attivo e totale passivo e patrimonio netto rispetto alle loro voci
 loro aggregato; utile di A.IX = voce 21; ripartizione di un override = aggregato dell'esercizio;
 le scadenze di una ripartizione dei debiti verso soci per finanziamenti (si veda
 [Classificazioni](#classificazioni)); i totali del conto economico (A, B, B10 a-c, B10, A − B,
-C, D, risultato prima delle imposte, voce 21); la parte corrente di una passività per leasing
+C, D, risultato prima delle imposte, voce 21); B10 c entro B10 a-c; la parte corrente di una
+passività per leasing
 entro la passività. Forma riclassificata: operating working capital, capitale investito, total
 funds invested, posizione finanziaria netta (rispetto alla sua composizione e alle sue scadenze)
 e total sources rispetto alle loro componenti, e total funds invested = total sources; MOL,
 reddito operativo aziendale, risultato prima delle imposte e utile netto rispetto alla loro
-derivazione secondo l'Appendice B.2.
+derivazione secondo l'Appendice B.2, e value added e reddito operativo rispetto alla loro.
 
 I livelli del conto economico civilistico sono costruiti con le stesse voci dei suoi totali,
 quindi il risultato prima delle imposte è uguale ad A − B ± C ± D e l'utile netto alla voce 21,
@@ -557,7 +572,7 @@ riserve (A.VI), in modo che i totali quadrino esattamente.
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 | `FM-E009` | Una data inesistente o fuori dall'intervallo 1900-2199 |
 | `FM-E012` | Difetto: total funds invested diverso dalle fonti di un esercizio civilistico con tutte le voci fornite; una riconciliazione con A − B che non quadra; il risultato riclassificato diverso da quello civilistico per una causa diversa dai leasing |
-| `FM-E026` | Una relazione del bilancio non quadra; total funds invested di un esercizio civilistico diverso dalle fonti una volta contate le voci separate considerate pari a zero (indicate nel messaggio); una rettifica supera quanto resta nella sua voce di origine; oppure la parte corrente di una passività per leasing supera la passività |
+| `FM-E026` | Una relazione del bilancio non quadra; total funds invested di un esercizio civilistico diverso dalle fonti una volta contate le voci separate considerate pari a zero (indicate nel messaggio); una rettifica supera quanto resta nella sua voce di origine; B10 c supera il gruppo B10 a-c a cui appartiene; oppure la parte corrente di una passività per leasing supera la passività |
 
 ## Limiti e note di prassi
 
@@ -584,13 +599,10 @@ riserve (A.VI), in modo che i totali quadrino esattamente.
   D6 del 2026-11-08; issue separata). Quando una loro parte è finanziamento, fornirla in
   `payables.financial_debt`, oppure spostarla con una rettifica `non_current_trade_payables`, e
   indicarne il motivo.
-- **Conto economico riclassificato.** I campi `external_costs` e `other_charges_below_ebitda`
-  (decisione D4) non sono in questa versione: la loro definizione attende il maintainer. Fino ad
-  allora un esercizio riclassificato deriva il MOL da value added e costi per il personale, ma
-  non il value added dal valore della produzione né il reddito operativo dal MOL; fornirli come
-  totali.
-- **Differenze di cambio.** Una rettifica `non_recurring` di C17-bis sposta una parte di un utile
-  netto su cambi; una perdita su cambi non ricorrente non è rappresentabile in questa versione.
+- **Differenze di cambio.** C17-bis è un importo netto: una rettifica `non_recurring` di
+  C17-bis sposta una parte di un utile netto su cambi; una perdita su cambi non ricorrente non è
+  rappresentabile in questa versione (decisione E7;
+  [issue #251](https://github.com/salvo8519/fairmark/issues/251)).
 - **Leasing** sono rappresentati senza imposte differite (Decision 9): l'effetto fiscale della
   rappresentazione resta nella voce 20 come esposta.
 
@@ -626,18 +638,15 @@ arrotondamento.
 ## Fonti
 
 - Codice civile, art. 2423-ter, 2424, 2425, 2435-bis e 2435-ter (schemi e dati comparativi);
-  art. 2427, comma 1, n. 13 (elementi di entità o incidenza eccezionali) e n. 22 (leasing,
-  metodo finanziario).
+  art. 2427, comma 1, n. 13 (elementi di entità o incidenza eccezionali).
 - IFRS 18 *Presentation and Disclosure in Financial Statements* (in vigore dal 2027): i
   subtotali "operating profit or loss" (paragrafo 69(a)) e "profit or loss before financing and
   income taxes"; partecipazioni valutate con il metodo del patrimonio netto nella categoria
   investing (paragrafi 53(a), 54(a)).
 - Banca d'Italia, analisi della stabilità finanziaria delle imprese (MOL); EBA/GL/2020/06,
   allegato 3 (EBITDA nella concessione del credito).
-- Manuali italiani di analisi di bilancio (Modugno; Trieste): MOL, reddito operativo ed EBIT come
-  margini distinti; edizione e pagina da completare.
-- OIC 12 (composizione e schemi del bilancio d'esercizio); D.Lgs. 139/2015 (azioni proprie
-  dedotte dal patrimonio netto dal 2016).
+- OIC 12 (composizione e schemi del bilancio d'esercizio; leasing e metodo finanziario);
+  D.Lgs. 139/2015 (azioni proprie dedotte dal patrimonio netto dal 2016).
 - Borsa Italiana, *Guida alla Valutazione* (trattamento delle imposte anticipate nella prassi).
 - ESMA32-382-1138, orientamento 39, e Consob, Richiamo di attenzione n. 5/21 (indebitamento
   finanziario netto).

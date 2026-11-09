@@ -100,23 +100,29 @@ with, for a statutory year:
 
 - value of production = A1 + A2 and A3 + A4 + A5, core (less the parts moved by `investing`
   and `non_recurring` adjustments); total A is used when given;
-- value added = value of production − (B6 + B11 + B7 + B8 + B14), each core;
+- external costs = B6 + B7 + B8 + B11 + B14, each core, B8 also net of lease payments (signed;
+  decision E1 of 2026-11-09); value added = value of production − external costs;
   `materials_consumed` = B6 + B11;
 - EBITDA (margine operativo lordo, MOL) = value added − B9; depreciation, amortisation and
   write-downs (B10), provisions (B12, B13), the investing and financing results and the
   non-recurring items are below it. The definition is returned in words as
   `ebitda_definition`, ready for the `ratios.*` groups;
+- other charges below EBITDA = B12 + B13, and + B10 d with the treatment
+  `write_downs_of_receivables: operating`, each core (E2);
 - operating profit (reddito operativo della gestione caratteristica, margine operativo netto)
-  = EBITDA − depreciation and amortisation (B10 a and b, plus lease depreciation) − B12 − B13,
-  and − B10 d with the treatment `write_downs_of_receivables: operating`;
+  = EBITDA − depreciation and amortisation (B10 a and b, plus lease depreciation) − other
+  charges below EBITDA;
 - investing result = investing parts of A5 − investing parts of B14 + C15 + C16 + (D18 − D19)
   − B10 c − B10 d (unless `operating`); total D is used when given;
 - profit before financing and taxes (reddito operativo aziendale, EBIT in Italian practice) =
   operating profit + investing result;
 - non-recurring result = Σ non-recurring income − Σ non-recurring charges, from the
-  `non_recurring` adjustments (zero when there are none);
+  `non_recurring` adjustments: zero, with the convention "no item labelled non-recurring", when
+  there are none; null, listed in `not_computed`, when the year gives no income statement (E6);
 - financing result = C17-bis − C17 (C17 plus lease interest, returned as
-  `interest_and_other_financial_charges`);
+  `interest_and_other_financial_charges`). C16, which includes the interest on cash and on the
+  financial receivables of the net financial position, is in the investing result (the IFRS 18
+  investing category), so the financing result is gross of that interest;
 - net income = profit before tax − item 20, taxes as given.
 
 The two subtotals have the content of the subtotals required by IFRS 18, "operating profit or
@@ -139,8 +145,10 @@ result (Decision 8).
 **Reconciliations** (R19). `reconciliations.operating_profit` and
 `reconciliations.profit_before_financing_and_taxes` start from A − B of the statutory
 statement, list every amount moved (write-downs, investing and non-recurring parts, lease
-lines, C15, C16 and D) with its source pointer, and end at the subtotal, exactly. Without a
-lease, profit before tax equals A − B ± C ± D and net income equals item 21.
+lines, C15, C16 and D) with the pointers actually read (`sources`: both D18 and D19 when both
+are read; the B10 a to c group, with the fix, when B10 c is read as none), and end at the
+subtotal, exactly. Profit before tax equals A − B ± C ± D and net income equals item 21, except
+for the lease difference, payments − depreciation − interest (E4).
 
 ## Example
 
@@ -339,13 +347,18 @@ and D19 in the investing result, when their items are not given.
 ### Reclassified income statement (Appendix B.2)
 
 `revenue`, `value_of_production`, `purchases`, `materials_consumed`, `value_added`,
-`personnel_costs`, `ebitda`, `depreciation_and_amortisation`, `operating_profit`,
+`external_costs`, `personnel_costs`, `ebitda`, `depreciation_and_amortisation`,
+`other_charges_below_ebitda`, `operating_profit`,
 `investing_result`, `profit_before_financing_and_taxes`, `non_recurring_result`,
 `financing_result`, `interest_and_other_financial_charges`, `profit_before_tax`,
 `income_taxes` and `net_income`, all optional. EBITDA (value added − personnel costs), profit
 before financing and taxes (operating profit + investing result), profit before tax and net
-income are derived when not given and checked exactly when given. The reconciliations with
-A − B need the statutory form and are listed in `not_computed` with no pointer to give.
+income are derived when not given and checked exactly when given, and so are value added
+(value of production − `external_costs`) and operating profit (EBITDA − depreciation and
+amortisation − `other_charges_below_ebitda`), with `external_costs` (signed) and
+`other_charges_below_ebitda` (zero or more) defined as in the statutory form (E1, E2). The
+reconciliations with A − B need the statutory form and are listed in `not_computed` with no
+pointer to give.
 
 ## Treatments
 
@@ -395,7 +408,7 @@ result (componenti non ricorrenti). An `investing` adjustment moves income or ch
 non-operating asset (rent of an investment property, for example) out of A5 or B14 into the
 investing result.
 
-A `lease` restates a lease by the financial method (art. 2427 n. 22): the right-of-use asset
+A `lease` restates a lease by the financial method (OIC 12): the right-of-use asset
 joins operating fixed assets; the liability joins the net financial position as an other
 financial liability, with its `liability_current` part current; the prepayment (maxicanone)
 leaves assets D (the separate line when given, otherwise the part presented within C.II, which
@@ -447,7 +460,7 @@ order:
 
 1. by year, each statutory aggregate given whose destination is a default of Appendix A (B.I,
    B.II, C.II, C.III, C.IV, assets D, provisions B, employee severance indemnity C, payables D,
-   liabilities E; then A5 to `value_of_production`, B14 to `value_added`, and B10 d to
+   liabilities E; then A5 to `value_of_production`, B14 to `external_costs`, and B10 d to
    `investing_result` while the treatment `write_downs_of_receivables` is not given): `field` is
    the pointer of the item, `value` the destination, and the convention reads "assigned to". An
    aggregate counts as given when its amount is: a node holding only a part of it (for example
@@ -497,12 +510,13 @@ assets and total liabilities and equity against their items; total assets = tota
 and equity; parts beyond one year and "of which" parts within their aggregate; the profit of
 A.IX = item 21; a split of an override = the year's aggregate; the maturities of a split of
 shareholder loans (see [Treatments](#treatments)); the totals of the income statement (A, B,
-B10 a to c, B10, A − B, C, D, profit before tax, item 21); the current part of a lease liability
+B10 a to c, B10, A − B, C, D, profit before tax, item 21); B10 c within B10 a to c; the current
+part of a lease liability
 within the liability. Reclassified form: operating working capital, invested capital, total
 funds invested, the net financial position (against its position and its maturities) and total
 sources against their components, and total funds invested = total sources; EBITDA, profit
 before financing and taxes, profit before tax and net income against their derivation by
-Appendix B.2.
+Appendix B.2, and value added and operating profit against theirs.
 
 The layers of the statutory income statement are built from the same items as its totals, so
 profit before tax equals A − B ± C ± D and net income equals item 21, apart from the lease
@@ -528,7 +542,7 @@ that the totals reconcile exactly.
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 | `FM-E009` | A date that does not exist or is outside 1900 to 2199 |
 | `FM-E012` | Defect: total funds invested differ from the sources of a statutory year with every item given; a reconciliation with A − B does not add up; the reorganised profit differs from the statutory one other than by the lease restatements |
-| `FM-E026` | A relation of the statements does not reconcile; the funds invested of a statutory year differ from its sources once the separate lines taken as zero are counted (named in the message); an adjustment exceeds what remains in its source; or the current part of a lease liability exceeds the liability |
+| `FM-E026` | A relation of the statements does not reconcile; the funds invested of a statutory year differ from its sources once the separate lines taken as zero are counted (named in the message); an adjustment exceeds what remains in its source; B10 c exceeds the B10 a to c group it belongs to; or the current part of a lease liability exceeds the liability |
 
 ## Limitations and practice notes
 
@@ -552,13 +566,9 @@ that the totals reconcile exactly.
   does not separate their financial part (decision D6 of 2026-11-08; a separate issue). When
   part of them is financing, give it within `payables.financial_debt`, or move it with a
   `non_current_trade_payables` adjustment, and state why.
-- **Reclassified income statement.** The fields `external_costs` and
-  `other_charges_below_ebitda` (decision D4) are not in this version: their definition waits
-  for the maintainer. Until then a reclassified entry derives EBITDA from value added and
-  personnel costs, but not value added from the value of production, nor operating profit from
-  EBITDA; give them as totals.
-- **Exchange differences.** A `non_recurring` adjustment of C17-bis moves a part of a net gain;
-  a non-recurring exchange loss cannot be expressed in this version.
+- **Exchange differences.** C17-bis is a net amount: a `non_recurring` adjustment of C17-bis
+  moves a part of a net gain; a non-recurring exchange loss cannot be expressed in this version
+  (decision E7; [issue #251](https://github.com/salvo8519/fairmark/issues/251)).
 - **Leases** are restated without deferred taxes (Decision 9): the tax effect of the
   restatement stays in item 20 as reported.
 
@@ -591,17 +601,14 @@ Additions and subtractions of decimals only, exact; no multiplication, division 
 ## Sources
 
 - Civil Code art. 2423-ter, 2424, 2425, 2435-bis and 2435-ter (layouts and comparatives);
-  art. 2427, paragraph 1, n. 13 (items of exceptional size or incidence) and n. 22 (leases,
-  financial method).
+  art. 2427, paragraph 1, n. 13 (items of exceptional size or incidence).
 - IFRS 18 *Presentation and Disclosure in Financial Statements* (effective 2027): the subtotals
   "operating profit or loss" (paragraph 69(a)) and "profit or loss before financing and income
   taxes"; equity-accounted investments in the investing category (paragraphs 53(a), 54(a)).
 - Banca d'Italia, financial stability analysis of firms (MOL); EBA/GL/2020/06, Annex 3
   (EBITDA for credit granting).
-- Italian textbooks of financial statement analysis (Modugno; Trieste): MOL, reddito operativo
-  and EBIT as distinct margins; edition and page to be completed.
-- OIC 12 (presentation of the statements); D.Lgs. 139/2015 (own shares deducted from equity
-  from 2016).
+- OIC 12 (presentation of the statements; leases and the financial method); D.Lgs. 139/2015
+  (own shares deducted from equity from 2016).
 - Borsa Italiana, *Guida alla Valutazione* (treatment of deferred tax assets in practice).
 - ESMA32-382-1138, guideline 39, and Consob, Richiamo di attenzione n. 5/21 (net financial
   indebtedness).
