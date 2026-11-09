@@ -96,6 +96,14 @@ check: lint test check-generated docs
 deps-outdated:
     cargo update --dry-run --verbose 2>&1 | grep -E "Updating|Unchanged" || true
     uv tree --outdated --depth 1 | grep -E "latest" || echo "Python: all direct dependencies are current."
+    # Cargo tools pinned in the workflows (install-action and its cargo install fallback);
+    # Dependabot does not update these pins.
+    for pin in $(grep -rhoE '(tool: |cargo install --locked )[a-z0-9-]+@[0-9][0-9.]*' .github/workflows | sed -E 's/.* //' | sort -u); do \
+      name="${pin%@*}"; pinned="${pin#*@}"; \
+      latest=$(cargo search "$name" --limit 1 | sed -nE "s/^$name = \"([^\"]+)\".*/\1/p"); \
+      if [ "$latest" = "$pinned" ]; then echo "Tool $name $pinned: current."; \
+      else echo "Tool $name $pinned: latest is ${latest:-unknown}."; fi; \
+    done
 
 # Security advisories for Rust and Python dependencies
 deps-audit:

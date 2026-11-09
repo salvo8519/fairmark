@@ -55,6 +55,12 @@ decides. Every tool used is free for public open-source repositories.
 Locally: `uv run just deps-outdated` lists what can be updated, `uv run just deps-audit`
 lists known advisories.
 
+Cargo tools pinned in the workflows (`tool: <name>@<version>` of `taiki-e/install-action` and
+the `cargo install --locked` fallback next to it: cargo-deny, cargo-llvm-cov, cargo-machete,
+cargo-mutants) are not updated by Dependabot. `uv run just deps-outdated` compares each pin
+with the latest release on crates.io; the maintainer runs it at each weekly maintenance and
+updates both lines of a tool together, in one `ci(deps)` pull request.
+
 ## When to update
 
 | Kind of update | When | How |
