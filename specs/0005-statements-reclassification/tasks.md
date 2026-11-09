@@ -126,6 +126,12 @@ request where every output they assert exists (`plan.md`, "Test strategy").
   approved on 2026-11-09: C15 to `income_from_operating_investments` when B.III is `operating`;
   `interest_cost` on `debt_like_provision` of the employee severance indemnity; computability
   table of the income statement in spec.md
+- [ ] T27d Round 2 of 2026-11-09: A1 (AC11 rewritten), A2 (reclassified
+  `income_from_operating_investments`), A3 (C15 waits only when given and not zero), A4 (write-down
+  treatment defaults listed whenever a statutory year gives an income statement, golden approval
+  for the files on main that give one, `expect_meta` only); corrections D1-IS (B10 c derived from
+  the group), D2-IS (no operating investment without B.III), D3-IS (financing result without
+  B9); spec text and schema descriptions (S1, S2); practice basis of D1, D2, M2 (S3)
 
 ### Adapters and docs
 - [x] T28 [P] `python/tests/test_reference_statements.py` extended to income statements
