@@ -4,6 +4,10 @@
 # Fails unless that file has exactly one FROM line pinned by digest.
 set -euo pipefail
 name="${1:?usage: pinned-image.sh <name>}"
+if ! [[ "$name" =~ ^[a-z0-9._-]+$ ]] || [[ "$name" == *..* ]]; then
+  echo "::error::invalid image name $name" >&2
+  exit 1
+fi
 file="$(dirname "$0")/images/$name.Dockerfile"
 if [ ! -f "$file" ]; then
   echo "::error::no pinned image file $file" >&2
