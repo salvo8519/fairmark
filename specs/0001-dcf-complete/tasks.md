@@ -300,19 +300,19 @@ Decision 25 (maintainer, 2026-11-09). Additive to `dcf.fcff` version 3: no numbe
 `meta.defaults_applied` and `explain.conventions` report the default of zero and a warning.
 
 ### Tests (write first, they must fail)
-- [ ] G1 [P] Unit tests in `fcff.rs` and `crates/fairmark-core/tests/dcf_defaults.rs`: the
+- [x] G1 [P] Unit tests in `fcff.rs` and `crates/fairmark-core/tests/dcf_defaults.rs`: the
   default entry and its convention, the warning, a given zero without either, the hash
   unchanged; `python/tests/test_dcf_defaults.py` [R23, R31]
-- [ ] G2 [P] Golden cases with `expect_meta`: no net financial position (default and value
+- [x] G2 [P] Golden cases with `expect_meta`: no net financial position (default and value
   equal to the existing case), a net financial position of zero given (no default) [R23]
 
 ### Implementation
-- [ ] G3 `Fcff::apply_defaults` lists the default without rewriting the input; the bridge
+- [x] G3 `Fcff::apply_defaults` lists the default without rewriting the input; the bridge
   writes the warning instead of "net financial position: none given"; field description [R23]
 
 ### Adapters and docs
-- [ ] G4 [P] Methodology page `dcf-fcff` (English and Italian), Python helper docstring,
+- [x] G4 [P] Methodology page `dcf-fcff` (English and Italian), Python helper docstring,
   release note `changes/261.fix.md`, roadmap #261 done
 
 ### Verification
-- [ ] G5 Every golden case unchanged; schema snapshots additive against main
+- [x] G5 Every golden case unchanged; schema snapshots additive against main
