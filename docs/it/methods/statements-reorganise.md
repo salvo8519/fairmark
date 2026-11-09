@@ -1,6 +1,6 @@
 ---
 source: methods/statements-reorganise.md
-source_hash: be67d336082e
+source_hash: e343c557098e
 ---
 # Bilancio riclassificato (`statements.reorganise`)
 
@@ -82,12 +82,23 @@ con, per un esercizio in forma civilistica (Appendice B.1 di SPEC-0005):
 - patrimonio netto = voce A del passivo − crediti verso soci per versamenti ancora dovuti (zero
   se non forniti) − dividendi deliberati;
 - debiti finanziari lordi = debiti finanziari + debiti verso soci per finanziamenti classificati
-  come debito finanziario; disponibilità liquide = C.IV − liquidità operativa; altre voci,
+  come debito finanziario + debiti per leasing rappresentati con una rettifica `lease`
+  (decisione P3 del 2026-11-09); disponibilità liquide = C.IV − liquidità operativa; altre voci,
   ciascuna con il suo segno: C.III, crediti finanziari, B.III classificate come attività
   finanziaria (negative), derivati passivi, ratei per interessi e debiti commerciali con
   dilazione (positive);
 - excess cash (liquidità eccedente) = C.IV − liquidità operativa, le disponibilità liquide della
   posizione finanziaria netta.
+
+**Rispetto alla tabella ESMA** (ESMA32-382-1138, orientamento 39; decisione P4 del
+2026-11-09). La posizione finanziaria netta di Fairmark è la misura dell'analista di SPEC-0007,
+non il "total financial indebtedness" dell'ESMA. Se ne discosta dove Fairmark deduce ciò che la
+tabella ESMA non deduce: le attività finanziarie non correnti (B.III classificate come
+`financial_asset`, i crediti finanziari esigibili oltre l'esercizio successivo, i derivati attivi
+compresi in B.III) e i derivati attivi di copertura compresi in C.III, che l'ESMA esclude dalle
+altre attività finanziarie correnti. La composizione elenca ciascuna di queste voci, quindi il
+valore ESMA si ricostruisce togliendole. Una vista ESMA (righe da A a M) è prevista in una issue
+separata.
 
 Derivati (decisione D3): i derivati passivi compresi nei fondi per rischi e oneri B classificati
 come `financial_liability` sono non correnti nella posizione finanziaria netta. I derivati attivi
@@ -123,14 +134,17 @@ con, per un esercizio in forma civilistica:
   accantonamenti (B12, B13), investing result, financing result e componenti non ricorrenti sono
   sotto di esso. La definizione è restituita a parole in `ebitda_definition`, pronta per i
   gruppi `ratios.*`;
-- other charges below EBITDA (altri oneri sotto il MOL) = B12 + B13, e + B10 d con la
-  classificazione `write_downs_of_receivables: operating`, ciascuna parte caratteristica (E2);
+- ammortamenti = B10 a e b, + B10 c con la classificazione
+  `write_downs_of_fixed_assets: operating` (la predefinita, P1), + ammortamento dei beni in
+  leasing;
+- other charges below EBITDA (altri oneri sotto il MOL) = B12 + B13, + B10 d con la
+  classificazione `write_downs_of_receivables: operating` (la predefinita, E3), ciascuna parte
+  caratteristica (E2);
 - reddito operativo della gestione caratteristica (margine operativo netto, MON) = MOL −
-  ammortamenti (B10 a e b, più l'ammortamento dei beni in leasing) − other charges below
-  EBITDA;
+  ammortamenti − other charges below EBITDA;
 - investing result (risultato della gestione accessoria) = parti `investing` di A5 − parti
-  `investing` di B14 + C15 + C16 + (D18 − D19) − B10 c − B10 d (salvo `operating`); il totale D
-  è usato quando fornito;
+  `investing` di B14 + C15 + C16 + (D18 − D19), − B10 c e − B10 d solo con la classificazione
+  `investing`; il totale D è usato quando fornito;
 - reddito operativo aziendale (EBIT nella prassi italiana) = reddito operativo + investing
   result;
 - componenti non ricorrenti = Σ proventi non ricorrenti − Σ oneri non ricorrenti, dalle
@@ -144,23 +158,29 @@ con, per un esercizio in forma civilistica:
   il financing result è al lordo di quegli interessi;
 - utile netto = risultato prima delle imposte − voce 20, imposte come fornite.
 
-I due subtotali hanno il contenuto dei subtotali richiesti da IFRS 18, "operating profit or
-loss" e "profit or loss before financing and income taxes": IFRS 18 si applica a chi redige il
-bilancio secondo gli IFRS e l'art. 2425 a chi applica gli OIC, e la riclassificazione riconduce
-entrambi agli stessi subtotali. `operating_profit` esclude tutto ciò che è fuori dalla gestione
-caratteristica: l'area degli investimenti (proventi da partecipazioni e da liquidità,
-svalutazioni e rivalutazioni) e le componenti non ricorrenti.
+I due subtotali corrispondono ai subtotali richiesti da IFRS 18, "operating profit or loss" e
+"profit or loss before financing and income taxes", secondo le convenzioni di questa pagina (la
+decisione P1 modifica R16): le voci indicate come non ricorrenti sono escluse da
+`operating_profit`, mentre IFRS 18 le terrebbe nella categoria operativa, e le svalutazioni
+seguono le loro classificazioni. IFRS 18 si applica a chi redige il bilancio secondo gli IFRS e
+l'art. 2425 a chi applica gli OIC, e la riclassificazione riconduce entrambi agli stessi
+subtotali. `operating_profit` esclude l'area degli investimenti (proventi da partecipazioni e da
+liquidità, D18 e D19) e le componenti non ricorrenti.
 
-**Svalutazioni e rivalutazioni** (Decision 17 di SPEC-0005) sono extra-caratteristiche: D18 e
-D19 (attività finanziarie), B10 c (immobilizzazioni) e B10 d (crediti dell'attivo circolante e
-disponibilità liquide) sono nell'investing result, sotto il reddito operativo e sopra il reddito
-operativo aziendale. Una svalutazione misura una variazione del valore di un'attività, non il
-risultato della gestione caratteristica dell'esercizio. Per la sola B10 d, la classificazione
-`write_downs_of_receivables: operating` la colloca nel reddito operativo, sotto il MOL, come fa
-la prassi IFRS 18 per la svalutazione dei crediti commerciali. Il MOL è lo stesso in entrambi i
-casi. Nessuna rettifica sposta D18 o D19. B10 a-c fornita come importo unico (bilancio in forma
-abbreviata, art. 2435-bis) senza la sua parte B10 c è letta come ammortamenti, e le convenzioni
-lo indicano; fornire la parte B10 c per collocarla nell'investing result (Decision 8).
+**Svalutazioni e rivalutazioni** (Decision 17 di SPEC-0005, modificata da E3 e P1 del
+2026-11-09). D18 e D19 (attività finanziarie) sono nell'investing result, sotto il reddito
+operativo e sopra il reddito operativo aziendale; nessuna rettifica le sposta. B10 c
+(svalutazioni delle immobilizzazioni materiali e immateriali) è operativa come predefinito, sotto
+il MOL insieme agli ammortamenti (IFRS 18; OIC 12 paragrafo 75); la classificazione
+`write_downs_of_fixed_assets: investing` la colloca nell'investing result. B10 d (svalutazioni
+dei crediti dell'attivo circolante e delle disponibilità liquide) è operativa come predefinito,
+negli altri oneri sotto il MOL, come fa la prassi IFRS 18 per la svalutazione dei crediti
+commerciali; la classificazione `write_downs_of_receivables: investing` la colloca
+nell'investing result. Il MOL è lo stesso con l'una o l'altra classificazione. Una svalutazione
+non ricorrente si isola con una rettifica `non_recurring`. Con B10 c operativa, B10 a-c fornita
+come importo unico (bilancio in forma abbreviata, art. 2435-bis) dà gli stessi output con o
+senza la sua parte B10 c; con la classificazione `investing`, un gruppo fornito senza la parte
+B10 c è letto come ammortamenti, e le convenzioni lo indicano (Decision 8).
 
 **Riconciliazioni** (R19). `reconciliations.operating_profit` e
 `reconciliations.profit_before_financing_and_taxes` partono da A − B del conto economico
@@ -269,8 +289,8 @@ r = fm.statements.reorganise(
 )
 inc = r.years[0]["income_statement"]
 assert inc["ebitda"] == Decimal("496000")  # 5100000 − 3604000 − 1000000
-assert inc["operating_profit"] == Decimal("301000")  # 496000 − 180000 − 10000 − 5000
-assert inc["investing_result"] == Decimal("-26000")  # 12000 + 3000 − 6000 − 20000 − 15000
+assert inc["operating_profit"] == Decimal("266000")  # 496000 − (180000 + 20000) − (10000 + 5000 + 15000)
+assert inc["investing_result"] == Decimal("9000")  # 12000 + 3000 + 2000 − 8000
 assert inc["profit_before_financing_and_taxes"] == Decimal("275000")
 assert inc["net_income"] == Decimal("150000")  # voce 21
 assert inc["reconciliations"]["operating_profit"]["start"] == Decimal("266000")  # A − B
@@ -349,9 +369,9 @@ da `operating_working_capital.inventories`.
 | B6, B11 | `purchases`, `change_in_raw_material_inventories` (con segno, positiva per una diminuzione) | value added (`materials_consumed`) | fissa |
 | B7, B8 | `services`, `use_of_third_party_assets` | value added | fissa |
 | B9 | `personnel_costs` | MOL | fissa |
-| B10 a, b | `depreciation_and_write_downs.depreciation_and_amortisation` (oppure `value_adjustments_of_fixed_assets`, B10 a-c, al netto di B10 c) | reddito operativo | fissa |
-| B10 c | `depreciation_and_write_downs.write_downs_of_fixed_assets` | investing result | fissa |
-| B10 d | `depreciation_and_write_downs.write_downs_of_receivables` | investing result, oppure reddito operativo con la classificazione `operating` | predefinita |
+| B10 a, b | `depreciation_and_write_downs.depreciation_and_amortisation` (oppure `value_adjustments_of_fixed_assets`, B10 a-c, al netto di B10 c) | ammortamenti | fissa |
+| B10 c | `depreciation_and_write_downs.write_downs_of_fixed_assets` | ammortamenti, oppure investing result con la classificazione `investing` | predefinita |
+| B10 d | `depreciation_and_write_downs.write_downs_of_receivables` | other charges below EBITDA, oppure investing result con la classificazione `investing` | predefinita |
 | B12, B13 | `provisions_for_risks`, `other_provisions` | reddito operativo | fissa |
 | B14 | `other_operating_expenses` | value added, parte caratteristica | predefinita |
 | C15, C16 | `income_from_equity_investments`, `other_financial_income` | investing result | fissa |
@@ -393,7 +413,8 @@ indica la classificazione e le destinazioni ammesse.
 | `financial_fixed_assets` | `operating`, `non_operating`, `financial_asset` | nessuno |
 | `shareholder_loans` | `financial_debt`, `quasi_equity` | nessuno |
 | `derivative_liabilities` | `financial_liability`, `operating_provision` | nessuno |
-| `write_downs_of_receivables` | `investing` (B10 d nell'investing result), `operating` (B10 d nel reddito operativo, sotto il MOL) | `investing` |
+| `write_downs_of_receivables` | `operating` (B10 d negli other charges below EBITDA), `investing` (B10 d nell'investing result) | `operating`, elencata quando un esercizio civilistico fornisce B10 d |
+| `write_downs_of_fixed_assets` | `operating` (B10 c negli ammortamenti), `investing` (B10 c nell'investing result) | `operating`, elencata quando un esercizio civilistico fornisce B10 c |
 
 I `treatment_overrides` di un esercizio accettano solo `financial_fixed_assets` e
 `shareholder_loans`, come `{"destination": ...}` oppure
@@ -431,8 +452,9 @@ ricorrenti. Una rettifica `investing` sposta proventi od oneri di un'attività n
 esempio l'affitto di un immobile non strumentale) da A5 o B14 all'investing result.
 
 Una rettifica `lease` rappresenta un leasing con il metodo finanziario (OIC 12): il
-bene entra negli operating fixed assets; il debito entra nella posizione finanziaria netta come
-altra passività finanziaria, con la parte `liability_current` corrente; il maxicanone
+bene entra negli operating fixed assets; il debito entra nei debiti finanziari lordi della
+posizione finanziaria netta (decisione P3; ESMA32-382-1138 paragrafo 180), con la parte
+`liability_current` corrente; il maxicanone
 (`prepayment`) esce dalla voce D dell'attivo (la voce separata quando fornita, altrimenti la
 parte esposta in C.II, che esce allora da C.II); bene − debito − maxicanone è l'effetto sul
 patrimonio netto, aggiunto al patrimonio netto con la sua formula nell'explain. Nel conto
@@ -484,12 +506,15 @@ quest'ordine:
 1. per esercizio, ogni aggregato civilistico fornito la cui destinazione è una predefinita
    dell'Appendice A (B.I, B.II, C.II, C.III, C.IV, voce D dell'attivo, fondi per rischi e oneri B,
    trattamento di fine rapporto C, debiti D, voce E del passivo; poi A5 verso
-   `value_of_production`, B14 verso `external_costs` e B10 d verso `investing_result` finché la
-   classificazione `write_downs_of_receivables` non è fornita): `field` è il pointer della voce,
+   `value_of_production`, B14 verso `external_costs`, B10 c verso
+   `depreciation_and_amortisation` e B10 d verso `other_charges_below_ebitda`, ciascuna finché la
+   sua classificazione non è fornita): `field` è il pointer della voce,
    `value` la destinazione, e la convenzione riporta "assigned to". Un aggregato è fornito quando
    è fornito il suo importo: un nodo che ne contiene solo una parte (per esempio
    `receivables.trade`) non basta;
-2. `treatments.write_downs_of_receivables`, `investing` se non fornita;
+2. `treatments.write_downs_of_receivables` e `treatments.write_downs_of_fixed_assets`,
+   `operating` se non fornite, ciascuna elencata solo quando un esercizio civilistico fornisce il
+   suo aggregato (B10 d, B10 c; decisione F1): altrimenti nessun numero ne dipende;
 3. ogni voce considerata pari a zero perché non fornita ([Calcolo sui dati
    disponibili](#calcolo-sui-dati-disponibili)): `value` è `"0"` e la convenzione riporta "not
    given, set to".
@@ -515,8 +540,9 @@ Le destinazioni fisse non sono valori predefiniti e non sono elencate.
 | C15, C16, D18, D19 | investing result | fisso |
 | C17, C17-bis | financing result | fisso |
 | MOL | value added − costi per il personale, restituito come `ebitda_definition` | fisso (Decision 8) |
-| Svalutazioni e rivalutazioni | D18, D19, B10 c, B10 d nell'investing result; per la sola B10 d, `operating` (sotto il MOL) | `investing`, elencato (Decision 17) |
-| B10 a-c come importo unico | ammortamenti salvo che sia fornita la sua parte B10 c | fisso, indicato (Decision 8) |
+| Svalutazioni e rivalutazioni | D18, D19 nell'investing result; B10 c e B10 d `operating` (sotto il MOL) oppure `investing` | `operating`, elencato (Decision 17, E3, P1) |
+| B10 a-c come importo unico | con B10 c `investing`: ammortamenti salvo che sia fornita la sua parte B10 c | fisso, indicato (Decision 8) |
+| Coerenza tra conto economico e stato patrimoniale | proventi e oneri seguono la classificazione della voce patrimoniale collegata (decisione P2) | non ancora applicata: si vedano i Limiti |
 | Leasing | come esposti; metodo finanziario tramite rettifica, senza imposte differite | come esposti (Decision 9) |
 | Imposte | voce 20 come fornita; nessun calcolo di IRES, IRAP, imposte differite o NOPAT | fisso |
 
@@ -577,9 +603,14 @@ riserve (A.VI), in modo che i totali quadrino esattamente.
 ## Limiti e note di prassi
 
 - **Imposte anticipate** (C.II 5-ter) restano nei crediti, e quindi nell'operating working
-  capital. Nella prassi sono spesso escluse dal capitale circolante (Borsa Italiana, *Guida alla
-  Valutazione*); per escluderle, spostarle con una rettifica `non_operating_asset` dei
-  `receivables` e indicarne il motivo.
+  capital. Per escluderle dal capitale circolante, spostarle con una rettifica
+  `non_operating_asset` dei `receivables` e indicarne il motivo.
+- **Proventi di attività classificate come operative** (decisione P2 del 2026-11-09, non ancora
+  applicata): i proventi delle immobilizzazioni finanziarie classificate `operating` (C15)
+  restano nell'investing result, e la rivalutazione del trattamento di fine rapporto classificato
+  come debt-like resta nei costi per il personale (B9) e nel MOL. La decisione li colloca nel
+  reddito operativo e nel financing result; la sua applicazione attende il maintainer su quattro
+  punti.
 - **Crediti delle immobilizzazioni finanziarie** (B.III.2) seguono la classificazione di B.III e
   sono sempre non correnti nel blocco degli importi correnti e non correnti, anche per la parte
   esigibile entro l'esercizio successivo che l'art. 2424 chiede di indicare.
@@ -643,14 +674,15 @@ arrotondamento.
   subtotali "operating profit or loss" (paragrafo 69(a)) e "profit or loss before financing and
   income taxes"; partecipazioni valutate con il metodo del patrimonio netto nella categoria
   investing (paragrafi 53(a), 54(a)).
-- Banca d'Italia, analisi della stabilità finanziaria delle imprese (MOL); EBA/GL/2020/06,
-  allegato 3 (EBITDA nella concessione del credito).
+- Banca d'Italia, analisi della stabilità finanziaria delle imprese, ed EBA/GL/2020/06, allegato
+  3: usano MOL ed EBITDA (l'EBA elenca l'EBITDA tra le metriche per la concessione del credito)
+  ma non li definiscono; la definizione di EBITDA qui è la Decision 8 di SPEC-0005.
 - OIC 12 (composizione e schemi del bilancio d'esercizio; leasing e metodo finanziario);
   D.Lgs. 139/2015 (azioni proprie dedotte dal patrimonio netto dal 2016).
-- Borsa Italiana, *Guida alla Valutazione* (trattamento delle imposte anticipate nella prassi).
-- ESMA32-382-1138, orientamento 39, e Consob, Richiamo di attenzione n. 5/21 (indebitamento
-  finanziario netto).
+- ESMA32-382-1138, orientamento 39, paragrafi da 175 a 186, e Consob, Richiamo di attenzione n.
+  5/21 (indebitamento finanziario netto; leasing nei debiti finanziari, paragrafo 180); si veda
+  "Rispetto alla tabella ESMA" per dove Fairmark se ne discosta.
 - Koller, Goedhart, Wessels, *Valuation*, "Reorganizing the financial statements".
-- SPEC-0005, le sue decisioni da 1 a 18 e le decisioni del maintainer da D1 a D6 del
-  2026-11-08; SPEC-0007 (posizione finanziaria netta); SPEC-0001 Decision 21 (voci del bridge e
+- SPEC-0005, le sue decisioni da 1 a 18, le decisioni del maintainer da D1 a D6 del
+  2026-11-08 ed E1-E7, P1-P5 del 2026-11-09; SPEC-0007 (posizione finanziaria netta); SPEC-0001 Decision 21 (voci del bridge e
   `MeasurementBasis`).

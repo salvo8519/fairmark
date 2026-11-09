@@ -99,8 +99,9 @@ Approved by the maintainer on 2026-11-08.
     `depreciation_and_amortisation`. Additive field as E1.
   - **E3, B10 d default.** The default of `write_downs_of_receivables` becomes `operating` (B10 d
     below EBITDA, in `other_charges_below_ebitda`), aligned with IFRS 18 (impairment of trade
-    receivables is operating, V32), bank practice and Borsa Italiana, *Guida alla Valutazione*;
-    `investing` stays selectable. D18, D19 and B10 c stay in the investing result by default.
+    receivables is operating, V32) and bank practice (the citation of Borsa Italiana, *Guida alla
+    Valutazione*, is withdrawn by P5: the guide does not discuss B10 d); `investing` stays
+    selectable. D18, D19 and B10 c stay in the investing result by default.
     Decision 17 and R17 are amended accordingly. Implementation note: the default is listed in
     `meta.defaults_applied` of 18 golden cases already on main; changing it needs the
     maintainer to extend the approval to those cases (AGENTS.md), so E3 is applied once that

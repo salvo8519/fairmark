@@ -45,7 +45,8 @@ def reorganise(
     ``financial_fixed_assets`` (``operating``, ``non_operating`` or ``financial_asset``),
     ``shareholder_loans`` (``financial_debt`` or ``quasi_equity``) and
     ``derivative_liabilities``, each needed only when its aggregate is given and not zero, and
-    ``write_downs_of_receivables`` (``investing`` by default, or ``operating``).
+    ``write_downs_of_receivables`` and ``write_downs_of_fixed_assets`` (``operating`` by
+    default, or ``investing``).
     ``adjustments``: labelled moves of Appendix C, each with ``kind``, ``label``, ``reason``
     and one amount per year (``None`` where it does not apply). No value is defaulted here
     beyond the engine's own defaults, listed in ``result.meta["defaults_applied"]``.
