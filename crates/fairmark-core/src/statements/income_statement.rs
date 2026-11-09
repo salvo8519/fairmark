@@ -16,12 +16,12 @@ use super::balance_sheet::Outputs;
 use super::checks::{Check, Checks, Side};
 use super::input::{
     Adjustment, InvestingSource, NonRecurringSource, ReorganiseInput, StatutoryIncomeStatement,
-    WriteDownsOfReceivables,
+    WriteDownsOfFixedAssets, WriteDownsOfReceivables,
 };
 use super::partial::{total, Partial, Sign};
 use super::{
     AppliedAdjustment, Assignment, Destination, IncomeStatement, NotComputedEntry, Notes, Origin,
-    Reconciliation, ReconciliationLine, Reconciliations,
+    Reconciliation, ReconciliationLine, Reconciliations, Stated,
 };
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
@@ -339,10 +339,12 @@ struct Year<'a> {
     name: &'a str,
     /// Whether the year gives an income statement at all (E6).
     given: bool,
-    /// B10 d below EBITDA (treatment `operating`).
+    /// B10 d below EBITDA, in the other charges below EBITDA (treatment `operating`, E3).
     operating_wdr: bool,
-    /// The treatment of B10 d was stated by the analyst, not filled in by default.
-    stated: bool,
+    /// B10 c below EBITDA, with depreciation and amortisation (treatment `operating`, P1).
+    operating_wdfa: bool,
+    /// Which treatments the analyst stated, not filled in by default.
+    stated: Stated,
 }
 
 impl Year<'_> {
@@ -473,10 +475,10 @@ pub(crate) fn conventions(input: &ReorganiseInput, ex: &mut Explain) {
          production, external costs, value added, EBITDA, other charges below EBITDA, operating \
          profit, investing result, profit before financing and taxes, non-recurring result, \
          financing result, profit before tax, income taxes and net income; operating profit and \
-         profit before financing and taxes have the content of the IFRS 18 subtotals \
-         \"operating profit or loss\" and \"profit or loss before financing and income taxes\" \
-         (IFRS 18 for IFRS preparers, art. 2425 for OIC preparers, both mapped to these \
-         subtotals)",
+         profit before financing and taxes correspond to the IFRS 18 subtotals \"operating \
+         profit or loss\" and \"profit or loss before financing and income taxes\" under the \
+         conventions stated here (IFRS 18 for IFRS preparers, art. 2425 for OIC preparers, both \
+         mapped to these subtotals)",
     );
     ex.convention(format!(
         "ebitda_definition: {EBITDA_DEFINITION} (Decision 8, R18)"
@@ -496,22 +498,35 @@ pub(crate) fn conventions(input: &ReorganiseInput, ex: &mut Explain) {
     ex.convention(
         "external_costs = B6 + B7 + B8 + B11 + B14 and other_charges_below_ebitda = B12 + B13 \
          (+ B10 d when operating), each net of the parts moved by adjustments, B8 also net of \
-         lease payments; lease depreciation stays in depreciation_and_amortisation (E1, E2)",
+         lease payments; depreciation_and_amortisation = B10 a and b (+ B10 c when operating) \
+         + lease depreciation (E1, E2, P1)",
     );
-    ex.convention(match input.treatments.write_downs_of_receivables {
-        Some(WriteDownsOfReceivables::Operating) => {
-            "write-downs and revaluations are extra-characteristic (Decision 17): D18, D19 and \
-             B10 c in the investing result; B10 d in other_charges_below_ebitda, below EBITDA, \
-             by the treatment `write_downs_of_receivables: operating` (R17); EBITDA is the same \
-             either way"
+    ex.convention(
+        "operating_profit has the content of the IFRS 18 subtotal \"operating profit or loss\" \
+         only under the stated conventions: items labelled non-recurring are excluded, and the \
+         write-downs follow their treatments (R16 as amended by P1)",
+    );
+    let place = |investing: bool, operating: &str| {
+        if investing {
+            "in the investing result (treatment `investing`)".to_owned()
+        } else {
+            format!("{operating} (treatment `operating`, the default)")
         }
-        _ => {
-            "write-downs and revaluations are extra-characteristic (Decision 17): D18, D19, B10 \
-             c and B10 d in the investing result, below operating profit and above profit \
-             before financing and taxes (R17); EBITDA is the same with the treatment \
-             `write_downs_of_receivables: operating`"
-        }
-    });
+    };
+    ex.convention(format!(
+        "write-downs and revaluations (R17; Decision 17 as amended by E3 and P1): D18 and D19 in \
+         the investing result; B10 c {}; B10 d {}; EBITDA is the same with either treatment; a \
+         one-off impairment is isolated with a `non_recurring` adjustment",
+        place(
+            input.treatments.write_downs_of_fixed_assets
+                == Some(WriteDownsOfFixedAssets::Investing),
+            "below EBITDA with depreciation and amortisation",
+        ),
+        place(
+            input.treatments.write_downs_of_receivables == Some(WriteDownsOfReceivables::Investing),
+            "below EBITDA in other_charges_below_ebitda",
+        ),
+    ));
     ex.convention(
         "C15 and C16 in the investing result; C17 and C17-bis in the financing result (IFRS \
          18); no adjustment moves D18 or D19 (R17); C16 includes the interest on cash and on \
@@ -685,8 +700,16 @@ fn assignments(y: &Year, ex: &mut Explain) -> Vec<Assignment> {
         "B10 c",
         b10("write_downs_of_fixed_assets"),
         &k(n.write_downs_of_fixed_assets),
-        Dn::InvestingResult,
-        m,
+        if y.operating_wdfa {
+            Dn::DepreciationAndAmortisation
+        } else {
+            Dn::InvestingResult
+        },
+        if y.stated.write_downs_of_fixed_assets {
+            Origin::Analyst
+        } else {
+            m
+        },
     );
     assign(
         "B10 d",
@@ -697,7 +720,11 @@ fn assignments(y: &Year, ex: &mut Explain) -> Vec<Assignment> {
         } else {
             Dn::InvestingResult
         },
-        if y.stated { Origin::Analyst } else { m },
+        if y.stated.write_downs_of_receivables {
+            Origin::Analyst
+        } else {
+            m
+        },
     );
     if is.revaluations_of_financial_assets.is_none() && is.write_downs_of_financial_assets.is_none()
     {
@@ -1062,10 +1089,20 @@ fn layers(y: &Year, mv: &Moves, ex: &mut Explain) -> Result<Layers> {
         Agg::DepreciationAndAmortisation,
         "Depreciation and amortisation (B10 a, b)",
     )?;
-    let depreciation_and_amortisation = if mv.leases.is_empty() {
+    let c10 = mv.core_step(
+        y,
+        ex,
+        Agg::WriteDownsOfFixedAssets,
+        "Write-downs of fixed assets (B10 c)",
+    )?;
+    let depreciation_and_amortisation = if mv.leases.is_empty() && !y.operating_wdfa {
         ab
     } else {
         let mut terms = vec![t(Plus, "B10 a, b", &ab)];
+        if y.operating_wdfa {
+            // P1: B10 c with depreciation and amortisation, below EBITDA.
+            terms.push(t(Plus, "B10 c (treatment operating)", &c10));
+        }
         terms.extend(mv.leases.iter().map(|l| {
             t(
                 Plus,
@@ -1081,12 +1118,6 @@ fn layers(y: &Year, mv: &Moves, ex: &mut Explain) -> Result<Layers> {
     };
     let b12 = mv.core_step(y, ex, Agg::ProvisionsForRisks, "Provisions for risks")?;
     let b13 = mv.core_step(y, ex, Agg::OtherProvisions, "Other provisions")?;
-    let c10 = mv.core_step(
-        y,
-        ex,
-        Agg::WriteDownsOfFixedAssets,
-        "Write-downs of fixed assets (B10 c)",
-    )?;
     let d10 = mv.core_step(
         y,
         ex,
@@ -1152,8 +1183,10 @@ fn layers(y: &Year, mv: &Moves, ex: &mut Explain) -> Result<Layers> {
         t(Plus, "C15", &c15),
         t(Plus, "C16", &c16),
         t(Plus, "D18 − D19", &value_adjustments_of_financial_assets),
-        t(Minus, "B10 c", &c10),
     ]);
+    if !y.operating_wdfa {
+        inv_terms.push(t(Minus, "B10 c", &c10));
+    }
     if !y.operating_wdr {
         inv_terms.push(t(Minus, "B10 d", &d10));
     }
@@ -1318,12 +1351,15 @@ fn reconciliations(
     if y.b10.grouped {
         c_label.push_str(": read as none, give the B10 c part (Decision 8)");
     }
-    let mut op_lines: Vec<Line> = vec![(
-        0,
-        c_label,
-        y.read(Agg::WriteDownsOfFixedAssets),
-        l.write_downs_of_fixed_assets.clone(),
-    )];
+    let mut op_lines: Vec<Line> = Vec::new();
+    if !y.operating_wdfa {
+        op_lines.push((
+            0,
+            c_label,
+            y.read(Agg::WriteDownsOfFixedAssets),
+            l.write_downs_of_fixed_assets.clone(),
+        ));
+    }
     if !y.operating_wdr {
         op_lines.push((
             0,
@@ -1398,12 +1434,12 @@ fn reconciliations(
 }
 
 /// The reorganised income statement of a statutory year `i` (or of an entry with no form).
-/// `stated`: the treatment of B10 d was given by the analyst.
+/// `stated`: the treatments of the write-downs the analyst gave.
 pub(crate) fn statutory(
     input: &ReorganiseInput,
     i: usize,
     name: &str,
-    stated: bool,
+    stated: Stated,
     ex: &mut Explain,
     notes: &mut Notes,
 ) -> Result<IncomeStatementBody> {
@@ -1421,10 +1457,12 @@ pub(crate) fn statutory(
         name,
         given: given.is_some(),
         operating_wdr: input.treatments.write_downs_of_receivables
-            == Some(WriteDownsOfReceivables::Operating),
+            != Some(WriteDownsOfReceivables::Investing),
+        operating_wdfa: input.treatments.write_downs_of_fixed_assets
+            != Some(WriteDownsOfFixedAssets::Investing),
         stated,
     };
-    if y.b10.grouped {
+    if y.b10.grouped && !y.operating_wdfa {
         ex.convention(format!(
             "year {name}: B10 a to c given as one amount without its B10 c part: read as \
              depreciation and amortisation, B10 c none; give the B10 c part to have it in the \

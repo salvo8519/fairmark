@@ -116,7 +116,6 @@ conventions:
   expect:
   - 'default: `/years/0/statutory/balance_sheet/cash` assigned to'
   - 'Appendix A.1, C.IV: all cash in the net financial position (Decision 11)'
-  - 'default: `/treatments/write_downs_of_receivables` not given, set to'
   - 'year 2024: statutory form'
   - 'year 2024: no date given: the order of `years` is taken as oldest first'
   - 'layout `abridged` echoed; no number depends on it'
@@ -138,11 +137,13 @@ conventions:
       label: Head office
       reason: Financial method
       amounts: [{asset: '10', liability: '8', liability_current: '2', prepayment: '0', payments: '3', depreciation: '2', interest: '1'}]
+    treatments: {write_downs_of_fixed_assets: investing}
   expect:
   - 'income statement by nature reorganised into the layers of Appendix B.2 (R16)'
   - 'ebitda_definition: EBITDA (margine operativo lordo, MOL) = value added − personnel costs (B9)'
   - 'A5 and B14 are core by default (Decision 7, R18)'
-  - 'D18, D19, B10 c and B10 d in the investing result'
+  - 'D18 and D19 in the investing result; B10 c in the investing result (treatment `investing`); B10 d below EBITDA in other_charges_below_ebitda (treatment `operating`, the default)'
+  - 'default: `/treatments/write_downs_of_receivables` not given, set to'
   - 'C15 and C16 in the investing result; C17 and C17-bis in the financing result'
   - 'income taxes: item 20 as given; no IRES, IRAP, deferred taxes or NOPAT are computed'
   - 'cost_of_sales is not returned (Decision 13)'

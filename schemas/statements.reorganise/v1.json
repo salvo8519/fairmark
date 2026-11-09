@@ -2477,6 +2477,17 @@
           "default": null,
           "description": "Shareholder loans (D.3): `financial_debt` or `quasi_equity`. Needed when the loans are\ngiven and not zero. Default: none."
         },
+        "write_downs_of_fixed_assets": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WriteDownsOfFixedAssets"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Write-downs of fixed assets (B10 c): `operating` or `investing`. Default: `operating`,\nreported in `meta.defaults_applied` when a statutory year gives B10 c (P1). Omitted\nfrom the canonical input when not given, an additive field of version 1."
+        },
         "write_downs_of_receivables": {
           "anyOf": [
             {
@@ -2487,7 +2498,7 @@
             }
           ],
           "default": null,
-          "description": "Write-downs of receivables (B10 d): `investing` or `operating`. Default: `investing`,\nreported in `meta.defaults_applied`."
+          "description": "Write-downs of receivables (B10 d): `operating` or `investing`. Default: `operating`,\nreported in `meta.defaults_applied` when a statutory year gives B10 d (E3, F1)."
         }
       },
       "type": "object"
@@ -2519,17 +2530,32 @@
       },
       "type": "object"
     },
-    "WriteDownsOfReceivables": {
-      "description": "Where write-downs of receivables (B10 d) go (R17, Decision 17).",
+    "WriteDownsOfFixedAssets": {
+      "description": "Where write-downs of tangible and intangible fixed assets (B10 c) go (R17, P1).",
       "oneOf": [
         {
           "const": "investing",
-          "description": "Investing (extra-characteristic) result, below operating profit. The default.",
+          "description": "Investing (extra-characteristic) result, below operating profit.",
           "type": "string"
         },
         {
           "const": "operating",
-          "description": "Operating profit, below EBITDA (IFRS 18 practice for trade receivables).",
+          "description": "Operating profit, below EBITDA, with depreciation and amortisation (IFRS 18; OIC 12\nparagraph 75). The default (P1 of 2026-11-09).",
+          "type": "string"
+        }
+      ]
+    },
+    "WriteDownsOfReceivables": {
+      "description": "Where write-downs of receivables (B10 d) go (R17, Decision 17 as amended by E3).",
+      "oneOf": [
+        {
+          "const": "investing",
+          "description": "Investing (extra-characteristic) result, below operating profit.",
+          "type": "string"
+        },
+        {
+          "const": "operating",
+          "description": "Operating profit, below EBITDA, in the other charges below EBITDA (IFRS 18 practice\nfor trade receivables). The default (E3 of 2026-11-09).",
           "type": "string"
         }
       ]
@@ -2619,7 +2645,7 @@
         "shareholder_loans": null,
         "write_downs_of_receivables": null
       },
-      "description": "Treatments stated once for the call, applied to every statutory year (R8, R9, R17).\nA treatment is needed only for an aggregate given and not zero. Default: none, except\n`write_downs_of_receivables`, which defaults to `investing`."
+      "description": "Treatments stated once for the call, applied to every statutory year (R8, R9, R17).\nA treatment is needed only for an aggregate given and not zero. Default: none, except\n`write_downs_of_receivables` and `write_downs_of_fixed_assets`, which default to\n`operating`."
     },
     "years": {
       "description": "One or more financial years, oldest first (R2), each in the `statutory` or the\n`reclassified` form. When two consecutive entries both have a `date`, the later must be\none financial year after the earlier.",

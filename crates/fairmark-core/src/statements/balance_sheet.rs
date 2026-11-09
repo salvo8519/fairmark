@@ -926,7 +926,7 @@ pub(crate) fn statutory(
                 "liability",
                 &Partial::Known(la.liability),
                 format!("{at}/liability"),
-                Destination::NetFinancialPositionOtherFinancialLiability,
+                Destination::NetFinancialPositionGrossDebt,
             );
             if let Some(source) = prepayment_source {
                 line(
@@ -1288,9 +1288,9 @@ pub(crate) fn statutory(
                 comps.push(Component::non_current(&m.label, at, &m.amount));
             }
             "lease" => {
-                // R21: the lease liability, an other financial liability with its current part.
+                // R21, P3: the lease liability, gross debt with its current part
+                // (ESMA32-382-1138 paragraph 180).
                 let current = Partial::Known(m.current.unwrap_or_default());
-                other.push((m.label.clone(), m.amount.clone()));
                 comps.push(Component {
                     label: m.label.clone(),
                     source: at,
@@ -1307,6 +1307,12 @@ pub(crate) fn statutory(
         sls.iter()
             .filter(|s| s.destination == Destination::NetFinancialPositionGrossDebt)
             .map(|s| (Plus, s.label.as_str(), &s.amount)),
+    );
+    gross_terms.extend(
+        moved
+            .iter()
+            .filter(|m| m.kind == "lease")
+            .map(|m| (Plus, m.label.as_str(), &m.amount)),
     );
     let gross = total(ex, &format!("Gross debt ({year})"), &gross_terms)?;
     let nfp_total = Partial::plus_all(comps.iter().map(|c| &c.amount))?;

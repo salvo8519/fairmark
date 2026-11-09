@@ -485,9 +485,16 @@ pub fn reorganise(input: &ReorganiseInput) -> Result<(ReorganiseOutput, Explain)
     Reorganise::run_typed(&mut input).map(|(output, explain, _)| (output, explain))
 }
 
-/// The calculation, on an input whose defaults were filled in. `stated`: the treatment of B10 d
-/// was given by the analyst (its origin in `assignments` is then `analyst`).
-fn compute(input: &ReorganiseInput, stated: bool) -> Result<(ReorganiseOutput, Explain)> {
+/// Which treatments of the write-downs were stated by the analyst (their origin in
+/// `assignments` is then `analyst`), not filled in by default.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Stated {
+    pub write_downs_of_receivables: bool,
+    pub write_downs_of_fixed_assets: bool,
+}
+
+/// The calculation, on an input whose defaults were filled in.
+fn compute(input: &ReorganiseInput, stated: Stated) -> Result<(ReorganiseOutput, Explain)> {
     validate::validate(input)?;
     let mut ex = Explain::new(Reorganise::ID, FORMULA);
     let statutory = input.years.iter().any(|y| y.statutory.is_some());
@@ -689,30 +696,54 @@ impl Method for Reorganise {
     type Output = ReorganiseOutput;
 
     fn compute(input: &ReorganiseInput) -> Result<(ReorganiseOutput, Explain)> {
-        compute(input, input.treatments.write_downs_of_receivables.is_some())
+        compute(
+            input,
+            Stated {
+                write_downs_of_receivables: input.treatments.write_downs_of_receivables.is_some(),
+                write_downs_of_fixed_assets: input.treatments.write_downs_of_fixed_assets.is_some(),
+            },
+        )
     }
 
-    /// The treatment of B10 d filled in by default is not the analyst's: its assignment keeps
-    /// the origin `mapping`.
+    /// A treatment of B10 c or B10 d filled in by default is not the analyst's: its assignment
+    /// keeps the origin `mapping`.
     fn compute_with_defaults(
         input: &ReorganiseInput,
         defaults: &[DefaultApplied],
     ) -> Result<(ReorganiseOutput, Explain)> {
-        let filled = defaults
-            .iter()
-            .any(|d| d.field == "/treatments/write_downs_of_receivables");
-        compute(input, !filled)
+        let filled = |field: &str| defaults.iter().any(|d| d.field == field);
+        compute(
+            input,
+            Stated {
+                write_downs_of_receivables: input.treatments.write_downs_of_receivables.is_some()
+                    && !filled("/treatments/write_downs_of_receivables"),
+                write_downs_of_fixed_assets: input.treatments.write_downs_of_fixed_assets.is_some()
+                    && !filled("/treatments/write_downs_of_fixed_assets"),
+            },
+        )
     }
 
-    /// R8 as clarified on 2026-11-08, R17, R18, D1, D2: by year, the `default` destination of
-    /// every statutory aggregate given (balance sheet, then A5, B14 and B10 d of the income
-    /// statement; one entry each, with the pointer of the item, the destination and the reason;
-    /// B10 d only while the treatment `write_downs_of_receivables` is not given), then the input
-    /// default `write_downs_of_receivables = investing`, then every item taken as zero because
-    /// it is not given.
+    /// R8 as clarified on 2026-11-08, R17, R18, D1, D2, E3, F1, P1: by year, the `default`
+    /// destination of every statutory aggregate given (balance sheet, then A5, B14, B10 c and
+    /// B10 d of the income statement; one entry each, with the pointer of the item, the
+    /// destination and the reason; B10 c and B10 d only while their treatment is not given),
+    /// then the input defaults `write_downs_of_receivables = operating` and
+    /// `write_downs_of_fixed_assets = operating`, each filled in and listed only when a
+    /// statutory year gives its aggregate (F1), then every item taken as zero because it is not
+    /// given.
     fn apply_defaults(input: &mut ReorganiseInput) -> Vec<DefaultApplied> {
         let mut out = Vec::new();
-        let write_downs_given = input.treatments.write_downs_of_receivables.is_some();
+        let b10 = |input: &ReorganiseInput, f: fn(&DepreciationAndWriteDowns) -> bool| {
+            input.years.iter().any(|y| {
+                y.statutory
+                    .as_ref()
+                    .and_then(|s| s.income_statement.as_ref())
+                    .and_then(|is| is.depreciation_and_write_downs.as_ref())
+                    .is_some_and(f)
+            })
+        };
+        let b10d = b10(input, |n| n.write_downs_of_receivables.is_some());
+        let b10c = b10(input, |n| n.write_downs_of_fixed_assets.is_some());
         for (i, y) in input.years.iter().enumerate() {
             let Some(st) = &y.statutory else { continue };
             if let Some(bs) = &st.balance_sheet {
@@ -728,7 +759,7 @@ impl Method for Reorganise {
             }
             if let Some(is) = &st.income_statement {
                 for row in INCOME_STATEMENT_DEFAULTS {
-                    if (row.given)(is).is_some() && !(row.unless_treatment && write_downs_given) {
+                    if (row.given)(is).is_some() && !(row.stated)(&input.treatments) {
                         out.push(DefaultApplied::destination(
                             format!("/years/{i}/statutory/income_statement/{}", row.key),
                             row.destination.id(),
@@ -738,12 +769,20 @@ impl Method for Reorganise {
                 }
             }
         }
-        if !write_downs_given {
-            input.treatments.write_downs_of_receivables = Some(WriteDownsOfReceivables::Investing);
+        if b10d && input.treatments.write_downs_of_receivables.is_none() {
+            input.treatments.write_downs_of_receivables = Some(WriteDownsOfReceivables::Operating);
             out.push(DefaultApplied::new(
                 "/treatments/write_downs_of_receivables",
-                serde_json::json!("investing"),
+                serde_json::json!("operating"),
                 WRITE_DOWNS_OF_RECEIVABLES_DEFAULT,
+            ));
+        }
+        if b10c && input.treatments.write_downs_of_fixed_assets.is_none() {
+            input.treatments.write_downs_of_fixed_assets = Some(WriteDownsOfFixedAssets::Operating);
+            out.push(DefaultApplied::new(
+                "/treatments/write_downs_of_fixed_assets",
+                serde_json::json!("operating"),
+                WRITE_DOWNS_OF_FIXED_ASSETS_DEFAULT,
             ));
         }
         // D1, D2: every item of a statutory balance sheet taken as zero because it is not

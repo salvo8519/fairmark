@@ -751,7 +751,9 @@ fn every_default_destination_is_listed_and_no_fixed_one() {
             "{fixed}"
         );
     }
-    assert!(fields.contains(&"/treatments/write_downs_of_receivables"));
+    // F1 of 2026-11-09: the default of the B10 d treatment is listed only when a statutory year
+    // gives B10 d, and this company gives none.
+    assert!(!fields.contains(&"/treatments/write_downs_of_receivables"));
     for d in defaults {
         assert!(!d["reason"].as_str().unwrap().trim().is_empty());
     }
@@ -761,7 +763,7 @@ fn every_default_destination_is_listed_and_no_fixed_one() {
         "{conv}"
     );
     assert!(
-        conv.contains("default: `/treatments/write_downs_of_receivables` not given, set to"),
+        !conv.contains("default: `/treatments/write_downs_of_receivables` not given, set to"),
         "{conv}"
     );
 }
@@ -1032,9 +1034,9 @@ fn the_income_statement_defaults_are_listed_and_no_fixed_one() {
             ),
             s(
                 &format!("{base}/depreciation_and_write_downs/write_downs_of_receivables"),
-                "investing_result"
+                "other_charges_below_ebitda"
             ),
-            s("/treatments/write_downs_of_receivables", "investing"),
+            s("/treatments/write_downs_of_receivables", "operating"),
         ]
     );
     let conv = conventions(&out);
@@ -1244,7 +1246,6 @@ fn every_applicable_convention_is_stated() {
         &format!("default: `{b}/subscribed_capital_unpaid` not given, set to"),
         &format!("default: `{b}/receivables/prepayments_and_accrued_income` not given, set to"),
         &format!("default: `{b}/provisions` assigned to"),
-        "default: `/treatments/write_downs_of_receivables` not given, set to",
         "deducted from equity (Decision 14); not given, it is zero (D1)",
         // Net financial position and bridge items (Decisions 11, 15; D3; SPEC-0007).
         "net financial position = gross debt − cash + other items",
@@ -1267,7 +1268,8 @@ fn every_applicable_convention_is_stated() {
         "year 2024: the current and non-current block (except inventories)",
         // The income statement (R16 to R20, Decision 17).
         "income statement by nature reorganised into the layers of Appendix B.2 (R16)",
-        "D18, D19, B10 c and B10 d in the investing result",
+        "D18 and D19 in the investing result; B10 c below EBITDA with depreciation and amortisation \
+         (treatment `operating`, the default)",
         "A5 and B14 are core by default (Decision 7, R18)",
         "income taxes: item 20 as given",
         "cost_of_sales is not returned (Decision 13)",
@@ -1520,7 +1522,7 @@ fn income_statement_outputs_feed_the_methods_that_take_them() {
     let flow = dec(&v["value"]["periods"][0]["free_cash_flow_to_firm"]);
     assert_eq!(
         flow,
-        Decimal::from(301000 - 90000 + 180000 - 150000 - 20000)
+        Decimal::from(266000 - 90000 + 200000 - 150000 - 20000)
     );
     let profitability = json!({"balances": "closing", "operating_return_base": "invested_capital",
         "ebitda_definition": is["ebitda_definition"],
@@ -1621,10 +1623,7 @@ fn a_lease_restatement_keeps_the_identity_and_shows_its_lines() {
         lines,
         [
             ("asset", "operating_fixed_assets"),
-            (
-                "liability",
-                "net_financial_position_other_financial_liability"
-            ),
+            ("liability", "net_financial_position_gross_debt"),
             ("prepayment", "equity"),
             ("equity_effect", "equity"),
             ("payments", "removed_by_restatement"),
@@ -1716,8 +1715,8 @@ fn every_income_statement_aggregate_given_is_assigned_to_its_layer() {
         ("B6", "external_costs", "2200000"),
         ("B11", "external_costs", "-30000"),
         ("B12", "other_charges_below_ebitda", "10000"),
-        ("B10 c", "investing_result", "20000"),
-        ("B10 d", "investing_result", "15000"),
+        ("B10 c", "depreciation_and_amortisation", "20000"),
+        ("B10 d", "other_charges_below_ebitda", "15000"),
         ("B14", "external_costs", "40000"),
         ("C15", "investing_result", "12000"),
         ("C17-bis", "financing_result", "-1000"),
@@ -1786,7 +1785,7 @@ fn b10_c_larger_than_its_group_is_refused() {
 /// a to c group when B10 c is read as none (with the fix), D18 and D19 when both are read.
 #[test]
 fn reconciliation_lines_name_the_pointers_read() {
-    let out = run(&golden_input("grouped-depreciation"));
+    let out = run(&golden_input("grouped-depreciation-investing"));
     let r = &out["value"]["years"][0]["income_statement"]["reconciliations"];
     let b = "/years/0/statutory/income_statement";
     let c_line = &r["operating_profit"]["lines"][0];

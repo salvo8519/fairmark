@@ -509,7 +509,7 @@ Reorganises statutory aggregates (art. 2424, 2425, abridged art. 2435-bis) or to
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `years` | list of object | yes |  | One or more financial years, oldest first (R2), each in the `statutory` or the `reclassified` form. When two consecutive entries both have a `date`, the later must be one financial year after the earlier. |
-| `treatments` | object | no | `{"financial_fixed_assets": null, "shareholder_loans": null, "derivative_liabilities": null, "write_downs_of_receivables": null}` | Treatments stated once for the call, applied to every statutory year (R8, R9, R17). A treatment is needed only for an aggregate given and not zero. Default: none, except `write_downs_of_receivables`, which defaults to `investing`. |
+| `treatments` | object | no | `{"financial_fixed_assets": null, "shareholder_loans": null, "derivative_liabilities": null, "write_downs_of_receivables": null}` | Treatments stated once for the call, applied to every statutory year (R8, R9, R17). A treatment is needed only for an aggregate given and not zero. Default: none, except `write_downs_of_receivables` and `write_downs_of_fixed_assets`, which default to `operating`. |
 | `adjustments` | list of  | no | `[]` | Labelled adjustments of Appendix C, stated once for the call, each with one amount per year (R10). They apply to statutory entries only. Default: none. |
 
 ## `ratios.profitability`

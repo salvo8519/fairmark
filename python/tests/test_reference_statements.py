@@ -409,6 +409,7 @@ def call() -> dict[str, Any]:
         ("shareholder_loans", ["financial_debt", "quasi_equity"]),
         ("derivative_liabilities", ["financial_liability", "operating_provision"]),
         ("write_downs_of_receivables", ["investing", "operating"]),
+        ("write_downs_of_fixed_assets", ["investing", "operating"]),
     ):
         if RNG.random() < 0.85:
             treatments[key] = RNG.choice(options)
