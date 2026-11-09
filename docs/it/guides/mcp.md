@@ -1,6 +1,6 @@
 ---
 source: guides/mcp.md
-source_hash: 593f5f5dfddd
+source_hash: 2925f9e05381
 ---
 # Server MCP
 
@@ -45,14 +45,14 @@ fairmark-mcp --compact                # schemi compatti
 fairmark-mcp --http --areas statements,ratios --compact
 ```
 
-Nella configurazione del client si aggiungono ad `args`, per esempio
-`["--from", "fairmark[mcp]", "fairmark-mcp", "--areas", "dcf,tvm"]`. Le aree sono la parte
+Nella configurazione del client si aggiungono ad `args`, per esempio `["--from",
+"fairmark[mcp]", "fairmark-mcp", "--areas", "dcf,tvm"]`. Le aree sono la parte
 dell'identificativo del metodo prima del punto (`analysis`, `coc`, `dates`, `dcf`, `loans`,
-`rates`, `ratios`, `series`, `statements`, `tv`, `tvm`); un'area sconosciuta arresta il server
-con l'elenco di quelle note. Il profilo compatto è quello del
-[function calling](function-calling.md#profilo-compatto): sono accettati gli stessi input e
-ogni valore enumerato conserva il suo significato. Un tool fuori dalle aree scelte non è
-elencato, ma una sua chiamata viene comunque eseguita.
+`rates`, `ratios`, `series`, `statements`, `tv`, `tvm`); una selezione vuota o un'area
+sconosciuta arresta il server con l'elenco di quelle note. Il profilo compatto è quello del
+[function calling](function-calling.md#profilo-compatto): sono accettati esattamente gli stessi
+input che senza di esso, e ogni valore enumerato conserva il suo significato. Un tool fuori
+dalle aree scelte non è elencato, ma una sua chiamata viene comunque eseguita.
 
 ## Log
 
@@ -65,8 +65,8 @@ finanziari.
 - Un tool per metodo (`fairmark_dcf_fcff`, `fairmark_tvm_npv`, ...), con lo schema di input
   completo, marcato come di sola lettura e idempotente.
 - Il significato di ogni valore enumerato nella descrizione del campo, ed esempi di input presi
-  dai golden case nella parola chiave `examples` dello schema (prima il minimo, poi il massimo
-  dove utile; vedi [function calling](function-calling.md#esempi)).
+  dai casi di riferimento (golden case) nella parola chiave `examples` dello schema (prima il
+  minimo, poi il massimo dove utile; vedi [function calling](function-calling.md#esempi)).
 - Lo stato di ogni metodo nel campo `_meta` del tool, `{"fairmark/status": "available"}`
   oppure `"preview"`. La descrizione di un tool in anteprima riporta "(preview)" dopo il
   titolo e una frase che inizia con "Status: preview", così il modello lo vede prima della

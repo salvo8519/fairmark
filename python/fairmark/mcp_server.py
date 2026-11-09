@@ -122,7 +122,7 @@ def serve_http(
 def _areas(value: str) -> list[str]:
     """`--areas dcf,tvm` -> ["dcf", "tvm"], each a known area."""
     wanted = [a.strip() for a in value.split(",") if a.strip()]
-    try:
+    try:  # an empty selection ("" or ",") is refused like an unknown area
         tools.definitions(areas=wanted)
     except ValueError as err:
         raise argparse.ArgumentTypeError(str(err)) from None

@@ -36,3 +36,6 @@ def test_mcp_command_line_options() -> None:
     assert args.areas is None and args.compact is False
     with pytest.raises(SystemExit):
         mcp_server.parse_args(["--areas", "nope"])
+    for empty in ("", ",", " , "):
+        with pytest.raises(SystemExit):
+            mcp_server.parse_args(["--areas", empty])

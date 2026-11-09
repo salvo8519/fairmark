@@ -40,14 +40,13 @@ fairmark-mcp --compact                # compact schemas
 fairmark-mcp --http --areas statements,ratios --compact
 ```
 
-In a client configuration, add them to `args`, for example
-`["--from", "fairmark[mcp]", "fairmark-mcp", "--areas", "dcf,tvm"]`. The areas are the part
-of the method id before the dot (`analysis`, `coc`, `dates`, `dcf`, `loans`, `rates`,
-`ratios`, `series`, `statements`, `tv`, `tvm`); an unknown area stops the server with the
-list of known ones. The compact profile is the one of
-[function calling](function-calling.md#compact-profile): the same inputs are accepted and
-every enum value keeps its meaning. A tool outside the selected areas is not listed, but a
-call to it is still executed.
+In a client configuration, add them to `args`, for example `["--from", "fairmark[mcp]",
+"fairmark-mcp", "--areas", "dcf,tvm"]`. The areas are the part of the method id before the dot
+(`analysis`, `coc`, `dates`, `dcf`, `loans`, `rates`, `ratios`, `series`, `statements`, `tv`,
+`tvm`); an empty selection or an unknown area stops the server with the list of known ones. The
+compact profile is the one of [function calling](function-calling.md#compact-profile): exactly
+the same inputs are accepted as without it, and every enum value keeps its meaning. A tool
+outside the selected areas is not listed, but a call to it is still executed.
 
 ## Logs
 
