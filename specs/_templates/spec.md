@@ -49,6 +49,7 @@ only pointers the user can act on, and the fix it states resolves the error.
   for every documented default, one case that shows it in `meta.defaults_applied`.
 
 ## Interfaces
+- Contract: follows ADR 0014 (`docs/en/project/adr/0014-contract-guidelines-for-inputs-envelope-and-errors.md`), guidelines G1 to G9; state any departure and its reason.
 - Method id(s): `area.name`
 - Input schema changes: additive / breaking (explain)
 - Output fields: …
