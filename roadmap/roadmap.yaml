@@ -281,6 +281,13 @@ milestones:
           - { issue: 271, title: "ADR 0014: default admission tests and the floor of best effort", status: done }
           - { issue: 280, title: "Fix every review finding before v0.1", status: open }
           - { issue: 282, title: "Mutation testing of the core with cargo-mutants", status: open }
+      - title: "Release readiness for v0.1"
+        labels: []
+        tasks:
+          - { issue: 285, title: "Conformity audit of every method against ADR 0014", status: open }
+          - { issue: 286, title: "Cross-adapter consistency tests", status: open }
+          - { issue: 287, title: "Performance budgets and scalability benchmarks", status: open }
+          - { issue: 288, title: "Documentation accuracy review", status: open }
 
   - title: "M4 · Traditional European methods"
     gate: "Golden cases green for every method."
