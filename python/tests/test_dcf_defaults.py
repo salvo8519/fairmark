@@ -25,8 +25,12 @@ def test_minimal_call_works_and_reports_its_defaults() -> None:
         "/discount_rate_terms",
         "/timing",
         "/terminal",
+        "/net_financial_position",
     ]
     assert any(c.startswith("warning: no terminal value is included") for c in r.conventions)
+    # Decision 25 (#261): no net financial position, a reported default of zero and a warning.
+    assert any(c.startswith("warning: no net financial position given") for c in r.conventions)
+    assert r.equity_value == r.enterprise_value
 
 
 def test_minimal_call_equals_tvm_npv_of_the_same_flows() -> None:
@@ -45,9 +49,18 @@ def test_explicit_choices_prevail_and_hash_like_the_minimal_call() -> None:
         terminal=fm.dcf.no_terminal(),
         wacc="0.09",
     )
-    assert "defaults_applied" not in explicit.meta
+    # Only the net financial position, not given in either call, keeps its default.
+    assert [d["field"] for d in explicit.meta["defaults_applied"]] == ["/net_financial_position"]
     assert explicit.meta["input_hash"] == minimal.meta["input_hash"]
     assert explicit.value == minimal.value
+
+
+def test_net_financial_position_given_as_zero_is_a_true_zero() -> None:
+    zero = {"gross_debt": "0", "cash": "0"}
+    r = fm.dcf.fcff(flows=FLOWS, wacc="0.09", net_financial_position=zero)
+    assert "/net_financial_position" not in [d["field"] for d in r.meta.get("defaults_applied", [])]
+    assert not any("net financial position given" in c for c in r.conventions)
+    assert r.equity_value == r.enterprise_value
 
 
 def test_fcfe_minimal_call_and_given_terminal_value() -> None:

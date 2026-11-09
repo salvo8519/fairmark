@@ -1,0 +1,24 @@
+method: dcf.fcff
+description: "Meta-only companion of flows-only-explicit-equivalent.yaml (same input, which the protected file does not assert in meta): every choice of Decision 24 given and no net financial position, so the default of zero is the only entry of meta.defaults_applied (Decision 25, R23)"
+source: >
+  Hand computation from SPEC-0001 Decision 25 (approved 2026-11-09, issue #261): equity value =
+  enterprise value - 0 (default); the enterprise value is the expected value of the existing
+  case flows-only-explicit-equivalent.yaml (independent 50-digit reference,
+  scripts/reference_dcf.py), recomputed by hand in Python decimal at 50 digits as the sum of
+  120, 135, 150, 160, 170 over 1.09^k, k = 1 to 5: 563.38243366056148746628356552958...
+input:
+  stages: [{"periods": 5, "projection": "given", "flows": ["120", "135", "150", "160", "170"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.09"
+  timing: "end_of_period"
+  terminal: {"none": {}}
+expect:
+  /enterprise_value: "563.3824336605614874662835655"
+  /equity_value: "563.3824336605614874662835655"
+  /bridge/net_financial_position: "null"
+expect_meta:
+  /defaults_applied/0/field: "/net_financial_position"
+  /defaults_applied/0/value: "0"
+  /defaults_applied/0/reason: "net financial position not given"
+tolerance: "0.00000000000000000001"

@@ -1,6 +1,6 @@
 ---
 source: concepts/determinism.md
-source_hash: a723d2358bde
+source_hash: 561d58b0c31a
 ---
 # Il contratto di determinismo
 
@@ -29,7 +29,10 @@ metodo. Questo documento è il contratto; la CI lo verifica a ogni commit.
    `meta.defaults_applied` e in `explain.conventions`.
 6. **Impronta dell'input.** `meta.input_hash` è lo SHA-256 dell'input canonico, con i valori
    predefiniti documentati già assegnati: un input che omette un campo e lo stesso input con il
-   valore predefinito scritto per esteso hanno lo stesso hash e lo stesso valore.
+   valore predefinito scritto per esteso hanno lo stesso hash e lo stesso valore. Un valore
+   predefinito è riportato ma non scritto nell'input: la posizione finanziaria netta di
+   `dcf.fcff` (zero, con un'avvertenza), perché una posizione finanziaria netta fornita pari a
+   zero non comporta avvertenze.
    `fairmark verify` riesegue un risultato salvato e ne confronta hash e valore.
 7. **Versionamento numerico.** Se un caso di riferimento cambia risultato a parità di input,
    la PR riceve l'etichetta `numerical-change`, incrementa `method_version` e porta nel

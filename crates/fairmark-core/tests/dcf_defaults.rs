@@ -54,7 +54,8 @@ fn minimal_input_reports_every_default() {
             "/cash_flow_terms",
             "/discount_rate_terms",
             "/timing",
-            "/terminal"
+            "/terminal",
+            "/net_financial_position"
         ]
     );
     let defaults = out["meta"]["defaults_applied"].as_array().unwrap();
@@ -63,6 +64,9 @@ fn minimal_input_reports_every_default() {
     assert_eq!(defaults[2]["value"], "nominal");
     assert_eq!(defaults[4]["value"], "end_of_period");
     assert_eq!(defaults[5]["value"], json!({"none": {}}));
+    // Decision 25 (#261): no net financial position, a documented default of zero.
+    assert_eq!(defaults[6]["value"], "0");
+    assert_eq!(defaults[6]["reason"], "net financial position not given");
     assert!(defaults
         .iter()
         .all(|d| !d["reason"].as_str().unwrap().is_empty()));
@@ -99,20 +103,25 @@ fn no_terminal_value_is_a_warning() {
         .any(|c| c.starts_with("warning: no terminal value is included")));
 }
 
-/// R31: explicit inputs prevail and produce no default entry; `meta.defaults_applied` is then
-/// omitted; the hash covers the input with its defaults, so the minimal input and its explicit
-/// equivalent hash identically and give the same value.
+/// R31: explicit inputs prevail and produce no default entry; the hash covers the input with
+/// its defaults, so the minimal input and its explicit equivalent hash identically and give
+/// the same value. Neither gives a net financial position, so both keep that default only
+/// (Decision 25): it is not written into the input, and a given zero is not its equivalent.
 #[test]
 fn explicit_equivalent_has_the_same_hash_and_no_default_entry() {
     let (a, b) = (ok("dcf.fcff", &minimal()), ok("dcf.fcff", &explicit()));
-    assert!(b["meta"].get("defaults_applied").is_none());
+    assert_eq!(defaulted_fields(&b), ["/net_financial_position"]);
     assert_eq!(a["meta"]["input_hash"], b["meta"]["input_hash"]);
     assert_eq!(a["value"], b["value"]);
     let without_defaults: Vec<String> = conventions(&a)
         .into_iter()
         .filter(|c| !c.starts_with("default: "))
         .collect();
-    assert_eq!(without_defaults, conventions(&b));
+    let explicit_without_defaults: Vec<String> = conventions(&b)
+        .into_iter()
+        .filter(|c| !c.starts_with("default: "))
+        .collect();
+    assert_eq!(without_defaults, explicit_without_defaults);
 }
 
 /// R31: each default overridden alone removes exactly its own entry.
@@ -140,7 +149,7 @@ fn each_explicit_field_prevails_alone() {
         }
         let out = ok("dcf.fcff", &v);
         let fields = defaulted_fields(&out);
-        assert_eq!(fields.len(), 5, "{field}: {fields:?}");
+        assert_eq!(fields.len(), 6, "{field}: {fields:?}");
         assert!(!fields.iter().any(|f| f == field), "{field}");
         assert_eq!(
             out["meta"]["input_hash"],
@@ -287,6 +296,21 @@ fn schema_documents_the_defaults() {
                 "{id} {field}"
             );
         }
+        if id == "dcf.fcff" {
+            // Decision 25 (#261): documented, with no `default` keyword.
+            let p = &s["properties"]["net_financial_position"];
+            assert!(p.get("default").is_none());
+            let text = p["description"]
+                .as_str()
+                .unwrap()
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ");
+            assert!(
+                text.contains("Default: zero, reported in `meta.defaults_applied` with a warning"),
+                "{text}"
+            );
+        }
         let stage = &s["$defs"]["Stage"];
         assert_eq!(stage.get("required"), None, "{id}");
         assert!(stage["properties"]["periods"]["description"]
@@ -370,7 +394,8 @@ fn typed_call_lists_the_defaults_first() {
     let (out, ex) = fairmark_core::dcf::fcff(&input).unwrap();
     assert!(ex.conventions[0].starts_with("default: `/stages/0/projection`"));
     assert!(ex.conventions[5].starts_with("default: `/terminal`"));
-    assert!(!ex.conventions[6].starts_with("default: "));
+    assert!(ex.conventions[6].starts_with("default: `/net_financial_position`"));
+    assert!(!ex.conventions[7].starts_with("default: "));
     let registry = ok("dcf.fcff", &minimal());
     assert_eq!(conventions(&registry), ex.conventions);
     assert_eq!(
