@@ -175,6 +175,21 @@ later version. Each wheel is built on a runner of its own architecture.
 The source distribution (sdist) serves every other platform; installing it needs a Rust
 toolchain.
 
+The Linux wheels are built in containers, and the musllinux wheels are tested in containers.
+Each image is pinned by digest, not by tag, so that a tag moved upstream cannot change what
+builds or tests a release. The pinned reference is the `FROM` line of one file per image in
+`.github/release/images/`; the workflow reads it with `.github/release/pinned-image.sh`, which
+fails when the line is not pinned by digest. Dependabot updates the digests weekly
+([dependency policy](dependencies.md#container-images-are-pinned-to-digests)).
+
+| Image | Used for | Pinned |
+| --- | --- | --- |
+| `quay.io/pypa/manylinux2014_x86_64:latest` | Build, Linux x86_64 glibc | Manifest of `linux/amd64` |
+| `quay.io/pypa/manylinux2014_aarch64:latest` | Build, Linux arm64 glibc | Manifest of `linux/arm64` |
+| `ghcr.io/rust-cross/rust-musl-cross:x86_64-musl` | Build, Linux x86_64 musl | Multi-platform index |
+| `ghcr.io/rust-cross/rust-musl-cross:aarch64-musl` | Build, Linux arm64 musl | Multi-platform index, includes `linux/arm64` |
+| `python:3.10-alpine`, `python:3.13-alpine` | Smoke test of the musllinux wheels | Multi-platform index |
+
 On crates.io the workflow publishes `fairmark-core` (the engine) and `fairmark-cli` (the
 `fairmark` binary), in that order, with `cargo publish --workspace`. `fairmark-py` has
 `publish = false`: it is the Python extension and reaches users only inside the wheels.

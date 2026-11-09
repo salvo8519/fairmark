@@ -39,7 +39,7 @@ decides. Every tool used is free for public open-source repositories.
 
 | Signal | Tool | Cadence | Cost |
 | --- | --- | --- | --- |
-| New versions of crates, Python packages and GitHub Actions | Dependabot version updates, grouped per ecosystem | Weekly | Free |
+| New versions of crates, Python packages, GitHub Actions and the container images of the Release workflow | Dependabot version updates, grouped per ecosystem | Weekly | Free |
 | Known vulnerabilities in a dependency | Dependabot security alerts and updates; `cargo deny check advisories`; `pip-audit` | Immediate; also in CI and weekly | Free |
 | A dependency added by a pull request with a vulnerability or a disallowed licence | Dependency review | Every pull request | Free (public repositories) |
 | Vulnerable patterns in our code and workflows | CodeQL (Python, Rust, GitHub Actions) | Every push, pull request, weekly | Free (public repositories) |
@@ -77,6 +77,18 @@ hand (see `.github/dependabot.yml`). After adding or changing an
 action, run `python scripts/pin_actions.py`; CI refuses an unpinned action. A workflow that
 needs a dangerous trigger or persisted credentials says why in an inline
 `# zizmor: ignore[...]` comment, which is reviewed like code.
+
+## Container images are pinned to digests
+
+The images that build and smoke-test the release wheels are pinned by digest for the same
+reason: a tag can be moved, a digest cannot. Each one is the `FROM` line of a file in
+`.github/release/images/` (`<image>:<tag>@sha256:<digest>`), which the Release workflow reads
+and refuses when it is not pinned. These files are never built. Dependabot (`docker`) updates
+the digest weekly when the tag points to a new image; it does not change the Python versions
+of the smoke images, which follow the versions that CI tests and are changed by hand. To add
+an image, add a file there with the digest that `docker buildx imagetools inspect
+<image>:<tag>` prints for the tag, and check that it includes the platform of the runner that
+uses it.
 
 ## How to review a dependency pull request
 
