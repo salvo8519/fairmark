@@ -36,8 +36,9 @@ Breaking for an output: a field removed or renamed, a field retyped (any change 
 constraint keyword, which includes becoming nullable: `null` added to `type` or an `anyOf`
 with `null`), a field that was always present and may now be absent (no longer `required`), a
 value removed from an enumeration; also inside `$defs`, `items`, `anyOf` and `oneOf`.
-Additive for an output: a new field (required or not), a value added to an enumeration,
-documentation. The output snapshot of a version is recorded in the index as `output_file`
+Additive for an output: a new field (required or not), a value added to an enumeration
+(maintainer decision of 2026-11-09, ADR 0014 G8: clients accept enumeration values they do
+not know), documentation. The output snapshot of a version is recorded in the index as `output_file`
 and `output_sha256`; versions published before output snapshots existed have none.
 """
 
@@ -276,10 +277,11 @@ def diff_against(base: Path) -> int:
             is_current = method in schemas and schemas[method][0] == version
             files = [("file", "sha256", False)]
             if "output_file" in record:  # versions published before #265 have no output snapshot
-                files.append(("output_file", "output_sha256", True))
                 if head_record.get("output_file") != record["output_file"]:
+                    # Reported; the input snapshot of the version is still checked below.
                     rewritten.append(f"{record['output_file']}: file name changed in the index")
-                    continue
+                else:
+                    files.append(("output_file", "output_sha256", True))
             for file_key, hash_key, is_output in files:
                 name = record[file_key]
                 old_file, new_file = base / name, SCHEMAS / name

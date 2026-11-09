@@ -316,3 +316,35 @@ def test_versions_without_an_output_snapshot_stay_valid(repo: tuple[Path, Path])
             record.pop("output_sha256", None)
     (base / "index.json").write_text(snap.dump_index(index), encoding="utf-8", newline="\n")
     assert snap.diff_against(base) == 0
+
+
+def test_output_enumerations_may_widen_but_not_narrow() -> None:
+    # Maintainer decision of 2026-11-09 (ADR 0014 G8): a value added to an output enumeration
+    # is additive, clients accept unknown values; a value removed is breaking.
+    old = {"type": "object", "properties": {"s": {"type": "string", "enum": ["a", "b"]}}}
+    wider = {"type": "object", "properties": {"s": {"type": "string", "enum": ["a", "b", "c"]}}}
+    assert snap.classify("m output", old, wider, output=True) == []
+    assert snap.classify("m output", wider, old, output=True) == ["m output.s: 'enum' changed"]
+    documented = {"oneOf": [{"const": "a", "type": "string"}, {"const": "b", "type": "string"}]}
+    added = {"oneOf": [*documented["oneOf"], {"const": "c", "type": "string"}]}
+    assert snap.classify("m output", documented, added, output=True) == []
+    assert snap.classify("m output", added, documented, output=True) == [
+        "m output: value '\"c\"' removed"
+    ]
+
+
+def test_a_renamed_output_file_is_reported_and_the_input_still_checked(
+    repo: tuple[Path, Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    base, head = repo
+
+    def rewrite(d: dict[str, Any]) -> None:
+        record = d["methods"]["tvm.npv"]["versions"]["2"]
+        record["output_file"] = "tvm.npv/v2.out.json"
+        record["sha256"] = "0" * 64  # the input record of the same version, also rewritten
+
+    edit(head / "index.json", rewrite)
+    assert snap.diff_against(base) == 4
+    out = capsys.readouterr().out
+    assert "tvm.npv/v2.output.json: file name changed in the index" in out
+    assert "tvm.npv/v2.json: hash changed in the index" in out
