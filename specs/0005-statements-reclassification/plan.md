@@ -290,8 +290,9 @@ entries of `/treatments/write_downs_of_receivables` only; their own commit, with
 additive input change of version 1) with the default `operating`: B10 c joins depreciation and
 amortisation below EBITDA; its input default is listed only when a statutory year gives B10 c,
 as F1 does for B10 d. P3 moves restated lease liabilities into gross debt. P4 and P5 are
-documentation. P2 waits for the maintainer on four implementation points
-(`/tmp/pr236-questions-p2.md`, task T27c).
+documentation. P2, approved on 2026-11-09 as proposed, adds the output
+`income_from_operating_investments` and the optional `interest_cost` of `debt_like_provision`
+(an additive input change of version 1); task T27c.
 
 ## Decisions on the plan (maintainer, 2026-11-08)
 1. Mapping defaults of Appendix A are listed in `meta.defaults_applied` with pointer,

@@ -159,6 +159,22 @@ Approved by the maintainer on 2026-11-08.
     do not define EBITDA (the EBA lists it). The definition of EBITDA is Fairmark's (Decision 8);
     V23 and V30 support its use only.
 
+- **P2 implementation, approved by the maintainer on 2026-11-09** (as proposed in the questions
+  of that date):
+  1. Only C15 follows financial fixed assets (B.III) treated as `operating`; D18 and D19 stay in
+     the investing result; no C16 a field.
+  2. A new output line `income_from_operating_investments`, below EBITDA and included in
+     `operating_profit`; EBITDA is unchanged.
+  3. With a split of B.III for the year (`treatment_overrides`), C15 stays in the investing
+     result and a convention says so; with the treatment needed and missing (B.III given and not
+     zero), C15 waits for it: the outputs that depend on it are not computed, with the treatment
+     pointer and its permitted destinations (R8).
+  4. An optional `interest_cost` on the `debt_like_provision` adjustment, one entry per year,
+     used only when `aggregate` is `employee_severance_indemnity` (`FM-E001` otherwise), zero or
+     more and at most what remains of B9 (`FM-E026` otherwise): the revaluation of the employee
+     severance indemnity leaves B9 and EBITDA and enters the financing result. Without it nothing
+     moves and a convention says so. An additive input change of version 1.
+
 ## Analysis
 
 ### What is on main today
@@ -446,6 +462,31 @@ IRAP (SPEC-0003); ratios and margins (SPEC-0007).
 | Leases | as reported; financial method by adjustment | as reported | Decision 9; art. 2427 n. 22 |
 | Taxes | item 20 as given | no IRES, IRAP or NOPAT | SPEC-0003; SPEC-0001 |
 | Bridge items | carrying amount | fixed | Decision 15; SPEC-0001 Decision 21 |
+
+## Computability, defaults and checks (income statement)
+Added on 2026-11-09 from the template of #250 as documentation of the rules already decided
+(R6, R8, D4, E1 to E7, P1 to P3); it adds no rule. Pointers are below
+`/years/<i>/statutory/income_statement` (statutory) or `/years/<i>/reclassified/income_statement`
+(reclassified). "Core" means net of the parts moved by adjustments (E5).
+
+| Output | Inputs it needs | When an input is missing | Checks it takes part in |
+| --- | --- | --- | --- |
+| `revenue`, `purchases`, `personnel_costs` | A1, B6, B9 (core; B9 also net of `interest_cost`, P2) | not computed | totals of A and B (R7) |
+| `value_of_production` | total A, or A1, A2 and A3, A4, A5; the sources of `investing` and `non_recurring` adjustments of A1 and A5 | not computed | `value_of_production_total`; reclassified `value_added_total` |
+| `materials_consumed`, `external_costs` (E1) | B6, B11; and B7, B8, B14 (core; B8 net of lease payments) | not computed | reclassified `value_added_total` |
+| `value_added`, `ebitda` | as above, and B9 | not computed | reclassified `value_added_total`, `ebitda_total` |
+| `depreciation_and_amortisation` | B10 a, b (or the B10 a to c group with its B10 c part); B10 c when `operating` (P1); lease depreciation | not computed; B10 a to c grouped without B10 c with `investing`: read as depreciation (Decision 8, stated) | `value_adjustments_of_fixed_assets_total`, `value_adjustments_of_fixed_assets_of_which` |
+| `other_charges_below_ebitda` (E2) | B12, B13, and B10 d when `operating` (E3) | not computed | reclassified `operating_profit_total` |
+| `income_from_operating_investments` (P2) | C15, when B.III is wholly `operating` for the year | not computed with the treatment pointer when the B.III treatment is needed and missing (R8); zero when B.III is not `operating`, given as zero or not given; zero with a convention under a split | none |
+| `operating_profit` | the outputs above | not computed | reclassified `operating_profit_total`; reconciliation with A − B (internal invariant) |
+| `investing_result` | investing parts of A5 and B14, C15 (unless operating, P2), C16, D18 − D19 (or total D), B10 c and B10 d when `investing` | not computed (C15 waits for the B.III treatment when it is needed) | totals of C and D (R7) |
+| `profit_before_financing_and_taxes` | operating profit, investing result | not computed | reclassified relation; reconciliation with A − B |
+| `non_recurring_result` | the `non_recurring` adjustments of the year | zero with a convention when none applies; not computed when the year gives no income statement (E6) | none |
+| `financing_result`, `interest_and_other_financial_charges` | C17, C17-bis (core), lease interest; `interest_cost` (P2) in the financing result only | not computed | total C (R7) |
+| `profit_before_tax`, `net_income` | the layers above; item 20 | not computed | `profit_before_tax_total`, `profit_or_loss_for_the_year_total` (R7); R19 identities with the lease exception (E4, internal invariants) |
+| `reconciliations` | A − B (given, or totals A and B, or their items) and the subtotal | not computed; in the reclassified form, not computed with no pointer to give | internal invariant (`FM-E012`) |
+| Treatments `write_downs_of_receivables`, `write_downs_of_fixed_assets` | none | documented default `operating`, listed only when a statutory year gives B10 d or B10 c (E3, F1, P1) | none |
+| Destinations of A5, B14, B10 c, B10 d | the aggregate given | documented default destination, listed while the treatment is not stated (R8) | none |
 
 ## Acceptance criteria
 Every golden case compares exactly (tolerance 0).
