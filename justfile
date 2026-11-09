@@ -27,6 +27,7 @@ lint:
     python scripts/required_checks.py check
     python scripts/check_yaml.py
     python scripts/pin_actions.py --check
+    python scripts/mutants.py check-exclusions
     for f in sprints/S*.yaml; do [ -e "$f" ] && python scripts/sprint.py validate "$f"; done; true
 
 # Run all tests (Rust incl. golden, Python incl. golden and docs snippets)
@@ -101,6 +102,40 @@ deps-audit:
     cargo deny check advisories
     uv export --frozen --all-extras --all-groups --no-emit-project --no-hashes -o /tmp/fairmark-requirements.txt
     uvx pip-audit --strict -r /tmp/fairmark-requirements.txt
+
+# Mutation testing of fairmark-core (cargo-mutants 27.1.0; docs/en/project/mutation-testing.md).
+# Whole core, or one module: just mutants tvm | just mutants dcf/engine | just mutants tv
+mutants module="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src=crates/fairmark-core/src
+    args=(--package fairmark-core --no-shuffle --output target/mutants)
+    if [ -n "{{module}}" ]; then
+      if [ -f "$src/{{module}}.rs" ]; then args+=(--file "$src/{{module}}.rs")
+      elif [ -d "$src/{{module}}" ]; then args+=(--file "$src/{{module}}/**/*.rs")
+      else echo "No module {{module}} under $src" >&2; exit 1; fi
+    fi
+    status=0
+    cargo mutants "${args[@]}" || status=$?
+    full=""
+    if [ -z "{{module}}" ]; then full="--full"; fi
+    python scripts/mutants.py summary target/mutants $full
+    exit "$status"
+
+# Mutation testing of the lines of fairmark-core changed since the merge base with a branch
+mutants-diff base="origin/main":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p target/mutants-diff
+    git diff "$(git merge-base {{base}} HEAD)" -- crates/fairmark-core/src > target/mutants-diff/core.diff
+    if [ ! -s target/mutants-diff/core.diff ]; then echo "No change in crates/fairmark-core/src."; exit 0; fi
+    status=0
+    cargo mutants --package fairmark-core --no-shuffle --in-diff target/mutants-diff/core.diff \
+      --output target/mutants-diff || status=$?
+    # Exit 2 (missed) and 3 (timeout) are decided by the gate below, which applies the reviewed
+    # equivalent mutants; any other failure of the tool is reported as is.
+    if [ "$status" -ne 0 ] && [ "$status" -ne 2 ] && [ "$status" -ne 3 ]; then exit "$status"; fi
+    python scripts/mutants.py summary target/mutants-diff --gate --allow-empty --title "Mutation testing of the changed lines"
 
 # Check commit message, or pull request title, branch and body, against the conventions
 conventions title branch body="":
