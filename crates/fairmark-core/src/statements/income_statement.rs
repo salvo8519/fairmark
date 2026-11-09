@@ -203,6 +203,8 @@ struct B10 {
     c: Partial,
     d: Partial,
     grouped: bool,
+    /// B10 c not given, read as the group less B10 a, b (D1-IS): (group, B10 a, b).
+    derived: Option<(Decimal, Decimal)>,
     ab_read: Vec<String>,
     c_read: Vec<String>,
 }
@@ -218,6 +220,7 @@ fn b10(is: &StatutoryIncomeStatement, base: &str) -> Result<B10> {
             c: m.clone(),
             d: m,
             grouped: false,
+            derived: None,
             ab_read: vec![at.clone()],
             c_read: vec![at],
         });
@@ -248,6 +251,14 @@ fn b10(is: &StatutoryIncomeStatement, base: &str) -> Result<B10> {
         }
         (None, None) => (Partial::lacking(ab_at.clone()), vec![ab_at.clone()]),
     };
+    let derived = match (
+        n.write_downs_of_fixed_assets,
+        n.value_adjustments_of_fixed_assets,
+        n.depreciation_and_amortisation,
+    ) {
+        (None, Some(va), Some(ab)) => Some((va, ab)),
+        _ => None,
+    };
     let (c, c_read) = match (
         n.write_downs_of_fixed_assets,
         n.value_adjustments_of_fixed_assets,
@@ -274,6 +285,7 @@ fn b10(is: &StatutoryIncomeStatement, base: &str) -> Result<B10> {
         c,
         d,
         grouped,
+        derived,
         ab_read,
         c_read,
     })
@@ -383,8 +395,8 @@ enum C15Place {
     /// A3); the pointer of the treatment.
     Waits(String),
     /// B.III given and not zero, its treatment missing, C15 not given: C15 is missing with its
-    /// own pointer wherever it could go.
-    Unknown,
+    /// own pointer wherever it could go; the pointer of the treatment a non-zero C15 would need.
+    Unknown(String),
 }
 
 impl C15Place {
@@ -421,7 +433,7 @@ impl C15Place {
             (Some(FinancialFixedAssetsDestination::Operating), false) => Self::NoHolding,
             (Some(_), _) | (None, false) => Self::Investing,
             (None, true) => match c15 {
-                None => Self::Unknown,
+                None => Self::Unknown(pointer),
                 Some(v) if v.is_zero() => Self::Investing,
                 Some(_) => Self::Waits(pointer),
             },
@@ -658,6 +670,39 @@ pub(crate) fn conventions(input: &ReorganiseInput, ex: &mut Explain) {
     }
 }
 
+/// ADR 0014 G3 test 4: a write-down treatment default that decides a subtotal is warned, one
+/// line per year and treatment.
+fn write_down_warnings(y: &Year, ex: &mut Explain) {
+    let name = y.name;
+    let cases = [
+        (
+            y.stated.write_downs_of_fixed_assets,
+            &y.b10.c,
+            "B10 c",
+            "write_downs_of_fixed_assets",
+            "depreciation_and_amortisation",
+        ),
+        (
+            y.stated.write_downs_of_receivables,
+            &y.b10.d,
+            "B10 d",
+            "write_downs_of_receivables",
+            "other_charges_below_ebitda",
+        ),
+    ];
+    for (stated, amount, item, treatment, line) in cases {
+        match amount.value() {
+            Some(v) if !stated && !v.is_zero() => ex.convention(format!(
+                "warning: year {name}: {item} ({v}) is in {line}, below EBITDA, by the default \
+                 `operating` of `/treatments/{treatment}`, not given: it lowers operating_profit; \
+                 `investing` would place it in investing_result (EBITDA and \
+                 profit_before_financing_and_taxes do not change)"
+            )),
+            _ => {}
+        }
+    }
+}
+
 /// P2: where C15 goes for the year, and an interest cost of a debt-like employee severance
 /// indemnity that is not given, stated as conventions.
 fn c15_conventions(y: &Year, input: &ReorganiseInput, i: usize, ex: &mut Explain) {
@@ -681,7 +726,12 @@ fn c15_conventions(y: &Year, input: &ReorganiseInput, i: usize, ex: &mut Explain
              given or zero: there is no operating investment to follow, C15 stays in the \
              investing result and income_from_operating_investments is zero (P2, D2-IS)"
         )),
-        C15Place::Investing | C15Place::Unknown => {}
+        C15Place::Unknown(pointer) => ex.convention(format!(
+            "year {name}: C15 is not given while financial fixed assets (B.III) are given \
+             without a treatment: the outputs C15 reaches are not computed, and a non-zero C15 \
+             will also need `{pointer}` (P2, A3)"
+        )),
+        C15Place::Investing => {}
     }
     for (k, adj) in input.adjustments.iter().enumerate() {
         if let Adjustment::DebtLikeProvision(a) = adj {
@@ -822,7 +872,7 @@ fn assignments(y: &Year, ex: &mut Explain) -> Vec<Assignment> {
         C15Place::Split | C15Place::NoHolding | C15Place::Investing => {
             Some((Dn::InvestingResult, m))
         }
-        C15Place::Waits(_) | C15Place::Unknown => None,
+        C15Place::Waits(_) | C15Place::Unknown(_) => None,
     };
     if let Some((d, o)) = c15 {
         assign(
@@ -860,10 +910,24 @@ fn assignments(y: &Year, ex: &mut Explain) -> Vec<Assignment> {
         );
     }
     let b10 = |key: &str| y.p(&format!("depreciation_and_write_downs/{key}"));
+    // D1-IS: a B10 c derived from the group is assigned at the group it is read from.
+    let (c_reference, c_at, c_amount) = if y.b10.derived.is_some() {
+        (
+            "B10 c (B10 a to c less B10 a, b)",
+            b10("value_adjustments_of_fixed_assets"),
+            y.b10.c.clone(),
+        )
+    } else {
+        (
+            "B10 c",
+            b10("write_downs_of_fixed_assets"),
+            k(n.write_downs_of_fixed_assets),
+        )
+    };
     assign(
-        "B10 c",
-        b10("write_downs_of_fixed_assets"),
-        &k(n.write_downs_of_fixed_assets),
+        c_reference,
+        c_at,
+        &c_amount,
         if y.operating_wdfa {
             Dn::DepreciationAndAmortisation
         } else {
@@ -1387,7 +1451,7 @@ fn layers(y: &Year, mv: &Moves, ex: &mut Explain) -> Result<Layers> {
             format!("Income from operating investments ({name})"),
             &[t(Plus, "C15 (financial fixed assets operating, P2)", &c15)],
         )?,
-        C15Place::Waits(_) | C15Place::Unknown => c15.clone(),
+        C15Place::Waits(_) | C15Place::Unknown(_) => c15.clone(),
         C15Place::Split | C15Place::NoHolding | C15Place::Investing => Partial::ZERO,
     };
     let operating_profit = step(
@@ -1769,6 +1833,21 @@ pub(crate) fn statutory(
              investing result (Decision 8, R17)"
         ));
     }
+    if let Some((va, ab)) = y.b10.derived {
+        ex.convention(format!(
+            "year {name}: B10 c is not given with the B10 a to c group and its B10 a, b part: \
+             it is read as B10 a to c less B10 a, b (D1-IS)"
+        ));
+        step(
+            ex,
+            format!("B10 c, B10 a to c less B10 a, b ({name})"),
+            &[
+                t(Plus, "B10 a to c", &Partial::Known(va)),
+                t(Minus, "B10 a, b", &Partial::Known(ab)),
+            ],
+        )?;
+    }
+    write_down_warnings(&y, ex);
     if y.given {
         c15_conventions(&y, input, i, ex);
     }

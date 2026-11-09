@@ -2050,3 +2050,89 @@ fn c15_follows_only_financial_fixed_assets_held() {
     let nc = out["value"]["years"][0]["not_computed"]["income_statement"].to_string();
     assert!(!nc.contains("/treatments/financial_fixed_assets"), "{nc}");
 }
+
+/// Constitution II, D1-IS: a B10 c derived from the group is explained (a step with the numbers
+/// substituted and a convention) and assigned at the group it is read from.
+#[test]
+fn a_derived_b10_c_is_explained_and_assigned() {
+    let out = run(&golden_input("b10-c-derived-from-group"));
+    let s = step(&out, "B10 c, B10 a to c less B10 a, b (2024)");
+    assert_eq!(s["formula"], "B10 a to c 200000 − B10 a, b 180000");
+    assert_eq!(s["value"], "20000");
+    let conv = conventions(&out);
+    assert!(
+        conv.contains("B10 c is not given with the B10 a to c group and its B10 a, b part"),
+        "{conv}"
+    );
+    let a = out["value"]["years"][0]["assignments"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["reference"] == "B10 c (B10 a to c less B10 a, b)")
+        .expect("assignment of the derived B10 c")
+        .clone();
+    assert_eq!(
+        a["aggregate"],
+        "/years/0/statutory/income_statement/depreciation_and_write_downs/value_adjustments_of_fixed_assets"
+    );
+    assert_eq!(a["amount"], "20000");
+    assert_eq!(a["destination"], "depreciation_and_amortisation");
+}
+
+/// ADR 0014 G3 test 4: a write-down treatment default that decides a subtotal is warned; a
+/// stated treatment is not.
+#[test]
+fn a_write_down_default_that_decides_a_subtotal_is_warned() {
+    let mut input = golden_input("ordinary-aggregates");
+    let warned = |input: &Value| -> Vec<String> {
+        run(input)["explain"]["conventions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|c| c.as_str())
+            .filter(|c| c.starts_with("warning: "))
+            .map(str::to_owned)
+            .collect()
+    };
+    let w = warned(&input);
+    assert_eq!(w.len(), 2, "{w:?}");
+    assert!(
+        w[0].contains("B10 c (20000) is in depreciation_and_amortisation"),
+        "{w:?}"
+    );
+    assert!(
+        w[1].contains("`/treatments/write_downs_of_receivables`"),
+        "{w:?}"
+    );
+    input["treatments"]["write_downs_of_fixed_assets"] = json!("operating");
+    input["treatments"]["write_downs_of_receivables"] = json!("investing");
+    assert!(warned(&input).is_empty());
+}
+
+/// Nit of round 3: C15 not given with B.III held and its treatment missing is stated, with the
+/// treatment a non-zero C15 would need.
+#[test]
+fn c15_not_given_names_the_treatment_it_would_need() {
+    let mut input = golden_input("operating-investments-missing-treatment");
+    input["years"][0]["statutory"]["income_statement"]
+        .as_object_mut()
+        .unwrap()
+        .remove("income_from_equity_investments");
+    input["years"][0]["statutory"]["income_statement"]
+        .as_object_mut()
+        .unwrap()
+        .remove("financial_income_and_charges");
+    let out = run(&input);
+    let conv = conventions(&out);
+    assert!(
+        conv.contains(
+            "C15 is not given while financial fixed assets (B.III) are given without a treatment"
+        ) && conv.contains("will also need `/treatments/financial_fixed_assets`"),
+        "{conv}"
+    );
+    let nc = out["value"]["years"][0]["not_computed"]["income_statement"].to_string();
+    assert!(
+        !nc.contains("\"/treatments/financial_fixed_assets\""),
+        "{nc}"
+    );
+}
