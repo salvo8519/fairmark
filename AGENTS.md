@@ -176,6 +176,10 @@ Install [`uv`](https://docs.astral.sh/uv/) and Rust stable. `just` is installed 
    checked by `scripts/method_status.py` against `docs/en/project/releases.md`.
 
 ## Review standards (what reviewers and CI check)
+Every finding of a review or an audit (blocking, should fix and nit) is fixed in the same pull
+request. A follow-up issue is opened only for new scope, and only with the maintainer's
+approval; a defect is never deferred.
+
 See `.agents/agents/code-reviewer.md` and `.agents/agents/numerical-auditor.md`. In short:
 constitution compliance, decimal-only arithmetic, explain completeness, schema docs, golden
 cases with independent sources, no adapter logic, tests for every acceptance criterion.

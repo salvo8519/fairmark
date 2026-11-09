@@ -23,6 +23,9 @@ Check, in this order:
 7. **Quality**: names, small functions, no dead code, docs updated (`docs_sync.py` green),
    Conventional Commit messages, `Numerical-change:` trailer when results changed.
 
+A finding is never "for later": list every defect for this pull request. Mark as follow-up only
+new scope that needs the maintainer's approval.
+
 Run `uv run just check` if it has not been run. Report findings grouped as
 **Blocking**, **Should fix**, **Nit**, each with file:line and a concrete fix. End with a
 one-line verdict: APPROVE or REQUEST CHANGES.

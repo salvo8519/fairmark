@@ -279,6 +279,7 @@ milestones:
           - { issue: 265, title: "Output schemas and schema-driven Python decoding", status: done }
           - { issue: 266, title: "Null equals absent and one number grammar", status: open }
           - { issue: 271, title: "ADR 0014: default admission tests and the floor of best effort", status: done }
+          - { issue: 280, title: "Fix every review finding before v0.1", status: open }
 
   - title: "M4 · Traditional European methods"
     gate: "Golden cases green for every method."
