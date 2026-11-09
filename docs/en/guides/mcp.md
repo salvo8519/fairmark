@@ -29,6 +29,26 @@ and set the URL to `http://<host>:8765/mcp`. The agent then sees every Fairmark 
 The server binds to `127.0.0.1` by default. Expose it on a network only behind your own
 authentication (reverse proxy, VPN): the HTTP mode has no built-in access control.
 
+## Fewer or smaller tools
+
+By default the server lists every tool with its full schema. Two options reduce what the
+model sees, for clients with a limited context or a narrow task:
+
+```bash
+fairmark-mcp --areas dcf,tvm          # only the tools of these areas
+fairmark-mcp --compact                # compact schemas
+fairmark-mcp --http --areas statements,ratios --compact
+```
+
+In a client configuration, add them to `args`, for example
+`["--from", "fairmark[mcp]", "fairmark-mcp", "--areas", "dcf,tvm"]`. The areas are the part
+of the method id before the dot (`analysis`, `coc`, `dates`, `dcf`, `loans`, `rates`,
+`ratios`, `series`, `statements`, `tv`, `tvm`); an unknown area stops the server with the
+list of known ones. The compact profile is the one of
+[function calling](function-calling.md#compact-profile): the same inputs are accepted and
+every enum value keeps its meaning. A tool outside the selected areas is not listed, but a
+call to it is still executed.
+
 ## Logs
 
 Logs go to stderr; `--log-format json` writes one JSON object per line with the tool, the
@@ -39,6 +59,9 @@ financial values.
 
 - One tool per method (`fairmark_dcf_fcff`, `fairmark_tvm_npv`, ...), with the full input
   schema, marked read-only and idempotent.
+- The meaning of every enum value in the field description, and input examples taken from
+  golden cases in the schema `examples` keyword (minimal first, then maximal where useful;
+  see [function calling](function-calling.md#examples)).
 - The status of each method in the tool's `_meta`, `{"fairmark/status": "available"}` or
   `"preview"`. The description of a preview tool has "(preview)" after the title and a
   sentence starting "Status: preview", so a model sees it before calling. The
