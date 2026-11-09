@@ -27,4 +27,18 @@
 # "equivalent" instead of "missed"; a full run lists entries whose mutant is no longer missed
 # (now caught, unviable or gone), to be removed.
 
-equivalent = []
+[[equivalent]]
+file = "crates/fairmark-core/src/dcf/engine.rs"
+function = "check_stages"
+mutation = "replace && with || in check_stages"
+line = 713
+reason = "check_stages runs only on inputs whose defaults are filled in (registry, fcff, fcfe; compute_with_defaults requires it), and apply_defaults gives a projection to every stage with exactly one of flows and lines, so a stage without projection has both or neither, where && and || agree"
+reviewer = "pending: maintainer review in the pull request for issue 282"
+
+[[equivalent]]
+file = "crates/fairmark-core/src/tvm.rs"
+function = "level_factor_steps"
+mutation = "delete match arm \"Annuity factor (r = g)\" in level_factor_steps"
+line = 1432
+reason = "the arm is unreachable: both callers (future_value, loans instalment) take the rate-zero limit form before calling annuity_factor with g = 0, and factor_with writes the step \"Annuity factor (r = g)\" only when r = g, that is r = 0"
+reviewer = "pending: maintainer review in the pull request for issue 282"
