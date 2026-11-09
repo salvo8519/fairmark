@@ -319,17 +319,20 @@ def reclassified_is() -> dict[str, Any]:
     va, personnel, op, inv = amount(), amount(800_000), amount(500_000), amount(80_000) - 40_000
     nr, fin, taxes = amount(40_000) - 20_000, -amount(90_000), amount(150_000)
     ebitda = va - personnel
+    vop, dna = amount(), amount(200_000)
     pbft = op + inv
     pbt = pbft + nr + fin
     inc = {
         "revenue": str(amount()),
-        "value_of_production": str(amount()),
+        "value_of_production": str(vop),
+        "external_costs": str(vop - va),
+        "other_charges_below_ebitda": str(abs(ebitda - dna - op)),
         "purchases": str(amount()),
         "materials_consumed": str(amount() - 100_000),
         "value_added": str(va),
         "personnel_costs": str(personnel),
         "ebitda": str(ebitda + RNG.choice([0] * 30 + [1])),
-        "depreciation_and_amortisation": str(amount(200_000)),
+        "depreciation_and_amortisation": str(dna),
         "operating_profit": str(op),
         "investing_result": str(inv),
         "profit_before_financing_and_taxes": str(pbft),

@@ -424,7 +424,11 @@ pub struct ReclassifiedIncomeStatement {
     pub purchases: Option<Decimal>,
     /// Materials consumed (B6 + B11), in currency units, signed.
     pub materials_consumed: Option<Decimal>,
-    /// Value added, value of production − external costs, in currency units, signed.
+    /// External costs, B6 + B7 + B8 + B11 + B14 net of the parts moved by adjustments (B8 also
+    /// net of lease payments), in currency units, signed (E1 of 2026-11-09).
+    pub external_costs: Option<Decimal>,
+    /// Value added, value of production − external costs, in currency units, signed; derived
+    /// from them when not given and checked against them when given.
     pub value_added: Option<Decimal>,
     /// Personnel costs (B9), in currency units.
     pub personnel_costs: Option<Decimal>,
@@ -432,7 +436,12 @@ pub struct ReclassifiedIncomeStatement {
     pub ebitda: Option<Decimal>,
     /// Depreciation and amortisation (B10 a, b), in currency units.
     pub depreciation_and_amortisation: Option<Decimal>,
-    /// Operating profit (reddito operativo, MON), in currency units, signed.
+    /// Other charges below EBITDA, B12 + B13 (+ B10 d when it is treated as operating) net of
+    /// moved parts, in currency units, zero or more (E2 of 2026-11-09).
+    pub other_charges_below_ebitda: Option<Decimal>,
+    /// Operating profit (reddito operativo, MON), EBITDA − depreciation and amortisation −
+    /// other charges below EBITDA, in currency units, signed; derived when not given and checked
+    /// when given.
     pub operating_profit: Option<Decimal>,
     /// Investing result (accessory area), in currency units, signed.
     pub investing_result: Option<Decimal>,
@@ -1087,8 +1096,8 @@ pub(crate) const INCOME_STATEMENT_DEFAULTS: &[IncomeStatementDefault] = &[
     },
     IncomeStatementDefault {
         key: "other_operating_expenses",
-        destination: Destination::ValueAdded,
-        reason: "Appendix A.2, B14: core, deducted in value added by default (Decision 7, R18); \
+        destination: Destination::ExternalCosts,
+        reason: "Appendix A.2, B14: core, in external costs by default (Decision 7, R18, E1); \
                  investing or non-recurring parts move only by an `investing` or \
                  `non_recurring` adjustment",
         given: |is| is.other_operating_expenses,

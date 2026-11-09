@@ -613,6 +613,18 @@ pub(crate) fn income_statement(
         ab_c.side("B10 a and b + B10 c"),
         FIX_TOTAL,
     )?;
+    // B10 c is a part of the group B10 a to c (review of PR 2, blocking 1): the group less
+    // B10 c is depreciation and amortisation, never negative.
+    c.at_most(
+        "value_adjustments_of_fixed_assets_of_which",
+        b10i(
+            "write_downs_of_fixed_assets",
+            b10.write_downs_of_fixed_assets,
+        )
+        .side("B10 c"),
+        ac_given.side("B10 a to c"),
+        "B10 c is a part of B10 a to c: correct B10 c or the group",
+    )?;
     let b10_der = Read::sum(&[
         (1, &ac_given.or(ab_c)),
         (

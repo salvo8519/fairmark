@@ -1570,6 +1570,16 @@
             "null"
           ]
         },
+        "external_costs": {
+          "default": null,
+          "description": "External costs, B6 + B7 + B8 + B11 + B14 net of the parts moved by adjustments (B8 also\nnet of lease payments), in currency units, signed (E1 of 2026-11-09).",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
         "financing_result": {
           "default": null,
           "description": "Financing result, C17-bis − C17, in currency units, signed.",
@@ -1642,7 +1652,17 @@
         },
         "operating_profit": {
           "default": null,
-          "description": "Operating profit (reddito operativo, MON), in currency units, signed.",
+          "description": "Operating profit (reddito operativo, MON), EBITDA − depreciation and amortisation −\nother charges below EBITDA, in currency units, signed; derived when not given and checked\nwhen given.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "other_charges_below_ebitda": {
+          "default": null,
+          "description": "Other charges below EBITDA, B12 + B13 (+ B10 d when it is treated as operating) net of\nmoved parts, in currency units, zero or more (E2 of 2026-11-09).",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -1702,7 +1722,7 @@
         },
         "value_added": {
           "default": null,
-          "description": "Value added, value of production − external costs, in currency units, signed.",
+          "description": "Value added, value of production − external costs, in currency units, signed; derived\nfrom them when not given and checked against them when given.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",

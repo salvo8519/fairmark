@@ -79,13 +79,14 @@ pub enum Destination {
     DeductedFromEquity,
     /// Value of production, layer of the income statement (A1 to A5, core).
     ValueOfProduction,
-    /// Deducted in value added (B6, B7, B8, B11, B14, core).
-    ValueAdded,
+    /// External costs, deducted in value added (B6, B7, B8, B11, B14, core; E1).
+    ExternalCosts,
     /// Deducted in EBITDA (B9).
     Ebitda,
-    /// Deducted in operating profit, below EBITDA (B10 a and b, B12, B13; B10 d with the
-    /// treatment `operating`).
-    OperatingProfit,
+    /// Depreciation and amortisation, below EBITDA (B10 a and b, lease depreciation).
+    DepreciationAndAmortisation,
+    /// Other charges below EBITDA (B12, B13; B10 d with the treatment `operating`; E2).
+    OtherChargesBelowEbitda,
     /// Investing result, below operating profit (A5 and B14 investing parts, C15, C16, D18,
     /// D19, B10 c, B10 d by default).
     InvestingResult,
@@ -120,9 +121,10 @@ impl Destination {
             Self::Equity => "equity",
             Self::DeductedFromEquity => "deducted_from_equity",
             Self::ValueOfProduction => "value_of_production",
-            Self::ValueAdded => "value_added",
+            Self::ExternalCosts => "external_costs",
             Self::Ebitda => "ebitda",
-            Self::OperatingProfit => "operating_profit",
+            Self::DepreciationAndAmortisation => "depreciation_and_amortisation",
+            Self::OtherChargesBelowEbitda => "other_charges_below_ebitda",
             Self::InvestingResult => "investing_result",
             Self::NonRecurringResult => "non_recurring_result",
             Self::FinancingResult => "financing_result",
@@ -319,8 +321,9 @@ pub struct NotComputed {
 pub struct ReconciliationLine {
     /// What the amount is, for example "B10 c, write-downs of fixed assets (investing result)".
     pub label: String,
-    /// JSON pointer of the input it comes from: an aggregate or an adjustment.
-    pub source: String,
+    /// JSON pointers of the inputs actually read for it: an aggregate (both D18 and D19 when
+    /// both are read; the B10 a to c group when B10 c is read as none) or an adjustment.
+    pub sources: Vec<String>,
     /// Amount added to A − B, in currency units, signed.
     pub amount: Decimal,
 }
@@ -360,8 +363,9 @@ pub struct IncomeStatement {
     pub purchases: Option<Decimal>,
     /// Materials consumed (B6 + B11, core), in currency units, signed.
     pub materials_consumed: Option<Decimal>,
-    /// Value added: value of production − B6, B11, B7, B8 and B14 (core), in currency units,
-    /// signed.
+    /// External costs: B6 + B7 + B8 + B11 + B14, core (E1), in currency units, signed.
+    pub external_costs: Option<Decimal>,
+    /// Value added: value of production − external costs, in currency units, signed.
     pub value_added: Option<Decimal>,
     /// Personnel costs (B9, core), in currency units.
     pub personnel_costs: Option<Decimal>,
@@ -373,6 +377,9 @@ pub struct IncomeStatement {
     /// Depreciation and amortisation (B10 a and b, core, plus lease depreciation), in currency
     /// units; the field of `FreeCashFlowLines`.
     pub depreciation_and_amortisation: Option<Decimal>,
+    /// Other charges below EBITDA: B12 + B13 (+ B10 d with the treatment `operating`), core
+    /// (E2), in currency units.
+    pub other_charges_below_ebitda: Option<Decimal>,
     /// Operating profit of the core business (reddito operativo della gestione caratteristica,
     /// MON; IFRS 18 "operating profit or loss"), in currency units, signed.
     pub operating_profit: Option<Decimal>,
@@ -382,7 +389,8 @@ pub struct IncomeStatement {
     /// practice; IFRS 18 "profit or loss before financing and income taxes"), in currency
     /// units, signed.
     pub profit_before_financing_and_taxes: Option<Decimal>,
-    /// Σ non-recurring income − Σ non-recurring charges, in currency units, signed.
+    /// Σ non-recurring income − Σ non-recurring charges, in currency units, signed; zero when no
+    /// item is labelled non-recurring, null when the year gives no income statement (E6).
     pub non_recurring_result: Option<Decimal>,
     /// C17-bis − C17 (core, with lease interest), in currency units, signed.
     pub financing_result: Option<Decimal>,
@@ -477,8 +485,9 @@ pub fn reorganise(input: &ReorganiseInput) -> Result<(ReorganiseOutput, Explain)
     Reorganise::run_typed(&mut input).map(|(output, explain, _)| (output, explain))
 }
 
-/// The calculation, on an input whose defaults were filled in.
-fn compute(input: &ReorganiseInput) -> Result<(ReorganiseOutput, Explain)> {
+/// The calculation, on an input whose defaults were filled in. `stated`: the treatment of B10 d
+/// was given by the analyst (its origin in `assignments` is then `analyst`).
+fn compute(input: &ReorganiseInput, stated: bool) -> Result<(ReorganiseOutput, Explain)> {
     validate::validate(input)?;
     let mut ex = Explain::new(Reorganise::ID, FORMULA);
     let statutory = input.years.iter().any(|y| y.statutory.is_some());
@@ -496,13 +505,7 @@ fn compute(input: &ReorganiseInput) -> Result<(ReorganiseOutput, Explain)> {
              statements, never scaled (R3, Decision 3)",
         );
     }
-    if input.years.iter().any(|y| {
-        y.statutory
-            .as_ref()
-            .is_some_and(|s| s.income_statement.is_some())
-    }) {
-        income_statement::conventions(input, &mut ex);
-    }
+    income_statement::conventions(input, &mut ex);
     ex.convention(NFP_CONVENTION);
     if statutory {
         ex.convention(
@@ -589,7 +592,7 @@ fn compute(input: &ReorganiseInput) -> Result<(ReorganiseOutput, Explain)> {
                 let bs = balance_sheet::statutory(input, i, &name, &mut ex, &mut notes)?;
                 (
                     bs,
-                    income_statement::statutory(input, i, &name, &mut ex, &mut notes)?,
+                    income_statement::statutory(input, i, &name, stated, &mut ex, &mut notes)?,
                 )
             }
         };
@@ -686,7 +689,19 @@ impl Method for Reorganise {
     type Output = ReorganiseOutput;
 
     fn compute(input: &ReorganiseInput) -> Result<(ReorganiseOutput, Explain)> {
-        compute(input)
+        compute(input, input.treatments.write_downs_of_receivables.is_some())
+    }
+
+    /// The treatment of B10 d filled in by default is not the analyst's: its assignment keeps
+    /// the origin `mapping`.
+    fn compute_with_defaults(
+        input: &ReorganiseInput,
+        defaults: &[DefaultApplied],
+    ) -> Result<(ReorganiseOutput, Explain)> {
+        let filled = defaults
+            .iter()
+            .any(|d| d.field == "/treatments/write_downs_of_receivables");
+        compute(input, !filled)
     }
 
     /// R8 as clarified on 2026-11-08, R17, R18, D1, D2: by year, the `default` destination of

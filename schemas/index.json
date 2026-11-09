@@ -366,7 +366,7 @@
           "introduced_in": "unreleased",
           "output_file": "statements.reorganise/v1.output.json",
           "output_sha256": "b10bd05595c2b0f221c84090be83a05901e8218629e46f95716e7f2535b53d12",
-          "sha256": "987750c248904e9f71dd9b4a38725ef83b709df424cd3f08f821ca0ab68130a0"
+          "sha256": "179135af70aeea898377913a72aadcc5f94d411e56467ed87d67343b4bea4ab0"
         }
       }
     },

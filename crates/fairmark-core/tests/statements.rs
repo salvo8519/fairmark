@@ -671,19 +671,42 @@ fn two_runs_give_identical_output_and_key_order_does_not_change_the_hash() {
     assert_eq!(a["value"], c["value"]);
 }
 
-/// D4 of 2026-11-08: `external_costs` and `other_charges_below_ebitda` of the reclassified
-/// income statement are deferred to the second pull request, as additive fields; the spec does
-/// not define them, so they wait for the maintainer's definition and stay unknown fields.
+/// D4, E1, E2 of 2026-11-09: `external_costs` and `other_charges_below_ebitda` are fields of the
+/// reclassified income statement; value added and operating profit are derived from them.
 #[test]
-fn the_deferred_reclassified_income_statement_fields_are_refused() {
+fn the_reclassified_form_derives_value_added_and_operating_profit() {
     let schema = fairmark_core::input_schema(METHOD).unwrap().to_string();
     for field in ["external_costs", "other_charges_below_ebitda"] {
-        assert!(!schema.contains(field), "{field}");
-        let input = json!({"years": [{"reclassified": {"income_statement": {field: "1"}}}]});
-        let e = err(&input);
-        assert_eq!(e.code(), "FM-E001");
-        assert!(e.to_string().contains(field), "{e}");
+        assert!(schema.contains(field), "{field}");
     }
+    let out = run(
+        &json!({"years": [{"label": "2024", "reclassified": {"income_statement": {
+        "value_of_production": "1000", "external_costs": "600", "personnel_costs": "250",
+        "depreciation_and_amortisation": "50", "other_charges_below_ebitda": "20"}}}]}),
+    );
+    let is = &out["value"]["years"][0]["income_statement"];
+    assert_eq!(is["value_added"], "400");
+    assert_eq!(is["ebitda"], "150");
+    assert_eq!(is["operating_profit"], "80");
+    let s = step(&out, "Operating profit from its components (2024)");
+    assert_eq!(
+        s["formula"],
+        "EBITDA 150 − depreciation and amortisation 50 − other charges below EBITDA 20"
+    );
+    // Review of PR 2 (nit): a call with reclassified income statements only states the
+    // definition of EBITDA and which output feeds which method.
+    let conv = conventions(&out);
+    assert!(
+        conv.contains("ebitda_definition: EBITDA (margine operativo lordo"),
+        "{conv}"
+    );
+    assert!(
+        conv.contains("operating_profit feeds `ebit` of dcf.free_cash_flows"),
+        "{conv}"
+    );
+    let e = err(&json!({"years": [{"reclassified": {"income_statement": {
+        "other_charges_below_ebitda": "-1"}}}]}));
+    assert_eq!(e.code(), "FM-E001");
 }
 
 #[test]
@@ -1003,7 +1026,10 @@ fn the_income_statement_defaults_are_listed_and_no_fixed_one() {
                 &format!("{base}/other_revenue_and_income"),
                 "value_of_production"
             ),
-            s(&format!("{base}/other_operating_expenses"), "value_added"),
+            s(
+                &format!("{base}/other_operating_expenses"),
+                "external_costs"
+            ),
             s(
                 &format!("{base}/depreciation_and_write_downs/write_downs_of_receivables"),
                 "investing_result"
@@ -1028,7 +1054,10 @@ fn the_income_statement_defaults_are_listed_and_no_fixed_one() {
                 &format!("{base}/other_revenue_and_income"),
                 "value_of_production"
             ),
-            s(&format!("{base}/other_operating_expenses"), "value_added"),
+            s(
+                &format!("{base}/other_operating_expenses"),
+                "external_costs"
+            ),
         ]
     );
     let b10d = out["value"]["years"][0]["assignments"]
@@ -1038,8 +1067,22 @@ fn the_income_statement_defaults_are_listed_and_no_fixed_one() {
         .find(|a| a["reference"] == "B10 d")
         .unwrap()
         .clone();
-    assert_eq!(b10d["destination"], "operating_profit");
+    assert_eq!(b10d["destination"], "other_charges_below_ebitda");
     assert_eq!(b10d["origin"], "analyst");
+    // Review of PR 2 (nit): a treatment stated by the analyst is the analyst's, also when it
+    // equals the default; the default filled in keeps the origin `mapping`.
+    let origin = |input: &Value| {
+        run(input)["value"]["years"][0]["assignments"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["reference"] == "B10 d")
+            .unwrap()["origin"]
+            .clone()
+    };
+    stated["treatments"] = json!({"write_downs_of_receivables": "investing"});
+    assert_eq!(origin(&stated), "analyst");
+    assert_eq!(origin(&input), "mapping");
 }
 
 // ---------------------------------------------------------------- R6, AC2: not_computed
@@ -1585,7 +1628,7 @@ fn a_lease_restatement_keeps_the_identity_and_shows_its_lines() {
             ("prepayment", "equity"),
             ("equity_effect", "equity"),
             ("payments", "removed_by_restatement"),
-            ("depreciation", "operating_profit"),
+            ("depreciation", "depreciation_and_amortisation"),
             ("interest", "financing_result"),
         ]
     );
@@ -1669,10 +1712,13 @@ fn every_income_statement_aggregate_given_is_assigned_to_its_layer() {
     for (reference, destination, amount) in [
         ("A5", "value_of_production", "50000"),
         ("B9", "ebitda", "1000000"),
-        ("B10 a, b", "operating_profit", "180000"),
+        ("B10 a, b", "depreciation_and_amortisation", "180000"),
+        ("B6", "external_costs", "2200000"),
+        ("B11", "external_costs", "-30000"),
+        ("B12", "other_charges_below_ebitda", "10000"),
         ("B10 c", "investing_result", "20000"),
         ("B10 d", "investing_result", "15000"),
-        ("B14", "value_added", "40000"),
+        ("B14", "external_costs", "40000"),
         ("C15", "investing_result", "12000"),
         ("C17-bis", "financing_result", "-1000"),
         ("D19", "investing_result", "8000"),
@@ -1683,4 +1729,124 @@ fn every_income_statement_aggregate_given_is_assigned_to_its_layer() {
         assert_eq!(a["amount"], amount, "{reference}");
         assert_eq!(a["origin"], "mapping", "{reference}");
     }
+}
+
+/// E6: the non-recurring result is zero, with its convention, when no item is labelled
+/// non-recurring; null and listed when the year gives no income statement.
+#[test]
+fn the_non_recurring_result_is_zero_or_null() {
+    let out = run(&golden_input("ordinary-aggregates"));
+    assert_eq!(
+        out["value"]["years"][0]["income_statement"]["non_recurring_result"],
+        "0"
+    );
+    assert!(conventions(&out).contains("year 2024: no item labelled non-recurring"));
+    let out = run(&golden_input("balance-sheet-ordinary"));
+    let mut input = golden_input("balance-sheet-ordinary");
+    input["years"][0]["statutory"]
+        .as_object_mut()
+        .unwrap()
+        .remove("income_statement");
+    let out_without = run(&input);
+    let y = &out_without["value"]["years"][0];
+    assert!(y["income_statement"]["non_recurring_result"].is_null());
+    let entry = y["not_computed"]["income_statement"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["output"] == "/years/0/income_statement/non_recurring_result")
+        .unwrap();
+    assert_eq!(
+        entry["missing"],
+        json!(["/years/0/statutory/income_statement"])
+    );
+    assert!(!conventions(&out_without).contains("no item labelled non-recurring"));
+    assert!(conventions(&out).contains("no item labelled non-recurring"));
+}
+
+/// Review of PR 2 (blocking 1): B10 c larger than the B10 a to c group it belongs to is
+/// `FM-E026` naming both pointers, never a negative depreciation.
+#[test]
+fn b10_c_larger_than_its_group_is_refused() {
+    let e = err(&golden_input(
+        "reconcile-value-adjustments-of-fixed-assets-of-which",
+    ));
+    assert_eq!(e.code(), "FM-E026");
+    let msg = e.to_string();
+    let b = "/years/0/statutory/income_statement/depreciation_and_write_downs";
+    for part in [
+        format!("{b}/write_downs_of_fixed_assets"),
+        format!("{b}/value_adjustments_of_fixed_assets"),
+    ] {
+        assert!(msg.contains(&part), "{part} not in {msg}");
+    }
+}
+
+/// Review of PR 2 (blocking 2): reconciliation lines name the pointers actually read: the B10
+/// a to c group when B10 c is read as none (with the fix), D18 and D19 when both are read.
+#[test]
+fn reconciliation_lines_name_the_pointers_read() {
+    let out = run(&golden_input("grouped-depreciation"));
+    let r = &out["value"]["years"][0]["income_statement"]["reconciliations"];
+    let b = "/years/0/statutory/income_statement";
+    let c_line = &r["operating_profit"]["lines"][0];
+    assert_eq!(
+        c_line["sources"],
+        json!([format!(
+            "{b}/depreciation_and_write_downs/value_adjustments_of_fixed_assets"
+        )])
+    );
+    assert!(c_line["label"]
+        .as_str()
+        .unwrap()
+        .contains("give the B10 c part (Decision 8)"));
+    let d_line = &r["profit_before_financing_and_taxes"]["lines"][2];
+    assert_eq!(
+        d_line["sources"],
+        json!([
+            format!("{b}/revaluations_of_financial_assets"),
+            format!("{b}/write_downs_of_financial_assets")
+        ])
+    );
+}
+
+/// Review of PR 2 (should fix 4, 5): a lease whose B8 is missing says what is not computed;
+/// the non-operating asset an investing adjustment relates to is reported in its step.
+#[test]
+fn lease_without_b8_and_related_asset_are_reported() {
+    let mut input = golden_input("adjustment-lease");
+    input["years"][0]["statutory"]["income_statement"]
+        .as_object_mut()
+        .unwrap()
+        .remove("use_of_third_party_assets");
+    for k in [
+        "costs_of_production",
+        "difference_between_value_and_costs_of_production",
+        "profit_before_tax",
+    ] {
+        input["years"][0]["statutory"]["income_statement"]
+            .as_object_mut()
+            .unwrap()
+            .remove(k);
+    }
+    let out = run(&input);
+    assert!(
+        conventions(&out).contains(
+            "adjustment 0 'Head office lease' (2024): lease payments not removed from B8: \
+             `/years/0/statutory/income_statement/use_of_third_party_assets` missing; value \
+             added and the layers below are not computed"
+        ),
+        "{}",
+        conventions(&out)
+    );
+    let out = run(&golden_input("adjustment-investing"));
+    let s = step(
+        &out,
+        "Adjustment 0 investing 'Rent of an investment property' (2024): A5 part to \
+         investing_result",
+    );
+    assert!(s["formula"]
+        .as_str()
+        .unwrap()
+        .ends_with("; related non-operating asset: Investment property"));
 }
