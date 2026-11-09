@@ -29,6 +29,14 @@ serde_norway = "0.9"
 # file persistence is disabled per test via config() in crates/fairmark-core/tests/properties.rs.
 proptest = { version = "1.12", default-features = false, features = ["std"] }
 
+# Debug builds keep only line tables: backtraces and panics still show file and line, while
+# target/ is far smaller (issue #297). Use `debug = "full"` locally to step through a debugger.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.test]
+debug = "line-tables-only"
+
 # Mutation testing only (.cargo/mutants.toml): the test profile without debug information,
 # for faster incremental builds of each mutant. Never used for shipped artefacts.
 [profile.mutants]
