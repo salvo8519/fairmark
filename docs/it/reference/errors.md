@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: fcee034fd4c7
+source_hash: 2f9ba8aad80b
 ---
 # Codici di errore
 
@@ -69,32 +69,54 @@ terminale rifiutata, un `principal` rifiutato non nasconde un tasso fuori interv
   `expected` i campi che il suo oggetto accetta e una `fix` che indica il campo ammesso più
   vicino quando la chiave sembra un errore di battitura, senza distinguere maiuscole e
   minuscole (per esempio "rename `wac` to `wacc`"). `reason` `syntax` vale solo per un testo
-  che non è JSON; un valore di tipo diverso per una scelta (`true` per `timing`) è `enum` sul
-  suo campo, con i valori ammessi.
-- **Grammatica dei numeri.** Un decimale è un numero JSON o una stringa conforme al pattern
-  dello schema di input, `^-?\d+(\.\d+)?([eE]\d+)?$`: punto decimale, cifre da entrambi i
-  lati, nessun segno salvo un meno iniziale, nessun separatore delle migliaia e nessun simbolo
-  di valuta. Una stringa fuori dal pattern (`"+0.1"`, `".1"`, `"1."`, `"1_000"`, `"1,000"`) è
-  `type` sul suo campo, in tutti i metodi. Un esponente con segno (`"1e-3"`) non è ancora
-  accettato (issue #266).
+  che non è JSON; un valore di tipo diverso per una scelta (`true` per `timing`, o un oggetto
+  per `formula`) è `enum` sul suo campo, con i valori ammessi. Un campo ha la stessa reason e
+  lo stesso `expected` ovunque si trovi: dentro una tecnica di `tv.compare` come nella tecnica
+  indicata direttamente.
+- **Errori di lettura e controlli del metodo.** Quando l'input non si riesce a leggere, i
+  controlli del metodo vengono eseguiti comunque sui campi letti, e i loro errori sono
+  riportati dopo quelli di lettura: un `"+0.1"` in un tasso non nasconde un'aliquota di -1.
+  Ogni valore rifiutato è sostituito da uno che lo schema accetta solo per eseguire i
+  controlli; un errore che indica un campo rifiutato, o che cambia con il valore messo al suo
+  posto, non viene riportato.
+- **Una voce per condizione.** Un oggetto scritto come array è un solo errore `type`
+  sull'oggetto, senza errori per i suoi elementi. Una condizione incontrata più volte (una
+  crescita costante controllata per ogni periodo) è riportata una volta. Quando il tag di un
+  oggetto è rifiutato (il `kind` di una rettifica di `statements.reorganise`, mancante o
+  sconosciuto), l'errore del tag è l'unica voce di quell'oggetto, con le sue chiavi
+  sconosciute: gli altri campi dipendono dal tipo e non vengono indovinati. Una chiave
+  sconosciuta di un oggetto così riporta in `expected` i campi di tutti i tipi.
+- **Grammatica dei numeri.** Un decimale è un numero JSON o una stringa con la grammatica dei
+  numeri dell'ADR 0014 G7, `^-?\d+(\.\d+)?([eE][+-]?\d+)?$`: punto decimale, cifre da entrambi
+  i lati, un esponente facoltativo con segno facoltativo (`"1E-7"`, `"1e+3"`), nessun altro
+  segno salvo un meno iniziale, nessun separatore delle migliaia e nessun simbolo di valuta.
+  Una stringa fuori dalla grammatica (`"+0.1"`, `".1"`, `"1."`, `"1_000"`, `"1,000"`) è `type`
+  sul suo campo, in tutti i metodi. Il pattern degli schemi di input acquisisce il segno
+  dell'esponente con la issue #266.
 - **Il JSON ambiguo viene rifiutato.** Una chiave indicata due volte nello stesso oggetto
   (`duplicate`, sulla chiave) e un oggetto scritto come array dei suoi valori (`type`,
   sull'array; `""` per un input che è un array) sono rifiutati in tutti i metodi: verrebbero
   letti con l'ultimo valore o per posizione.
 - **Scelte scritte come oggetto con una sola chiave** (`terminal` del DCF, le tecniche di
   `tv.compare`, `growth` e `timeline` di `series.project`): una chiave che non è tra le scelte è
-  `unknown_field` sulla chiave, con le scelte e la più vicina; nessuna chiave, o una seconda
-  chiave, è `length` (sull'oggetto, o sulla seconda chiave).
+  `unknown_field` sulla chiave, con le scelte e la più vicina, anche accanto a una chiave
+  valida; nessuna chiave, o una seconda chiave che è tra le scelte, è `length` (sull'oggetto, o
+  sulla seconda chiave).
 - **Analisi.** I campi dell'analisi e il suo `base_input` sono controllati in un solo
   passaggio: `base_input` è controllato dal metodo che indica, con la sola validazione di quel
   metodo (ogni controllo del suo input, nessun calcolo), e i suoi errori di input sono
   riportati sotto `/base_input`, anche quando l'input dell'analisi stesso non si riesce a
   leggere. Il controllo di `base_input` non aggiunge valutazioni: un'analisi valuta il metodo
   interno solo per i suoi risultati. `analysis.goal_seek` controlla `base_input` con la
-  variabile all'estremo inferiore dell'intervallo, il primo valore che valuta. Una variabile o
-  una modifica che punta a un campo che accetta un numero intero è `FM-E015` sul proprio
-  campo. La dimensione della richiesta (`FM-E016`, un errore di input) è controllata per
-  prima: una richiesta oltre i limiti non valuta nulla.
+  variabile all'estremo inferiore dell'intervallo, il primo valore che valuta, anche quando
+  l'input dell'analisi stesso non si riesce a leggere, così il valore che la variabile
+  sostituisce non viene mai rifiutato. Una variabile o una modifica che punta a un campo che
+  accetta un numero intero è `FM-E015` sul proprio campo. Un metodo sconosciuto (`FM-E007`) è
+  l'unico errore che lo riguarda: le variabili non sono controllate rispetto a esso. La
+  dimensione della richiesta (`FM-E016`, un errore di input) è controllata per prima: una
+  richiesta oltre i limiti non valuta nulla. Gli input che un'analisi costruisce per le sue
+  valutazioni da un `base_input` già controllato sono letti solo da `serde`, senza percorrerli
+  di nuovo secondo lo schema.
 - **Errori del calcolo.** Un errore del calcolo (un overflow, un solver che non converge, un
   difetto) non compare mai accanto agli errori dell'input: quando l'input ha errori, vengono
   riportati quelli; solo un input senza errori arriva al calcolo, il cui primo errore lo

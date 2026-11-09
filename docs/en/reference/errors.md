@@ -62,28 +62,47 @@ hide a refused terminal growth, a refused `principal` does not hide a rate out o
   comes with the fields its object accepts in `expected` and a `fix` that names the closest
   accepted field when the key looks like a typing error, ignoring case (for example "rename
   `wac` to `wacc`"). `reason` `syntax` is given only for a text that is not JSON; a value of
-  the wrong kind for a choice (`true` for `timing`) is `enum` at its field with the values.
-- **Number grammar.** A decimal is a JSON number or a string matching the pattern of the input
-  schema, `^-?\d+(\.\d+)?([eE]\d+)?$`: decimal point, digits on both sides of it, no sign
-  other than a leading minus, no thousands separators and no currency symbols. A string
-  outside it (`"+0.1"`, `".1"`, `"1."`, `"1_000"`, `"1,000"`) is `type` at its field, in every
-  method. A signed exponent (`"1e-3"`) is not accepted yet (issue #266).
+  the wrong kind for a choice (`true` for `timing`, or an object for `formula`) is `enum` at
+  its field with the values. A field has the same reason and `expected` wherever it is: inside
+  a technique of `tv.compare` as in the technique given directly.
+- **Reading errors and the checks of the method.** When the input cannot be read, the checks of
+  the method still run on the fields that were read, and their errors are reported after the
+  reading errors: a `"+0.1"` for one rate does not hide a tax rate of -1. Each refused value is
+  replaced by one its schema accepts only to let the checks run; an error that names a refused
+  field, or that changes with the value put in its place, is not reported.
+- **One entry per condition.** An object given as an array is one `type` error at the object,
+  with no error for its elements. A condition met more than once (a constant growth checked
+  for every period) is reported once. When the tag of an object is refused (the `kind` of an
+  adjustment of `statements.reorganise`, missing or unknown), the tag error is the only entry of
+  that object, with its unknown keys: its other fields depend on the kind and are not guessed.
+  An unknown key of such an object lists in `expected` the fields of every kind.
+- **Number grammar.** A decimal is a JSON number or a string with the number grammar of ADR
+  0014 G7, `^-?\d+(\.\d+)?([eE][+-]?\d+)?$`: decimal point, digits on both sides of it, an
+  optional exponent with an optional sign (`"1E-7"`, `"1e+3"`), no other sign than a leading
+  minus, no thousands separators and no currency symbols. A string outside it (`"+0.1"`,
+  `".1"`, `"1."`, `"1_000"`, `"1,000"`) is `type` at its field, in every method. The pattern of
+  the input schemas gains the sign of the exponent with issue #266.
 - **Ambiguous JSON is refused.** A key given twice in one object (`duplicate`, at the key) and
   an object given as an array of its values (`type`, at the array; `""` for an input that is an
   array) are refused in every method: they would be read with the last value or by position.
 - **Choices written as an object with one key** (`terminal` of the DCF, the techniques of
   `tv.compare`, `growth` and `timeline` of `series.project`): a key that is not one of the
-  choices is `unknown_field` at the key, with the choices and the closest one; no key, or a
-  second key, is `length` (at the object, or at the second key).
+  choices is `unknown_field` at the key, with the choices and the closest one, also next to a
+  valid key; no key, or a second key that is one of the choices, is `length` (at the object, or
+  at the second key).
 - **Analyses.** The fields of the analysis and its `base_input` are checked in one pass:
   `base_input` is checked by the method it names, through the validation alone of that method
   (every check of its input, nothing computed), and its input errors are reported under
   `/base_input`, also when the analysis input itself cannot be read. Checking `base_input`
   adds no evaluation: an analysis evaluates the inner method only for its results.
   `analysis.goal_seek` checks `base_input` with the variable set at the low end of the
-  bracket, the first value it evaluates. A variable or an override that points to a field
-  taking a whole number is `FM-E015` at its own field. The size of the request (`FM-E016`, an
-  input error) is checked first: a request over the limits evaluates nothing.
+  bracket, the first value it evaluates, also when the analysis input itself cannot be read, so
+  the value the variable replaces is never refused. A variable or an override that points to a
+  field taking a whole number is `FM-E015` at its own field. An unknown method (`FM-E007`) is
+  the only error about it: the variables are not checked against it. The size of the request
+  (`FM-E016`, an input error) is checked first: a request over the limits evaluates nothing.
+  The inputs an analysis builds for its evaluations from a checked `base_input` are read by
+  `serde` alone, not walked against the schema again.
 - **Computation errors.** An error of the computation (an overflow, a solver that does not
   converge, a defect) is never listed next to input errors: when the input has errors, they
   are reported; only an input without errors reaches the computation, whose first error stops

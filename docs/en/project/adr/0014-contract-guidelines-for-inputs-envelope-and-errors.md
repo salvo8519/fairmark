@@ -174,9 +174,13 @@ with `missing_any_of` for `FM-E027` and `errors` at the top level:
   trait: every input check, nothing computed), so checking it adds no evaluation. Reading the
   input reports the first field `serde` cannot read as `serde` reports it (ADR 0013), then
   every other wrong type, missing field and unknown enumeration value, each as `serde` would
-  report it alone; a decimal string outside the pattern of the schema is a wrong type. The
+  report it alone; a decimal string outside the number grammar of G7 is a wrong type. The
   input is also walked against the method's schema, and every unknown key, every key repeated
-  in an object and every object given as a positional array is reported. A
+  in an object and every object given as a positional array is reported. The method's own
+  checks still run on the fields that were read, with each refused value replaced only to let
+  them run; an error that names a refused field or depends on the replacing value is dropped.
+  One condition is one entry: an object given as an array is one error at the object, a
+  condition met again is not repeated, and a refused tag is the only entry of its object. A
   repeated key and a positional array are refused in every method, never read with the last
   value or by position. An error of the computation (an overflow, a solver that does not
   converge, a defect) never sits in `errors` next to input errors: it is reached only by an
