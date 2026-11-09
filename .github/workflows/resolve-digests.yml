@@ -1,0 +1,33 @@
+name: Resolve image digests
+
+# Temporary (issue 239): prints the digests of the images that build and smoke-test the
+# release wheels, so that they can be pinned in release.yml. Removed before review.
+on:
+  pull_request:
+    paths:
+      - .github/workflows/resolve-digests.yml
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Resolve digests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Inspect images
+        run: |
+          set -euo pipefail
+          for image in \
+            quay.io/pypa/manylinux2014_x86_64:latest \
+            quay.io/pypa/manylinux2014_aarch64:latest \
+            ghcr.io/rust-cross/rust-musl-cross:x86_64-musl \
+            ghcr.io/rust-cross/rust-musl-cross:aarch64-musl \
+            docker.io/library/python:3.10-alpine \
+            docker.io/library/python:3.13-alpine; do
+            echo "::group::$image"
+            docker buildx imagetools inspect "$image"
+            echo "MANIFEST_JSON $image $(docker buildx imagetools inspect "$image" --format '{{json .Manifest}}')"
+            echo "::endgroup::"
+          done
