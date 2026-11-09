@@ -29,8 +29,10 @@ Delegate instead of doing everything in the main context:
 | `translator` | Updating the Italian edition from the English source, with the glossary |
 
 Standard loop: `spec-writer` → (maintainer approves) → `test-engineer` → `core-engineer` →
-`code-reviewer` (+ `numerical-auditor` when numbers changed, + `security-reviewer` when
-dependencies or workflows changed) → `docs-writer` → PR.
+review by tier → `docs-writer` → PR. Reviews and audits follow "Effort proportional to risk" in
+AGENTS.md: small pull requests need no review subagent, substantial ones one `code-reviewer`
+pass, numerical changes add `numerical-auditor`; the scheduled audit of `main` runs weekly and
+at the end of each milestone. At most three agents in parallel.
 
 ### Skills (`.claude/skills/`, generated from `.agents/skills/`)
 `/spec-new`, `/implement-spec`, `/add-method`, `/golden-case`, `/adr-new`, `/pre-pr`,

@@ -178,7 +178,32 @@ Install [`uv`](https://docs.astral.sh/uv/) and Rust stable. `just` is installed 
 ## Review standards (what reviewers and CI check)
 Every finding of a review or an audit (blocking, should fix and nit) is fixed in the same pull
 request. A follow-up issue is opened only for new scope, and only with the maintainer's
-approval; a defect is never deferred.
+approval; a defect is never deferred. A change that alters computed results goes through the
+numerical-change path (its own issue, spec, version bump and audit), which is not a deferral.
+
+### Effort proportional to risk
+Reviews and audits are expensive. Their cost is paid in the project's agent budget, so effort
+follows risk. Classify every pull request before work starts and state the tier in its body.
+
+| Tier | Pull requests | Gate before merge |
+| --- | --- | --- |
+| Small | Documentation, roadmap, tooling, CI configuration, and fixes that change no computed number, contract, schema or error code | `uv run just check`, green CI, and the orchestrator reads the diff. No review subagent. |
+| Substantial | Method logic, contracts (input and output schemas, envelope, errors), adapters | One `code-reviewer` pass on the whole branch. `security-reviewer` only when dependencies, workflows or permissions change. |
+| Numerical change | Results or golden cases change, a method version is bumped | `code-reviewer` and `numerical-auditor`, before merge. |
+
+- **One review round.** Every finding is fixed; the orchestrator checks each fix against the
+  list of findings. A second review pass is run only when the first found a blocking defect in
+  logic, never for nits or wording.
+- **Scheduled audit.** The `numerical-auditor` audits `main` once a week and at the end of every
+  milestone: all golden cases against an independent reference, plus a seeded random sample.
+  It does not run on each pull request, except for the numerical-change tier.
+- **Test first where it pays.** Acceptance criteria of a spec, golden cases and bug fixes (a
+  failing test that reproduces the bug comes first). Documentation, tooling and refactors
+  already covered by tests do not need new tests written first.
+- **Agent budget.** At most three agents run in parallel. Each brief is self-contained and names
+  the files to read; agents do not explore the repository at large. No subagent for a task the
+  orchestrator can finish in a few steps. Resume a stopped agent instead of starting a new one.
+  Plan work in branches of meaningful size rather than many small rounds.
 
 See `.agents/agents/code-reviewer.md` and `.agents/agents/numerical-auditor.md`. In short:
 constitution compliance, decimal-only arithmetic, explain completeness, schema docs, golden

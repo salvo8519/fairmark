@@ -33,9 +33,11 @@ To run local checks on a pull request, fetch it into a worktree, never into the 
 Remove the worktree when done.
 
 ## 3. Judgement (only for pull requests that pass step 2 or are close)
-Delegate to `code-reviewer` (diff against AGENTS.md, the constitution and the spec); add
-`numerical-auditor` when numbers or golden cases change and `security-reviewer` when
-dependencies or workflows change. Bot pull requests (Dependabot) need only `security-reviewer`
+Follow the tiers in "Effort proportional to risk" (AGENTS.md): read small pull requests
+yourself; delegate substantial ones to `code-reviewer` (diff against AGENTS.md, the
+constitution and the spec); add `numerical-auditor` only for the numerical-change tier and
+`security-reviewer` when dependencies or workflows change. Do not repeat a review already
+recorded on the pull request for the same head. Bot pull requests (Dependabot) need only `security-reviewer`
 for major versions and the release notes of the dependency.
 
 ## 4. Comments
