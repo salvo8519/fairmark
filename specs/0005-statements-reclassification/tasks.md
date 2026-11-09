@@ -119,14 +119,14 @@ request where every output they assert exists (`plan.md`, "Test strategy").
 - [x] T27a Review round 1 (2026-11-09): E1, E2, E4 to E7; B10 c larger than its group is
   `FM-E026`; pointers of the items read; lease convention when B8 is missing;
   `related_non_operating_asset` reported; sources; reference and golden cases updated
-- [ ] T27b E3 (default `operating` for B10 d) and audit F1 (input default listed only when B10 d
+- [x] T27b E3 (default `operating` for B10 d) and audit F1 (input default listed only when B10 d
   is given), under the approval of 2026-11-09 for 18 named golden files on main; P1 (B10 c
   operating by default), P3 (lease liability in gross debt), P4 and P5 (documentation)
-- [ ] T27c P2 (income and costs follow the classification of the related balance sheet item), as
+- [x] T27c P2 (income and costs follow the classification of the related balance sheet item), as
   approved on 2026-11-09: C15 to `income_from_operating_investments` when B.III is `operating`;
   `interest_cost` on `debt_like_provision` of the employee severance indemnity; computability
   table of the income statement in spec.md
-- [ ] T27d Round 2 of 2026-11-09: A1 (AC11 rewritten), A2 (reclassified
+- [x] T27d Round 2 of 2026-11-09: A1 (AC11 rewritten), A2 (reclassified
   `income_from_operating_investments`), A3 (C15 waits only when given and not zero), A4 (write-down
   treatment defaults listed whenever a statutory year gives an income statement, golden approval
   for the files on main that give one, `expect_meta` only); corrections D1-IS (B10 c derived from
