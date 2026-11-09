@@ -90,36 +90,44 @@ request where every output they assert exists (`plan.md`, "Test strategy").
 ## PR 2: income statement (closes #236; part of #36)
 
 ### Tests (write first, they must fail)
-- [ ] T20 Reference: A.2, B.2, income statement adjustments, the `lease` double entry (R21),
+- [x] T20 Reference: A.2, B.2, income statement adjustments, the `lease` double entry (R21),
   reconciliations (R19) and the reclassified income statement added to
   `scripts/reference_statements.py` [R16 to R21]
-- [ ] T21 [P] Golden cases: `ordinary-aggregates.yaml` and `abridged-aggregates.yaml` (AC1),
+- [x] T21 [P] Golden cases: `ordinary-aggregates.yaml` and `abridged-aggregates.yaml` (AC1),
   `few-totals.yaml` (AC2), income statement relations with not-checked twins (AC4), one file per
   kind `investing`, `non_recurring`, `lease` (AC7), layer cases (AC10), `write-downs.yaml` and
   `write-downs-operating.yaml`, error `non_recurring` on D19 (AC11), `lease-restatement.yaml`
   (AC12); source: T20
-- [ ] T22 [P] Contract tests: `operating_profit` and `depreciation_and_amortisation` accepted as
+- [x] T22 [P] Contract tests: `operating_profit` and `depreciation_and_amortisation` accepted as
   `FreeCashFlowLines` fields; `revenue`, `ebitda`, `net_income`, `purchases`,
   `invested_capital` accepted by the `ratios.*` groups; no `cost_of_sales` (AC9, R20)
 
 ### Implementation
-- [ ] T23 `statements/income_statement.rs`: assignments of A.2, layers of B.2, write-downs and the
+- [x] T23 `statements/income_statement.rs` (R19 identities as internal invariants, `FM-E012`;
+  plan step 6): assignments of A.2, layers of B.2, write-downs and the
   `operating` option, A5 and B14 core, `ebitda_definition`, reconciliations with A − B, checks
   of profit before tax and net income [R16 to R20]
-- [ ] T24 Adjustments `investing` and `non_recurring` (D18 and D19 refused); `lease` on both
+- [x] T24 Adjustments `investing` and `non_recurring` (D18 and D19 refused); `lease` on both
   statements with its equity effect; removal of the PR 1 refusal [R18, R21]
-- [ ] T25 Reclassified form for the income statement [R5]
-- [ ] T26 Property tests AC10; unit tests AC11 and AC13 for the income statement, including the
+- [x] T25 Reclassified form for the income statement [R5]
+- [x] T26 Property tests AC10; unit tests AC11 and AC13 for the income statement, including the
   `default` destinations of A5, B14 and B10 d in `meta.defaults_applied`; exhaustiveness
   of `not_computed` for `few-totals.yaml`
 - [ ] T27 `uv run just generate`; `schemas/statements.reorganise/v1.json` changed only by the two
-  additive fields deferred by D4 (`external_costs`, `other_charges_below_ebitda`)
+  additive fields deferred by D4 (`external_costs`, `other_charges_below_ebitda`), defined by E1
+  and E2 of 2026-11-09
+- [ ] T27a Review round 1 (2026-11-09): E1, E2, E4 to E7; B10 c larger than its group is
+  `FM-E026`; pointers of the items read; lease convention when B8 is missing;
+  `related_non_operating_asset` reported; sources; reference and golden cases updated
+- [ ] T27b E3 (default `operating` for B10 d) and audit F1 (input default listed only when B10 d
+  is given): wait for the maintainer to extend the approval to the 18 golden cases on main that
+  list the default
 
 ### Adapters and docs
-- [ ] T28 [P] `python/tests/test_reference_statements.py` extended to income statements
-- [ ] T29 [P] Methodology page: A.2, B.2, write-down rule, R20 table "which output feeds which
+- [x] T28 [P] `python/tests/test_reference_statements.py` extended to income statements
+- [x] T29 [P] Methodology page: A.2, B.2, write-down rule, R20 table "which output feeds which
   method"
-- [ ] T30 [P] Glossary terms of the income statement; Italian edition by `translator`; release
+- [x] T30 [P] Glossary terms of the income statement; Italian edition by `translator`; release
   note for #236
 
 ### Verification

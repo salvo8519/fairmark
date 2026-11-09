@@ -87,6 +87,38 @@ Approved by the maintainer on 2026-11-08.
     presented within C.II or D counts as given for the relations of R7: only item A (D1) and
     the "of which" parts not given (D2) exempt a relation from the check.
 
+- **Amendments of 2026-11-09 (maintainer decisions E1 to E7, after the code review and the
+  numerical audit of the second pull request).** Approved by the maintainer on 2026-11-09:
+  - **E1, `external_costs`.** `external_costs` = B6 + B7 + B8 + B11 + B14, each net of the parts
+    moved by adjustments (B8 also net of lease payments); signed. `value_added` =
+    `value_of_production` − `external_costs`. An additive field of the reclassified income
+    statement of version 1 (D4), returned for statutory years too (R5).
+  - **E2, `other_charges_below_ebitda`.** `other_charges_below_ebitda` = B12 + B13 (+ B10 d when
+    it is operating), each net of moved parts. `operating_profit` = `ebitda` −
+    `depreciation_and_amortisation` − `other_charges_below_ebitda`. Lease depreciation stays in
+    `depreciation_and_amortisation`. Additive field as E1.
+  - **E3, B10 d default.** The default of `write_downs_of_receivables` becomes `operating` (B10 d
+    below EBITDA, in `other_charges_below_ebitda`), aligned with IFRS 18 (impairment of trade
+    receivables is operating, V32), bank practice and Borsa Italiana, *Guida alla Valutazione*;
+    `investing` stays selectable. D18, D19 and B10 c stay in the investing result by default.
+    Decision 17 and R17 are amended accordingly. Implementation note: the default is listed in
+    `meta.defaults_applied` of 18 golden cases already on main; changing it needs the
+    maintainer to extend the approval to those cases (AGENTS.md), so E3 is applied once that
+    extension is given.
+  - **E4, R19 with leases.** Profit before tax and net income equal the statutory amounts exactly
+    except for the lease difference (payments − depreciation − interest), shown as lines of the
+    reconciliations.
+  - **E5, core amounts.** Outputs named after a statutory item (`revenue`, `purchases`,
+    `materials_consumed`, `personnel_costs`, `depreciation_and_amortisation`,
+    `interest_and_other_financial_charges`) are core amounts, net of the parts moved by
+    adjustments; stated as a convention (`purchases` feeds days payable in
+    `ratios.working_capital`).
+  - **E6, `non_recurring_result`.** Zero, with the convention "no item labelled non-recurring for
+    year X", when no `non_recurring` adjustment applies to a year that gives an income statement;
+    null, listed in `not_computed`, when the year gives no income statement.
+  - **E7, exchange losses.** A non-recurring exchange loss (C17-bis) cannot be expressed in
+    version 1: a documented limitation, followed by issue #251.
+
 ## Analysis
 
 ### What is on main today
@@ -296,7 +328,8 @@ IRAP (SPEC-0003); ratios and margins (SPEC-0007).
   `profit_before_financing_and_taxes` exclude the labelled non-recurring items; with none given
   they have the content of the IFRS 18 subtotals. IFRS 18 applies to IFRS preparers and art. 2425
   to OIC preparers; the reorganisation maps both to these subtotals.
-- **R17** — Write-downs and revaluations SHALL be extra-characteristic (Decision 17), reported in
+- **R17** — (Amended by E3 of 2026-11-09: for B10 d the default is `operating`, `investing` the
+  option.) Write-downs and revaluations SHALL be extra-characteristic (Decision 17), reported in
   `explain.conventions`: D18 and D19 (financial assets), B10 c (fixed assets) and B10 d (current
   receivables and cash) SHALL be in `investing_result`, below `operating_profit` and above
   `profit_before_financing_and_taxes`, and no adjustment may move D18 or D19. For B10 d only, an
@@ -309,7 +342,10 @@ IRAP (SPEC-0003); ratios and margins (SPEC-0007).
   adjustments SHALL move labelled parts out of them, and `non_recurring` adjustments out of any
   aggregate except D18 and D19 (Decision 7). EBITDA SHALL be value added − personnel costs, with
   B10, B12 and B13 below it, reported in words usable as `ebitda_definition` in SPEC-0007.
-- **R19** — THE ENGINE SHALL NOT compute IRES, IRAP, deferred taxes or NOPAT. Profit before tax
+- **R19** — (E4 of 2026-11-09: with a `lease` adjustment, profit before tax and net income differ
+  from the statutory amounts by payments − depreciation − interest, shown as reconciliation
+  lines; the identities are internal invariants, `FM-E012` on a difference.) THE ENGINE SHALL
+  NOT compute IRES, IRAP, deferred taxes or NOPAT. Profit before tax
   SHALL equal the statutory A − B ± C ± D and net income item 21, exactly, when given; THE
   ENGINE SHALL return the reconciliation of `operating_profit` and of
   `profit_before_financing_and_taxes` with A − B, listing every amount moved.
@@ -436,7 +472,9 @@ Every golden case compares exactly (tolerance 0).
   current and non-current parts, `non_operating_assets`, `debt_like_items`, `quasi_equity_items`,
   `current_non_current`, the reconciliations, the assignments and adjustments applied, and
   `not_computed`; once, `changes` per pair of consecutive entries.
-- **Schema changes:** additive: one new method, `schemas/statements.reorganise/v1.json`, one entry
+- **Schema changes:** (E1, E2 of 2026-11-09: the second pull request adds `external_costs` and
+  `other_charges_below_ebitda` to the reclassified income statement, as defined there.) Additive:
+  one new method, `schemas/statements.reorganise/v1.json`, one entry
   in `schemas/index.json`. No existing method, golden case or number changes. Under D4 the
   second pull request adds `external_costs` and `other_charges_below_ebitda` to the reclassified
   income statement of version 1, an additive change before the first release.
@@ -559,7 +597,9 @@ approved directly.
 14. Subscribed capital unpaid deducted from equity; dividends declared by adjustment.
 15. Bridge items at carrying amount with `MeasurementBasis`.
 16. Golden sources: reference script, published examples, anonymised practitioner cases.
-17. Write-downs and revaluations (decided by the maintainer on 2026-11-08): they are
+17. (Amended by E3 of 2026-11-09: the default of B10 d is `operating`, below EBITDA; `investing`
+    stays selectable; D18, D19 and B10 c are unchanged.) Write-downs and revaluations (decided
+    by the maintainer on 2026-11-08): they are
     extra-characteristic, not operating. D18 and D19 (financial assets), B10 c (fixed assets)
     and B10 d (current receivables) go to the investing (extra-characteristic) area by default,
     below `operating_profit` and above `profit_before_financing_and_taxes`. Reasoning: a
@@ -646,9 +686,13 @@ when given and not zero. "NFP": component of the net financial position.
 
 ### B.2 Income statement
 - `value_of_production` = A1 + A2 + A3 + A4 + A5 (core).
-- `value_added` = `value_of_production` − (B6 + B11 + B7 + B8 + B14 (core)) (signed).
+- `external_costs` = B6 + B7 + B8 + B11 + B14, each core (net of moved parts; B8 also net of lease
+  payments) (signed) (E1).
+- `value_added` = `value_of_production` − `external_costs` (signed).
 - `ebitda` = `value_added` − B9 (signed).
-- `operating_profit` = `ebitda` − `depreciation_and_amortisation` − B12 − B13 (− B10 d with the
+- `other_charges_below_ebitda` = B12 + B13 (+ B10 d when operating), each core (E2).
+- `operating_profit` = `ebitda` − `depreciation_and_amortisation` − `other_charges_below_ebitda`,
+  that is − B12 − B13 (− B10 d with the
   treatment `operating`) (signed).
 - `investing_result` = A5 (investing) − B14 (investing) + C15 + C16 + D18 − D19 − B10 c − B10 d
   (unless `operating`) (signed).
