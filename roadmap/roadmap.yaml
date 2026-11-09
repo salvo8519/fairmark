@@ -272,7 +272,7 @@ milestones:
           - { issue: 258, title: "Structured error report with pointer, reason, expected and fix", status: open }
           - { issue: 259, title: "One envelope: diagnostics block and envelope version", status: open }
           - { issue: 260, title: "Output versioning rule and version pin", status: open }
-          - { issue: 261, title: "DCF: equity value not computed without a net financial position", status: open }
+          - { issue: 261, title: "DCF: report the net financial position default and warn", status: open }
           - { issue: 262, title: "Ratios computed from partial input", status: open }
           - { issue: 263, title: "Statements v2 contract: dated years, amounts unit, simpler input", status: open }
           - { issue: 264, title: "Tool definitions: enum descriptions, examples, compact schemas", status: open }

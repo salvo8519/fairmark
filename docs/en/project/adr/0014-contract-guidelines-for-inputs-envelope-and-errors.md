@@ -8,7 +8,8 @@ and correct their input from the error. The contract audit of 2026-11-09 (issue 
 that each method answers the same questions in its own way:
 
 - **Missing data.** `dcf.fcff` takes an absent net financial position as zero and returns an
-  equity value equal to the enterprise value, with nothing in `meta.defaults_applied`.
+  equity value equal to the enterprise value, but reports it only as a convention, not in
+  `meta.defaults_applied`.
   `statements.reorganise` never takes a missing input as zero. The ratios require every
   amount, so an agent that lacks one tends to invent it.
 - **What the result does not contain.** Only `statements.reorganise` lists outputs not
@@ -38,7 +39,7 @@ deprecation. Three options were considered:
    the inconsistencies would ship in v0.1 and each later fix would be a deprecation.
 2. **Guidelines plus one batched version bump per affected method before v0.1.** Chosen.
 3. **Guidelines for new specs only**, existing methods unchanged. Rejected: agents would
-   have to learn two contracts, and the `dcf.fcff` equity value would remain misleading.
+   have to learn two contracts, and the `dcf.fcff` default would stay unreported.
 
 ## Decision
 The guidelines G1 to G9 below are the contract of every method. Every new spec applies them;
@@ -52,10 +53,12 @@ and the diagnostics are produced in the core, so adapters still only translate (
    the v0.1 release, with one version bump per method: `statements.reorganise` v2,
    `dcf.fcff` v4, `dcf.fcfe` v2, `dcf.free_cash_flows` v3, and v2 of each `ratios.*` method
    whose input or output changes shape (the list is fixed by the implementing spec).
-2. **No equity value without a net financial position.** In `dcf.fcff`, when
-   `net_financial_position` is absent the equity value and the bridge's equity value are
-   `null` and listed in `diagnostics.not_computed`. A company with no debt and no cash states
-   it explicitly with zero amounts.
+2. **Equity value from the enterprise value when no net financial position is given.** The
+   DCF is always computed (best effort). In `dcf.fcff`, an absent `net_financial_position` is
+   a documented default of zero: the schema states it, `meta.defaults_applied` lists it, and
+   `diagnostics.warnings` says that the equity value equals the enterprise value because no
+   net financial position was given. A net financial position given as zero is a true zero
+   and carries no warning.
 3. **Dated years.** A multi-year `statements.reorganise` input requires a closing `date` for
    each year; the engine sorts the years by date and reports the order in
    `explain.conventions`. Amounts that refer to years are keyed by date or id, not by
@@ -73,8 +76,11 @@ Each spec states a minimal input and a maximal input, and the schema carries bot
 `examples`. A field is required only when the method cannot produce any output without it.
 
 ### G2. Best effort
-A method computes every output its inputs allow. An output it cannot compute is `null` and
-has an entry in `diagnostics.not_computed`. Missing data is never an error and never a zero.
+A method computes every output its inputs allow. Where practice accepts a default for a
+missing input, the method applies it as a documented default (G3) and computes the output;
+where the result rests on that default in a way the reader could miss, it also adds a
+warning. Only where no accepted default exists is the output `null`, with an entry in
+`diagnostics.not_computed`. Missing data is never an error and never a silent zero.
 An error is raised only for an input that is present and invalid, or for a choice that the
 method cannot make for the analyst and without which no output can be computed.
 
@@ -83,8 +89,8 @@ Absent and `null` mean "not given", in every method and every field. `[]` means 
 means zero. A defaulted field given as `null` takes its default. A default exists only when
 the field description and the schema `default` keyword state it (the keyword is the real
 default or is absent), and every default applied is listed in `meta.defaults_applied` as
-`{pointer, value, reason}`, which replaces the current `field` key. An absent input never
-enters a total as zero.
+`{pointer, value, reason}`, which replaces the current `field` key. An absent input enters a
+total as zero only as such a documented and reported default.
 
 ### G4. One envelope
 Every method returns:
@@ -163,14 +169,13 @@ follow-up specs and to the maintainer.
 ## Consequences
 + An agent learns one contract: where a result says what it does not contain and why, which
   defaults were applied, and which field to correct, without parsing English.
-+ No misleading number: an equity value is never computed on a net financial position that
-  was not given.
++ No hidden assumption: an equity value computed without a net financial position says so in
+  `meta.defaults_applied` and in a warning.
 + Statements copied from a filing in its printed order are valued correctly.
 + The breaking changes cost nothing to users, because no contract has been released.
 − Five or more method versions and their schemas are added in one batch, and every adapter
   changes its result and error decoding at once.
-− Golden cases of `dcf.fcff` that omit the net financial position, and any golden case whose
-  expected output changes shape, are protected: the approval of each version bump must name
+− Golden cases whose expected output changes shape are protected: the approval of each version bump must name
   the cases it covers before they are added or changed.
 − Run-time validation of `kind` fields replaces part of what `oneOf` expressed in the schema,
   so the core carries more validation code and tests.
