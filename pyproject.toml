@@ -50,7 +50,11 @@ dev = [
 ]
 # Independent oracles for cross-checking results in tests only (never shipped to users).
 oracles = [
-  "pyxirr>=0.10",
+  # pyxirr publishes no Windows wheel for Python 3.15 and cannot be built there from source
+  # (PyO3 0.25 stops at 3.14, and its code is not abi3-compatible). Until it does, the
+  # Windows 3.15 job runs without it; test_cross_check.py is skipped there and runs on every
+  # other platform and version (#295).
+  "pyxirr>=0.10; sys_platform != 'win32' or python_version < '3.15'",
   "numpy-financial>=1.0",
   # Schedule oracles of SPEC-0010. QuantLib is pinned exactly: its end-of-month behaviour has
   # changed across releases, and the golden files record the version they were checked with.
