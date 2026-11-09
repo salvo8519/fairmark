@@ -1,0 +1,161 @@
+{
+  "$defs": {
+    "Date": {
+      "description": "Calendar date, ISO 8601 YYYY-MM-DD, from 1900-01-01 to 2199-12-31.",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "type": "string"
+    },
+    "DatedCashFlow": {
+      "additionalProperties": false,
+      "description": "An amount paid or received on a date.",
+      "properties": {
+        "amount": {
+          "description": "Amount in currency units; negative for payments, positive for receipts.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "date": {
+          "$ref": "#/$defs/Date",
+          "description": "Date of the flow (ISO 8601)."
+        }
+      },
+      "required": [
+        "date",
+        "amount"
+      ],
+      "type": "object"
+    },
+    "ProjectedPeriod": {
+      "description": "One projected period (R16).",
+      "properties": {
+        "effective_annual_growth": {
+          "description": "The annual growth implied by `growth_per_period`, (1 + g)^m − 1 with m periods a year;\nonly when the months per period divide 12.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "end_date": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Date"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "End date of the period, the first day of the next period, excluded from it (`schedule`\ntimeline only)."
+        },
+        "growth_per_period": {
+          "description": "The growth per period applied into this period, after conversion; absent for period 1\nunder `period_1`.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "period": {
+          "description": "Period number, from 1.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "start_date": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Date"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Start date of the period, included in it (`schedule` timeline only)."
+        },
+        "stated_growth": {
+          "description": "The growth rate of the rule for the step into this period, as stated (before\nconversion); absent for period 1 under `period_1`.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value": {
+          "description": "The value of the period, in the units of the base value.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "year_fraction": {
+          "description": "Year fraction of the period under the schedule's day count (`schedule` timeline with a\nday count only).",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "period",
+        "value"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:series.project:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `series.project`.",
+  "properties": {
+    "dated_values": {
+      "description": "With a `schedule` timeline: one `{date, amount}` per period, dated by `timing`, the shape\nof `cash_flows` in `tvm.xnpv` and `tvm.xirr`.",
+      "items": {
+        "$ref": "#/$defs/DatedCashFlow"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "months_per_period": {
+      "description": "Months per period, when the timeline has a period length.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "periods": {
+      "description": "One row per period.",
+      "items": {
+        "$ref": "#/$defs/ProjectedPeriod"
+      },
+      "type": "array"
+    },
+    "periods_per_year": {
+      "description": "Periods a year, when the months per period divide 12.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "values": {
+      "description": "The values of periods 1 to n, the shape of `cash_flows` in `tvm.present_value`.",
+      "items": {
+        "pattern": "^-?\\d+(\\.\\d+)?$",
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "periods",
+    "values"
+  ],
+  "title": "ProjectOutput",
+  "type": "object",
+  "x-fairmark-method": "series.project",
+  "x-fairmark-method-version": "1"
+}

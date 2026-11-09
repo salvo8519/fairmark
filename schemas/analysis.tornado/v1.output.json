@@ -1,0 +1,106 @@
+{
+  "$defs": {
+    "InnerMethod": {
+      "description": "The method an analysis evaluated, at the version actually run.",
+      "properties": {
+        "id": {
+          "description": "Method id, for example `dcf.fcff`.",
+          "type": "string"
+        },
+        "version": {
+          "description": "Method version run by this engine.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "version"
+      ],
+      "type": "object"
+    },
+    "TornadoBar": {
+      "description": "One bar of the tornado.",
+      "properties": {
+        "abs_swing": {
+          "description": "`|swing|`, the length of the bar and the ranking key.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "high": {
+          "description": "High value of the input.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "low": {
+          "description": "Low value of the input.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "output_high": {
+          "description": "The output with the input at `high`, in the output's units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "output_low": {
+          "description": "The output with the input at `low`, in the output's units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "swing": {
+          "description": "`output_high − output_low`: negative when the output falls as the input rises.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "variable": {
+          "description": "The input varied.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "variable",
+        "low",
+        "high",
+        "output_low",
+        "output_high",
+        "swing",
+        "abs_swing"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:analysis.tornado:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `analysis.tornado`.",
+  "properties": {
+    "base": {
+      "description": "The output for `base_input` unchanged, in the output's units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "inner_method": {
+      "$ref": "#/$defs/InnerMethod",
+      "description": "The method evaluated, at the version run."
+    },
+    "output": {
+      "description": "The output ranked.",
+      "type": "string"
+    },
+    "ranking": {
+      "description": "The bars by decreasing `abs_swing`; equal swings keep the order of `variables`.",
+      "items": {
+        "$ref": "#/$defs/TornadoBar"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "inner_method",
+    "output",
+    "base",
+    "ranking"
+  ],
+  "title": "TornadoOutput",
+  "type": "object",
+  "x-fairmark-method": "analysis.tornado",
+  "x-fairmark-method-version": "1"
+}

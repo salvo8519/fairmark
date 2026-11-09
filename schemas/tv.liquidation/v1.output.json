@@ -1,0 +1,65 @@
+{
+  "$defs": {
+    "TerminalBasis": {
+      "description": "Whether a terminal value is a value of the whole business or of its equity.",
+      "oneOf": [
+        {
+          "const": "enterprise",
+          "description": "Enterprise value: flows to all capital providers (FCFF), discounted at the WACC;\nmultiples EV/EBITDA, EV/EBIT, EV/Sales.",
+          "type": "string"
+        },
+        {
+          "const": "equity",
+          "description": "Equity value: flows to shareholders (FCFE, dividends), discounted at the cost of\nequity; multiple P/E.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:fairmark:schema:tv.liquidation:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `tv.liquidation`.",
+  "properties": {
+    "basis": {
+      "$ref": "#/$defs/TerminalBasis",
+      "description": "`enterprise` or `equity`, as declared."
+    },
+    "tax_on_gains": {
+      "description": "Tax on gains, in currency units, as given.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "terminal_value": {
+      "description": "Net liquidation value at N, not discounted, in currency units; negative when the\nliabilities and costs exceed the realisable values.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "total_assets": {
+      "description": "Sum of the realisable values of the assets, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "total_liabilities": {
+      "description": "Sum of the liabilities, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "total_liquidation_costs": {
+      "description": "Sum of the liquidation costs, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "terminal_value",
+    "total_assets",
+    "total_liabilities",
+    "total_liquidation_costs",
+    "tax_on_gains",
+    "basis"
+  ],
+  "title": "LiquidationOutput",
+  "type": "object",
+  "x-fairmark-method": "tv.liquidation",
+  "x-fairmark-method-version": "1"
+}

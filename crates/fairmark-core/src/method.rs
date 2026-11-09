@@ -30,7 +30,7 @@ pub trait Method {
     /// (defaults applied, field order fixed), so equivalent requests hash identically.
     type Input: DeserializeOwned + Serialize + JsonSchema;
     /// Output: the `value` of the result envelope.
-    type Output: Serialize;
+    type Output: Serialize + JsonSchema;
 
     /// The calculation, with its audit trail.
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)>;

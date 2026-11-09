@@ -44,13 +44,15 @@ logger = logging.getLogger("fairmark.mcp")
 
 
 async def list_tools(*, areas: Iterable[str] | None = None, compact: bool = False) -> list[Any]:
-    """One MCP tool per method, with its status in `_meta` (`fairmark/status`, ADR 0012).
+    """One MCP tool per method, with its status and version in `_meta`: `fairmark/status`
+    (ADR 0012) and `fairmark/method_version` (ADR 0014 G8). A client compares the version with
+    `meta.method_version` of each result to notice that the method changed.
 
     ``areas`` and ``compact`` are passed to ``fairmark.tools.definitions``.
     """
     from mcp import types
 
-    status = {tools.tool_name(m["id"]): m["status"] for m in methods()}
+    catalogue = {tools.tool_name(m["id"]): m for m in methods()}
     return [
         types.Tool(
             name=d["name"],
@@ -59,7 +61,10 @@ async def list_tools(*, areas: Iterable[str] | None = None, compact: bool = Fals
             annotations=types.ToolAnnotations(
                 read_only_hint=True, idempotent_hint=True, open_world_hint=False
             ),
-            _meta={"fairmark/status": status[d["name"]]},
+            _meta={
+                "fairmark/status": catalogue[d["name"]]["status"],
+                "fairmark/method_version": catalogue[d["name"]]["version"],
+            },
         )
         for d in tools.definitions(compact=compact, areas=areas)
     ]

@@ -1,0 +1,156 @@
+{
+  "$defs": {
+    "Axis": {
+      "additionalProperties": false,
+      "description": "One axis of the table: a variable and the values it takes.",
+      "properties": {
+        "values": {
+          "description": "Values of the variable, in the variable's units, in the order of the table; at least one.",
+          "items": {
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "variable": {
+          "description": "RFC 6901 JSON Pointer to a decimal input of the inner method, for example\n`/discount_rate`.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "variable",
+        "values"
+      ],
+      "type": "object"
+    },
+    "ErrorReport": {
+      "description": "The report of an error: its stable code and a message in English.",
+      "properties": {
+        "code": {
+          "description": "Stable error code, for example `FM-E004` (see the errors reference).",
+          "type": "string"
+        },
+        "message": {
+          "description": "What is wrong and, where known, how to fix it.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "type": "object"
+    },
+    "InnerMethod": {
+      "description": "The method an analysis evaluated, at the version actually run.",
+      "properties": {
+        "id": {
+          "description": "Method id, for example `dcf.fcff`.",
+          "type": "string"
+        },
+        "version": {
+          "description": "Method version run by this engine.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "version"
+      ],
+      "type": "object"
+    },
+    "Outcome": {
+      "anyOf": [
+        {
+          "description": "The evaluation succeeded.",
+          "properties": {
+            "value": {
+              "description": "The output read from the inner result, in its units.",
+              "pattern": "^-?\\d+(\\.\\d+)?$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "The inner method returned this error; the rest of the request went on.",
+          "properties": {
+            "error": {
+              "$ref": "#/$defs/ErrorReport",
+              "description": "Code and message of the inner method's error."
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "Outcome of one evaluation in a table or a scenario: a value, or the inner error (R16)."
+    }
+  },
+  "$id": "urn:fairmark:schema:analysis.sensitivity:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `analysis.sensitivity`.",
+  "properties": {
+    "base": {
+      "description": "The output for `base_input` unchanged, in the output's units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "cells": {
+      "description": "`cells[i][j]`: the output with the row variable at `rows.values[i]` and the column\nvariable at `columns.values[j]` (one column in a one-way table), as `{\"value\": ...}`, or\n`{\"error\": {\"code\", \"message\"}}` when the inner method refused that combination.",
+      "items": {
+        "items": {
+          "$ref": "#/$defs/Outcome"
+        },
+        "type": "array"
+      },
+      "type": "array"
+    },
+    "columns": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Axis"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The column axis, as given; absent for a one-way table."
+    },
+    "failed_cells": {
+      "description": "Number of cells holding an error.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "inner_method": {
+      "$ref": "#/$defs/InnerMethod",
+      "description": "The method evaluated, at the version run."
+    },
+    "output": {
+      "description": "The output pointer reported in each cell.",
+      "type": "string"
+    },
+    "rows": {
+      "$ref": "#/$defs/Axis",
+      "description": "The row axis, as given."
+    }
+  },
+  "required": [
+    "inner_method",
+    "output",
+    "base",
+    "rows",
+    "cells",
+    "failed_cells"
+  ],
+  "title": "SensitivityOutput",
+  "type": "object",
+  "x-fairmark-method": "analysis.sensitivity",
+  "x-fairmark-method-version": "1"
+}

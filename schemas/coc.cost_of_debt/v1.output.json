@@ -1,0 +1,25 @@
+{
+  "$id": "urn:fairmark:schema:coc.cost_of_debt:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `coc.cost_of_debt`.",
+  "properties": {
+    "after_tax_cost_of_debt": {
+      "description": "After-tax cost of debt kd × (1 − t), annual decimal fraction.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "pre_tax_cost_of_debt": {
+      "description": "Pre-tax cost of debt, annual decimal fraction.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "pre_tax_cost_of_debt",
+    "after_tax_cost_of_debt"
+  ],
+  "title": "CostOfDebtOutput",
+  "type": "object",
+  "x-fairmark-method": "coc.cost_of_debt",
+  "x-fairmark-method-version": "1"
+}

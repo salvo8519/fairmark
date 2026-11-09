@@ -1,6 +1,6 @@
 ---
 source: guides/cli.md
-source_hash: 52c142b298d4
+source_hash: bf614970d43a
 ---
 # Riga di comando
 
@@ -24,6 +24,8 @@ terminati dal segnale `SIGPIPE` e nella shell riportano `141`.
 ```bash
 fairmark methods                                   # elenca i metodi, con versione e stato
 fairmark schema dcf.fcff                           # JSON Schema degli input
+fairmark schema dcf.fcff --output                  # JSON Schema del valore del risultato
+fairmark schema dcf.fcff --envelope                # JSON Schema del risultato completo
 fairmark run dcf.fcff --input company.json         # risultato completo: value, explain, meta
 fairmark run dcf.fcff --input company.json --value-only
 cat company.json | fairmark run dcf.fcff           # funziona anche da stdin
@@ -47,3 +49,21 @@ Esempio di input:
   "net_financial_position": {"gross_debt": "3100000", "cash": "0"}
 }
 ```
+
+## Schemi dei risultati
+
+`fairmark schema <metodo> --output` stampa il JSON Schema del `value` del risultato così come
+il motore lo scrive: ogni decimale è una stringa conforme a `^-?\d+(\.\d+)?$`, un campo che
+può mancare non è `required` e un campo che può essere `null` lo dichiara. `--envelope` stampa
+lo schema del risultato completo, con `explain` e `meta`. Lo schema di output di ogni versione
+del metodo è conservato in `schemas/<metodo>/v<N>.output.json`; una modifica incompatibile è
+una nuova versione del metodo (vedi
+[versioni dei metodi](https://salvo8519.github.io/fairmark/project/releases/#method-versions),
+in inglese). Un valore aggiunto a un'enumerazione di output non è una modifica incompatibile:
+un client accetta i valori enumerati che non conosce.
+
+Un campo che contiene l'input o l'output di un altro metodo, come `solved_input` e `inner_value`
+di `analysis.goal_seek`, riporta `x-fairmark-input-of` o `x-fairmark-output-of`: un JSON pointer
+(RFC 6901) all'id di quel metodo, relativo all'oggetto che contiene il campo (`/inner_method/id`
+per la ricerca obiettivo, il cui `inner_method` è nello stesso oggetto). Il suo schema è lo
+schema di input o di output di quel metodo.

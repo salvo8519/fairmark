@@ -1,0 +1,455 @@
+{
+  "$defs": {
+    "CapStatus": {
+      "description": "Outcome of the growth cap check (SPEC-0006 R8).",
+      "oneOf": [
+        {
+          "const": "respected",
+          "description": "The growth is at or below the cap.",
+          "type": "string"
+        },
+        {
+          "const": "exceeded",
+          "description": "The growth is above the cap: reported, not refused.",
+          "type": "string"
+        }
+      ]
+    },
+    "ComparedTechnique": {
+      "description": "One row of the comparison.",
+      "properties": {
+        "method": {
+          "description": "Method id of the technique, for example `tv.gordon`.",
+          "type": "string"
+        },
+        "method_version": {
+          "description": "Version of the technique's method that produced this row.",
+          "type": "string"
+        },
+        "output": {
+          "$ref": "#/$defs/TechniqueOutput",
+          "description": "The technique's own output, with its implied assumptions."
+        },
+        "terminal_value": {
+          "description": "Terminal value at N, not discounted, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "method",
+        "method_version",
+        "terminal_value",
+        "output"
+      ],
+      "type": "object"
+    },
+    "ExitMultipleOutput": {
+      "description": "Output of `tv.exit_multiple`.",
+      "properties": {
+        "basis": {
+          "$ref": "#/$defs/TerminalBasis",
+          "description": "`enterprise` (EV/EBITDA, EV/EBIT, EV/Sales) or `equity` (P/E, P/BV)."
+        },
+        "growth_cap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GrowthCapCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Implied growth compared with the cap; `null` when no cap is given."
+        },
+        "implied_growth": {
+          "description": "Perpetual growth implied by the multiple, r − CF_{N+1} / TV_N, decimal fraction per\nperiod; `null` when `rate` and `next_flow` are not given.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "terminal_value": {
+          "description": "Terminal value at N, not discounted, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "terminal_value",
+        "basis",
+        "implied_growth",
+        "growth_cap"
+      ],
+      "type": "object"
+    },
+    "FlowBasis": {
+      "description": "How the flow at N + 1 was obtained.",
+      "oneOf": [
+        {
+          "const": "next_flow_given",
+          "description": "CF_{N+1} given by the analyst.",
+          "type": "string"
+        },
+        {
+          "const": "last_flow_grown",
+          "description": "CF_{N+1} = CF_N × (1 + g).",
+          "type": "string"
+        }
+      ]
+    },
+    "GordonOutput": {
+      "description": "Output of `tv.gordon`.",
+      "properties": {
+        "flow_basis": {
+          "$ref": "#/$defs/FlowBasis",
+          "description": "`next_flow_given` or `last_flow_grown`."
+        },
+        "growth_cap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GrowthCapCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Growth compared with the cap; `null` when no cap is given."
+        },
+        "next_flow": {
+          "description": "Flow at N + 1 used, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "terminal_value": {
+          "description": "Terminal value at N, not discounted, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "terminal_value",
+        "next_flow",
+        "flow_basis",
+        "growth_cap"
+      ],
+      "type": "object"
+    },
+    "GrowthCapCheck": {
+      "description": "The perpetual growth compared with the cap the analyst gave.",
+      "properties": {
+        "cap": {
+          "description": "The cap given, decimal fraction per period.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "growth": {
+          "description": "The perpetual growth checked, decimal fraction per period.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/CapStatus",
+          "description": "`respected` when growth ≤ cap, `exceeded` otherwise."
+        }
+      },
+      "required": [
+        "growth",
+        "cap",
+        "status"
+      ],
+      "type": "object"
+    },
+    "HModelOutput": {
+      "description": "Output of `tv.h_model`.",
+      "properties": {
+        "extra_growth_value": {
+          "description": "Value of the growth above g_l during the decline, CF_N × H × (g_s − g_l) / (r − g_l),\nin currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "growth_cap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GrowthCapCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Long-term growth compared with the cap; `null` when no cap is given."
+        },
+        "stable_growth_value": {
+          "description": "Value at stable growth, CF_N × (1 + g_l) / (r − g_l), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "terminal_value": {
+          "description": "Terminal value at N, not discounted, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "terminal_value",
+        "stable_growth_value",
+        "extra_growth_value",
+        "growth_cap"
+      ],
+      "type": "object"
+    },
+    "LimitedHorizonOutput": {
+      "description": "Output of `tv.limited_horizon`.",
+      "properties": {
+        "annuity_factor": {
+          "description": "Value at N of a first flow of 1 (the annuity factor shared with `tvm.annuity`).",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "discount_factor": {
+          "description": "(1 + r)^−n, the factor that brings the residual value from N + n to N.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "flows_value": {
+          "description": "Value at N of the flows of periods N + 1 to N + n, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "growth_cap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GrowthCapCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Growth compared with the cap; `null` when no cap is given."
+        },
+        "residual_value_discounted": {
+          "description": "Residual value brought to N, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "terminal_value": {
+          "description": "Terminal value at N, not discounted to the valuation date, in currency units: the value\nof the n flows plus the discounted residual value.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "terminal_value",
+        "flows_value",
+        "annuity_factor",
+        "discount_factor",
+        "residual_value_discounted",
+        "growth_cap"
+      ],
+      "type": "object"
+    },
+    "LiquidationOutput": {
+      "description": "Output of `tv.liquidation`.",
+      "properties": {
+        "basis": {
+          "$ref": "#/$defs/TerminalBasis",
+          "description": "`enterprise` or `equity`, as declared."
+        },
+        "tax_on_gains": {
+          "description": "Tax on gains, in currency units, as given.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "terminal_value": {
+          "description": "Net liquidation value at N, not discounted, in currency units; negative when the\nliabilities and costs exceed the realisable values.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "total_assets": {
+          "description": "Sum of the realisable values of the assets, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "total_liabilities": {
+          "description": "Sum of the liabilities, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "total_liquidation_costs": {
+          "description": "Sum of the liquidation costs, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "terminal_value",
+        "total_assets",
+        "total_liabilities",
+        "total_liquidation_costs",
+        "tax_on_gains",
+        "basis"
+      ],
+      "type": "object"
+    },
+    "NormalisedIncomeOutput": {
+      "description": "Output of `tv.normalised_income`.",
+      "properties": {
+        "basis": {
+          "$ref": "#/$defs/TerminalBasis",
+          "description": "`enterprise` or `equity`, as declared."
+        },
+        "growth_cap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GrowthCapCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Growth compared with the cap (0 when no growth is given); `null` when no cap is given."
+        },
+        "terminal_value": {
+          "description": "Terminal value at N, not discounted, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "terminal_value",
+        "basis",
+        "growth_cap"
+      ],
+      "type": "object"
+    },
+    "TechniqueOutput": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GordonOutput"
+        },
+        {
+          "$ref": "#/$defs/ValueDriverOutput"
+        },
+        {
+          "$ref": "#/$defs/HModelOutput"
+        },
+        {
+          "$ref": "#/$defs/ExitMultipleOutput"
+        },
+        {
+          "$ref": "#/$defs/LimitedHorizonOutput"
+        },
+        {
+          "$ref": "#/$defs/NormalisedIncomeOutput"
+        },
+        {
+          "$ref": "#/$defs/LiquidationOutput"
+        }
+      ],
+      "description": "The full output of one technique, as its own method returns it."
+    },
+    "TerminalBasis": {
+      "description": "Whether a terminal value is a value of the whole business or of its equity.",
+      "oneOf": [
+        {
+          "const": "enterprise",
+          "description": "Enterprise value: flows to all capital providers (FCFF), discounted at the WACC;\nmultiples EV/EBITDA, EV/EBIT, EV/Sales.",
+          "type": "string"
+        },
+        {
+          "const": "equity",
+          "description": "Equity value: flows to shareholders (FCFE, dividends), discounted at the cost of\nequity; multiple P/E.",
+          "type": "string"
+        }
+      ]
+    },
+    "ValueDriverOutput": {
+      "description": "Output of `tv.value_driver`.",
+      "properties": {
+        "growth_cap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GrowthCapCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Growth compared with the cap; `null` when no cap is given."
+        },
+        "next_free_cash_flow": {
+          "description": "Free cash flow at N + 1, NOPAT_{N+1} × (1 − g / RONIC), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "reinvestment_rate": {
+          "description": "Share of NOPAT reinvested to earn the growth, g / RONIC, decimal fraction.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "terminal_value": {
+          "description": "Terminal value at N, not discounted, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "value_of_growth": {
+          "$ref": "#/$defs/ValueOfGrowth",
+          "description": "`creates`, `none` or `destroys`: RONIC above, equal to or below the rate."
+        }
+      },
+      "required": [
+        "terminal_value",
+        "reinvestment_rate",
+        "next_free_cash_flow",
+        "value_of_growth",
+        "growth_cap"
+      ],
+      "type": "object"
+    },
+    "ValueOfGrowth": {
+      "description": "Whether growth adds value, from the return on new capital against the rate.",
+      "oneOf": [
+        {
+          "const": "creates",
+          "description": "RONIC above the rate: growth creates value.",
+          "type": "string"
+        },
+        {
+          "const": "none",
+          "description": "RONIC equal to the rate: growth creates no value; TV = NOPAT_{N+1} / r for any g.",
+          "type": "string"
+        },
+        {
+          "const": "destroys",
+          "description": "RONIC below the rate: growth destroys value.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:fairmark:schema:tv.compare:v2:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `tv.compare`.",
+  "properties": {
+    "basis": {
+      "$ref": "#/$defs/TerminalBasis",
+      "description": "The basis of every terminal value in `results`."
+    },
+    "results": {
+      "description": "One row per technique, in the order requested.",
+      "items": {
+        "$ref": "#/$defs/ComparedTechnique"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "basis",
+    "results"
+  ],
+  "title": "CompareOutput",
+  "type": "object",
+  "x-fairmark-method": "tv.compare",
+  "x-fairmark-method-version": "2"
+}

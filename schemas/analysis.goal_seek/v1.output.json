@@ -1,0 +1,79 @@
+{
+  "$defs": {
+    "InnerMethod": {
+      "description": "The method an analysis evaluated, at the version actually run.",
+      "properties": {
+        "id": {
+          "description": "Method id, for example `dcf.fcff`.",
+          "type": "string"
+        },
+        "version": {
+          "description": "Method version run by this engine.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "version"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:analysis.goal_seek:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `analysis.goal_seek`.",
+  "properties": {
+    "achieved": {
+      "description": "Output of the method at the solution, in the output's units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "inner_method": {
+      "$ref": "#/$defs/InnerMethod",
+      "description": "The method evaluated, at the version run."
+    },
+    "inner_value": {
+      "description": "`value` of the inner method's result at the solution. Its schema is the output schema\nof the method whose id is at `/inner_method/id`, relative to this object\n(`x-fairmark-output-of`).",
+      "x-fairmark-output-of": "/inner_method/id"
+    },
+    "iterations": {
+      "description": "Evaluations after the two bracket ends.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "residual": {
+      "description": "`achieved − target`; its absolute value is at most the tolerance.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "solution": {
+      "description": "Value of the variable at which the output meets the target, in the variable's units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "solved_input": {
+      "description": "Input of the inner method at the solution (the variable written as a decimal string).\nRunning the inner method on it reproduces `inner_value` and its full explain. Its schema\nis the input schema of the method whose id is at `/inner_method/id`, relative to\nthis object (`x-fairmark-input-of`).",
+      "x-fairmark-input-of": "/inner_method/id"
+    },
+    "tolerance": {
+      "description": "Tolerance applied, in the output's units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "inner_method",
+    "solution",
+    "achieved",
+    "residual",
+    "iterations",
+    "tolerance",
+    "solved_input",
+    "inner_value"
+  ],
+  "title": "GoalSeekOutput",
+  "type": "object",
+  "x-fairmark-method": "analysis.goal_seek",
+  "x-fairmark-method-version": "1"
+}

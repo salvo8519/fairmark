@@ -1,0 +1,46 @@
+{
+  "$id": "urn:fairmark:schema:coc.beta_peers:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `coc.beta_peers`.",
+  "properties": {
+    "mean_unlevered_beta": {
+      "description": "Arithmetic mean of the unlevered betas.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "median_unlevered_beta": {
+      "description": "Median of the unlevered betas.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "relevered_beta": {
+      "description": "Selected unlevered beta relevered to the target structure.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "selected_unlevered_beta": {
+      "description": "The statistic selected by `statistic`.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "unlevered_betas": {
+      "description": "Unlevered beta of each peer, in input order.",
+      "items": {
+        "pattern": "^-?\\d+(\\.\\d+)?$",
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "unlevered_betas",
+    "mean_unlevered_beta",
+    "median_unlevered_beta",
+    "selected_unlevered_beta",
+    "relevered_beta"
+  ],
+  "title": "BetaPeersOutput",
+  "type": "object",
+  "x-fairmark-method": "coc.beta_peers",
+  "x-fairmark-method-version": "1"
+}

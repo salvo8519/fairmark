@@ -1,6 +1,6 @@
 ---
 source: concepts/audit-trail.md
-source_hash: dc170d377e49
+source_hash: 5dd0774d492a
 ---
 # La tracciabilità del calcolo (audit trail)
 
@@ -19,7 +19,11 @@ Ogni risultato è una busta in quattro parti:
 }
 ```
 
-- **`value`** contiene i risultati, esatti, come stringhe decimali.
+- **`value`** contiene i risultati, esatti, come stringhe decimali. Il suo JSON Schema
+  documenta ogni campo con la sua unità (`fairmark schema <metodo> --output`,
+  `fm.output_schema(metodo)`); in Python `result.value` è decodificato in base a esso: ogni
+  decimale diventa un `Decimal`, mentre etichette, id, versioni, puntatori e messaggi restano
+  testo anche quando sembrano numeri.
 - **`explain.steps`** elenca ogni calcolo intermedio con i numeri effettivi sostituiti. Un
   analista può rifare a mano qualsiasi passaggio; un agente li cita invece di ricalcolarli.
 - **`explain.conventions`** dichiara ogni scelta che cambia il numero (tempistica dei flussi,

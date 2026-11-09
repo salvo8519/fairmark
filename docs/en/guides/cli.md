@@ -19,6 +19,8 @@ C tools such as `cat`, which are ended by the `SIGPIPE` signal and report `141` 
 ```bash
 fairmark methods                                   # list methods, with version and status
 fairmark schema dcf.fcff                           # JSON Schema of the inputs
+fairmark schema dcf.fcff --output                  # JSON Schema of the result value
+fairmark schema dcf.fcff --envelope                # JSON Schema of the whole result
 fairmark run dcf.fcff --input company.json         # full result: value, explain, meta
 fairmark run dcf.fcff --input company.json --value-only
 cat company.json | fairmark run dcf.fcff           # stdin works too
@@ -42,3 +44,19 @@ Example input:
   "net_financial_position": {"gross_debt": "3100000", "cash": "0"}
 }
 ```
+
+## Schemas of results
+
+`fairmark schema <method> --output` prints the JSON Schema of the result `value` as the engine
+writes it: every decimal is a string matching `^-?\d+(\.\d+)?$`, a field that may be absent is
+not `required`, and a field that may be `null` says so. `--envelope` prints the schema of the
+whole result, with `explain` and `meta`. The output schema of each method version is kept in
+`schemas/<method>/v<N>.output.json`; a breaking change to it is a new method version (see
+[method versions](../project/releases.md#method-versions)). A value added to an output
+enumeration is not breaking: a client accepts enumeration values it does not know.
+
+A field that holds the input or the output of another method, such as `solved_input` and
+`inner_value` of `analysis.goal_seek`, carries `x-fairmark-input-of` or
+`x-fairmark-output-of`: an RFC 6901 pointer to that method's id, relative to the object that
+holds the field (`/inner_method/id` for goal seek, whose `inner_method` is in the same object).
+Its schema is that method's input or output schema.

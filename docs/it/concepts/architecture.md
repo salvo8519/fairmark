@@ -1,6 +1,6 @@
 ---
 source: concepts/architecture.md
-source_hash: 9c57c50ed75c
+source_hash: a7886311c519
 ---
 # Architettura
 
@@ -9,11 +9,12 @@ source_hash: 9c57c50ed75c
 - **Un solo motore, adattatori sottili.** Tutta la logica finanziaria vive in
   `fairmark-core` (Rust). Gli adattatori traducono, non calcolano mai.
 - **Il registro è l'unica fonte di verità.** `registry.rs` elenca ogni metodo con la sua
-  versione e il suo tipo di input. Gli JSON Schema sono generati dai tipi Rust (`schemars`) e
-  ogni adattatore è generato da essi: helper Python, CLI, tool MCP, definizioni per il
-  function calling, documentazione.
+  versione, il suo tipo di input e il suo tipo di output. Gli JSON Schema di entrambi sono
+  generati dai tipi Rust (`schemars`) e ogni adattatore è generato da essi: helper Python e la
+  decodifica dei loro risultati, CLI, tool MCP, definizioni per il function calling,
+  documentazione.
 - **JSON ai confini.** I dati attraversano il confine Rust/Python come stringhe JSON con i
-  decimali come stringhe. L'interfaccia FFI resta limitata a tre funzioni e ogni adattatore
+  decimali come stringhe. L'interfaccia FFI resta limitata a cinque funzioni e ogni adattatore
   si testa con gli stessi casi.
 - **Nessun I/O nel core.** Il core è una funzione pura dall'input al risultato. Telemetria,
   file e rete vivono solo negli adattatori.
@@ -24,7 +25,7 @@ source_hash: 9c57c50ed75c
 crates/
   fairmark-core/    metodi, matematica decimale, explain, registro, errori (nessun I/O)
   fairmark-cli/     binario `fairmark`: methods | schema | run | verify
-  fairmark-py/      ponte PyO3 (3 funzioni), compilato da maturin come fairmark._engine
+  fairmark-py/      ponte PyO3 (5 funzioni), compilato da maturin come fairmark._engine
 python/fairmark/    API Python, tool per il function calling, server MCP
 skills/fairmark/    Agent Skill per Claude Code, Codex e agenti compatibili
 tests/golden/       casi di riferimento condivisi (Rust + Python)
@@ -36,10 +37,12 @@ roadmap/            roadmap.yaml → milestone, epic e task su GitHub
 
 1. Implementarlo nel modulo del suo tema, `crates/fairmark-core/src/<tema>.rs`: una struttura
    di input (serde + `JsonSchema`, `deny_unknown_fields`, commento con le unità su ogni campo),
-   una struttura di output e un tipo che implementa il trait `Method` (id, versione, titolo,
-   descrizione, `compute`) (ADR 0009).
-2. Aggiungere una riga all'elenco in `registry.rs`; `uv run just generate` scrive il suo schema
-   in `schemas/<metodo>/v1.json` e aggiorna `schemas/index.json`.
+   una struttura di output (`Serialize` + `JsonSchema`, commento con le unità sul tipo e su ogni
+   campo) e un tipo che implementa il trait `Method` (id, versione, titolo, descrizione,
+   `compute`) (ADR 0009).
+2. Aggiungere una riga all'elenco in `registry.rs`; `uv run just generate` scrive i suoi schemi
+   di input e di output in `schemas/<metodo>/v1.json` e `schemas/<metodo>/v1.output.json` e
+   aggiorna `schemas/index.json`.
 3. Aggiungere casi di riferimento in `tests/golden/<metodo>/` da una fonte indipendente.
 4. Aggiungere un helper Python sottile in `python/fairmark/<area>.py`.
 5. Scrivere la pagina metodologica in `docs/en/methods/` e la sua traduzione in

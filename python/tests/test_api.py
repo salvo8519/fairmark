@@ -92,26 +92,6 @@ def test_repeated_names_in_the_list_form_reach_the_engine() -> None:
     assert err.value.code == "FM-E001"
 
 
-def test_objects_under_text_keys_are_converted() -> None:
-    # The `output` of a tv.compare row is a whole method output: its decimals become Decimal.
-    from fairmark._core import _decimalize
-
-    value = _decimalize({"output": {"terminal_value": "1250", "growth_cap": None}})
-    assert value["output"]["terminal_value"] == Decimal("1250")
-    assert isinstance(value["output"]["terminal_value"], Decimal)
-
-
-def test_text_and_lists_under_text_keys_stay_text() -> None:
-    from fairmark._core import _decimalize
-
-    value = _decimalize(
-        {"version": "2", "name": "2025", "pointer": ["1", "2.5"], "amount": ["1", "2.5"]}
-    )
-    assert value["version"] == "2" and value["name"] == "2025"
-    assert value["pointer"] == ["1", "2.5"]
-    assert value["amount"] == [Decimal("1"), Decimal("2.5")]
-
-
 def test_existing_results_keep_their_shape() -> None:
     # A tv.compare row: the method id stays text, its output is converted.
     row = fm.tv.compare("0.1", "enterprise", [{"tv.gordon": {"growth": "0", "next_flow": 10}}])

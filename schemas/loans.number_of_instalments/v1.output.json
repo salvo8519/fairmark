@@ -1,0 +1,38 @@
+{
+  "$id": "urn:fairmark:schema:loans.number_of_instalments:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `loans.number_of_instalments`.",
+  "properties": {
+    "exact_number_of_periods": {
+      "description": "Exact number of periods n* that repays the loan with the given instalment, in periods.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "final_instalment": {
+      "description": "Amount of the last instalment, in currency units: the amount owed on its payment date,\nso that the outstanding balance is exactly zero: lower than the instalment when n* is not\nwhole, above it by at most 1e-20 × principal when n* is taken as a whole number.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "number_of_instalments": {
+      "description": "Number of instalments (a count of payment periods), the smallest whole number not\nbelow n*, from 1 to 10000.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "periodic_rate": {
+      "description": "Rate per payment period used, decimal fraction.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "periodic_rate",
+    "exact_number_of_periods",
+    "number_of_instalments",
+    "final_instalment"
+  ],
+  "title": "NumberOfInstalmentsOutput",
+  "type": "object",
+  "x-fairmark-method": "loans.number_of_instalments",
+  "x-fairmark-method-version": "1"
+}

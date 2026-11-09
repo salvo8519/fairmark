@@ -61,10 +61,16 @@ financial values.
 - The meaning of every enum value in the field description, and input examples taken from
   golden cases in the schema `examples` keyword (minimal first, then maximal where useful;
   see [function calling](function-calling.md#examples)).
-- The status of each method in the tool's `_meta`, `{"fairmark/status": "available"}` or
-  `"preview"`. The description of a preview tool has "(preview)" after the title and a
-  sentence starting "Status: preview", so a model sees it before calling. The
+- The status and the version of each method in the tool's `_meta`, for example
+  `{"fairmark/status": "available", "fairmark/method_version": "2"}`; the status is
+  `"available"` or `"preview"`, and the version is the one every result reports in
+  `meta.method_version` (see [method versions](../project/releases.md#method-versions)).
+  The description of a preview tool has "(preview)" after the title and a sentence starting
+  "Status: preview", so a model sees it before calling. The
   [method status](../project/releases.md#method-status) page defines both statuses.
+- Results that may gain new enumeration values within a method version: a value added to an
+  output enumeration is not a breaking change, so a client accepts a value it does not know
+  (for example by showing it as text) instead of rejecting the result.
 - Server instructions telling the model to use the tools for every number, to cite
   `explain.steps`, to tell the user when a result comes from a preview method, and to present
   every result as a calculation under the user's responsibility, never as advice (see the

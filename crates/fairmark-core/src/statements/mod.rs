@@ -22,6 +22,7 @@ mod validate;
 use std::collections::BTreeMap;
 
 use rust_decimal::Decimal;
+use schemars::JsonSchema;
 use serde::Serialize;
 
 pub use checks::{Check, CheckStatus};
@@ -36,7 +37,7 @@ use crate::ratios::{NetFinancialPosition, NFP_CONVENTION};
 use crate::tv::Line;
 
 /// The form a year was given in (R6: every output states its form).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Form {
     /// Aggregates of art. 2424 and 2425 (Appendix A).
@@ -46,7 +47,7 @@ pub enum Form {
 }
 
 /// Where an aggregate, or the part of it moved by an adjustment, goes (Appendix A, B, C).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Destination {
     /// Operating fixed assets, in invested capital.
@@ -99,7 +100,7 @@ impl Destination {
 }
 
 /// Who chose a destination (R11).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Origin {
     /// The fixed or default destination of Appendix A.
@@ -118,7 +119,7 @@ impl Origin {
 }
 
 /// One aggregate given, assigned to its destination before the adjustments (R11).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct Assignment {
     /// Statutory reference, for example "B.III" or "liabilities D, remainder".
     pub reference: &'static str,
@@ -133,7 +134,7 @@ pub struct Assignment {
 }
 
 /// One adjustment applied to a year (R11).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct AppliedAdjustment {
     /// Position of the adjustment in `adjustments`.
     pub index: usize,
@@ -152,7 +153,7 @@ pub struct AppliedAdjustment {
 }
 
 /// The operating block (Appendix B.1).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct OperatingBlock {
     /// Operating fixed assets, in currency units.
     pub operating_fixed_assets: Option<Decimal>,
@@ -168,7 +169,7 @@ pub struct OperatingBlock {
 }
 
 /// One component of the net financial position, with its source and maturities (R13).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct NfpComponent {
     /// What the component is, for example "Cash (C.IV)".
     pub label: String,
@@ -187,7 +188,7 @@ pub struct NfpComponent {
 
 /// The net financial position in the SPEC-0007 type, with its total, maturities and
 /// composition (R13).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct NetFinancialPositionBlock {
     /// The SPEC-0007 object, accepted unchanged by `ratios.*` and `dcf.fcff`.
     pub position: Option<NetFinancialPosition>,
@@ -202,7 +203,7 @@ pub struct NetFinancialPositionBlock {
 }
 
 /// The sources (Appendix B.1).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct Sources {
     /// Equity after subscribed capital unpaid and dividends declared, in currency units,
     /// signed.
@@ -224,7 +225,7 @@ pub struct Sources {
 }
 
 /// The reorganised balance sheet (R12).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct BalanceSheet {
     /// The operating block, up to invested capital.
     pub operating: OperatingBlock,
@@ -243,7 +244,7 @@ pub struct BalanceSheet {
 }
 
 /// Current and non-current amounts with the field names of the SPEC-0007 inputs (R15).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct CurrentNonCurrent {
     /// Non-current assets (B, C.II and assets D beyond one year), in currency units.
     pub fixed_assets: Option<Decimal>,
@@ -265,7 +266,7 @@ pub struct CurrentNonCurrent {
 pub use crate::not_computed::{NotComputedEntry, Permitted};
 
 /// The outputs not computed, one list per block, sorted by output pointer.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct NotComputed {
     /// Outputs of the balance sheet block.
     pub balance_sheet: Vec<NotComputedEntry>,
@@ -274,7 +275,7 @@ pub struct NotComputed {
 }
 
 /// One financial year reorganised.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct YearOutput {
     /// The year's label, as given.
     pub label: Option<String>,
@@ -299,7 +300,7 @@ pub struct YearOutput {
 }
 
 /// Output of `statements.reorganise` (version 1).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct ReorganiseOutput {
     /// One entry per input year, in the same order.
     pub years: Vec<YearOutput>,
