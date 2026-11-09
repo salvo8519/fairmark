@@ -28,6 +28,13 @@ inputs; `PROPTEST_*` environment variables have no effect (a test verifies it), 
 regression files are written. Each tolerance is derived in a comment from the 28-digit decimal
 precision. A failing property is investigated and reported, never loosened to pass.
 
+Mutation testing (`cargo install --locked cargo-mutants@27.1.0`) checks that the tests of the
+core detect wrong results: `uv run just mutants-diff` tests the lines of
+`crates/fairmark-core/src` you changed, as CI does on every pull request, and
+`uv run just mutants <module>` tests one module. Every missed mutant is killed by a new test or
+recorded as equivalent after review; see
+[Mutation testing](docs/en/project/mutation-testing.md).
+
 The Rust extension is rebuilt automatically by `uv run` / `uv sync` when Rust sources change.
 `uv.lock` is committed: dependency updates go through PRs.
 
