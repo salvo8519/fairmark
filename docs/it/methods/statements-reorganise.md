@@ -1,6 +1,6 @@
 ---
 source: methods/statements-reorganise.md
-source_hash: 3f8ac073fb12
+source_hash: 0ab319d1cf0a
 ---
 # Bilancio riclassificato (`statements.reorganise`)
 
@@ -140,11 +140,14 @@ con, per un esercizio in forma civilistica:
 - other charges below EBITDA (altri oneri sotto il MOL) = B12 + B13, + B10 d con la
   classificazione `write_downs_of_receivables: operating` (la predefinita, E3), ciascuna parte
   caratteristica (E2);
+- income from operating investments (proventi da partecipazioni, voce C15, di immobilizzazioni
+  finanziarie operative) = C15 quando le immobilizzazioni finanziarie (B.III) sono interamente
+  `operating` per l'esercizio, zero altrimenti (decisione P2 del 2026-11-09);
 - reddito operativo della gestione caratteristica (margine operativo netto, MON) = MOL −
-  ammortamenti − other charges below EBITDA;
+  ammortamenti − other charges below EBITDA + income from operating investments;
 - investing result (risultato della gestione accessoria) = parti `investing` di A5 − parti
-  `investing` di B14 + C15 + C16 + (D18 − D19), − B10 c e − B10 d solo con la classificazione
-  `investing`; il totale D è usato quando fornito;
+  `investing` di B14 + C15 (salvo che B.III sia operativa) + C16 + (D18 − D19), − B10 c e
+  − B10 d solo con la classificazione `investing`; il totale D è usato quando fornito;
 - reddito operativo aziendale (EBIT nella prassi italiana) = reddito operativo + investing
   result;
 - componenti non ricorrenti = Σ proventi non ricorrenti − Σ oneri non ricorrenti, dalle
@@ -152,7 +155,8 @@ con, per un esercizio in forma civilistica:
   assenti; nullo, ed elencato in `not_computed`, quando l'esercizio non fornisce il conto
   economico (E6);
 - financing result (risultato della gestione finanziaria) = C17-bis − C17 (C17 più gli
-  interessi dei beni in leasing, restituito come `interest_and_other_financial_charges`). C16,
+  interessi dei beni in leasing, restituito come `interest_and_other_financial_charges`) − la
+  rivalutazione del TFR (interest cost) considerato debt-like, quando fornita (P2). C16,
   che comprende gli interessi sulle disponibilità liquide e sui crediti finanziari della
   posizione finanziaria netta, è nell'investing result (categoria investing di IFRS 18), quindi
   il financing result è al lordo di quegli interessi;
@@ -182,10 +186,31 @@ come importo unico (bilancio in forma abbreviata, art. 2435-bis) dà gli stessi 
 senza la sua parte B10 c; con la classificazione `investing`, un gruppo fornito senza la parte
 B10 c è letto come ammortamenti, e le convenzioni lo indicano (Decision 8).
 
+**Proventi e oneri seguono la voce patrimoniale collegata** (decisione P2 del 2026-11-09). I
+proventi da partecipazioni (C15) seguono le immobilizzazioni finanziarie (B.III): quando B.III è
+interamente `operating` per l'esercizio (classificazione o override), C15 è
+`income_from_operating_investments`, sotto il MOL e nel reddito operativo; il MOL non cambia.
+D18 e D19 restano nell'investing result, e così C16, la cui parte relativa a B.III non è fornita
+separatamente. Con B.III ripartita tra più destinazioni per l'esercizio, i proventi di ciascuna
+parte non sono forniti: C15 resta nell'investing result e le convenzioni lo indicano. Con B.III
+fornita e diversa da zero e la sua classificazione mancante, C15 la attende: income from
+operating investments, reddito operativo, investing result e i livelli sottostanti non sono
+calcolati e sono elencati in `not_computed` con il pointer della classificazione e le
+destinazioni ammesse (R8).
+
+La rivalutazione del TFR (interest cost) è compresa in B9. Quando una rettifica
+`debt_like_provision` considera il TFR debt-like, il suo campo facoltativo `interest_cost` (un
+valore per esercizio, zero o più, al massimo quanto resta di B9) sposta quell'importo dai costi
+per il personale e dal MOL al financing result; è una riga di entrambe le riconciliazioni, e il
+risultato prima delle imposte non cambia. Senza di esso nulla si sposta e le convenzioni lo
+indicano. `interest_cost` è accettato solo con `aggregate` `employee_severance_indemnity` e solo
+per un esercizio in cui la rettifica si applica (`FM-E001` altrimenti); oltre quanto resta di B9
+è `FM-E026`.
+
 **Riconciliazioni** (R19). `reconciliations.operating_profit` e
 `reconciliations.profit_before_financing_and_taxes` partono da A − B del conto economico
 civilistico, elencano ogni importo spostato (svalutazioni, parti `investing` e `non_recurring`,
-righe del leasing, C15, C16 e D) con i pointer effettivamente letti (`sources`: D18 e D19
+righe del leasing, rivalutazioni del TFR, C15, C16 e D) con i pointer effettivamente letti (`sources`: D18 e D19
 entrambe quando sono lette entrambe; il gruppo B10 a-c, con la correzione, quando B10 c è letta
 come assente), e arrivano al subtotale, in modo esatto. Il risultato prima delle imposte è
 uguale ad A − B ± C ± D e l'utile netto alla voce 21, salvo la differenza dei leasing, canoni −
@@ -374,7 +399,8 @@ da `operating_working_capital.inventories`.
 | B10 d | `depreciation_and_write_downs.write_downs_of_receivables` | other charges below EBITDA, oppure investing result con la classificazione `investing` | predefinita |
 | B12, B13 | `provisions_for_risks`, `other_provisions` | reddito operativo | fissa |
 | B14 | `other_operating_expenses` | value added, parte caratteristica | predefinita |
-| C15, C16 | `income_from_equity_investments`, `other_financial_income` | investing result | fissa |
+| C15 | `income_from_equity_investments` | investing result; income from operating investments quando B.III è interamente `operating` (P2) | segue B.III |
+| C16 | `other_financial_income` | investing result | fissa |
 | C17, C17-bis | `interest_and_other_financial_charges`, `exchange_gains_and_losses` (con segno, positiva per un utile netto) | financing result | fissa |
 | D18, D19 | `revaluations_of_financial_assets`, `write_downs_of_financial_assets` | investing result | fissa |
 | 20, 21 | `income_taxes` (con segno), `profit_or_loss_for_the_year` (con segno) | imposte come fornite; verifica | fissa |
@@ -389,15 +415,18 @@ voci D18 e D19 nell'investing result, quando le voci non sono fornite.
 
 `revenue`, `value_of_production`, `purchases`, `materials_consumed`, `value_added`,
 `external_costs`, `personnel_costs`, `ebitda`, `depreciation_and_amortisation`,
-`other_charges_below_ebitda`, `operating_profit`,
+`other_charges_below_ebitda`, `income_from_operating_investments`, `operating_profit`,
 `investing_result`, `profit_before_financing_and_taxes`, `non_recurring_result`,
 `financing_result`, `interest_and_other_financial_charges`, `profit_before_tax`,
 `income_taxes` e `net_income`, tutti facoltativi. MOL (value added − costi per il personale),
 reddito operativo aziendale (reddito operativo + investing result), risultato prima delle
 imposte e utile netto sono derivati quando non forniti e verificati in modo esatto quando
 forniti, e così il value added (valore della produzione − `external_costs`) e il reddito
-operativo (MOL − ammortamenti − `other_charges_below_ebitda`), con `external_costs` (con segno)
-e `other_charges_below_ebitda` (zero o più) definiti come nella forma civilistica (E1, E2). Le
+operativo (MOL − ammortamenti − `other_charges_below_ebitda` +
+`income_from_operating_investments`), con `external_costs` (con segno),
+`other_charges_below_ebitda` e `income_from_operating_investments` (zero o più) definiti come
+nella forma civilistica (E1, E2, P2); per ottenere il reddito operativo derivato, fornire
+`income_from_operating_investments`, zero se non ve ne sono. Le
 riconciliazioni con A − B richiedono la forma civilistica e sono elencate in `not_computed`
 senza un pointer da fornire.
 
@@ -537,12 +566,13 @@ Le destinazioni fisse non sono valori predefiniti e non sono elencate.
 | Parti "di cui" non fornite | assenti nel loro aggregato, anche quando l'aggregato non è fornito | predefinito, elencato (D2) |
 | Derivati | passivi classificati come finanziari: non correnti nella posizione finanziaria netta; attivi secondo B.III (non correnti) o C.III (correnti) | fisso, indicato (D3) |
 | A5, B14 | parte caratteristica; parti `investing` e non ricorrenti tramite rettifica | predefinito, elencato (Decision 7) |
-| C15, C16, D18, D19 | investing result | fisso |
+| C15 | investing result; income from operating investments quando B.III è interamente `operating` per l'esercizio; attende la classificazione di B.III quando è necessaria | segue B.III (P2) |
+| C16, D18, D19 | investing result | fisso |
 | C17, C17-bis | financing result | fisso |
 | MOL | value added − costi per il personale, restituito come `ebitda_definition` | fisso (Decision 8) |
 | Svalutazioni e rivalutazioni | D18, D19 nell'investing result; B10 c e B10 d `operating` (sotto il MOL) oppure `investing` | `operating`, elencato (Decision 17, E3, P1) |
 | B10 a-c come importo unico | con B10 c `investing`: ammortamenti salvo che sia fornita la sua parte B10 c | fisso, indicato (Decision 8) |
-| Coerenza tra conto economico e stato patrimoniale | proventi e oneri seguono la classificazione della voce patrimoniale collegata (decisione P2) | non ancora applicata: si vedano i Limiti |
+| Rivalutazione del TFR (interest cost) | nei costi per il personale (B9); con il TFR debt-like e il suo `interest_cost`, nel financing result | in B9, indicato quando il TFR è debt-like (P2) |
 | Leasing | come esposti; metodo finanziario tramite rettifica, senza imposte differite | come esposti (Decision 9) |
 | Imposte | voce 20 come fornita; nessun calcolo di IRES, IRAP, imposte differite o NOPAT | fisso |
 
@@ -594,23 +624,22 @@ riserve (A.VI), in modo che i totali quadrino esattamente.
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | Entrambe le forme in una voce; date non distanti un esercizio o dalla più recente; un importo negativo dove lo schema non lo prevede (compreso un importo di un leasing); un override di un altro aggregato; `beyond_one_year` su una parte `quasi_equity` di una ripartizione; una lista `amounts` di lunghezza diversa; un'etichetta, un motivo o un `related_non_operating_asset` vuoti; una rettifica su un esercizio riclassificato; una rettifica `non_recurring` di D18 o D19; una rettifica `investing` di un aggregato diverso da A5 o B14; un campo o un valore sconosciuti |
+| `FM-E001` | Entrambe le forme in una voce; date non distanti un esercizio o dalla più recente; un importo negativo dove lo schema non lo prevede (compreso un importo di un leasing); un override di un altro aggregato; `beyond_one_year` su una parte `quasi_equity` di una ripartizione; una lista `amounts` di lunghezza diversa; un'etichetta, un motivo o un `related_non_operating_asset` vuoti; una rettifica su un esercizio riclassificato; una rettifica `non_recurring` di D18 o D19; una rettifica `investing` di un aggregato diverso da A5 o B14; un `interest_cost` su un fondo debt-like diverso dal TFR, di lunghezza diversa, o per un esercizio in cui la rettifica non si applica; un campo o un valore sconosciuti |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 | `FM-E009` | Una data inesistente o fuori dall'intervallo 1900-2199 |
 | `FM-E012` | Difetto: total funds invested diverso dalle fonti di un esercizio civilistico con tutte le voci fornite; una riconciliazione con A − B che non quadra; il risultato riclassificato diverso da quello civilistico per una causa diversa dai leasing |
-| `FM-E026` | Una relazione del bilancio non quadra; total funds invested di un esercizio civilistico diverso dalle fonti una volta contate le voci separate considerate pari a zero (indicate nel messaggio); una rettifica supera quanto resta nella sua voce di origine; B10 c supera il gruppo B10 a-c a cui appartiene; oppure la parte corrente di una passività per leasing supera la passività |
+| `FM-E026` | Una relazione del bilancio non quadra; total funds invested di un esercizio civilistico diverso dalle fonti una volta contate le voci separate considerate pari a zero (indicate nel messaggio); una rettifica, o la rivalutazione del TFR, supera quanto resta nella sua voce di origine; B10 c supera il gruppo B10 a-c a cui appartiene; oppure la parte corrente di una passività per leasing supera la passività |
 
 ## Limiti e note di prassi
 
 - **Imposte anticipate** (C.II 5-ter) restano nei crediti, e quindi nell'operating working
   capital. Per escluderle dal capitale circolante, spostarle con una rettifica
   `non_operating_asset` dei `receivables` e indicarne il motivo.
-- **Proventi di attività classificate come operative** (decisione P2 del 2026-11-09, non ancora
-  applicata): i proventi delle immobilizzazioni finanziarie classificate `operating` (C15)
-  restano nell'investing result, e la rivalutazione del trattamento di fine rapporto classificato
-  come debt-like resta nei costi per il personale (B9) e nel MOL. La decisione li colloca nel
-  reddito operativo e nel financing result; la sua applicazione attende il maintainer su quattro
-  punti.
+- **Proventi delle immobilizzazioni finanziarie** (decisione P2 del 2026-11-09): solo C15 segue
+  B.III classificata `operating`. C16 comprende gli interessi sui crediti delle immobilizzazioni
+  finanziarie (B.III.2), che lo schema non fornisce separatamente, e resta nell'investing result;
+  con una ripartizione di B.III vi resta anche C15, perché i proventi di ciascuna parte non sono
+  forniti.
 - **Crediti delle immobilizzazioni finanziarie** (B.III.2) seguono la classificazione di B.III e
   sono sempre non correnti nel blocco degli importi correnti e non correnti, anche per la parte
   esigibile entro l'esercizio successivo che l'art. 2424 chiede di indicare.
@@ -623,7 +652,8 @@ riserve (A.VI), in modo che i totali quadrino esattamente.
 - **Trattamento di fine rapporto** (TFR, voce C del passivo) è un operating provision come
   predefinito, al pari dei fondi per rischi e oneri B; quando l'analista lo considera un debito,
   una rettifica `debt_like_provision` lo sposta, con il suo motivo, tra i debt-like items del
-  bridge.
+  bridge, e il suo campo facoltativo `interest_cost` sposta la rivalutazione dell'esercizio da B9
+  al financing result (P2).
 - **Debiti verso imprese del gruppo** (D.8-D.11: verso imprese controllate, collegate,
   controllanti e sottoposte al controllo delle controllanti) restano nel resto dei debiti D,
   nell'operating working capital: questa versione non ne separa la parte finanziaria (decisione

@@ -121,17 +121,22 @@ with, for a statutory year:
   `write_downs_of_fixed_assets: operating` (the default, P1), + lease depreciation;
 - other charges below EBITDA = B12 + B13, + B10 d with the treatment
   `write_downs_of_receivables: operating` (the default, E3), each core (E2);
+- income from operating investments = C15 when financial fixed assets (B.III) are wholly
+  `operating` for the year, zero otherwise (decision P2 of 2026-11-09);
 - operating profit (reddito operativo della gestione caratteristica, margine operativo netto)
-  = EBITDA − depreciation and amortisation − other charges below EBITDA;
-- investing result = investing parts of A5 − investing parts of B14 + C15 + C16 + (D18 − D19),
-  − B10 c and − B10 d only with the treatment `investing`; total D is used when given;
+  = EBITDA − depreciation and amortisation − other charges below EBITDA + income from operating
+  investments;
+- investing result = investing parts of A5 − investing parts of B14 + C15 (unless B.III is
+  operating) + C16 + (D18 − D19), − B10 c and − B10 d only with the treatment `investing`;
+  total D is used when given;
 - profit before financing and taxes (reddito operativo aziendale, EBIT in Italian practice) =
   operating profit + investing result;
 - non-recurring result = Σ non-recurring income − Σ non-recurring charges, from the
   `non_recurring` adjustments: zero, with the convention "no item labelled non-recurring", when
   there are none; null, listed in `not_computed`, when the year gives no income statement (E6);
 - financing result = C17-bis − C17 (C17 plus lease interest, returned as
-  `interest_and_other_financial_charges`). C16, which includes the interest on cash and on the
+  `interest_and_other_financial_charges`) − the interest cost of a debt-like employee severance
+  indemnity, when given (P2). C16, which includes the interest on cash and on the
   financial receivables of the net financial position, is in the investing result (the IFRS 18
   investing category), so the financing result is gross of that interest;
 - net income = profit before tax − item 20, taxes as given.
@@ -159,10 +164,31 @@ outputs with or without its B10 c part; with the treatment `investing`, a group 
 its B10 c part is read as depreciation and amortisation, and the conventions say so (Decision
 8).
 
+**Income and costs follow the related balance sheet item** (decision P2 of 2026-11-09).
+Income from equity investments (C15) follows financial fixed assets (B.III): when B.III is
+wholly `operating` for the year (treatment or override), C15 is
+`income_from_operating_investments`, below EBITDA and in operating profit; EBITDA does not
+change. D18 and D19 stay in the investing result, and so does C16, whose part from B.III is not
+given separately. With B.III split between destinations for the year, the income of each part
+is not given: C15 stays in the investing result and the conventions say so. With B.III given
+and not zero and its treatment missing, C15 waits for it: income from operating investments,
+operating profit, the investing result and the layers below are not computed and are listed in
+`not_computed` with the treatment pointer and its permitted destinations (R8).
+
+The interest cost (revaluation) of the employee severance indemnity is inside B9. When a
+`debt_like_provision` adjustment treats the indemnity as debt-like, its optional
+`interest_cost` (one entry per year, zero or more, at most what remains of B9) moves that
+amount out of personnel costs and EBITDA into the financing result; it is a line of both
+reconciliations, and profit before tax does not change. Without it nothing moves and the
+conventions say so. `interest_cost` is accepted only with `aggregate`
+`employee_severance_indemnity` and only for a year where the adjustment applies (`FM-E001`
+otherwise); above what remains of B9 it is `FM-E026`.
+
 **Reconciliations** (R19). `reconciliations.operating_profit` and
 `reconciliations.profit_before_financing_and_taxes` start from A − B of the statutory
 statement, list every amount moved (write-downs, investing and non-recurring parts, lease
-lines, C15, C16 and D) with the pointers actually read (`sources`: both D18 and D19 when both
+lines, interest costs of the employee severance indemnity, C15, C16 and D) with the pointers
+actually read (`sources`: both D18 and D19 when both
 are read; the B10 a to c group, with the fix, when B10 c is read as none), and end at the
 subtotal, exactly. Profit before tax equals A − B ± C ± D and net income equals item 21, except
 for the lease difference, payments − depreciation − interest (E4).
@@ -350,7 +376,8 @@ give, and a convention says so. Inventories are taken from
 | B10 d | `depreciation_and_write_downs.write_downs_of_receivables` | other charges below EBITDA, or investing result with the treatment `investing` | default |
 | B12, B13 | `provisions_for_risks`, `other_provisions` | operating profit | fixed |
 | B14 | `other_operating_expenses` | value added, core | default |
-| C15, C16 | `income_from_equity_investments`, `other_financial_income` | investing result | fixed |
+| C15 | `income_from_equity_investments` | investing result; income from operating investments when B.III is wholly `operating` (P2) | follows B.III |
+| C16 | `other_financial_income` | investing result | fixed |
 | C17, C17-bis | `interest_and_other_financial_charges`, `exchange_gains_and_losses` (signed, positive for a net gain) | financing result | fixed |
 | D18, D19 | `revaluations_of_financial_assets`, `write_downs_of_financial_assets` | investing result | fixed |
 | 20, 21 | `income_taxes` (signed), `profit_or_loss_for_the_year` (signed) | taxes as given; check | fixed |
@@ -365,15 +392,18 @@ and D19 in the investing result, when their items are not given.
 
 `revenue`, `value_of_production`, `purchases`, `materials_consumed`, `value_added`,
 `external_costs`, `personnel_costs`, `ebitda`, `depreciation_and_amortisation`,
-`other_charges_below_ebitda`, `operating_profit`,
+`other_charges_below_ebitda`, `income_from_operating_investments`, `operating_profit`,
 `investing_result`, `profit_before_financing_and_taxes`, `non_recurring_result`,
 `financing_result`, `interest_and_other_financial_charges`, `profit_before_tax`,
 `income_taxes` and `net_income`, all optional. EBITDA (value added − personnel costs), profit
 before financing and taxes (operating profit + investing result), profit before tax and net
 income are derived when not given and checked exactly when given, and so are value added
 (value of production − `external_costs`) and operating profit (EBITDA − depreciation and
-amortisation − `other_charges_below_ebitda`), with `external_costs` (signed) and
-`other_charges_below_ebitda` (zero or more) defined as in the statutory form (E1, E2). The
+amortisation − `other_charges_below_ebitda` + `income_from_operating_investments`), with
+`external_costs` (signed), `other_charges_below_ebitda` and
+`income_from_operating_investments` (zero or more) defined as in the statutory form (E1, E2,
+P2); to have operating profit derived, give `income_from_operating_investments`, zero when there
+is none. The
 reconciliations with A − B need the statutory form and are listed in `not_computed` with no
 pointer to give.
 
@@ -508,12 +538,13 @@ Fixed destinations are not defaults and are not listed.
 | "Of which" parts not given | none within their aggregate, also when the aggregate is not given | default, listed (D2) |
 | Derivatives | liabilities treated as financial: non-current in the net financial position; assets follow B.III (non-current) or C.III (current) | fixed, stated (D3) |
 | A5, B14 | core; investing and non-recurring parts by adjustment | default, listed (Decision 7) |
-| C15, C16, D18, D19 | investing result | fixed |
+| C15 | investing result; income from operating investments when B.III is wholly `operating` for the year; waits for the treatment of B.III when it is needed | follows B.III (P2) |
+| C16, D18, D19 | investing result | fixed |
 | C17, C17-bis | financing result | fixed |
 | EBITDA | value added − personnel costs, returned as `ebitda_definition` | fixed (Decision 8) |
 | Write-downs and revaluations | D18, D19 in the investing result; B10 c and B10 d `operating` (below EBITDA) or `investing` | `operating`, listed (Decision 17, E3, P1) |
 | B10 a to c as one amount | with B10 c `investing`: depreciation and amortisation unless its B10 c part is given | fixed, stated (Decision 8) |
-| Consistency of income and balance sheet | income and costs follow the classification of the related balance sheet item (decision P2) | not yet applied: see Limitations |
+| Interest cost of the employee severance indemnity | in personnel costs (B9); with a debt-like indemnity and its `interest_cost`, in the financing result | in B9, stated when the indemnity is debt-like (P2) |
 | Leases | as reported; financial method by adjustment, no deferred taxes | as reported (Decision 9) |
 | Taxes | item 20 as given; no IRES, IRAP, deferred taxes or NOPAT | fixed |
 
@@ -560,22 +591,21 @@ that the totals reconcile exactly.
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | Both forms in one entry; dates not one year apart or newest first; a negative amount where the layout has none (a lease amount included); an override of another aggregate; `beyond_one_year` on a `quasi_equity` part of a split; an `amounts` list of another length; a blank label, reason or `related_non_operating_asset`; an adjustment on a reclassified entry; a `non_recurring` adjustment of D18 or D19; an `investing` adjustment of an aggregate other than A5 or B14; an unknown field or value |
+| `FM-E001` | Both forms in one entry; dates not one year apart or newest first; a negative amount where the layout has none (a lease amount included); an override of another aggregate; `beyond_one_year` on a `quasi_equity` part of a split; an `amounts` list of another length; a blank label, reason or `related_non_operating_asset`; an adjustment on a reclassified entry; a `non_recurring` adjustment of D18 or D19; an `investing` adjustment of an aggregate other than A5 or B14; an `interest_cost` on a debt-like provision other than the employee severance indemnity, of another length, or for a year where the adjustment does not apply; an unknown field or value |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 | `FM-E009` | A date that does not exist or is outside 1900 to 2199 |
 | `FM-E012` | Defect: total funds invested differ from the sources of a statutory year with every item given; a reconciliation with A − B does not add up; the reorganised profit differs from the statutory one other than by the lease restatements |
-| `FM-E026` | A relation of the statements does not reconcile; the funds invested of a statutory year differ from its sources once the separate lines taken as zero are counted (named in the message); an adjustment exceeds what remains in its source; B10 c exceeds the B10 a to c group it belongs to; or the current part of a lease liability exceeds the liability |
+| `FM-E026` | A relation of the statements does not reconcile; the funds invested of a statutory year differ from its sources once the separate lines taken as zero are counted (named in the message); an adjustment, or the interest cost of the employee severance indemnity, exceeds what remains in its source; B10 c exceeds the B10 a to c group it belongs to; or the current part of a lease liability exceeds the liability |
 
 ## Limitations and practice notes
 
 - **Deferred tax assets** (C.II 5-ter) stay in receivables, and so in operating working capital.
   To exclude them from working capital, move them with a `non_operating_asset` adjustment of
   `receivables` and state why in its reason.
-- **Income of assets classified as operating** (decision P2 of 2026-11-09, not yet applied):
-  income from financial fixed assets treated as `operating` (C15) stays in the investing result,
-  and the revaluation of the employee severance indemnity treated as debt-like stays in
-  personnel costs (B9) and EBITDA. The decision places them in operating profit and in the
-  financing result; its implementation waits for the maintainer on four points.
+- **Income of financial fixed assets** (decision P2 of 2026-11-09): only C15 follows B.III
+  treated as `operating`. C16 includes the interest on loans within B.III (B.III.2), which the
+  layout does not give separately, and stays in the investing result; under a split of B.III,
+  C15 stays there too, because the income of each part is not given.
 - **Receivables within financial fixed assets** (B.III.2) follow the treatment of B.III and are
   always non-current in the current and non-current block, also for the part due within one
   year that art. 2424 asks to disclose.
@@ -586,7 +616,8 @@ that the totals reconcile exactly.
   them as A.X, so that the years compare.
 - **Employee severance indemnity** (TFR, liabilities C) is an operating provision by default,
   as are provisions B; when the analyst treats it as debt, a `debt_like_provision` adjustment
-  moves it, with its reason, to the debt-like items for the bridge.
+  moves it, with its reason, to the debt-like items for the bridge, and its optional
+  `interest_cost` moves the revaluation of the year from B9 to the financing result (P2).
 - **Payables to group companies** (D.8 to D.11: to subsidiaries, associates, parents and sister
   companies) stay in the remainder of payables D, in operating working capital: this version
   does not separate their financial part (decision D6 of 2026-11-08; a separate issue). When
