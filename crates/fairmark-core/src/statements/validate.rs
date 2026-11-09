@@ -6,10 +6,10 @@
 use rust_decimal::Decimal;
 
 use super::input::{
-    Adjustment, Equity, FinancialFixedAssetsOverride, LeaseAmounts, NetFixedAsset, Payables,
-    Provisions, Receivables, ReclassifiedBalanceSheet, ReclassifiedIncomeStatement,
-    ReorganiseInput, ShareholderLoansDestination, ShareholderLoansOverride, StatutoryBalanceSheet,
-    StatutoryIncomeStatement, WithMaturity,
+    Adjustment, DebtLikeProvisionAdjustment, Equity, FinancialFixedAssetsOverride, LeaseAmounts,
+    NetFixedAsset, Payables, ProvisionSource, Provisions, Receivables, ReclassifiedBalanceSheet,
+    ReclassifiedIncomeStatement, ReorganiseInput, ShareholderLoansDestination,
+    ShareholderLoansOverride, StatutoryBalanceSheet, StatutoryIncomeStatement, WithMaturity,
 };
 use crate::dates::{days_in_month, Date};
 use crate::error::{FairmarkError, Reconciliation, Result};
@@ -417,6 +417,10 @@ fn reclassified_income_statement(is: &ReclassifiedIncomeStatement, at: &str) -> 
         ),
         ("other_charges_below_ebitda", is.other_charges_below_ebitda),
         (
+            "income_from_operating_investments",
+            is.income_from_operating_investments,
+        ),
+        (
             "interest_and_other_financial_charges",
             is.interest_and_other_financial_charges,
         ),
@@ -472,6 +476,46 @@ fn adjustment(input: &ReorganiseInput, k: usize, adj: &Adjustment) -> Result<()>
         }
         if let Some(la) = lease {
             lease_current_part(la, &format!("{at}/amounts/{i}"))?;
+        }
+    }
+    if let Adjustment::DebtLikeProvision(a) = adj {
+        if let Some(costs) = &a.interest_cost {
+            interest_cost(a, costs, n, &at)?;
+        }
+    }
+    Ok(())
+}
+
+/// P2: the interest cost of the employee severance indemnity, one entry per year, zero or
+/// more, only with `aggregate` `employee_severance_indemnity` and only where the adjustment
+/// applies; that it fits in B9 is checked when it is moved (R10).
+fn interest_cost(
+    a: &DebtLikeProvisionAdjustment,
+    costs: &[Option<Decimal>],
+    n: usize,
+    at: &str,
+) -> Result<()> {
+    if a.aggregate != ProvisionSource::EmployeeSeveranceIndemnity {
+        return Err(invalid(format!(
+            "`{at}/interest_cost` is given for a debt-like provision of `provisions`: the \
+             interest cost applies only to the employee severance indemnity (P2); remove it"
+        )));
+    }
+    if costs.len() != n {
+        return Err(invalid(format!(
+            "`{at}/interest_cost` has {} entries for {n} years: give one entry per year, in the \
+             order of `years`, with null where it is not given",
+            costs.len()
+        )));
+    }
+    for (i, c) in costs.iter().enumerate() {
+        unsigned(&format!("{at}/interest_cost/{i}"), *c)?;
+        if c.is_some() && a.amounts[i].is_none() {
+            return Err(invalid(format!(
+                "`{at}/interest_cost/{i}` is given for a year where the adjustment does not \
+                 apply (`{at}/amounts/{i}` is null): the interest cost moves only with a \
+                 debt-like severance indemnity; give the amount, or null here"
+            )));
         }
     }
     Ok(())

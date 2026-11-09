@@ -144,7 +144,7 @@ conventions:
   - 'A5 and B14 are core by default (Decision 7, R18)'
   - 'D18 and D19 in the investing result; B10 c in the investing result (treatment `investing`); B10 d below EBITDA in other_charges_below_ebitda (treatment `operating`, the default)'
   - 'default: `/treatments/write_downs_of_receivables` not given, set to'
-  - 'C15 and C16 in the investing result; C17 and C17-bis in the financing result'
+  - 'C15 in the investing result, or in income_from_operating_investments when financial fixed assets (B.III) are wholly operating for the year (P2)'
   - 'income taxes: item 20 as given; no IRES, IRAP, deferred taxes or NOPAT are computed'
   - 'cost_of_sales is not returned (Decision 13)'
   - 'operating_profit feeds `ebit` of dcf.free_cash_flows'
@@ -152,6 +152,41 @@ conventions:
   - 'year 2024: B10 a to c given as one amount without its B10 c part: read as depreciation and amortisation'
   - 'default: `/years/0/statutory/income_statement/other_revenue_and_income` assigned to'
   - 'default: `/years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_receivables` assigned to'
+- input:
+    years:
+    - label: '2024'
+      statutory:
+        balance_sheet: {financial_fixed_assets: '50', employee_severance_indemnity: {total: '30'}}
+        income_statement: {personnel_costs: '100', income_from_equity_investments: '4'}
+    - label: '2025'
+      statutory:
+        balance_sheet: {financial_fixed_assets: '50', employee_severance_indemnity: {total: '30'}}
+        income_statement: {personnel_costs: '100', income_from_equity_investments: '4'}
+      treatment_overrides:
+        financial_fixed_assets:
+          split:
+          - {destination: operating, amount: '20', label: Supplier stake}
+          - {destination: non_operating, amount: '30', label: Minority stake}
+    treatments: {financial_fixed_assets: operating}
+    adjustments:
+    - kind: debt_like_provision
+      label: Severance indemnity
+      reason: Treated as debt
+      aggregate: employee_severance_indemnity
+      amounts: ['30', '30']
+      interest_cost: ['1', null]
+  expect:
+  - 'year 2024: financial fixed assets (B.III) are operating: C15, income from equity investments, is income_from_operating_investments, below EBITDA and in operating profit (P2)'
+  - 'year 2025: financial fixed assets (B.III) are split between destinations and the income of each part is not given: C15 stays in the investing result (P2)'
+  - "year 2025: adjustment 0 'Severance indemnity' treats the employee severance indemnity as debt-like without its interest cost: the revaluation stays in personnel costs (B9) and EBITDA"
+- input:
+    years:
+    - label: '2024'
+      statutory:
+        balance_sheet: {financial_fixed_assets: '50'}
+        income_statement: {income_from_equity_investments: '4'}
+  expect:
+  - 'year 2024: C15 follows financial fixed assets (B.III), given without a treatment: the outputs C15 reaches wait for `/treatments/financial_fixed_assets` (P2, R8)'
 - input:
     years:
     - label: '2024'

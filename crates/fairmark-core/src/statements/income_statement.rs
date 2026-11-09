@@ -15,7 +15,8 @@ use rust_decimal::Decimal;
 use super::balance_sheet::Outputs;
 use super::checks::{Check, Checks, Side};
 use super::input::{
-    Adjustment, InvestingSource, NonRecurringSource, ReorganiseInput, StatutoryIncomeStatement,
+    Adjustment, FinancialFixedAssetsDestination, FinancialFixedAssetsOverride, InvestingSource,
+    NonRecurringSource, ProvisionSource, ReorganiseInput, StatutoryIncomeStatement,
     WriteDownsOfFixedAssets, WriteDownsOfReceivables,
 };
 use super::partial::{total, Partial, Sign};
@@ -345,6 +346,59 @@ struct Year<'a> {
     operating_wdfa: bool,
     /// Which treatments the analyst stated, not filled in by default.
     stated: Stated,
+    /// Where C15 goes, following financial fixed assets (B.III) of the year (P2).
+    c15: C15Place,
+}
+
+/// Where C15 goes for one year, following the treatment of B.III (P2).
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum C15Place {
+    /// B.III wholly `operating`: income from operating investments, in operating profit.
+    Operating,
+    /// B.III split between destinations: the investing result, reported.
+    Split,
+    /// B.III `non_operating` or `financial_asset`, zero or not given: the investing result.
+    Investing,
+    /// B.III given and not zero, its treatment missing: C15 waits for it (R8); the pointer of
+    /// the treatment.
+    Waits(String),
+}
+
+impl C15Place {
+    /// P2: from the override of the year, else the treatment, and B.III as given.
+    fn of(input: &ReorganiseInput, i: usize) -> Self {
+        let y = &input.years[i];
+        let over = y
+            .treatment_overrides
+            .as_ref()
+            .and_then(|o| o.financial_fixed_assets.as_ref());
+        let (destination, pointer) = match over {
+            Some(FinancialFixedAssetsOverride::Split(_)) => return Self::Split,
+            Some(FinancialFixedAssetsOverride::Destination(d)) => (
+                Some(*d),
+                format!("/years/{i}/treatment_overrides/financial_fixed_assets"),
+            ),
+            None => (
+                input.treatments.financial_fixed_assets,
+                "/treatments/financial_fixed_assets".to_owned(),
+            ),
+        };
+        match destination {
+            Some(FinancialFixedAssetsDestination::Operating) => Self::Operating,
+            Some(_) => Self::Investing,
+            None => {
+                let b3 = y
+                    .statutory
+                    .as_ref()
+                    .and_then(|s| s.balance_sheet.as_ref())
+                    .and_then(|b| b.financial_fixed_assets);
+                match b3 {
+                    Some(v) if !v.is_zero() => Self::Waits(pointer),
+                    _ => Self::Investing,
+                }
+            }
+        }
+    }
 }
 
 impl Year<'_> {
@@ -414,6 +468,8 @@ struct Moves {
     investing: Vec<Move>,
     non_recurring: Vec<Move>,
     leases: Vec<LeaseLines>,
+    /// Interest costs of a debt-like employee severance indemnity moved out of B9 (P2).
+    interest_costs: Vec<Move>,
     applied: Vec<AppliedAdjustment>,
 }
 
@@ -429,6 +485,7 @@ struct Layers {
     ebitda: Partial,
     depreciation_and_amortisation: Partial,
     other_charges_below_ebitda: Partial,
+    income_from_operating_investments: Partial,
     operating_profit: Partial,
     write_downs_of_fixed_assets: Partial,
     write_downs_of_receivables: Partial,
@@ -528,10 +585,12 @@ pub(crate) fn conventions(input: &ReorganiseInput, ex: &mut Explain) {
         ),
     ));
     ex.convention(
-        "C15 and C16 in the investing result; C17 and C17-bis in the financing result (IFRS \
-         18); no adjustment moves D18 or D19 (R17); C16 includes the interest on cash and on \
-         financial receivables of the net financial position, so the financing result is gross \
-         of that interest",
+        "C15 in the investing result, or in income_from_operating_investments when financial \
+         fixed assets (B.III) are wholly operating for the year (P2); C16 in the investing \
+         result; C17 and C17-bis in the financing result (IFRS 18), with the interest cost of a \
+         debt-like employee severance indemnity when given (P2); no adjustment moves D18 or D19 \
+         (R17); C16 includes the interest on cash and on financial receivables of the net \
+         financial position, so the financing result is gross of that interest",
     );
     ex.convention(
         "C17-bis is a net amount: a `non_recurring` adjustment of C17-bis moves a part of a net \
@@ -566,6 +625,49 @@ pub(crate) fn conventions(input: &ReorganiseInput, ex: &mut Explain) {
     }
 }
 
+/// P2: where C15 goes for the year, and an interest cost of a debt-like employee severance
+/// indemnity that is not given, stated as conventions.
+fn c15_conventions(y: &Year, input: &ReorganiseInput, i: usize, ex: &mut Explain) {
+    let name = y.name;
+    match &y.c15 {
+        C15Place::Operating => ex.convention(format!(
+            "year {name}: financial fixed assets (B.III) are operating: C15, income from equity \
+             investments, is income_from_operating_investments, below EBITDA and in operating \
+             profit (P2)"
+        )),
+        C15Place::Split => ex.convention(format!(
+            "year {name}: financial fixed assets (B.III) are split between destinations and the \
+             income of each part is not given: C15 stays in the investing result (P2)"
+        )),
+        C15Place::Waits(pointer) => ex.convention(format!(
+            "year {name}: C15 follows financial fixed assets (B.III), given without a \
+             treatment: the outputs C15 reaches wait for `{pointer}` (P2, R8)"
+        )),
+        C15Place::Investing => {}
+    }
+    for (k, adj) in input.adjustments.iter().enumerate() {
+        if let Adjustment::DebtLikeProvision(a) = adj {
+            let applies = a.amounts.get(i).copied().flatten().is_some();
+            let cost = a
+                .interest_cost
+                .as_ref()
+                .and_then(|c| c.get(i).copied().flatten());
+            if a.aggregate == ProvisionSource::EmployeeSeveranceIndemnity
+                && applies
+                && cost.is_none()
+            {
+                ex.convention(format!(
+                    "year {name}: adjustment {k} '{}' treats the employee severance indemnity \
+                     as debt-like without its interest cost: the revaluation stays in personnel \
+                     costs (B9) and EBITDA; give `/adjustments/{k}/interest_cost/{i}` to move it \
+                     to the financing result (P2)",
+                    a.label
+                ));
+            }
+        }
+    }
+}
+
 /// R11: every aggregate given, with its layer and origin.
 fn assignments(y: &Year, ex: &mut Explain) -> Vec<Assignment> {
     use Destination as Dn;
@@ -594,7 +696,7 @@ fn assignments(y: &Year, ex: &mut Explain) -> Vec<Assignment> {
     let is = &y.is;
     let k = |v: Option<Decimal>| v.map_or(Partial::unavailable(), Partial::Known);
     let m = Origin::Mapping;
-    let flat: [(&'static str, &str, Option<Decimal>, Dn); 15] = [
+    let flat: [(&'static str, &str, Option<Decimal>, Dn); 14] = [
         ("A1", "revenue", is.revenue, Dn::ValueOfProduction),
         (
             "A2, A3",
@@ -648,12 +750,6 @@ fn assignments(y: &Year, ex: &mut Explain) -> Vec<Assignment> {
             Dn::ExternalCosts,
         ),
         (
-            "C15",
-            "income_from_equity_investments",
-            is.income_from_equity_investments,
-            Dn::InvestingResult,
-        ),
-        (
             "C16",
             "other_financial_income",
             is.other_financial_income,
@@ -668,6 +764,21 @@ fn assignments(y: &Year, ex: &mut Explain) -> Vec<Assignment> {
     ];
     for (reference, key, v, d) in flat {
         assign(reference, y.p(key), &k(v), d, m);
+    }
+    // P2: C15 follows B.III; no destination while its treatment is missing (R8).
+    let c15 = match y.c15 {
+        C15Place::Operating => Some((Dn::IncomeFromOperatingInvestments, Origin::Analyst)),
+        C15Place::Split | C15Place::Investing => Some((Dn::InvestingResult, m)),
+        C15Place::Waits(_) => None,
+    };
+    if let Some((d, o)) = c15 {
+        assign(
+            "C15",
+            y.p("income_from_equity_investments"),
+            &k(is.income_from_equity_investments),
+            d,
+            o,
+        );
     }
     assign(
         "C17-bis",
@@ -776,6 +887,7 @@ fn adjustments(
         investing: Vec::new(),
         non_recurring: Vec::new(),
         leases: Vec::new(),
+        interest_costs: Vec::new(),
         applied: Vec::new(),
     };
     for (k, adj) in input.adjustments.iter().enumerate() {
@@ -810,11 +922,31 @@ fn adjustments(
                 ),
                 None => continue,
             },
+            // P2: the interest cost of a debt-like severance indemnity leaves B9.
+            Adjustment::DebtLikeProvision(a)
+                if a.aggregate == ProvisionSource::EmployeeSeveranceIndemnity =>
+            {
+                match a
+                    .interest_cost
+                    .as_ref()
+                    .and_then(|c| c.get(i).copied().flatten())
+                {
+                    Some(v) => (
+                        Agg::PersonnelCosts,
+                        v,
+                        format!("/adjustments/{k}/interest_cost/{i}"),
+                        Destination::FinancingResult,
+                        None,
+                    ),
+                    None => continue,
+                }
+            }
             _ => continue,
         };
         let read = y.read(agg);
         let rem = mv.remaining[&agg].clone();
         let lease = matches!(adj, Adjustment::Lease(_));
+        let interest_cost = matches!(adj, Adjustment::DebtLikeProvision(_));
         let took = match rem.value() {
             Some(left) => {
                 if amount > left && !amount.is_zero() {
@@ -834,7 +966,11 @@ fn adjustments(
                 }
                 mv.remaining
                     .insert(agg, Partial::Known(crate::num::sub(left, amount)?));
-                let line = lease.then_some("payments");
+                let line = if lease {
+                    Some("payments")
+                } else {
+                    interest_cost.then_some("interest_cost")
+                };
                 let mut formula = format!("as given; reason: {}", adj.reason());
                 if let Some(r) = &related {
                     formula.push_str(&format!("; related non-operating asset: {r}"));
@@ -894,6 +1030,12 @@ fn adjustments(
                 amount: took,
             }),
             Adjustment::NonRecurring(_) => mv.non_recurring.push(Move {
+                index: k,
+                label,
+                agg,
+                amount: took,
+            }),
+            Adjustment::DebtLikeProvision(_) => mv.interest_costs.push(Move {
                 index: k,
                 label,
                 agg,
@@ -987,6 +1129,12 @@ impl Moves {
             .chain(&self.non_recurring)
             .filter(|m| m.agg == agg)
             .map(|m| (m.label.clone(), m.amount.clone()))
+            .chain(
+                self.interest_costs
+                    .iter()
+                    .filter(|m| m.agg == agg)
+                    .map(|m| (format!("{} (interest cost)", m.label), m.amount.clone())),
+            )
             .chain(
                 self.leases
                     .iter()
@@ -1133,6 +1281,28 @@ fn layers(y: &Year, mv: &Moves, ex: &mut Explain) -> Result<Layers> {
         format!("Other charges below EBITDA ({name})"),
         &other_terms,
     )?;
+    let c15 = mv.core_step(
+        y,
+        ex,
+        Agg::IncomeFromEquityInvestments,
+        "Income from equity investments",
+    )?;
+    // P2: C15 follows B.III; waiting for its treatment, it is missing wherever it could go.
+    let c15 = match &y.c15 {
+        C15Place::Waits(pointer) => {
+            Partial::sum(&[(Plus, &c15), (Plus, &Partial::lacking(pointer.clone()))])?
+        }
+        _ => c15,
+    };
+    let income_from_operating_investments = match &y.c15 {
+        C15Place::Operating => step(
+            ex,
+            format!("Income from operating investments ({name})"),
+            &[t(Plus, "C15 (financial fixed assets operating, P2)", &c15)],
+        )?,
+        C15Place::Waits(_) => c15.clone(),
+        C15Place::Split | C15Place::Investing => Partial::ZERO,
+    };
     let operating_profit = step(
         ex,
         format!("Operating profit ({name})"),
@@ -1147,6 +1317,11 @@ fn layers(y: &Year, mv: &Moves, ex: &mut Explain) -> Result<Layers> {
                 Minus,
                 "other charges below EBITDA",
                 &other_charges_below_ebitda,
+            ),
+            t(
+                Plus,
+                "income from operating investments",
+                &income_from_operating_investments,
             ),
         ],
     )?;
@@ -1169,18 +1344,14 @@ fn layers(y: &Year, mv: &Moves, ex: &mut Explain) -> Result<Layers> {
             ),
         ])?,
     };
-    let c15 = mv.core_step(
-        y,
-        ex,
-        Agg::IncomeFromEquityInvestments,
-        "Income from equity investments",
-    )?;
     let c16 = mv.core_step(y, ex, Agg::OtherFinancialIncome, "Other financial income")?;
     let b14_inv = mv.moved(true, &[Agg::OtherOperatingExpenses]);
     let mut inv_terms: Vec<Term> = a5_inv.iter().map(|(l, a)| t(Plus, l, a)).collect();
     inv_terms.extend(b14_inv.iter().map(|(l, a)| t(Minus, l, a)));
+    if y.c15 != C15Place::Operating {
+        inv_terms.push(t(Plus, "C15", &c15));
+    }
     inv_terms.extend([
-        t(Plus, "C15", &c15),
         t(Plus, "C16", &c16),
         t(Plus, "D18 − D19", &value_adjustments_of_financial_assets),
     ]);
@@ -1251,14 +1422,21 @@ fn layers(y: &Year, mv: &Moves, ex: &mut Explain) -> Result<Layers> {
         Agg::ExchangeGainsAndLosses,
         "Exchange gains and losses",
     )?;
-    let financing_result = step(
-        ex,
-        format!("Financing result ({name})"),
-        &[
-            t(Plus, "C17-bis", &c17_bis),
-            t(Minus, "interest and other financial charges", &interest),
-        ],
-    )?;
+    let mut fin_terms = vec![
+        t(Plus, "C17-bis", &c17_bis),
+        t(Minus, "interest and other financial charges", &interest),
+    ];
+    fin_terms.extend(mv.interest_costs.iter().map(|m| {
+        t(
+            Minus,
+            &format!(
+                "{} (interest cost of the employee severance indemnity, P2)",
+                m.label
+            ),
+            &m.amount,
+        )
+    }));
+    let financing_result = step(ex, format!("Financing result ({name})"), &fin_terms)?;
     let profit_before_tax = step(
         ex,
         format!("Profit before tax ({name})"),
@@ -1292,6 +1470,7 @@ fn layers(y: &Year, mv: &Moves, ex: &mut Explain) -> Result<Layers> {
         ebitda,
         depreciation_and_amortisation,
         other_charges_below_ebitda,
+        income_from_operating_investments,
         operating_profit,
         write_downs_of_fixed_assets: c10,
         write_downs_of_receivables: d10,
@@ -1347,6 +1526,17 @@ fn reconciliations(
             ls.depreciation.negated()?,
         ));
     }
+    for m in &mv.interest_costs {
+        lease_lines.push((
+            m.index,
+            format!(
+                "{} (interest cost of the employee severance indemnity removed from B9)",
+                m.label
+            ),
+            vec![format!("/adjustments/{}", m.index)],
+            m.amount.clone(),
+        ));
+    }
     let mut c_label = "B10 c, write-downs of fixed assets (investing result)".to_owned();
     if y.b10.grouped {
         c_label.push_str(": read as none, give the B10 c part (Decision 8)");
@@ -1366,6 +1556,23 @@ fn reconciliations(
             "B10 d, write-downs of receivables (investing result)".to_owned(),
             y.read(Agg::WriteDownsOfReceivables),
             l.write_downs_of_receivables.clone(),
+        ));
+    }
+    let c15_operating = y.c15 == C15Place::Operating;
+    let c15_label = format!(
+        "C15, income from equity investments ({})",
+        if c15_operating {
+            "operating investments, P2"
+        } else {
+            "investing result"
+        }
+    );
+    if c15_operating {
+        op_lines.push((
+            0,
+            c15_label.clone(),
+            y.read(Agg::IncomeFromEquityInvestments),
+            l.income_from_equity_investments.clone(),
         ));
     }
     let mut moves: Vec<Line> = Vec::new();
@@ -1395,7 +1602,7 @@ fn reconciliations(
     pbft_lines.extend([
         (
             0,
-            "C15, income from equity investments (investing result)".to_owned(),
+            c15_label,
             y.read(Agg::IncomeFromEquityInvestments),
             l.income_from_equity_investments.clone(),
         ),
@@ -1461,6 +1668,7 @@ pub(crate) fn statutory(
         operating_wdfa: input.treatments.write_downs_of_fixed_assets
             != Some(WriteDownsOfFixedAssets::Investing),
         stated,
+        c15: C15Place::of(input, i),
     };
     if y.b10.grouped && !y.operating_wdfa {
         ex.convention(format!(
@@ -1468,6 +1676,9 @@ pub(crate) fn statutory(
              depreciation and amortisation, B10 c none; give the B10 c part to have it in the \
              investing result (Decision 8, R17)"
         ));
+    }
+    if y.given {
+        c15_conventions(&y, input, i, ex);
     }
     let assignments = assignments(&y, ex);
     let mv = adjustments(&y, input, i, ex, notes)?;
@@ -1481,7 +1692,14 @@ pub(crate) fn statutory(
     )?;
     let [op, pbft] = reconciliations(&y, &mv, &l, ex)?;
 
-    let mut out = Outputs::new(i, BTreeMap::new());
+    let mut permits = BTreeMap::new();
+    if let C15Place::Waits(pointer) = &y.c15 {
+        permits.insert(
+            pointer.clone(),
+            vec!["operating", "non_operating", "financial_asset"],
+        );
+    }
+    let mut out = Outputs::new(i, permits);
     let b = "income_statement";
     let income_statement = IncomeStatement {
         revenue: out.amount(b, "revenue", &l.revenue),
@@ -1502,6 +1720,11 @@ pub(crate) fn statutory(
             b,
             "other_charges_below_ebitda",
             &l.other_charges_below_ebitda,
+        ),
+        income_from_operating_investments: out.amount(
+            b,
+            "income_from_operating_investments",
+            &l.income_from_operating_investments,
         ),
         operating_profit: out.amount(b, "operating_profit", &l.operating_profit),
         investing_result: out.amount(b, "investing_result", &l.investing_result),
@@ -1757,10 +1980,15 @@ pub(crate) fn reclassified(
         "depreciation_and_amortisation",
     );
     let other = f(is.other_charges_below_ebitda, "other_charges_below_ebitda");
+    let operating_investments = f(
+        is.income_from_operating_investments,
+        "income_from_operating_investments",
+    );
     let mut op_components = ebitda_used;
     op_components.extend([
         p("depreciation_and_amortisation"),
         p("other_charges_below_ebitda"),
+        p("income_from_operating_investments"),
     ]);
     let (operating_profit, op_used) = given_or_derived(
         ex,
@@ -1772,6 +2000,11 @@ pub(crate) fn reclassified(
             (Plus, "EBITDA", &ebitda),
             (Minus, "depreciation and amortisation", &dna),
             (Minus, "other charges below EBITDA", &other),
+            (
+                Plus,
+                "income from operating investments",
+                &operating_investments,
+            ),
         ],
         op_components,
     )?;
@@ -1842,6 +2075,11 @@ pub(crate) fn reclassified(
         ebitda_definition: EBITDA_DEFINITION,
         depreciation_and_amortisation: out.amount(b, "depreciation_and_amortisation", &dna),
         other_charges_below_ebitda: out.amount(b, "other_charges_below_ebitda", &other),
+        income_from_operating_investments: out.amount(
+            b,
+            "income_from_operating_investments",
+            &operating_investments,
+        ),
         operating_profit: out.amount(b, "operating_profit", &operating_profit),
         investing_result: out.amount(b, "investing_result", &investing_result),
         profit_before_financing_and_taxes: out.amount(

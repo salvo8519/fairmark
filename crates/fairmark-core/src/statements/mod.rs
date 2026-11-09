@@ -87,12 +87,16 @@ pub enum Destination {
     DepreciationAndAmortisation,
     /// Other charges below EBITDA (B12, B13; B10 d with the treatment `operating`; E2).
     OtherChargesBelowEbitda,
-    /// Investing result, below operating profit (A5 and B14 investing parts, C15, C16, D18,
-    /// D19, B10 c, B10 d by default).
+    /// Income from operating investments, below EBITDA and in operating profit (C15 when
+    /// financial fixed assets are wholly `operating` for the year; P2).
+    IncomeFromOperatingInvestments,
+    /// Investing result, below operating profit (A5 and B14 investing parts, C15 unless
+    /// operating, C16, D18, D19; B10 c and B10 d with the treatment `investing`).
     InvestingResult,
     /// Non-recurring result (parts moved by `non_recurring` adjustments).
     NonRecurringResult,
-    /// Financing result (C17, C17-bis).
+    /// Financing result (C17, C17-bis; the interest cost of a debt-like employee severance
+    /// indemnity, P2).
     FinancingResult,
     /// Income taxes, item 20 as given.
     IncomeTaxes,
@@ -125,6 +129,7 @@ impl Destination {
             Self::Ebitda => "ebitda",
             Self::DepreciationAndAmortisation => "depreciation_and_amortisation",
             Self::OtherChargesBelowEbitda => "other_charges_below_ebitda",
+            Self::IncomeFromOperatingInvestments => "income_from_operating_investments",
             Self::InvestingResult => "investing_result",
             Self::NonRecurringResult => "non_recurring_result",
             Self::FinancingResult => "financing_result",
@@ -186,8 +191,9 @@ pub struct AppliedAdjustment {
     /// Where the amount goes.
     pub target: Destination,
     /// For a `lease` adjustment, which of its amounts this entry moves: `asset`, `liability`,
-    /// `prepayment`, `equity_effect`, `payments`, `depreciation` or `interest`; omitted for
-    /// the other kinds.
+    /// `prepayment`, `equity_effect`, `payments`, `depreciation` or `interest`; for a
+    /// `debt_like_provision` of the employee severance indemnity, `interest_cost` on the entry
+    /// that moves its interest cost out of B9 (P2); omitted otherwise.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub line: Option<&'static str>,
 }
@@ -380,8 +386,12 @@ pub struct IncomeStatement {
     /// Other charges below EBITDA: B12 + B13 (+ B10 d with the treatment `operating`), core
     /// (E2), in currency units.
     pub other_charges_below_ebitda: Option<Decimal>,
+    /// Income from operating investments: C15 (core) when financial fixed assets (B.III) are
+    /// wholly `operating` for the year, zero otherwise (P2), in currency units.
+    pub income_from_operating_investments: Option<Decimal>,
     /// Operating profit of the core business (reddito operativo della gestione caratteristica,
-    /// MON; IFRS 18 "operating profit or loss"), in currency units, signed.
+    /// MON; IFRS 18 "operating profit or loss"): EBITDA − depreciation and amortisation − other
+    /// charges below EBITDA + income from operating investments, in currency units, signed.
     pub operating_profit: Option<Decimal>,
     /// Investing result (risultato della gestione accessoria), in currency units, signed.
     pub investing_result: Option<Decimal>,
@@ -392,7 +402,8 @@ pub struct IncomeStatement {
     /// Σ non-recurring income − Σ non-recurring charges, in currency units, signed; zero when no
     /// item is labelled non-recurring, null when the year gives no income statement (E6).
     pub non_recurring_result: Option<Decimal>,
-    /// C17-bis − C17 (core, with lease interest), in currency units, signed.
+    /// C17-bis − C17 (core, with lease interest) − the interest cost of a debt-like employee
+    /// severance indemnity (P2), in currency units, signed.
     pub financing_result: Option<Decimal>,
     /// C17 (core, plus lease interest), in currency units.
     pub interest_and_other_financial_charges: Option<Decimal>,

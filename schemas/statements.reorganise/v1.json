@@ -260,6 +260,21 @@
               },
               "type": "array"
             },
+            "interest_cost": {
+              "description": "Optional, only with `aggregate` `employee_severance_indemnity` (P2): one entry per\nyear, in the order of `years`, the interest cost (revaluation) of the employee\nseverance indemnity included in B9, in currency units, zero or more and at most what\nremains of B9; null where not given, and only where `amounts` has an entry. It leaves\npersonnel costs and EBITDA and enters the financing result. Not given: nothing moves\nand a convention says so.",
+              "items": {
+                "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+                "type": [
+                  "string",
+                  "number",
+                  "null"
+                ]
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
             "kind": {
               "const": "debt_like_provision",
               "type": "string"
@@ -1590,6 +1605,16 @@
             "null"
           ]
         },
+        "income_from_operating_investments": {
+          "default": null,
+          "description": "Income from operating investments, C15 of financial fixed assets treated as operating,\nin currency units, zero or more (P2); needed to derive operating profit.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
         "income_taxes": {
           "default": null,
           "description": "Income taxes (item 20), in currency units, signed.",
@@ -1652,7 +1677,7 @@
         },
         "operating_profit": {
           "default": null,
-          "description": "Operating profit (reddito operativo, MON), EBITDA − depreciation and amortisation −\nother charges below EBITDA, in currency units, signed; derived when not given and checked\nwhen given.",
+          "description": "Operating profit (reddito operativo, MON), EBITDA − depreciation and amortisation −\nother charges below EBITDA + income from operating investments, in currency units,\nsigned; derived when not given and checked when given.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",

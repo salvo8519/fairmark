@@ -440,9 +440,12 @@ pub struct ReclassifiedIncomeStatement {
     /// Other charges below EBITDA, B12 + B13 (+ B10 d when it is treated as operating) net of
     /// moved parts, in currency units, zero or more (E2 of 2026-11-09).
     pub other_charges_below_ebitda: Option<Decimal>,
+    /// Income from operating investments, C15 of financial fixed assets treated as operating,
+    /// in currency units, zero or more (P2); needed to derive operating profit.
+    pub income_from_operating_investments: Option<Decimal>,
     /// Operating profit (reddito operativo, MON), EBITDA − depreciation and amortisation −
-    /// other charges below EBITDA, in currency units, signed; derived when not given and checked
-    /// when given.
+    /// other charges below EBITDA + income from operating investments, in currency units,
+    /// signed; derived when not given and checked when given.
     pub operating_profit: Option<Decimal>,
     /// Investing result (accessory area), in currency units, signed.
     pub investing_result: Option<Decimal>,
@@ -766,6 +769,14 @@ adjustment!(
     DebtLikeProvisionAdjustment, Decimal, {
         /// Source aggregate: `provisions` or `employee_severance_indemnity`.
         aggregate: ProvisionSource,
+        /// Optional, only with `aggregate` `employee_severance_indemnity` (P2): one entry per
+        /// year, in the order of `years`, the interest cost (revaluation) of the employee
+        /// severance indemnity included in B9, in currency units, zero or more and at most what
+        /// remains of B9; null where not given, and only where `amounts` has an entry. It leaves
+        /// personnel costs and EBITDA and enters the financing result. Not given: nothing moves
+        /// and a convention says so.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        interest_cost: Option<Vec<Option<Decimal>>>,
     }
 );
 adjustment!(
