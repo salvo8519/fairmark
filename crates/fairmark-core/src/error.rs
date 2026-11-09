@@ -1026,6 +1026,141 @@ pub type Result<T> = std::result::Result<T, FairmarkError>;
 mod tests {
     use super::*;
 
+    /// Review of #279, round 3: the class of every variant, input or computation. The match has
+    /// no wildcard, so a new variant cannot be added without being classed here.
+    #[test]
+    fn every_variant_is_classed_as_input_or_computation() {
+        fn input_condition(e: &FairmarkError) -> bool {
+            match e {
+                FairmarkError::NoConvergence { .. }
+                | FairmarkError::Overflow(_)
+                | FairmarkError::MultipleRates(_)
+                | FairmarkError::Internal(_)
+                | FairmarkError::TargetNotBracketed(_)
+                | FairmarkError::GoalSeekNoConvergence { .. } => false,
+                FairmarkError::InvalidInput(_)
+                | FairmarkError::EmptyCashFlows
+                | FairmarkError::RateOutOfRange(_)
+                | FairmarkError::GrowthNotBelowRate { .. }
+                | FairmarkError::NoSignChange { .. }
+                | FairmarkError::UnknownMethod(_)
+                | FairmarkError::InvalidDate(_)
+                | FairmarkError::FlowBeforeValuationDate { .. }
+                | FairmarkError::InvalidPointer { .. }
+                | FairmarkError::EvaluationLimit(_)
+                | FairmarkError::NestedAnalysis(_)
+                | FairmarkError::TerminalValueDomain(_)
+                | FairmarkError::MixedBasis(_)
+                | FairmarkError::BalloonOutOfRange(_)
+                | FairmarkError::LoanNeverRepaid { .. }
+                | FairmarkError::GracePeriodOutOfRange(_)
+                | FairmarkError::RoundingTooCoarse(_)
+                | FairmarkError::DiscountRateOutOfRange { .. }
+                | FairmarkError::CompoundedRateOutOfRange { .. }
+                | FairmarkError::GuessOutOfRange { .. }
+                | FairmarkError::GrowthNotBelowTerminalRate { .. }
+                | FairmarkError::InvalidInputAt { .. }
+                | FairmarkError::InvalidDateAt { .. }
+                | FairmarkError::TermsMismatch(_)
+                | FairmarkError::CountMismatch(_)
+                | FairmarkError::StatementsDoNotReconcile(_)
+                | FairmarkError::BelowMinimumInput(_) => true,
+                FairmarkError::Detailed(d) => input_condition(&d.error),
+                FairmarkError::Several(s) => input_condition(s.first()),
+            }
+        }
+        let d = Decimal::ONE;
+        let text = || "x".to_owned();
+        let every = [
+            FairmarkError::InvalidInput(text()),
+            FairmarkError::EmptyCashFlows,
+            FairmarkError::RateOutOfRange(d),
+            FairmarkError::GrowthNotBelowRate { growth: d, rate: d },
+            FairmarkError::NoConvergence {
+                solver: "IRR",
+                iterations: 1,
+            },
+            FairmarkError::NoSignChange { netted: false },
+            FairmarkError::UnknownMethod(text()),
+            FairmarkError::Overflow("x"),
+            FairmarkError::InvalidDate(text()),
+            FairmarkError::FlowBeforeValuationDate {
+                date: text(),
+                valuation_date: text(),
+            },
+            FairmarkError::MultipleRates(text()),
+            FairmarkError::Internal("x"),
+            FairmarkError::TargetNotBracketed(text()),
+            FairmarkError::GoalSeekNoConvergence {
+                iterations: 1,
+                detail: text(),
+            },
+            FairmarkError::InvalidPointer {
+                pointer: text(),
+                reason: text(),
+            },
+            FairmarkError::EvaluationLimit(text()),
+            FairmarkError::NestedAnalysis(text()),
+            FairmarkError::TerminalValueDomain(text()),
+            FairmarkError::MixedBasis(text()),
+            FairmarkError::BalloonOutOfRange(text()),
+            FairmarkError::LoanNeverRepaid {
+                instalment: d,
+                interest: d,
+            },
+            FairmarkError::GracePeriodOutOfRange(text()),
+            FairmarkError::RoundingTooCoarse(text()),
+            FairmarkError::DiscountRateOutOfRange {
+                field: text(),
+                rate: d,
+                converted_with: None,
+            },
+            FairmarkError::CompoundedRateOutOfRange {
+                field: text(),
+                rate: d,
+                periods_per_year: 2,
+            },
+            FairmarkError::GuessOutOfRange {
+                guess: d,
+                periods_per_year: 1,
+            },
+            FairmarkError::GrowthNotBelowTerminalRate {
+                growth_field: text(),
+                growth: d,
+                rate_field: text(),
+                rate: d,
+                converted_with: None,
+            },
+            FairmarkError::InvalidInputAt {
+                pointer: text(),
+                detail: text(),
+            },
+            FairmarkError::InvalidDateAt {
+                pointer: text(),
+                detail: text(),
+            },
+            FairmarkError::TermsMismatch(text()),
+            FairmarkError::CountMismatch(text()),
+            FairmarkError::StatementsDoNotReconcile(Box::new(Reconciliation {
+                left_name: text(),
+                left: d,
+                right_name: text(),
+                right: d,
+                difference: d,
+                fix: text(),
+                pointers: Vec::new(),
+            })),
+            FairmarkError::BelowMinimumInput(Box::new(MinimumInput {
+                method: "x",
+                missing_any_of: Vec::new(),
+            })),
+            FairmarkError::Overflow("x").at("/x", Reason::Range),
+        ];
+        for e in &every {
+            assert_eq!(e.is_input_error(), input_condition(e), "{e:?}");
+        }
+    }
+
     /// SPEC-0005 R24: `FM-E026` names both sides, both amounts, the difference and the fix.
     #[test]
     fn statements_do_not_reconcile_is_fm_e026_with_both_sides() {
