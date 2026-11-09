@@ -139,17 +139,36 @@ Every method returns:
   `explain` or `diagnostics` follows G8 against the envelope version, not the method version.
 
 ### G5. Errors
-Every refusal is reported as `{code, message, pointer, pointers, reason, expected, fix}`:
-`pointer` is the field to correct (`null` only for malformed JSON, where the message keeps
-the line and column); `pointers` lists every field of a relation (both sides of an `FM-E026`
-reconciliation, both fields of a conflict); `reason` is a sub-kind (`missing`,
-`unknown_field`, `duplicate`, `type`, `enum`, `conflict`, `requires`, `sign`, `blank`,
-`range`, `reconcile`); `expected` lists the accepted values where they are known; `fix` is
-one sentence that resolves the error. `reason` separates the meanings now grouped under
-`FM-E001` without new codes. Validation of the input reports every error it finds in
-`errors[]`, with the first also at the top level; an error raised during the computation
-stops it and is reported alone. A new meaning gets a new code; a new location keeps the code
-of its condition (ADR 0013). Python, the CLI, MCP and function calling pass the whole report.
+Every refusal is reported as `{code, message, pointer, pointers, reason, expected, fix}`,
+with `missing_any_of` for `FM-E027` and `errors` at the top level:
+
+- `pointer` is the field to correct, always from the root of the input the client sent: an
+  error of the method evaluated by an analysis is located under `/base_input`, while its
+  message keeps the pointer within `base_input`. `pointer` is `null` only for a text that is
+  not JSON (`reason` `syntax`, the message keeps the line and column), for an error raised
+  during the computation that no single field causes, and for `FM-E027`, whose inputs are in
+  `missing_any_of`.
+- `pointers` lists every field of a relation (both sides of an `FM-E026` reconciliation, both
+  fields of a conflict); empty when the error concerns one field.
+- `reason` is a sub-kind: `syntax`, `missing`, `unknown_field`, `duplicate`, `type`, `enum`,
+  `conflict`, `requires`, `sign`, `blank`, `range`, `length` (a list with the wrong number of
+  entries), `reconcile`. Values are added, never renamed or removed; clients accept a value
+  they do not know. `reason` separates the meanings now grouped under `FM-E001` without new
+  codes.
+- `expected` is a list of strings: the literal accepted values when `reason` is `enum` or
+  `unknown_field` (the values of the enumeration, the fields of the object), short
+  descriptions of the accepted form otherwise (for example "an amount greater than 0");
+  empty when not known.
+- `fix` is one sentence that resolves the error, or `null`; its wording is guidance, not part
+  of the contract.
+- `errors` lists every error found, at least one, the first equal to the top level. Validation
+  of the input reports every error it finds, in the order of its checks; reading a text that
+  cannot be parsed stops at the first field that cannot be read (ADR 0013); an error raised
+  during the computation stops it and is reported alone.
+
+A new meaning gets a new code; a new location keeps the code of its condition (ADR 0013).
+Python, the CLI, MCP and function calling pass the whole report. The cells of an analysis table
+keep their compact `{code, message}`, which is part of the output of the analysis methods.
 
 ### G6. Shapes that language models fill well
 Flat objects, at most four levels below the root. A choice among options is an enum field
