@@ -1,6 +1,6 @@
 ---
 source: methods/statements-reorganise.md
-source_hash: c3d59e08f998
+source_hash: 8d253745cf90
 ---
 # Bilancio riclassificato (`statements.reorganise`)
 
