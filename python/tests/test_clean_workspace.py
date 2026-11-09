@@ -127,14 +127,20 @@ def sleeper(tmp_path: Path) -> Iterator[Any]:
     started: list[subprocess.Popen[bytes]] = []
 
     def start(cwd: Path, name: str = "sleep") -> subprocess.Popen[bytes]:
-        exe = shutil.which("sleep")
-        assert exe
-        if name != "sleep":
-            copy = tmp_path / "bin" / name
-            copy.parent.mkdir(exist_ok=True)
-            shutil.copy(exe, copy)
-            exe = str(copy)
-        proc = subprocess.Popen([exe, "60"], cwd=cwd)
+        if name == "sleep":
+            exe = shutil.which("sleep")
+            assert exe
+            command = [exe, "60"]
+        else:
+            # A shell script runs under its own name (the kernel names a process after the file
+            # it executes). A copy of sleep would not do: multicall coreutils dispatch on argv[0].
+            # The loop keeps the shell alive instead of letting it exec its last command.
+            script = tmp_path / "bin" / name
+            script.parent.mkdir(exist_ok=True)
+            script.write_text("#!/bin/sh\nwhile :; do sleep 1; done\n", encoding="utf-8")
+            script.chmod(0o755)
+            command = [str(script)]
+        proc = subprocess.Popen(command, cwd=cwd)
         started.append(proc)
         time.sleep(0.2)
         return proc
@@ -297,9 +303,17 @@ def test_missing_worktree_directory_is_pruned_only_with_apply(repo: Repo) -> Non
     lines: list[str] = []
     rows = repo.cleaner(out=lines.append).run()
     assert row(rows, wt).action == "keep" and any("gone" in line for line in lines)
-    assert str(wt) in sh(repo.main, "git", "worktree", "list")
+    assert wt in listed(repo)
     repo.cleaner(apply=True).run()
-    assert str(wt) not in sh(repo.main, "git", "worktree", "list")
+    assert wt not in listed(repo)
+
+
+def listed(repo: Repo) -> list[Path]:
+    """Worktree paths known to git (git prints forward slashes, also on Windows)."""
+    out = sh(repo.main, "git", "worktree", "list", "--porcelain")
+    return [
+        Path(line[len("worktree ") :]) for line in out.splitlines() if line.startswith("worktree ")
+    ]
 
 
 # ------------------------------------------------------------------------------------------
