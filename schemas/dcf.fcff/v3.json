@@ -1012,7 +1012,7 @@
           "type": "null"
         }
       ],
-      "description": "Net financial position at the valuation date (SPEC-0007): gross debt − cash + signed\nother items, positive for net debt, subtracted from enterprise value. Default: none,\nreported."
+      "description": "Net financial position at the valuation date (SPEC-0007): gross debt − cash + signed\nother items, positive for net debt, subtracted from enterprise value. Default: zero,\nreported in `meta.defaults_applied` with a warning that the equity value then equals\nthe enterprise value (less the debt-like items and non-controlling interests); a\nnet financial position given, even zero, carries neither."
     },
     "non_controlling_interests": {
       "description": "Non-controlling interests (minority interests) at the valuation date, each a label, a\nvalue in currency units (zero or more) and its measurement basis (for example\n`book_value` or `fair_value`), subtracted from enterprise value. Default: none, reported.",

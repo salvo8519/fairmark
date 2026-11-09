@@ -42,6 +42,7 @@ calculation:
 | `cash_flow_terms`, `discount_rate_terms` | `nominal` | plans and discount rates are commonly stated at current prices |
 | `timing` | `end_of_period` | each flow at the end of its period, as in [`tvm.npv`](tvm-npv.md) |
 | `terminal` | `none`: no terminal value | the value covers the given flows only; give a terminal value to add one |
+| `net_financial_position` | zero, with a warning | the valuation is always computed; give the net financial position to value the equity |
 
 Each default applied is listed in `meta.defaults_applied` (the field's JSON pointer, the value
 filled in and the reason) and stated first in `explain.conventions`, starting with "default:".
@@ -55,8 +56,18 @@ terminal value is included. Include an exit value in the last flow, give one as 
 net present value of the flows at the WACC, the same as `tvm.npv` with a first flow of zero at
 t = 0.
 
+Without a net financial position the engine subtracts zero, lists the default in
+`meta.defaults_applied` (`/net_financial_position`, `"0"`, "net financial position not given")
+and adds a warning to `explain.conventions`: the equity value then equals the enterprise value,
+less the debt-like items and non-controlling interests when some are given. The output field
+`bridge.net_financial_position` stays `null`, because nothing was given. A net financial
+position given with every amount zero is a true zero: it is not listed as a default and carries
+no warning.
+
 `meta.input_hash` is computed on the input with its defaults filled in, so the minimal input
-and the same input with every default written out have the same hash and the same value. When
+and the same input with every default written out have the same hash and the same value. The
+default of the net financial position is reported but not written into the input, so a net
+financial position given as zero, which carries no warning, has a different hash. When
 the terms take their default and only one of them is given as `real`, the input is refused with
 `FM-E024`, whose message says which field was defaulted.
 
@@ -282,7 +293,9 @@ value of equity of the subsidiary"; with `other` it is required. The basis and t
 reported next to the amount in `explain` and are never used in the calculation. An item
 given among the `other_items` of the net financial position (for example lease liabilities) must
 not be repeated in `debt_like_items`: the engine does not check for double counting. Lists that
-are not given are reported as "none given". Each line is an `explain` step with its label, each
+are not given are reported as "none given". A net financial position that is not given is
+taken as zero, a documented default reported in `meta.defaults_applied` with a warning (see
+[Minimal input](#minimal-input)). Each line is an `explain` step with its label, each
 list has a total step, and the equity value step shows every term subtracted.
 
 ```python
@@ -434,7 +447,8 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | Terminal discounting time | `horizon`, `mid_period` (with mid-period timing only; the half period at the terminal rate) | required with a terminal value under mid-period timing |
 | Terminal option | `tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income`, `tv.liquidation`, at the terminal rate, on the enterprise basis; `given`, an amount at N on the enterprise basis; `none` | `none` |
 | First terminal flow (`tv.gordon`, `tv.h_model`) | last flow grown; or a normalised flow at N + 1 (`tv.gordon`), a normalised base flow at N (`tv.h_model`) | required |
-| Bridge items | measured at the valuation date as given; none given means none | none |
+| Bridge items | measured at the valuation date as given; a list not given means none | none |
+| Net financial position | as given, positive for net debt | zero, listed in `meta.defaults_applied`, with a warning |
 | Bridge signs | non-operating assets added; net financial position (positive for net debt), debt-like items and non-controlling interests subtracted | fixed |
 | Measurement basis of debt-like items and non-controlling interests | `book_value`, `market_value`, `fair_value`, `present_value`, `other` (with `basis_note`); stated by the analyst, reported, not used in the calculation | required per item |
 
@@ -448,7 +462,9 @@ timing, an exit multiple, a liquidation, a limited horizon or a given terminal v
 discounted at N − 0.5, although it is or includes an amount stated at a date (for the limited
 horizon, its residual value; for `given`, the analyst's terminal value at the horizon N); with
 nominal flows and expected inflation, a perpetual growth below the inflation of the terminal
-phase (a real decline); a negative equity value, which is reported as computed and never floored at zero; no terminal value (`none`), the value covering the explicit flows only; a
+phase (a real decline); no net financial position given, so that the equity value equals
+the enterprise value (less the debt-like items and non-controlling interests given); a negative
+equity value, which is reported as computed and never floored at zero; no terminal value (`none`), the value covering the explicit flows only; a
 negative terminal value given by the analyst, discounted as given. A high
 `terminal_value_weight` signals that the valuation depends mostly on long-term assumptions.
 
@@ -517,3 +533,7 @@ golden cases from the reference are checked to $10^{-20}$.
   digit at 9% (`tests/golden/tvm.npv/dcf-flows-only-cross-check.yaml`, from
   `scripts/reference_npv_irr.py`) and within $10^{-25}$ relative at other rates, where each
   method rounds its own operations.
+- Net financial position not given (Decision 25): the equity value equals the enterprise value
+  of the minimal input and of its explicit equivalent, with the default listed in
+  `meta.defaults_applied`; a net financial position given as zero gives the same value with no
+  default (`net-financial-position-*.yaml`, hand computation on the 50-digit values).

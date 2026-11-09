@@ -57,8 +57,10 @@ dcf_input! {
         terminal,
         bridge {
             /// Net financial position at the valuation date (SPEC-0007): gross debt − cash + signed
-            /// other items, positive for net debt, subtracted from enterprise value. Default: none,
-            /// reported.
+            /// other items, positive for net debt, subtracted from enterprise value. Default: zero,
+            /// reported in `meta.defaults_applied` with a warning that the equity value then equals
+            /// the enterprise value (less the debt-like items and non-controlling interests); a
+            /// net financial position given, even zero, carries neither.
             #[serde(default, skip_serializing_if = "Option::is_none")]
             pub net_financial_position: Option<NetFinancialPosition>,
             /// Non-operating assets at the valuation date, each a label and a value in currency units
@@ -91,7 +93,8 @@ pub struct FcffBridge {
     pub non_operating_assets_total: Decimal,
     /// Value of operations plus the non-operating assets.
     pub enterprise_value: Decimal,
-    /// Net financial position subtracted, positive for net debt; `null` when none is given.
+    /// Net financial position subtracted, positive for net debt; `null` when none is given,
+    /// and then zero is subtracted as a documented default (Decision 25).
     pub net_financial_position: Option<Decimal>,
     /// Each debt-like item, label, value and measurement basis, as given.
     pub debt_like_items: Vec<BridgeClaim>,
@@ -125,6 +128,9 @@ pub struct DcfFcffOutput {
     /// Every line from value of operations to equity value.
     pub bridge: FcffBridge,
 }
+
+/// JSON pointer of the net financial position, the field of its default (Decision 25).
+const NFP_POINTER: &str = "/net_financial_position";
 
 const FORMULA: &str = "Value of operations = Σ FCFF_k × DF_k + TV_N × DF_TV; Enterprise value = \
     value of operations + Σ non-operating assets; Equity value = enterprise value − net \
@@ -210,10 +216,7 @@ fn bridge(
             ex.convention(NFP_CONVENTION);
             Some(p.total(ex, "valuation date")?)
         }
-        None => {
-            ex.convention("net financial position: none given");
-            None
-        }
+        None => None,
     };
     let debt_like = bridge::claims_total(
         ex,
@@ -227,8 +230,23 @@ fn bridge(
         "Non-controlling interest",
         "Non-controlling interests",
     )?;
+    if nfp.is_none() {
+        // Decision 25: zero, the documented default reported in `meta.defaults_applied`.
+        let rest = if input.debt_like_items.is_empty() && input.non_controlling_interests.is_empty()
+        {
+            ""
+        } else {
+            " less the debt-like items and non-controlling interests given"
+        };
+        ex.convention(format!(
+            "warning: no net financial position given (`{NFP_POINTER}`): zero is subtracted, so \
+             the equity value equals the enterprise value{rest}; give the net financial position \
+             to value the equity"
+        ));
+    }
+    let nfp_subtracted = nfp.unwrap_or(Decimal::ZERO);
     let equity_value = sub(
-        sub(sub(enterprise_value, nfp.unwrap_or_default())?, debt_like)?,
+        sub(sub(enterprise_value, nfp_subtracted)?, debt_like)?,
         non_controlling,
     )?;
     bridge::warn_if_negative(
@@ -238,10 +256,7 @@ fn bridge(
     );
     ex.step(
         "Equity value",
-        format!(
-            "{enterprise_value} − {} − {debt_like} − {non_controlling}",
-            nfp.unwrap_or_default()
-        ),
+        format!("{enterprise_value} − {nfp_subtracted} − {debt_like} − {non_controlling}"),
         equity_value,
     );
     Ok(FcffBridge {
@@ -280,7 +295,17 @@ impl Method for Fcff {
     }
 
     fn apply_defaults(input: &mut Self::Input) -> Vec<DefaultApplied> {
-        input.apply_defaults()
+        let mut defaults = input.apply_defaults();
+        // Decision 25: the default is reported, not written into the input, so the hash is
+        // unchanged and a given zero (no warning) stays distinct from it.
+        if input.net_financial_position.is_none() {
+            defaults.push(DefaultApplied::new(
+                NFP_POINTER,
+                serde_json::json!("0"),
+                "net financial position not given",
+            ));
+        }
+        defaults
     }
 
     fn compute_with_defaults(
@@ -776,10 +801,11 @@ mod tests {
         });
         let c = conventions(&v);
         let warnings: Vec<&String> = c.iter().filter(|c| c.starts_with("warning: ")).collect();
-        // Two negative-flow warnings, the growth discontinuity, and (R26) the negative
-        // equity value that these flows produce.
-        assert_eq!(warnings.len(), 4, "{c:?}");
-        assert!(warnings[3].contains("equity value is negative"));
+        // Two negative-flow warnings, the growth discontinuity, the net financial position not
+        // given (Decision 25) and (R26) the negative equity value that these flows produce.
+        assert_eq!(warnings.len(), 5, "{c:?}");
+        assert!(warnings[3].contains("no net financial position given"));
+        assert!(warnings[4].contains("equity value is negative"));
         assert!(warnings[0].contains("period 2") && warnings[0].contains("negative flow"));
         assert!(warnings[2].contains("differs from the perpetual growth"));
     }
@@ -813,7 +839,8 @@ mod tests {
             assert!(c.contains(needle), "missing '{needle}' in:\n{c}");
         }
         let c = conventions(&base()).join("\n");
-        assert!(c.contains("net financial position: none given"));
+        assert!(c.contains(WARNING_NO_CLAIMS));
+        assert!(c.contains("default: `/net_financial_position` not given"));
         assert!(c.contains("terminal value discounted at the horizon, t = N"));
     }
 
@@ -885,6 +912,95 @@ mod tests {
             .join("\n")
             .contains("equity value is negative"));
     }
+
+    /// Decision 25 (#261), R23: without a net financial position the DCF is computed with the
+    /// documented default of zero, listed in `meta.defaults_applied` and reported first as a
+    /// default, with a warning that the equity value equals the enterprise value.
+    #[test]
+    fn net_financial_position_not_given_is_a_reported_default() {
+        let out = run("dcf.fcff", &base().to_string()).unwrap();
+        let defaults = out["meta"]["defaults_applied"].as_array().unwrap();
+        assert_eq!(
+            defaults.as_slice(),
+            [json!({
+                "field": "/net_financial_position",
+                "value": "0",
+                "reason": "net financial position not given"
+            })]
+        );
+        let c: Vec<String> = serde_json::from_value(out["explain"]["conventions"].clone()).unwrap();
+        assert_eq!(
+            c[0],
+            "default: `/net_financial_position` not given, set to \"0\": net financial position \
+             not given"
+        );
+        assert!(
+            c.contains(&WARNING_NO_CLAIMS.to_owned()),
+            "missing the warning in {c:?}"
+        );
+        assert!(!c.iter().any(|c| c == "net financial position: none given"));
+        // No number changes: equity value equals enterprise value; the bridge echoes the input.
+        assert_eq!(
+            out["value"]["equity_value"],
+            out["value"]["enterprise_value"]
+        );
+        assert_eq!(
+            out["value"]["bridge"]["equity_value"],
+            out["value"]["enterprise_value"]
+        );
+        assert!(out["value"]["bridge"]["net_financial_position"].is_null());
+        let steps = out["explain"]["steps"].as_array().unwrap();
+        let equity = steps.iter().find(|s| s["label"] == "Equity value").unwrap();
+        assert!(
+            equity["formula"].as_str().unwrap().contains(" − 0 − "),
+            "{equity}"
+        );
+    }
+
+    /// Decision 25 (#261): with debt-like items or non-controlling interests and no net
+    /// financial position, the warning says that only those are subtracted.
+    #[test]
+    fn net_financial_position_not_given_with_claims_names_them() {
+        let v = with(bridge_input(), |m| {
+            m.remove("net_financial_position");
+        });
+        let c = conventions(&v);
+        assert!(c.contains(&WARNING_WITH_CLAIMS.to_owned()), "{c:?}");
+        assert!(!c.contains(&WARNING_NO_CLAIMS.to_owned()), "{c:?}");
+    }
+
+    /// Decision 25 (#261): a net financial position given as zero is a true zero: the same
+    /// value, no default entry and no warning.
+    #[test]
+    fn net_financial_position_given_as_zero_is_a_true_zero() {
+        let zero = with(base(), |m| {
+            m.insert(
+                "net_financial_position".into(),
+                json!({"gross_debt": "0", "cash": "0"}),
+            );
+        });
+        let given = run("dcf.fcff", &zero.to_string()).unwrap();
+        let absent = run("dcf.fcff", &base().to_string()).unwrap();
+        assert!(given["meta"].get("defaults_applied").is_none());
+        assert_eq!(
+            given["value"]["equity_value"],
+            absent["value"]["equity_value"]
+        );
+        assert_eq!(given["value"]["bridge"]["net_financial_position"], "0");
+        let c = conventions(&zero);
+        assert!(!c.iter().any(|c| c.contains("net financial position given")
+            || c.contains("no net financial position")));
+        assert_ne!(given["meta"]["input_hash"], absent["meta"]["input_hash"]);
+    }
+
+    const WARNING_NO_CLAIMS: &str = "warning: no net financial position given \
+        (`/net_financial_position`): zero is subtracted, so the equity value equals the \
+        enterprise value; give the net financial position to value the equity";
+
+    const WARNING_WITH_CLAIMS: &str = "warning: no net financial position given \
+        (`/net_financial_position`): zero is subtracted, so the equity value equals the \
+        enterprise value less the debt-like items and non-controlling interests given; give the \
+        net financial position to value the equity";
 
     /// Under mid-period timing, a Gordon value discounted at the horizon carries a warning.
     #[test]

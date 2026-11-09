@@ -1,0 +1,24 @@
+method: dcf.fcff
+description: "A net financial position given with every amount zero is a true zero: the same equity value as the default, with no default entry and no warning (Decision 25, R23)"
+source: >
+  Hand computation from SPEC-0001 Decision 25 (approved 2026-11-09, issue #261) and SPEC-0007:
+  net financial position = gross debt 0 - cash 0 = 0; equity value = enterprise value - 0. The
+  enterprise value is the expected value of the existing case flows-only-explicit-equivalent.yaml
+  (independent 50-digit reference, scripts/reference_dcf.py), recomputed by hand in Python
+  decimal at 50 digits: 563.38243366056148746628356552958... The absence of a default entry
+  (meta.defaults_applied omitted) and of the warning is checked by the unit test
+  net_financial_position_given_as_zero_is_a_true_zero, because a golden key must exist.
+input:
+  stages: [{"periods": 5, "projection": "given", "flows": ["120", "135", "150", "160", "170"]}]
+  cash_flow_terms: "nominal"
+  discount_rate_terms: "nominal"
+  wacc: "0.09"
+  timing: "end_of_period"
+  terminal: {"none": {}}
+  net_financial_position: {"gross_debt": "0", "cash": "0"}
+expect:
+  /enterprise_value: "563.3824336605614874662835655"
+  /bridge/net_financial_position: "0"
+  /equity_value: "563.3824336605614874662835655"
+  /bridge/equity_value: "563.3824336605614874662835655"
+tolerance: "0.00000000000000000001"
