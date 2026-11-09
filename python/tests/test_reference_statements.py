@@ -223,9 +223,14 @@ def adjustments(n: int, years: list[dict[str, Any]]) -> list[dict[str, Any]]:
         ]
         if kind == "lease":
             amounts = [None if a is None else lease_amounts() for a in amounts]
-        out.append(
-            {"kind": kind, "label": f"{kind} item", "reason": "test", **extra, "amounts": amounts}
-        )
+        adj = {"kind": kind, "label": f"{kind} item", "reason": "test", **extra, "amounts": amounts}
+        if kind == "debt_like_provision" and RNG.random() < 0.6:
+            # P2: the interest cost of the severance indemnity, where the adjustment applies.
+            adj["interest_cost"] = [
+                None if a is None or RNG.random() < 0.3 else str(RNG.randrange(0, 3))
+                for a in amounts
+            ]
+        out.append(adj)
     return out
 
 
@@ -320,13 +325,15 @@ def reclassified_is() -> dict[str, Any]:
     nr, fin, taxes = amount(40_000) - 20_000, -amount(90_000), amount(150_000)
     ebitda = va - personnel
     vop, dna = amount(), amount(200_000)
+    operating_investments = RNG.choice([0, amount(20_000)])
     pbft = op + inv
     pbt = pbft + nr + fin
     inc = {
         "revenue": str(amount()),
         "value_of_production": str(vop),
         "external_costs": str(vop - va),
-        "other_charges_below_ebitda": str(abs(ebitda - dna - op)),
+        "other_charges_below_ebitda": str(abs(ebitda - dna - op + operating_investments)),
+        "income_from_operating_investments": str(operating_investments),
         "purchases": str(amount()),
         "materials_consumed": str(amount() - 100_000),
         "value_added": str(va),
@@ -485,6 +492,21 @@ def test_the_random_calls_reach_every_outcome() -> None:
             outcomes.add("net income" if is_["net_income"] is not None else "no net income")
             if is_["reconciliations"]["operating_profit"] is not None:
                 outcomes.add("reconciled")
-    assert {"partial", "complete", "net income", "no net income", "reconciled"} <= outcomes, (
-        outcomes
-    )
+            if is_["income_from_operating_investments"] not in (None, 0):
+                outcomes.add("operating investments")
+            if any("permitted" in e for e in y["not_computed"]["income_statement"]):
+                outcomes.add("waits for the treatment")
+        for adj in inp.get("adjustments") or []:
+            if any(c is not None for c in adj.get("interest_cost") or []):
+                outcomes.add("interest cost")
+    expected = {
+        "partial",
+        "complete",
+        "net income",
+        "no net income",
+        "reconciled",
+        "operating investments",
+        "waits for the treatment",
+        "interest cost",
+    }
+    assert expected <= outcomes, outcomes

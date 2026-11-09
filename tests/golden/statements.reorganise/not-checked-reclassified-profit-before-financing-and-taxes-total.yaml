@@ -20,6 +20,7 @@ input:
         ebitda: '496000'
         depreciation_and_amortisation: '180000'
         other_charges_below_ebitda: '15000'
+        income_from_operating_investments: '0'
         operating_profit: '301000'
         investing_result: '-26000'
         non_recurring_result: '0'

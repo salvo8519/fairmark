@@ -633,6 +633,21 @@ def validate(inp: dict[str, Any]) -> None:
             if kind == "lease" and dec(a["liability_current"]) > dec(a["liability"]):
                 # R21: the current part of the lease liability is a part of it.
                 raise e026("lease_liability_current")
+        if "interest_cost" in adj:
+            # P2: the revaluation of the employee severance indemnity, one entry per year,
+            # only on a debt-like employee severance indemnity and only where it applies.
+            costs = adj["interest_cost"]
+            if kind != "debt_like_provision" or adj["aggregate"] != "employee_severance_indemnity":
+                raise RefError("FM-E001", f"/adjustments/{k}/interest_cost")
+            if len(costs) != len(years):
+                raise RefError("FM-E001", f"/adjustments/{k}/interest_cost length")
+            for i, c in enumerate(costs):
+                if c is None:
+                    continue
+                if dec(c) < 0:
+                    raise RefError("FM-E001", f"/adjustments/{k}/interest_cost/{i} negative")
+                if adj["amounts"][i] is None:
+                    raise RefError("FM-E001", f"/adjustments/{k}/interest_cost/{i} without amount")
 
 
 # ---------------------------------------------------------------- input checks (R7)
@@ -1581,6 +1596,20 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
     wdfa = get(inp, "treatments", "write_downs_of_fixed_assets") or "operating"
     ab, c10, d10, grouped, _ab_read, c_read = b10_reading(inc, base)
     has_income_statement = get(y, "statutory", "income_statement") is not None
+    # P2: C15 follows financial fixed assets (B.III) when the whole aggregate is operating.
+    overrides = y.get("treatment_overrides") or {}
+    if "financial_fixed_assets" in overrides:
+        ffa_t = overrides["financial_fixed_assets"]
+        ffa_tp = f"/years/{i}/treatment_overrides/financial_fixed_assets"
+    else:
+        ffa_t = get(inp, "treatments", "financial_fixed_assets")
+        ffa_tp = "/treatments/financial_fixed_assets"
+    if isinstance(ffa_t, dict):
+        ffa_mode = "split" if "split" in ffa_t else ffa_t["destination"]
+    else:
+        ffa_mode = ffa_t
+    b3 = leaf(get(y, "statutory", "balance_sheet"), "", "financial_fixed_assets")
+    ffa_waits = ffa_mode is None and b3.known and b3.value != 0
 
     def item(key: str) -> Amt:
         if key == "depreciation_and_amortisation":
@@ -1611,6 +1640,7 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
     investing: list[tuple[int, str, str, Amt]] = []
     non_recurring: list[tuple[int, str, str, Amt]] = []
     leases: list[tuple[int, str, Amt, D, D]] = []
+    tfr_interest: list[tuple[int, str, Amt]] = []
     for k, adj in enumerate(inp.get("adjustments") or []):
         amount = adj["amounts"][i]
         if amount is None:
@@ -1630,6 +1660,11 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
             leases.append(
                 (k, adj["label"], paid, dec(amount["depreciation"]), dec(amount["interest"]))
             )
+        elif kind == "debt_like_provision":
+            # P2: the interest cost of a debt-like severance indemnity leaves B9.
+            cost = (adj.get("interest_cost") or [None] * len(inp["years"]))[i]
+            if cost is not None:
+                tfr_interest.append((k, adj["label"], take("personnel_costs", dec(cost))))
 
     def moved_from(entries: list[tuple[int, str, str, Amt]], *keys: str) -> Amt:
         return plus(*(a for _, _, key, a in entries if key in keys))
@@ -1676,7 +1711,15 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
     if operating_wdr:
         other_terms.append(core["write_downs_of_receivables"])
     other_charges = plus(*other_terms)
-    operating_profit = total((1, ebitda), (-1, dna), (-1, other_charges))
+    c15 = core["income_from_equity_investments"]
+    if ffa_waits:
+        c15 = plus(c15, lacking(ffa_tp))
+    c15_operating = ffa_mode == "operating"
+    # Waiting for the treatment, C15 is missing in both places it could go (R8).
+    operating_investments = c15 if c15_operating or ffa_waits else known(ZERO)
+    operating_profit = total(
+        (1, ebitda), (-1, dna), (-1, other_charges), (1, operating_investments)
+    )
     if "value_adjustments_of_financial_assets" in inc:
         d_total = leaf(inc, base, "value_adjustments_of_financial_assets")
     else:
@@ -1687,7 +1730,7 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
     inv_terms = [
         (1, moved_from(investing, "other_revenue_and_income")),
         (-1, moved_from(investing, "other_operating_expenses")),
-        (1, core["income_from_equity_investments"]),
+        (1, known(ZERO) if c15_operating else c15),
         (1, core["other_financial_income"]),
         (1, d_total),
     ]
@@ -1704,7 +1747,11 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
         # E6: null when the year gives no income statement.
         nr_result = plus(nr_result, lacking(f"/years/{i}/statutory/income_statement"))
     interest = plus(core["interest_and_other_financial_charges"], *(known(it) for *_, it in leases))
-    financing = total((1, core["exchange_gains_and_losses"]), (-1, interest))
+    financing = total(
+        (1, core["exchange_gains_and_losses"]),
+        (-1, interest),
+        *((-1, a) for *_, a in tfr_interest),
+    )
     pbt = plus(pbft, nr_result, financing)
     taxes = leaf(inc, base, "income_taxes")
     net_income = total((1, pbt), (-1, taxes))
@@ -1729,6 +1776,15 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
             (k, f"{label} (lease payments removed from B8)", [f"/adjustments/{k}"], paid)
         )
         lease_lines.append((k, f"{label} (lease depreciation)", [f"/adjustments/{k}"], known(-dep)))
+    for k, label, a in tfr_interest:
+        lease_lines.append(
+            (
+                k,
+                f"{label} (interest cost of the employee severance indemnity removed from B9)",
+                [f"/adjustments/{k}"],
+                a,
+            )
+        )
     c_label = "B10 c, write-downs of fixed assets (investing result)"
     if grouped:
         c_label += ": read as none, give the B10 c part (Decision 8)"
@@ -1755,6 +1811,15 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
                 total((sign, a)),
             )
         )
+    if c15_operating:
+        op_lines.append(
+            (
+                -1,
+                "C15, income from equity investments (operating investments, P2)",
+                [f"{base}/income_from_equity_investments"],
+                c15,
+            )
+        )
     op_lines += sorted(inv_lines + nr_lines + lease_lines, key=lambda x: x[0])
     d_read = (
         [f"{base}/value_adjustments_of_financial_assets"]
@@ -1765,9 +1830,11 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
     pbft_lines += [
         (
             -1,
-            "C15, income from equity investments (investing result)",
+            "C15, income from equity investments ("
+            + ("operating investments, P2" if c15_operating else "investing result")
+            + ")",
             [f"{base}/income_from_equity_investments"],
-            core["income_from_equity_investments"],
+            c15,
         ),
         (
             -1,
@@ -1814,6 +1881,7 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
         "ebitda_definition": EBITDA_DEFINITION,
         "depreciation_and_amortisation": dna,
         "other_charges_below_ebitda": other_charges,
+        "income_from_operating_investments": operating_investments,
         "operating_profit": operating_profit,
         "investing_result": investing_result,
         "profit_before_financing_and_taxes": pbft,
@@ -1863,6 +1931,7 @@ def reclassified_income_statement(inp: dict[str, Any], i: int) -> tuple[dict[str
             (1, ebitda),
             (-1, f("depreciation_and_amortisation")),
             (-1, f("other_charges_below_ebitda")),
+            (1, f("income_from_operating_investments")),
         ),
     )
     pbft = given_or_derived(
@@ -1891,6 +1960,7 @@ def reclassified_income_statement(inp: dict[str, Any], i: int) -> tuple[dict[str
         "ebitda_definition": EBITDA_DEFINITION,
         "depreciation_and_amortisation": f("depreciation_and_amortisation"),
         "other_charges_below_ebitda": f("other_charges_below_ebitda"),
+        "income_from_operating_investments": f("income_from_operating_investments"),
         "operating_profit": operating_profit,
         "investing_result": f("investing_result"),
         "profit_before_financing_and_taxes": pbft,
@@ -1911,14 +1981,26 @@ def finish_income_statement(node: dict[str, Any], i: int) -> tuple[dict[str, Any
     """Amounts to values; every null output of the income statement listed (R6)."""
     nc: list[dict[str, Any]] = []
 
+    def note(pointer: str, a: Amt) -> None:
+        entry: dict[str, Any] = {"output": pointer, "missing": sorted(a.missing)}
+        # P2: C15 waits for the treatment of B.III; its permitted destinations (R8).
+        perm = [
+            {"treatment": p, "destinations": FFA_PERMITTED}
+            for p in sorted(a.missing)
+            if p.endswith("/financial_fixed_assets") and "treatment" in p
+        ]
+        if perm:
+            entry["permitted"] = perm
+        nc.append(entry)
+
     def visit(n: Any, pointer: str) -> Any:
         if isinstance(n, Amt):
             if not n.known:
-                nc.append({"output": pointer, "missing": sorted(n.missing)})
+                note(pointer, n)
             return n.value
         if isinstance(n, Lst):
             if n.items is None:
-                nc.append({"output": pointer, "missing": sorted(n.amount.missing)})
+                note(pointer, n.amount)
             return n.items
         if isinstance(n, dict):
             return {k: visit(v, f"{pointer}/{k}") for k, v in n.items()}

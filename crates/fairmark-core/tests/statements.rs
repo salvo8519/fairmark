@@ -676,22 +676,28 @@ fn two_runs_give_identical_output_and_key_order_does_not_change_the_hash() {
 #[test]
 fn the_reclassified_form_derives_value_added_and_operating_profit() {
     let schema = fairmark_core::input_schema(METHOD).unwrap().to_string();
-    for field in ["external_costs", "other_charges_below_ebitda"] {
+    for field in [
+        "external_costs",
+        "other_charges_below_ebitda",
+        "income_from_operating_investments",
+    ] {
         assert!(schema.contains(field), "{field}");
     }
     let out = run(
         &json!({"years": [{"label": "2024", "reclassified": {"income_statement": {
         "value_of_production": "1000", "external_costs": "600", "personnel_costs": "250",
-        "depreciation_and_amortisation": "50", "other_charges_below_ebitda": "20"}}}]}),
+        "depreciation_and_amortisation": "50", "other_charges_below_ebitda": "20",
+        "income_from_operating_investments": "5"}}}]}),
     );
     let is = &out["value"]["years"][0]["income_statement"];
     assert_eq!(is["value_added"], "400");
     assert_eq!(is["ebitda"], "150");
-    assert_eq!(is["operating_profit"], "80");
+    assert_eq!(is["operating_profit"], "85");
     let s = step(&out, "Operating profit from its components (2024)");
     assert_eq!(
         s["formula"],
-        "EBITDA 150 − depreciation and amortisation 50 − other charges below EBITDA 20"
+        "EBITDA 150 − depreciation and amortisation 50 − other charges below EBITDA 20 + income \
+         from operating investments 5"
     );
     // Review of PR 2 (nit): a call with reclassified income statements only states the
     // definition of EBITDA and which output feeds which method.
@@ -1322,6 +1328,15 @@ fn check_income_statement(out: &Value, input: &Value) {
             assert_eq!(v[0] - v[1], v[2], "EBITDA");
         }
         if let Some(v) = all(&[
+            "ebitda",
+            "depreciation_and_amortisation",
+            "other_charges_below_ebitda",
+            "income_from_operating_investments",
+            "operating_profit",
+        ]) {
+            assert_eq!(v[0] - v[1] - v[2] + v[3], v[4], "operating profit");
+        }
+        if let Some(v) = all(&[
             "operating_profit",
             "investing_result",
             "profit_before_financing_and_taxes",
@@ -1499,6 +1514,117 @@ proptest! {
             .map(|a| dec(&a["amounts"][0])).sum();
         prop_assert_eq!(dec(&x["operating_profit"]) - dec(&y["operating_profit"]), d10 - moved);
     }
+
+    /// P2: financial fixed assets treated as operating move C15 (core) from the investing
+    /// result to income from operating investments: EBITDA and profit before financing and
+    /// taxes are the same either way.
+    #[test]
+    fn operating_financial_fixed_assets_move_only_c15(
+        a in proptest::collection::vec(0i64..3_000_000, 22),
+        choices in proptest::collection::vec(0usize..1000, 11),
+    ) {
+        let mut input = random_income_statement(&a, &choices);
+        input["treatments"]["financial_fixed_assets"] = json!("non_operating");
+        let inv = run(&input);
+        input["treatments"]["financial_fixed_assets"] = json!("operating");
+        let op = run(&input);
+        check_income_statement(&op, &input);
+        let (x, y) = (&inv["value"]["years"][0]["income_statement"],
+                      &op["value"]["years"][0]["income_statement"]);
+        prop_assert_eq!(&x["ebitda"], &y["ebitda"]);
+        prop_assert_eq!(&x["profit_before_financing_and_taxes"],
+                        &y["profit_before_financing_and_taxes"]);
+        prop_assert_eq!(dec(&x["income_from_operating_investments"]), Decimal::ZERO);
+        let c15 = dec(&y["income_from_operating_investments"]);
+        prop_assert_eq!(dec(&y["operating_profit"]) - dec(&x["operating_profit"]), c15);
+        prop_assert_eq!(dec(&x["investing_result"]) - dec(&y["investing_result"]), c15);
+    }
+
+    /// P2: the interest cost of a debt-like employee severance indemnity leaves B9 and EBITDA
+    /// and enters the financing result; profit before tax is unchanged.
+    #[test]
+    fn the_interest_cost_moves_from_ebitda_to_the_financing_result(
+        a in proptest::collection::vec(0i64..3_000_000, 22),
+        choices in proptest::collection::vec(0usize..1000, 11),
+        share in 0i64..100,
+    ) {
+        let mut input = random_income_statement(&a, &choices);
+        let before = run(&input);
+        let b9 = before["value"]["years"][0]["income_statement"]["personnel_costs"].clone();
+        let cost = dec(&b9) * Decimal::from(share) / Decimal::from(100);
+        let cost = cost.round_dp(0);
+        input["adjustments"].as_array_mut().unwrap().push(json!({
+            "kind": "debt_like_provision", "label": "Severance indemnity",
+            "reason": "Treated as debt", "aggregate": "employee_severance_indemnity",
+            "amounts": ["0"], "interest_cost": [cost.to_string()]}));
+        let after = run(&input);
+        check_income_statement(&after, &input);
+        let (x, y) = (&before["value"]["years"][0]["income_statement"],
+                      &after["value"]["years"][0]["income_statement"]);
+        prop_assert_eq!(dec(&y["ebitda"]) - dec(&x["ebitda"]), cost);
+        prop_assert_eq!(dec(&x["financing_result"]) - dec(&y["financing_result"]), cost);
+        prop_assert_eq!(&x["interest_and_other_financial_charges"],
+                        &y["interest_and_other_financial_charges"]);
+        prop_assert_eq!(&x["profit_before_tax"], &y["profit_before_tax"]);
+    }
+}
+
+/// P2: an interest cost is refused on provisions B, for a year where the adjustment does not
+/// apply, and above what remains of B9.
+#[test]
+fn an_interest_cost_is_refused_where_it_cannot_apply() {
+    let base = golden_input("severance-indemnity-interest-cost");
+    let mut input = base.clone();
+    input["adjustments"][0]["aggregate"] = json!("provisions");
+    input["adjustments"][0]["amounts"] = json!(["10000"]);
+    let e = err(&input);
+    assert_eq!(e.code(), "FM-E001");
+    assert!(
+        e.to_string().contains("`/adjustments/0/interest_cost`"),
+        "{e}"
+    );
+    let mut input = base.clone();
+    input["adjustments"][0]["amounts"] = json!([null]);
+    let e = err(&input);
+    assert_eq!(e.code(), "FM-E001");
+    assert!(
+        e.to_string().contains("`/adjustments/0/interest_cost/0`"),
+        "{e}"
+    );
+    let mut input = base;
+    input["adjustments"][0]["interest_cost"] = json!(["1000001"]);
+    let e = err(&input);
+    assert_eq!(e.code(), "FM-E026");
+    assert!(
+        e.to_string().contains("/adjustments/0/interest_cost/0"),
+        "{e}"
+    );
+}
+
+/// P2, R8: C15 waits for the treatment of B.III when B.III is given and not zero: the outputs
+/// it reaches are not computed, with the treatment pointer and its permitted destinations.
+#[test]
+fn c15_waits_for_the_treatment_of_financial_fixed_assets() {
+    let out = run(&golden_input("operating-investments-missing-treatment"));
+    let y = &out["value"]["years"][0];
+    for key in [
+        "income_from_operating_investments",
+        "operating_profit",
+        "investing_result",
+    ] {
+        assert!(y["income_statement"][key].is_null(), "{key}");
+        let entry = y["not_computed"]["income_statement"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["output"] == format!("/years/0/income_statement/{key}"))
+            .unwrap_or_else(|| panic!("{key} not listed"));
+        assert_eq!(
+            entry["permitted"][0]["treatment"],
+            "/treatments/financial_fixed_assets"
+        );
+    }
+    assert!(!y["income_statement"]["ebitda"].is_null());
 }
 
 /// AC9, R20: the income statement outputs feed the methods that take them under the same
@@ -1589,6 +1715,7 @@ fn few_totals_lists_every_income_statement_output_not_computed() {
         known,
         [
             "ebitda_definition",
+            "income_from_operating_investments",
             "non_recurring_result",
             "personnel_costs",
             "revenue"

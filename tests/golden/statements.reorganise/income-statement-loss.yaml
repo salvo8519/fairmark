@@ -47,6 +47,7 @@ expect:
   /years/0/income_statement/ebitda: '-191000'
   /years/0/income_statement/depreciation_and_amortisation: '70000'
   /years/0/income_statement/other_charges_below_ebitda: '4000'
+  /years/0/income_statement/income_from_operating_investments: '0'
   /years/0/income_statement/operating_profit: '-265000'
   /years/0/income_statement/investing_result: '500'
   /years/0/income_statement/profit_before_financing_and_taxes: '-264500'
