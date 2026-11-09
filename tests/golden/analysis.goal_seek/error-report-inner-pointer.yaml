@@ -1,0 +1,28 @@
+method: analysis.goal_seek
+description: 'ADR 0014 G5 (review of #279): an error of the inner method is located from the root of the
+  analysis input, under /base_input; the message keeps the pointer within base_input'
+source: ADR 0013 decision 2 (an unknown field is named at its key, with the message of FM-E001) and ADR
+  0014 G5 as amended (every pointer of a report starts at the root of the input the client sent). Written
+  from the ADRs, not from the engine's output.
+input:
+  method: tvm.npv
+  base_input:
+    rate: '0.1'
+    cash_flows:
+    - '-100'
+    - '60'
+    - '60'
+    bogus: '1'
+  variable: /rate
+  output: /npv
+  target: '0'
+  bracket:
+  - '0.01'
+  - '0.5'
+expect_error: FM-E001
+expect_error_report:
+  /pointer: /base_input/bogus
+  /reason: unknown_field
+  /errors/0/pointer: /base_input/bogus
+expect_length:
+  /errors: '1'

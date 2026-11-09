@@ -22,6 +22,9 @@ def test_golden(path: Path) -> None:
             fm.run(case["method"], case["input"])
         assert err.value.code == case["expect_error"]
         report = err.value.report
+        for field, count in case.get("expect_length", {}).items():
+            items = resolve(report, field)
+            assert isinstance(items, list) and len(items) == int(count), f"{field}: length"
         for field, expected in case.get("expect_error_report", {}).items():
             raw = resolve(report, field)
             if expected == "null":
@@ -95,6 +98,5 @@ def test_golden_case_shape(path: Path) -> None:
         assert "tolerance" in case, "value cases need a tolerance"
     else:
         assert "expect_meta" not in case, "expect_meta needs expect"
-        assert "expect_length" not in case, "expect_length needs expect"
     if "expect_error_report" in case:
         assert "expect_error" in case, "expect_error_report needs expect_error"

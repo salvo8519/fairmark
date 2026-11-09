@@ -78,3 +78,5 @@ expect_error_report:
   /errors/1/pointer: /years/0/statutory/balance_sheet/cash
   /errors/2/pointer: /years/0/statutory/balance_sheet/equity/negative_reserve_for_own_shares
   /errors/2/expected/0: zero or less
+expect_length:
+  /errors: '3'

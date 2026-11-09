@@ -23,3 +23,5 @@ expect_error_report:
   /errors/3/pointer: /periodic_rate
   /errors/3/reason: conflict
   /errors/3/pointers/1: /rate
+expect_length:
+  /errors: '4'
