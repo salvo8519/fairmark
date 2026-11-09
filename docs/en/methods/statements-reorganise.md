@@ -80,8 +80,8 @@ financial indebtedness". It differs where Fairmark deducts what the ESMA table d
 non-current financial assets (B.III treated as `financial_asset`, financial receivables due
 beyond one year, the derivative assets within B.III) and the hedging derivative assets within
 C.III, which ESMA leaves out of the other current financial assets. The composition lists each
-of these items, so the ESMA figure can be rebuilt by removing them. An ESMA view (rows A to M)
-is planned as a separate issue.
+of these items, so the ESMA figure can be rebuilt by removing them. For an ESMA view (rows A to
+M) see the [roadmap](../project/roadmap.md).
 
 Derivatives (decision D3): derivative liabilities within provisions B treated as
 `financial_liability` are non-current in the net financial position. Derivative assets are not

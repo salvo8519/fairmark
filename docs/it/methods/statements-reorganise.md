@@ -1,6 +1,6 @@
 ---
 source: methods/statements-reorganise.md
-source_hash: e343c557098e
+source_hash: 3f8ac073fb12
 ---
 # Bilancio riclassificato (`statements.reorganise`)
 
@@ -97,8 +97,8 @@ tabella ESMA non deduce: le attività finanziarie non correnti (B.III classifica
 `financial_asset`, i crediti finanziari esigibili oltre l'esercizio successivo, i derivati attivi
 compresi in B.III) e i derivati attivi di copertura compresi in C.III, che l'ESMA esclude dalle
 altre attività finanziarie correnti. La composizione elenca ciascuna di queste voci, quindi il
-valore ESMA si ricostruisce togliendole. Una vista ESMA (righe da A a M) è prevista in una issue
-separata.
+valore ESMA si ricostruisce togliendole. Per una vista ESMA (righe da A a M) si veda la
+[roadmap](https://salvo8519.github.io/fairmark/project/roadmap/), in inglese.
 
 Derivati (decisione D3): i derivati passivi compresi nei fondi per rischi e oneri B classificati
 come `financial_liability` sono non correnti nella posizione finanziaria netta. I derivati attivi
