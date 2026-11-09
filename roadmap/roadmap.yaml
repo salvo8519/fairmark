@@ -162,7 +162,7 @@ milestones:
           - { issue: 236, title: "Reorganised income statement with IFRS 18 aligned subtotals", spec: "0005", status: done }
           - { issue: 245, title: "Intercompany financial payables in the net financial position", tags: [needs-methodology], spec: "0005", status: open }
           - { issue: 251, title: "Non-recurring exchange losses in the reorganised income statement", tags: [needs-methodology], spec: "0005", status: open }
-          - { issue: 253, title: "OIC 10 cash flow statement from the reorganised statements", tags: [needs-methodology], status: open }
+          - { issue: 253, title: "OIC 10 cash flow statement from the reorganised statements", tags: [needs-methodology], spec: "0011", status: open }
           - { issue: 267, title: "ESMA view of the net financial position", tags: [needs-methodology], spec: "0005", status: open }
       - title: "Free cash flows"
         issue: 37
