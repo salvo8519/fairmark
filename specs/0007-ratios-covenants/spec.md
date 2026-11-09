@@ -135,9 +135,11 @@ a clause of the agreement (lender practice, LMA-style agreements).
 
 ## Amendment of 2026-11-09: ratios computed from partial input (issue #262)
 Recorded amendment, approved by the maintainer on 2026-11-09 through the contract batch of
-ADR 0014 (issue #262; decisions G, Q1 to Q5 of 2026-11-09). It applies guidelines G1 to G3 of
-ADR 0014 to every `ratios.*` method and bumps each of them to version 2 (G8: output fields
-become nullable and a `not_computed` list is added).
+ADR 0014 (issue #262; decisions G, Q1 to Q5 of 2026-11-09), completed after the review of
+2026-11-09 with the floor (G10, approved by the maintainer in ADR 0014 on 2026-11-09) and the
+default admission tests (G3). It applies guidelines G1 to G3 and G10 of ADR 0014 to every
+`ratios.*` method and bumps each of them to version 2 (G8: output fields become nullable and a
+`not_computed` list is added).
 
 ### Requirements
 - **R7** — Every amount of every `ratios.*` input SHALL be optional. A ratio, margin or
@@ -151,7 +153,10 @@ become nullable and a `not_computed` list is added).
   `if_denominator_not_positive` and the two `definition` texts.
 - **R9** — `ebitda_definition` and `interest_definition` SHALL be optional. When an amount is
   given without its definition, the ratios that use it SHALL be not computed, with the pointer
-  of the missing definition. A definition given blank SHALL remain `FM-E001`.
+  of the missing definition. A definition given blank SHALL remain `FM-E001`. An amount given
+  without its definition is treated as not given (it is reported with the pointer of the
+  definition, and with its own pointer when it is also absent) before R10 applies: a zero
+  EBITDA without `ebitda_definition` makes no ratio not defined.
 - **R10** — A ratio SHALL be reported as not defined (R3, `not_defined` text, unchanged) when
   the terms that are given already make it not defined, whether or not another term is
   missing; otherwise, when a term is missing, it SHALL be not computed. A ratio built from
@@ -161,13 +166,40 @@ become nullable and a `not_computed` list is added).
 - **R11** — `ratios.covenants`: a covenant whose denominator amount is missing, or whose
   denominator is positive and numerator amount is missing, SHALL be `not_tested` with
   `not_tested_code` `missing_input`, never breached; a denominator given zero or negative
-  SHALL give the outcome of `if_denominator_not_positive` whatever the numerator.
+  SHALL give the outcome of `if_denominator_not_positive` whatever the numerator, also when
+  the numerator amount is not given: the loan agreement decides that case without it, so the
+  covenant is decided, not listed in `not_computed`.
+- **R12** — The floor (ADR 0014 G10.1). The minimum input of each `ratios.*` method SHALL be
+  its method choices (R8) plus every input of at least one output: an output computed, or not
+  defined by its own inputs all given (a ratio not defined by a given term while another of
+  its inputs is missing does not count). For `ratios.covenants` the minimum SHALL be at least
+  one covenant that can be tested or decided by `if_denominator_not_positive` (R11). Below the
+  minimum THE ENGINE SHALL refuse the input with `FM-E027`, one code shared by the six methods,
+  whose message names the method, lists the alternative minimum sets (`missing_any_of`: the
+  minimal sets of missing input pointers, any one of which lifts the input above the floor,
+  shortest first, without a set that only names a missing block, `/leverage` or
+  `/debt_schedule`) and states the fix. A result made only of nulls SHALL never be returned.
+- **R13** — Two documented defaults (ADR 0014 G3), the only ones: `other_items` absent from
+  a net financial position whose `gross_debt` and `cash` are given means none, and
+  `reserve_balance` absent from a debt schedule whose discount rate, every CFADS and debt
+  outstanding are given means no debt service reserve account. Each SHALL be listed in
+  `meta.defaults_applied` (pointer, value `[]` or `"0"`, reason) when it applies, with a
+  convention starting with "warning:"; given explicitly (`[]`, `"0"`) it is a true value with
+  no default entry and no warning. The `other_items` default fills in the empty list in the
+  canonical input, so `meta.input_hash` is the same for an absent list and `[]`, as in version
+  1; the `reserve_balance` default is reported and not written into the input, so the hash of
+  an input without a reserve is unchanged and differs from a reserve given as zero (as for the
+  net financial position of `dcf.fcff`, SPEC-0001 Decision 25).
+- **R14** — A discount rate given in a debt schedule SHALL be checked (`FM-E003`, pointer
+  `/debt_schedule/discount_rate`) whatever else is given, also when the present value of CFADS
+  is not computed (ADR 0014 G10.3).
 
 ### Interfaces
 - `not_computed`: a list at the root of each output value, in the order of the output
   fields, of `{output, missing, reason}`: `output` is the JSON pointer of the output in the
   result value (for a ratio, the ratio object, for example `/roe` or `/dscr/0`; for an amount,
-  the amount); `missing` the JSON pointers of the inputs it lacks, sorted; `reason` one
+  the amount); `missing` the JSON pointers of the inputs it lacks, sorted token by token with
+  array indices compared as numbers (`/periods/2` before `/periods/10`); `reason` one
   sentence. It is the shape `statements.reorganise` uses (shared type; `reason` is optional
   and omitted when empty, so the `statements.reorganise` output does not change). The later
   envelope task (#259) moves both to `diagnostics.not_computed`.
@@ -176,12 +208,16 @@ become nullable and a `not_computed` list is added).
   `value` and `not_defined` both null, except the two version 1 cases of a missing block
   (`leverage` absent, `debt_schedule` absent), which keep their `not_defined` text and are
   also listed in `not_computed` with the pointer of the block.
-- Unchanged defaults, already documented in version 1: `other_items` of a net financial
-  position absent means no other items; `reserve_balance` absent means no reserve account
-  (LLCR on CFADS only); `opening` is not used with closing balances. They are reported in
-  `explain.conventions` as before; their listing in `meta.defaults_applied` is left to the
-  envelope task (#259).
-- Departure from G1 (examples in the schema) and G4 (envelope): left to #259 and #264.
+- Defaults: the two of R13, in `meta.defaults_applied` with a warning; their admission tests
+  are recorded under the computability tables. `opening` is not used with closing balances, as
+  in version 1; it is not a default, since nothing is filled in.
+- Error: `FM-E027` (R12), next free code, one condition for the six methods.
+- G1 examples: the tool examples of #264 come from golden cases
+  (`scripts/tool_examples.py`): the minimal example of each method is a minimal partial
+  input, `roe-only`, `equity-ratio-only`, `current-ratio-only`, `dso-only`,
+  `interest-cover-only`; for `ratios.covenants`, a single covenant (`display-at-threshold`). The
+  maximal examples are unchanged.
+- Departure from G4 (envelope): `not_computed` stays in `value` until #259.
 - Method versions: `ratios.profitability`, `ratios.capital_structure`, `ratios.liquidity`,
   `ratios.working_capital`, `ratios.debt_service` and `ratios.covenants` v1 -> v2. Inputs are
   relaxed (additive); outputs gain `not_computed`, and amounts that were always present become
@@ -190,8 +226,9 @@ become nullable and a `not_computed` list is added).
 ### Computability
 Balance-sheet amounts: with `balances` `closing` an amount `x` needs `/closing/x`; with
 `average` it needs `/closing/x` and `/opening/x`. Below, "equity" stands for those pointers.
-"Not computed" means null and listed in `not_computed`. No row has a default; no row raises an
-error on a missing input.
+"Not computed" means null and listed in `not_computed`. A missing input never raises an error
+by itself; an input with no output computable at all is below the floor and refused with
+`FM-E027` (R12). The rows with a default are the two of R13.
 
 `ratios.profitability`
 
@@ -219,7 +256,7 @@ error on a missing input.
 
 | Output | Inputs it needs | When an input is missing |
 | --- | --- | --- |
-| `net_financial_position` | gross debt, cash, the amount of each other item given (other items: none when absent) | not computed |
+| `net_financial_position` | gross debt, cash, the amount of each other item given | not computed; `other_items` absent: none, documented default (R13) |
 | `debt_to_equity` | gross debt, equity | not computed |
 | `nfp_to_equity` | gross debt, cash, equity | not computed |
 | `equity_ratio` | equity, total assets | not computed |
@@ -247,19 +284,30 @@ error on a missing input.
 
 | Output | Inputs it needs | When an input is missing |
 | --- | --- | --- |
-| `net_financial_position` | gross debt, cash, the amount of each other item given | not computed |
+| `net_financial_position` | gross debt, cash, the amount of each other item given | not computed; `other_items` absent: none, documented default (R13) |
 | `interest_cover_ebit` | EBIT, interest, `interest_definition` | not computed |
 | `interest_cover_ebitda` | EBITDA, `ebitda_definition`, interest, `interest_definition` | not computed |
 | `nfp_to_ebitda` | gross debt, cash, EBITDA, `ebitda_definition` | not computed |
 | `dscr/t` | `debt_schedule/periods/t/cfads`, `/debt_service` | not computed; without `debt_schedule`, `dscr` is empty as in v1 |
 | `pv_cfads` | `debt_schedule/discount_rate`, every `cfads` | not computed (missing `/debt_schedule` when no schedule is given) |
-| `llcr` | as `pv_cfads`, `debt_schedule/debt_outstanding` (reserve balance: none when absent) | not computed; without `debt_schedule`, missing `/debt_schedule` and `not_defined` "no debt schedule given" as in v1 |
+| `llcr` | as `pv_cfads`, `debt_schedule/debt_outstanding` | not computed; without `debt_schedule`, missing `/debt_schedule` and `not_defined` "no debt schedule given" as in v1; `reserve_balance` absent: none, documented default (R13) |
 
 `ratios.covenants`
 
 | Output | Inputs it needs | When an input is missing |
 | --- | --- | --- |
-| `covenants/i/value`, `headroom`, `headroom_relative` | `covenants/i/numerator/amount`, `covenants/i/denominator/amount` | not tested, code `missing_input` (R11), each output not computed |
+| `covenants/i/value`, `headroom`, `headroom_relative` | `covenants/i/numerator/amount`, `covenants/i/denominator/amount` | not tested, code `missing_input` (R11), each output not computed; a denominator given zero or negative decides by `if_denominator_not_positive` without the numerator (R11) |
+
+Admission tests of the two defaults of R13 (ADR 0014 G3):
+
+| Default | Practice | Acceptance | Reported | Warned |
+| --- | --- | --- | --- | --- |
+| `other_items` absent: none | The net financial position is gross debt less cash plus the items the analyst lists (R6; ESMA32-382-1138, guideline 39, through SPEC-0005 V15): an item not listed is not part of it, so an absent list is the list of no items | A credit analyst reads a position stated as gross debt and cash as having no other items | schema description; `meta.defaults_applied` (`/<sheet>/net_financial_position/other_items`, `[]`) | yes: it determines the net financial position, a headline amount; "warning:" convention naming the pointer |
+| `reserve_balance` absent: none | The LLCR is the present value of CFADS over the loan life divided by the debt outstanding; the reserve balance is added only when the agreement provides for a reserve account (maintainer decision of 2026-11-08, above) | A lender reads an LLCR given without a reserve as computed without one | schema description; `meta.defaults_applied` (`/debt_schedule/reserve_balance`, `"0"`) | yes: it determines the LLCR, a headline ratio; "warning:" convention naming the pointer |
+
+The schema carries no `default` keyword for either field, as for the net financial position
+of `dcf.fcff` (SPEC-0001 Decision 25), which G3 allows. G10.2 holds: the LLCR and the net
+financial position always rest on amounts given by the analyst.
 
 ### Acceptance criteria
 - **AC6** (R7, R10) — For every row above, an engine test removes one input of a complete
@@ -273,4 +321,12 @@ error on a missing input.
 - **AC9** (R9) — EBITDA without `ebitda_definition` leaves the EBITDA ratios not computed with
   `/ebitda_definition`; a blank definition is `FM-E001`.
 - **AC10** (R11) — A covenant without its numerator amount is not tested with code
-  `missing_input`; the others are tested.
+  `missing_input`; the others are tested; a covenant with a zero denominator and no numerator
+  is decided by its rule.
+- **AC11** (R12) — For each method, an input below the floor is refused with `FM-E027` and its
+  alternative sets (engine test and a golden case `below-minimum` per method), and the method
+  choices alone are refused; an input whose only complete output is not defined is accepted.
+- **AC12** (R13) — Each default is listed in `meta.defaults_applied` with its warning only when
+  it applies; given explicitly it is not; the hashes follow R13.
+- **AC13** (R14) — A discount rate of −1 with a CFADS missing is `FM-E003` naming
+  `/debt_schedule/discount_rate`.
