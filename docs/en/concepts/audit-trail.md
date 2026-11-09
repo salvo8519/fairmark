@@ -15,7 +15,10 @@ Every result is an envelope with four parts:
 }
 ```
 
-- **`value`** holds the results, exact, as decimal strings.
+- **`value`** holds the results, exact, as decimal strings. Its JSON Schema documents every
+  field with its unit (`fairmark schema <method> --output`, `fm.output_schema(method)`); in
+  Python, `result.value` is decoded by it: each decimal becomes a `Decimal`, and labels, ids,
+  versions, pointers and messages stay text even when they look like numbers.
 - **`explain.steps`** lists each intermediate calculation with the actual numbers substituted.
   An analyst can recompute any step by hand; an agent cites them instead of recomputing.
 - **`explain.conventions`** states every choice that changes the number (timing, terminal

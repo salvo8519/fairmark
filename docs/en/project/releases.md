@@ -14,9 +14,36 @@ crates and the Python package. Versions follow Semantic Versioning.
 | Patch `X.Y.Z+1` | Fixes between minor releases |
 
 Each milestone in `roadmap/roadmap.yaml` names the release that ships it, and the
-[roadmap](roadmap.md) shows it. Before 1.0.0 a minor version may change an input contract; every
-such change is a new method version with its own schema file, so earlier contracts stay
-documented.
+[roadmap](roadmap.md) shows it. Before 1.0.0 a minor version may change an input or output
+contract; every such change is a new method version with its own schema files, so earlier
+contracts stay documented.
+
+## Method versions
+
+Each method has its own version, a positive integer independent of the release version
+(ADR 0009). It is bumped, and never reused, on:
+
+- a **numerical change**: the same input gives a different value;
+- a **breaking input change**: a field removed or renamed, a new required field, a changed
+  type or constraint, a value removed from an enumeration;
+- a **breaking output change** (ADR 0014 G8): an output field removed, renamed or retyped, a
+  field that becomes nullable, or a field that was always present and may now be absent.
+
+A new optional input field, a new output field and a value added to an enumeration are
+additive: they keep the method version. Every version keeps two schema snapshots,
+`schemas/<method>/v<N>.json` (input) and `schemas/<method>/v<N>.output.json` (output, the
+`value` of the result), recorded with their hashes in `schemas/index.json`. Snapshots of
+earlier versions are never rewritten; `scripts/schema_snapshots.py` enforces both rules in CI,
+for inputs and outputs alike. Versions released before output snapshots existed have only the
+input snapshot.
+
+The method version is reported everywhere a client can read it: `meta.method_version` of every
+result (`Result.method_version` in Python), the `version` field of `fm.methods()` and
+`fairmark methods`, and `fairmark/method_version` in the `_meta` of each MCP tool, beside
+`fairmark/status`. The envelope around `value` (`explain`, `meta`) follows its own version, not
+the method version (ADR 0014 G4). A client-side version pin, which would refuse to run a method
+whose version differs from the one the client expects, is not decided yet (ADR 0014, "Not
+decided here").
 
 ## Method status
 
@@ -31,8 +58,9 @@ methods reference and the README tables are generated from the same field.
 | `available` | The method meets the promotion rule below. |
 | `preview` | The method is implemented, tested against golden cases and documented, but has not met the promotion rule. Results are deterministic and traced in `explain`, but they have not been independently verified: agents tell their users when a result comes from a preview method. |
 
-Both statuses follow the same versioning rules (ADR 0009): any numerical or breaking input
-change is a new method version with its own schema. A new method is preview until it is
+Both statuses follow the same versioning rules ([method versions](#method-versions)): any
+numerical change, or breaking input or output change, is a new method version with its own
+schemas. A new method is preview until it is
 promoted.
 
 ### Promotion rule

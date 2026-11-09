@@ -10,6 +10,8 @@ import fairmark as fm
 ::: fairmark.run_json
 ::: fairmark.methods
 ::: fairmark.input_schema
+::: fairmark.output_schema
+::: fairmark.result_schema
 
 ## Results and errors
 

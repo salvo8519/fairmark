@@ -1,6 +1,6 @@
 ---
 source: guides/mcp.md
-source_hash: 2925f9e05381
+source_hash: 35fec834a879
 ---
 # Server MCP
 
@@ -67,8 +67,10 @@ finanziari.
 - Il significato di ogni valore enumerato nella descrizione del campo, ed esempi di input presi
   dai casi di riferimento (golden case) nella parola chiave `examples` dello schema (prima il
   minimo, poi il massimo dove utile; vedi [function calling](function-calling.md#esempi)).
-- Lo stato di ogni metodo nel campo `_meta` del tool, `{"fairmark/status": "available"}`
-  oppure `"preview"`. La descrizione di un tool in anteprima riporta "(preview)" dopo il
+- Lo stato e la versione di ogni metodo nel campo `_meta` del tool, per esempio
+  `{"fairmark/status": "available", "fairmark/method_version": "2"}`; lo stato è
+  `"available"` oppure `"preview"` e la versione è quella che ogni risultato riporta in
+  `meta.method_version` (vedi [versioni dei metodi](https://salvo8519.github.io/fairmark/project/releases/#method-versions), in inglese). La descrizione di un tool in anteprima riporta "(preview)" dopo il
   titolo e una frase che inizia con "Status: preview", così il modello lo vede prima della
   chiamata. La pagina sullo
   [stato dei metodi](https://salvo8519.github.io/fairmark/project/releases/#method-status)
