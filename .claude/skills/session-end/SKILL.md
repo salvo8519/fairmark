@@ -46,4 +46,7 @@ to GitHub is in English, without icons. Never merge: merging is the maintainer's
 9. **Labels and board.** Add labels that the labeler cannot infer (`numerical-change`,
    `breaking-change`, `no-release-note`). Remove `in-progress` from the issue only when the
    pull request is ready for review.
-10. **Report** to the maintainer: pull request link, check status, what remains, next step.
+10. **Disk.** Run the dry run of `uv run just clean-workspace` (skill `workspace-clean`). If it
+    lists merged worktrees to remove, apply it with `--apply` and verify with `df -h .`;
+    report worktrees kept with work in them to the maintainer instead of removing them.
+11. **Report** to the maintainer: pull request link, check status, what remains, next step.
