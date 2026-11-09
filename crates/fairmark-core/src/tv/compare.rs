@@ -26,7 +26,7 @@ use super::{
     Liquidation, LiquidationInput, LiquidationOutput, NormalisedIncome, TerminalBasis, ValueDriver,
     ValueDriverOutput, NOT_DISCOUNTED,
 };
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Reason, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 
@@ -189,6 +189,32 @@ pub struct CompareOutput {
     pub results: Vec<ComparedTechnique>,
 }
 
+/// The method id of a technique, its key in `techniques`.
+fn technique_id(t: &Technique) -> &'static str {
+    match t {
+        Technique::Gordon(_) => Gordon::ID,
+        Technique::ValueDriver(_) => ValueDriver::ID,
+        Technique::HModel(_) => HModel::ID,
+        Technique::ExitMultiple(_) => ExitMultiple::ID,
+        Technique::LimitedHorizon(_) => LimitedHorizon::ID,
+        Technique::NormalisedIncome(_) => NormalisedIncome::ID,
+        Technique::Liquidation(_) => Liquidation::ID,
+    }
+}
+
+/// An error of technique `k`, located in the input of the comparison: a field of the
+/// technique under `/techniques/k/<id>`; the shared `rate` and `growth_cap` stay at the root;
+/// an error without a field is located at the technique.
+fn in_technique(e: FairmarkError, k: usize, t: &Technique) -> FairmarkError {
+    let at = format!("/techniques/{k}/{}", technique_id(t));
+    match e.details().pointer.as_deref() {
+        None => e.located(at),
+        Some("/rate" | "/growth_cap") => e,
+        Some(p) if p.starts_with("/techniques/") => e,
+        Some(_) => e.under(&at),
+    }
+}
+
 /// Runs one technique with the shared inputs; returns its id, value, output and explain.
 fn run_one(
     t: &Technique,
@@ -244,7 +270,11 @@ fn run_one(
                     terms.metric.multiple_name(),
                     terms.metric.basis().name(),
                     basis.name()
-                )));
+                ))
+                .at(
+                    format!("/techniques/{}/tv.exit_multiple/metric", position - 1),
+                    Reason::Conflict,
+                ));
             }
             let (o, ex) = exit_multiple(&terms.with(rate, cap))?;
             let tv = o.terminal_value;
@@ -274,7 +304,11 @@ fn run_one(
                     a comparison declared on the {} basis",
                     terms.basis.name(),
                     basis.name()
-                )));
+                ))
+                .at(
+                    format!("/techniques/{}/tv.normalised_income/basis", position - 1),
+                    Reason::Conflict,
+                ));
             }
             let (o, ex) = normalised_income(&terms.with(cap))?;
             let tv = o.terminal_value;
@@ -293,7 +327,11 @@ fn run_one(
                     comparison declared on the {} basis",
                     input.basis.name(),
                     basis.name()
-                )));
+                ))
+                .at(
+                    format!("/techniques/{}/tv.liquidation/basis", position - 1),
+                    Reason::Conflict,
+                ));
             }
             let (o, ex) = liquidation(input)?;
             let tv = o.terminal_value;
@@ -343,7 +381,8 @@ pub fn compare(input: &CompareInput) -> Result<(CompareOutput, Explain)> {
     let mut results = Vec::with_capacity(input.techniques.len());
     for (k, t) in input.techniques.iter().enumerate() {
         let position = k + 1;
-        let (id, version, tv, output, inner) = run_one(&t.0, r, cap, basis, position)?;
+        let (id, version, tv, output, inner) =
+            run_one(&t.0, r, cap, basis, position).map_err(|e| in_technique(e, k, &t.0))?;
         for c in inner.conventions {
             if c != NOT_DISCOUNTED {
                 ex.convention(format!("[{position}] {id}: {c}"));

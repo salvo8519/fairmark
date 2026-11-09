@@ -65,7 +65,8 @@ pub struct SensitivityOutput {
 }
 
 fn check_axis(name: &str, axis: &Axis, base: &serde_json::Value) -> Result<()> {
-    pointer::read_decimal(base, &axis.variable)?;
+    pointer::read_decimal(base, &axis.variable)
+        .map_err(|e| e.located(format!("/{name}/variable")))?;
     if axis.values.is_empty() {
         return Err(
             FairmarkError::InvalidInput(format!("{name}.values is empty"))
@@ -86,17 +87,19 @@ pub fn sensitivity(input: &SensitivityInput) -> Result<(SensitivityOutput, Expla
                 "rows and columns use the same variable {}",
                 columns.variable
             ))
-            .at("/columns/variable", crate::error::Reason::Duplicate)
+            .at("/columns/variable", crate::error::Reason::Conflict)
             .between(["/columns/variable", "/rows/variable"]));
         }
     }
-    pointer::check_syntax(&input.output)?;
+    pointer::check_syntax(&input.output).map_err(|e| e.located("/output"))?;
     let n_rows = input.rows.values.len() as u64;
     let n_cols = input.columns.as_ref().map_or(1, |c| c.values.len() as u64);
     // R5: the base case plus one evaluation per cell, refused before the first evaluation.
     inner.reserve(n_rows.saturating_mul(n_cols).saturating_add(1), &base)?;
 
-    let base_output = base_case(&mut inner, &base, &[input.output.as_str()])?[0];
+    let base_output = base_case(&mut inner, &base, &[input.output.as_str()], |_| {
+        "/output".to_owned()
+    })?[0];
     let mut ex = Explain::new(
         Sensitivity::ID,
         if input.columns.is_some() {
@@ -126,7 +129,7 @@ pub fn sensitivity(input: &SensitivityInput) -> Result<(SensitivityOutput, Expla
             // resolve is a wrong request, not a refused combination, so it ends it (R3).
             let cell = match recorded(inner.evaluate(&candidate))? {
                 Outcome::Value { value } => Outcome::Value {
-                    value: output(&value, &input.output)?,
+                    value: output(&value, &input.output).map_err(|e| e.located("/output"))?,
                 },
                 Outcome::Error { error } => Outcome::Error { error },
             };

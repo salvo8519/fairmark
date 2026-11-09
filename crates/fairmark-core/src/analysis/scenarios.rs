@@ -107,31 +107,39 @@ pub fn scenarios(input: &ScenariosInput) -> Result<(ScenariosOutput, Explain)> {
         return Err(FairmarkError::InvalidInput("scenarios is empty".to_owned())
             .at("/scenarios", crate::error::Reason::Length));
     }
-    unique("output", input.outputs.iter().map(String::as_str))?;
-    for o in &input.outputs {
-        pointer::check_syntax(o)?;
+    unique("output", input.outputs.iter().map(String::as_str), |k| {
+        format!("/outputs/{k}")
+    })?;
+    for (k, o) in input.outputs.iter().enumerate() {
+        pointer::check_syntax(o).map_err(|e| e.located(format!("/outputs/{k}")))?;
     }
-    for s in &input.scenarios {
+    for (i, s) in input.scenarios.iter().enumerate() {
         if s.name.trim().is_empty() || s.name.trim() != s.name {
             return Err(FairmarkError::InvalidInput(format!(
                 "scenario name '{}' is empty or has leading or trailing spaces",
                 s.name
             ))
-            .because(crate::error::Reason::Blank));
+            .at(format!("/scenarios/{i}/name"), crate::error::Reason::Blank));
         }
         unique(
             &format!("in scenario '{}' the pointer", s.name),
             s.overrides.iter().map(|o| o.pointer.as_str()),
+            |k| format!("/scenarios/{i}/overrides/{k}/pointer"),
         )?;
-        for o in &s.overrides {
-            pointer::read_decimal(&base, &o.pointer)?;
+        for (k, o) in s.overrides.iter().enumerate() {
+            pointer::read_decimal(&base, &o.pointer)
+                .map_err(|e| e.located(format!("/scenarios/{i}/overrides/{k}/pointer")))?;
         }
     }
-    unique("scenario", input.scenarios.iter().map(|s| s.name.as_str()))?;
+    unique(
+        "scenario",
+        input.scenarios.iter().map(|s| s.name.as_str()),
+        |k| format!("/scenarios/{k}/name"),
+    )?;
     inner.reserve(input.scenarios.len() as u64 + 1, &base)?;
 
     let pointers: Vec<&str> = input.outputs.iter().map(String::as_str).collect();
-    let base_outputs = base_case(&mut inner, &base, &pointers)?;
+    let base_outputs = base_case(&mut inner, &base, &pointers, |k| format!("/outputs/{k}"))?;
     let mut ex = Explain::new(
         Scenarios::ID,
         "delta = output(scenario) − output(base); relative delta = delta / output(base)",
@@ -161,7 +169,8 @@ pub fn scenarios(input: &ScenariosInput) -> Result<(ScenariosOutput, Explain)> {
                 let values = input
                     .outputs
                     .iter()
-                    .map(|o| output(&value, o))
+                    .enumerate()
+                    .map(|(k, o)| output(&value, o).map_err(|e| e.located(format!("/outputs/{k}"))))
                     .collect::<Result<Vec<_>>>()?;
                 let compared = input
                     .outputs

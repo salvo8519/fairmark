@@ -16,7 +16,7 @@ use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value};
 
-use crate::error::{CompactErrorReport, FairmarkError, Result};
+use crate::error::{CompactErrorReport, FairmarkError, Reason, Result};
 use crate::registry;
 
 /// Most inner evaluations one analysis request may perform (ADR 0010).
@@ -107,9 +107,11 @@ pub(crate) struct Inner {
 impl Inner {
     /// `FM-E007` for an unknown id, `FM-E017` for an analysis method.
     pub(crate) fn new(id: &str) -> Result<Self> {
-        let info = registry::method(id)?;
+        let info = registry::method(id).map_err(|e| e.at("/method", Reason::Enum))?;
         if info.id.starts_with(THEME) {
-            return Err(FairmarkError::NestedAnalysis(info.id.to_owned()));
+            return Err(FairmarkError::NestedAnalysis(info.id.to_owned())
+                .at("/method", Reason::Conflict)
+                .fix("run the inner analysis directly; analyses do not nest"));
         }
         Ok(Self {
             id: info.id,
@@ -170,7 +172,10 @@ impl Inner {
                 "an analysis exceeded its reserved evaluations",
             ));
         }
-        let mut envelope = registry::evaluate(self.id, input)?;
+        // The inner input is `base_input` (or a variant of it): its errors are located under
+        // `/base_input`, from the root of the analysis input (ADR 0014 G5).
+        let mut envelope =
+            registry::evaluate(self.id, input).map_err(|e| e.under("/base_input"))?;
         Ok(envelope["value"].take())
     }
 
@@ -200,9 +205,21 @@ pub(crate) fn with_values(base: &Value, values: &[(&str, Decimal)]) -> Result<Va
 
 /// R9: the base case, `base_input` unchanged, and the selected outputs of its result. Any error
 /// is returned unchanged; an output pointer that does not resolve is `FM-E015`.
-pub(crate) fn base_case(inner: &mut Inner, base: &Value, outputs: &[&str]) -> Result<Vec<Decimal>> {
+///
+/// `fields` gives the JSON pointer, in the analysis input, of each output pointer: `/output`,
+/// or `/outputs/k`.
+pub(crate) fn base_case(
+    inner: &mut Inner,
+    base: &Value,
+    outputs: &[&str],
+    fields: impl Fn(usize) -> String,
+) -> Result<Vec<Decimal>> {
     let value = inner.evaluate(base)?;
-    outputs.iter().map(|o| output(&value, o)).collect()
+    outputs
+        .iter()
+        .enumerate()
+        .map(|(k, o)| output(&value, o).map_err(|e| e.located(fields(k))))
+        .collect()
 }
 
 /// Outcome of one evaluation in a table or a scenario: a value, or the inner error (R16).
@@ -226,22 +243,32 @@ pub enum Outcome<T: Serialize> {
 pub(crate) fn recorded<T: Serialize>(result: Result<T>) -> Result<Outcome<T>> {
     match result {
         Ok(value) => Ok(Outcome::Value { value }),
-        // By code, so that a defect carried with details still aborts.
-        Err(e) if e.code() == FairmarkError::Internal("").code() => Err(e),
+        Err(e) if is_internal(&e) => Err(e),
         Err(e) => Ok(Outcome::Error {
             error: e.to_compact_report(),
         }),
     }
 }
 
-/// `FM-E001` when `items` repeat, naming the first repeated one.
-pub(crate) fn unique<'a>(what: &str, items: impl IntoIterator<Item = &'a str>) -> Result<()> {
+/// A defect in Fairmark (`FM-E012`), by its code, so that a defect carried with details still
+/// aborts the request.
+fn is_internal(e: &FairmarkError) -> bool {
+    matches!(e.kind(), FairmarkError::Internal(_))
+}
+
+/// `FM-E001` when `items` repeat, naming the first repeated one, located at `at(k)` for the
+/// k-th item.
+pub(crate) fn unique<'a>(
+    what: &str,
+    items: impl IntoIterator<Item = &'a str>,
+    at: impl Fn(usize) -> String,
+) -> Result<()> {
     let mut seen = std::collections::BTreeSet::new();
-    for item in items {
+    for (k, item) in items.into_iter().enumerate() {
         if !seen.insert(item) {
             return Err(
                 FairmarkError::InvalidInput(format!("{what} '{item}' appears twice"))
-                    .because(crate::error::Reason::Duplicate),
+                    .at(at(k), Reason::Duplicate),
             );
         }
     }

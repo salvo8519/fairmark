@@ -309,6 +309,8 @@ pub struct Details {
     pub expected: Vec<String>,
     /// One sentence that resolves the error.
     pub fix: Option<String>,
+    /// `FM-E027` only: alternative sets of input pointers, any one of which is enough.
+    pub missing_any_of: Vec<Vec<String>>,
 }
 
 /// Collects the input errors of a validation pass (ADR 0014 G5): the validation goes on after
@@ -561,13 +563,52 @@ impl FairmarkError {
                 f(&mut d.details);
                 Self::Detailed(d)
             }
-            // Several errors have no details of their own; never built before `Found::finish`.
-            Self::Several(_) => self,
+            // Several errors have no details of their own: the details go to the first, whose
+            // code and message are those of the whole.
+            Self::Several(mut several) => {
+                let first = std::mem::replace(&mut several.0[0], Self::Internal("moved"));
+                several.0[0] = first.with(f);
+                Self::Several(several)
+            }
             error => {
                 let mut details = error.details();
                 f(&mut details);
                 Self::Detailed(Box::new(Detailed { error, details }))
             }
+        }
+    }
+
+    /// This error located from `prefix`: its pointer, pointers and alternative sets gain the
+    /// prefix, its message is unchanged. An error of the method evaluated by an analysis is
+    /// located under `/base_input`, so that every pointer of a report starts at the root of
+    /// the input the client sent.
+    pub(crate) fn under(self, prefix: &str) -> Self {
+        match self {
+            Self::Several(several) => Self::Several(Box::new(Several(
+                several.0.into_iter().map(|e| e.under(prefix)).collect(),
+            ))),
+            error => {
+                let d = error.details();
+                if d.pointer.is_none() && d.pointers.is_empty() && d.missing_any_of.is_empty() {
+                    return error;
+                }
+                let at = |p: &mut String| p.insert_str(0, prefix);
+                error.with(|d| {
+                    d.pointer.iter_mut().for_each(at);
+                    d.pointers.iter_mut().for_each(at);
+                    d.missing_any_of.iter_mut().flatten().for_each(at);
+                })
+            }
+        }
+    }
+
+    /// The variant that gives the code and the message: the error carried by `Detailed`, the
+    /// first of `Several`, the error itself otherwise. For a caller that matches a condition.
+    pub fn kind(&self) -> &Self {
+        match self {
+            Self::Detailed(d) => d.error.kind(),
+            Self::Several(s) => s.first().kind(),
+            other => other,
         }
     }
 
@@ -610,6 +651,7 @@ impl FairmarkError {
                     ),
                     None => format!("give `{field}` as a decimal fraction greater than -1"),
                 }),
+                ..Details::default()
             },
             Self::CompoundedRateOutOfRange {
                 field,
@@ -654,6 +696,7 @@ impl FairmarkError {
                     fix: Some(format!(
                         "lower `{growth_field}` below the discount rate, or check `{rate_field}`"
                     )),
+                    ..Details::default()
                 }
             }
             Self::EmptyCashFlows => Details {
@@ -690,7 +733,8 @@ impl FairmarkError {
                 fix: Some(r.fix.clone()),
                 ..Details::default()
             },
-            Self::BelowMinimumInput(_) => Details {
+            Self::BelowMinimumInput(m) => Details {
+                missing_any_of: m.missing_any_of.clone(),
                 reason: Some(Reason::Missing),
                 fix: Some(
                     "give every input of at least one of the sets in `missing_any_of`".to_owned(),
@@ -722,26 +766,17 @@ impl FairmarkError {
         }
     }
 
-    /// The alternative sets of input pointers of `FM-E027`, empty for every other error.
-    fn missing_any_of(&self) -> Vec<Vec<String>> {
-        match self {
-            Self::BelowMinimumInput(m) => m.missing_any_of.clone(),
-            Self::Detailed(d) => d.error.missing_any_of(),
-            Self::Several(s) => s.first().missing_any_of(),
-            _ => Vec::new(),
-        }
-    }
-
     /// The report of this error alone, without `errors`.
-    fn entry(&self) -> ErrorReport {
+    fn entry(&self) -> ErrorEntry {
         let Details {
             pointer,
             pointers,
             reason,
             expected,
             fix,
+            missing_any_of,
         } = self.details();
-        ErrorReport {
+        ErrorEntry {
             code: self.code(),
             message: self.to_string(),
             pointer,
@@ -749,21 +784,20 @@ impl FairmarkError {
             reason,
             expected,
             fix,
-            missing_any_of: self.missing_any_of(),
-            errors: Vec::new(),
+            missing_any_of,
         }
     }
 
     /// JSON-friendly representation used by every adapter (CLI, Python, MCP): the first
     /// error at the top level, every error found in `errors` (ADR 0014 G5).
     pub fn to_report(&self) -> ErrorReport {
-        let errors = match self {
+        let errors: Vec<ErrorEntry> = match self {
             Self::Several(s) => s.errors().iter().map(Self::entry).collect(),
             other => vec![other.entry()],
         };
         ErrorReport {
+            first: errors[0].clone(),
             errors,
-            ..self.entry()
         }
     }
 
@@ -777,18 +811,20 @@ impl FairmarkError {
     }
 }
 
-/// The report of an error (ADR 0014 G5): the stable code, the message in English, and what a
+/// One error of a report (ADR 0014 G5): the stable code, the message in English, and what a
 /// client needs to correct the input without reading the message.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
-#[schemars(rename = "FairmarkErrorReport")]
-pub struct ErrorReport {
+#[schemars(rename = "FairmarkErrorEntry")]
+pub struct ErrorEntry {
     /// Stable error code, for example `FM-E004` (see the errors reference).
     pub code: &'static str,
     /// What is wrong and, where known, how to fix it.
     pub message: String,
-    /// JSON pointer (RFC 6901) of the field to correct, from the root of the input; `null`
-    /// when no single field is at fault, for example for a text that is not JSON. Inside an
-    /// analysis, relative to `base_input`.
+    /// JSON pointer (RFC 6901) of the field to correct, always from the root of the input the
+    /// client sent: an error of the method evaluated by an analysis is under `/base_input`,
+    /// while its message keeps the pointer within `base_input`. `null` only for a text that is
+    /// not JSON (`reason` `syntax`) and for an error raised during the computation that no
+    /// single field causes (and for `FM-E027`, which names its inputs in `missing_any_of`).
     pub pointer: Option<String>,
     /// JSON pointers of every field of a relation (both sides of an `FM-E026`
     /// reconciliation, both fields of a conflict); empty when the error concerns one field.
@@ -796,20 +832,32 @@ pub struct ErrorReport {
     /// The sub-kind of the error, which tells apart the conditions that share a code; `null`
     /// when the code has one meaning only.
     pub reason: Option<Reason>,
-    /// The accepted values, or a short description of the accepted form; empty when not
-    /// known.
+    /// What the field accepts. With `reason` `enum` or `unknown_field`, the literal values
+    /// (the values of the enumeration, the fields of the object); with any other reason, short
+    /// descriptions of the accepted form, for example "an amount greater than 0". Empty when
+    /// not known.
     pub expected: Vec<String>,
     /// One sentence that resolves the error; `null` when the message is the only guidance.
+    /// Its wording may change between releases; `code`, `pointer` and `reason` do not.
     pub fix: Option<String>,
     /// `FM-E027` only: alternative sets of input pointers, any one of which lifts the input
     /// above the minimum of the method. Omitted for every other code.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub missing_any_of: Vec<Vec<String>>,
-    /// Every error found, at least one: the validation of the input reports all the errors it
-    /// finds, the first of them also at the top level; an error raised during the computation
-    /// stops it and is the only entry. The entries carry no `errors` of their own.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub errors: Vec<ErrorReport>,
+}
+
+/// The report of an error (ADR 0014 G5): the first error found, and every error found.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[schemars(rename = "FairmarkErrorReport")]
+pub struct ErrorReport {
+    /// The first error found; its code and message are those of the whole report.
+    #[serde(flatten)]
+    pub first: ErrorEntry,
+    /// Every error found, at least one, the first equal to the top level: the validation of
+    /// the input reports all the errors it finds, in the order of its checks; an error raised
+    /// during the computation stops it and is the only entry.
+    #[schemars(length(min = 1))]
+    pub errors: Vec<ErrorEntry>,
 }
 
 /// What an adapter returns when a method fails: `{"error": <report>}`.
@@ -820,6 +868,11 @@ pub struct ErrorResponse {
     pub error: ErrorReport,
 }
 
+// The error recorded in a cell of an analysis table. Its schema keeps the name `ErrorReport`,
+// under which it was published in the output snapshots of the analysis methods before the
+// structured report existed; the full report is named `FairmarkErrorReport` in schemas, so the
+// two never collide. Renaming it, or changing its doc comment (the schema description), would
+// change those snapshots: hence a plain comment here.
 /// The report of an error: its stable code and a message in English.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 #[schemars(rename = "ErrorReport")]

@@ -105,8 +105,8 @@ pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
         .at("/max_iterations", crate::error::Reason::Range));
     }
     let base = base_value(&input.base_input);
-    pointer::read_decimal(&base, &input.variable)?;
-    pointer::check_syntax(&input.output)?;
+    pointer::read_decimal(&base, &input.variable).map_err(|e| e.located("/variable"))?;
+    pointer::check_syntax(&input.output).map_err(|e| e.located("/output"))?;
     // R5: the most evaluations this request can need, checked before the first one.
     inner.reserve(2 + u64::from(input.max_iterations), &base)?;
 
@@ -115,9 +115,10 @@ pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
     let root = brent(
         |x| {
             let mut candidate = base.clone();
-            pointer::write_decimal(&mut candidate, &input.variable, x)?;
+            pointer::write_decimal(&mut candidate, &input.variable, x)
+                .map_err(|e| e.located("/variable"))?;
             let value = inner.evaluate(&candidate)?;
-            let y = output(&value, &input.output)?;
+            let y = output(&value, &input.output).map_err(|e| e.located("/output"))?;
             values.push((y, value));
             sub(y, input.target)
         },
@@ -133,7 +134,8 @@ pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
         ));
     }
     let mut solved_input = base.clone();
-    pointer::write_decimal(&mut solved_input, &input.variable, root.x)?;
+    pointer::write_decimal(&mut solved_input, &input.variable, root.x)
+        .map_err(|e| e.located("/variable"))?;
     // Keys sorted, so the result does not depend on the order in which the caller wrote them.
     let solved_input = sorted(&solved_input);
     let outputs: Vec<Decimal> = values.iter().map(|(y, _)| *y).collect();

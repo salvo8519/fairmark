@@ -384,6 +384,150 @@ fn rounding_without_mode_lists_the_modes() {
     assert_eq!(r["expected"], json!(["half_up", "half_even"]));
 }
 
+// ------------------------------------------------------------- analysis
+
+fn goal_seek() -> Value {
+    json!({
+        "method": "tvm.npv",
+        "base_input": {"rate": "0.1", "cash_flows": [-100, 60, 60]},
+        "variable": "/rate",
+        "output": "/npv",
+        "target": "0",
+        "bracket": ["0.01", "0.5"]
+    })
+}
+
+/// Review of #279, item 1: an error of the inner method is located from the root of the
+/// analysis input, under `/base_input`; its message keeps the inner pointer.
+#[test]
+fn inner_errors_are_located_under_base_input() {
+    let mut input = goal_seek();
+    input["base_input"]["bogus"] = json!(1);
+    let r = report("analysis.goal_seek", &input);
+    assert_eq!(r["pointer"], "/base_input/bogus");
+    assert!(r["message"].as_str().unwrap().contains("`/bogus`"));
+    assert_eq!(r["errors"][0]["pointer"], "/base_input/bogus");
+
+    let mut input = goal_seek();
+    input["base_input"]["cash_flows"] = json!([]);
+    let r = report("analysis.goal_seek", &input);
+    assert_eq!(r["code"], "FM-E002");
+    assert_eq!(r["pointer"], "/base_input/cash_flows");
+}
+
+#[test]
+fn analysis_fields_are_named() {
+    let mut input = goal_seek();
+    input["variable"] = json!("/nope");
+    assert_eq!(report("analysis.goal_seek", &input)["pointer"], "/variable");
+    let mut input = goal_seek();
+    input["output"] = json!("npv");
+    assert_eq!(report("analysis.goal_seek", &input)["pointer"], "/output");
+    let mut input = goal_seek();
+    input["method"] = json!("tvm.nope");
+    let r = report("analysis.goal_seek", &input);
+    assert_eq!(
+        (r["code"].as_str(), r["pointer"].as_str()),
+        (Some("FM-E007"), Some("/method"))
+    );
+    input["method"] = json!("analysis.tornado");
+    let r = report("analysis.goal_seek", &input);
+    assert_eq!(
+        (r["code"].as_str(), r["pointer"].as_str()),
+        (Some("FM-E017"), Some("/method"))
+    );
+}
+
+#[test]
+fn tornado_and_scenarios_name_their_entries() {
+    let tornado = json!({
+        "method": "tvm.npv",
+        "base_input": {"rate": "0.1", "cash_flows": [-100, 60, 60]},
+        "output": "/npv",
+        "variables": [{"variable": "/rate", "low": "0.2", "high": "0.1"}]
+    });
+    let r = report("analysis.tornado", &tornado);
+    assert_eq!(r["pointer"], "/variables/0/low");
+    assert_eq!(
+        r["pointers"],
+        json!(["/variables/0/low", "/variables/0/high"])
+    );
+    let mut dup = tornado.clone();
+    dup["variables"] = json!([
+        {"variable": "/rate", "low": "0.05", "high": "0.1"},
+        {"variable": "/rate", "low": "0.05", "high": "0.1"}
+    ]);
+    let r = report("analysis.tornado", &dup);
+    assert_eq!(r["pointer"], "/variables/1/variable");
+    assert_eq!(r["reason"], "duplicate");
+
+    let scenarios = |names: [&str; 2]| {
+        json!({
+            "method": "tvm.npv",
+            "base_input": {"rate": "0.1", "cash_flows": [-100, 60, 60]},
+            "outputs": ["/npv"],
+            "scenarios": [
+                {"name": names[0], "overrides": [{"pointer": "/rate", "value": "0.2"}]},
+                {"name": names[1], "overrides": [{"pointer": "/rate", "value": "0.3"}]}
+            ]
+        })
+    };
+    let r = report("analysis.scenarios", &scenarios(["up", " "]));
+    assert_eq!(r["pointer"], "/scenarios/1/name");
+    assert_eq!(r["reason"], "blank");
+    let r = report("analysis.scenarios", &scenarios(["up", "up"]));
+    assert_eq!(r["pointer"], "/scenarios/1/name");
+    assert_eq!(r["reason"], "duplicate");
+}
+
+#[test]
+fn compare_names_the_technique() {
+    let r = report("tv.compare", &golden_input("tv.compare/mixed-basis.yaml"));
+    assert_eq!(r["code"], "FM-E019");
+    assert_eq!(r["pointer"], "/techniques/1/tv.exit_multiple/metric");
+}
+
+#[test]
+fn flow_before_valuation_date_names_both_dates() {
+    let r = report(
+        "tvm.xnpv",
+        &json!({
+            "rate": "0.1",
+            "valuation_date": "2024-06-30",
+            "cash_flows": [
+                {"date": "2024-06-30", "amount": "-100"},
+                {"date": "2024-01-31", "amount": "110"}
+            ]
+        }),
+    );
+    assert_eq!(r["code"], "FM-E010");
+    assert_eq!(r["pointer"], "/cash_flows/1/date");
+    assert_eq!(
+        r["pointers"],
+        json!(["/cash_flows/1/date", "/valuation_date"])
+    );
+}
+
+// ------------------------------------------------------------- the rule of `expected`
+
+/// ADR 0014 G5 as amended by the review of #279: `expected` lists literal values when the
+/// reason is `enum` or `unknown_field`, and descriptions of the accepted form otherwise.
+#[test]
+fn expected_lists_literal_values_only_for_enum_and_unknown_field() {
+    let r = report("dcf.fcff", &{
+        let mut i = dcf();
+        i["timing"] = json!("end");
+        i
+    });
+    assert_eq!(r["expected"], json!(["end_of_period", "mid_period"]));
+    let r = report(
+        "loans.instalment",
+        &golden_input("loans.instalment/error-principal-zero.yaml"),
+    );
+    assert_eq!(r["reason"], "range");
+    assert_eq!(r["expected"], json!(["an amount greater than 0"]));
+}
+
 // ------------------------------------------------------------- every golden error case
 
 fn golden_files(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -416,18 +560,24 @@ fn every_golden_error_names_its_pointer_in_the_report() {
         top_level_is_the_first_entry(&r);
         let message = r["message"].as_str().unwrap();
         let names_a_pointer = message.contains("`/");
+        // Inside an analysis, the pointer of an inner error is under `/base_input`, while the
+        // message keeps the inner pointer.
         let analysis = method.starts_with("analysis.");
         // `FM-E027` names its inputs in `missing_any_of`, not in `pointer`.
         let below_minimum = r["code"] == "FM-E027";
-        if names_a_pointer && !analysis && !below_minimum && r["pointer"].is_null() {
+        if names_a_pointer && !below_minimum && r["pointer"].is_null() {
             failures.push(format!("{}: no pointer for: {message}", file.display()));
         }
         if let Some(p) = r["pointer"].as_str() {
-            if names_a_pointer && !message.contains(p) {
+            let inner = p
+                .strip_prefix("/base_input")
+                .filter(|_| analysis)
+                .unwrap_or(p);
+            if names_a_pointer && !message.contains(inner) {
                 failures.push(format!("{}: pointer {p} not in: {message}", file.display()));
             }
         }
-        if r["code"] == "FM-E001" && r["reason"].is_null() && !analysis {
+        if r["code"] == "FM-E001" && r["reason"].is_null() {
             failures.push(format!(
                 "{}: FM-E001 without reason: {message}",
                 file.display()

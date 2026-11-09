@@ -83,21 +83,29 @@ pub fn tornado(input: &TornadoInput) -> Result<(TornadoOutput, Explain)> {
     unique(
         "variable",
         input.variables.iter().map(|v| v.variable.as_str()),
+        |k| format!("/variables/{k}/variable"),
     )?;
-    for v in &input.variables {
-        pointer::read_decimal(&base, &v.variable)?;
+    for (k, v) in input.variables.iter().enumerate() {
+        pointer::read_decimal(&base, &v.variable)
+            .map_err(|e| e.located(format!("/variables/{k}/variable")))?;
         if v.low >= v.high {
             return Err(FairmarkError::InvalidInput(format!(
                 "{}: low ({}) must be lower than high ({})",
                 v.variable, v.low, v.high
             ))
-            .because(crate::error::Reason::Range));
+            .at(format!("/variables/{k}/low"), crate::error::Reason::Range)
+            .between([
+                format!("/variables/{k}/low"),
+                format!("/variables/{k}/high"),
+            ]));
         }
     }
-    pointer::check_syntax(&input.output)?;
+    pointer::check_syntax(&input.output).map_err(|e| e.located("/output"))?;
     inner.reserve(2 * input.variables.len() as u64 + 1, &base)?;
 
-    let base_output = base_case(&mut inner, &base, &[input.output.as_str()])?[0];
+    let base_output = base_case(&mut inner, &base, &[input.output.as_str()], |_| {
+        "/output".to_owned()
+    })?[0];
     let mut ex = Explain::new(
         Tornado::ID,
         "swing = output(variable at high) − output(variable at low), other inputs at base; \
@@ -114,7 +122,7 @@ pub fn tornado(input: &TornadoInput) -> Result<(TornadoOutput, Explain)> {
         // R21: a failed evaluation leaves the ranking undefined, so its error is returned.
         let mut at = |x: Decimal| -> Result<Decimal> {
             let value = inner.evaluate(&with_values(&base, &[(v.variable.as_str(), x)])?)?;
-            output(&value, &input.output)
+            output(&value, &input.output).map_err(|e| e.located("/output"))
         };
         let output_low = at(v.low)?;
         let output_high = at(v.high)?;

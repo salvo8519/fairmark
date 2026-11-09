@@ -139,7 +139,7 @@ pub(crate) fn inverse_pow(base: Decimal, e: Decimal) -> Result<Decimal> {
                 .ok_or(FairmarkError::Overflow("discount factor")),
             // Growth overflowed: the reciprocal underflows towards zero, the correct limit.
             _ => match reciprocal() {
-                Err(FairmarkError::Overflow(_)) => Ok(Decimal::ZERO),
+                Err(e) if matches!(e.kind(), FairmarkError::Overflow(_)) => Ok(Decimal::ZERO),
                 other => other,
             },
         }

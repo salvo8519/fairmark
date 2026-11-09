@@ -1493,7 +1493,14 @@ mod tests {
                                 let input =
                                     schedule_input(kind, i, n, grace, balloon_amount, rounding);
                                 let (out, _) = match amortisation_schedule(&input) {
-                                    Err(FairmarkError::RoundingTooCoarse(_)) => continue,
+                                    Err(e)
+                                        if matches!(
+                                            e.kind(),
+                                            FairmarkError::RoundingTooCoarse(_)
+                                        ) =>
+                                    {
+                                        continue
+                                    }
                                     other => other.unwrap(),
                                 };
                                 let rate = out.periodic_rate;

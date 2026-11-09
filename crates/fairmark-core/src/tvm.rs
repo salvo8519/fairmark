@@ -776,12 +776,15 @@ pub(crate) fn time_axis(
     let v = valuation_date.unwrap_or(earliest);
     let mut times = Vec::with_capacity(flows.len());
     let mut formulas = Vec::with_capacity(flows.len());
-    for f in flows {
+    for (i, f) in flows.iter().enumerate() {
         if f.date < v {
+            let at = format!("/cash_flows/{i}/date");
             return Err(FairmarkError::FlowBeforeValuationDate {
                 date: f.date.to_string(),
                 valuation_date: v.to_string(),
-            });
+            }
+            .at(at.clone(), Reason::Range)
+            .between([at, "/valuation_date".to_owned()]));
         }
         let (t, formula) = day_count.year_fraction(v, f.date)?;
         times.push(t);
@@ -1288,7 +1291,11 @@ fn factor_with(
             .ok_or(FairmarkError::Overflow("annuity factor"))?;
         let q = match rates::pow(ratio, periods) {
             // Only a ratio below 1 can underflow; its power is then below 10^−28.
-            Err(FairmarkError::Overflow(_)) if underflow_to_zero && ratio < one => {
+            Err(e)
+                if matches!(e.kind(), FairmarkError::Overflow(_))
+                    && underflow_to_zero
+                    && ratio < one =>
+            {
                 ex.step(
                     "Growth-to-discount ratio to the power n (below the decimal precision, taken as 0)",
                     format!("((1 + {g}) / (1 + {r}))^{n}"),
