@@ -87,3 +87,4 @@ def test_golden_case_shape(path: Path) -> None:
         assert "tolerance" in case, "value cases need a tolerance"
     else:
         assert "expect_meta" not in case, "expect_meta needs expect"
+        assert "expect_length" not in case, "expect_length needs expect"
