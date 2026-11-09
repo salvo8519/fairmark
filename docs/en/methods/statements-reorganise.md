@@ -161,7 +161,8 @@ below EBITDA, as IFRS 18 practice does for the impairment of trade receivables; 
 with either treatment. A one-off impairment is isolated with a `non_recurring` adjustment. B10 a
 to c given as one amount (abridged layout, art. 2435-bis) with its B10 a, b part and without
 B10 c gives B10 c as the difference, and every layer is computed (correction D1-IS of
-2026-11-09: more input never gives fewer outputs). With B10 c operating, the group gives the
+2026-11-09: more input never gives fewer outputs); a step shows B10 a to c − B10 a, b with the
+amounts, a convention states the reading, and the assignment names the group. With B10 c operating, the group gives the
 same outputs with or without its parts; with the treatment `investing`, a group given with
 neither part is read as depreciation and amortisation, and the conventions say so (Decision 8).
 
@@ -527,7 +528,9 @@ order:
    `receivables.trade`) does not;
 2. `treatments.write_downs_of_receivables` and `treatments.write_downs_of_fixed_assets`,
    `operating` when not given, each listed whenever a statutory year gives an income statement,
-   because they decide what is computed (decision A4 of 2026-11-09, amending F1);
+   because they decide what is computed (decision A4 of 2026-11-09, amending F1); when such a
+   default places a B10 c or B10 d that is not zero, a convention beginning with "warning: "
+   names the default and the subtotal it moves (ADR 0014, default admission test 4);
 3. each item taken as zero because it is not given ([Best effort](#best-effort)): `value` is
    `"0"` and the convention reads "not given, set to".
 

@@ -1,6 +1,6 @@
 ---
 source: methods/statements-reorganise.md
-source_hash: 52fb9e156715
+source_hash: c3d59e08f998
 ---
 # Bilancio riclassificato (`statements.reorganise`)
 
@@ -184,7 +184,8 @@ nell'investing result. Il MOL è lo stesso con l'una o l'altra classificazione. 
 non ricorrente si isola con una rettifica `non_recurring`. B10 a-c fornita come importo unico
 (bilancio in forma abbreviata, art. 2435-bis) con la sua parte B10 a e b e senza B10 c dà B10 c
 come differenza, e tutti i livelli sono calcolati (correzione D1-IS del 2026-11-09: più dati non
-danno mai meno output). Con B10 c operativa, il gruppo dà gli stessi output con o senza le sue
+danno mai meno output); un passaggio mostra B10 a-c − B10 a e b con gli importi, una convenzione
+indica la lettura e l'assegnazione indica il gruppo. Con B10 c operativa, il gruppo dà gli stessi output con o senza le sue
 parti; con la classificazione `investing`, un gruppo fornito senza alcuna parte è letto come
 ammortamenti, e le convenzioni lo indicano (Decision 8).
 
@@ -555,7 +556,9 @@ quest'ordine:
 2. `treatments.write_downs_of_receivables` e `treatments.write_downs_of_fixed_assets`,
    `operating` se non fornite, ciascuna elencata ogni volta che un esercizio civilistico fornisce
    il conto economico, perché decidono che cosa è calcolato (decisione A4 del 2026-11-09, che
-   modifica F1);
+   modifica F1); quando una di queste classificazioni predefinite colloca una B10 c o una B10 d
+   diversa da zero, una convenzione che inizia con "warning: " indica il valore predefinito e il
+   subtotale che sposta (ADR 0014, test 4 di ammissione dei valori predefiniti);
 3. ogni voce considerata pari a zero perché non fornita ([Calcolo sui dati
    disponibili](#calcolo-sui-dati-disponibili)): `value` è `"0"` e la convenzione riporta "not
    given, set to".
