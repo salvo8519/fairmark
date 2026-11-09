@@ -192,8 +192,18 @@ fn check_rate_form(form: &RateForm) -> Result<()> {
         }
         return Ok(());
     }
-    if form.rate.is_some() && form.compounding.is_some() && form.payment_frequency.is_some() {
-        return Ok(());
+    if let (Some(rate), Some(compounding), Some(frequency)) =
+        (form.rate, form.compounding, form.payment_frequency)
+    {
+        // The conversion's own check of the rate, so that a rate out of range is reported with
+        // the other input errors (ADR 0014 G5); `periodic_rate` converts it again.
+        return rates::convert(&ConvertInput {
+            rate,
+            from: compounding,
+            to: frequency.compounding(),
+        })
+        .map(|_| ())
+        .map_err(rate_field("/rate", compounding.per_year()));
     }
     if given.is_empty() {
         return Err(FairmarkError::InvalidInput(
