@@ -24,9 +24,7 @@ from dataclasses import dataclass, field
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Context, localcontext
 from decimal import Decimal as D
 from functools import wraps
-from typing import Any, TypeVar
-
-T = TypeVar("T", bound=Callable[..., Any])
+from typing import Any
 
 CONTEXT = Context(prec=50)
 PER_YEAR = {
@@ -40,7 +38,7 @@ PER_YEAR = {
 MODES = {"half_up": ROUND_HALF_UP, "half_even": ROUND_HALF_EVEN}
 
 
-def at_50_digits(func: T) -> T:
+def at_50_digits[T: Callable[..., Any]](func: T) -> T:
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         with localcontext(CONTEXT):

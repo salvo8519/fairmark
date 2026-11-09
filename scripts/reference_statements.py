@@ -34,14 +34,13 @@ from dataclasses import dataclass
 from decimal import Context, localcontext
 from decimal import Decimal as D
 from functools import wraps
-from typing import Any, TypeVar
+from typing import Any
 
-T = TypeVar("T", bound=Callable[..., Any])
 CONTEXT = Context(prec=50)
 ZERO = D(0)
 
 
-def at_50_digits(func: T) -> T:
+def at_50_digits[T: Callable[..., Any]](func: T) -> T:
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         with localcontext(CONTEXT):
