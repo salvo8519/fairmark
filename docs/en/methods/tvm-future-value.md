@@ -88,7 +88,8 @@ print(overdrawn.conventions[1])  # sign convention: amounts of the same sign acc
 Integer powers, multiplication and division only; the annuity factor divides by $1 + r$, so
 values that are terminating decimals come out to the last of the engine's 28 significant
 digits rather than exactly. The golden cases are checked to $10^{-20}$ against an independent
-50-digit reference.
+50-digit reference. When $(1 + r)^{-n}$ in the annuity factor falls below the decimal precision
+(about $10^{-28}$), it is taken as 0, its limit, and an explain step says so.
 
 ## Verified against
 

@@ -119,6 +119,10 @@ never the future value (for the due timing, multiply its result by $1 + r$). Sep
 values would change the outputs of the method and needs a new method version; it is recorded as
 a follow-up in the plan of SPEC-0002.
 
+When the future value still fits but $((1 + g)/(1 + r))^n$ falls below the decimal precision
+(about $10^{-28}$), the power is taken as 0, its limit, and an explain step says so, as in
+[`tv.limited_horizon`](tv-limited-horizon.md).
+
 ## Verified against
 
 - Golden cases in `tests/golden/tvm.annuity/`, from an independent 50-digit computation
