@@ -55,7 +55,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -68,6 +68,20 @@ WALK_SKIP = {".git", ".venv", "target", "node_modules"}
 # Never removed, nor anything below them (relative to a worktree root).
 PROTECTED = (".git", ".agents/journal", "specs", "docs")
 BUILD_TOOLS = {"cargo", "rustc", "cargo-mutants", "pytest", "py.test", "rustdoc", "clippy-driver"}
+# Variables that make git operate on another repository, work tree, index or configuration.
+# They are removed from the environment of every git call (GIT_CONFIG* by prefix).
+UNSAFE_GIT_ENV = frozenset(
+    {
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_COMMON_DIR",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_NAMESPACE",
+        "GIT_CEILING_DIRECTORIES",
+    }
+)
 DEFAULT_IDLE_HOURS = 12.0
 GH_TIMEOUT_S = 20
 
@@ -143,6 +157,27 @@ def is_within(path: Path, root: Path) -> bool:
     return True
 
 
+def sanitized_env(environ: Mapping[str, str] | None = None) -> dict[str, str]:
+    """The environment without the variables that redirect git (``UNSAFE_GIT_ENV``)."""
+    source = os.environ if environ is None else environ
+    return {
+        k: v
+        for k, v in source.items()
+        if k not in UNSAFE_GIT_ENV and not k.startswith("GIT_CONFIG")
+    }
+
+
+_GIT_ENV: dict[str, str] | None = None
+
+
+def git_env() -> dict[str, str]:
+    """Built once per run, then passed to every git call."""
+    global _GIT_ENV
+    if _GIT_ENV is None:
+        _GIT_ENV = sanitized_env()
+    return _GIT_ENV
+
+
 def git(cwd: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["git", "--no-optional-locks", *args],
@@ -151,6 +186,7 @@ def git(cwd: Path, *args: str, check: bool = True) -> subprocess.CompletedProces
         text=True,
         encoding="utf-8",
         check=check,
+        env=git_env(),
     )
 
 
@@ -632,13 +668,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--gh", default="gh", help="GitHub CLI executable")
     args = parser.parse_args(argv)
 
-    top = subprocess.run(
-        ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
-        cwd=args.repo,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
+    global _GIT_ENV
+    _GIT_ENV = sanitized_env()
+    top = git(args.repo, "rev-parse", "--path-format=absolute", "--git-common-dir", check=False)
     if top.returncode != 0:
         print(f"Not a git repository: {args.repo}", file=sys.stderr)
         return 2

@@ -124,6 +124,12 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Repo:
     return Repo(tmp_path.resolve())
 
 
+@pytest.fixture(autouse=True)
+def fresh_git_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The sanitised git environment is built once per run: rebuild it for every test."""
+    monkeypatch.setattr(cw, "_GIT_ENV", None, raising=False)
+
+
 @pytest.fixture
 def sleeper(tmp_path: Path) -> Iterator[Any]:
     """Start a long-running process with a given name and working directory."""
@@ -562,3 +568,35 @@ def test_process_kinds() -> None:
     assert uv.is_pytest() and module.is_pytest() and uv.is_build_tool()
     assert mutants.is_cargo_mutants() and mutants.is_build_tool() and not mutants.is_pytest()
     assert not shell.is_build_tool() and not shell.is_pytest()
+
+
+# ------------------------------------------------------------------------------------------
+# Security review of PR #299
+
+
+def test_m2_git_environment_cannot_redirect_the_script(
+    repo: Repo, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "victim-base").mkdir()
+    victim = Repo((tmp_path / "victim-base").resolve())
+    victim_wt = victim.worktree("victim-done", merge=True)
+    monkeypatch.setenv("GIT_DIR", str(victim.main / ".git"))
+    monkeypatch.setenv("GIT_WORK_TREE", str(victim.main))
+    monkeypatch.setenv("GIT_CONFIG_PARAMETERS", "'core.bare'='true'")
+    rows = repo.cleaner(apply=True, caches=True).run()
+    assert victim_wt.exists()
+    assert all(not cw.is_within(r.path, victim.base) for r in rows)
+    assert row(rows, repo.main).reason == "main checkout"
+    out = cw.main(["--repo", str(repo.main), "--offline", "--no-tmp", "--idle-hours", "0"])
+    assert out == 0 and victim_wt.exists()
+
+
+def test_m2_sanitised_environment_drops_redirecting_variables() -> None:
+    names = [
+        "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_NAMESPACE", "GIT_CEILING_DIRECTORIES",
+        "GIT_CONFIG", "GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM", "GIT_CONFIG_NOSYSTEM",
+        "GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0", "GIT_CONFIG_VALUE_0",
+    ]  # fmt: skip
+    env = cw.sanitized_env({**{n: "x" for n in names}, "PATH": "/bin", "HOME": "/h"})
+    assert env == {"PATH": "/bin", "HOME": "/h"}
