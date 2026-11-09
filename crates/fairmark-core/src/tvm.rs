@@ -224,7 +224,7 @@ pub(crate) fn solver_conventions(ex: &mut Explain, rates_scanned: &str) {
     ));
     ex.convention("Newton's method from the guess inside the root interval; bisection as fallback");
     ex.convention(format!(
-        "stopping rule: step on the rate below {IRR_TOLERANCE}, at most {IRR_MAX_ITERATIONS} \
+        "stopping rule: step on the rate at most {IRR_TOLERANCE}, at most {IRR_MAX_ITERATIONS} \
          iterations (a step, not an error bound: accuracy is lower near a double root)"
     ));
 }
@@ -1265,11 +1265,7 @@ pub(crate) fn annuity_factor(
         // ratio above 1 that leaves the decimal range is an overflow, `FM-E008`.
         let q = rates::pow(ratio, periods)?;
         if q.is_zero() {
-            ex.step(
-                "Growth-to-discount ratio to the power n (below the decimal precision, taken as 0)",
-                format!("((1 + {g}) / (1 + {r}))^{n}"),
-                q,
-            );
+            ex.step(UNDERFLOW_STEP, format!("((1 + {g}) / (1 + {r}))^{n}"), q);
         }
         let f = num::sub(one, q)?
             .checked_div(diff)
@@ -1403,6 +1399,10 @@ pub fn perpetuity(input: &PerpetuityInput) -> Result<(PerpetuityOutput, Explain)
 
 // ---------------------------------------------------------------- future value
 
+/// Label of the step that reports ((1 + g)/(1 + r))^n below the decimal precision, taken as 0.
+const UNDERFLOW_STEP: &str =
+    "Growth-to-discount ratio to the power n (below the decimal precision, taken as 0)";
+
 /// The steps of [`annuity_factor`] for level payments (growth 0), relabelled with the level
 /// formulas: same values, no `(1 + 0)` in the text. Used by `tvm.future_value` and the loan
 /// methods; `tvm.annuity` keeps its own labels.
@@ -1419,9 +1419,10 @@ pub(crate) fn level_factor_steps(steps: Vec<Step>, r: Decimal, n: u32) -> Vec<St
                     "Annuity factor (level payments, rate close to 0, direct sum)".to_owned(),
                     format!("Σ_(k=1..{n}) (1 + {r})^−k"),
                 ),
-                "Annuity factor (r = g)" => (
-                    "Annuity factor (level payments, rate 0)".to_owned(),
-                    format!("{n} / (1 + {r})"),
+                UNDERFLOW_STEP => (
+                    "Discount factor of period n (below the decimal precision, taken as 0)"
+                        .to_owned(),
+                    format!("(1 + {r})^−{n}"),
                 ),
                 _ => (step.label, step.formula),
             };

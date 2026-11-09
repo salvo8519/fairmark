@@ -53,6 +53,15 @@ fn formula(out: &Value, label: &str) -> String {
         .1
 }
 
+/// The value of the step with this exact label.
+fn value(out: &Value, label: &str) -> Decimal {
+    let found = steps(out)
+        .into_iter()
+        .find(|(l, _, _)| l == label)
+        .unwrap_or_else(|| panic!("no step {label:?} in {:?}", steps(out)));
+    found.2.parse().unwrap()
+}
+
 fn labels(out: &Value) -> Vec<String> {
     steps(out).into_iter().map(|(l, _, _)| l).collect()
 }
@@ -159,20 +168,21 @@ fn irr_newton_result_on_the_lower_end_of_the_interval_is_accepted() {
     );
     let v = &out["value"];
     assert_eq!(
-        dec(&out["explain"]["steps"][0]["value"]),
+        value(&out, "Root interval on the grid, lower rate"),
         Decimal::new(50, 2)
     );
     assert_eq!(
-        out["explain"]["steps"][0]["label"],
-        "Root interval on the grid, lower rate"
+        value(&out, "Root interval on the grid, upper rate"),
+        Decimal::new(55, 2)
     );
     assert_eq!(v["solver"], "newton");
     assert_eq!(dec(&v["irr"]), Decimal::new(5, 1));
 }
 
 /// As above at the upper end: the rate of -1,000,000 then 1,549,999.9999999999999999999998 is
-/// 0.55 − 2 × 10^-28, which the engine's Newton iteration returns as 0.55, the upper end of
-/// the interval [0.50, 0.55]; it is accepted.
+/// 0.5499999999999999999999999998 (0.55 − 2 × 10^-28, exact), inside the interval
+/// [0.50, 0.55] by less than the decimal precision; Newton's result, at or within the stopping
+/// step of the upper end, is accepted.
 #[test]
 fn irr_newton_result_on_the_upper_end_of_the_interval_is_accepted() {
     let out = ok(
@@ -181,15 +191,15 @@ fn irr_newton_result_on_the_upper_end_of_the_interval_is_accepted() {
     );
     let v = &out["value"];
     assert_eq!(
-        out["explain"]["steps"][1]["label"],
-        "Root interval on the grid, upper rate"
+        value(&out, "Root interval on the grid, lower rate"),
+        Decimal::new(50, 2)
     );
     assert_eq!(
-        dec(&out["explain"]["steps"][1]["value"]),
+        value(&out, "Root interval on the grid, upper rate"),
         Decimal::new(55, 2)
     );
     assert_eq!(v["solver"], "newton");
-    assert_eq!(dec(&v["irr"]), Decimal::new(55, 2));
+    assert_close(dec(&v["irr"]), "0.5499999999999999999999999998", "1e-18");
 }
 
 /// SPEC-0002 R10 (MIRR) and the IRR input rule: the flows need a positive and a negative
@@ -504,6 +514,28 @@ fn limited_horizon_reports_the_power_taken_as_zero() {
     );
 }
 
+/// loans-instalment.md: the level annuity factor reports (1 + i)^−n below the decimal precision
+/// as 0, with the level formula. At 50% per period over 10,000 instalments the factor is
+/// 1 / 0.5 = 2, so a principal of 100 gives an instalment of exactly 50.
+#[test]
+fn loan_instalment_reports_the_discount_factor_taken_as_zero() {
+    let out = ok(
+        "loans.instalment",
+        &json!({"principal": "100", "periodic_rate": "0.5", "number_of_instalments": 10000,
+                "timing": "ordinary"}),
+    );
+    assert_eq!(dec(&out["value"]["instalment"]), Decimal::from(50));
+    let label = "Discount factor of period n (below the decimal precision, taken as 0)";
+    assert_eq!(formula(&out, label), "(1 + 0.5)^−10000");
+    assert!(
+        !labels(&out)
+            .iter()
+            .any(|l| l.starts_with("Growth-to-discount")),
+        "{:?}",
+        labels(&out)
+    );
+}
+
 /// `tvm::discount_factor` (public Rust API) is documented as `1 / (1 + rate)^t`. For t = −163 at
 /// 50% the value is 1.5^163 = 5.0451632789815171509443825809 × 10^28 (Python `decimal`, 50
 /// digits), inside the decimal range; SPEC-0002 does not restrict t, so the value is computed,
@@ -513,10 +545,12 @@ fn limited_horizon_reports_the_power_taken_as_zero() {
 fn discount_factor_at_a_negative_time_is_the_compounding_factor() {
     let df = fairmark_core::tvm::discount_factor(Decimal::new(5, 1), Decimal::from(-163))
         .expect("inside the decimal range");
+    // The integer power keeps 29 significant digits here, the last one a unit: it returns
+    // ...807 against the exact ...808.9955, two units in the last place (4 × 10^-29 relative).
     assert_close(
         df,
         "50451632789815171509443825808.995501445114117692757",
-        "1e10",
+        "2",
     );
     let e = fairmark_core::tvm::discount_factor(Decimal::new(5, 1), Decimal::from(-200))
         .expect_err("beyond the decimal range");
@@ -526,4 +560,38 @@ fn discount_factor_at_a_negative_time_is_the_compounding_factor() {
         fairmark_core::tvm::discount_factor(Decimal::new(-5, 1), Decimal::from(-2)).unwrap(),
         Decimal::new(25, 2)
     );
+}
+
+/// At a negative time and a negative rate the value (1 + r)^|t| is below 1; it is computed as
+/// 1 / (1 / (1 + r))^|t|, with the precision of a discount factor at a positive time. At −3%
+/// and t = −7.5 the value is 0.97^7.5 = 0.79577081445400432959153238265 (Python `decimal`,
+/// 60 digits); raising 0.97 directly to the power 7.5 would be off by 6 × 10^-27.
+#[test]
+fn discount_factor_at_a_negative_time_below_one_keeps_full_precision() {
+    let df = fairmark_core::tvm::discount_factor("-0.03".parse().unwrap(), "-7.5".parse().unwrap())
+        .unwrap();
+    assert_close(df, "0.79577081445400432959153238265", "1e-27");
+}
+
+/// At a negative time and a base 1 + r below 1, the value (1 + r)^|t| tends to 0; below the
+/// decimal precision it is 0, its limit, for integer and fractional times alike (`FM-E008` is
+/// only for a value beyond the decimal range). At −90%: 0.1^1000.5 and 0.1^1499.5 are far below
+/// 10^-28.
+#[test]
+fn discount_factor_at_a_negative_time_underflows_to_zero() {
+    use fairmark_core::rates::{self, Compounding};
+    for t in ["-1000.5", "-1499.5", "-1000"] {
+        let t: Decimal = t.parse().unwrap();
+        let r: Decimal = "-0.9".parse().unwrap();
+        assert_eq!(
+            fairmark_core::tvm::discount_factor(r, t).unwrap(),
+            Decimal::ZERO,
+            "tvm {t}"
+        );
+        assert_eq!(
+            rates::discount_factor(r, Compounding::Annual, t).unwrap(),
+            Decimal::ZERO,
+            "rates {t}"
+        );
+    }
 }

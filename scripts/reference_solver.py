@@ -4,9 +4,12 @@ Written on 2026-11-09 for issue #282 (missed mutants of the solver). It shares n
 the engine and uses Python's `decimal` module only. It follows the solver as the methodology
 pages document it (docs/en/methods/tvm-irr.md, "Solver"; tvm-xirr.md):
 
-  Newton's method from the guess, r_(i+1) = r_i - f(r_i) / f'(r_i), stopping at the first
-  iteration whose step |r_(i+1) - r_i| is at most 1e-18; the iteration count is the number of
-  Newton steps taken, the returned rate is the last iterate.
+  Newton's method from the guess, r_(i+1) = r_i - f(r_i) / f'(r_i). Stopping rule, as
+  tvm-irr.md states it: "Iteration stops when the step on the rate is at most 10^-18, at most
+  200 iterations per stage." The iteration count is the number of Newton steps taken, the
+  returned rate is the last iterate. The grid scan and the acceptance of Newton's result inside
+  the closed interval [lower rate, upper rate], ends included (tvm-irr.md step 3), are not
+  reproduced here: the cases are chosen so that Newton's result lies inside the interval.
 
   IRR:  f(r) = sum CF_t (1 + r)^-t,          f'(r) = sum -t CF_t (1 + r)^(-t-1)
   XIRR: f(r) = sum A_i (1 + r/m)^(-m t_i),   f'(r) = sum -t_i A_i (1 + r/m)^(-m t_i - 1)
