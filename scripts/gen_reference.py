@@ -15,10 +15,10 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any
 
-import tomllib
 import yaml
 
 import fairmark as fm

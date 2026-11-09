@@ -16,4 +16,4 @@ crate-type = ["cdylib"]
 [dependencies]
 fairmark-core.workspace = true
 serde_json.workspace = true
-pyo3 = { version = "0.30", features = ["extension-module", "abi3-py310"] }
+pyo3 = { version = "0.30", features = ["extension-module", "abi3-py312"] }
