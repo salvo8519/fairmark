@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use rust_decimal::Decimal;
 
 use super::balance_sheet::Outputs;
-use super::checks::{Check, Checks, Side};
+use super::checks::{Check, CheckStatus, Checks, Side};
 use super::input::{
     Adjustment, FinancialFixedAssetsDestination, FinancialFixedAssetsOverride, InvestingSource,
     NonRecurringSource, ProvisionSource, ReorganiseInput, StatutoryIncomeStatement,
@@ -194,9 +194,10 @@ impl From<InvestingSource> for Agg {
     }
 }
 
-/// B10 as read (Decision 8): B10 a and b, B10 c and B10 d, whether B10 a to c was given as one
-/// amount without its B10 c part (then depreciation and amortisation, B10 c none), and the
-/// pointers actually read for B10 a and b and for B10 c.
+/// B10 as read (Decision 8, D1-IS): B10 a and b, B10 c and B10 d, whether B10 a to c was given
+/// as one amount with neither part (then depreciation and amortisation, B10 c none), and the
+/// pointers actually read for B10 a and b and for B10 c (the group and B10 a, b when B10 c is
+/// their difference).
 struct B10 {
     ab: Partial,
     c: Partial,
@@ -206,8 +207,8 @@ struct B10 {
     c_read: Vec<String>,
 }
 
-/// B10 as read. B10 c within the group is a relation of R7, checked before (`FM-E026`), so the
-/// group less B10 c is never negative here.
+/// B10 as read. B10 c, or without it B10 a and b, within the group is a relation of R7, checked
+/// before (`FM-E026`), so neither difference is negative here.
 fn b10(is: &StatutoryIncomeStatement, base: &str) -> Result<B10> {
     let at = format!("{base}/depreciation_and_write_downs");
     let Some(n) = &is.depreciation_and_write_downs else {
@@ -231,7 +232,7 @@ fn b10(is: &StatutoryIncomeStatement, base: &str) -> Result<B10> {
         n.depreciation_and_amortisation,
         n.value_adjustments_of_fixed_assets,
     ) {
-        (Some(ab), _) => (Partial::Known(ab), vec![ab_at]),
+        (Some(ab), _) => (Partial::Known(ab), vec![ab_at.clone()]),
         (None, Some(va)) => {
             let c = n.write_downs_of_fixed_assets.unwrap_or_default();
             if c > va {
@@ -245,14 +246,26 @@ fn b10(is: &StatutoryIncomeStatement, base: &str) -> Result<B10> {
             }
             (Partial::Known(crate::num::sub(va, c)?), read)
         }
-        (None, None) => (Partial::lacking(ab_at.clone()), vec![ab_at]),
+        (None, None) => (Partial::lacking(ab_at.clone()), vec![ab_at.clone()]),
     };
-    let c = match n.write_downs_of_fixed_assets {
-        Some(c) => Partial::Known(c),
-        None if grouped => Partial::ZERO,
-        None => Partial::lacking(c_at.clone()),
+    let (c, c_read) = match (
+        n.write_downs_of_fixed_assets,
+        n.value_adjustments_of_fixed_assets,
+        n.depreciation_and_amortisation,
+    ) {
+        (Some(c), _, _) => (Partial::Known(c), vec![c_at]),
+        (None, Some(va), Some(ab)) => {
+            // D1-IS: the group less its B10 a, b part, within the group after the checks.
+            if ab > va {
+                return Err(FairmarkError::Internal(
+                    "statements: B10 a, b exceed their group after the checks",
+                ));
+            }
+            (Partial::Known(crate::num::sub(va, ab)?), vec![va_at, ab_at])
+        }
+        (None, Some(_), None) => (Partial::ZERO, vec![va_at]),
+        (None, None, _) => (Partial::lacking(c_at.clone()), vec![c_at]),
     };
-    let c_read = if grouped { vec![va_at] } else { vec![c_at] };
     let d = Partial::of(n.write_downs_of_receivables, || {
         format!("{at}/write_downs_of_receivables")
     });
@@ -334,6 +347,8 @@ fn a_minus_b(is: &StatutoryIncomeStatement, base: &str) -> Result<Partial> {
 
 /// The items of one statutory year as read.
 struct Year<'a> {
+    /// Position of the year in `years`.
+    index: usize,
     is: StatutoryIncomeStatement,
     base: String,
     b10: B10,
@@ -350,30 +365,45 @@ struct Year<'a> {
     c15: C15Place,
 }
 
-/// Where C15 goes for one year, following the treatment of B.III (P2).
+/// Where C15 goes for one year, following the treatment of B.III (P2, A3, D2-IS).
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum C15Place {
-    /// B.III wholly `operating`: income from operating investments, in operating profit.
+    /// B.III given, not zero and wholly `operating`: income from operating investments, in
+    /// operating profit.
     Operating,
-    /// B.III split between destinations: the investing result, reported.
+    /// B.III given, not zero and split between destinations: the investing result, reported.
     Split,
-    /// B.III `non_operating` or `financial_asset`, zero or not given: the investing result.
+    /// The treatment says `operating` but B.III is not given, zero, or the year has no balance
+    /// sheet: no operating investment to follow, the investing result, reported (D2-IS).
+    NoHolding,
+    /// B.III `non_operating` or `financial_asset`, or zero or not given without a treatment, or
+    /// C15 given as zero: the investing result.
     Investing,
-    /// B.III given and not zero, its treatment missing: C15 waits for it (R8); the pointer of
-    /// the treatment.
+    /// B.III and C15 given and not zero, the treatment of B.III missing: C15 waits for it (R8,
+    /// A3); the pointer of the treatment.
     Waits(String),
+    /// B.III given and not zero, its treatment missing, C15 not given: C15 is missing with its
+    /// own pointer wherever it could go.
+    Unknown,
 }
 
 impl C15Place {
-    /// P2: from the override of the year, else the treatment, and B.III as given.
+    /// P2: from the override of the year, else the treatment, and B.III and C15 as given.
     fn of(input: &ReorganiseInput, i: usize) -> Self {
         let y = &input.years[i];
+        let st = y.statutory.as_ref();
+        let held = st
+            .and_then(|s| s.balance_sheet.as_ref())
+            .and_then(|b| b.financial_fixed_assets)
+            .is_some_and(|v| !v.is_zero());
         let over = y
             .treatment_overrides
             .as_ref()
             .and_then(|o| o.financial_fixed_assets.as_ref());
         let (destination, pointer) = match over {
-            Some(FinancialFixedAssetsOverride::Split(_)) => return Self::Split,
+            Some(FinancialFixedAssetsOverride::Split(_)) => {
+                return if held { Self::Split } else { Self::Investing };
+            }
             Some(FinancialFixedAssetsOverride::Destination(d)) => (
                 Some(*d),
                 format!("/years/{i}/treatment_overrides/financial_fixed_assets"),
@@ -383,20 +413,18 @@ impl C15Place {
                 "/treatments/financial_fixed_assets".to_owned(),
             ),
         };
-        match destination {
-            Some(FinancialFixedAssetsDestination::Operating) => Self::Operating,
-            Some(_) => Self::Investing,
-            None => {
-                let b3 = y
-                    .statutory
-                    .as_ref()
-                    .and_then(|s| s.balance_sheet.as_ref())
-                    .and_then(|b| b.financial_fixed_assets);
-                match b3 {
-                    Some(v) if !v.is_zero() => Self::Waits(pointer),
-                    _ => Self::Investing,
-                }
-            }
+        let c15 = st
+            .and_then(|s| s.income_statement.as_ref())
+            .and_then(|is| is.income_from_equity_investments);
+        match (destination, held) {
+            (Some(FinancialFixedAssetsDestination::Operating), true) => Self::Operating,
+            (Some(FinancialFixedAssetsDestination::Operating), false) => Self::NoHolding,
+            (Some(_), _) | (None, false) => Self::Investing,
+            (None, true) => match c15 {
+                None => Self::Unknown,
+                Some(v) if v.is_zero() => Self::Investing,
+                Some(_) => Self::Waits(pointer),
+            },
         }
     }
 }
@@ -471,7 +499,12 @@ struct Moves {
     /// Interest costs of a debt-like employee severance indemnity moved out of B9 (P2).
     interest_costs: Vec<Move>,
     applied: Vec<AppliedAdjustment>,
+    /// The check of the interest costs within B9 (D3-IS), when any is given.
+    checks: BTreeMap<&'static str, Check>,
 }
+
+/// D3-IS: the interest cost of the employee severance indemnity within what remains of B9.
+const INTEREST_COST_CHECK: &str = "interest_cost_within_personnel_costs";
 
 /// The layers of Appendix B.2 for one year.
 struct Layers {
@@ -643,7 +676,12 @@ fn c15_conventions(y: &Year, input: &ReorganiseInput, i: usize, ex: &mut Explain
             "year {name}: C15 follows financial fixed assets (B.III), given without a \
              treatment: the outputs C15 reaches wait for `{pointer}` (P2, R8)"
         )),
-        C15Place::Investing => {}
+        C15Place::NoHolding => ex.convention(format!(
+            "year {name}: financial fixed assets (B.III) are treated as operating but are not \
+             given or zero: there is no operating investment to follow, C15 stays in the \
+             investing result and income_from_operating_investments is zero (P2, D2-IS)"
+        )),
+        C15Place::Investing | C15Place::Unknown => {}
     }
     for (k, adj) in input.adjustments.iter().enumerate() {
         if let Adjustment::DebtLikeProvision(a) = adj {
@@ -652,6 +690,19 @@ fn c15_conventions(y: &Year, input: &ReorganiseInput, i: usize, ex: &mut Explain
                 .interest_cost
                 .as_ref()
                 .and_then(|c| c.get(i).copied().flatten());
+            if let (true, Some(cost)) = (
+                a.aggregate == ProvisionSource::EmployeeSeveranceIndemnity && applies,
+                cost,
+            ) {
+                ex.convention(format!(
+                    "year {name}: adjustment {k} '{}' moves the interest cost of the employee \
+                     severance indemnity ({cost}) from B9 to the financing result: \
+                     financing_result = C17-bis − interest_and_other_financial_charges − the \
+                     interest cost, because interest_and_other_financial_charges stays C17 plus \
+                     lease interest (P2)",
+                    a.label
+                ));
+            }
             if a.aggregate == ProvisionSource::EmployeeSeveranceIndemnity
                 && applies
                 && cost.is_none()
@@ -768,8 +819,10 @@ fn assignments(y: &Year, ex: &mut Explain) -> Vec<Assignment> {
     // P2: C15 follows B.III; no destination while its treatment is missing (R8).
     let c15 = match y.c15 {
         C15Place::Operating => Some((Dn::IncomeFromOperatingInvestments, Origin::Analyst)),
-        C15Place::Split | C15Place::Investing => Some((Dn::InvestingResult, m)),
-        C15Place::Waits(_) => None,
+        C15Place::Split | C15Place::NoHolding | C15Place::Investing => {
+            Some((Dn::InvestingResult, m))
+        }
+        C15Place::Waits(_) | C15Place::Unknown => None,
     };
     if let Some((d, o)) = c15 {
         assign(
@@ -889,6 +942,7 @@ fn adjustments(
         leases: Vec::new(),
         interest_costs: Vec::new(),
         applied: Vec::new(),
+        checks: BTreeMap::new(),
     };
     for (k, adj) in input.adjustments.iter().enumerate() {
         let (agg, amount, at, target, related) = match adj {
@@ -947,79 +1001,112 @@ fn adjustments(
         let rem = mv.remaining[&agg].clone();
         let lease = matches!(adj, Adjustment::Lease(_));
         let interest_cost = matches!(adj, Adjustment::DebtLikeProvision(_));
-        let took = match rem.value() {
-            Some(left) => {
-                if amount > left && !amount.is_zero() {
-                    return Err(checks.error(
-                        &Side::new(
-                            format!("adjustment {k} '{}'", adj.label()),
-                            vec![at],
-                            Some(amount),
-                        ),
-                        amount,
-                        &Side::new("what remains in its source", read, Some(left)),
-                        left,
-                        "an adjustment moves at most what remains in its source after the \
-                         adjustments listed before it (R10): lower the amount or check the \
-                         source",
-                    )?);
-                }
-                mv.remaining
-                    .insert(agg, Partial::Known(crate::num::sub(left, amount)?));
-                let line = if lease {
-                    Some("payments")
-                } else {
-                    interest_cost.then_some("interest_cost")
-                };
-                let mut formula = format!("as given; reason: {}", adj.reason());
-                if let Some(r) = &related {
-                    formula.push_str(&format!("; related non-operating asset: {r}"));
-                }
-                ex.step(
-                    format!(
-                        "Adjustment {k} {} '{}' ({}): {} {} to {}",
-                        adj.kind(),
-                        adj.label(),
-                        y.name,
-                        agg.reference(),
-                        line.unwrap_or("part"),
-                        target.id()
+        let left = rem.value();
+        if let Some(left) = left {
+            if amount > left && !amount.is_zero() {
+                return Err(checks.error(
+                    &Side::new(
+                        format!("adjustment {k} '{}'", adj.label()),
+                        vec![at],
+                        Some(amount),
                     ),
-                    formula,
                     amount,
-                );
-                mv.applied.push(AppliedAdjustment {
-                    index: k,
-                    kind: adj.kind(),
-                    label: adj.label().to_owned(),
-                    amount,
-                    reason: adj.reason().to_owned(),
-                    source: read[0].clone(),
-                    target,
-                    line,
-                });
-                Partial::Known(amount)
+                    &Side::new("what remains in its source", read, Some(left)),
+                    left,
+                    "an adjustment moves at most what remains in its source after the \
+                     adjustments listed before it (R10): lower the amount or check the \
+                     source",
+                )?);
             }
-            None => {
-                notes.convention(if lease {
-                    format!(
-                        "adjustment {k} '{}' ({}): lease payments not removed from B8: `{}` \
-                         missing; value added and the layers below are not computed",
-                        adj.label(),
-                        y.name,
-                        read[0]
-                    )
-                } else {
-                    format!(
-                        "adjustment {k} '{}' not applied to {}: its source `{}` is missing; the \
-                         outputs it reaches are not computed",
-                        adj.label(),
-                        y.name,
-                        read[0]
-                    )
-                });
-                rem
+        }
+        if interest_cost {
+            // D3-IS: only this check needs B9; the interest cost moves without it.
+            let status = match (left, mv.checks.get(INTEREST_COST_CHECK)) {
+                (_, Some(c)) if c.status == CheckStatus::NotChecked => CheckStatus::NotChecked,
+                (Some(_), _) => CheckStatus::Reconciled,
+                (None, _) => CheckStatus::NotChecked,
+            };
+            let mut pointers = mv
+                .checks
+                .get(INTEREST_COST_CHECK)
+                .map(|c| c.pointers.clone())
+                .unwrap_or_default();
+            pointers.push(at.clone());
+            for p in &read {
+                if !pointers.contains(p) {
+                    pointers.push(p.clone());
+                }
             }
+            mv.checks
+                .insert(INTEREST_COST_CHECK, Check { status, pointers });
+        }
+        let took = if left.is_some() || interest_cost {
+            match left {
+                Some(left) => {
+                    mv.remaining
+                        .insert(agg, Partial::Known(crate::num::sub(left, amount)?));
+                }
+                None => notes.convention(format!(
+                    "adjustment {k} '{}' ({}): interest cost moved to the financing result; \
+                     `{}` is missing, so personnel costs and EBITDA are not computed and the \
+                     check that the interest cost is within B9 is not checked (D3-IS)",
+                    adj.label(),
+                    y.name,
+                    read[0]
+                )),
+            }
+            let line = if lease {
+                Some("payments")
+            } else {
+                interest_cost.then_some("interest_cost")
+            };
+            let mut formula = format!("as given; reason: {}", adj.reason());
+            if let Some(r) = &related {
+                formula.push_str(&format!("; related non-operating asset: {r}"));
+            }
+            ex.step(
+                format!(
+                    "Adjustment {k} {} '{}' ({}): {} {} to {}",
+                    adj.kind(),
+                    adj.label(),
+                    y.name,
+                    agg.reference(),
+                    line.unwrap_or("part"),
+                    target.id()
+                ),
+                formula,
+                amount,
+            );
+            mv.applied.push(AppliedAdjustment {
+                index: k,
+                kind: adj.kind(),
+                label: adj.label().to_owned(),
+                amount,
+                reason: adj.reason().to_owned(),
+                source: read[0].clone(),
+                target,
+                line,
+            });
+            Partial::Known(amount)
+        } else {
+            notes.convention(if lease {
+                format!(
+                    "adjustment {k} '{}' ({}): lease payments not removed from B8: `{}` \
+                     missing; value added and the layers below are not computed",
+                    adj.label(),
+                    y.name,
+                    read[0]
+                )
+            } else {
+                format!(
+                    "adjustment {k} '{}' not applied to {}: its source `{}` is missing; the \
+                     outputs it reaches are not computed",
+                    adj.label(),
+                    y.name,
+                    read[0]
+                )
+            });
+            rem
         };
         let label = adj.label().to_owned();
         match adj {
@@ -1300,8 +1387,8 @@ fn layers(y: &Year, mv: &Moves, ex: &mut Explain) -> Result<Layers> {
             format!("Income from operating investments ({name})"),
             &[t(Plus, "C15 (financial fixed assets operating, P2)", &c15)],
         )?,
-        C15Place::Waits(_) => c15.clone(),
-        C15Place::Split | C15Place::Investing => Partial::ZERO,
+        C15Place::Waits(_) | C15Place::Unknown => c15.clone(),
+        C15Place::Split | C15Place::NoHolding | C15Place::Investing => Partial::ZERO,
     };
     let operating_profit = step(
         ex,
@@ -1506,23 +1593,24 @@ fn reconciliations(
         nr_lines.push((
             m.index,
             format!("{} (non-recurring part of {})", m.label, m.agg.reference()),
-            vec![format!("/adjustments/{}", m.index)],
+            vec![format!("/adjustments/{}/amounts/{}", m.index, y.index)],
             Partial::sum(&[(sign, &m.amount)])?,
         ));
     }
     let mut lease_lines: Vec<Line> = Vec::new();
     for ls in &mv.leases {
-        let at = vec![format!("/adjustments/{}", ls.index)];
+        // The amounts actually read (review of round 2).
+        let at = format!("/adjustments/{}/amounts/{}", ls.index, y.index);
         lease_lines.push((
             ls.index,
             format!("{} (lease payments removed from B8)", ls.label),
-            at.clone(),
+            vec![format!("{at}/payments")],
             ls.payments.clone(),
         ));
         lease_lines.push((
             ls.index,
             format!("{} (lease depreciation)", ls.label),
-            at,
+            vec![format!("{at}/depreciation")],
             ls.depreciation.negated()?,
         ));
     }
@@ -1533,7 +1621,10 @@ fn reconciliations(
                 "{} (interest cost of the employee severance indemnity removed from B9)",
                 m.label
             ),
-            vec![format!("/adjustments/{}", m.index)],
+            vec![format!(
+                "/adjustments/{}/interest_cost/{}",
+                m.index, y.index
+            )],
             m.amount.clone(),
         ));
     }
@@ -1581,7 +1672,7 @@ fn reconciliations(
         moves.push((
             m.index,
             format!("{} (investing part of {})", m.label, m.agg.reference()),
-            vec![format!("/adjustments/{}", m.index)],
+            vec![format!("/adjustments/{}/amounts/{}", m.index, y.index)],
             Partial::sum(&[(sign, &m.amount)])?,
         ));
     }
@@ -1669,6 +1760,7 @@ pub(crate) fn statutory(
             != Some(WriteDownsOfFixedAssets::Investing),
         stated,
         c15: C15Place::of(input, i),
+        index: i,
     };
     if y.b10.grouped && !y.operating_wdfa {
         ex.convention(format!(
@@ -1757,7 +1849,7 @@ pub(crate) fn statutory(
         income_statement,
         assignments,
         adjustments_applied: mv.applied,
-        checks: BTreeMap::new(),
+        checks: mv.checks,
         not_computed: out.finish().income_statement,
     })
 }

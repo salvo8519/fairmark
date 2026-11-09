@@ -534,7 +534,7 @@
         },
         "value_adjustments_of_fixed_assets": {
           "default": null,
-          "description": "B10 a to c as one amount, as grouped by the abridged layout (art. 2435-bis), in\ncurrency units. Without `write_downs_of_fixed_assets` it is read as depreciation and\namortisation, reported (R17).",
+          "description": "B10 a to c as one amount, as grouped by the abridged layout (art. 2435-bis), in\ncurrency units. With its B10 a, b part and without `write_downs_of_fixed_assets`,\nB10 c is the difference (D1-IS). With neither part, it is all in depreciation and\namortisation under the treatment `operating`, and read as depreciation and\namortisation with B10 c none under `investing`, reported (R17).",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -544,7 +544,7 @@
         },
         "write_downs_of_fixed_assets": {
           "default": null,
-          "description": "B10 c, other write-downs of fixed assets, in currency units; in the investing result.",
+          "description": "B10 c, other write-downs of fixed assets, in currency units; with depreciation and\namortisation below EBITDA by default, or in the investing result with\n`treatments.write_downs_of_fixed_assets: investing` (R17, P1).",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -554,7 +554,7 @@
         },
         "write_downs_of_receivables": {
           "default": null,
-          "description": "B10 d, write-downs of current receivables and cash, in currency units; in the investing\nresult, or in `operating_profit` with `treatments.write_downs_of_receivables:\noperating` (R17).",
+          "description": "B10 d, write-downs of current receivables and cash, in currency units; in the other\ncharges below EBITDA by default, or in the investing result with\n`treatments.write_downs_of_receivables: investing` (R17, E3).",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -1567,7 +1567,7 @@
       "properties": {
         "depreciation_and_amortisation": {
           "default": null,
-          "description": "Depreciation and amortisation (B10 a, b), in currency units.",
+          "description": "Depreciation and amortisation: B10 a, b, plus B10 c when it is operating (P1) and lease\ndepreciation, in currency units.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -2270,7 +2270,7 @@
         },
         "other_operating_expenses": {
           "default": null,
-          "description": "B14 other operating expenses, in currency units.",
+          "description": "B14 other operating expenses, in currency units. Default destination: external costs,\ncore (Decision 7, E1), listed in `meta.defaults_applied`; investing and non-recurring\nparts move only by adjustment.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -2290,7 +2290,7 @@
         },
         "other_revenue_and_income": {
           "default": null,
-          "description": "A5 other revenue and income, in currency units.",
+          "description": "A5 other revenue and income, in currency units. Default destination: the value of\nproduction, core (Decision 7), listed in `meta.defaults_applied`; investing and\nnon-recurring parts move only by adjustment.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -2511,7 +2511,7 @@
               "type": "null"
             }
           ],
-          "description": "Write-downs of fixed assets (B10 c): `operating` or `investing`. Default: `operating`,\nreported in `meta.defaults_applied` when a statutory year gives B10 c (P1). Omitted\nfrom the canonical input when not given, an additive field of version 1."
+          "description": "Write-downs of fixed assets (B10 c): `operating` (with depreciation and amortisation) or\n`investing`. Default: `operating`, filled in and reported in `meta.defaults_applied`\nwhenever a statutory year gives an income statement (P1, A4); `null` or absent means not\ngiven. Omitted from the canonical input when not given, an additive field of version 1."
         },
         "write_downs_of_receivables": {
           "anyOf": [
@@ -2523,7 +2523,7 @@
             }
           ],
           "default": null,
-          "description": "Write-downs of receivables (B10 d): `operating` or `investing`. Default: `operating`,\nreported in `meta.defaults_applied` when a statutory year gives B10 d (E3, F1)."
+          "description": "Write-downs of receivables (B10 d): `operating` (other charges below EBITDA) or\n`investing`. Default: `operating`, filled in and reported in `meta.defaults_applied`\nwhenever a statutory year gives an income statement (E3, A4); `null` or absent means not\ngiven."
         }
       },
       "type": "object"
@@ -2670,7 +2670,7 @@
         "shareholder_loans": null,
         "write_downs_of_receivables": null
       },
-      "description": "Treatments stated once for the call, applied to every statutory year (R8, R9, R17).\nA treatment is needed only for an aggregate given and not zero. Default: none, except\n`write_downs_of_receivables` and `write_downs_of_fixed_assets`, which default to\n`operating`."
+      "description": "Treatments stated once for the call, applied to every statutory year (R8, R9, R17).\nA treatment is needed only for an aggregate given and not zero. Default: none, except\n`write_downs_of_receivables` and `write_downs_of_fixed_assets`, which default to\n`operating`, filled in and listed in `meta.defaults_applied` whenever a statutory year\ngives an income statement (A4). Each treatment not given reads as not given; the\n`null` values of the schema default mean \"not given\", not a choice."
     },
     "years": {
       "description": "One or more financial years, oldest first (R2), each in the `statutory` or the\n`reclassified` form. When two consecutive entries both have a `date`, the later must be\none financial year after the earlier.",

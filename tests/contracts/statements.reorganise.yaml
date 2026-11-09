@@ -179,6 +179,7 @@ conventions:
   - 'year 2024: financial fixed assets (B.III) are operating: C15, income from equity investments, is income_from_operating_investments, below EBITDA and in operating profit (P2)'
   - 'year 2025: financial fixed assets (B.III) are split between destinations and the income of each part is not given: C15 stays in the investing result (P2)'
   - "year 2025: adjustment 0 'Severance indemnity' treats the employee severance indemnity as debt-like without its interest cost: the revaluation stays in personnel costs (B9) and EBITDA"
+  - "year 2024: adjustment 0 'Severance indemnity' moves the interest cost of the employee severance indemnity (1) from B9 to the financing result: financing_result = C17-bis − interest_and_other_financial_charges − the interest cost"
 - input:
     years:
     - label: '2024'
@@ -187,6 +188,15 @@ conventions:
         income_statement: {income_from_equity_investments: '4'}
   expect:
   - 'year 2024: C15 follows financial fixed assets (B.III), given without a treatment: the outputs C15 reaches wait for `/treatments/financial_fixed_assets` (P2, R8)'
+- input:
+    years:
+    - label: '2024'
+      statutory:
+        income_statement: {income_from_equity_investments: '4'}
+    treatments: {financial_fixed_assets: operating}
+  expect:
+  - 'year 2024: financial fixed assets (B.III) are treated as operating but are not given or zero: there is no operating investment to follow, C15 stays in the investing result and income_from_operating_investments is zero (P2, D2-IS)'
+  - 'default: `/treatments/write_downs_of_fixed_assets` not given, set to'
 - input:
     years:
     - label: '2024'

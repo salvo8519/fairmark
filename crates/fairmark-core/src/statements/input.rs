@@ -32,7 +32,9 @@ pub struct ReorganiseInput {
     /// Treatments stated once for the call, applied to every statutory year (R8, R9, R17).
     /// A treatment is needed only for an aggregate given and not zero. Default: none, except
     /// `write_downs_of_receivables` and `write_downs_of_fixed_assets`, which default to
-    /// `operating`.
+    /// `operating`, filled in and listed in `meta.defaults_applied` whenever a statutory year
+    /// gives an income statement (A4). Each treatment not given reads as not given; the
+    /// `null` values of the schema default mean "not given", not a choice.
     #[serde(default)]
     pub treatments: Treatments,
     /// Labelled adjustments of Appendix C, stated once for the call, each with one amount per
@@ -252,17 +254,21 @@ pub struct DepreciationAndWriteDowns {
     /// B10 total, in currency units.
     pub total: Option<Decimal>,
     /// B10 a to c as one amount, as grouped by the abridged layout (art. 2435-bis), in
-    /// currency units. Without `write_downs_of_fixed_assets` it is read as depreciation and
-    /// amortisation, reported (R17).
+    /// currency units. With its B10 a, b part and without `write_downs_of_fixed_assets`,
+    /// B10 c is the difference (D1-IS). With neither part, it is all in depreciation and
+    /// amortisation under the treatment `operating`, and read as depreciation and
+    /// amortisation with B10 c none under `investing`, reported (R17).
     pub value_adjustments_of_fixed_assets: Option<Decimal>,
     /// B10 a and b, amortisation of intangible and depreciation of tangible assets, in
     /// currency units.
     pub depreciation_and_amortisation: Option<Decimal>,
-    /// B10 c, other write-downs of fixed assets, in currency units; in the investing result.
+    /// B10 c, other write-downs of fixed assets, in currency units; with depreciation and
+    /// amortisation below EBITDA by default, or in the investing result with
+    /// `treatments.write_downs_of_fixed_assets: investing` (R17, P1).
     pub write_downs_of_fixed_assets: Option<Decimal>,
-    /// B10 d, write-downs of current receivables and cash, in currency units; in the investing
-    /// result, or in `operating_profit` with `treatments.write_downs_of_receivables:
-    /// operating` (R17).
+    /// B10 d, write-downs of current receivables and cash, in currency units; in the other
+    /// charges below EBITDA by default, or in the investing result with
+    /// `treatments.write_downs_of_receivables: investing` (R17, E3).
     pub write_downs_of_receivables: Option<Decimal>,
 }
 
@@ -280,7 +286,9 @@ pub struct StatutoryIncomeStatement {
     pub change_in_product_inventories: Option<Decimal>,
     /// A4 own work capitalised, in currency units.
     pub own_work_capitalised: Option<Decimal>,
-    /// A5 other revenue and income, in currency units.
+    /// A5 other revenue and income, in currency units. Default destination: the value of
+    /// production, core (Decision 7), listed in `meta.defaults_applied`; investing and
+    /// non-recurring parts move only by adjustment.
     pub other_revenue_and_income: Option<Decimal>,
     /// Total B, costs of production, in currency units, signed.
     pub costs_of_production: Option<Decimal>,
@@ -301,7 +309,9 @@ pub struct StatutoryIncomeStatement {
     pub provisions_for_risks: Option<Decimal>,
     /// B13 other provisions, in currency units.
     pub other_provisions: Option<Decimal>,
-    /// B14 other operating expenses, in currency units.
+    /// B14 other operating expenses, in currency units. Default destination: external costs,
+    /// core (Decision 7, E1), listed in `meta.defaults_applied`; investing and non-recurring
+    /// parts move only by adjustment.
     pub other_operating_expenses: Option<Decimal>,
     /// A − B, difference between value and costs of production, in currency units, signed.
     pub difference_between_value_and_costs_of_production: Option<Decimal>,
@@ -435,7 +445,8 @@ pub struct ReclassifiedIncomeStatement {
     pub personnel_costs: Option<Decimal>,
     /// EBITDA (MOL), value added − personnel costs, in currency units, signed.
     pub ebitda: Option<Decimal>,
-    /// Depreciation and amortisation (B10 a, b), in currency units.
+    /// Depreciation and amortisation: B10 a, b, plus B10 c when it is operating (P1) and lease
+    /// depreciation, in currency units.
     pub depreciation_and_amortisation: Option<Decimal>,
     /// Other charges below EBITDA, B12 + B13 (+ B10 d when it is treated as operating) net of
     /// moved parts, in currency units, zero or more (E2 of 2026-11-09).
@@ -534,12 +545,15 @@ pub struct Treatments {
     /// `operating_provision`. Needed when the derivative part is given and not zero.
     /// Default: none.
     pub derivative_liabilities: Option<DerivativeLiabilitiesDestination>,
-    /// Write-downs of receivables (B10 d): `operating` or `investing`. Default: `operating`,
-    /// reported in `meta.defaults_applied` when a statutory year gives B10 d (E3, F1).
+    /// Write-downs of receivables (B10 d): `operating` (other charges below EBITDA) or
+    /// `investing`. Default: `operating`, filled in and reported in `meta.defaults_applied`
+    /// whenever a statutory year gives an income statement (E3, A4); `null` or absent means not
+    /// given.
     pub write_downs_of_receivables: Option<WriteDownsOfReceivables>,
-    /// Write-downs of fixed assets (B10 c): `operating` or `investing`. Default: `operating`,
-    /// reported in `meta.defaults_applied` when a statutory year gives B10 c (P1). Omitted
-    /// from the canonical input when not given, an additive field of version 1.
+    /// Write-downs of fixed assets (B10 c): `operating` (with depreciation and amortisation) or
+    /// `investing`. Default: `operating`, filled in and reported in `meta.defaults_applied`
+    /// whenever a statutory year gives an income statement (P1, A4); `null` or absent means not
+    /// given. Omitted from the canonical input when not given, an additive field of version 1.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub write_downs_of_fixed_assets: Option<WriteDownsOfFixedAssets>,
 }

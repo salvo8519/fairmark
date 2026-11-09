@@ -328,7 +328,10 @@ pub struct ReconciliationLine {
     /// What the amount is, for example "B10 c, write-downs of fixed assets (investing result)".
     pub label: String,
     /// JSON pointers of the inputs actually read for it: an aggregate (both D18 and D19 when
-    /// both are read; the B10 a to c group when B10 c is read as none) or an adjustment.
+    /// both are read; the B10 a to c group when B10 c is read as none, with B10 a, b when
+    /// B10 c is derived from them), or the amount of an adjustment for the year
+    /// (`/adjustments/<k>/amounts/<i>`, its `payments` or `depreciation` for a lease,
+    /// `/adjustments/<k>/interest_cost/<i>` for an interest cost).
     pub sources: Vec<String>,
     /// Amount added to A − B, in currency units, signed.
     pub amount: Decimal,
@@ -380,8 +383,8 @@ pub struct IncomeStatement {
     pub ebitda: Option<Decimal>,
     /// The definition of `ebitda` in words, usable as `ebitda_definition` of SPEC-0007 (R18).
     pub ebitda_definition: &'static str,
-    /// Depreciation and amortisation (B10 a and b, core, plus lease depreciation), in currency
-    /// units; the field of `FreeCashFlowLines`.
+    /// Depreciation and amortisation (B10 a and b, core, plus B10 c when it is operating, P1,
+    /// plus lease depreciation), in currency units; the field of `FreeCashFlowLines`.
     pub depreciation_and_amortisation: Option<Decimal>,
     /// Other charges below EBITDA: B12 + B13 (+ B10 d with the treatment `operating`), core
     /// (E2), in currency units.
@@ -744,17 +747,14 @@ impl Method for Reorganise {
     /// given.
     fn apply_defaults(input: &mut ReorganiseInput) -> Vec<DefaultApplied> {
         let mut out = Vec::new();
-        let b10 = |input: &ReorganiseInput, f: fn(&DepreciationAndWriteDowns) -> bool| {
-            input.years.iter().any(|y| {
-                y.statutory
-                    .as_ref()
-                    .and_then(|s| s.income_statement.as_ref())
-                    .and_then(|is| is.depreciation_and_write_downs.as_ref())
-                    .is_some_and(f)
-            })
-        };
-        let b10d = b10(input, |n| n.write_downs_of_receivables.is_some());
-        let b10c = b10(input, |n| n.write_downs_of_fixed_assets.is_some());
+        // A4 of 2026-11-09 (amends F1): the write-down treatments decide what is computed
+        // whenever a statutory year gives an income statement, so their defaults are filled in
+        // and listed then.
+        let income_statement = input.years.iter().any(|y| {
+            y.statutory
+                .as_ref()
+                .is_some_and(|s| s.income_statement.is_some())
+        });
         for (i, y) in input.years.iter().enumerate() {
             let Some(st) = &y.statutory else { continue };
             if let Some(bs) = &st.balance_sheet {
@@ -780,7 +780,7 @@ impl Method for Reorganise {
                 }
             }
         }
-        if b10d && input.treatments.write_downs_of_receivables.is_none() {
+        if income_statement && input.treatments.write_downs_of_receivables.is_none() {
             input.treatments.write_downs_of_receivables = Some(WriteDownsOfReceivables::Operating);
             out.push(DefaultApplied::new(
                 "/treatments/write_downs_of_receivables",
@@ -788,7 +788,7 @@ impl Method for Reorganise {
                 WRITE_DOWNS_OF_RECEIVABLES_DEFAULT,
             ));
         }
-        if b10c && input.treatments.write_downs_of_fixed_assets.is_none() {
+        if income_statement && input.treatments.write_downs_of_fixed_assets.is_none() {
             input.treatments.write_downs_of_fixed_assets = Some(WriteDownsOfFixedAssets::Operating);
             out.push(DefaultApplied::new(
                 "/treatments/write_downs_of_fixed_assets",

@@ -757,9 +757,10 @@ fn every_default_destination_is_listed_and_no_fixed_one() {
             "{fixed}"
         );
     }
-    // F1 of 2026-11-09: the default of the B10 d treatment is listed only when a statutory year
-    // gives B10 d, and this company gives none.
-    assert!(!fields.contains(&"/treatments/write_downs_of_receivables"));
+    // A4 of 2026-11-09: the defaults of both write-down treatments are listed whenever a
+    // statutory year gives an income statement, as this company does.
+    assert!(fields.contains(&"/treatments/write_downs_of_receivables"));
+    assert!(fields.contains(&"/treatments/write_downs_of_fixed_assets"));
     for d in defaults {
         assert!(!d["reason"].as_str().unwrap().trim().is_empty());
     }
@@ -769,9 +770,19 @@ fn every_default_destination_is_listed_and_no_fixed_one() {
         "{conv}"
     );
     assert!(
-        !conv.contains("default: `/treatments/write_downs_of_receivables` not given, set to"),
+        conv.contains("default: `/treatments/write_downs_of_receivables` not given, set to"),
         "{conv}"
     );
+    // Without an income statement no write-down treatment decides anything: none is listed.
+    let mut no_is = golden_input("balance-sheet-ordinary");
+    no_is["years"][0]["statutory"]
+        .as_object_mut()
+        .unwrap()
+        .remove("income_statement");
+    let out = run(&no_is);
+    assert!(!out["meta"]["defaults_applied"]
+        .to_string()
+        .contains("/treatments/write_downs_of"));
 }
 
 #[test]
@@ -1003,8 +1014,9 @@ fn a_reconciled_relation_names_only_items_given() {
 }
 
 /// R8, R17, R18, AC13: the default destinations of A5, B14 and B10 d are listed when given, in
-/// that order before the input default; B10 d is not listed when the analyst states the
-/// treatment, and no fixed destination of the income statement is listed.
+/// that order before the input defaults of both write-down treatments (A4); B10 d is not listed
+/// when the analyst states its treatment, and no fixed destination of the income statement is
+/// listed.
 #[test]
 fn the_income_statement_defaults_are_listed_and_no_fixed_one() {
     let base = "/years/0/statutory/income_statement";
@@ -1043,6 +1055,7 @@ fn the_income_statement_defaults_are_listed_and_no_fixed_one() {
                 "other_charges_below_ebitda"
             ),
             s("/treatments/write_downs_of_receivables", "operating"),
+            s("/treatments/write_downs_of_fixed_assets", "operating"),
         ]
     );
     let conv = conventions(&out);
@@ -1066,6 +1079,7 @@ fn the_income_statement_defaults_are_listed_and_no_fixed_one() {
                 &format!("{base}/other_operating_expenses"),
                 "external_costs"
             ),
+            s("/treatments/write_downs_of_fixed_assets", "operating"),
         ]
     );
     let b10d = out["value"]["years"][0]["assignments"]
@@ -1975,4 +1989,64 @@ fn lease_without_b8_and_related_asset_are_reported() {
         .as_str()
         .unwrap()
         .ends_with("; related non-operating asset: Investment property"));
+}
+
+/// D1-IS of 2026-11-09: giving the B10 a, b part besides the B10 a to c group never removes an
+/// output, under either treatment of B10 c; B10 c is then the difference.
+#[test]
+fn more_input_never_gives_fewer_outputs_in_b10() {
+    for treatment in ["operating", "investing"] {
+        let mut derived = golden_input("b10-c-derived-from-group");
+        derived["treatments"] = json!({"write_downs_of_fixed_assets": treatment});
+        let mut grouped = derived.clone();
+        grouped["years"][0]["statutory"]["income_statement"]["depreciation_and_write_downs"]
+            .as_object_mut()
+            .unwrap()
+            .remove("depreciation_and_amortisation");
+        let known = |input: &Value| -> Vec<String> {
+            let out = run(input);
+            out["value"]["years"][0]["income_statement"]
+                .as_object()
+                .unwrap()
+                .iter()
+                .filter(|(_, v)| !v.is_null())
+                .map(|(k, _)| k.clone())
+                .collect()
+        };
+        let (more, less) = (known(&derived), known(&grouped));
+        for k in &less {
+            assert!(more.contains(k), "{treatment}: {k} lost with more input");
+        }
+        let out = run(&derived);
+        let is = &out["value"]["years"][0]["income_statement"];
+        assert!(!is["investing_result"].is_null(), "{treatment}");
+        assert!(
+            !is["depreciation_and_amortisation"].is_null(),
+            "{treatment}"
+        );
+    }
+}
+
+/// D2-IS and A3 of 2026-11-09: with the treatment `operating` and no B.III, C15 stays in the
+/// investing result, with a convention; with B.III without a treatment and C15 given as zero,
+/// nothing waits for the treatment.
+#[test]
+fn c15_follows_only_financial_fixed_assets_held() {
+    let out = run(&golden_input(
+        "operating-investments-without-financial-fixed-assets",
+    ));
+    assert_eq!(
+        out["value"]["years"][0]["income_statement"]["income_from_operating_investments"],
+        "0"
+    );
+    assert!(
+        conventions(&out).contains("there is no operating investment to follow"),
+        "{}",
+        conventions(&out)
+    );
+    let out = run(&golden_input(
+        "operating-investments-c15-zero-missing-treatment",
+    ));
+    let nc = out["value"]["years"][0]["not_computed"]["income_statement"].to_string();
+    assert!(!nc.contains("/treatments/financial_fixed_assets"), "{nc}");
 }
