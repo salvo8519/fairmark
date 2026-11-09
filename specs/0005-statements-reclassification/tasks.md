@@ -113,10 +113,10 @@ request where every output they assert exists (`plan.md`, "Test strategy").
 - [x] T26 Property tests AC10; unit tests AC11 and AC13 for the income statement, including the
   `default` destinations of A5, B14 and B10 d in `meta.defaults_applied`; exhaustiveness
   of `not_computed` for `few-totals.yaml`
-- [ ] T27 `uv run just generate`; `schemas/statements.reorganise/v1.json` changed only by the two
+- [x] T27 `uv run just generate`; `schemas/statements.reorganise/v1.json` changed only by the two
   additive fields deferred by D4 (`external_costs`, `other_charges_below_ebitda`), defined by E1
   and E2 of 2026-11-09
-- [ ] T27a Review round 1 (2026-11-09): E1, E2, E4 to E7; B10 c larger than its group is
+- [x] T27a Review round 1 (2026-11-09): E1, E2, E4 to E7; B10 c larger than its group is
   `FM-E026`; pointers of the items read; lease convention when B8 is missing;
   `related_non_operating_asset` reported; sources; reference and golden cases updated
 - [ ] T27b E3 (default `operating` for B10 d) and audit F1 (input default listed only when B10 d
