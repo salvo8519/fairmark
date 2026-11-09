@@ -280,6 +280,7 @@ milestones:
           - { issue: 266, title: "Null equals absent and one number grammar", status: open }
           - { issue: 271, title: "ADR 0014: default admission tests and the floor of best effort", status: done }
           - { issue: 280, title: "Fix every review finding before v0.1", status: open }
+          - { issue: 282, title: "Mutation testing of the core with cargo-mutants", status: open }
 
   - title: "M4 · Traditional European methods"
     gate: "Golden cases green for every method."
@@ -368,3 +369,4 @@ milestones:
           - { issue: 92, title: "Jurisdiction profiles and translated manuals", tags: [parallel], status: open }
           - { issue: 167, title: "Dated periods and a stub first period in the DCF", spec: "0001", status: open }
           - { issue: 232, title: "Integrations with ChatGPT, Gemini and Copilot through the hosted MCP", status: open }
+          - { issue: 283, title: "Mutation testing release gate for v1.0", status: open }
