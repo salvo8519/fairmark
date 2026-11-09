@@ -4,6 +4,7 @@
 //! match on them. The catalogue lives in `docs/en/reference/errors.md`.
 
 use rust_decimal::Decimal;
+use schemars::JsonSchema;
 use serde::Serialize;
 
 /// Every failure the engine can report. Nothing is ever silently defaulted.
@@ -358,9 +359,12 @@ impl FairmarkError {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+/// The report of an error: its stable code and a message in English.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct ErrorReport {
+    /// Stable error code, for example `FM-E004` (see the errors reference).
     pub code: &'static str,
+    /// What is wrong and, where known, how to fix it.
     pub message: String,
 }
 

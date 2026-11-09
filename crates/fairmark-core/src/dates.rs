@@ -352,6 +352,7 @@ pub struct YearFractionInput {
     pub day_count: DayCount,
 }
 
+/// Output of `dates.year_fraction`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct YearFractionOutput {
     /// Fraction of a year between the two dates under the chosen day count.

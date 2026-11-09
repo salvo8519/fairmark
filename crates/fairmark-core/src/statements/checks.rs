@@ -5,6 +5,7 @@
 use std::collections::BTreeMap;
 
 use rust_decimal::Decimal;
+use schemars::JsonSchema;
 use serde::Serialize;
 
 use super::input::{StatutoryBalanceSheet, StatutoryIncomeStatement};
@@ -12,7 +13,7 @@ use crate::error::{FairmarkError, Reconciliation, Result};
 use crate::num;
 
 /// Outcome of one relation. A relation whose sides differ is not an outcome: it is `FM-E026`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum CheckStatus {
     /// Both sides given and equal.
@@ -22,7 +23,7 @@ pub enum CheckStatus {
 }
 
 /// One relation of R7 or R12 in the result.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct Check {
     /// `reconciled` or `not_checked`.
     pub status: CheckStatus,

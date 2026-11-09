@@ -22,8 +22,17 @@ struct Cli {
 enum Command {
     /// List every method with its version and status (available or preview).
     Methods,
-    /// Print the JSON Schema of a method's input.
-    Schema { method: String },
+    /// Print the JSON Schema of a method's input (default), of its output with --output, or of
+    /// its whole result envelope with --envelope.
+    Schema {
+        method: String,
+        /// Print the schema of the method's output (the `value` of the result).
+        #[arg(long, conflicts_with = "envelope")]
+        output: bool,
+        /// Print the schema of the whole result envelope (method, value, explain, meta).
+        #[arg(long)]
+        envelope: bool,
+    },
     /// Run a method. Input JSON from --input FILE or stdin.
     Run {
         method: String,
@@ -89,7 +98,18 @@ fn dispatch(cmd: Command) -> Result<serde_json::Value, serde_json::Value> {
 
     match cmd {
         Command::Methods => Ok(json!(fairmark_core::METHODS)),
-        Command::Schema { method } => fairmark_core::input_schema(&method).map_err(core),
+        Command::Schema {
+            method,
+            output,
+            envelope,
+        } => if output {
+            fairmark_core::output_schema(&method)
+        } else if envelope {
+            fairmark_core::result_schema(&method)
+        } else {
+            fairmark_core::input_schema(&method)
+        }
+        .map_err(core),
         Command::Run {
             method,
             input,
