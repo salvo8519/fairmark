@@ -22,6 +22,10 @@ examples taken from golden cases (``tool_examples.json``).
 
 The LLM extracts parameters; Fairmark computes; the LLM writes the report citing
 ``explain``. The model never does the arithmetic.
+
+A refused call returns ``{"error": <report>}`` (see ``dispatch``): the model corrects the
+argument named by ``pointer`` as ``fix`` says, and every other entry of ``errors``, without
+parsing the message.
 """
 
 from __future__ import annotations
@@ -485,13 +489,30 @@ def langchain(*, compact: bool = False, areas: Iterable[str] | str | None = None
 def dispatch(name: str, arguments: Mapping[str, Any] | str) -> dict[str, Any]:
     """Execute a tool call coming from an LLM.
 
-    Never raises on bad input: returns ``{"error": {"code", "message"}}`` so the
-    model can read the error and correct its parameters.
+    Never raises on bad input: returns ``{"error": <report>}`` so the model can read the error
+    and correct its parameters. The report (ADR 0014 G5) carries ``code`` (stable),
+    ``message``, ``pointer`` (JSON pointer of the argument to correct, or null), ``pointers``
+    (every argument of a relation), ``reason`` (the sub-kind, for example ``missing``,
+    ``unknown_field``, ``enum``, ``sign``), ``expected`` (the accepted values), ``fix`` (one
+    sentence), ``missing_any_of`` (``FM-E027`` only: alternative sets of arguments, any one of
+    which is enough) and ``errors`` (every input error found, the first equal to the top level).
+    Correct every entry of ``errors`` before calling again.
     """
     try:
         args = json.loads(arguments) if isinstance(arguments, str) else dict(arguments)
         return run_json(method_id(name), args)
     except FairmarkError as err:
-        return {"error": {"code": err.code, "message": err.message}}
+        return {"error": err.report}
     except json.JSONDecodeError as err:
-        return {"error": {"code": "FM-E001", "message": f"arguments are not valid JSON: {err}"}}
+        return {
+            "error": FairmarkError(
+                "FM-E001",
+                f"arguments are not valid JSON: {err}",
+                {
+                    "code": "FM-E001",
+                    "message": f"arguments are not valid JSON: {err}",
+                    "reason": "syntax",
+                    "fix": "send the arguments as one well-formed JSON object",
+                },
+            ).report
+        }
