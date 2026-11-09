@@ -190,6 +190,10 @@ impl Method for ValueDriver {
     type Input = ValueDriverInput;
     type Output = ValueDriverOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check(input).map_err(super::into_error)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         value_driver(input)
     }

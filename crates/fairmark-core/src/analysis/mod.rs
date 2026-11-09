@@ -198,8 +198,8 @@ impl Inner {
 
     /// The input errors of the method on `input` (the base input, or the first input the
     /// analysis evaluates), located under `/base_input`, so that they are reported with the
-    /// analysis's own errors in one pass (ADR 0014 G5). An error of the computation is left to
-    /// the evaluations, which report it. Not counted as an evaluation.
+    /// analysis's own errors in one pass (ADR 0014 G5). Only the method's validation runs
+    /// ([`registry::validate`]): nothing is computed, and no evaluation is counted.
     ///
     /// The request's size is checked first (`needed` evaluations, `FM-E016`): a request over the
     /// limits is refused without evaluating anything.
@@ -207,11 +207,9 @@ impl Inner {
         if !found.check(Self::check_limit(needed, input)) {
             return;
         }
-        if let Err(e) = registry::evaluate(self.id, input) {
+        if let Err(e) = registry::validate(self.id, input) {
             for e in e.under("/base_input").into_errors() {
-                if e.is_input_error() {
-                    found.push(e);
-                }
+                found.push(e);
             }
         }
     }
@@ -339,5 +337,114 @@ mod tests {
         assert_eq!(cell["error"]["code"], "FM-E004");
         let ok = serde_json::to_value(recorded(Ok(Decimal::TWO)).unwrap()).unwrap();
         assert_eq!(ok, serde_json::json!({"value": "2"}));
+    }
+
+    /// Inner computations run on this thread by `f` (the methods other than analyses).
+    fn computed(f: impl FnOnce()) -> u64 {
+        let before = registry::COMPUTED.with(std::cell::Cell::get);
+        f();
+        registry::COMPUTED.with(std::cell::Cell::get) - before
+    }
+
+    fn npv() -> Value {
+        serde_json::json!({"rate": "0.05", "cash_flows": [-1000, 300, 400, 500]})
+    }
+
+    fn dcf() -> Value {
+        serde_json::json!({
+            "stages": [{"periods": 2, "projection": "given", "flows": [100, 110]}],
+            "cash_flow_terms": "nominal", "discount_rate_terms": "nominal", "wacc": "0.09",
+            "timing": "end_of_period",
+            "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}},
+            "net_financial_position": {"gross_debt": 300, "cash": 0}
+        })
+    }
+
+    /// One request of each analysis on `method` with `base`, varying `variable`.
+    fn requests(
+        method: &str,
+        base: &Value,
+        variable: &str,
+        output: &str,
+    ) -> Vec<(&'static str, Value)> {
+        use serde_json::json;
+        vec![
+            (
+                "analysis.sensitivity",
+                json!({"method": method, "base_input": base,
+                "output": output, "rows": {"variable": variable, "values": ["0.06", "0.07"]}}),
+            ),
+            (
+                "analysis.goal_seek",
+                json!({"method": method, "base_input": base,
+                "variable": variable, "output": output, "target": "0",
+                "bracket": ["0.01", "0.5"]}),
+            ),
+            (
+                "analysis.tornado",
+                json!({"method": method, "base_input": base, "output": output,
+                "variables": [{"variable": variable, "low": "0.06", "high": "0.07"}]}),
+            ),
+            (
+                "analysis.scenarios",
+                json!({"method": method, "base_input": base,
+                "outputs": [output],
+                "scenarios": [{"name": "a", "overrides": [{"pointer": variable, "value": "0.06"}]}]}),
+            ),
+        ]
+    }
+
+    /// ADR 0014 G5, validate-only path: the inner input of an analysis is checked by the
+    /// method's `validate`, which computes nothing. A request refused for its `base_input`
+    /// runs no inner computation, whichever check refuses it.
+    #[test]
+    fn a_refused_base_input_runs_no_inner_computation() {
+        let mut npv_bad = npv();
+        npv_bad["cash_flows"] = serde_json::json!([]);
+        let mut dcf_bad = dcf();
+        dcf_bad["terminal"]["tv.gordon"]["growth"] = serde_json::json!("0.5");
+        dcf_bad["non_operating_assets"] = serde_json::json!([{"label": "x", "amount": -1}]);
+        for (method, base, variable, output) in [
+            ("tvm.npv", npv_bad, "/rate", "/npv"),
+            ("dcf.fcff", dcf_bad, "/wacc", "/value_of_operations"),
+        ] {
+            for (id, request) in requests(method, &base, variable, output) {
+                let mut result = None;
+                let n = computed(|| result = Some(crate::run(id, &request.to_string())));
+                let error = result.unwrap().unwrap_err();
+                assert!(error.is_input_error(), "{id} on {method}: {error}");
+                assert!(
+                    error.into_errors().iter().all(|e| e
+                        .details()
+                        .pointer
+                        .as_deref()
+                        .is_some_and(|p| p.starts_with("/base_input"))
+                        || e.code() == "FM-E006"),
+                    "{id} on {method}"
+                );
+                assert_eq!(n, 0, "{id} on {method} computed the inner method");
+            }
+        }
+    }
+
+    /// The validate-only path of every method computes nothing, valid input or not.
+    #[test]
+    fn validation_alone_computes_nothing() {
+        for (id, input) in [("tvm.npv", npv()), ("dcf.fcff", dcf())] {
+            let n = computed(|| registry::validate(id, &input).unwrap());
+            assert_eq!(n, 0, "{id}");
+        }
+    }
+
+    /// A valid one-way table evaluates the inner method once per value, and once for the base
+    /// case: the checks of the base input add no evaluation.
+    #[test]
+    fn a_valid_table_evaluates_each_cell_and_nothing_else() {
+        let (_, request) = requests("tvm.npv", &npv(), "/rate", "/npv").remove(0);
+        let mut result = None;
+        let n =
+            computed(|| result = Some(crate::run("analysis.sensitivity", &request.to_string())));
+        result.unwrap().unwrap();
+        assert_eq!(n, 3);
     }
 }

@@ -476,10 +476,11 @@ pub struct InstalmentOutput {
     pub total_interest: Decimal,
 }
 
-pub fn instalment(input: &InstalmentInput) -> Result<(InstalmentOutput, Explain)> {
+/// Every input error of `instalment`, without computing (ADR 0014 G5).
+fn check_instalment(input: &InstalmentInput) -> Result<()> {
     // Every input error is reported (ADR 0014 G5), in the order of the checks.
     let mut found = Found::new();
-    found.check(check_principal(input.principal));
+    let principal_valid = found.check(check_principal(input.principal));
     found.check(check_instalments(input.number_of_instalments));
     if let Some(r) = &input.rounding {
         found.check(r.validate());
@@ -490,7 +491,16 @@ pub fn instalment(input: &InstalmentInput) -> Result<(InstalmentOutput, Explain)
         payment_frequency: input.payment_frequency,
         periodic_rate: input.periodic_rate,
     }));
-    found.finish()?;
+    // The balloon is compared with the principal: skipped when the principal is refused.
+    if principal_valid {
+        let mut scratch = Explain::new("", "");
+        found.check(balloon(input.principal, input.balloon_amount, &mut scratch).map(|_| ()));
+    }
+    found.finish()
+}
+
+pub fn instalment(input: &InstalmentInput) -> Result<(InstalmentOutput, Explain)> {
+    check_instalment(input)?;
     let mut ex = Explain::new(
         "loans.instalment",
         "A = (P − B (1 + i)^−n) × i / (1 − (1 + i)^−n), divided by (1 + i) if due; \
@@ -589,9 +599,8 @@ pub struct NumberOfInstalmentsOutput {
     pub final_instalment: Decimal,
 }
 
-pub fn number_of_instalments(
-    input: &NumberOfInstalmentsInput,
-) -> Result<(NumberOfInstalmentsOutput, Explain)> {
+/// Every input error of `number_of_instalments`, without computing (ADR 0014 G5).
+fn check_number_of_instalments(input: &NumberOfInstalmentsInput) -> Result<()> {
     let mut found = Found::new();
     found.check(check_principal(input.principal));
     found.check(check_rate_form(&RateForm {
@@ -600,7 +609,13 @@ pub fn number_of_instalments(
         payment_frequency: input.payment_frequency,
         periodic_rate: input.periodic_rate,
     }));
-    found.finish()?;
+    found.finish()
+}
+
+pub fn number_of_instalments(
+    input: &NumberOfInstalmentsInput,
+) -> Result<(NumberOfInstalmentsOutput, Explain)> {
+    check_number_of_instalments(input)?;
     let (p, a) = (input.principal, input.instalment);
     let mut ex = Explain::new(
         "loans.number_of_instalments",
@@ -892,9 +907,8 @@ enum Regular {
     InterestOnly,
 }
 
-pub fn amortisation_schedule(
-    input: &AmortisationScheduleInput,
-) -> Result<(AmortisationScheduleOutput, Explain)> {
+/// Every input error of `amortisation_schedule`, without computing (ADR 0014 G5).
+fn check_amortisation_schedule(input: &AmortisationScheduleInput) -> Result<()> {
     // Every input error is reported (ADR 0014 G5), in the order of the checks.
     let mut found = Found::new();
     if input.timing == AnnuityTiming::Due {
@@ -908,7 +922,7 @@ pub fn amortisation_schedule(
             .expected(["ordinary"]),
         );
     }
-    found.check(check_principal(input.principal));
+    let principal_valid = found.check(check_principal(input.principal));
     let instalments_valid = found.check(check_instalments(input.number_of_instalments));
     if let Some(r) = &input.rounding {
         found.check(r.validate());
@@ -942,7 +956,7 @@ pub fn amortisation_schedule(
             );
         }
     }
-    let (p, n) = (input.principal, input.number_of_instalments);
+    let n = input.number_of_instalments;
     let g = input.principal_grace_periods.unwrap_or_default();
     if g >= n && instalments_valid && !grace_checked {
         found.push(
@@ -960,7 +974,21 @@ pub fn amortisation_schedule(
         payment_frequency: input.payment_frequency,
         periodic_rate: input.periodic_rate,
     }));
-    found.finish()?;
+    // The balloon is compared with the principal: skipped when the principal is refused.
+    if principal_valid && kind != AmortisationType::Bullet {
+        let mut scratch = Explain::new("", "");
+        found.check(balloon(input.principal, input.balloon_amount, &mut scratch).map(|_| ()));
+    }
+    found.finish()
+}
+
+pub fn amortisation_schedule(
+    input: &AmortisationScheduleInput,
+) -> Result<(AmortisationScheduleOutput, Explain)> {
+    check_amortisation_schedule(input)?;
+    let kind = input.amortisation_type;
+    let (p, n) = (input.principal, input.number_of_instalments);
+    let g = input.principal_grace_periods.unwrap_or_default();
     let mut ex = Explain::new(
         "loans.amortisation_schedule",
         "interest_k = i × opening balance_k; principal_k = instalment − interest_k (french), \
@@ -1272,6 +1300,10 @@ impl Method for Instalment {
     type Input = InstalmentInput;
     type Output = InstalmentOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_instalment(input)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         instalment(input)
     }
@@ -1291,6 +1323,10 @@ impl Method for AmortisationSchedule {
     type Input = AmortisationScheduleInput;
     type Output = AmortisationScheduleOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_amortisation_schedule(input)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         amortisation_schedule(input)
     }
@@ -1308,6 +1344,10 @@ impl Method for NumberOfInstalments {
     const VERSION: &'static str = "1";
     type Input = NumberOfInstalmentsInput;
     type Output = NumberOfInstalmentsOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_number_of_instalments(input)
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         number_of_instalments(input)

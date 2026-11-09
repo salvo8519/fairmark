@@ -192,12 +192,17 @@ fn debt_beta_convention(ex: &mut Explain, bd: Option<Decimal>) -> Decimal {
     }
 }
 
-pub fn beta_relever(input: &BetaReleverInput) -> Result<(BetaReleverOutput, Explain)> {
+/// Every input error of `beta_relever`, without computing (ADR 0014 G5).
+fn check_beta_relever(input: &BetaReleverInput) -> Result<()> {
     // Every input error is reported (ADR 0014 G5), in the order of the checks.
     let mut found = Found::new();
     found.check(check_leverage(input.debt_to_equity, "debt_to_equity"));
     found.check(check_tax_rate(input.tax_rate, "tax_rate"));
-    found.finish()?;
+    found.finish()
+}
+
+pub fn beta_relever(input: &BetaReleverInput) -> Result<(BetaReleverOutput, Explain)> {
+    check_beta_relever(input)?;
     let headline = match input.direction {
         BetaDirection::Relever => "β_L = β_U + (β_U − β_D) × k",
         BetaDirection::Unlever => "β_U = (β_L + β_D × k) / (1 + k)",
@@ -283,7 +288,8 @@ pub struct BetaPeersOutput {
     pub relevered_beta: Decimal,
 }
 
-pub fn beta_peers(input: &BetaPeersInput) -> Result<(BetaPeersOutput, Explain)> {
+/// Every input error of `beta_peers`, without computing (ADR 0014 G5).
+fn check_beta_peers(input: &BetaPeersInput) -> Result<()> {
     if input.peers.is_empty() {
         return Err(
             invalid("peers must contain at least one comparable").at("/peers", Reason::Length)
@@ -303,7 +309,16 @@ pub fn beta_peers(input: &BetaPeersInput) -> Result<(BetaPeersOutput, Explain)> 
         ));
         found.check(check_tax_rate(p.tax_rate, &format!("peers[{i}].tax_rate")));
     }
-    found.finish()?;
+    found.finish()
+}
+
+pub fn beta_peers(input: &BetaPeersInput) -> Result<(BetaPeersOutput, Explain)> {
+    if input.peers.is_empty() {
+        return Err(
+            invalid("peers must contain at least one comparable").at("/peers", Reason::Length)
+        );
+    }
+    check_beta_peers(input)?;
     let mut ex = Explain::new(
         "coc.beta_peers",
         "β_U,i = (β_L,i + β_D × k_i) / (1 + k_i); statistic of β_U,i; β_L = β_U + (β_U − β_D) × k_target",
@@ -675,7 +690,8 @@ fn debt_form_error(input: &CostOfDebtInput) -> FairmarkError {
         .between(["/pre_tax_cost_of_debt", "/risk_free_rate", "/credit_spread"])
 }
 
-pub fn cost_of_debt(input: &CostOfDebtInput) -> Result<(CostOfDebtOutput, Explain)> {
+/// Every input error of `cost_of_debt`, without computing (ADR 0014 G5).
+fn check_cost_of_debt(input: &CostOfDebtInput) -> Result<()> {
     // Every input error is reported (ADR 0014 G5): the tax rate, then the form of the rate.
     let mut found = Found::new();
     found.check(check_tax_rate(input.tax_rate, "tax_rate"));
@@ -690,7 +706,11 @@ pub fn cost_of_debt(input: &CostOfDebtInput) -> Result<(CostOfDebtOutput, Explai
     if !one_form {
         found.push(debt_form_error(input));
     }
-    found.finish()?;
+    found.finish()
+}
+
+pub fn cost_of_debt(input: &CostOfDebtInput) -> Result<(CostOfDebtOutput, Explain)> {
+    check_cost_of_debt(input)?;
     let mut ex = Explain::new("coc.cost_of_debt", "kd_after_tax = kd × (1 − t)");
     ex.convention(ANNUAL);
     let kd = match (
@@ -783,7 +803,8 @@ fn weights_form_error(input: &WaccInput) -> FairmarkError {
         .between(["/debt_to_equity", "/debt_weight"])
 }
 
-pub fn wacc(input: &WaccInput) -> Result<(WaccOutput, Explain)> {
+/// Every input error of `wacc`, without computing (ADR 0014 G5).
+fn check_wacc(input: &WaccInput) -> Result<()> {
     // Every input error is reported (ADR 0014 G5): the tax rate, then the weights.
     let mut found = Found::new();
     found.check(check_tax_rate(input.tax_rate, "tax_rate"));
@@ -797,7 +818,11 @@ pub fn wacc(input: &WaccInput) -> Result<(WaccOutput, Explain)> {
         (None, Some(_)) => {}
         _ => found.push(weights_form_error(input)),
     }
-    found.finish()?;
+    found.finish()
+}
+
+pub fn wacc(input: &WaccInput) -> Result<(WaccOutput, Explain)> {
+    check_wacc(input)?;
     let mut ex = Explain::new("coc.wacc", "WACC = E/V × ke + D/V × kd × (1 − t)");
     ex.convention(ANNUAL);
     ex.convention(format!("tax rate of the tax shield {}", input.tax_rate));
@@ -872,6 +897,10 @@ impl Method for CostOfEquity {
     type Input = CostOfEquityInput;
     type Output = CostOfEquityOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_cost_of_equity(input)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         cost_of_equity(input)
     }
@@ -889,6 +918,10 @@ impl Method for BetaRelever {
     const VERSION: &'static str = "1";
     type Input = BetaReleverInput;
     type Output = BetaReleverOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_beta_relever(input)
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         beta_relever(input)
@@ -908,6 +941,10 @@ impl Method for BetaPeers {
     type Input = BetaPeersInput;
     type Output = BetaPeersOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_beta_peers(input)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         beta_peers(input)
     }
@@ -926,6 +963,10 @@ impl Method for CostOfDebt {
     type Input = CostOfDebtInput;
     type Output = CostOfDebtOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_cost_of_debt(input)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         cost_of_debt(input)
     }
@@ -942,6 +983,10 @@ impl Method for Wacc {
     const VERSION: &'static str = "1";
     type Input = WaccInput;
     type Output = WaccOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_wacc(input)
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         wacc(input)

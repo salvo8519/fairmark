@@ -1006,6 +1006,10 @@ impl Method for Covenants {
     type Input = CovenantsInput;
     type Output = CovenantsOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        validate(input)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         covenants(input)
     }

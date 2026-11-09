@@ -152,15 +152,10 @@ pub fn fcfe(input: &DcfFcfeInput) -> Result<(DcfFcfeOutput, Explain)> {
     Fcfe::run_typed(&mut input).map(|(output, explain, _)| (output, explain))
 }
 
-/// The calculation on an input whose defaults were filled in; `defaults` names them, for the
-/// messages that say when a value came from a default.
-fn fcfe_with_defaults(
-    input: &DcfFcfeInput,
-    defaults: &[DefaultApplied],
-) -> Result<(DcfFcfeOutput, Explain)> {
-    // R24, Decision 9: debt is in the flows; a net financial position would count it twice.
+/// R24, Decision 9: debt is in the flows; a net financial position would count it twice.
+fn check_no_net_financial_position(input: &DcfFcfeInput) -> Result<()> {
     if input.net_financial_position.is_some() {
-        return Err(FairmarkError::MixedBasis(
+        Err(FairmarkError::MixedBasis(
             "`/net_financial_position` is given, but this DCF values on the equity basis: the \
              FCFE already include the debt through interest and net borrowing (SPEC-0001 R24), \
              so subtracting the net financial position would count it twice; remove it. Give \
@@ -169,8 +164,40 @@ fn fcfe_with_defaults(
                 .to_owned(),
         )
         .at("/net_financial_position", Reason::Conflict)
-        .fix("remove `/net_financial_position`"));
+        .fix("remove `/net_financial_position`"))
+    } else {
+        Ok(())
     }
+}
+
+/// The validate-only path: every check of [`fcfe_with_defaults`], no calculation.
+fn validate_fcfe(input: &DcfFcfeInput, defaults: &[DefaultApplied]) -> Result<()> {
+    check_no_net_financial_position(input)?;
+    let engine_input = input.engine_input(defaults)?;
+    engine::validate(&engine_input, bridge_lines(input))
+}
+
+/// The bridge lines checked, every refusal kept for the engine to report with its own.
+fn bridge_lines(input: &DcfFcfeInput) -> Found {
+    let mut found = Found::new();
+    bridge::check_lines(
+        &input.non_operating_assets,
+        &input.debt_like_items,
+        &input.non_controlling_interests,
+        "a non-operating asset is zero or more (obligations whose cash flows are not in the \
+         FCFE belong in `debt_like_items`)",
+        &mut found,
+    );
+    found
+}
+
+/// The calculation on an input whose defaults were filled in; `defaults` names them, for the
+/// messages that say when a value came from a default.
+fn fcfe_with_defaults(
+    input: &DcfFcfeInput,
+    defaults: &[DefaultApplied],
+) -> Result<(DcfFcfeOutput, Explain)> {
+    check_no_net_financial_position(input)?;
     let mut ex = Explain::new(Fcfe::ID, FORMULA);
     ex.convention(
         "basis: equity, free cash flows to equity (FCFE) discounted at the cost of equity",
@@ -181,15 +208,7 @@ fn fcfe_with_defaults(
     );
     let engine_input = input.engine_input(defaults)?;
     // Bridge items are checked before any calculation, like every other input.
-    let mut found = Found::new();
-    bridge::check_lines(
-        &input.non_operating_assets,
-        &input.debt_like_items,
-        &input.non_controlling_interests,
-        "a non-operating asset is zero or more (obligations whose cash flows are not in the \
-         FCFE belong in `debt_like_items`)",
-        &mut found,
-    );
+    let found = bridge_lines(input);
     let out = engine::run(&engine_input, &mut ex, found)?;
 
     let pv_tv = out.terminal.present_value;
@@ -294,6 +313,10 @@ impl Method for Fcfe {
         defaults: &[DefaultApplied],
     ) -> Result<(Self::Output, Explain)> {
         fcfe_with_defaults(input, defaults)
+    }
+
+    fn validate(input: &Self::Input, defaults: &[DefaultApplied]) -> Result<()> {
+        validate_fcfe(input, defaults)
     }
 }
 

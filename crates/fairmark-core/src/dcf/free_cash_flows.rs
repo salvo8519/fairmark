@@ -522,6 +522,16 @@ pub fn free_cash_flows(input: &FreeCashFlowsInput) -> Result<(FreeCashFlowsOutpu
     Ok((out, ex))
 }
 
+/// The checks of the build-up alone, without computing a flow (the validate-only path,
+/// ADR 0014 G5): whether the lines carry the financing lines, which FCFE needs.
+pub(crate) fn check_lines(
+    lines: &[FreeCashFlowLines],
+    choice: &TaxChoice,
+    at: &Location,
+) -> Result<bool> {
+    validate(lines, choice, at).map(|(_, financing, _)| financing)
+}
+
 /// The build-up itself, for any list of lines: validates them, appends the steps and
 /// conventions to `ex` and returns the flows. Error pointers and period numbers come from `at`,
 /// so that the shared DCF engine reuses it for the lines of a stage (ADR 0009).
@@ -809,6 +819,19 @@ impl Method for FreeCashFlows {
     const VERSION: &'static str = "2";
     type Input = FreeCashFlowsInput;
     type Output = FreeCashFlowsOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        let choice = TaxChoice {
+            notional_tax_rate: input.notional_tax_rate,
+            negative_ebit: input.negative_ebit,
+            interest_tax_rate: input.interest_tax_rate,
+        };
+        let at = Location {
+            pointer_prefix: "/periods",
+            first_period: 1,
+        };
+        check_lines(&input.periods, &choice, &at).map(|_| ())
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         free_cash_flows(input)

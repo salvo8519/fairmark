@@ -481,7 +481,7 @@ fn repair(
 const DECIMAL_PATTERN: &str = r"^-?\d+(\.\d+)?([eE]\d+)?$";
 
 /// True when `text` matches [`DECIMAL_PATTERN`].
-fn is_decimal_text(text: &str) -> bool {
+pub(crate) fn is_decimal_text(text: &str) -> bool {
     fn digits(s: &str) -> Option<&str> {
         let end = s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
         (end > 0).then(|| &s[end..])
@@ -519,7 +519,7 @@ fn grammar_error(tokens: &[String], text: &str) -> FairmarkError {
 
 /// The input errors of `base_input` of an analysis input that cannot be read, checked by the
 /// method named in `method` and located under `/base_input`; none when the method is unknown or
-/// is itself an analysis (refused by the analysis). Errors of the computation are left out.
+/// is itself an analysis (refused by the analysis). Only the method's validation runs.
 fn base_input_errors(value: &Value) -> Vec<FairmarkError> {
     let (Some(id), Some(base)) = (
         value.get("method").and_then(Value::as_str),
@@ -530,14 +530,9 @@ fn base_input_errors(value: &Value) -> Vec<FairmarkError> {
     if crate::registry::method(id).is_err() || id.starts_with("analysis.") {
         return Vec::new();
     }
-    match crate::registry::evaluate(id, base) {
-        Ok(_) => Vec::new(),
-        Err(e) => e
-            .under("/base_input")
-            .into_errors()
-            .into_iter()
-            .filter(FairmarkError::is_input_error)
-            .collect(),
+    match crate::registry::validate(id, base) {
+        Ok(()) => Vec::new(),
+        Err(e) => e.under("/base_input").into_errors(),
     }
 }
 

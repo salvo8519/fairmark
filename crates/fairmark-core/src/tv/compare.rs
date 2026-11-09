@@ -239,6 +239,91 @@ fn in_technique(e: FairmarkError, k: usize, t: &Technique) -> FairmarkError {
     }
 }
 
+/// The refusal of a technique of another basis than the comparison (decision 2), if any.
+fn basis_error(t: &Technique, basis: TerminalBasis, position: usize) -> Option<FairmarkError> {
+    match t {
+        Technique::ExitMultiple(terms) if terms.metric.basis() != basis => Some(
+            FairmarkError::MixedBasis(format!(
+                "technique [{position}] tv.exit_multiple uses {} ({}, {} basis) in a \
+                    comparison declared on the {} basis",
+                terms.metric.name(),
+                terms.metric.multiple_name(),
+                terms.metric.basis().name(),
+                basis.name()
+            ))
+            .at(
+                format!("/techniques/{}/tv.exit_multiple/metric", position - 1),
+                Reason::Conflict,
+            ),
+        ),
+        Technique::NormalisedIncome(terms) if terms.basis != basis => Some(
+            FairmarkError::MixedBasis(format!(
+                "technique [{position}] tv.normalised_income is declared on the {} basis in \
+                    a comparison declared on the {} basis",
+                terms.basis.name(),
+                basis.name()
+            ))
+            .at(
+                format!("/techniques/{}/tv.normalised_income/basis", position - 1),
+                Reason::Conflict,
+            ),
+        ),
+        Technique::Liquidation(input) if input.basis != basis => Some(
+            FairmarkError::MixedBasis(format!(
+                "technique [{position}] tv.liquidation is declared on the {} basis in a \
+                    comparison declared on the {} basis",
+                input.basis.name(),
+                basis.name()
+            ))
+            .at(
+                format!("/techniques/{}/tv.liquidation/basis", position - 1),
+                Reason::Conflict,
+            ),
+        ),
+        _ => None,
+    }
+}
+
+/// The checks of technique `t` with the shared inputs, without computing it: its basis, then
+/// the checks of its own method (ADR 0014 G5).
+fn check_technique(
+    t: &Technique,
+    rate: Decimal,
+    cap: Option<Decimal>,
+    basis: TerminalBasis,
+    position: usize,
+) -> Result<()> {
+    if let Some(e) = basis_error(t, basis, position) {
+        return Err(e);
+    }
+    let checked = match t {
+        Technique::Gordon(terms) => super::gordon::check(&terms.with(rate, cap)),
+        Technique::ValueDriver(terms) => super::value_driver::check(&terms.with(rate, cap)),
+        Technique::HModel(terms) => super::h_model::check(&terms.with(rate, cap)),
+        Technique::ExitMultiple(terms) => super::exit_multiple::check(&terms.with(rate, cap)),
+        Technique::LimitedHorizon(terms) => super::limited_horizon::check(&terms.with(rate, cap)),
+        Technique::NormalisedIncome(terms) => super::normalised_income::check(&terms.with(cap)),
+        Technique::Liquidation(input) => super::liquidation::check(input),
+    };
+    checked.map_err(super::into_error)
+}
+
+/// Every input error of a comparison, without computing any technique.
+fn check_compare(input: &CompareInput) -> Result<()> {
+    if input.techniques.is_empty() {
+        return Err(invalid("give at least one technique to compare")
+            .at("/techniques", crate::error::Reason::Length));
+    }
+    let mut found = crate::error::Found::new();
+    for (k, t) in input.techniques.iter().enumerate() {
+        found.check(
+            check_technique(&t.0, input.rate, input.growth_cap, input.basis, k + 1)
+                .map_err(|e| in_technique(e, k, &t.0)),
+        );
+    }
+    found.finish()
+}
+
 /// Runs one technique with the shared inputs; returns its id, value, output and explain.
 fn run_one(
     t: &Technique,
@@ -253,6 +338,9 @@ fn run_one(
     TechniqueOutput,
     Explain,
 )> {
+    if let Some(e) = basis_error(t, basis, position) {
+        return Err(e);
+    }
     Ok(match t {
         Technique::Gordon(terms) => {
             let (o, ex) = gordon(&terms.with(rate, cap))?;
@@ -286,20 +374,6 @@ fn run_one(
             )
         }
         Technique::ExitMultiple(terms) => {
-            if terms.metric.basis() != basis {
-                return Err(FairmarkError::MixedBasis(format!(
-                    "technique [{position}] tv.exit_multiple uses {} ({}, {} basis) in a \
-                    comparison declared on the {} basis",
-                    terms.metric.name(),
-                    terms.metric.multiple_name(),
-                    terms.metric.basis().name(),
-                    basis.name()
-                ))
-                .at(
-                    format!("/techniques/{}/tv.exit_multiple/metric", position - 1),
-                    Reason::Conflict,
-                ));
-            }
             let (o, ex) = exit_multiple(&terms.with(rate, cap))?;
             let tv = o.terminal_value;
             (
@@ -322,18 +396,6 @@ fn run_one(
             )
         }
         Technique::NormalisedIncome(terms) => {
-            if terms.basis != basis {
-                return Err(FairmarkError::MixedBasis(format!(
-                    "technique [{position}] tv.normalised_income is declared on the {} basis in \
-                    a comparison declared on the {} basis",
-                    terms.basis.name(),
-                    basis.name()
-                ))
-                .at(
-                    format!("/techniques/{}/tv.normalised_income/basis", position - 1),
-                    Reason::Conflict,
-                ));
-            }
             let (o, ex) = normalised_income(&terms.with(cap))?;
             let tv = o.terminal_value;
             (
@@ -345,18 +407,6 @@ fn run_one(
             )
         }
         Technique::Liquidation(input) => {
-            if input.basis != basis {
-                return Err(FairmarkError::MixedBasis(format!(
-                    "technique [{position}] tv.liquidation is declared on the {} basis in a \
-                    comparison declared on the {} basis",
-                    input.basis.name(),
-                    basis.name()
-                ))
-                .at(
-                    format!("/techniques/{}/tv.liquidation/basis", position - 1),
-                    Reason::Conflict,
-                ));
-            }
             let (o, ex) = liquidation(input)?;
             let tv = o.terminal_value;
             (
@@ -450,6 +500,10 @@ impl Method for Compare {
     const VERSION: &'static str = "2";
     type Input = CompareInput;
     type Output = CompareOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_compare(input)
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         compare(input)

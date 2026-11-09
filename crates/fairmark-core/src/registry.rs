@@ -171,6 +171,13 @@ macro_rules! registry {
             None
         }
 
+        fn validate_to(id: &str, input_json: &str) -> Option<Result<()>> {
+            $(if id == <$m as Method>::ID {
+                return Some(validate_only::<$m>(input_json));
+            })+
+            None
+        }
+
         fn dispatch_to(id: &str, input_json: &str) -> Option<Result<Value>> {
             $(if id == <$m as Method>::ID {
                 return Some(execute::<$m>(input_json));
@@ -235,6 +242,28 @@ registry! {
 /// called from within a `run` (ADR 0010).
 pub(crate) fn evaluate(id: &str, input: &Value) -> Result<Value> {
     dispatch(id, &input.to_string())
+}
+
+/// Every input error of method `id` on `input`, without computing anything (ADR 0014 G5): the
+/// input is read, its defaults filled in and [`Method::validate`] run. Used for the
+/// `base_input` of an analysis, which is checked in the same pass as the analysis's own fields
+/// without a hidden evaluation.
+pub(crate) fn validate(id: &str, input: &Value) -> Result<()> {
+    validate_to(id, &input.to_string())
+        .unwrap_or_else(|| Err(FairmarkError::UnknownMethod(id.to_owned())))
+}
+
+fn validate_only<M: Method>(input_json: &str) -> Result<()> {
+    let mut input: M::Input = crate::reading::parse(input_json, M::ID.starts_with("analysis."))?;
+    let defaults = M::apply_defaults(&mut input);
+    M::validate(&input, &defaults)
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Computations of the methods other than analyses on this thread, for the tests that
+    /// check that a validation computes nothing.
+    pub(crate) static COMPUTED: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
 }
 
 pub fn method(id: &str) -> Result<&'static MethodInfo> {
@@ -356,6 +385,10 @@ fn dispatch(id: &str, input_json: &str) -> Result<Value> {
 
 fn execute<M: Method>(input_json: &str) -> Result<Value> {
     let mut input: M::Input = crate::reading::parse(input_json, M::ID.starts_with("analysis."))?;
+    #[cfg(test)]
+    if !M::ID.starts_with("analysis.") {
+        COMPUTED.with(|c| c.set(c.get() + 1));
+    }
     // SPEC-0001 R31: the defaults are filled in once, in `run_typed`; the hash covers the input
     // with its defaults, so that a minimal input and its explicit equivalent hash identically.
     let (value, explain, defaults) = M::run_typed(&mut input)?;
@@ -635,5 +668,146 @@ mod tests {
     fn unknown_fields_are_rejected() {
         let err = run("tvm.npv", r#"{"rate": 0.1, "cash_flows": [1], "typo": 1}"#).unwrap_err();
         assert_eq!(err.code(), "FM-E001");
+    }
+
+    /// The input conditions that only the computation can find, as `errors.md` lists them: the
+    /// reconciliation of the statements, the rounding of a schedule, an instalment that never
+    /// repays the loan and the count it solves over the limit, a generated date after
+    /// 2199-12-31, and the minimum input of the ratios.
+    const FOUND_BY_COMPUTATION: &[(&str, &str)] = &[
+        ("statements.reorganise", "FM-E026"),
+        ("loans.amortisation_schedule", "FM-E023"),
+        ("loans.number_of_instalments", "FM-E021"),
+        ("loans.number_of_instalments", "FM-E001"),
+        ("dates.schedule", "FM-E009"),
+        ("ratios.liquidity", "FM-E027"),
+        ("ratios.working_capital", "FM-E027"),
+        ("ratios.capital_structure", "FM-E027"),
+        ("ratios.profitability", "FM-E027"),
+        ("ratios.debt_service", "FM-E027"),
+        ("ratios.covenants", "FM-E027"),
+    ];
+
+    /// The leaves of `value` that hold a number or a decimal string, as JSON pointers.
+    fn numeric_leaves(value: &Value, at: String, out: &mut Vec<String>) {
+        match value {
+            Value::Object(map) => {
+                for (k, v) in map {
+                    numeric_leaves(
+                        v,
+                        format!("{at}/{}", k.replace('~', "~0").replace('/', "~1")),
+                        out,
+                    );
+                }
+            }
+            Value::Array(items) => {
+                for (i, v) in items.iter().enumerate() {
+                    numeric_leaves(v, format!("{at}/{i}"), out);
+                }
+            }
+            Value::Number(_) => out.push(at),
+            Value::String(s) if crate::reading::is_decimal_text(s) => out.push(at),
+            _ => {}
+        }
+    }
+
+    /// The messages of every error in `e`, in order.
+    fn messages(e: FairmarkError) -> Vec<(String, String)> {
+        e.into_errors()
+            .into_iter()
+            .map(|e| (e.code().to_owned(), e.to_string()))
+            .collect()
+    }
+
+    /// The validate-only path agrees with the computation (ADR 0014 G5): on every golden input,
+    /// and on each with one number changed to a value often out of range, `validate` refuses
+    /// exactly the inputs whose run reports input errors, with the same errors in the same
+    /// order; an input it accepts fails, if at all, only with a computation error.
+    #[test]
+    fn validation_agrees_with_the_computation_on_every_golden_input() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
+        let mut checked = 0u32;
+        let mut failures: Vec<String> = Vec::new();
+        for dir in std::fs::read_dir(root).unwrap() {
+            let dir = dir.unwrap().path();
+            let mut files: Vec<_> = std::fs::read_dir(&dir)
+                .unwrap()
+                .map(|f| f.unwrap().path())
+                .collect();
+            files.sort();
+            for (position, file) in files.into_iter().enumerate() {
+                let case: Value =
+                    serde_norway::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+                let (Some(id), Some(input)) = (case["method"].as_str(), case.get("input")) else {
+                    continue;
+                };
+                let (id, input) = if id.starts_with("analysis.") {
+                    match (input["method"].as_str(), input.get("base_input")) {
+                        (Some(inner), Some(base)) if method(inner).is_ok() => (inner, base),
+                        _ => continue,
+                    }
+                } else {
+                    (id, input)
+                };
+                if id.starts_with("analysis.") || method(id).is_err() {
+                    continue;
+                }
+                let mut leaves = Vec::new();
+                numeric_leaves(input, String::new(), &mut leaves);
+                let mut variants = vec![input.clone()];
+                // Every case as given; the first cases of each method also changed, one
+                // number at a time, which keeps the test within seconds without optimisation.
+                let sampled = if position < 12 {
+                    leaves.as_slice()
+                } else {
+                    &[]
+                };
+                for leaf in sampled.iter().step_by(sampled.len().div_ceil(6).max(1)) {
+                    for value in ["-2", "0", "2"] {
+                        let mut changed = input.clone();
+                        *changed.pointer_mut(leaf).unwrap() = Value::String(value.to_owned());
+                        variants.push(changed);
+                    }
+                }
+                for variant in variants {
+                    let validated = validate(id, &variant);
+                    let ran = run(id, &variant.to_string());
+                    let at = format!("{} {id} {variant}", file.display());
+                    match (validated, ran) {
+                        (Ok(()), Ok(_)) => {}
+                        (Ok(()), Err(e)) => {
+                            let codes: Vec<String> = e
+                                .into_errors()
+                                .iter()
+                                .filter(|e| e.is_input_error())
+                                .filter(|e| !FOUND_BY_COMPUTATION.contains(&(id, e.code())))
+                                .map(|e| e.code().to_owned())
+                                .collect();
+                            if !codes.is_empty() {
+                                failures.push(format!("accepted {id} {codes:?}: {at}"));
+                            }
+                        }
+                        (Err(v), Err(r)) => {
+                            if messages(v.clone()) != messages(r.clone()) {
+                                failures.push(format!(
+                                    "differ {id}: {:?} != {:?}: {at}",
+                                    messages(v),
+                                    messages(r)
+                                ));
+                            }
+                        }
+                        (Err(v), Ok(_)) => failures.push(format!("refused {id} {v}: {at}")),
+                    }
+                    checked += 1;
+                }
+            }
+        }
+        assert!(checked > 1500, "{checked}");
+        assert!(
+            failures.is_empty(),
+            "{}\n{}",
+            failures.len(),
+            failures.join("\n")
+        );
     }
 }

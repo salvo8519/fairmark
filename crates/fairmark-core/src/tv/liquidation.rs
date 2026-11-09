@@ -165,6 +165,10 @@ impl Method for Liquidation {
     type Input = LiquidationInput;
     type Output = LiquidationOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check(input).map_err(super::into_error)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         liquidation(input)
     }

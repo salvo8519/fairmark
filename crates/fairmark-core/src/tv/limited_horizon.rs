@@ -190,6 +190,10 @@ impl Method for LimitedHorizon {
     type Input = LimitedHorizonInput;
     type Output = LimitedHorizonOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check(input).map_err(super::into_error)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         limited_horizon(input)
     }

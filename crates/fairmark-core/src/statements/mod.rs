@@ -709,6 +709,10 @@ impl Method for Reorganise {
     type Input = ReorganiseInput;
     type Output = ReorganiseOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        validate::validate(input)
+    }
+
     fn compute(input: &ReorganiseInput) -> Result<(ReorganiseOutput, Explain)> {
         compute(
             input,

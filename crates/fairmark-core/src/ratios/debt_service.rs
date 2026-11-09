@@ -174,7 +174,8 @@ fn defaults(input: &DebtServiceInput) -> Vec<DefaultApplied> {
     out
 }
 
-pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Explain)> {
+/// Every input check of `ratios.debt_service`, before any ratio is computed.
+fn check_debt_service(input: &DebtServiceInput) -> Result<()> {
     // Every input error is reported (ADR 0014 G5), in the order of the checks.
     let mut found = Found::new();
     if input
@@ -205,7 +206,11 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
         "interest_definition",
         input.interest_definition.as_deref(),
     ));
-    found.finish()?;
+    found.finish()
+}
+
+pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Explain)> {
+    check_debt_service(input)?;
     let defaults = defaults(input);
     let mut ex = Explain::new(
         DebtService::ID,
@@ -499,6 +504,10 @@ impl Method for DebtService {
     const VERSION: &'static str = "2";
     type Input = DebtServiceInput;
     type Output = DebtServiceOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_debt_service(input)
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         debt_service(input)

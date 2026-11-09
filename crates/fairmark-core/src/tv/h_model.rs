@@ -172,6 +172,10 @@ impl Method for HModel {
     type Input = HModelInput;
     type Output = HModelOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check(input).map_err(super::into_error)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         h_model(input)
     }

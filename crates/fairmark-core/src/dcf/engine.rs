@@ -24,7 +24,8 @@ use crate::tvm::{period_discount_factors, PeriodTiming};
 use crate::types::Timing;
 
 use super::free_cash_flows::{
-    build_up, FreeCashFlowLines, FreeCashFlows, Location, TaxChoice, FORMULA_FCFE, FORMULA_FCFF,
+    build_up, check_lines, FreeCashFlowLines, FreeCashFlows, Location, TaxChoice, FORMULA_FCFE,
+    FORMULA_FCFF,
 };
 use super::terminal::{
     self, Terminal, TerminalChoice, TerminalContext, TerminalOutput, TerminalRateUse,
@@ -1467,6 +1468,16 @@ fn check_timing(
     }
 }
 
+/// How far the engine goes: the input checks alone (the validate-only path of the Method
+/// trait), or the checks and the calculation.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Pass {
+    /// Every input check, then stop: no flow is built up, projected or discounted.
+    Validate,
+    /// Every input check, then the calculation.
+    Compute,
+}
+
 // ---------------------------------------------------------------- calculation
 
 struct Projected {
@@ -1584,6 +1595,7 @@ fn build_up_stages(
     basis: TerminalBasis,
     taxes: &TaxChoice,
     ex: &mut Explain,
+    pass: Pass,
 ) -> Result<()> {
     let mut first = 1u32;
     let mut any = false;
@@ -1614,6 +1626,26 @@ fn build_up_stages(
                 pointer_prefix: &pointer,
                 first_period: first,
             };
+            let missing_financing = || {
+                invalid(format!(
+                    "`{pointer}/0/interest_expense` and `{pointer}/0/net_borrowing` are \
+                     missing: the equity basis discounts FCFE, which needs the interest \
+                     expense and the net borrowing in every line of `{pointer}`"
+                ))
+                .at(format!("{pointer}/0/interest_expense"), Reason::Missing)
+                .between([
+                    format!("{pointer}/0/interest_expense"),
+                    format!("{pointer}/0/net_borrowing"),
+                ])
+            };
+            if pass == Pass::Validate {
+                let financing = check_lines(lines, taxes, &at)?;
+                if basis == TerminalBasis::Equity && !financing {
+                    return Err(missing_financing());
+                }
+                first += s.periods;
+                continue;
+            }
             let mut own = Explain::new(FreeCashFlows::ID, FORMULA_FCFF);
             let out = build_up(lines, taxes, at, &mut own)?;
             for step in own.steps {
@@ -1631,18 +1663,8 @@ fn build_up_stages(
             let (flows, name) = match basis {
                 TerminalBasis::Enterprise => (out.free_cash_flows_to_firm, "FCFF"),
                 TerminalBasis::Equity => (
-                    out.free_cash_flows_to_equity.ok_or_else(|| {
-                        invalid(format!(
-                            "`{pointer}/0/interest_expense` and `{pointer}/0/net_borrowing` are \
-                             missing: the equity basis discounts FCFE, which needs the interest \
-                             expense and the net borrowing in every line of `{pointer}`"
-                        ))
-                        .at(format!("{pointer}/0/interest_expense"), Reason::Missing)
-                        .between([
-                            format!("{pointer}/0/interest_expense"),
-                            format!("{pointer}/0/net_borrowing"),
-                        ])
-                    })?,
+                    out.free_cash_flows_to_equity
+                        .ok_or_else(missing_financing)?,
                     "FCFE",
                 ),
             };
@@ -1699,15 +1721,37 @@ fn period_timing(t: Timing) -> PeriodTiming {
 /// `found` holds the refusals of the caller's own checks (the bridge lines). The checks of the
 /// input go on after a refusal and every refusal is reported (ADR 0014 G5), in the order of
 /// the checks; a check that needs a refused input is skipped.
-pub(crate) fn run(
+pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain, found: Found) -> Result<EngineOutput> {
+    run_pass(input, ex, found, Pass::Compute)?.ok_or(FairmarkError::Internal(
+        "the compute pass stopped after the checks",
+    ))
+}
+
+/// The validate-only path (the `validate` of the Method trait): every check that [`run`]
+/// makes before it computes, every refusal reported, and nothing built up, projected or
+/// discounted.
+pub(crate) fn validate(input: &EngineInput<'_>, found: Found) -> Result<()> {
+    let mut scratch = Explain::new("dcf", "");
+    run_pass(input, &mut scratch, found, Pass::Validate).map(|_| ())
+}
+
+/// [`run`] and [`validate`]: `None` when `pass` is [`Pass::Validate`] and every check passed.
+fn run_pass(
     input: &EngineInput<'_>,
     ex: &mut Explain,
     mut found: Found,
-) -> Result<EngineOutput> {
+    pass: Pass,
+) -> Result<Option<EngineOutput>> {
     let Some((mut stages, n)) = found.take(check_stages(input.stages, input.base_flow)) else {
         return Err(found.into_error());
     };
-    found.check(build_up_stages(&mut stages, input.basis, &input.taxes, ex));
+    found.check(build_up_stages(
+        &mut stages,
+        input.basis,
+        &input.taxes,
+        ex,
+        pass,
+    ));
     // The terminal option is read first, because it decides whether a terminal rate is used
     // (Decision 24); an error in it is reported where the technique is checked, as before.
     let choice = terminal::choose(input.terminal);
@@ -1757,6 +1801,9 @@ pub(crate) fn run(
     else {
         return Err(found.into_error());
     };
+    if pass == Pass::Validate {
+        return Ok(None);
+    }
     let terminal_rate = used.terminal;
     let rates: Vec<Decimal> = used.per_period.iter().map(|(r, _)| *r).collect();
 
@@ -1955,7 +2002,7 @@ pub(crate) fn run(
             converted_with: used.terminal_converted_with.as_deref(),
         },
     )?;
-    Ok(EngineOutput {
+    Ok(Some(EngineOutput {
         periods,
         pv_explicit,
         terminal,
@@ -1969,7 +2016,7 @@ pub(crate) fn run(
             perpetual_growth,
             perpetual_growth_other_terms,
         },
-    })
+    }))
 }
 
 #[cfg(test)]

@@ -243,14 +243,7 @@ impl DayCount {
 
     /// The exact terms of the year fraction from `start` to `end`, and its formula.
     fn terms(self, start: Date, end: Date) -> Result<(FractionTerms, String)> {
-        if end < start {
-            return Err(FairmarkError::InvalidInput(format!(
-                "`end` ({end}) precedes `start` ({start}); swap them"
-            ))
-            .at("/end", crate::error::Reason::Range)
-            .between(["/end", "/start"])
-            .fix("swap `start` and `end`"));
-        }
+        check_order(start, end)?;
         let days = start.days_until(end);
         let one = |n: i64, d: i64| FractionTerms {
             parts: [Some((n, d)), None],
@@ -362,6 +355,19 @@ pub struct YearFractionOutput {
     pub year_fraction: Decimal,
     /// Actual calendar days between the two dates.
     pub actual_days: i64,
+}
+
+/// `FM-E001` when `end` precedes `start`.
+fn check_order(start: Date, end: Date) -> Result<()> {
+    if end < start {
+        return Err(FairmarkError::InvalidInput(format!(
+            "`end` ({end}) precedes `start` ({start}); swap them"
+        ))
+        .at("/end", crate::error::Reason::Range)
+        .between(["/end", "/start"])
+        .fix("swap `start` and `end`"));
+    }
+    Ok(())
 }
 
 pub fn year_fraction(input: &YearFractionInput) -> Result<(YearFractionOutput, Explain)> {
@@ -494,15 +500,27 @@ fn add_months(start: Date, months: i64, end_of_month: bool) -> std::result::Resu
 /// (empty for `dates.schedule`, `/timeline/schedule` in `series.project`), so that every error
 /// names the field. Validation order: period length, number of periods, then the dates (the
 /// start date is checked when the input is read).
+/// The input checks of a schedule, every error reported (ADR 0014 G5): the period length and
+/// the number of periods. That every date falls within the supported range is checked as the
+/// dates are built.
+pub(crate) fn check_schedule(input: &ScheduleInput, prefix: &str) -> Result<()> {
+    let mut found = crate::error::Found::new();
+    found.check(
+        frequency::period_length(input.frequency, input.period_months, prefix, true).map(|_| ()),
+    );
+    found.check(check_number_of_periods(
+        input.number_of_periods,
+        &format!("{prefix}/number_of_periods"),
+        "periods of the schedule",
+    ));
+    found.finish()
+}
+
 pub(crate) fn build_schedule(input: &ScheduleInput, prefix: &str) -> Result<BuiltSchedule> {
+    check_schedule(input, prefix)?;
     let length = frequency::period_length(input.frequency, input.period_months, prefix, true)?
         .ok_or(FairmarkError::Internal("required period length missing"))?;
     let n = input.number_of_periods;
-    check_number_of_periods(
-        n,
-        &format!("{prefix}/number_of_periods"),
-        "periods of the schedule",
-    )?;
     let start = input.start_date;
     let month_end_start = is_month_end(start);
     let p = i64::from(length.months());
@@ -693,6 +711,10 @@ impl Method for YearFraction {
     type Input = YearFractionInput;
     type Output = YearFractionOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_order(input.start, input.end)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         year_fraction(input)
     }
@@ -714,6 +736,10 @@ impl Method for Schedule {
     const VERSION: &'static str = "1";
     type Input = ScheduleInput;
     type Output = ScheduleOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_schedule(input, "")
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         schedule(input)

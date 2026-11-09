@@ -259,6 +259,10 @@ impl Method for ExitMultiple {
     type Input = ExitMultipleInput;
     type Output = ExitMultipleOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check(input).map_err(super::into_error)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         exit_multiple(input)
     }

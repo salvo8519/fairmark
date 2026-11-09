@@ -512,58 +512,81 @@ fn check_rate(g: Decimal, pointer: &str, converted: Option<&str>) -> Result<()> 
     .expected(["a growth rate greater than -1 (-100%)"]))
 }
 
-pub fn project(input: &ProjectInput) -> Result<(ProjectOutput, Explain)> {
-    // Timeline (R14) and timing (R15).
-    let (n, length, schedule): (u32, Option<PeriodLength>, Option<BuiltSchedule>) = match &input
-        .timeline
-    {
+/// What the projection needs, once every input check has passed.
+struct Prepared {
+    n: u32,
+    length: Option<PeriodLength>,
+    schedule: Option<BuiltSchedule>,
+    steps: u32,
+    stated: Vec<Stated>,
+    conversion: Conversion,
+    basis_convention: String,
+}
+
+/// Every input check of `series.project`, every error reported (ADR 0014 G5), in the order
+/// of the checks: the timeline and the timing (R14, R15), the growth steps and stated rates
+/// (R10 to R12), their domain (R17) and the basis (R13). A check that needs a refused input is
+/// skipped.
+fn prepare(input: &ProjectInput) -> Result<Prepared> {
+    let mut found = crate::error::Found::new();
+    let (n, length, schedule) = match &input.timeline {
         Timeline::Periods(t) => {
-            let length =
-                frequency::period_length(t.frequency, t.period_months, "/timeline/periods", false)?;
+            let length = found.take(frequency::period_length(
+                t.frequency,
+                t.period_months,
+                "/timeline/periods",
+                false,
+            ));
             let n = t.number_of_periods;
-            check_number_of_periods(
+            let n_valid = found.check(check_number_of_periods(
                 n,
                 "/timeline/periods/number_of_periods",
                 "periods to project",
-            )?;
+            ));
             if input.timing.is_some() {
-                return Err(FairmarkError::InvalidInputAt {
-                    pointer: "/timing".to_owned(),
-                    detail: "applies only to a `schedule` timeline, whose periods have \
+                found.push(
+                    FairmarkError::InvalidInputAt {
+                        pointer: "/timing".to_owned(),
+                        detail: "applies only to a `schedule` timeline, whose periods have \
                                  dates; remove it, or give the timeline as `schedule`"
-                        .to_owned(),
-                }
-                .because(Reason::Requires)
-                .between(["/timing", "/timeline"]));
+                            .to_owned(),
+                    }
+                    .because(Reason::Requires)
+                    .between(["/timing", "/timeline"]),
+                );
             }
-            (n, length, None)
+            (n_valid.then_some(n), length, None)
         }
         Timeline::Schedule(s) => {
-            let built = dates::build_schedule(s, "/timeline/schedule")?;
+            let built = found.take(dates::build_schedule(s, "/timeline/schedule"));
             if input.timing.is_none() {
-                return Err(FairmarkError::InvalidInputAt {
-                    pointer: "/timing".to_owned(),
-                    detail: "required with a `schedule` timeline: give `end_of_period` \
+                found.push(
+                    FairmarkError::InvalidInputAt {
+                        pointer: "/timing".to_owned(),
+                        detail: "required with a `schedule` timeline: give `end_of_period` \
                                  (each value dated at the end date of its period, the first \
                                  day of the next period) or `beginning_of_period` (at its \
                                  start date)"
-                        .to_owned(),
-                }
-                .because(Reason::Missing)
-                .expected(["end_of_period", "beginning_of_period"]));
+                            .to_owned(),
+                    }
+                    .because(Reason::Missing)
+                    .expected(["end_of_period", "beginning_of_period"]),
+                );
             }
-            (s.number_of_periods, Some(built.length), Some(built))
+            let n = built.as_ref().map(|_| s.number_of_periods);
+            let length = built.as_ref().map(|b| Some(b.length));
+            (n, length, built)
         }
     };
-
+    let (Some(n), Some(length)) = (n, length) else {
+        return Err(found.into_error());
+    };
     // Growth steps (R10), stated rates (R11, R12), their domain (R17), the basis (R13).
     let steps = match input.base_period {
         BasePeriod::Period0 => n,
         BasePeriod::Period1 => n - 1,
     };
-    let stated = stated_rates(&input.growth, steps, n, input.base_period)?;
-    // Every rate out of range is reported (ADR 0014 G5).
-    let mut found = crate::error::Found::new();
+    let stated = found.take(stated_rates(&input.growth, steps, n, input.base_period));
     if let GrowthRule::Linear(l) = &input.growth {
         // The ends are checked by name, even when no step reaches them (s = 0); every step
         // lies between them, so the steps add nothing.
@@ -574,12 +597,38 @@ pub fn project(input: &ProjectInput) -> Result<(ProjectOutput, Explain)> {
         ));
         found.check(check_rate(l.to_growth, "/growth/linear/to_growth", None));
     } else {
-        for s in &stated {
+        for s in stated.iter().flatten() {
             found.check(check_rate(s.rate, &s.pointer, None));
         }
     }
+    let basis = found.take(resolve_basis(input.growth_basis, length));
     found.finish()?;
-    let (conversion, basis_convention) = resolve_basis(input.growth_basis, length)?;
+    let (Some(stated), Some((conversion, basis_convention))) = (stated, basis) else {
+        return Err(FairmarkError::Internal(
+            "series checks passed without their values",
+        ));
+    };
+    Ok(Prepared {
+        n,
+        length,
+        schedule,
+        steps,
+        stated,
+        conversion,
+        basis_convention,
+    })
+}
+
+pub fn project(input: &ProjectInput) -> Result<(ProjectOutput, Explain)> {
+    let Prepared {
+        n,
+        length,
+        schedule,
+        steps,
+        stated,
+        conversion,
+        basis_convention,
+    } = prepare(input)?;
     let how = input.growth_basis.map(basis_name).unwrap_or("per_period");
     let mut applied = Vec::with_capacity(stated.len());
     for s in &stated {
@@ -772,6 +821,10 @@ impl Method for Project {
     const VERSION: &'static str = "1";
     type Input = ProjectInput;
     type Output = ProjectOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        prepare(input).map(|_| ())
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         project(input)

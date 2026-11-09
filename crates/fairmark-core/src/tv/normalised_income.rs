@@ -160,6 +160,10 @@ impl Method for NormalisedIncome {
     type Input = NormalisedIncomeInput;
     type Output = NormalisedIncomeOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check(input).map_err(super::into_error)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         normalised_income(input)
     }

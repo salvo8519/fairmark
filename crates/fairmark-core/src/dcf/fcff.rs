@@ -143,6 +143,26 @@ pub fn fcff(input: &DcfFcffInput) -> Result<(DcfFcffOutput, Explain)> {
     Fcff::run_typed(&mut input).map(|(output, explain, _)| (output, explain))
 }
 
+/// The validate-only path: every check of [`fcff_with_defaults`], no calculation.
+fn validate_fcff(input: &DcfFcffInput, defaults: &[DefaultApplied]) -> Result<()> {
+    let engine_input = input.engine_input(defaults)?;
+    engine::validate(&engine_input, bridge_lines(input))
+}
+
+/// The bridge lines checked, every refusal kept for the engine to report with its own.
+fn bridge_lines(input: &DcfFcffInput) -> Found {
+    let mut found = Found::new();
+    bridge::check_lines(
+        &input.non_operating_assets,
+        &input.debt_like_items,
+        &input.non_controlling_interests,
+        "a non-operating asset is zero or more (obligations belong in the net financial \
+         position)",
+        &mut found,
+    );
+    found
+}
+
 /// The calculation on an input whose defaults were filled in; `defaults` names them, for the
 /// messages that say when a value came from a default.
 fn fcff_with_defaults(
@@ -153,15 +173,7 @@ fn fcff_with_defaults(
     ex.convention("basis: enterprise, free cash flows to the firm (FCFF) discounted at the WACC");
     let engine_input = input.engine_input(defaults)?;
     // Bridge items are checked before any calculation, like every other input.
-    let mut found = Found::new();
-    bridge::check_lines(
-        &input.non_operating_assets,
-        &input.debt_like_items,
-        &input.non_controlling_interests,
-        "a non-operating asset is zero or more (obligations belong in the net financial \
-         position)",
-        &mut found,
-    );
+    let found = bridge_lines(input);
     let out = engine::run(&engine_input, &mut ex, found)?;
 
     let pv_tv = out.terminal.present_value;
@@ -319,6 +331,10 @@ impl Method for Fcff {
         defaults: &[DefaultApplied],
     ) -> Result<(Self::Output, Explain)> {
         fcff_with_defaults(input, defaults)
+    }
+
+    fn validate(input: &Self::Input, defaults: &[DefaultApplied]) -> Result<()> {
+        validate_fcff(input, defaults)
     }
 }
 
