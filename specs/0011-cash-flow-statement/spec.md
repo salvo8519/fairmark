@@ -471,72 +471,48 @@ Sources:
   only).
 
 ## Open questions
-- [ ] **1. Method form.** New method `statements.cash_flows` on the same input (recommended,
-      Analysis, Option B) or a `cash_flows` block in `statements.reorganise` (Option A). Also
-      confirm the id: `statements.cash_flows` (IAS 7 "statement of cash flows") or
-      `statements.cash_flow_statement`.
-- [ ] **2. Default classification of interest and dividends.** (a) Documented default
-      `operating`, the OIC 10 text in force: passes test 1 (OIC 10, 2016) and test 2 for Italian
-      preparers; reported; warned with `classification_default` because it determines A, B and C.
-      When the OIC adopts the final amendment, changing the default is a numerical change
-      (version 2). (b) No default: A, B and C `choice_required` with the permitted values; the
-      change in cash is still computed. Recommendation: (a). Also: the enum values name the
-      content (`operating`, `by_source`), not the standard, so that the final OIC text does not
-      force a breaking rename; confirm.
-- [ ] **3. Cash amounts of interest, dividends and taxes when not given.** Proposed documented
-      default: the accrual amount of the later year (C17 and lease interest; C16; C15; item 20),
-      the difference with the payment staying in the changes in working capital. Under
-      `operating` it changes no section total (only the split inside A); under `by_source` it
-      moves the change in accrued interest between A and C. Test 1 (practice source) is not met:
-      no source was found. Options: admit it on the maintainer's practice basis, admit it only
-      under `operating`, or leave the lines and the affected totals not computed.
-- [ ] **4. Results of disposals when not given.** Gains and losses on disposals sit in A5 and
-      B14 with other items and cannot be separated from aggregates. Proposed documented default:
-      none, with the warning `disposal_results_in_operating` (A includes them, B is net of
-      disposals at carrying amount; the change in cash is exact). Test 1 not met (no source).
-      Alternative: A and B not computed without `disposals` (an empty list stating none would
-      complete them, G3).
-- [ ] **5. Revaluations credited to equity when not given.** Proposed: none, listed, with the
-      warning `revaluation_reserve_increase` when A.III is given in both years and increased.
-      Alternative: take the increase in A.III as a non-cash revaluation by default (A.III grows
-      only by revaluation under the revaluation laws: to verify).
-- [ ] **6. Free cash flows inside the method.** Compute FCFF and FCFE here through
-      `dcf.free_cash_flows` when `free_cash_flow_taxes` is given (proposed), or return only
-      `free_cash_flow_lines` and leave the call to the agent.
-- [ ] **7. Leases in the free cash flow lines.** Right-of-use additions are non-cash in the
-      statement (IAS 7 paragraph 43, to verify). In `free_cash_flow_lines`, proposed: additions
-      are capital expenditure and the lease liability change is net borrowing, consistent with the
-      lease liability in gross debt (SPEC-0005 P3) and with the FCFE. Alternative: exclude them,
-      which makes FCFF inconsistent with the net financial position used in `dcf.fcff`.
-- [ ] **8. Derivatives.** Changes in derivative liabilities (part of B) and in the hedging reserve
-      A.VII are non-cash. Proposed for version 1: both excluded as a non-cash pair when both are
-      given; when only one is given, its change stays in `other_changes_in_working_capital` or
-      `other_equity_movements` with a convention. Confirm or defer to a later version.
-- [ ] **9. Floor error code.** One shared code for "input below the minimum" across methods
-      (ADR 0014 G10 says "a dedicated stable error code"), assigned by #258 or #263, or one code
-      per method. The number must be checked free on main.
-- [ ] **10. Order of work.** This method needs #36 (R23), #263 (statements v2), #258, #259 and
-      #266. Confirm it is planned after them and built on the v2 input from its first version.
-- [ ] **11. Golden sources.** Confirm the synthetic company built on OIC 10 Schema 1 and IAS 7
-      Illustrative Example A with changed numbers as the independent source; state whether OIC 10
-      Appendix A contains a numeric example (to verify); name a filed ordinary statement with its
-      published cash flow statement for an additional re-derived case, and an anonymised
-      practitioner case if available.
-- [ ] **12. R23 additions.** The audit additions to R23 (`change_in_operating_fixed_assets`,
-      `change_in_operating_provisions`, `change_in_invested_capital`, changes of non-operating
-      assets, debt-like items and quasi-equity, the funding check, `implied_net_investment`)
-      belong to SPEC-0005 and issue #36. Confirm, so that this spec only consumes them.
-- [ ] **13. Exchange rate effect.** Not separated from aggregates in version 1, stated as a
-      limitation with the warning `exchange_effect_not_separated` when C17-bis is not zero.
-      Confirm.
-- [ ] **14. Reverse factoring.** The 2026 draft (Proposal 3) reclassifies supplier payables
-      settled through a factor as financing. Version 1 follows the reorganisation: such a debt is
-      financing only when the analyst gives it within `financial_debt`. Confirm.
-- [ ] **15. Roadmap.** Issue #253 in `roadmap/roadmap.yaml` needs `spec: "0011"`; the change is
-      proposed through `roadmap-update` by the main session.
-- [ ] **16. Starting point.** Both the profit for the year (OIC 10, 2016) and the profit before
-      tax (2026 draft) are returned as lines, with no convention; confirm that no
-      `starting_point` choice is needed.
+Answered by the maintainer on 2026-11-09 (PR #278). The spec stays Draft until the maintainer
+approves the full text; the answers below are binding for that text.
+
+- [x] **1. Method form.** New method `statements.cash_flows` on the same input as
+      `statements.reorganise` (Option B).
+- [x] **2. Default classification of interest and dividends.** Documented default `operating`
+      (OIC 10, 2016), reported in `meta.defaults_applied` with the warning
+      `classification_default`; enum values `operating` and `by_source` name the content.
+- [x] **3. Cash amounts of interest, dividends and taxes when not given.** No accrual default
+      (ADR 0014 test 1 not met). The lines "interest paid", "dividends paid" and "taxes paid" are
+      not computed until the analyst gives the cash amounts. Section totals that do not depend on
+      them are computed: under `operating` the totals of A, B and C and the change in cash; under
+      `by_source` the change in cash, while A and C are not computed without the cash amounts of
+      interest and dividends.
+- [x] **4. Results of disposals when not given.** Documented default: no disposals, reported in
+      `meta.defaults_applied`, with the warning `disposal_results_in_operating` on A and B (the
+      change in cash is exact). The maintainer accepts it as common credit-analysis practice
+      when only two balance sheets are available.
+- [x] **5. Revaluations credited to equity when not given.** None, listed, with the warning
+      `revaluation_reserve_increase` when A.III is given in both years and increased.
+- [x] **6. Free cash flows inside the method.** FCFF and FCFE through `dcf.free_cash_flows` only
+      when `free_cash_flow_taxes` is given; no tax rate is ever assumed.
+- [x] **7. Leases in the free cash flow lines.** Right-of-use additions are capital expenditure
+      and the lease liability change is net borrowing, consistent with SPEC-0005 P3.
+- [x] **8. Derivatives.** Version 1 excludes the change in derivative liabilities and in A.VII as a
+      non-cash pair when both are given; otherwise as proposed, with a convention.
+- [x] **9. Floor error code.** One shared code for input below the minimum, as for the ratios
+      (FM-E027 on main since #276), if its meaning is the same; otherwise the next free code.
+- [x] **10. Order of work.** After #36, #263, #258, #259 and #266, on the v2 statements input
+      from the first version.
+- [x] **11. Golden sources.** The synthetic company with changed numbers is the independent
+      source (maintainer decision of 2026-11-08); whether OIC 10 Appendix A has a numeric
+      example stays to verify.
+- [x] **12. R23 additions.** They belong to SPEC-0005 and issue #36 (recorded on #36); this spec
+      consumes them.
+- [x] **13. Exchange rate effect.** Not separated in version 1; limitation with the warning
+      `exchange_effect_not_separated` when C17-bis is not zero.
+- [x] **14. Reverse factoring.** Financing only when the analyst gives it within
+      `financial_debt`.
+- [x] **15. Roadmap.** Task #253 references spec 0011 (this pull request).
+- [x] **16. Starting point.** Both profit for the year and profit before tax are returned as
+      lines; no `starting_point` choice.
 
 ## Appendix A — Lines of the statement
 "Reclassified": computable when the year is in the reclassified form. Signs: positive for an
