@@ -7,6 +7,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+import jsonschema
 import pytest
 import yaml
 
@@ -57,7 +58,6 @@ def test_decimal_patterns_are_the_engines() -> None:
 
 @pytest.mark.parametrize("path", VALUE_CASES, ids=lambda p: f"{p.parent.name}/{p.stem}")
 def test_golden_results_match_their_result_schema(path: Path) -> None:
-    jsonschema = pytest.importorskip("jsonschema")
     case = case_of(path)
     raw = fm.run_json(case["method"], case["input"])
     validator = jsonschema.Draft202012Validator(fm.result_schema(case["method"]))
@@ -102,18 +102,21 @@ class StrictDecoder(_core._Decoder):
     """Fails when a value fits two branches of an `anyOf` that would decode it differently."""
 
     def branch(self, members: list[Any], node: Any, inherited: frozenset[str] = frozenset()) -> Any:
-        fitting = [
-            m
-            for m in members
-            if (
-                self.properties(m, node, inherited) is not None
-                if isinstance(node, dict)
-                else self.fits(m, node)
-            )
-        ]
-        decodings = {repr(self.decode(m, node)) for m in fitting}
-        assert len(decodings) <= 1, f"ambiguous branches for {node!r}"
-        return fitting[0] if fitting else None
+        decodings = {}
+        for m in members:
+            if isinstance(node, dict):
+                shape = self.shape(m, node, inherited)
+                if shape is None:
+                    continue
+                # A branch of a flattened enum describes only some keys: compare those.
+                decodings[id(m)] = (
+                    m,
+                    {k: self.decode(v, node[k]) for k, v in shape.props.items() if k in node},
+                )
+            elif self.fits(m, node):
+                decodings[id(m)] = (m, self.decode(m, node))
+        assert len({repr(d) for _, d in decodings.values()}) <= 1, f"ambiguous: {node!r}"
+        return next(iter(decodings.values()))[0] if decodings else None
 
 
 @pytest.mark.parametrize("path", VALUE_CASES, ids=lambda p: f"{p.parent.name}/{p.stem}")
@@ -180,3 +183,83 @@ def test_result_exposes_the_method_version() -> None:
     assert r.method_version == "2" == r.meta["method_version"]
     versions = {m["id"]: m["version"] for m in fm.methods()}
     assert r.method_version == versions["tvm.npv"]
+
+
+# ---- the decoder on synthetic schemas (review of #275)
+
+DECIMAL = {"type": "string", "pattern": r"^-?\d+(\.\d+)?$"}
+
+
+def decode(schema: dict[str, Any], node: Any) -> Any:
+    return _core._decode_by(schema, node, "the test value")
+
+
+def test_a_closed_branch_rejects_unknown_keys() -> None:
+    # `additionalProperties: false` closes an object like an output schema does: {"b": "1.5"}
+    # does not fit the first branch, whose only key is `a`.
+    schema = {
+        "anyOf": [
+            {
+                "type": "object",
+                "properties": {"a": {"type": "string"}},
+                "additionalProperties": False,
+            },
+            {"type": "object", "properties": {"b": DECIMAL}, "additionalProperties": False},
+        ]
+    }
+    assert decode(schema, {"b": "1.5"}) == {"b": Decimal("1.5")}
+    assert decode(schema, {"a": "1.5"}) == {"a": "1.5"}
+
+
+def test_an_open_object_accepts_unknown_keys() -> None:
+    # A schema or `true` as additionalProperties keeps the object open.
+    schema = {"type": "object", "properties": {"a": DECIMAL}, "additionalProperties": True}
+    assert decode(schema, {"a": "1", "z": "2"}) == {"a": Decimal("1"), "z": "2"}
+
+
+def test_a_map_inside_an_any_of_decodes_its_values() -> None:
+    schema = {
+        "type": "object",
+        "properties": {
+            "m": {"anyOf": [{"type": "object", "additionalProperties": DECIMAL}, {"type": "null"}]}
+        },
+    }
+    assert decode(schema, {"m": {"x": "2.5"}}) == {"m": {"x": Decimal("2.5")}}
+    assert decode(schema, {"m": None}) == {"m": None}
+
+
+def test_input_and_output_of_pointers_are_relative_to_the_holding_object() -> None:
+    row = {
+        "type": "object",
+        "properties": {
+            "inner": {"type": "object", "properties": {"id": {"type": "string"}}},
+            "value": {"x-fairmark-output-of": "/inner/id"},
+            "input": {"x-fairmark-input-of": "/inner/id"},
+        },
+    }
+    schema = {"type": "object", "properties": {"rows": {"type": "array", "items": row}}}
+    node = {
+        "rows": [
+            {
+                "inner": {"id": "tvm.npv"},
+                "value": {"npv": "1.5", "present_values": ["1.5"]},
+                "input": {"rate": "0.1", "cash_flows": [-100, "60"]},
+            }
+        ]
+    }
+    out = decode(schema, node)["rows"][0]
+    assert out["value"] == {"npv": Decimal("1.5"), "present_values": [Decimal("1.5")]}
+    assert out["input"] == {"rate": Decimal("0.1"), "cash_flows": [Decimal("-100"), Decimal("60")]}
+
+
+def test_a_node_that_fits_no_branch_is_an_internal_error() -> None:
+    schema = {"type": "object", "properties": {"v": {"anyOf": [DECIMAL, {"type": "null"}]}}}
+    with pytest.raises(fm.FairmarkError) as err:
+        decode(schema, {"v": "not a number"})
+    assert err.value.code == "FM-E012" and "/v" in err.value.message
+    closed = {"type": "object", "properties": {"a": DECIMAL}, "additionalProperties": False}
+    with pytest.raises(fm.FairmarkError):
+        decode(closed, {"b": "1"})
+    pointing = {"type": "object", "properties": {"v": {"x-fairmark-output-of": "/missing"}}}
+    with pytest.raises(fm.FairmarkError):
+        decode(pointing, {"v": {}})

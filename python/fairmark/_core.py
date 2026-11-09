@@ -99,22 +99,35 @@ def _pointer(value: Any, pointer: str) -> Any:
     return value
 
 
+class _Shape:
+    """What an object schema allows: the schema of each named key, the schema of any other key
+    (`extra`, None when the object is closed) and whether other keys are allowed at all."""
+
+    def __init__(self) -> None:
+        self.props: dict[str, Any] = {}
+        self.extra: Any = None
+
+
+class _Mismatch(Exception):
+    """A result that does not fit its own schema: a defect, reported as `FM-E012`."""
+
+
 class _Decoder:
     """Decodes a value by its JSON Schema: a decimal becomes `Decimal`, everything else keeps
     its JSON type. Nothing is guessed from the text of a value: a label, an id or a pointer
-    that looks like a number stays text, because its schema says it is text.
+    that looks like a number stays text, because its schema says it is text. A value that does
+    not fit its schema is a defect of the engine, raised as `FM-E012`.
     """
 
-    def __init__(self, schema: dict[str, Any], root: Any) -> None:
+    def __init__(self, schema: dict[str, Any]) -> None:
         self.schema = schema
-        self.root = root
 
     def resolve(self, schema: Any) -> Any:
         seen = 0
         while isinstance(schema, dict) and "$ref" in schema:
             ref = schema["$ref"]
             if not ref.startswith("#/") or seen > 64:
-                raise ValueError(f"unsupported schema reference {ref!r}")
+                raise _Mismatch(f"unsupported schema reference {ref!r}")
             target: Any = self.schema
             for token in ref[2:].split("/"):
                 target = target[token.replace("~1", "/").replace("~0", "~")]
@@ -124,50 +137,57 @@ class _Decoder:
     def is_decimal(self, schema: dict[str, Any]) -> bool:
         return "string" in _types(schema) and schema.get("pattern") in _DECIMAL_PATTERNS
 
-    def properties(
-        self, schema: Any, node: dict[str, Any], inherited: frozenset[str]
-    ) -> dict[str, Any] | None:
-        """The schema of each key of the object `node` under `schema`, or None when the object
-        does not fit it: a required key is missing, or a key is not one the schema can emit.
-        Branches of `anyOf`/`oneOf` (an untagged or flattened enum) are tried in order.
+    def shape(self, schema: Any, node: dict[str, Any], inherited: frozenset[str]) -> _Shape | None:
+        """The shape of the object `node` under `schema`, or None when it does not fit: a
+        required key is missing, or a key is neither named by the schema nor allowed by its
+        `additionalProperties`. Branches of `anyOf`/`oneOf` (an untagged or flattened enum)
+        are tried in order; their named keys and their `additionalProperties` are merged.
         """
         schema = self.resolve(schema)
+        shape = _Shape()
         if not isinstance(schema, dict):
-            return {} if schema is not False else None
+            shape.extra = True
+            return shape if schema is not False else None
         if _types(schema) and "object" not in _types(schema):
             return None
-        props: dict[str, Any] = dict(schema.get("properties", {}))
+        shape.props.update(schema.get("properties", {}))
         if any(key not in node for key in schema.get("required", [])):
             return None
-        for member in schema.get("allOf", []):
-            sub = self.properties(member, node, inherited | props.keys())
+        extra = schema.get("additionalProperties")
+        if isinstance(extra, dict) or extra is True:
+            shape.extra = extra
+        members = list(schema.get("allOf", []))
+        for keyword in ("anyOf", "oneOf"):
+            if keyword in schema:
+                chosen = self.branch(schema[keyword], node, inherited | shape.props.keys())
+                if chosen is None:
+                    return None
+                members.append(chosen)
+        for member in members:
+            sub = self.shape(member, node, inherited | shape.props.keys())
             if sub is None:
                 return None
-            props.update(sub)
-        for keyword in ("anyOf", "oneOf"):
-            if keyword not in schema:
-                continue
-            chosen = self.branch(schema[keyword], node, inherited | props.keys())
-            if chosen is None:
-                return None
-            sub = self.properties(chosen, node, inherited | props.keys())
-            assert sub is not None
-            props.update(sub)
-        # An output schema lists every key the engine can write (serialisation contract), so
-        # a key it does not list means the object belongs to another branch.
+            shape.props.update(sub.props)
+            if shape.extra is None:
+                shape.extra = sub.extra
+        # An output schema lists every key the engine can write (serialisation contract), and
+        # an input schema refuses unknown keys (`additionalProperties: false`): a key neither
+        # names means the object belongs to another branch. Only a schema or `true` in
+        # `additionalProperties` keeps the object open.
+        closed = extra is False or (extra is None and "properties" in schema)
         if (
-            "properties" in schema
-            and "additionalProperties" not in schema
-            and any(key not in props and key not in inherited for key in node)
+            closed
+            and shape.extra is None
+            and any(key not in shape.props and key not in inherited for key in node)
         ):
             return None
-        return props
+        return shape
 
     def branch(self, members: list[Any], node: Any, inherited: frozenset[str] = frozenset()) -> Any:
         """The first member of an `anyOf`/`oneOf` that `node` fits, or None."""
         for member in members:
             if isinstance(node, dict):
-                if self.properties(member, node, inherited) is not None:
+                if self.shape(member, node, inherited) is not None:
                     return member
             elif self.fits(member, node):
                 return member
@@ -178,7 +198,7 @@ class _Decoder:
         if not isinstance(schema, dict):
             return schema is not False
         if isinstance(node, dict):
-            return self.properties(schema, node, frozenset()) is not None
+            return self.shape(schema, node, frozenset()) is not None
         if "const" in schema and node != schema["const"]:
             return False
         if "enum" in schema and node not in schema["enum"]:
@@ -193,7 +213,9 @@ class _Decoder:
                 return False
         return True
 
-    def decode(self, schema: Any, node: Any) -> Any:
+    def decode(self, schema: Any, node: Any, holder: Any = None, at: str = "") -> Any:
+        """`node` decoded by `schema`; `holder` is the object that holds it (for the
+        `x-fairmark-*-of` pointers), `at` its pointer within the decoded value."""
         if node is None:
             return None
         schema = self.resolve(schema)
@@ -201,50 +223,69 @@ class _Decoder:
             return node
         for keyword, kind in ((_INPUT_OF, "input"), (_OUTPUT_OF, "output")):
             if keyword in schema:
-                method = _pointer(self.root, schema[keyword])
+                # The pointer is relative to the object that holds the field.
+                method = _pointer(holder, schema[keyword])
                 if not isinstance(method, str):
-                    return node
+                    raise _Mismatch(f"{at}: {keyword} {schema[keyword]!r} names no method id")
                 return _decode(kind, method, node)
         if isinstance(node, dict):
-            return self.decode_object(schema, node)
+            return self.decode_object(schema, node, at)
         for keyword in ("anyOf", "oneOf"):
             if keyword in schema:
                 chosen = self.branch(schema[keyword], node)
-                return node if chosen is None else self.decode(chosen, node)
+                if chosen is None:
+                    raise _Mismatch(f"{at or '/'}: the value fits no alternative of its schema")
+                return self.decode(chosen, node, holder, at)
         if isinstance(node, list):
             prefix = schema.get("prefixItems", [])
             items = schema.get("items", True)
             return [
-                self.decode(prefix[i] if i < len(prefix) else items, v) for i, v in enumerate(node)
+                self.decode(prefix[i] if i < len(prefix) else items, v, node, f"{at}/{i}")
+                for i, v in enumerate(node)
             ]
         if isinstance(node, bool) or not self.is_decimal(schema):
+            return node
+        if isinstance(node, Decimal):  # a JSON number read exactly (`parse_float=Decimal`)
             return node
         if isinstance(node, str) and re.search(schema["pattern"], node):
             return Decimal(node)
         if isinstance(node, int):
             return Decimal(node)
-        return node
+        raise _Mismatch(f"{at or '/'}: {node!r} is not a decimal")
 
-    def decode_object(self, schema: dict[str, Any], node: dict[str, Any]) -> dict[str, Any]:
-        props = self.properties(schema, node, frozenset())
-        if props is None:
-            return node
-        extra = schema.get("additionalProperties")
+    def decode_object(self, schema: dict[str, Any], node: dict[str, Any], at: str) -> Any:
+        shape = self.shape(schema, node, frozenset())
+        if shape is None:
+            raise _Mismatch(f"{at or '/'}: the object does not fit its schema")
         out = {}
         for key, value in node.items():
-            if key in props:
-                out[key] = self.decode(props[key], value)
-            elif isinstance(extra, dict):
-                out[key] = self.decode(extra, value)
-            else:
-                out[key] = value
+            where = f"{at}/{key.replace('~', '~0').replace('/', '~1')}"
+            sub = shape.props.get(key, shape.extra)
+            out[key] = value if sub is None else self.decode(sub, value, node, where)
         return out
 
 
 def _decode(kind: str, method: str, node: Any) -> Any:
     """`node` decoded by the `input` or `output` schema of `method`."""
     schema = _schema(kind, method)
-    return _Decoder(schema, node).decode(schema, node)
+    return _Decoder(schema).decode(schema, node)
+
+
+def _decode_by(schema: dict[str, Any], node: Any, what: str) -> Any:
+    """`node` decoded by `schema`. A node that does not fit the schema is a defect of the engine,
+    reported as `FM-E012` like a panic in the engine, with the pointer of the node."""
+    try:
+        return _Decoder(schema).decode(schema, node)
+    except _Mismatch as err:
+        raise FairmarkError(
+            "FM-E012",
+            f"internal error: {what} does not match its schema at {err}; please report it",
+        ) from None
+
+
+def _decode_value(method: str, node: Any) -> Any:
+    """The `value` of a result of `method`, decoded by its output schema."""
+    return _decode_by(_schema("output", method), node, f"the result of {method}")
 
 
 @dataclass(frozen=True)
@@ -340,7 +381,7 @@ def run(method: str, inputs: Mapping[str, Any] | str) -> Result:
     explain = raw["explain"]
     return Result(
         method=raw["method"],
-        value=_decode("output", raw["method"], exact["value"]),
+        value=_decode_value(raw["method"], exact["value"]),
         steps=[Step(s["label"], s["formula"], Decimal(s["value"])) for s in explain["steps"]],
         formula=explain["formula"],
         conventions=list(explain["conventions"]),
