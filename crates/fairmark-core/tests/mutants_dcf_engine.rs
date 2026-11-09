@@ -266,20 +266,46 @@ fn negative_flow_warning_only_for_negative_flows() {
 }
 
 /// SPEC-0001 R1, R3: interest expense and net borrowing belong to FCFE; on the enterprise
-/// basis either one alone is refused, naming the line.
+/// basis either one alone is refused; the message names only the fields given, each with its
+/// pointer to the line.
 #[test]
 fn financing_lines_refused_on_the_enterprise_basis_one_at_a_time() {
-    for (field, value) in [("interest_expense", "10"), ("net_borrowing", "5")] {
+    let cases: [(&[(&str, &str)], &[&str], &[&str]); 3] = [
+        (
+            &[("interest_expense", "10")],
+            &["interest_expense"],
+            &["net_borrowing"],
+        ),
+        (
+            &[("net_borrowing", "5")],
+            &["net_borrowing"],
+            &["interest_expense"],
+        ),
+        (
+            &[("interest_expense", "10"), ("net_borrowing", "5")],
+            &["interest_expense", "net_borrowing"],
+            &[],
+        ),
+    ];
+    for (given, named, absent) in cases {
         let mut line = line();
-        line[field] = json!(value);
+        for (field, value) in given {
+            line[*field] = json!(value);
+        }
         let mut input = with_stages(json!([{"periods": 1, "projection": "given",
                                             "lines": [line]}]));
         input["notional_tax_rate"] = json!("0.24");
-        assert_refused(
-            &input,
-            "FM-E001",
-            &["`/stages/0/lines/0/interest_expense`", "enterprise basis"],
-        );
+        let pointers: Vec<String> = named
+            .iter()
+            .map(|f| format!("`/stages/0/lines/0/{f}`"))
+            .collect();
+        let mut parts: Vec<&str> = pointers.iter().map(String::as_str).collect();
+        parts.push("enterprise basis");
+        assert_refused(&input, "FM-E001", &parts);
+        let (_, message) = err("dcf.fcff", &input);
+        for f in absent {
+            assert!(!message.contains(f), "{f} not given, named in: {message}");
+        }
     }
 }
 

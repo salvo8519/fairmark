@@ -1492,14 +1492,27 @@ fn build_up_stages(
             any = true;
             let pointer = format!("/stages/{i}/lines");
             if basis == TerminalBasis::Enterprise {
-                if let Some(k) = lines
+                if let Some((k, l)) = lines
                     .iter()
-                    .position(|l| l.interest_expense.is_some() || l.net_borrowing.is_some())
+                    .enumerate()
+                    .find(|(_, l)| l.interest_expense.is_some() || l.net_borrowing.is_some())
                 {
+                    // Name only the financing fields actually given, each with its pointer.
+                    let given: Vec<String> = [
+                        ("interest_expense", l.interest_expense.is_some()),
+                        ("net_borrowing", l.net_borrowing.is_some()),
+                    ]
+                    .into_iter()
+                    .filter(|(_, present)| *present)
+                    .map(|(field, _)| format!("`{pointer}/{k}/{field}`"))
+                    .collect();
+                    let (fields, verb, pronoun) = match given.as_slice() {
+                        [one] => (one.clone(), "is", "it"),
+                        _ => (given.join(" and "), "are", "them"),
+                    };
                     return Err(invalid(format!(
-                        "`{pointer}/{k}/interest_expense` and `{pointer}/{k}/net_borrowing` are \
-                         not used on the enterprise basis: the DCF discounts FCFF, which is \
-                         before financing; remove them"
+                        "{fields} {verb} not used on the enterprise basis: the DCF discounts \
+                         FCFF, which is before financing; remove {pronoun}"
                     )));
                 }
             }
