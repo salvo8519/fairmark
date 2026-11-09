@@ -68,6 +68,7 @@ milestones:
           - { issue: 208, title: "ADR on the sources policy (constitution VII)", status: open }
           - { issue: 211, title: "Unique task ids in tasks.md files, checked in CI", status: open }
           - { issue: 249, title: "Computability table in specs and partial-input audits", status: done }
+          - { issue: 297, title: "Safe workspace cleaning: smaller builds, worktree and build-cache cleanup", status: done }
       - title: "CI/CD"
         issue: 10
         labels: ["area:infra"]
