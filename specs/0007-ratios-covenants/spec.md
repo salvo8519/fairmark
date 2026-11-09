@@ -132,3 +132,145 @@ a clause of the agreement (lender practice, LMA-style agreements).
       scope of `ratios.covenants`; a separate roadmap task.
 - [x] Equity cure: out of scope in version 1. Step-downs are expressed as one covenant per test
       date, each with its own threshold.
+
+## Amendment of 2026-11-09: ratios computed from partial input (issue #262)
+Recorded amendment, approved by the maintainer on 2026-11-09 through the contract batch of
+ADR 0014 (issue #262; decisions G, Q1 to Q5 of 2026-11-09). It applies guidelines G1 to G3 of
+ADR 0014 to every `ratios.*` method and bumps each of them to version 2 (G8: output fields
+become nullable and a `not_computed` list is added).
+
+### Requirements
+- **R7** — Every amount of every `ratios.*` input SHALL be optional. A ratio, margin or
+  amount of the output SHALL be computed when every input it needs is given; otherwise it
+  SHALL be null and listed in `not_computed` with the input pointers it lacks. A missing
+  amount SHALL never be taken as zero.
+- **R8** — Required inputs SHALL be only the method choices that change the meaning of the
+  ratios: `balances` (every method), `operating_return_base` (`ratios.profitability`),
+  `day_basis` (`ratios.working_capital`), `leverage.debt_basis` when `leverage` is given, and,
+  for each covenant, `name`, `test_date`, `operator`, `threshold`,
+  `if_denominator_not_positive` and the two `definition` texts.
+- **R9** — `ebitda_definition` and `interest_definition` SHALL be optional. When an amount is
+  given without its definition, the ratios that use it SHALL be not computed, with the pointer
+  of the missing definition. A definition given blank SHALL remain `FM-E001`.
+- **R10** — A ratio SHALL be reported as not defined (R3, `not_defined` text, unchanged) when
+  the terms that are given already make it not defined, whether or not another term is
+  missing; otherwise, when a term is missing, it SHALL be not computed. A ratio built from
+  other ratios (cash conversion cycle, the ROE decompositions) SHALL be not defined when a
+  part is not defined, otherwise not computed when a part is not computed, with the union of
+  the missing pointers of those parts.
+- **R11** — `ratios.covenants`: a covenant whose denominator amount is missing, or whose
+  denominator is positive and numerator amount is missing, SHALL be `not_tested` with
+  `not_tested_code` `missing_input`, never breached; a denominator given zero or negative
+  SHALL give the outcome of `if_denominator_not_positive` whatever the numerator.
+
+### Interfaces
+- `not_computed`: a list at the root of each output value, in the order of the output
+  fields, of `{output, missing, reason}`: `output` is the JSON pointer of the output in the
+  result value (for a ratio, the ratio object, for example `/roe` or `/dscr/0`; for an amount,
+  the amount); `missing` the JSON pointers of the inputs it lacks, sorted; `reason` one
+  sentence. It is the shape `statements.reorganise` uses (shared type; `reason` is optional
+  and omitted when empty, so the `statements.reorganise` output does not change). The later
+  envelope task (#259) moves both to `diagnostics.not_computed`.
+- `not_computed` lists only outputs null because an input is missing. Ratios not defined by
+  their values keep the `not_defined` text of R3 (decision Q4); a ratio not computed has
+  `value` and `not_defined` both null, except the two version 1 cases of a missing block
+  (`leverage` absent, `debt_schedule` absent), which keep their `not_defined` text and are
+  also listed in `not_computed` with the pointer of the block.
+- Unchanged defaults, already documented in version 1: `other_items` of a net financial
+  position absent means no other items; `reserve_balance` absent means no reserve account
+  (LLCR on CFADS only); `opening` is not used with closing balances. They are reported in
+  `explain.conventions` as before; their listing in `meta.defaults_applied` is left to the
+  envelope task (#259).
+- Departure from G1 (examples in the schema) and G4 (envelope): left to #259 and #264.
+- Method versions: `ratios.profitability`, `ratios.capital_structure`, `ratios.liquidity`,
+  `ratios.working_capital`, `ratios.debt_service` and `ratios.covenants` v1 -> v2. Inputs are
+  relaxed (additive); outputs gain `not_computed`, and amounts that were always present become
+  nullable (capital structure margins, liquidity margins, the net financial position).
+
+### Computability
+Balance-sheet amounts: with `balances` `closing` an amount `x` needs `/closing/x`; with
+`average` it needs `/closing/x` and `/opening/x`. Below, "equity" stands for those pointers.
+"Not computed" means null and listed in `not_computed`. No row has a default; no row raises an
+error on a missing input.
+
+`ratios.profitability`
+
+| Output | Inputs it needs | When an input is missing |
+| --- | --- | --- |
+| `roe` | net income, equity | not computed |
+| `roi` | EBIT, operating return base (invested capital or total assets) | not computed |
+| `roa` | EBIT, total assets | not computed |
+| `ros`, `ebit_margin` | EBIT, revenue | not computed |
+| `ebitda_margin` | EBITDA, `ebitda_definition`, revenue | not computed |
+| `capital_turnover` | revenue, operating return base | not computed |
+| `roe_three_factor/net_margin` | net income, revenue | not computed |
+| `roe_three_factor/asset_turnover` | revenue, total assets | not computed |
+| `roe_three_factor/equity_multiplier` | total assets, equity | not computed |
+| `roe_three_factor/roe` | the three factors | not computed (R10) |
+| `roe_leverage/*` | `leverage` block | not computed, missing `/leverage`; `not_defined` "leverage inputs not given" as in v1 |
+| `roe_leverage/roi` | as `roi` | not computed |
+| `roe_leverage/cost_of_debt` | `leverage/financial_charges`, debt | not computed |
+| `roe_leverage/debt_to_equity` | debt, equity | not computed |
+| `roe_leverage/tax_rate` | `leverage/taxes`, `leverage/pre_tax_income` | not computed |
+| `roe_leverage/leverage_effect`, `pre_tax_roe` | ROI, cost of debt, D/E | not computed (R10) |
+| `roe_leverage/roe` | pre-tax ROE, tax rate | not computed (R10) |
+
+`ratios.capital_structure` (gross debt and cash are those of `net_financial_position`)
+
+| Output | Inputs it needs | When an input is missing |
+| --- | --- | --- |
+| `net_financial_position` | gross debt, cash (other items: none when absent) | not computed |
+| `debt_to_equity` | gross debt, equity | not computed |
+| `nfp_to_equity` | gross debt, cash, equity | not computed |
+| `equity_ratio` | equity, total assets | not computed |
+| `primary_structure_margin`, `primary_fixed_asset_coverage` | equity, fixed assets | not computed |
+| `secondary_structure_margin`, `secondary_fixed_asset_coverage` | equity, non-current liabilities, fixed assets | not computed |
+
+`ratios.liquidity`
+
+| Output | Inputs it needs | When an input is missing |
+| --- | --- | --- |
+| `current_ratio`, `net_working_capital` | current assets, current liabilities | not computed |
+| `quick_ratio`, `treasury_margin` | current assets, inventories, current liabilities | not computed |
+| `cash_ratio` | cash, current liabilities | not computed |
+
+`ratios.working_capital`
+
+| Output | Inputs it needs | When an input is missing |
+| --- | --- | --- |
+| `days_sales_outstanding` | trade receivables, `income_statement/revenue` | not computed |
+| `days_inventory_outstanding` | inventories, `income_statement/cost_of_sales` | not computed |
+| `days_payable_outstanding` | trade payables, `income_statement/purchases` | not computed |
+| `cash_conversion_cycle` | DSO, DIO, DPO | not computed (R10) |
+
+`ratios.debt_service`
+
+| Output | Inputs it needs | When an input is missing |
+| --- | --- | --- |
+| `net_financial_position` | gross debt, cash | not computed |
+| `interest_cover_ebit` | EBIT, interest, `interest_definition` | not computed |
+| `interest_cover_ebitda` | EBITDA, `ebitda_definition`, interest, `interest_definition` | not computed |
+| `nfp_to_ebitda` | gross debt, cash, EBITDA, `ebitda_definition` | not computed |
+| `dscr/t` | `debt_schedule/periods/t/cfads`, `/debt_service` | not computed; without `debt_schedule`, `dscr` is empty as in v1 |
+| `pv_cfads` | `debt_schedule/discount_rate`, every `cfads` | not computed (missing `/debt_schedule` when no schedule is given) |
+| `llcr` | as `pv_cfads`, `debt_schedule/debt_outstanding` (reserve balance: none when absent) | not computed; without `debt_schedule`, missing `/debt_schedule` and `not_defined` "no debt schedule given" as in v1 |
+
+`ratios.covenants`
+
+| Output | Inputs it needs | When an input is missing |
+| --- | --- | --- |
+| `covenants/i/value`, `headroom`, `headroom_relative` | `covenants/i/numerator/amount`, `covenants/i/denominator/amount` | not tested, code `missing_input` (R11), each output not computed |
+
+### Acceptance criteria
+- **AC6** (R7, R10) — For every row above, an engine test removes one input of a complete
+  input and finds the row's output null and listed with that pointer, and every other output
+  unchanged.
+- **AC7** (R7) — Golden cases with partial inputs for each method, expected values from an
+  independent reference (`scripts/reference_ratios_partial.py`).
+- **AC8** (R7; decision G) — The three version 1 error cases
+  `ratios.profitability/invested-capital-missing`, `leverage-without-debt` and
+  `average-without-opening` return the partial results of the reference.
+- **AC9** (R9) — EBITDA without `ebitda_definition` leaves the EBITDA ratios not computed with
+  `/ebitda_definition`; a blank definition is `FM-E001`.
+- **AC10** (R11) — A covenant without its numerator amount is not tested with code
+  `missing_input`; the others are tested.
