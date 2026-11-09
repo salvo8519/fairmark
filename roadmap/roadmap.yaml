@@ -288,6 +288,7 @@ milestones:
           - { issue: 286, title: "Cross-adapter consistency tests", status: open }
           - { issue: 287, title: "Performance budgets and scalability benchmarks", status: open }
           - { issue: 288, title: "Documentation accuracy review", status: open }
+          - { issue: 292, title: "Close the open Dependabot alerts in the dev tools", status: done }
 
   - title: "M4 · Traditional European methods"
     gate: "Golden cases green for every method."
