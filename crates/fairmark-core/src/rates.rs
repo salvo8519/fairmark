@@ -298,15 +298,18 @@ pub struct RealNominalOutput {
 
 pub fn real_nominal(input: &RealNominalInput) -> Result<(RealNominalOutput, Explain)> {
     let one = Decimal::ONE;
+    // Both fields are checked, and both errors reported (ADR 0014 G5).
+    let mut found = crate::error::Found::new();
     for (field, value) in [("/inflation", input.inflation), ("/rate", input.rate)] {
         if value <= -one {
-            return Err(FairmarkError::DiscountRateOutOfRange {
+            found.push(FairmarkError::DiscountRateOutOfRange {
                 field: field.to_owned(),
                 rate: value,
                 converted_with: None,
             });
         }
     }
+    found.finish()?;
     let mut ex = Explain::new(
         "rates.real_nominal",
         "(1 + nominal) = (1 + real) × (1 + inflation)",
