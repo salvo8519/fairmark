@@ -29,7 +29,8 @@ description: End-to-end checklist for adding a valuation method to the Fairmark 
    generated); `python scripts/docs_sync.py coverage` must pass. Add the Italian title of the
    method to `i18n/method_titles/it.yaml` (short like the English title, terms from
    `i18n/glossary.yaml`); `scripts/gen_reference.py` fails without it.
-8. `uv run just check`, then `code-reviewer` and `numerical-auditor`.
+8. `uv run just check`, then `code-reviewer` and `numerical-auditor` once on the branch (a new
+   method is in the numerical-change tier).
 9. Status: a new method is `preview` (ADR 0012). Add its id to the spec's entry in
    `specs/method-evidence.yaml`. Promotion to `available` is a separate, maintainer-approved
    change: one line in `AVAILABLE` (`registry.rs`) once the rule in

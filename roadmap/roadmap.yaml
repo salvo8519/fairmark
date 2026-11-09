@@ -291,6 +291,7 @@ milestones:
           - { issue: 288, title: "Documentation accuracy review", status: open }
           - { issue: 292, title: "Close the open Dependabot alerts in the dev tools", status: done }
           - { issue: 302, title: "Numerical edge cases in the time value of money found by the #298 audit", status: open }
+          - { issue: 304, title: "Proportional review and audit policy", status: done }
 
   - title: "M4 · Traditional European methods"
     gate: "Golden cases green for every method."
