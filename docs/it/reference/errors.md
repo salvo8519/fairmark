@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: 41cfab7ef4d6
+source_hash: fa2775f14a4c
 ---
 # Codici di errore
 
@@ -42,10 +42,10 @@ Una chiamata rifiutata restituisce `{"error": <report>}` (ADR 0014 G5):
 | --- | --- |
 | `code` | Il codice stabile della tabella sotto. |
 | `message` | Che cosa non va e, quando è noto, come correggerlo, in inglese. Lo stesso testo di prima che il report avesse gli altri campi. |
-| `pointer` | JSON Pointer del campo da correggere, sempre dalla radice dell'input inviato (dentro un'analisi, sotto `/base_input`). È `null` solo per un testo che non è JSON (`reason` `syntax`, il messaggio indica riga e colonna), per un errore sollevato durante il calcolo che nessun singolo campo causa (per esempio `FM-E005`, `FM-E008`, `FM-E012`), e per `FM-E027`, che indica i suoi input in `missing_any_of`. |
+| `pointer` | JSON Pointer del campo da correggere, sempre dalla radice dell'input inviato (dentro un'analisi, sotto `/base_input`); `""` (il pointer vuoto) per l'input nel suo insieme, per esempio un input che non è un oggetto. È `null` solo per un testo che non è JSON (`reason` `syntax`, il messaggio indica riga e colonna), per un errore sollevato durante il calcolo che nessun singolo campo causa (per esempio `FM-E005`, `FM-E008`, `FM-E012`), per `FM-E027`, che indica i suoi input in `missing_any_of`, e per `FM-E007` quando l'id del metodo non fa parte dell'input (l'argomento del metodo della CLI, di `fairmark.run` o di una chiamata di tool; dentro un'analisi è `/method`). |
 | `pointers` | Tutti i campi di una relazione: i due lati di una quadratura `FM-E026`, i due campi di un conflitto; vuoto quando l'errore riguarda un solo campo. |
 | `reason` | Il sottotipo dell'errore (valori sotto), che distingue le condizioni che condividono un codice, soprattutto `FM-E001`; `null` quando il codice ha un solo significato. |
-| `expected` | Una lista di stringhe. Con `reason` `enum` o `unknown_field`, i valori ammessi letterali (i valori dell'enumerazione, i campi che l'oggetto accetta); con ogni altro `reason`, brevi descrizioni della forma ammessa, per esempio `"an amount greater than 0"`. Vuota quando non sono noti. |
+| `expected` | Una lista di stringhe. Quando i valori ammessi formano un elenco chiuso, i valori letterali: i valori di un'enumerazione (`reason` `enum`, e gli id dei metodi di `FM-E007`), i campi che un oggetto accetta (`unknown_field`, compreso il tag di un oggetto etichettato internamente), le chiavi di una scelta scritta come oggetto con una sola chiave (`length`, `unknown_field`). Altrimenti brevi descrizioni della forma ammessa in parole semplici, per esempio `"an amount greater than 0"` o `"a whole number of 0 or more"`, mai il nome di un tipo Rust. Vuota quando non sono noti. |
 | `fix` | Una frase che risolve l'errore; `null` quando il messaggio è l'unica indicazione. La formulazione è un'indicazione e può cambiare tra un rilascio e l'altro; fai affidamento su `code`, `pointer` e `reason`. |
 | `missing_any_of` | Solo `FM-E027`: insiemi alternativi di pointer dell'input, ciascuno dei quali basta a portare l'input sopra il minimo del metodo, per esempio `[["/closing/cash"], ["/closing/current_assets"]]`. |
 | `errors` | Tutti gli errori trovati, almeno uno (`minItems` 1); il primo è il report di primo livello stesso. Le voci non hanno un proprio `errors`. |
@@ -55,21 +55,41 @@ calcolare qualsiasi cosa: la validazione prosegue dopo un rifiuto e riporta tutt
 trova, nell'ordine in cui li controlla, quindi il primo errore è quello che darebbe un report
 singolo. Un controllo che dipende da un input rifiutato viene saltato (per esempio il conteggio
 dei tassi quando uno stadio del DCF è rifiutato, il confronto di una crescita con un tasso a sua
-volta rifiutato, o il resto di una rettifica i cui importi non sono uno per esercizio).
+volta rifiutato, o il resto di una rettifica i cui importi non sono uno per esercizio); un
+controllo che non ne dipende viene comunque fatto (un `wacc` rifiutato non nasconde una crescita
+terminale rifiutata, un `principal` rifiutato non nasconde un tasso fuori intervallo).
 
-- **Campi sconosciuti.** La lettura dell'input si ferma al primo campo che non riesce a leggere
-  (ADR 0013). Quando si tratta di un campo sconosciuto, l'input viene poi percorso secondo lo
-  schema del metodo e vengono riportate anche tutte le altre chiavi sconosciute, ciascuna con il
-  suo pointer, `reason` `unknown_field`, i campi che il suo oggetto accetta in `expected` e una
-  `fix` che indica il campo ammesso più vicino quando la chiave sembra un errore di battitura
-  (per esempio "rename `wac` to `wacc`"). Ogni altro errore di lettura (un tipo errato, un campo
-  mancante, un valore sconosciuto, un testo che non è JSON) è riportato da solo: correggilo e
-  richiama.
+- **Lettura dell'input.** `serde` si ferma al primo campo che non riesce a leggere (ADR 0013);
+  il testo viene poi letto come JSON e percorso secondo lo schema del metodo, e insieme al primo
+  errore vengono riportate tutte le chiavi sconosciute, tutte le chiavi indicate due volte nello
+  stesso oggetto e tutti gli oggetti scritti come array posizionale, ciascuno con il suo
+  pointer. Una chiave sconosciuta riporta in `expected` i campi che il suo oggetto accetta e una
+  `fix` che indica il campo ammesso più vicino quando la chiave sembra un errore di battitura,
+  senza distinguere maiuscole e minuscole (per esempio "rename `wac` to `wacc`"). Un secondo
+  tipo errato, campo mancante o valore sconosciuto non viene cercato: correggi il primo e
+  richiama. `reason` `syntax` vale solo per un testo che non è JSON; un valore di tipo diverso
+  per una scelta (`true` per `timing`) è `enum` sul suo campo, con i valori ammessi.
+- **Il JSON ambiguo viene rifiutato.** Una chiave indicata due volte nello stesso oggetto
+  (`duplicate`, sulla chiave) e un oggetto scritto come array dei suoi valori (`type`,
+  sull'array; `""` per un input che è un array) sono rifiutati in tutti i metodi: verrebbero
+  letti con l'ultimo valore o per posizione.
+- **Scelte scritte come oggetto con una sola chiave** (`terminal` del DCF, le tecniche di
+  `tv.compare`, `growth` e `timeline` di `series.project`): una chiave che non è tra le scelte è
+  `unknown_field` sulla chiave, con le scelte e la più vicina; nessuna chiave, o una seconda
+  chiave, è `length` (sull'oggetto, o sulla seconda chiave).
+- **Analisi.** I campi dell'analisi e il suo `base_input` sono controllati in un solo
+  passaggio: `base_input` è controllato dal metodo che indica (per `analysis.goal_seek`, con la
+  variabile all'estremo inferiore dell'intervallo), e i suoi errori di input sono riportati
+  sotto `/base_input`, anche quando l'input dell'analisi stesso non si riesce a leggere. Una
+  variabile o una modifica che punta a un campo che accetta un numero intero è `FM-E015` sul
+  proprio campo. La dimensione della richiesta (`FM-E016`) è controllata per prima: una
+  richiesta oltre i limiti non valuta nulla.
 - **Errori del calcolo.** Un errore del calcolo (un overflow, un solver che non converge, un
   difetto) non compare mai accanto agli errori dell'input: quando l'input ha errori, vengono
   riportati quelli; solo un input senza errori arriva al calcolo, il cui primo errore lo
   interrompe ed è l'unica voce. Anche una quadratura `FM-E026` dei totali trovata durante la
-  riclassificazione dei bilanci interrompe il calcolo ed è riportata da sola.
+  riclassificazione dei bilanci, e un arrotondamento troppo grossolano per un finanziamento
+  (`FM-E023`, su `/rounding/decimal_places`), interrompono il calcolo e sono riportati da soli.
 
 Lo schema del report fa parte di ogni schema del risultato (`fairmark schema <method>
 --envelope`, `fairmark.result_schema(method)`): `$defs/FairmarkErrorResponse`, indicato alla
@@ -84,21 +104,21 @@ compatto, `{"code", "message"}`, che fa parte dell'output dei metodi di analisi.
 | `missing` | Manca un campo obbligatorio, o richiesto dagli altri campi indicati; per `FM-E027`, nessun output ha tutti gli input che gli servono | `FM-E001`, `FM-E025`, `FM-E027` |
 | `unknown_field` | Un campo che l'input non definisce; `expected` elenca i campi ammessi | `FM-E001` |
 | `duplicate` | Un campo indicato due volte nello stesso oggetto, o un pointer ripetuto di un'analisi | `FM-E001` |
-| `type` | Un valore del tipo sbagliato, `null` per un campo che non lo accetta, o una data che non è una data di calendario | `FM-E001`, `FM-E009` |
-| `enum` | Un valore fuori da un elenco chiuso; `expected` elenca i valori; un metodo sconosciuto di un'analisi (`/method`) | `FM-E001`, `FM-E007` |
+| `type` | Un valore del tipo sbagliato, `null` per un campo che non lo accetta, un input che non è un oggetto, un oggetto scritto come array posizionale, o una data che non è una data di calendario | `FM-E001`, `FM-E009` |
+| `enum` | Un valore fuori da un elenco chiuso, o un valore di tipo diverso per una scelta; `expected` elenca i valori; un metodo sconosciuto (`expected` elenca gli id dei metodi) | `FM-E001`, `FM-E007` |
 | `conflict` | Campi che si escludono a vicenda sono indicati insieme, o si contraddicono (termini, basi, date fuori ordine) | `FM-E001`, `FM-E017`, `FM-E019`, `FM-E024` |
 | `requires` | Un campo è indicato senza il campo che gli serve, o non è usato dalla scelta fatta | `FM-E001`, `FM-E020`, `FM-E022`, `FM-E025` |
 | `sign` | Un importo con il segno sbagliato per il suo campo | `FM-E001`, `FM-E006` |
 | `blank` | Un testo che deve dire qualcosa è vuoto o fatto di soli spazi | `FM-E001` |
 | `range` | Un numero fuori dal dominio del suo campo | `FM-E001`, `FM-E003`, `FM-E004`, `FM-E009`, `FM-E010`, `FM-E018`, da `FM-E020` a `FM-E023` |
-| `length` | Una lista con un numero sbagliato di voci: vuota, troppo lunga, o non una voce per periodo o per esercizio | `FM-E001`, `FM-E002`, `FM-E025` |
+| `length` | Una lista con un numero sbagliato di voci (vuota, troppo lunga, non una voce per periodo o per esercizio), o una scelta scritta come oggetto senza chiavi o con due | `FM-E001`, `FM-E002`, `FM-E025` |
 | `reconcile` | I due lati di una relazione che devono coincidere differiscono | `FM-E026` |
 
 I valori si aggiungono, non si rinominano né si rimuovono: un client accetta un valore che non
 conosce. I codici sollevati durante il calcolo (`FM-E005`, `FM-E008`, da `FM-E011` a
-`FM-E014`, `FM-E016`) e `FM-E015`, che ha un solo significato, hanno `reason` `null`;
-`FM-E015` indica comunque il campo che contiene il pointer dell'analisi (`/variable`,
-`/output`, `/outputs/k`, il `pointer` di una modifica).
+`FM-E014`) hanno `reason` `null`, come `FM-E015` e `FM-E016`, che hanno un solo significato
+ciascuno; `FM-E015` indica comunque il campo che contiene il pointer dell'analisi
+(`/variable`, `/output`, `/outputs/k`, il `pointer` di una modifica).
 
 ## Codici
 
