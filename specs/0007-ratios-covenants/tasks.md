@@ -71,7 +71,7 @@ parallel; tick a task only when `just check` passes.
   unchanged
 - [x] T40 Every `ratios.*` method: optional amounts, `not_computed`, version 2, schemas v2
   [R7 to R11]
-- [ ] T41 Python helpers, methodology pages (English and Italian), release note
+- [x] T41 Python helpers, methodology pages (English and Italian), release note
   `changes/262.feature.md`; roadmap #262 done
 
 ## Review of 2026-11-09 (issue #262)
