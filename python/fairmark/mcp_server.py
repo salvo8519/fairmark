@@ -37,7 +37,9 @@ INSTRUCTIONS = (
     "recommendation: decisions belong to the user, who verifies the results before relying "
     "on them (https://salvo8519.github.io/fairmark/disclaimer/). A Fairmark tool whose "
     "description says 'Status: preview' has not completed independent verification: tell "
-    "the user when a result comes from it."
+    "the user when a result comes from it. A refused call returns error.pointer (the "
+    "argument to correct), error.reason, error.expected and error.fix: correct every entry of "
+    "error.errors before calling again."
 )
 
 logger = logging.getLogger("fairmark.mcp")
@@ -70,6 +72,29 @@ async def list_tools(*, areas: Iterable[str] | None = None, compact: bool = Fals
     ]
 
 
+def call_tool(name: str, arguments: Any) -> Any:
+    """One tool call: the result envelope, or ``{"error": <report>}`` with the whole error
+    report (ADR 0014 G5: pointer, pointers, reason, expected, fix, missing_any_of, errors), as
+    text and as structured content; ``isError`` is set for an error."""
+    from mcp import types
+
+    started = time.perf_counter()
+    out = tools.dispatch(name, arguments)
+    log_event(
+        logger,
+        "tool_call",
+        tool=name,
+        outcome=out["error"]["code"] if "error" in out else "ok",
+        duration_ms=round((time.perf_counter() - started) * 1000, 3),
+        input_hash=out.get("meta", {}).get("input_hash"),
+    )
+    return types.CallToolResult(
+        content=[types.TextContent(text=json.dumps(out, ensure_ascii=False))],
+        structured_content=out,
+        is_error="error" in out,
+    )
+
+
 def _build_server(areas: Iterable[str] | None = None, compact: bool = False) -> Any:
     try:
         from mcp import types
@@ -81,21 +106,7 @@ def _build_server(areas: Iterable[str] | None = None, compact: bool = False) -> 
         return types.ListToolsResult(tools=await list_tools(areas=areas, compact=compact))
 
     async def on_call_tool(ctx: Any, params: Any) -> Any:
-        started = time.perf_counter()
-        out = tools.dispatch(params.name, params.arguments or {})
-        log_event(
-            logger,
-            "tool_call",
-            tool=params.name,
-            outcome=out["error"]["code"] if "error" in out else "ok",
-            duration_ms=round((time.perf_counter() - started) * 1000, 3),
-            input_hash=out.get("meta", {}).get("input_hash"),
-        )
-        return types.CallToolResult(
-            content=[types.TextContent(text=json.dumps(out, ensure_ascii=False))],
-            structured_content=out,
-            is_error="error" in out,
-        )
+        return call_tool(params.name, params.arguments or {})
 
     return Server(
         "fairmark",
