@@ -1,6 +1,6 @@
 ---
 source: methods/tvm-annuity.md
-source_hash: 8dda73685601
+source_hash: cd2be5d82ae0
 ---
 # Rendita (`tvm.annuity`)
 
@@ -128,7 +128,7 @@ attività successiva nel piano della SPEC-0002.
 
 Quando il montante rientra ancora nell'intervallo ma $((1 + g)/(1 + r))^n$ scende sotto la
 precisione dei decimali (circa $10^{-28}$), la potenza è considerata pari a 0, il suo limite, e
-un passaggio di explain lo dichiara, come in `tv.limited_horizon`.
+un passaggio di explain lo dichiara, come in [`tv.limited_horizon`](tv-limited-horizon.md).
 
 ## Verificato con
 

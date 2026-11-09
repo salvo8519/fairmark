@@ -1,6 +1,6 @@
 ---
 source: methods/tvm-xirr.md
-source_hash: cd50e9ed335c
+source_hash: c6b25cc6c36b
 ---
 # Tasso interno di rendimento di flussi datati (`tvm.xirr`)
 
@@ -74,6 +74,10 @@ Lo stesso algoritmo deterministico di [`tvm.irr`](tvm-irr.md#algoritmo), con due
 - **I cambi di segno sono contati sui flussi in ordine di data**; i flussi con la stessa data
   sono compensati.
 
+Come in `tvm.irr`, il risultato del metodo di Newton è accettato solo all'interno
+dell'intervallo chiuso [tasso inferiore, tasso superiore] della griglia, estremi inclusi;
+altrimenti si applica la bisezione all'interno dell'intervallo.
+
 La regola di unicità è quella di `tvm.irr`: più di una radice trovata, uno scarto dispari tra i
 cambi di segno $s$ e le radici trovate, oppure nessuna radice trovata con $s > 1$ danno
 `FM-E011`. Una radice trovata con uno scarto pari e positivo è restituita con
@@ -108,7 +112,7 @@ $s = 1$ l'unicità del tasso è dimostrata.
 | Capitalizzazione | annuale, semestrale, quadrimestrale, trimestrale, ogni due mesi, mensile, continua | annuale, il default dei fogli di calcolo ECMA-376 |
 | Origine dei tempi | data del primo flusso | fissa |
 | Griglia dell'algoritmo | tassi annui effettivi da −0.99 a 10, convertiti nella capitalizzazione | fissa |
-| Criterio di arresto | passo sul tasso inferiore a $10^{-18}$, al massimo 200 iterazioni | fisso |
+| Criterio di arresto | passo sul tasso al massimo $10^{-18}$, al massimo 200 iterazioni | fisso |
 | Punto di partenza del metodo di Newton | `guess` | `0.10` |
 
 Ogni convenzione è riportata indicando se è stata fornita o se è il default, e il risultato
