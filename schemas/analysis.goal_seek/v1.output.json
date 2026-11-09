@@ -33,7 +33,7 @@
       "description": "The method evaluated, at the version run."
     },
     "inner_value": {
-      "description": "`value` of the inner method's result at the solution. Its schema is the output schema\nof the method named at `/inner_method/id` (`x-fairmark-output-of`).",
+      "description": "`value` of the inner method's result at the solution. Its schema is the output schema\nof the method whose id is at `/inner_method/id`, relative to this object\n(`x-fairmark-output-of`).",
       "x-fairmark-output-of": "/inner_method/id"
     },
     "iterations": {
@@ -53,7 +53,7 @@
       "type": "string"
     },
     "solved_input": {
-      "description": "Input of the inner method at the solution (the variable written as a decimal string).\nRunning the inner method on it reproduces `inner_value` and its full explain. Its schema\nis the input schema of the method named at `/inner_method/id`\n(`x-fairmark-input-of`).",
+      "description": "Input of the inner method at the solution (the variable written as a decimal string).\nRunning the inner method on it reproduces `inner_value` and its full explain. Its schema\nis the input schema of the method whose id is at `/inner_method/id`, relative to\nthis object (`x-fairmark-input-of`).",
       "x-fairmark-input-of": "/inner_method/id"
     },
     "tolerance": {

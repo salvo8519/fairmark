@@ -253,7 +253,10 @@ pub fn input_schema(id: &str) -> Result<Value> {
 /// engine serialises it (ADR 0014 G8). Decimals are strings matching `^-?\d+(\.\d+)?$`;
 /// a field that may be absent is not `required`; a field that may be `null` says so. A field
 /// holding the input or the output of another method carries `x-fairmark-input-of` or
-/// `x-fairmark-output-of`: the JSON pointer, within the value, of that method's id.
+/// `x-fairmark-output-of`: an RFC 6901 pointer to that method's id, relative to the object
+/// that holds the field (for `analysis.goal_seek`, `/inner_method/id` in the same object).
+/// Clients accept enumeration values they do not know: a value added to an output enumeration
+/// is additive (ADR 0014 G8).
 pub fn output_schema(id: &str) -> Result<Value> {
     let schema = output_schema_of(id).ok_or_else(|| FairmarkError::UnknownMethod(id.to_owned()))?;
     serde_json::to_value(schema).map_err(|e| FairmarkError::InvalidInput(e.to_string()))

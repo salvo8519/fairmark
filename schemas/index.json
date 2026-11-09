@@ -8,7 +8,7 @@
           "file": "analysis.goal_seek/v1.json",
           "introduced_in": "unreleased",
           "output_file": "analysis.goal_seek/v1.output.json",
-          "output_sha256": "b0b2d10e244857c460a145d41ed24d7dccbb2d1f814aa8d0e7299a760717788e",
+          "output_sha256": "97dda701376a2672de743d118632f9d791978d385fba0f983a64cd30801d98a1",
           "sha256": "5459dabe66dc9234feed55398e319ebfb2f816a41ebe88e4f19cd32f00f45cf2"
         }
       }

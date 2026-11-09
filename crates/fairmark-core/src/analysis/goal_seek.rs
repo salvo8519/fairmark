@@ -70,12 +70,13 @@ pub struct GoalSeekOutput {
     pub tolerance: Decimal,
     /// Input of the inner method at the solution (the variable written as a decimal string).
     /// Running the inner method on it reproduces `inner_value` and its full explain. Its schema
-    /// is the input schema of the method named at `/inner_method/id`
-    /// (`x-fairmark-input-of`).
+    /// is the input schema of the method whose id is at `/inner_method/id`, relative to
+    /// this object (`x-fairmark-input-of`).
     #[schemars(extend("x-fairmark-input-of" = "/inner_method/id"))]
     pub solved_input: Value,
     /// `value` of the inner method's result at the solution. Its schema is the output schema
-    /// of the method named at `/inner_method/id` (`x-fairmark-output-of`).
+    /// of the method whose id is at `/inner_method/id`, relative to this object
+    /// (`x-fairmark-output-of`).
     #[schemars(extend("x-fairmark-output-of" = "/inner_method/id"))]
     pub inner_value: Value,
 }
