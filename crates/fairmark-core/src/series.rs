@@ -562,15 +562,23 @@ pub fn project(input: &ProjectInput) -> Result<(ProjectOutput, Explain)> {
         BasePeriod::Period1 => n - 1,
     };
     let stated = stated_rates(&input.growth, steps, n, input.base_period)?;
+    // Every rate out of range is reported (ADR 0014 G5).
+    let mut found = crate::error::Found::new();
     if let GrowthRule::Linear(l) = &input.growth {
         // The ends are checked by name, even when no step reaches them (s = 0); every step
-        // lies between them.
-        check_rate(l.from_growth, "/growth/linear/from_growth", None)?;
-        check_rate(l.to_growth, "/growth/linear/to_growth", None)?;
+        // lies between them, so the steps add nothing.
+        found.check(check_rate(
+            l.from_growth,
+            "/growth/linear/from_growth",
+            None,
+        ));
+        found.check(check_rate(l.to_growth, "/growth/linear/to_growth", None));
+    } else {
+        for s in &stated {
+            found.check(check_rate(s.rate, &s.pointer, None));
+        }
     }
-    for s in &stated {
-        check_rate(s.rate, &s.pointer, None)?;
-    }
+    found.finish()?;
     let (conversion, basis_convention) = resolve_basis(input.growth_basis, length)?;
     let how = input.growth_basis.map(basis_name).unwrap_or("per_period");
     let mut applied = Vec::with_capacity(stated.len());

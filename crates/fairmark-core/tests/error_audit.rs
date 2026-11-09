@@ -575,7 +575,7 @@ fn rates_and_series_check_both_fields() {
         "rates.real_nominal",
         &json!({"rate": "-2", "inflation": "-2", "direction": "to_real"}),
     );
-    assert_eq!(pointers_of(&r), ["/rate", "/inflation"], "{r:#}");
+    assert_eq!(pointers_of(&r), ["/inflation", "/rate"], "{r:#}");
     let mut input = series();
     input["growth"] = json!({"linear": {"from_growth": "-2", "to_growth": "-3"}});
     let r = report("series.project", &input);
