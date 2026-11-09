@@ -38,12 +38,14 @@ test:
 generate:
     python scripts/schema_snapshots.py
     python scripts/gen_reference.py
+    python scripts/tool_examples.py
     python scripts/sync_agents.py
 
 # Fail if generated files are stale
 check-generated:
     python scripts/schema_snapshots.py --check
     python scripts/gen_reference.py --check
+    python scripts/tool_examples.py --check
     python scripts/sync_agents.py --check
 
 # Documentation coverage (every method documented, tested, exposed)
