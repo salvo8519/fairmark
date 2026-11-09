@@ -161,10 +161,15 @@ with `missing_any_of` for `FM-E027` and `errors` at the top level:
   empty when not known.
 - `fix` is one sentence that resolves the error, or `null`; its wording is guidance, not part
   of the contract.
-- `errors` lists every error found, at least one, the first equal to the top level. Validation
-  of the input reports every error it finds, in the order of its checks; reading a text that
-  cannot be parsed stops at the first field that cannot be read (ADR 0013); an error raised
-  during the computation stops it and is reported alone.
+- `errors` lists every error found, at least one, the first equal to the top level. Every
+  method validates its whole input before computing and reports every error it finds, in the
+  order of its checks. Reading the input stops at the first field that cannot be read (ADR
+  0013); when that field is unknown, the input is walked against the method's schema and every
+  unknown key is reported, with the accepted fields in `expected` and the closest one in `fix`
+  when the key looks like a typing error; any other reading error is reported alone. An error
+  of the computation (an overflow, a solver that does not converge, a defect) never sits in
+  `errors` next to input errors: it is reached only by an input without errors, and it stops
+  the computation and is reported alone.
 
 A new meaning gets a new code; a new location keeps the code of its condition (ADR 0013).
 Python, the CLI, MCP and function calling pass the whole report. The cells of an analysis table
