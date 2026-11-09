@@ -4,7 +4,9 @@ description: 'AC7, R18, Appendix C: investing parts of A5 (30000) and B14 (8000)
   and taxes and net income are unchanged'
 source: scripts/reference_statements.py (Python decimal, 50 digits, local context); its income statement
   section was written from Appendices A.2, B.2 and C of specs/0005-statements-reclassification/spec.md,
-  R16 to R21 and Decision 17 before the engine's income statement code existed.
+  R16 to R21 and Decision 17 before the engine's income statement code existed. The later decisions (E1
+  to E6, P1, P2, A2 to A4) and corrections (D1-IS to D3-IS) were added to the reference by the same agent,
+  each before the engine change of its round, and the expectations were regenerated from it.
 input:
   years:
   - label: '2024'
@@ -139,11 +141,11 @@ expect:
   /years/0/income_statement/reconciliations/operating_profit/start: '266000'
   /years/0/income_statement/reconciliations/operating_profit/lines/0/label: Rent of an investment property
     (investing part of A5)
-  /years/0/income_statement/reconciliations/operating_profit/lines/0/sources/0: /adjustments/0
+  /years/0/income_statement/reconciliations/operating_profit/lines/0/sources/0: /adjustments/0/amounts/0
   /years/0/income_statement/reconciliations/operating_profit/lines/0/amount: '-30000'
   /years/0/income_statement/reconciliations/operating_profit/lines/1/label: Maintenance of the investment
     property (investing part of B14)
-  /years/0/income_statement/reconciliations/operating_profit/lines/1/sources/0: /adjustments/1
+  /years/0/income_statement/reconciliations/operating_profit/lines/1/sources/0: /adjustments/1/amounts/0
   /years/0/income_statement/reconciliations/operating_profit/lines/1/amount: '8000'
   /years/0/income_statement/reconciliations/operating_profit/end: '244000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/start: '266000'

@@ -452,7 +452,7 @@ def defaults_applied(inp: dict[str, Any]) -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
     wdr_given = get(inp, "treatments", "write_downs_of_receivables") is not None
     wdfa_given = get(inp, "treatments", "write_downs_of_fixed_assets") is not None
-    b10d_years = b10c_years = False
+    is_years = False
     for i, y in enumerate(inp["years"]):
         st = y.get("statutory")
         if st is None:
@@ -474,8 +474,7 @@ def defaults_applied(inp: dict[str, Any]) -> list[tuple[str, str]]:
         # EBITDA, unless the analyst states the treatment.
         b10c = get(inc, "depreciation_and_write_downs", "write_downs_of_fixed_assets")
         b10d = get(inc, "depreciation_and_write_downs", "write_downs_of_receivables")
-        b10c_years = b10c_years or b10c is not None
-        b10d_years = b10d_years or b10d is not None
+        is_years = is_years or st.get("income_statement") is not None
         if not wdfa_given and b10c is not None:
             out.append(
                 (
@@ -490,10 +489,11 @@ def defaults_applied(inp: dict[str, Any]) -> list[tuple[str, str]]:
                     "other_charges_below_ebitda",
                 )
             )
-    # F1: an input default is listed only when a statutory year gives its aggregate.
-    if not wdr_given and b10d_years:
+    # A4 (amends F1): the input defaults of the two write-down treatments are listed whenever a
+    # statutory year gives an income statement, because they decide what is computed.
+    if not wdr_given and is_years:
         out.append(("/treatments/write_downs_of_receivables", "operating"))
-    if not wdfa_given and b10c_years:
+    if not wdfa_given and is_years:
         out.append(("/treatments/write_downs_of_fixed_assets", "operating"))
     for i, y in enumerate(inp["years"]):
         bs = get(y, "statutory", "balance_sheet")
@@ -817,8 +817,10 @@ def income_statement_checks(inc: dict[str, Any], c: dict[str, str]) -> None:
     dd = opt(b10, "write_downs_of_receivables")
     ac_given = opt(b10, "value_adjustments_of_fixed_assets")
     check(c, "value_adjustments_of_fixed_assets_total", ac_given, plus(ab, cc))
-    # B10 c is a part of the group B10 a to c (review of PR 2, blocking 1).
-    check_at_most(c, "value_adjustments_of_fixed_assets_of_which", cc, ac_given)
+    # B10 c is a part of the group B10 a to c (review of PR 2, blocking 1); without B10 c, its
+    # B10 a, b part is (D1-IS: B10 c is then the difference, never negative).
+    part = cc if cc.known else ab
+    check_at_most(c, "value_adjustments_of_fixed_assets_of_which", part, ac_given)
     ac = ac_given if ac_given.known else plus(ab, cc)
     check(c, "depreciation_and_write_downs_total", opt(b10, "total"), plus(ac, dd))
     b10_amt = opt(b10, "total") if "total" in b10 else plus(ac, dd)
@@ -1507,6 +1509,9 @@ def b10_reading(inc: dict[str, Any], base: str) -> tuple[Amt, Amt, Amt, bool, li
         c_amt = known(dec(c))
     elif grouped:
         c_amt = known(ZERO)
+    elif va is not None and ab is not None:
+        # D1-IS: the group less its B10 a, b part (checked within the group).
+        c_amt = known(dec(va) - dec(ab))
     else:
         c_amt = lacking(f"{b}/write_downs_of_fixed_assets")
     d_amt = known(dec(d)) if d is not None else lacking(f"{b}/write_downs_of_receivables")
@@ -1518,7 +1523,12 @@ def b10_reading(inc: dict[str, Any], base: str) -> tuple[Amt, Amt, Amt, bool, li
         ab_read = [va_ptr] + ([f"{b}/write_downs_of_fixed_assets"] if c is not None else [])
     else:
         ab_read = [f"{b}/depreciation_and_amortisation"]
-    c_read = [va_ptr] if grouped else [f"{b}/write_downs_of_fixed_assets"]
+    if grouped:
+        c_read = [va_ptr]
+    elif c is None and va is not None and ab is not None:
+        c_read = [va_ptr, f"{b}/depreciation_and_amortisation"]
+    else:
+        c_read = [f"{b}/write_downs_of_fixed_assets"]
     return ab_amt, c_amt, d_amt, grouped, ab_read, c_read
 
 
@@ -1587,8 +1597,9 @@ def statutory_a_minus_b(inc: dict[str, Any], base: str) -> Amt:
 
 
 @at_50_digits
-def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
-    """Appendix A.2 and B.2 for a statutory year (R16 to R21)."""
+def statutory_income_statement(inp: dict[str, Any], i: int) -> tuple[dict[str, Any], dict]:
+    """Appendix A.2 and B.2 for a statutory year (R16 to R21), with the check of the interest
+    cost within B9 (D3-IS)."""
     y = inp["years"][i]
     inc = get(y, "statutory", "income_statement") or {}
     base = f"/years/{i}/statutory/income_statement"
@@ -1609,7 +1620,22 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
     else:
         ffa_mode = ffa_t
     b3 = leaf(get(y, "statutory", "balance_sheet"), "", "financial_fixed_assets")
-    ffa_waits = ffa_mode is None and b3.known and b3.value != 0
+    b3_held = b3.known and b3.value != 0
+    c15_given = inc.get("income_from_equity_investments")
+    if not b3_held:
+        # D2-IS: no operating investment to follow without B.III.
+        c15_place = "investing"
+    elif ffa_mode == "operating":
+        c15_place = "operating"
+    elif ffa_mode is not None:
+        c15_place = "investing"
+    elif c15_given is None:
+        c15_place = "unknown"  # C15 missing with its own pointer, wherever it goes
+    elif dec(c15_given) != 0:
+        c15_place = "waits"  # A3: given and not zero, the treatment decides
+    else:
+        c15_place = "investing"
+    ffa_waits = c15_place == "waits"
 
     def item(key: str) -> Amt:
         if key == "depreciation_and_amortisation":
@@ -1641,6 +1667,7 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
     non_recurring: list[tuple[int, str, str, Amt]] = []
     leases: list[tuple[int, str, Amt, D, D]] = []
     tfr_interest: list[tuple[int, str, Amt]] = []
+    checks: dict[str, str] = {}
     for k, adj in enumerate(inp.get("adjustments") or []):
         amount = adj["amounts"][i]
         if amount is None:
@@ -1664,7 +1691,14 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
             # P2: the interest cost of a debt-like severance indemnity leaves B9.
             cost = (adj.get("interest_cost") or [None] * len(inp["years"]))[i]
             if cost is not None:
-                tfr_interest.append((k, adj["label"], take("personnel_costs", dec(cost))))
+                # D3-IS: the interest cost is known; only its check needs B9.
+                rem = remaining["personnel_costs"]
+                if rem.known:
+                    take("personnel_costs", dec(cost))
+                    checks.setdefault("interest_cost_within_personnel_costs", "reconciled")
+                else:
+                    checks["interest_cost_within_personnel_costs"] = "not_checked"
+                tfr_interest.append((k, adj["label"], known(dec(cost))))
 
     def moved_from(entries: list[tuple[int, str, str, Amt]], *keys: str) -> Amt:
         return plus(*(a for _, _, key, a in entries if key in keys))
@@ -1714,9 +1748,10 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
     c15 = core["income_from_equity_investments"]
     if ffa_waits:
         c15 = plus(c15, lacking(ffa_tp))
-    c15_operating = ffa_mode == "operating"
-    # Waiting for the treatment, C15 is missing in both places it could go (R8).
-    operating_investments = c15 if c15_operating or ffa_waits else known(ZERO)
+    c15_operating = c15_place == "operating"
+    # Waiting for the treatment, or not given with its place unknown, C15 is missing in both
+    # places it could go (R8).
+    operating_investments = c15 if c15_place in ("operating", "waits", "unknown") else known(ZERO)
     operating_profit = total(
         (1, ebitda), (-1, dna), (-1, other_charges), (1, operating_investments)
     )
@@ -1766,22 +1801,25 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
                 (
                     k,
                     f"{label} (non-recurring part of {IS_REFERENCES[key]})",
-                    [f"/adjustments/{k}"],
+                    [f"/adjustments/{k}/amounts/{i}"],
                     total((sign, a)),
                 )
             )
     lease_lines = []
     for k, label, paid, dep, _ in leases:
+        at = f"/adjustments/{k}/amounts/{i}"
         lease_lines.append(
-            (k, f"{label} (lease payments removed from B8)", [f"/adjustments/{k}"], paid)
+            (k, f"{label} (lease payments removed from B8)", [f"{at}/payments"], paid)
         )
-        lease_lines.append((k, f"{label} (lease depreciation)", [f"/adjustments/{k}"], known(-dep)))
+        lease_lines.append(
+            (k, f"{label} (lease depreciation)", [f"{at}/depreciation"], known(-dep))
+        )
     for k, label, a in tfr_interest:
         lease_lines.append(
             (
                 k,
                 f"{label} (interest cost of the employee severance indemnity removed from B9)",
-                [f"/adjustments/{k}"],
+                [f"/adjustments/{k}/interest_cost/{i}"],
                 a,
             )
         )
@@ -1807,7 +1845,7 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
             (
                 k,
                 f"{label} (investing part of {IS_REFERENCES[key]})",
-                [f"/adjustments/{k}"],
+                [f"/adjustments/{k}/amounts/{i}"],
                 total((sign, a)),
             )
         )
@@ -1895,7 +1933,7 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
             "operating_profit": reconciliation(op_lines, operating_profit),
             "profit_before_financing_and_taxes": reconciliation(pbft_lines, pbft),
         },
-    }
+    }, checks
 
 
 # ---------------------------------------------------------------- reclassified income statement
@@ -2174,7 +2212,8 @@ def reorganise(inp: dict[str, Any]) -> dict[str, Any]:
             form = "reclassified"
         else:
             body = statutory_balance_sheet(inp, i)
-            income = statutory_income_statement(inp, i)
+            income, is_checks = statutory_income_statement(inp, i)
+            body["checks"].update(is_checks)
             form = "statutory" if "statutory" in y else None
         value, nc = finish_income_statement(income, i)
         body["income_statement"] = value

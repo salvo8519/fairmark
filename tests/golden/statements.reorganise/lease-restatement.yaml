@@ -5,7 +5,9 @@ description: 'AC12, R12, R21: a lease with no prepayment whose liability exceeds
   interest is in the financing result'
 source: scripts/reference_statements.py (Python decimal, 50 digits, local context); its income statement
   section was written from Appendices A.2, B.2 and C of specs/0005-statements-reclassification/spec.md,
-  R16 to R21 and Decision 17 before the engine's income statement code existed.
+  R16 to R21 and Decision 17 before the engine's income statement code existed. The later decisions (E1
+  to E6, P1, P2, A2 to A4) and corrections (D1-IS to D3-IS) were added to the reference by the same agent,
+  each before the engine change of its round, and the expectations were regenerated from it.
 input:
   years:
   - label: '2024'
@@ -138,20 +140,20 @@ expect:
   /years/0/income_statement/reconciliations/operating_profit/start: '266000'
   /years/0/income_statement/reconciliations/operating_profit/lines/0/label: Warehouse lease (lease payments
     removed from B8)
-  /years/0/income_statement/reconciliations/operating_profit/lines/0/sources/0: /adjustments/0
+  /years/0/income_statement/reconciliations/operating_profit/lines/0/sources/0: /adjustments/0/amounts/0/payments
   /years/0/income_statement/reconciliations/operating_profit/lines/0/amount: '50000'
   /years/0/income_statement/reconciliations/operating_profit/lines/1/label: Warehouse lease (lease depreciation)
-  /years/0/income_statement/reconciliations/operating_profit/lines/1/sources/0: /adjustments/0
+  /years/0/income_statement/reconciliations/operating_profit/lines/1/sources/0: /adjustments/0/amounts/0/depreciation
   /years/0/income_statement/reconciliations/operating_profit/lines/1/amount: '-36000'
   /years/0/income_statement/reconciliations/operating_profit/end: '280000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/start: '266000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/label: Warehouse
     lease (lease payments removed from B8)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/sources/0: /adjustments/0
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/sources/0: /adjustments/0/amounts/0/payments
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/amount: '50000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/label: Warehouse
     lease (lease depreciation)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/sources/0: /adjustments/0
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/sources/0: /adjustments/0/amounts/0/depreciation
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/amount: '-36000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/label: C15, income
     from equity investments (investing result)

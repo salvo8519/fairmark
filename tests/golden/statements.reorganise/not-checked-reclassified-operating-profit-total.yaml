@@ -1,9 +1,11 @@
 method: statements.reorganise
 description: 'AC4, R5: the inputs of reconcile-reclassified-operating-profit-total with operating profit
   removed pass: it is derived by Appendix B.2 and its relation is reported as not checked'
-source: scripts/reference_statements.py (Python decimal, 50 digits, local context); its income statement
-  section was written from Appendices A.2, B.2 and C of specs/0005-statements-reclassification/spec.md,
-  R16 to R21 and Decision 17 before the engine's income statement code existed.
+source: 'scripts/reference_statements.py (Python decimal, 50 digits, local context). Written by the same
+  agent as the engine and after the engine''s income statement code existed: the reference section for
+  E2 was changed from the decisions recorded in specs/0005-statements-reclassification/spec.md before
+  the engine change of the same round (test first), not before the engine as a whole. Recomputed independently
+  by the numerical audit of 2026-11-09 (round 2).'
 input:
   years:
   - label: '2024'

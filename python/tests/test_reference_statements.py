@@ -131,7 +131,8 @@ def statutory_income_statement() -> dict[str, Any]:
     ab, c10, d10 = amount(200_000), RNG.choice([0, amount(30_000)]), amount(20_000)
     b11 = amount(60_000) - 30_000
     b12, b13, b14 = amount(20_000), amount(20_000), amount(50_000)
-    c15, c16, c17 = amount(20_000), amount(10_000), amount(90_000)
+    # A3: C15 is sometimes zero, so that it need not wait for the treatment of B.III.
+    c15, c16, c17 = RNG.choice([0, amount(20_000)]), amount(10_000), amount(90_000)
     c17b = amount(6_000) - 3_000
     d18, d19 = amount(5_000), amount(15_000)
     taxes = amount(200_000) - 40_000
@@ -142,10 +143,16 @@ def statutory_income_statement() -> dict[str, Any]:
     pbt = total_a - total_b + total_c + total_d
     b10: dict[str, Any] = {"write_downs_of_receivables": str(d10)}
     reading = RNG.random()
-    if reading < 0.5:
+    if reading < 0.4:
         b10 |= {"depreciation_and_amortisation": str(ab), "write_downs_of_fixed_assets": str(c10)}
         if RNG.random() < 0.5:
             b10["total"] = str(ab + c10 + d10)
+    elif reading < 0.5:
+        # D1-IS: the group and its B10 a, b part, B10 c derived.
+        b10 |= {
+            "value_adjustments_of_fixed_assets": str(ab + c10),
+            "depreciation_and_amortisation": str(ab),
+        }
     elif reading < 0.8 or c10 != 0:
         # Abridged layout: B10 a to c as one amount with its B10 c part (Decision 8).
         b10 |= {
@@ -496,6 +503,10 @@ def test_the_random_calls_reach_every_outcome() -> None:
                 outcomes.add("operating investments")
             if any("permitted" in e for e in y["not_computed"]["income_statement"]):
                 outcomes.add("waits for the treatment")
+        for y in r["years"]:
+            status = y["checks"].get("interest_cost_within_personnel_costs")
+            if status:
+                outcomes.add(f"interest cost {status}")
         for adj in inp.get("adjustments") or []:
             if any(c is not None for c in adj.get("interest_cost") or []):
                 outcomes.add("interest cost")
@@ -508,5 +519,7 @@ def test_the_random_calls_reach_every_outcome() -> None:
         "operating investments",
         "waits for the treatment",
         "interest cost",
+        "interest cost reconciled",
+        "interest cost not_checked",
     }
     assert expected <= outcomes, outcomes

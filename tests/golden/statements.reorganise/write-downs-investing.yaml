@@ -2,9 +2,11 @@ method: statements.reorganise
 description: 'AC11, R17, Decision 17: with both treatments investing, B10 c and B10 d move to the investing
   result with D18 and D19; EBITDA and profit before financing and taxes equal those of write-downs, operating
   profit is 35000 higher; no default of B10 c or B10 d is listed'
-source: scripts/reference_statements.py (Python decimal, 50 digits, local context); its income statement
-  section was written from Appendices A.2, B.2 and C of specs/0005-statements-reclassification/spec.md,
-  R16 to R21 and Decision 17 before the engine's income statement code existed.
+source: 'scripts/reference_statements.py (Python decimal, 50 digits, local context). Written by the same
+  agent as the engine and after the engine''s income statement code existed: the reference section for
+  E3 and P1 was changed from the decisions recorded in specs/0005-statements-reclassification/spec.md
+  before the engine change of the same round (test first), not before the engine as a whole. Recomputed
+  independently by the numerical audit of 2026-11-09 (round 2).'
 input:
   years:
   - label: '2024'

@@ -3,9 +3,11 @@ description: 'P2: the employee severance indemnity (180000) treated as debt-like
   (4000): the interest cost leaves B9 and EBITDA and enters the financing result; EBITDA, operating profit
   and profit before financing and taxes are 4000 higher, the financing result 4000 lower, profit before
   tax and net income unchanged'
-source: scripts/reference_statements.py (Python decimal, 50 digits, local context); its income statement
-  section was written from Appendices A.2, B.2 and C of specs/0005-statements-reclassification/spec.md,
-  R16 to R21 and Decision 17 before the engine's income statement code existed.
+source: 'scripts/reference_statements.py (Python decimal, 50 digits, local context). Written by the same
+  agent as the engine and after the engine''s income statement code existed: the reference section for
+  P2 was changed from the decisions recorded in specs/0005-statements-reclassification/spec.md before
+  the engine change of the same round (test first), not before the engine as a whole. Recomputed independently
+  by the numerical audit of 2026-11-09 (round 2).'
 input:
   years:
   - label: '2024'
@@ -125,13 +127,13 @@ expect:
   /years/0/income_statement/reconciliations/operating_profit/start: '266000'
   /years/0/income_statement/reconciliations/operating_profit/lines/0/label: Severance indemnity (interest
     cost of the employee severance indemnity removed from B9)
-  /years/0/income_statement/reconciliations/operating_profit/lines/0/sources/0: /adjustments/0
+  /years/0/income_statement/reconciliations/operating_profit/lines/0/sources/0: /adjustments/0/interest_cost/0
   /years/0/income_statement/reconciliations/operating_profit/lines/0/amount: '4000'
   /years/0/income_statement/reconciliations/operating_profit/end: '270000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/start: '266000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/label: Severance
     indemnity (interest cost of the employee severance indemnity removed from B9)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/sources/0: /adjustments/0
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/sources/0: /adjustments/0/interest_cost/0
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/amount: '4000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/label: C15, income
     from equity investments (investing result)

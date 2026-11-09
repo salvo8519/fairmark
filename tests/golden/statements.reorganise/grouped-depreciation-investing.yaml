@@ -2,9 +2,11 @@ method: statements.reorganise
 description: 'R17, Decision 8: with the treatment investing for B10 c, B10 a to c given as one amount
   with no B10 c part is read as depreciation and amortisation (B10 c none), reported; operating profit
   is 20000 lower and the investing result 20000 higher than with the B10 c part given'
-source: scripts/reference_statements.py (Python decimal, 50 digits, local context); its income statement
-  section was written from Appendices A.2, B.2 and C of specs/0005-statements-reclassification/spec.md,
-  R16 to R21 and Decision 17 before the engine's income statement code existed.
+source: 'scripts/reference_statements.py (Python decimal, 50 digits, local context). Written by the same
+  agent as the engine and after the engine''s income statement code existed: the reference section for
+  P1 was changed from the decisions recorded in specs/0005-statements-reclassification/spec.md before
+  the engine change of the same round (test first), not before the engine as a whole. Recomputed independently
+  by the numerical audit of 2026-11-09 (round 2).'
 input:
   years:
   - label: '2024'

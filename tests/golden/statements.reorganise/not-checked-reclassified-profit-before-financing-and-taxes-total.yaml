@@ -4,7 +4,9 @@ description: 'AC4, R5: the inputs of reconcile-reclassified-profit-before-financ
   as not checked'
 source: scripts/reference_statements.py (Python decimal, 50 digits, local context); its income statement
   section was written from Appendices A.2, B.2 and C of specs/0005-statements-reclassification/spec.md,
-  R16 to R21 and Decision 17 before the engine's income statement code existed.
+  R16 to R21 and Decision 17 before the engine's income statement code existed. The later decisions (E1
+  to E6, P1, P2, A2 to A4) and corrections (D1-IS to D3-IS) were added to the reference by the same agent,
+  each before the engine change of its round, and the expectations were regenerated from it.
 input:
   years:
   - label: '2024'
