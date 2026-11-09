@@ -1,6 +1,6 @@
 ---
 source: methods/loans-instalment.md
-source_hash: 3f1959e83806
+source_hash: 1190203a1246
 ---
 # Rata di un finanziamento (`loans.instalment`)
 
@@ -128,7 +128,9 @@ La rata usa potenze intere, moltiplicazioni e divisioni, ed è esatta fino all'u
 cifre significative del motore. Quando la capitalizzazione è diversa dalla periodicità della
 rata, la conversione usa le funzioni in serie della libreria decimale (errore relativo vicino a
 $10^{-27}$). I casi di riferimento sono verificati a $10^{-20}$ rispetto a un riferimento
-indipendente a 50 cifre.
+indipendente a 50 cifre. Quando $(1 + i)^{-n}$ nel fattore di rendita scende sotto la precisione
+dei decimali (circa $10^{-28}$), è considerato pari a 0, il suo limite, e un passaggio di
+explain lo dichiara.
 
 ## Verificato con
 

@@ -1,6 +1,6 @@
 ---
 source: methods/tvm-irr.md
-source_hash: 79cab6b829e4
+source_hash: 146d97badcc3
 ---
 # Tasso interno di rendimento (`tvm.irr`)
 
@@ -80,12 +80,13 @@ print(flagged.conventions[-1])  # uniqueness not verified: the flows change sign
     | una o nessuna | $s = 1$ | tasso restituito, `uniqueness_verified = true` |
 
 3. **Raffinamento.** Con un solo intervallo, il metodo di Newton parte da `guess` (predefinito
-   `0.10`) e il suo risultato è accettato solo all'interno dell'intervallo; altrimenti si
-   applica la bisezione all'interno dell'intervallo. Una radice che cade esattamente su un
+   `0.10`) e il suo risultato è accettato solo all'interno dell'intervallo chiuso [tasso
+   inferiore, tasso superiore], estremi inclusi; altrimenti si applica la bisezione
+   all'interno dell'intervallo. Una radice che cade esattamente su un
    punto della griglia è restituita così com'è (algoritmo `grid (exact root)`). Senza
    intervalli e con $s = 1$, il risultato del metodo di Newton a partire da `guess` è accettato
    solo se converge; altrimenti `FM-E005`.
-4. **Criterio di arresto.** Le iterazioni si fermano quando il passo sul tasso è inferiore a
+4. **Criterio di arresto.** Le iterazioni si fermano quando il passo sul tasso è al massimo
    $10^{-18}$, al massimo 200 iterazioni per fase.
 
 Il limite residuo è lo scarto pari: quando viene trovato un tasso e $s - 1$ è pari e positivo,
@@ -119,7 +120,7 @@ preferisci il VAN al costo del capitale, oppure [`tvm.mirr`](tvm-mirr.md).
 | Origine dei tempi | `cash_flows[0]` in $t = 0$ | fissa |
 | Griglia dell'algoritmo | tassi per periodo −0.99, −0.95, da −0.90 a 1.00 passo 0.05, da 1.25 a 10 passo 0.25 | fissa |
 | Ordine degli algoritmi | metodo di Newton all'interno dell'intervallo della radice, bisezione come alternativa | fisso |
-| Criterio di arresto | passo sul tasso inferiore a $10^{-18}$, al massimo 200 iterazioni | fisso |
+| Criterio di arresto | passo sul tasso al massimo $10^{-18}$, al massimo 200 iterazioni | fisso |
 | Punto di partenza del metodo di Newton | `guess`, riportato come fornito o come default | `0.10` |
 | Unicità | dimostrata, oppure non verificata con il motivo | riportata in ogni risultato |
 
