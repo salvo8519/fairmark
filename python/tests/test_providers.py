@@ -111,7 +111,7 @@ def test_mcp_tools_carry_the_status() -> None:
     tools = anyio.run(mcp_server.list_tools)
     assert {t.name for t in tools} == set(status)
     for t in tools:
-        assert t.meta == {"fairmark/status": status[t.name]}
+        assert t.meta is not None and t.meta["fairmark/status"] == status[t.name]
         assert (fm.tools.PREVIEW_NOTE in (t.description or "")) == (status[t.name] == "preview")
 
 

@@ -20,6 +20,14 @@ def test_mcp_lists_all_tools_by_default() -> None:
     assert all("examples" in t.input_schema for t in listed)
 
 
+def test_mcp_meta_reports_status_and_method_version() -> None:
+    # ADR 0012 and ADR 0014 G8: the version beside the status, as in the catalogue.
+    listed = {t.name: t.meta for t in anyio.run(mcp_server.list_tools)}
+    for m in fm.methods():
+        meta = listed[fm.tools.tool_name(m["id"])]
+        assert meta == {"fairmark/status": m["status"], "fairmark/method_version": m["version"]}
+
+
 def test_mcp_areas_and_compact() -> None:
     async def listed() -> list[Any]:
         return await mcp_server.list_tools(areas=["statements"], compact=True)
