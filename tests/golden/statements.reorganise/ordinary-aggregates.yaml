@@ -1,7 +1,8 @@
 method: statements.reorganise
 description: 'AC1, R4, R16 to R19: the company of balance-sheet-ordinary with its income statement in
   the ordinary layout (art. 2425): every layer of Appendix B.2, the reconciliations of operating profit
-  and of profit before financing and taxes with A - B, and the defaults of A5, B14 and B10 d in meta.defaults_applied'
+  and of profit before financing and taxes with A - B, and the defaults of A5, B14, B10 c and B10 d and
+  of both write-down treatments in meta.defaults_applied'
 source: scripts/reference_statements.py (Python decimal, 50 digits, local context); its income statement
   section was written from Appendices A.2, B.2 and C of specs/0005-statements-reclassification/spec.md,
   R16 to R21 and Decision 17 before the engine's income statement code existed.
@@ -110,10 +111,10 @@ expect:
   /years/0/income_statement/personnel_costs: '1000000'
   /years/0/income_statement/external_costs: '3604000'
   /years/0/income_statement/ebitda: '496000'
-  /years/0/income_statement/depreciation_and_amortisation: '180000'
-  /years/0/income_statement/other_charges_below_ebitda: '15000'
-  /years/0/income_statement/operating_profit: '301000'
-  /years/0/income_statement/investing_result: '-26000'
+  /years/0/income_statement/depreciation_and_amortisation: '200000'
+  /years/0/income_statement/other_charges_below_ebitda: '30000'
+  /years/0/income_statement/operating_profit: '266000'
+  /years/0/income_statement/investing_result: '9000'
   /years/0/income_statement/profit_before_financing_and_taxes: '275000'
   /years/0/income_statement/non_recurring_result: '0'
   /years/0/income_statement/financing_result: '-61000'
@@ -122,15 +123,7 @@ expect:
   /years/0/income_statement/income_taxes: '64000'
   /years/0/income_statement/net_income: '150000'
   /years/0/income_statement/reconciliations/operating_profit/start: '266000'
-  /years/0/income_statement/reconciliations/operating_profit/lines/0/label: B10 c, write-downs of fixed
-    assets (investing result)
-  /years/0/income_statement/reconciliations/operating_profit/lines/0/sources/0: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_fixed_assets
-  /years/0/income_statement/reconciliations/operating_profit/lines/0/amount: '20000'
-  /years/0/income_statement/reconciliations/operating_profit/lines/1/label: B10 d, write-downs of receivables
-    (investing result)
-  /years/0/income_statement/reconciliations/operating_profit/lines/1/sources/0: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_receivables
-  /years/0/income_statement/reconciliations/operating_profit/lines/1/amount: '15000'
-  /years/0/income_statement/reconciliations/operating_profit/end: '301000'
+  /years/0/income_statement/reconciliations/operating_profit/end: '266000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/start: '266000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/label: C15, income
     from equity investments (investing result)
@@ -175,8 +168,12 @@ expect_meta:
   /defaults_applied/10/value: value_of_production
   /defaults_applied/11/field: /years/0/statutory/income_statement/other_operating_expenses
   /defaults_applied/11/value: external_costs
-  /defaults_applied/12/field: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_receivables
-  /defaults_applied/12/value: investing_result
-  /defaults_applied/13/field: /treatments/write_downs_of_receivables
-  /defaults_applied/13/value: investing
+  /defaults_applied/12/field: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_fixed_assets
+  /defaults_applied/12/value: depreciation_and_amortisation
+  /defaults_applied/13/field: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_receivables
+  /defaults_applied/13/value: other_charges_below_ebitda
+  /defaults_applied/14/field: /treatments/write_downs_of_receivables
+  /defaults_applied/14/value: operating
+  /defaults_applied/15/field: /treatments/write_downs_of_fixed_assets
+  /defaults_applied/15/value: operating
 tolerance: '0'

@@ -45,6 +45,6 @@ input:
 expect:
   /years/0/checks/value_of_production_total/status: not_checked
   /years/0/form: statutory
-  /years/0/income_statement/operating_profit: '301000'
+  /years/0/income_statement/operating_profit: '266000'
   /years/0/income_statement/net_income: '150000'
 tolerance: '0'

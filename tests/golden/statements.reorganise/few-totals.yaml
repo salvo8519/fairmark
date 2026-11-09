@@ -27,6 +27,7 @@ expect:
   /years/0/current_non_current/cash: '240000'
   /years/0/not_computed/income_statement/0/output: /years/0/income_statement/depreciation_and_amortisation
   /years/0/not_computed/income_statement/0/missing/0: /years/0/statutory/income_statement/depreciation_and_write_downs/depreciation_and_amortisation
+  /years/0/not_computed/income_statement/0/missing/1: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_fixed_assets
   /years/0/not_computed/income_statement/8/output: /years/0/income_statement/net_income
   /years/0/not_computed/income_statement/8/missing/0: /years/0/statutory/income_statement/change_in_product_inventories
   /years/0/not_computed/income_statement/8/missing/1: /years/0/statutory/income_statement/change_in_raw_material_inventories

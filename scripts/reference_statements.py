@@ -451,6 +451,8 @@ def defaults_applied(inp: dict[str, Any]) -> list[tuple[str, str]]:
     """(pointer, destination) of every default applied (R8 as clarified; R17), years first."""
     out: list[tuple[str, str]] = []
     wdr_given = get(inp, "treatments", "write_downs_of_receivables") is not None
+    wdfa_given = get(inp, "treatments", "write_downs_of_fixed_assets") is not None
+    b10d_years = b10c_years = False
     for i, y in enumerate(inp["years"]):
         st = y.get("statutory")
         if st is None:
@@ -468,16 +470,31 @@ def defaults_applied(inp: dict[str, Any]) -> list[tuple[str, str]]:
             out.append((f"{ibase}/other_revenue_and_income", "value_of_production"))
         if "other_operating_expenses" in inc:
             out.append((f"{ibase}/other_operating_expenses", "external_costs"))
+        # P1, E3: B10 c with depreciation and amortisation, B10 d in the other charges below
+        # EBITDA, unless the analyst states the treatment.
+        b10c = get(inc, "depreciation_and_write_downs", "write_downs_of_fixed_assets")
         b10d = get(inc, "depreciation_and_write_downs", "write_downs_of_receivables")
+        b10c_years = b10c_years or b10c is not None
+        b10d_years = b10d_years or b10d is not None
+        if not wdfa_given and b10c is not None:
+            out.append(
+                (
+                    f"{ibase}/depreciation_and_write_downs/write_downs_of_fixed_assets",
+                    "depreciation_and_amortisation",
+                )
+            )
         if not wdr_given and b10d is not None:
             out.append(
                 (
                     f"{ibase}/depreciation_and_write_downs/write_downs_of_receivables",
-                    "investing_result",
+                    "other_charges_below_ebitda",
                 )
             )
-    if not wdr_given:
-        out.append(("/treatments/write_downs_of_receivables", "investing"))
+    # F1: an input default is listed only when a statutory year gives its aggregate.
+    if not wdr_given and b10d_years:
+        out.append(("/treatments/write_downs_of_receivables", "operating"))
+    if not wdfa_given and b10c_years:
+        out.append(("/treatments/write_downs_of_fixed_assets", "operating"))
     for i, y in enumerate(inp["years"]):
         bs = get(y, "statutory", "balance_sheet")
         if bs is None:
@@ -1202,10 +1219,9 @@ def statutory_balance_sheet(inp: dict[str, Any], i: int) -> dict[str, Any]:
     entries: list[tuple[int, Any]] = [(m.index, m) for m in moved] + [(lz[0], lz) for lz in leases]
     for index, e in sorted(entries, key=lambda x: x[0]):
         if isinstance(e, tuple):
-            # R21: the lease liability, an other financial liability with its current part.
+            # R21, P3: the lease liability, gross debt with its current part.
             _, label, la, _ = e
             liab = known(la["liability"])
-            other.append((label, liab))
             comps.append(
                 (
                     label,
@@ -1221,7 +1237,7 @@ def statutory_balance_sheet(inp: dict[str, Any], i: int) -> dict[str, Any]:
         elif e.kind == "non_current_trade_payables":
             other.append((e.label, e.amount))
             comps.append((e.label, f"/adjustments/{index}", e.amount, known(ZERO), e.amount))
-    gross = plus(fd, dest_sum(sls, "financial_debt"))
+    gross = plus(fd, dest_sum(sls, "financial_debt"), *(known(lz[2]["liability"]) for lz in leases))
     nfp_total = plus(*(c[2] for c in comps))
     nfp_cur = plus(*(c[3] for c in comps))
     nfp_ncur = plus(*(c[4] for c in comps))
@@ -1561,7 +1577,8 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
     y = inp["years"][i]
     inc = get(y, "statutory", "income_statement") or {}
     base = f"/years/{i}/statutory/income_statement"
-    wdr = get(inp, "treatments", "write_downs_of_receivables") or "investing"
+    wdr = get(inp, "treatments", "write_downs_of_receivables") or "operating"
+    wdfa = get(inp, "treatments", "write_downs_of_fixed_assets") or "operating"
     ab, c10, d10, grouped, _ab_read, c_read = b10_reading(inc, base)
     has_income_statement = get(y, "statutory", "income_statement") is not None
 
@@ -1646,8 +1663,14 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
     value_added = total((1, vop), (-1, external))  # E1: external costs
     personnel = core["personnel_costs"]
     ebitda = total((1, value_added), (-1, personnel))
-    dna = plus(core["depreciation_and_amortisation"], *(known(dep) for *_, dep, _ in leases))
     operating_wdr = wdr == "operating"
+    operating_wdfa = wdfa == "operating"
+    # P1: B10 c with depreciation and amortisation when operating.
+    dna = plus(
+        core["depreciation_and_amortisation"],
+        *([core["write_downs_of_fixed_assets"]] if operating_wdfa else []),
+        *(known(dep) for *_, dep, _ in leases),
+    )
     # E2: provisions, and B10 d when operating, below EBITDA besides depreciation.
     other_terms = [core["provisions_for_risks"], core["other_provisions"]]
     if operating_wdr:
@@ -1667,8 +1690,9 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
         (1, core["income_from_equity_investments"]),
         (1, core["other_financial_income"]),
         (1, d_total),
-        (-1, core["write_downs_of_fixed_assets"]),
     ]
+    if not operating_wdfa:
+        inv_terms.append((-1, core["write_downs_of_fixed_assets"]))
     if not operating_wdr:
         inv_terms.append((-1, core["write_downs_of_receivables"]))
     investing_result = total(*inv_terms)
@@ -1708,7 +1732,9 @@ def statutory_income_statement(inp: dict[str, Any], i: int) -> dict[str, Any]:
     c_label = "B10 c, write-downs of fixed assets (investing result)"
     if grouped:
         c_label += ": read as none, give the B10 c part (Decision 8)"
-    op_lines = [(-1, c_label, c_read, core["write_downs_of_fixed_assets"])]
+    op_lines = []
+    if not operating_wdfa:
+        op_lines.append((-1, c_label, c_read, core["write_downs_of_fixed_assets"]))
     if not operating_wdr:
         op_lines.append(
             (

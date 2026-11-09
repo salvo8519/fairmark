@@ -38,5 +38,5 @@ input:
 expect:
   /years/0/checks/value_adjustments_of_fixed_assets_of_which/status: not_checked
   /years/0/income_statement/depreciation_and_amortisation: 'null'
-  /years/0/income_statement/investing_result: '-26000'
+  /years/0/income_statement/investing_result: '9000'
 tolerance: '0'

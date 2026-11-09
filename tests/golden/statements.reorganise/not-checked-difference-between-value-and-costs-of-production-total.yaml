@@ -46,6 +46,6 @@ input:
 expect:
   /years/0/checks/difference_between_value_and_costs_of_production_total/status: not_checked
   /years/0/form: statutory
-  /years/0/income_statement/operating_profit: '301000'
+  /years/0/income_statement/operating_profit: '266000'
   /years/0/income_statement/net_income: '150000'
 tolerance: '0'

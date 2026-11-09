@@ -123,10 +123,10 @@ expect:
   /years/0/income_statement/personnel_costs: '1000000'
   /years/0/income_statement/external_costs: '3544000'
   /years/0/income_statement/ebitda: '556000'
-  /years/0/income_statement/depreciation_and_amortisation: '220000'
-  /years/0/income_statement/other_charges_below_ebitda: '15000'
-  /years/0/income_statement/operating_profit: '321000'
-  /years/0/income_statement/investing_result: '-26000'
+  /years/0/income_statement/depreciation_and_amortisation: '240000'
+  /years/0/income_statement/other_charges_below_ebitda: '30000'
+  /years/0/income_statement/operating_profit: '286000'
+  /years/0/income_statement/investing_result: '9000'
   /years/0/income_statement/profit_before_financing_and_taxes: '295000'
   /years/0/income_statement/non_recurring_result: '0'
   /years/0/income_statement/financing_result: '-69000'
@@ -135,22 +135,14 @@ expect:
   /years/0/income_statement/income_taxes: '64000'
   /years/0/income_statement/net_income: '162000'
   /years/0/income_statement/reconciliations/operating_profit/start: '266000'
-  /years/0/income_statement/reconciliations/operating_profit/lines/0/label: B10 c, write-downs of fixed
-    assets (investing result)
-  /years/0/income_statement/reconciliations/operating_profit/lines/0/sources/0: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_fixed_assets
-  /years/0/income_statement/reconciliations/operating_profit/lines/0/amount: '20000'
-  /years/0/income_statement/reconciliations/operating_profit/lines/1/label: B10 d, write-downs of receivables
-    (investing result)
-  /years/0/income_statement/reconciliations/operating_profit/lines/1/sources/0: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_receivables
-  /years/0/income_statement/reconciliations/operating_profit/lines/1/amount: '15000'
-  /years/0/income_statement/reconciliations/operating_profit/lines/2/label: Head office lease (lease payments
+  /years/0/income_statement/reconciliations/operating_profit/lines/0/label: Head office lease (lease payments
     removed from B8)
-  /years/0/income_statement/reconciliations/operating_profit/lines/2/sources/0: /adjustments/0
-  /years/0/income_statement/reconciliations/operating_profit/lines/2/amount: '60000'
-  /years/0/income_statement/reconciliations/operating_profit/lines/3/label: Head office lease (lease depreciation)
-  /years/0/income_statement/reconciliations/operating_profit/lines/3/sources/0: /adjustments/0
-  /years/0/income_statement/reconciliations/operating_profit/lines/3/amount: '-40000'
-  /years/0/income_statement/reconciliations/operating_profit/end: '321000'
+  /years/0/income_statement/reconciliations/operating_profit/lines/0/sources/0: /adjustments/0
+  /years/0/income_statement/reconciliations/operating_profit/lines/0/amount: '60000'
+  /years/0/income_statement/reconciliations/operating_profit/lines/1/label: Head office lease (lease depreciation)
+  /years/0/income_statement/reconciliations/operating_profit/lines/1/sources/0: /adjustments/0
+  /years/0/income_statement/reconciliations/operating_profit/lines/1/amount: '-40000'
+  /years/0/income_statement/reconciliations/operating_profit/end: '286000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/start: '266000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/label: Head office
     lease (lease payments removed from B8)
@@ -180,8 +172,9 @@ expect:
   /years/0/balance_sheet/sources/net_financial_position/total: '910000'
   /years/0/balance_sheet/sources/net_financial_position/current: '150000'
   /years/0/balance_sheet/sources/net_financial_position/non_current: '760000'
-  /years/0/balance_sheet/sources/net_financial_position/position/other_items/2/name: Head office lease
-  /years/0/balance_sheet/sources/net_financial_position/position/other_items/2/amount: '200000'
+  /years/0/balance_sheet/sources/net_financial_position/position/gross_debt: '1200000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/5/label: Head office lease
+  /years/0/balance_sheet/sources/net_financial_position/composition/5/amount: '200000'
   /years/0/balance_sheet/total_funds_invested: '1840000'
   /years/0/balance_sheet/sources/total_sources: '1840000'
 tolerance: '0'
