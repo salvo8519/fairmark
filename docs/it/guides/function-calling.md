@@ -1,6 +1,6 @@
 ---
 source: guides/function-calling.md
-source_hash: b5514c691ef0
+source_hash: c70c8add8d89
 ---
 # Function calling
 
@@ -29,9 +29,24 @@ Provider supportati ed esempi completi: [Provider LLM](providers.md).
 result = fm.tools.dispatch(name, arguments)   # arguments: dict o stringa JSON
 ```
 
-`dispatch` non solleva eccezioni su input non validi. Restituisce
-`{"error": {"code", "message"}}`, da rimandare al modello come risultato del tool perché
-corregga i parametri.
+`dispatch` non solleva eccezioni su input non validi. Restituisce `{"error": <report>}`, da
+rimandare al modello come risultato del tool perché corregga i parametri. Il report
+([codici di errore](../reference/errors.md#il-report-di-errore)) indica l'argomento da
+correggere con il suo JSON Pointer (`pointer`), il sottotipo (`reason`, per esempio `missing`,
+`unknown_field`, `enum` o `sign`), i valori ammessi (`expected`) e la correzione (`fix`), ed
+elenca in `errors` tutti gli errori dell'input trovati, così il modello li corregge tutti in
+un solo passaggio:
+
+```python
+out = fm.tools.dispatch("fairmark_loans_instalment",
+                        {"principal": "0", "number_of_instalments": 0,
+                         "timing": "ordinary", "periodic_rate": "0.01"})
+[e["pointer"] for e in out["error"]["errors"]]   # ['/principal', '/number_of_instalments']
+```
+
+In Python, `fm.FairmarkError` ha gli stessi campi come attributi: `err.pointer`,
+`err.pointers`, `err.reason`, `err.expected`, `err.fix`, `err.missing_any_of` e
+`err.errors`.
 
 ## Metodi in anteprima
 

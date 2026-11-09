@@ -1,6 +1,6 @@
 ---
 source: guides/mcp.md
-source_hash: 7e8e35b03d7d
+source_hash: d319aa27aabc
 ---
 # Server MCP
 
@@ -86,5 +86,8 @@ finanziari.
   anteprima e di presentare ogni risultato come un calcolo sotto la responsabilità
   dell'utilizzatore, mai come una consulenza (vedi le [avvertenze legali](../disclaimer.md)).
 - Risultati come contenuto strutturato (la busta JSON completa) e come testo.
-- Errori segnalati con `isError` e un codice stabile, così il modello può correggere la
-  chiamata.
+- Errori segnalati con `isError`, con il report di errore completo come contenuto
+  strutturato: il codice stabile, l'argomento da correggere (`pointer`), il sottotipo
+  (`reason`), i valori ammessi (`expected`), la correzione e tutti gli errori dell'input
+  trovati (`errors`), così il modello può correggere la chiamata in un solo passaggio (vedi
+  [il report di errore](../reference/errors.md#il-report-di-errore)).

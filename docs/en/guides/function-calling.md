@@ -24,8 +24,23 @@ Supported providers and complete examples: [LLM providers](providers.md).
 result = fm.tools.dispatch(name, arguments)   # arguments: dict or JSON string
 ```
 
-`dispatch` never raises on bad input. It returns `{"error": {"code", "message"}}`, which you
-send back to the model as the tool result so it can fix its parameters.
+`dispatch` never raises on bad input. It returns `{"error": <report>}`, which you send back
+to the model as the tool result so it can fix its parameters. The report
+([error codes](../reference/errors.md#the-error-report)) names the argument to correct by its
+JSON pointer (`pointer`), the sub-kind (`reason`, for example `missing`, `unknown_field`,
+`enum` or `sign`), the accepted values (`expected`) and the fix (`fix`), and lists every
+input error found in `errors`, so the model corrects them all in one round:
+
+```python
+out = fm.tools.dispatch("fairmark_loans_instalment",
+                        {"principal": "0", "number_of_instalments": 0,
+                         "timing": "ordinary", "periodic_rate": "0.01"})
+[e["pointer"] for e in out["error"]["errors"]]   # ['/principal', '/number_of_instalments']
+```
+
+In Python, `fm.FairmarkError` carries the same fields as attributes: `err.pointer`,
+`err.pointers`, `err.reason`, `err.expected`, `err.fix`, `err.missing_any_of` and
+`err.errors`.
 
 ## Preview methods
 

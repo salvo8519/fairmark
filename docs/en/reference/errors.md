@@ -1,10 +1,91 @@
 # Error codes
 
 Codes are stable: once released, a code never changes meaning. Every adapter (Python, CLI, MCP,
-function calling) reports errors as `{"code": "...", "message": "..."}`. Messages name the field
-to correct by its JSON pointer (RFC 6901), for example `/stages/0/flows/1`, and state the fix.
-For a method evaluated by an analysis, the pointer is relative to `base_input`, like the
-pointers of the analysis itself.
+function calling) reports an error as the same report, described below: the code, the message
+and the fields a client needs to correct the input without reading the message. Messages name
+the field to correct by its JSON pointer (RFC 6901), for example `/stages/0/flows/1`, and state
+the fix. For a method evaluated by an analysis, the pointer is relative to `base_input`, like
+the pointers of the analysis itself.
+
+## The error report
+
+A refused call returns `{"error": <report>}` (ADR 0014 G5):
+
+```json
+{"error": {
+  "code": "FM-E001",
+  "message": "invalid input: `principal` must be greater than 0 (got 0)",
+  "pointer": "/principal",
+  "pointers": [],
+  "reason": "range",
+  "expected": ["an amount greater than 0"],
+  "fix": null,
+  "errors": [
+    {"code": "FM-E001", "message": "invalid input: `principal` must be greater than 0 (got 0)",
+     "pointer": "/principal", "pointers": [], "reason": "range",
+     "expected": ["an amount greater than 0"], "fix": null},
+    {"code": "FM-E001",
+     "message": "invalid input: `number_of_instalments` must be between 1 and 10000 (got 0)",
+     "pointer": "/number_of_instalments", "pointers": [], "reason": "range",
+     "expected": ["a whole number from 1 to 10000"], "fix": null}
+  ]
+}}
+```
+
+| Field | Content |
+| --- | --- |
+| `code` | The stable code of the table below. |
+| `message` | What is wrong and, where known, how to fix it, in English. The same text as before the report gained the other fields. |
+| `pointer` | JSON pointer of the field to correct, from the root of the input; `null` when no single field is at fault, for example for a text that is not JSON (`reason` `syntax`, the message gives the line and column) or for `FM-E027`. |
+| `pointers` | Every field of a relation: both sides of an `FM-E026` reconciliation, both fields of a conflict; empty when the error concerns one field. |
+| `reason` | The sub-kind of the error (values below), which tells apart the conditions that share a code, above all `FM-E001`; `null` when the code has one meaning only. |
+| `expected` | The accepted values (for example the values of an enumeration, or the fields an object accepts after an unknown field), or a short description of the accepted form; empty when not known. |
+| `fix` | One sentence that resolves the error; `null` when the message is the only guidance. |
+| `missing_any_of` | `FM-E027` only: alternative sets of input pointers, any one of which lifts the input above the minimum of the method, for example `[["/closing/cash"], ["/closing/current_assets"]]`. |
+| `errors` | Every error found, at least one; the first is the top-level report itself. The entries have no `errors` of their own. |
+
+**Every input error, in one call.** The validation of the input goes on after a refusal and
+reports every error it finds, in the order it checks them, so the first error is the one a
+single report would give. This covers the validation of `statements.reorganise`, `dcf.fcff`
+and `dcf.fcfe` (the bridge lines, then each stage, then the rates, the expected inflation, the
+timing and the terminal option), `loans.*`, `ratios.debt_service` and `ratios.covenants`. A
+check that needs a refused input is skipped (for example the count of the rates when a stage
+is refused, or the rest of an adjustment whose amounts are not one per year). Two cases report
+one error only:
+
+- reading the input (a missing or unknown field, a wrong type, an unknown value): the reader
+  stops at the first field it cannot read (ADR 0013); correct it and call again;
+- an error raised during the computation (a reconciliation `FM-E026` of totals, a solver that
+  does not converge, an overflow) stops it and is the only entry.
+
+The schema of the report is part of every result schema (`fairmark schema <method>
+--envelope`, `fairmark.result_schema(method)`): `$defs/FairmarkErrorResponse`, named at the
+root by `x-fairmark-error`. The cells of an analysis table keep their own compact report,
+`{"code", "message"}`, which is part of the output of the analysis methods.
+
+### Reasons
+
+| `reason` | Meaning | Codes |
+| --- | --- | --- |
+| `syntax` | The text is not JSON; `pointer` is `null` | `FM-E001` |
+| `missing` | A required field, or one required by the other fields given, is absent; for `FM-E027`, no output has every input it needs | `FM-E001`, `FM-E025`, `FM-E027` |
+| `unknown_field` | A field the input does not define; `expected` lists the fields accepted | `FM-E001` |
+| `duplicate` | A field given twice in the same object, or a repeated pointer of an analysis | `FM-E001` |
+| `type` | A value of the wrong type, `null` for a field that refuses it, or a date that is not a calendar date | `FM-E001`, `FM-E009` |
+| `enum` | A value outside a closed list; `expected` lists the values | `FM-E001` |
+| `conflict` | Fields that exclude each other are given together, or contradict each other (terms, bases, dates out of order) | `FM-E001`, `FM-E019`, `FM-E024` |
+| `requires` | A field is given without the field it needs, or is not used by the choice made | `FM-E001`, `FM-E020`, `FM-E022`, `FM-E025` |
+| `sign` | An amount with the wrong sign for its field | `FM-E001`, `FM-E006` |
+| `blank` | A text that must say something is empty or blank | `FM-E001` |
+| `range` | A number outside the domain of its field | `FM-E001`, `FM-E003`, `FM-E004`, `FM-E009`, `FM-E018`, `FM-E020` to `FM-E023` |
+| `length` | A list with the wrong number of entries: empty, too long, or not one entry per period or year | `FM-E001`, `FM-E002`, `FM-E025` |
+| `reconcile` | Two sides of a relation that must agree differ | `FM-E026` |
+
+Values are added, never renamed or removed: a client accepts a value it does not know. Codes
+that report no input condition (`FM-E005`, `FM-E007`, `FM-E008`, `FM-E010` to `FM-E017`) have
+`reason` `null`, except where this page says otherwise.
+
+## Codes
 
 | Code | Meaning | Typical fix |
 | --- | --- | --- |

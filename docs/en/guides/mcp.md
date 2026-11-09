@@ -76,4 +76,7 @@ financial values.
   every result as a calculation under the user's responsibility, never as advice (see the
   [disclaimer](../disclaimer.md)).
 - Results as structured content (the full JSON envelope) and as text.
-- Errors flagged with `isError` and a stable code, so the model can correct its call.
+- Errors flagged with `isError`, with the whole error report as structured content: the
+  stable code, the argument to correct (`pointer`), the sub-kind (`reason`), the accepted
+  values (`expected`), the fix and every input error found (`errors`), so the model can
+  correct its call in one round (see [the error report](../reference/errors.md#the-error-report)).
