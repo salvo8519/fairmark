@@ -14,7 +14,7 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{FairmarkError, Reason, Result};
+use crate::error::{FairmarkError, Found, Reason, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num::{add, mul, sub};
@@ -284,28 +284,38 @@ fn validate(
         .at(at.pointer_prefix, Reason::Length)
         .fix("give at least one period with its line items"));
     }
+    // Every input error is reported (ADR 0014 G5), in the order of the checks.
+    let mut found = Found::new();
     let with_amounts: Vec<usize> = (0..p.len())
         .filter(|&i| p[i].operating_taxes.is_some())
         .collect();
+    let rate_form = choice.notional_tax_rate.is_some();
     let taxes = match choice.notional_tax_rate {
         Some(t) => {
+            let mut valid = true;
             if let Some(&i) = with_amounts.first() {
-                return Err(invalid(format!(
+                valid = false;
+                found.push(
+                    invalid(format!(
                     "give the taxes on EBIT in one form only: `/notional_tax_rate` conflicts with \
                      {}; remove `notional_tax_rate`, or remove `operating_taxes` from every line \
                      of `{}`",
                     at.field(i, "operating_taxes")?,
                     at.pointer_prefix
                 ))
-                .at("/notional_tax_rate", Reason::Conflict)
-                .between([
-                    "/notional_tax_rate".to_owned(),
-                    at.pointer(i, "operating_taxes"),
-                ]));
+                    .at("/notional_tax_rate", Reason::Conflict)
+                    .between([
+                        "/notional_tax_rate".to_owned(),
+                        at.pointer(i, "operating_taxes"),
+                    ]),
+                );
             }
-            check_tax_rate(t, "/notional_tax_rate")?;
-            let Some(treatment) = choice.negative_ebit else {
-                return Err(invalid(
+            valid &= found.check(check_tax_rate(t, "/notional_tax_rate"));
+            match choice.negative_ebit {
+                Some(treatment) if valid => Some(Taxes::Rate(t, treatment)),
+                Some(_) => None,
+                None => {
+                    found.push(invalid(
                     "`/negative_ebit` is required with `/notional_tax_rate`: `credit` (taxes = \
                      rate × EBIT, a saving when EBIT is negative) or `zero` (no tax when EBIT is \
                      negative); there is no default",
@@ -313,66 +323,83 @@ fn validate(
                 .at("/negative_ebit", Reason::Missing)
                 .between(["/negative_ebit", "/notional_tax_rate"])
                 .expected(["credit", "zero"]));
-            };
-            Taxes::Rate(t, treatment)
+                    None
+                }
+            }
         }
         None => {
+            let mut valid = true;
             if with_amounts.is_empty() {
-                return Err(invalid(format!(
-                    "no taxes on EBIT: give `/notional_tax_rate` (with `/negative_ebit`), or \
+                valid = false;
+                found.push(
+                    invalid(format!(
+                        "no taxes on EBIT: give `/notional_tax_rate` (with `/negative_ebit`), or \
                      `operating_taxes` in every line of `{}`",
-                    at.pointer_prefix
-                ))
-                .at("/notional_tax_rate", Reason::Missing));
-            }
-            if let Some(i) = (0..p.len()).find(|&i| p[i].operating_taxes.is_none()) {
-                return Err(invalid(format!(
+                        at.pointer_prefix
+                    ))
+                    .at("/notional_tax_rate", Reason::Missing),
+                );
+            } else {
+                for i in (0..p.len()).filter(|&i| p[i].operating_taxes.is_none()) {
+                    valid = false;
+                    found.push(
+                        invalid(format!(
                     "{} is missing: give the taxes on EBIT as amounts in every line of `{}`, or \
                      remove them and give `/notional_tax_rate`",
                     at.field(i, "operating_taxes")?,
                     at.pointer_prefix
                 ))
-                .at(at.pointer(i, "operating_taxes"), Reason::Missing));
+                        .at(at.pointer(i, "operating_taxes"), Reason::Missing),
+                    );
+                }
             }
             if choice.negative_ebit.is_some() {
-                return Err(invalid(
+                valid = false;
+                found.push(invalid(
                     "`/negative_ebit` applies only with `/notional_tax_rate`: the taxes are given \
                      as amounts in `operating_taxes`; remove `negative_ebit`",
                 )
                 .at("/negative_ebit", Reason::Requires)
                 .fix("remove `negative_ebit`"));
             }
-            Taxes::Amounts
+            valid.then_some(Taxes::Amounts)
         }
     };
 
     for (i, lines) in p.iter().enumerate() {
-        check_not_negative(
+        found.check(check_not_negative(
             lines.depreciation_and_amortisation,
             at,
             i,
             "depreciation_and_amortisation",
-        )?;
-        check_not_negative(lines.capital_expenditure, at, i, "capital_expenditure")?;
+        ));
+        found.check(check_not_negative(
+            lines.capital_expenditure,
+            at,
+            i,
+            "capital_expenditure",
+        ));
         if let Some(interest) = lines.interest_expense {
-            check_not_negative(interest, at, i, "interest_expense")?;
+            found.check(check_not_negative(interest, at, i, "interest_expense"));
         }
         for (k, a) in lines.other_adjustments.iter().enumerate() {
             if a.label.trim().is_empty() {
-                return Err(invalid(format!(
-                    "{} is empty: say what the amount is",
-                    at.field(i, &format!("other_adjustments/{k}/label"))?
-                ))
-                .at(
-                    at.pointer(i, &format!("other_adjustments/{k}/label")),
-                    Reason::Blank,
-                )
-                .fix("say what the amount is"));
+                found.push(
+                    invalid(format!(
+                        "{} is empty: say what the amount is",
+                        at.field(i, &format!("other_adjustments/{k}/label"))?
+                    ))
+                    .at(
+                        at.pointer(i, &format!("other_adjustments/{k}/label")),
+                        Reason::Blank,
+                    )
+                    .fix("say what the amount is"),
+                );
             }
         }
         match (lines.interest_expense, lines.net_borrowing) {
-            (Some(_), None) => {
-                return Err(invalid(format!(
+            (Some(_), None) => found.push(
+                invalid(format!(
                     "{} is missing: the FCFE needs `interest_expense` and `net_borrowing` \
                      together; give it (0 for none) or remove `{}`",
                     at.field(i, "net_borrowing")?,
@@ -382,10 +409,10 @@ fn validate(
                 .between([
                     at.pointer(i, "net_borrowing"),
                     at.pointer(i, "interest_expense"),
-                ]))
-            }
-            (None, Some(_)) => {
-                return Err(invalid(format!(
+                ]),
+            ),
+            (None, Some(_)) => found.push(
+                invalid(format!(
                     "{} is missing: the FCFE needs `interest_expense` and `net_borrowing` \
                      together; give it (0 for none) or remove `{}`",
                     at.field(i, "interest_expense")?,
@@ -395,15 +422,16 @@ fn validate(
                 .between([
                     at.pointer(i, "interest_expense"),
                     at.pointer(i, "net_borrowing"),
-                ]))
-            }
+                ]),
+            ),
             _ => {}
         }
     }
     let financing = p[0].interest_expense.is_some();
     if let Some(i) = (0..p.len()).find(|&i| p[i].interest_expense.is_some() != financing) {
         let (given, missing) = if financing { (0, i) } else { (i, 0) };
-        return Err(invalid(format!(
+        found.push(
+            invalid(format!(
             "financing lines are given for period {} but not for period {}: add `{}` and `{}`, \
              or remove them from `{}` and `{}`, so that every period or none has them",
             at.period(given)?,
@@ -413,44 +441,55 @@ fn validate(
             at.pointer(given, "interest_expense"),
             at.pointer(given, "net_borrowing"),
         ))
-        .at(at.pointer(missing, "interest_expense"), Reason::Missing)
-        .between([
-            at.pointer(missing, "interest_expense"),
-            at.pointer(missing, "net_borrowing"),
-        ]));
+            .at(at.pointer(missing, "interest_expense"), Reason::Missing)
+            .between([
+                at.pointer(missing, "interest_expense"),
+                at.pointer(missing, "net_borrowing"),
+            ]),
+        );
     }
 
+    // The interest tax shield, checked on the form given, whether or not the form is valid.
     let shield =
-        match (taxes, financing, choice.interest_tax_rate) {
-            (Taxes::Rate(..), _, Some(_)) => return Err(invalid(
+        match (rate_form, financing, choice.interest_tax_rate) {
+            (true, _, Some(_)) => {
+                found.push(invalid(
                 "`/interest_tax_rate` is not accepted with `/notional_tax_rate`: the interest tax \
                  shield uses the tax rate on EBIT (SPEC-0001 R3); remove `interest_tax_rate`",
             )
             .at("/interest_tax_rate", Reason::Conflict)
             .between(["/interest_tax_rate", "/notional_tax_rate"])
-            .fix("remove `interest_tax_rate`")),
-            (Taxes::Rate(t, _), true, None) => Some(t),
-            (Taxes::Amounts, true, Some(t)) => {
-                check_tax_rate(t, "/interest_tax_rate")?;
+            .fix("remove `interest_tax_rate`"));
+                None
+            }
+            (true, true, None) => choice.notional_tax_rate,
+            (false, true, Some(t)) => {
+                found.check(check_tax_rate(t, "/interest_tax_rate"));
                 Some(t)
             }
-            (Taxes::Amounts, true, None) => {
-                return Err(invalid(
+            (false, true, None) => {
+                found.push(invalid(
                     "`/interest_tax_rate` is required: the taxes on EBIT are given as amounts, so \
                  the rate t of the interest tax shield in the FCFE must be given separately",
                 )
-                .at("/interest_tax_rate", Reason::Missing))
+                .at("/interest_tax_rate", Reason::Missing));
+                None
             }
-            (Taxes::Amounts, false, Some(_)) => {
-                return Err(invalid(format!(
+            (false, false, Some(_)) => {
+                found.push(
+                    invalid(format!(
                     "`/interest_tax_rate` is used only for the FCFE: give `interest_expense` and \
                      `net_borrowing` in every line of `{}`, or remove `interest_tax_rate`",
                     at.pointer_prefix
                 ))
-                .at("/interest_tax_rate", Reason::Requires))
+                    .at("/interest_tax_rate", Reason::Requires),
+                );
+                None
             }
             (_, false, None) => None,
         };
+    found.finish()?;
+    let taxes = taxes.ok_or(FairmarkError::Internal("tax form not checked"))?;
     Ok((taxes, financing, shield))
 }
 
