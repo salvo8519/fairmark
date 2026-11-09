@@ -168,11 +168,99 @@ fn invalid_date_is_fm_e009_reason_type() {
     );
 }
 
-/// ADR 0013: `serde` stops at the first error it reads, so a text that cannot be read reports
-/// one error; validation of an input that was read reports all of them.
+// ------------------------------------------------------------- every unknown field
+
+/// Maintainer instruction of 2026-11-09 (item A): after the first unknown field, every other
+/// unknown key of the input is reported in one pass, with the same message serde would give.
 #[test]
-fn reading_stops_at_the_first_error() {
-    let r = report("tvm.npv", &json!({"typo": 1, "other": 2}));
+fn every_unknown_field_is_reported() {
+    let text = |a: &str, b: &str| {
+        format!(r#"{{"rate": "0.1", "{a}": 1, "cash_flows": [-100, 60], "{b}": 2}}"#)
+    };
+    let r = report_text("tvm.npv", &text("typo", "other"));
+    let pointers: Vec<&str> = r["errors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["pointer"].as_str().unwrap())
+        .collect();
+    assert_eq!(pointers, ["/typo", "/other"]);
+    for e in r["errors"].as_array().unwrap() {
+        assert_eq!(e["reason"], "unknown_field");
+        assert_eq!(e["expected"], json!(["rate", "cash_flows"]));
+    }
+    // The message of a key found by the walk is the one serde gives when it meets it first.
+    let swapped = report_text("tvm.npv", &text("other", "typo"));
+    assert_eq!(r["errors"][1]["message"], swapped["message"]);
+    assert_eq!(swapped["errors"][1]["message"], r["message"]);
+}
+
+#[test]
+fn unknown_fields_are_found_at_every_depth() {
+    let mut input = dcf();
+    let wacc = input.as_object_mut().unwrap().shift_remove("wacc").unwrap();
+    input["wac"] = wacc;
+    input["stages"][0]["flow"] = json!([1]);
+    input["terminal"]["tv.gordon"]["growht"] = json!("0.02");
+    input["net_financial_position"]["debt"] = json!(0);
+    let r = report("dcf.fcff", &input);
+    let found: Vec<(&str, &str)> = r["errors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| (e["pointer"].as_str().unwrap(), e["fix"].as_str().unwrap()))
+        .collect();
+    assert_eq!(
+        found,
+        [
+            ("/stages/0/flow", "rename `flow` to `flows`"),
+            ("/terminal/tv.gordon/growht", "rename `growht` to `growth`"),
+            (
+                "/net_financial_position/debt",
+                "remove `debt`, or rename it to one of the fields in `expected`"
+            ),
+            ("/wac", "rename `wac` to `wacc`"),
+        ]
+    );
+}
+
+#[test]
+fn unknown_fields_inside_tagged_choices() {
+    let mut input = golden_input("statements.reorganise/adjustment-non-recurring.yaml");
+    input["adjustments"][0]["sourc"] = json!("x");
+    input["adjustments"][1]["labl"] = json!("x");
+    input["years"][0]["statutory"]["balance_sheet"]["cashh"] = json!("1");
+    let r = report("statements.reorganise", &input);
+    let pointers: Vec<&str> = r["errors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["pointer"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        pointers,
+        [
+            "/years/0/statutory/balance_sheet/cashh",
+            "/adjustments/0/sourc",
+            "/adjustments/1/labl",
+        ]
+    );
+    let mut compare = golden_input("tv.compare/seven-techniques.yaml");
+    compare["techniques"][0]["tv.gordon"]["grow"] = json!("0.02");
+    compare["techniques"][1]["tv.value_driver"]["roic"] = json!("0.1");
+    let r = report("tv.compare", &compare);
+    assert_eq!(r["errors"].as_array().unwrap().len(), 2, "{r:#}");
+    assert_eq!(
+        r["errors"][1]["pointer"],
+        "/techniques/1/tv.value_driver/roic"
+    );
+}
+
+/// Only an unknown field starts the walk: a type error still stops at the first.
+#[test]
+fn other_reading_errors_stop_at_the_first() {
+    let r = report_text("tvm.npv", r#"{"rate": "x", "typo": 1, "cash_flows": [1]}"#);
+    assert_eq!(r["reason"], "type");
     assert_eq!(r["errors"].as_array().unwrap().len(), 1);
 }
 
@@ -505,6 +593,208 @@ fn flow_before_valuation_date_names_both_dates() {
     assert_eq!(
         r["pointers"],
         json!(["/cash_flows/1/date", "/valuation_date"])
+    );
+}
+
+// ------------------------------------------------------------- computation errors
+
+/// Maintainer instruction of 2026-11-09 (item C): a computation error (here an overflow in the
+/// build-up of the free cash flows) never sits in `errors` next to input errors. With an input
+/// error, the input errors are reported; without, the computation error alone.
+#[test]
+fn computation_errors_are_never_listed_with_input_errors() {
+    let max = "79228162514264337593543950335";
+    let mut input = golden_input("dcf.fcff/stage-with-build-up-lines-tax-amounts.yaml");
+    input["stages"][0]["lines"][0]["ebit"] = json!(max);
+    input["stages"][0]["lines"][0]["depreciation_and_amortisation"] = json!(max);
+    let r = report("dcf.fcff", &input);
+    assert_eq!(r["code"], "FM-E008", "{r:#}");
+    assert_eq!(r["errors"].as_array().unwrap().len(), 1);
+
+    input["wacc"] = json!("-2");
+    let r = report("dcf.fcff", &input);
+    assert_eq!(r["code"], "FM-E003", "{r:#}");
+    let codes: Vec<&str> = r["errors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["code"].as_str().unwrap())
+        .collect();
+    assert_eq!(codes, ["FM-E003"]);
+}
+
+// ------------------------------------------------------------- every method collects
+
+/// The pointers of every error of the report.
+fn pointers_of(r: &Value) -> Vec<String> {
+    r["errors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["pointer"].as_str().unwrap_or("null").to_owned())
+        .collect()
+}
+
+/// Maintainer instruction of 2026-11-09 (item B): dcf.free_cash_flows, tv.*, tvm.* and coc.*
+/// report every input error of their validation, in the order of their checks.
+#[test]
+fn free_cash_flows_reports_every_input_error() {
+    let mut input = golden_input("dcf.free_cash_flows/amounts-form-with-adjustments.yaml");
+    input["periods"][0]["capital_expenditure"] = json!("-1");
+    input["periods"][1]["depreciation_and_amortisation"] = json!("-2");
+    input["periods"][1]["other_adjustments"][0]["label"] = json!(" ");
+    input["interest_tax_rate"] = json!("1.5");
+    let r = report("dcf.free_cash_flows", &input);
+    assert_eq!(
+        pointers_of(&r),
+        [
+            "/periods/0/capital_expenditure",
+            "/periods/1/depreciation_and_amortisation",
+            "/periods/1/other_adjustments/0/label",
+            "/interest_tax_rate",
+        ]
+    );
+}
+
+#[test]
+fn tv_methods_report_every_input_error() {
+    let r = report(
+        "tv.gordon",
+        &json!({"rate": "0.1", "growth": "-2", "next_flow": "1", "last_flow": "1"}),
+    );
+    assert_eq!(pointers_of(&r), ["/growth", "/next_flow"]);
+    let r = report(
+        "tv.exit_multiple",
+        &json!({"multiple": "0", "metric": "ebitda", "metric_value": "0"}),
+    );
+    assert_eq!(pointers_of(&r), ["/multiple", "/metric_value"]);
+    let r = report(
+        "tv.liquidation",
+        &json!({"basis": "enterprise", "tax_on_gains": "-1",
+                "assets": [{"label": " ", "value": "-1"}], "liabilities": [],
+                "liquidation_costs": []}),
+    );
+    assert_eq!(
+        pointers_of(&r),
+        ["/tax_on_gains", "/assets/0/label", "/assets/0/value"]
+    );
+    let mut compare = golden_input("tv.compare/seven-techniques.yaml");
+    compare["techniques"][0]["tv.gordon"]["growth"] = json!("-2");
+    compare["techniques"][1]["tv.value_driver"]["ronic"] = json!("0");
+    let r = report("tv.compare", &compare);
+    assert_eq!(
+        pointers_of(&r),
+        [
+            "/techniques/0/tv.gordon/growth",
+            "/techniques/1/tv.value_driver/ronic"
+        ]
+    );
+    let mut dcf = dcf();
+    dcf["terminal"] =
+        json!({"tv.value_driver": {"nopat_next": "100", "growth": "-2", "ronic": "0"}});
+    let r = report("dcf.fcff", &dcf);
+    assert_eq!(
+        pointers_of(&r),
+        [
+            "/terminal/tv.value_driver/growth",
+            "/terminal/tv.value_driver/ronic"
+        ]
+    );
+}
+
+#[test]
+fn tvm_methods_report_every_input_error() {
+    let r = report("tvm.npv", &json!({"rate": "-1", "cash_flows": []}));
+    assert_eq!(pointers_of(&r), ["/cash_flows", "/rate"]);
+    let r = report("tvm.irr", &json!({"cash_flows": [1, 2], "guess": "-1"}));
+    assert_eq!(pointers_of(&r), ["/cash_flows", "/guess"]);
+    let r = report(
+        "tvm.mirr",
+        &json!({"cash_flows": [1], "finance_rate": "-1", "reinvest_rate": "-2"}),
+    );
+    assert_eq!(
+        pointers_of(&r),
+        ["/cash_flows", "/finance_rate", "/reinvest_rate"]
+    );
+    let r = report(
+        "tvm.present_value",
+        &json!({"cash_flows": ["1", "1"], "period_rates": ["-1", "-2"], "timing": "end_of_period"}),
+    );
+    assert_eq!(pointers_of(&r), ["/period_rates/0", "/period_rates/1"]);
+    let r = report(
+        "tvm.xnpv",
+        &json!({"rate": "-1", "valuation_date": "2024-06-30", "cash_flows": [
+            {"date": "2024-01-31", "amount": "-100"},
+            {"date": "2024-02-29", "amount": "110"}
+        ]}),
+    );
+    assert_eq!(
+        pointers_of(&r),
+        ["/cash_flows/0/date", "/cash_flows/1/date", "/rate"]
+    );
+    let r = report(
+        "tvm.annuity",
+        &json!({"payment": "1", "rate": "-1", "periods": 0, "growth": "-1", "timing": "ordinary"}),
+    );
+    assert_eq!(pointers_of(&r), ["/periods", "/rate", "/growth"]);
+    let r = report(
+        "tvm.perpetuity",
+        &json!({"payment": "1", "rate": "-1", "growth": "-1", "timing": "ordinary"}),
+    );
+    assert_eq!(pointers_of(&r), ["/rate", "/growth"]);
+    let r = report(
+        "tvm.future_value",
+        &json!({"rate": "-1", "periods": 0, "timing": "ordinary"}),
+    );
+    assert_eq!(pointers_of(&r), ["/present_value", "/periods", "/rate"]);
+}
+
+#[test]
+fn coc_methods_report_every_input_error() {
+    let r = report(
+        "coc.cost_of_equity",
+        &json!({"risk_free_rate": "0.03", "equity_risk_premium": "0.05",
+                "country_risk_premium": "-0.01", "country_exposure": "-1",
+                "specific_risk_premium": "0.01"}),
+    );
+    assert_eq!(
+        pointers_of(&r),
+        [
+            "/levered_beta",
+            "/country_risk_premium",
+            "/country_exposure",
+            "/specific_risk_justification"
+        ]
+    );
+    let r = report(
+        "coc.wacc",
+        &json!({"cost_of_equity": "0.1", "pre_tax_cost_of_debt": "0.05",
+                "tax_rate": "1", "debt_weight": "1"}),
+    );
+    assert_eq!(pointers_of(&r), ["/tax_rate", "/debt_weight"]);
+    let r = report(
+        "coc.cost_of_debt",
+        &json!({"risk_free_rate": "0.03", "tax_rate": "-0.1"}),
+    );
+    assert_eq!(pointers_of(&r), ["/tax_rate", "/pre_tax_cost_of_debt"]);
+    let r = report(
+        "coc.beta_relever",
+        &json!({"beta": "1", "direction": "unlever", "debt_to_equity": "-1",
+                "tax_rate": "1", "formula": "hamada"}),
+    );
+    assert_eq!(pointers_of(&r), ["/debt_to_equity", "/tax_rate"]);
+    let mut peers = golden_input("coc.beta_peers/five-peers-median.yaml");
+    peers["target_tax_rate"] = json!("1");
+    peers["peers"][1]["debt_to_equity"] = json!("-1");
+    peers["peers"][2]["tax_rate"] = json!("2");
+    let r = report("coc.beta_peers", &peers);
+    assert_eq!(
+        pointers_of(&r),
+        [
+            "/target_tax_rate",
+            "/peers/1/debt_to_equity",
+            "/peers/2/tax_rate"
+        ]
     );
 }
 

@@ -314,9 +314,14 @@ pub struct Details {
 }
 
 /// Collects the input errors of a validation pass (ADR 0014 G5): the validation goes on after
-/// a refusal, so that the report lists every error it can find, in the order it checks them.
+/// a refusal, so that the report lists every input error it can find, in the order it checks
+/// them. A computation error met during the pass (an overflow, a defect) is kept apart: it is
+/// reported, alone, only when the input has no error.
 #[derive(Debug, Default)]
-pub(crate) struct Found(Vec<FairmarkError>);
+pub(crate) struct Found {
+    input: Vec<FairmarkError>,
+    computation: Option<FairmarkError>,
+}
 
 impl Found {
     pub(crate) fn new() -> Self {
@@ -342,13 +347,16 @@ impl Found {
     /// Records an error; the errors of a nested validation are kept in their order.
     pub(crate) fn push(&mut self, error: FairmarkError) {
         match error {
-            FairmarkError::Several(several) => self.0.extend(several.0),
-            other => self.0.push(other),
+            FairmarkError::Several(several) => several.0.into_iter().for_each(|e| self.push(e)),
+            e if e.is_input_error() => self.input.push(e),
+            e => {
+                self.computation.get_or_insert(e);
+            }
         }
     }
 
     pub(crate) fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.input.is_empty() && self.computation.is_none()
     }
 
     /// The error of a validation that cannot go on: what was found, never empty when called
@@ -360,12 +368,13 @@ impl Found {
         }
     }
 
-    /// `Ok` when nothing was found, the error itself when one was, every error otherwise.
+    /// `Ok` when nothing was found; the input errors when there are any (one, or `Several`);
+    /// otherwise the computation error, alone.
     pub(crate) fn finish(mut self) -> Result<()> {
-        match self.0.len() {
-            0 => Ok(()),
-            1 => Err(self.0.remove(0)),
-            _ => Err(FairmarkError::Several(Box::new(Several(self.0)))),
+        match self.input.len() {
+            0 => self.computation.map_or(Ok(()), Err),
+            1 => Err(self.input.remove(0)),
+            _ => Err(FairmarkError::Several(Box::new(Several(self.input)))),
         }
     }
 }
@@ -509,6 +518,22 @@ impl FairmarkError {
         }
     }
 
+    /// True for an error of the input; false for an error of the computation (a solver that
+    /// does not converge or cannot isolate a rate, an overflow, a defect, an evaluation limit),
+    /// which never sits in `errors` next to input errors.
+    pub fn is_input_error(&self) -> bool {
+        !matches!(
+            self.kind(),
+            Self::NoConvergence { .. }
+                | Self::Overflow(_)
+                | Self::MultipleRates(_)
+                | Self::Internal(_)
+                | Self::TargetNotBracketed(_)
+                | Self::GoalSeekNoConvergence { .. }
+                | Self::EvaluationLimit(_)
+        )
+    }
+
     /// This error with the JSON pointer of the field to correct and the sub-kind; the code and
     /// the message are unchanged (ADR 0014 G5).
     pub(crate) fn at(self, pointer: impl Into<String>, reason: Reason) -> Self {
@@ -599,6 +624,14 @@ impl FairmarkError {
                     d.missing_any_of.iter_mut().flatten().for_each(at);
                 })
             }
+        }
+    }
+
+    /// Every error this one carries: the errors of `Several`, or the error itself.
+    pub(crate) fn into_errors(self) -> Vec<Self> {
+        match self {
+            Self::Several(s) => s.0,
+            other => vec![other],
         }
     }
 
