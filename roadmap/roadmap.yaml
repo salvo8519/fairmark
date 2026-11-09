@@ -369,6 +369,7 @@ milestones:
           - { issue: 167, title: "Dated periods and a stub first period in the DCF", spec: "0001", status: open }
           - { issue: 232, title: "Integrations with ChatGPT, Gemini and Copilot through the hosted MCP", status: open }
           - { issue: 283, title: "Mutation testing release gate for v1.0", status: open }
+          - { issue: 300, title: "Evaluation pack for institutions and universities", status: open }
 
   - title: "M7 · v2.0 real estate"
     gate: "Property valuation methods released with the same contract, golden cases and audits as the corporate methods."
