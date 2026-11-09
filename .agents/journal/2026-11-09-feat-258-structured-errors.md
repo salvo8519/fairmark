@@ -43,4 +43,5 @@
 ## Next steps
 1. Maintainer answer on the 28 decimal places; then implement it test-first with a structured
    `type` or `range` error at the field.
-2. Code review and numerical audit of round 6 on #279.
+2. Code review and numerical audit of round 6 on #279. Keep a non-merge commit with the
+   `Docs-impact: none` trailer last: docs_sync impact reads the latest non-merge commit.
