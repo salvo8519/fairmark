@@ -150,8 +150,10 @@ with `missing_any_of` for `FM-E027` and `errors` at the top level:
   causes, for `FM-E027`, whose inputs are in `missing_any_of`, and for `FM-E007` when the
   method id is an argument rather than part of the input.
 - `pointers` lists every field of a relation (both sides of an `FM-E026` reconciliation, both
-  fields of a conflict, a growth and the rate it must stay below); empty when the error
-  concerns one field.
+  fields of a conflict, a growth and the rate it must stay below, a value and the field its
+  domain depends on: a nominal rate and its compounding, a technique of another basis and the
+  basis of the comparison, the value of an exit multiple's metric and the metric); empty when
+  the error concerns one field.
 - `reason` is a sub-kind: `syntax`, `missing`, `unknown_field`, `duplicate`, `type`, `enum`,
   `conflict`, `requires`, `sign`, `blank`, `range`, `length` (a list with the wrong number of
   entries, or a choice written as an object with no key or two), `reconcile`. Values are
@@ -162,7 +164,8 @@ with `missing_any_of` for `FM-E027` and `errors` at the top level:
   (the values of an enumeration, the method ids of `FM-E007`, the fields an object accepts,
   the keys of a single-key choice), short descriptions of the accepted form in plain words
   otherwise (for example "an amount greater than 0", "a whole number of 0 or more", never a
-  Rust type name); empty when not known.
+  Rust type name); empty when not known. When a message also quotes accepted values,
+  `expected`, not the message, is the complete list.
 - `fix` is one sentence that resolves the error, or `null`; its wording is guidance, not part
   of the contract. For an unknown key it names the closest accepted field (an edit distance of
   at most 2, ignoring case).
@@ -177,8 +180,23 @@ with `missing_any_of` for `FM-E027` and `errors` at the top level:
   report it alone; a decimal string outside the number grammar of G7 is a wrong type. The
   input is also walked against the method's schema, and every unknown key, every key repeated
   in an object and every object given as a positional array is reported. The method's own
-  checks still run on the fields that were read, with each refused value replaced only to let
-  them run; an error that names a refused field or depends on the replacing value is dropped.
+  checks still run on the fields that were read. Each refused value is replaced by a value its
+  schema accepts, only so that the input can be read, and no such value ever decides an error
+  that is reported: every error declares the fields it depends on (its `pointer`, its
+  `pointers`, and the fields it otherwise read, such as the projection that decides which
+  fields a stage takes; these are not part of the report), and an error is reported only when
+  none of them is a refused field, a field within one or a field that holds one (an error that
+  declares no field is not reported beside reading errors). A key with a
+  rename suggestion stands for the field it names: that field counts as refused, and its own
+  missing entry has `pointers` `[field, key]` and the rename as its fix. The declarations are
+  complete, which a property test checks on golden inputs: an error that does not declare a
+  field is the same whatever value that field has, refused by the method or not, or whether it
+  is left out. A check therefore never stops at a refusal before an independent check: the
+  form of a group of fields and the range of each field given are checked apart. An analysis
+  does not check a variable or override pointer (`FM-E015`) against a value of `base_input`
+  that reading refuses, at the pointer or above it; that refusal is reported under
+  `/base_input`. A misspelt key that is the only key of a single-key choice is one entry,
+  `unknown_field` at the key, without a `length` entry for the choice it leaves empty.
   One condition is one entry: an object given as an array is one error at the object, a
   condition met again is not repeated, and a refused tag is the only entry of its object. A
   repeated key and a positional array are refused in every method, never read with the last

@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: 2f9ba8aad80b
+source_hash: d24e6709270f
 ---
 # Codici di errore
 
@@ -43,9 +43,9 @@ Una chiamata rifiutata restituisce `{"error": <report>}` (ADR 0014 G5):
 | `code` | Il codice stabile della tabella sotto. |
 | `message` | Che cosa non va e, quando è noto, come correggerlo, in inglese. Lo stesso testo di prima che il report avesse gli altri campi. |
 | `pointer` | JSON Pointer del campo da correggere, sempre dalla radice dell'input inviato (dentro un'analisi, sotto `/base_input`); `""` (il pointer vuoto) per l'input nel suo insieme, per esempio un input che non è un oggetto. È `null` solo per un testo che non è JSON (`reason` `syntax`, il messaggio indica riga e colonna), per un errore sollevato durante il calcolo che nessun singolo campo causa (per esempio `FM-E005`, `FM-E008`, `FM-E012`), per `FM-E027`, che indica i suoi input in `missing_any_of`, e per `FM-E007` quando l'id del metodo non fa parte dell'input (l'argomento del metodo della CLI, di `fairmark.run` o di una chiamata di tool; dentro un'analisi è `/method`). |
-| `pointers` | Tutti i campi di una relazione: i due lati di una quadratura `FM-E026`, i due campi di un conflitto; vuoto quando l'errore riguarda un solo campo. |
+| `pointers` | Tutti i campi di una relazione: i due lati di una quadratura `FM-E026`, i due campi di un conflitto, un valore e il campo da cui dipende il suo dominio (un `/rate` nominale e il suo `/compounding` o `/from`, una tecnica di un'altra base e `/basis`, `metric_value` e `metric` di un multiplo di uscita), un campo mancante e la chiave scritta male che lo rappresenta; vuoto quando l'errore riguarda un solo campo. |
 | `reason` | Il sottotipo dell'errore (valori sotto), che distingue le condizioni che condividono un codice, soprattutto `FM-E001`; `null` quando il codice ha un solo significato. |
-| `expected` | Una lista di stringhe. Quando i valori ammessi formano un elenco chiuso, i valori letterali: i valori di un'enumerazione (`reason` `enum`, e gli id dei metodi di `FM-E007`), i campi che un oggetto accetta (`unknown_field`, compreso il tag di un oggetto etichettato internamente), le chiavi di una scelta scritta come oggetto con una sola chiave (`length`, `unknown_field`). Altrimenti brevi descrizioni della forma ammessa in parole semplici, per esempio `"an amount greater than 0"` o `"a whole number of 0 or more"`, mai il nome di un tipo Rust. Vuota quando non sono noti. |
+| `expected` | Una lista di stringhe. Quando i valori ammessi formano un elenco chiuso, i valori letterali: i valori di un'enumerazione (`reason` `enum`, e gli id dei metodi di `FM-E007`), i campi che un oggetto accetta (`unknown_field`, compreso il tag di un oggetto etichettato internamente), le chiavi di una scelta scritta come oggetto con una sola chiave (`length`, `unknown_field`). Altrimenti brevi descrizioni della forma ammessa in parole semplici, per esempio `"an amount greater than 0"` o `"a whole number of 0 or more"`, mai il nome di un tipo Rust. Vuota quando non sono noti. Quando anche il messaggio cita i valori ammessi, l'elenco completo è `expected`, non il messaggio. |
 | `fix` | Una frase che risolve l'errore; `null` quando il messaggio è l'unica indicazione. La formulazione è un'indicazione e può cambiare tra un rilascio e l'altro; fai affidamento su `code`, `pointer` e `reason`. |
 | `missing_any_of` | Solo `FM-E027`: insiemi alternativi di pointer dell'input, ciascuno dei quali basta a portare l'input sopra il minimo del metodo, per esempio `[["/closing/cash"], ["/closing/current_assets"]]`. |
 | `errors` | Tutti gli errori trovati, almeno uno (`minItems` 1); il primo è il report di primo livello stesso. Le voci non hanno un proprio `errors`. |
@@ -76,9 +76,20 @@ terminale rifiutata, un `principal` rifiutato non nasconde un tasso fuori interv
 - **Errori di lettura e controlli del metodo.** Quando l'input non si riesce a leggere, i
   controlli del metodo vengono eseguiti comunque sui campi letti, e i loro errori sono
   riportati dopo quelli di lettura: un `"+0.1"` in un tasso non nasconde un'aliquota di -1.
-  Ogni valore rifiutato è sostituito da uno che lo schema accetta solo per eseguire i
-  controlli; un errore che indica un campo rifiutato, o che cambia con il valore messo al suo
-  posto, non viene riportato.
+  Ogni valore rifiutato è sostituito da uno che lo schema accetta solo per poter leggere
+  l'input, e quel valore non decide mai un errore riportato. Ogni errore dipende da campi
+  noti: il suo `pointer`, i suoi `pointers` e i campi che il suo controllo ha letto in altro
+  modo (per esempio la proiezione di uno stadio, che decide i campi che lo stadio accetta).
+  Viene riportato solo quando nessuno di essi è un campo rifiutato, un campo al suo interno o
+  un campo che lo contiene: con `compounding` rifiutato, la regola di `rate`, che ne dipende,
+  non viene controllata; con `stages/0/periods` rifiutato, un `cost_of_equity` di -5 viene
+  comunque riportato. Un controllo non si ferma mai a un rifiuto prima di un controllo che non
+  ne dipende.
+- **Una chiave scritta male rappresenta il suo campo.** Una chiave con un suggerimento di
+  rinomina (`wac` per `wacc`) vale come il campo che indica: nessun controllo che dipende da
+  quel campo viene riportato e, quando il campo è obbligatorio, la sua voce `missing` ha
+  `pointers` `[campo, chiave]` (per esempio `["/wacc", "/wac"]`) e la stessa fix della chiave,
+  "rename `wac` to `wacc`".
 - **Una voce per condizione.** Un oggetto scritto come array è un solo errore `type`
   sull'oggetto, senza errori per i suoi elementi. Una condizione incontrata più volte (una
   crescita costante controllata per ogni periodo) è riportata una volta. Quando il tag di un
@@ -91,8 +102,9 @@ terminale rifiutata, un `principal` rifiutato non nasconde un tasso fuori interv
   i lati, un esponente facoltativo con segno facoltativo (`"1E-7"`, `"1e+3"`), nessun altro
   segno salvo un meno iniziale, nessun separatore delle migliaia e nessun simbolo di valuta.
   Una stringa fuori dalla grammatica (`"+0.1"`, `".1"`, `"1."`, `"1_000"`, `"1,000"`) è `type`
-  sul suo campo, in tutti i metodi. Il pattern degli schemi di input acquisisce il segno
-  dell'esponente con la issue #266.
+  sul suo campo, in tutti i metodi. Il motore accetta già un esponente con segno; il pattern
+  pubblicato negli schemi di input riporta ancora `[eE]\d+` e acquisisce il segno con la issue
+  #266.
 - **Il JSON ambiguo viene rifiutato.** Una chiave indicata due volte nello stesso oggetto
   (`duplicate`, sulla chiave) e un oggetto scritto come array dei suoi valori (`type`,
   sull'array; `""` per un input che è un array) sono rifiutati in tutti i metodi: verrebbero
@@ -100,8 +112,9 @@ terminale rifiutata, un `principal` rifiutato non nasconde un tasso fuori interv
 - **Scelte scritte come oggetto con una sola chiave** (`terminal` del DCF, le tecniche di
   `tv.compare`, `growth` e `timeline` di `series.project`): una chiave che non è tra le scelte è
   `unknown_field` sulla chiave, con le scelte e la più vicina, anche accanto a una chiave
-  valida; nessuna chiave, o una seconda chiave che è tra le scelte, è `length` (sull'oggetto, o
-  sulla seconda chiave).
+  valida; quando è l'unica chiave (`{"tv.godon": {...}}`), è l'unica voce, senza `length` per
+  la scelta che lascia vuota. Nessuna chiave, o una seconda chiave che è tra le scelte, è
+  `length` (sull'oggetto, o sulla seconda chiave), con le scelte in `expected`.
 - **Analisi.** I campi dell'analisi e il suo `base_input` sono controllati in un solo
   passaggio: `base_input` è controllato dal metodo che indica, con la sola validazione di quel
   metodo (ogni controllo del suo input, nessun calcolo), e i suoi errori di input sono
@@ -111,7 +124,11 @@ terminale rifiutata, un `principal` rifiutato non nasconde un tasso fuori interv
   variabile all'estremo inferiore dell'intervallo, il primo valore che valuta, anche quando
   l'input dell'analisi stesso non si riesce a leggere, così il valore che la variabile
   sostituisce non viene mai rifiutato. Una variabile o una modifica che punta a un campo che
-  accetta un numero intero è `FM-E015` sul proprio campo. Un metodo sconosciuto (`FM-E007`) è
+  accetta un numero intero è `FM-E015` sul proprio campo. Una variabile o una modifica che punta
+  a un valore che `base_input` rifiuta in lettura (un valore di tipo errato, un campo mancante,
+  un campo rappresentato da una chiave scritta male), o a un campo al suo interno, non viene
+  controllata: il rifiuto è riportato sotto `/base_input`, senza un `FM-E015`. Un metodo
+  sconosciuto (`FM-E007`) è
   l'unico errore che lo riguarda: le variabili non sono controllate rispetto a esso. La
   dimensione della richiesta (`FM-E016`, un errore di input) è controllata per prima: una
   richiesta oltre i limiti non valuta nulla. Gli input che un'analisi costruisce per le sue

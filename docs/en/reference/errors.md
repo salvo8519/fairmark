@@ -38,9 +38,9 @@ A refused call returns `{"error": <report>}` (ADR 0014 G5):
 | `code` | The stable code of the table below. |
 | `message` | What is wrong and, where known, how to fix it, in English. The same text as before the report gained the other fields. |
 | `pointer` | JSON pointer of the field to correct, always from the root of the input you sent (inside an analysis, under `/base_input`); `""` (the empty pointer) for the input as a whole, for example an input that is not an object. It is `null` only for a text that is not JSON (`reason` `syntax`, the message gives the line and column), for an error raised during the computation that no single field causes (for example `FM-E005`, `FM-E008`, `FM-E012`), for `FM-E027`, which names its inputs in `missing_any_of`, and for `FM-E007` when the method id is not part of the input (the method argument of the CLI, of `fairmark.run` or of a tool call; inside an analysis it is `/method`). |
-| `pointers` | Every field of a relation: both sides of an `FM-E026` reconciliation, both fields of a conflict; empty when the error concerns one field. |
+| `pointers` | Every field of a relation: both sides of an `FM-E026` reconciliation, both fields of a conflict, a value and the field its domain depends on (a nominal `/rate` and its `/compounding` or `/from`, a technique of another basis and `/basis`, `metric_value` and `metric` of an exit multiple), a missing field and the misspelt key that stands for it; empty when the error concerns one field. |
 | `reason` | The sub-kind of the error (values below), which tells apart the conditions that share a code, above all `FM-E001`; `null` when the code has one meaning only. |
-| `expected` | A list of strings. When the accepted values form a closed list, the literal values: the values of an enumeration (`reason` `enum`, and the method ids of `FM-E007`), the fields an object accepts (`unknown_field`, the tag of an internally tagged object included), the keys of a choice written as an object with one key (`length`, `unknown_field`). Otherwise short descriptions of the accepted form in plain words, for example `"an amount greater than 0"` or `"a whole number of 0 or more"`, never a Rust type name. Empty when not known. |
+| `expected` | A list of strings. When the accepted values form a closed list, the literal values: the values of an enumeration (`reason` `enum`, and the method ids of `FM-E007`), the fields an object accepts (`unknown_field`, the tag of an internally tagged object included), the keys of a choice written as an object with one key (`length`, `unknown_field`). Otherwise short descriptions of the accepted form in plain words, for example `"an amount greater than 0"` or `"a whole number of 0 or more"`, never a Rust type name. Empty when not known. When the message also quotes accepted values, `expected`, not the message, is the complete list. |
 | `fix` | One sentence that resolves the error; `null` when the message is the only guidance. Its wording is guidance and may change between releases; rely on `code`, `pointer` and `reason`. |
 | `missing_any_of` | `FM-E027` only: alternative sets of input pointers, any one of which lifts the input above the minimum of the method, for example `[["/closing/cash"], ["/closing/current_assets"]]`. |
 | `errors` | Every error found, at least one (`minItems` 1); the first is the top-level report itself. The entries have no `errors` of their own. |
@@ -68,8 +68,18 @@ hide a refused terminal growth, a refused `principal` does not hide a rate out o
 - **Reading errors and the checks of the method.** When the input cannot be read, the checks of
   the method still run on the fields that were read, and their errors are reported after the
   reading errors: a `"+0.1"` for one rate does not hide a tax rate of -1. Each refused value is
-  replaced by one its schema accepts only to let the checks run; an error that names a refused
-  field, or that changes with the value put in its place, is not reported.
+  replaced by one its schema accepts only so that the input can be read, and that value never
+  decides an error that is reported. Every error depends on known fields: its `pointer`, its
+  `pointers` and the fields its check otherwise read (for example the projection of a stage,
+  which decides the fields the stage takes). It is reported only when none of these is a
+  refused field, a field within one or a field that holds one: with `compounding` refused, the
+  rule for `rate`, which depends on it, is not checked; with `stages/0/periods` refused, a
+  `cost_of_equity` of -5 is still reported. A check never stops at a refusal before a check
+  that does not depend on it.
+- **A misspelt key stands for its field.** A key with a rename suggestion (`wac` for `wacc`)
+  counts as the field it names: no check that depends on that field is reported, and when the
+  field is required, its `missing` entry has `pointers` `[field, key]` (for example
+  `["/wacc", "/wac"]`) and the same fix as the key, "rename `wac` to `wacc`".
 - **One entry per condition.** An object given as an array is one `type` error at the object,
   with no error for its elements. A condition met more than once (a constant growth checked
   for every period) is reported once. When the tag of an object is refused (the `kind` of an
@@ -80,16 +90,18 @@ hide a refused terminal growth, a refused `principal` does not hide a rate out o
   0014 G7, `^-?\d+(\.\d+)?([eE][+-]?\d+)?$`: decimal point, digits on both sides of it, an
   optional exponent with an optional sign (`"1E-7"`, `"1e+3"`), no other sign than a leading
   minus, no thousands separators and no currency symbols. A string outside it (`"+0.1"`,
-  `".1"`, `"1."`, `"1_000"`, `"1,000"`) is `type` at its field, in every method. The pattern of
-  the input schemas gains the sign of the exponent with issue #266.
+  `".1"`, `"1."`, `"1_000"`, `"1,000"`) is `type` at its field, in every method. The engine
+  accepts a signed exponent now; the pattern published in the input schemas still reads
+  `[eE]\d+` and gains the sign with issue #266.
 - **Ambiguous JSON is refused.** A key given twice in one object (`duplicate`, at the key) and
   an object given as an array of its values (`type`, at the array; `""` for an input that is an
   array) are refused in every method: they would be read with the last value or by position.
 - **Choices written as an object with one key** (`terminal` of the DCF, the techniques of
   `tv.compare`, `growth` and `timeline` of `series.project`): a key that is not one of the
   choices is `unknown_field` at the key, with the choices and the closest one, also next to a
-  valid key; no key, or a second key that is one of the choices, is `length` (at the object, or
-  at the second key).
+  valid key; when it is the only key (`{"tv.godon": {...}}`), that is the only entry, with no
+  `length` for the choice it leaves empty. No key, or a second key that is one of the choices,
+  is `length` (at the object, or at the second key), with the choices in `expected`.
 - **Analyses.** The fields of the analysis and its `base_input` are checked in one pass:
   `base_input` is checked by the method it names, through the validation alone of that method
   (every check of its input, nothing computed), and its input errors are reported under
@@ -98,7 +110,10 @@ hide a refused terminal growth, a refused `principal` does not hide a rate out o
   `analysis.goal_seek` checks `base_input` with the variable set at the low end of the
   bracket, the first value it evaluates, also when the analysis input itself cannot be read, so
   the value the variable replaces is never refused. A variable or an override that points to a
-  field taking a whole number is `FM-E015` at its own field. An unknown method (`FM-E007`) is
+  field taking a whole number is `FM-E015` at its own field. A variable or an override that
+  points to a value `base_input` refuses as it is read (a value of the wrong type, a missing
+  field, a field a misspelt key stands for), or to a field within it, is not checked: the
+  refusal is reported under `/base_input`, without an `FM-E015`. An unknown method (`FM-E007`) is
   the only error about it: the variables are not checked against it. The size of the request
   (`FM-E016`, an input error) is checked first: a request over the limits evaluates nothing.
   The inputs an analysis builds for its evaluations from a checked `base_input` are read by
