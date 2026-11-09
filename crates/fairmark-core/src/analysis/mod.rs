@@ -206,13 +206,19 @@ pub(crate) fn base_case(inner: &mut Inner, base: &Value, outputs: &[&str]) -> Re
 }
 
 /// Outcome of one evaluation in a table or a scenario: a value, or the inner error (R16).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 #[serde(untagged)]
 pub enum Outcome<T: Serialize> {
     /// The evaluation succeeded.
-    Value { value: T },
+    Value {
+        /// The output read from the inner result, in its units.
+        value: T,
+    },
     /// The inner method returned this error; the rest of the request went on.
-    Error { error: ErrorReport },
+    Error {
+        /// Code and message of the inner method's error.
+        error: ErrorReport,
+    },
 }
 
 /// R16: an error of the inner method is recorded and the request goes on, except `FM-E012`

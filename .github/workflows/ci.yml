@@ -199,6 +199,68 @@ jobs:
           fi
       - run: for f in sprints/S*.yaml; do [ -e "$f" ] && uv run python scripts/sprint.py validate "$f"; done; true
 
+  mutants-diff:
+    name: Mutation testing · changed lines of the core
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    # About 20 seconds per mutant after a 2-minute baseline: room for about 150 mutants, that is
+    # a pull request that changes several functions of the core.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      # Path filter inside the job, so that the check always reports and can be made required:
+      # without a change under crates/fairmark-core/src the remaining steps are skipped.
+      - name: Changed lines of fairmark-core
+        id: diff
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git diff "origin/$BASE_REF...HEAD" -- crates/fairmark-core/src > core.diff
+          if [ -s core.diff ]; then echo "changed=true" >> "$GITHUB_OUTPUT"
+          else echo "No change in crates/fairmark-core/src: nothing to mutate."; fi
+      - if: steps.diff.outputs.changed == 'true'
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - if: steps.diff.outputs.changed == 'true'
+        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        id: mutants-install
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          tool: cargo-mutants@27.1.0
+          fallback: none
+      - name: Build cargo-mutants from crates.io (download failed)
+        if: steps.diff.outputs.changed == 'true' && steps.mutants-install.outcome == 'failure'
+        run: cargo install --locked cargo-mutants@27.1.0
+      - name: cargo mutants --in-diff (configuration in .cargo/mutants.toml)
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          status=0
+          cargo mutants --package fairmark-core --no-shuffle --in-diff core.diff --output . \
+            || status=$?
+          # 2 = missed, 3 = timeout: decided by the gate below, which applies the reviewed
+          # equivalent mutants (tests/mutants/equivalent.toml). Anything else fails here.
+          if [ "$status" -ne 0 ] && [ "$status" -ne 2 ] && [ "$status" -ne 3 ]; then
+            exit "$status"
+          fi
+      - name: Gate on missed mutants not recorded as equivalent
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          set -o pipefail
+          python3 scripts/mutants.py summary mutants.out --gate --allow-empty \
+            --title "Mutation testing of the changed lines" | tee -a "$GITHUB_STEP_SUMMARY"
+      - if: always() && steps.diff.outputs.changed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: mutants-diff
+          path: mutants.out
+          if-no-files-found: warn
+          retention-days: 14
+
   contracts:
     name: Contracts · schema changes and golden cases
     if: github.event_name == 'pull_request'

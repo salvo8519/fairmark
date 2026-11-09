@@ -1,10 +1,11 @@
 """SPEC-0005 against the independent 50-digit reference (scripts/reference_statements.py).
 
-Seeded random balance sheets, deterministic and dependency-free, in the statutory form (with
-random treatments, overrides and adjustments, and random gaps in the inputs) and in the
-reclassified form: every balance sheet output, every current and non-current amount, every
-check status, every `not_computed` entry and every default must equal the reference. The golden
-cases pin selected companies; this test covers the space between them.
+Seeded random statements, deterministic and dependency-free, in the statutory form (with random
+treatments, overrides and adjustments of every kind, the lease double entry included, and random
+gaps in the inputs) and in the reclassified form: every balance sheet and income statement
+output, every reconciliation, every current and non-current amount, every check status, every
+`not_computed` entry and every default must equal the reference. The golden cases pin selected
+companies; this test covers the space between them.
 """
 
 from __future__ import annotations
@@ -108,11 +109,98 @@ def statutory_year() -> dict[str, Any]:
     for key, sub in (("payables", "shareholder_loans"), ("receivables", "beyond_one_year")):
         if key in bs and RNG.random() < 0.08:
             del bs[key][sub]
-    return {"statutory": {"balance_sheet": bs}}
+    return {"statutory": {"balance_sheet": bs, "income_statement": statutory_income_statement()}}
+
+
+IS_TOTALS = [
+    "value_of_production",
+    "costs_of_production",
+    "difference_between_value_and_costs_of_production",
+    "financial_income_and_charges",
+    "value_adjustments_of_financial_assets",
+    "profit_before_tax",
+]
+
+
+def statutory_income_statement() -> dict[str, Any]:
+    """An income statement by nature whose totals add up; B10 in the ordinary or the abridged
+    reading, signed items of both signs; some items and totals dropped at random."""
+    a1, a4, a5 = amount(), amount(50_000), amount(80_000)
+    a23 = amount(100_000) - 50_000
+    b6, b7, b8, b9 = (amount() for _ in range(4))
+    ab, c10, d10 = amount(200_000), RNG.choice([0, amount(30_000)]), amount(20_000)
+    b11 = amount(60_000) - 30_000
+    b12, b13, b14 = amount(20_000), amount(20_000), amount(50_000)
+    # A3: C15 is sometimes zero, so that it need not wait for the treatment of B.III.
+    c15, c16, c17 = RNG.choice([0, amount(20_000)]), amount(10_000), amount(90_000)
+    c17b = amount(6_000) - 3_000
+    d18, d19 = amount(5_000), amount(15_000)
+    taxes = amount(200_000) - 40_000
+    total_a = a1 + a23 + a4 + a5
+    total_b = b6 + b7 + b8 + b9 + ab + c10 + d10 + b11 + b12 + b13 + b14
+    total_c = c15 + c16 - c17 + c17b
+    total_d = d18 - d19
+    pbt = total_a - total_b + total_c + total_d
+    b10: dict[str, Any] = {"write_downs_of_receivables": str(d10)}
+    reading = RNG.random()
+    if reading < 0.4:
+        b10 |= {"depreciation_and_amortisation": str(ab), "write_downs_of_fixed_assets": str(c10)}
+        if RNG.random() < 0.5:
+            b10["total"] = str(ab + c10 + d10)
+    elif reading < 0.5:
+        # D1-IS: the group and its B10 a, b part, B10 c derived.
+        b10 |= {
+            "value_adjustments_of_fixed_assets": str(ab + c10),
+            "depreciation_and_amortisation": str(ab),
+        }
+    elif reading < 0.8 or c10 != 0:
+        # Abridged layout: B10 a to c as one amount with its B10 c part (Decision 8).
+        b10 |= {
+            "value_adjustments_of_fixed_assets": str(ab + c10),
+            "write_downs_of_fixed_assets": str(c10),
+        }
+    else:
+        b10["value_adjustments_of_fixed_assets"] = str(ab)
+    inc: dict[str, Any] = {
+        "revenue": str(a1),
+        "change_in_product_inventories": str(a23),
+        "own_work_capitalised": str(a4),
+        "other_revenue_and_income": str(a5),
+        "purchases": str(b6),
+        "services": str(b7),
+        "use_of_third_party_assets": str(b8),
+        "personnel_costs": str(b9),
+        "depreciation_and_write_downs": b10,
+        "change_in_raw_material_inventories": str(b11),
+        "provisions_for_risks": str(b12),
+        "other_provisions": str(b13),
+        "other_operating_expenses": str(b14),
+        "income_from_equity_investments": str(c15),
+        "other_financial_income": str(c16),
+        "interest_and_other_financial_charges": str(c17),
+        "exchange_gains_and_losses": str(c17b),
+        "revaluations_of_financial_assets": str(d18),
+        "write_downs_of_financial_assets": str(d19),
+        "value_of_production": str(total_a),
+        "costs_of_production": str(total_b),
+        "difference_between_value_and_costs_of_production": str(total_a - total_b),
+        "financial_income_and_charges": str(total_c),
+        "value_adjustments_of_financial_assets": str(total_d),
+        "profit_before_tax": str(pbt),
+        "income_taxes": str(taxes),
+        "profit_or_loss_for_the_year": str(pbt - taxes),
+    }
+    for key in IS_TOTALS:
+        if RNG.random() < 0.4:
+            del inc[key]
+    for key in list(inc):
+        if key not in IS_TOTALS and RNG.random() < 0.04:
+            del inc[key]
+    return inc
 
 
 def adjustments(n: int, years: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Adjustments of every balance sheet kind, each within a small share of its source."""
+    """Adjustments of every kind, each within a small share of its source."""
     kinds = [
         ("non_operating_asset", {"aggregate": "tangible_assets"}),
         ("financial_receivable", {"maturity": RNG.choice(["within_one_year", "beyond_one_year"])}),
@@ -122,17 +210,68 @@ def adjustments(n: int, years: list[dict[str, Any]]) -> list[dict[str, Any]]:
         ("non_current_trade_payables", {}),
         ("debt_like_provision", {"aggregate": "employee_severance_indemnity"}),
         ("dividends_declared", {}),
+        (
+            "investing",
+            {"aggregate": RNG.choice(["other_revenue_and_income", "other_operating_expenses"])},
+        ),
+        (
+            "investing",
+            {"aggregate": "other_operating_expenses", "related_non_operating_asset": "Land"},
+        ),
+        ("non_recurring", {"aggregate": RNG.choice(NON_RECURRING)}),
+        ("non_recurring", {"aggregate": RNG.choice(NON_RECURRING)}),
+        ("lease", {}),
     ]
     out = []
     for kind, extra in RNG.sample(kinds, RNG.randrange(0, len(kinds) + 1)):
-        amounts = [
+        amounts: list[Any] = [
             None if RNG.random() < 0.3 or "reclassified" in y else str(RNG.randrange(0, 5))
             for y in years
         ]
-        out.append(
-            {"kind": kind, "label": f"{kind} item", "reason": "test", **extra, "amounts": amounts}
-        )
+        if kind == "lease":
+            amounts = [None if a is None else lease_amounts() for a in amounts]
+        adj = {"kind": kind, "label": f"{kind} item", "reason": "test", **extra, "amounts": amounts}
+        if kind == "debt_like_provision" and RNG.random() < 0.6:
+            # P2: the interest cost of the severance indemnity, where the adjustment applies.
+            adj["interest_cost"] = [
+                None if a is None or RNG.random() < 0.3 else str(RNG.randrange(0, 3))
+                for a in amounts
+            ]
+        out.append(adj)
     return out
+
+
+NON_RECURRING = [
+    "revenue",
+    "other_revenue_and_income",
+    "purchases",
+    "services",
+    "use_of_third_party_assets",
+    "personnel_costs",
+    "depreciation_and_amortisation",
+    "write_downs_of_fixed_assets",
+    "write_downs_of_receivables",
+    "provisions_for_risks",
+    "other_provisions",
+    "other_operating_expenses",
+    "income_from_equity_investments",
+    "other_financial_income",
+    "interest_and_other_financial_charges",
+    "exchange_gains_and_losses",
+]
+
+
+def lease_amounts() -> dict[str, str]:
+    liability = amount(300_000)
+    return {
+        "asset": str(amount(300_000)),
+        "liability": str(liability),
+        "liability_current": str(liability // RNG.choice([2, 3, 4])),
+        "prepayment": str(RNG.choice([0, 0, amount(3_000)])),
+        "payments": str(amount(5_000)),
+        "depreciation": str(amount(40_000)),
+        "interest": str(amount(10_000)),
+    }
 
 
 def reclassified_year() -> dict[str, Any]:
@@ -183,7 +322,45 @@ def reclassified_year() -> dict[str, Any]:
     for key in list(bs):
         if RNG.random() < 0.1:
             del bs[key]
-    return {"reclassified": {"balance_sheet": bs}}
+    return {"reclassified": {"balance_sheet": bs, "income_statement": reclassified_is()}}
+
+
+def reclassified_is() -> dict[str, Any]:
+    """Reclassified income statement totals that add up by Appendix B.2; some dropped, and one
+    total off by one now and then."""
+    va, personnel, op, inv = amount(), amount(800_000), amount(500_000), amount(80_000) - 40_000
+    nr, fin, taxes = amount(40_000) - 20_000, -amount(90_000), amount(150_000)
+    ebitda = va - personnel
+    vop, dna = amount(), amount(200_000)
+    operating_investments = RNG.choice([0, amount(20_000)])
+    pbft = op + inv
+    pbt = pbft + nr + fin
+    inc = {
+        "revenue": str(amount()),
+        "value_of_production": str(vop),
+        "external_costs": str(vop - va),
+        "other_charges_below_ebitda": str(abs(ebitda - dna - op + operating_investments)),
+        "income_from_operating_investments": str(operating_investments),
+        "purchases": str(amount()),
+        "materials_consumed": str(amount() - 100_000),
+        "value_added": str(va),
+        "personnel_costs": str(personnel),
+        "ebitda": str(ebitda + RNG.choice([0] * 30 + [1])),
+        "depreciation_and_amortisation": str(dna),
+        "operating_profit": str(op),
+        "investing_result": str(inv),
+        "profit_before_financing_and_taxes": str(pbft),
+        "non_recurring_result": str(nr),
+        "financing_result": str(fin),
+        "interest_and_other_financial_charges": str(amount(90_000)),
+        "profit_before_tax": str(pbt),
+        "income_taxes": str(taxes),
+        "net_income": str(pbt - taxes),
+    }
+    for key in list(inc):
+        if RNG.random() < 0.15:
+            del inc[key]
+    return inc
 
 
 def loan_split(loans: dict[str, Any]) -> list[dict[str, Any]]:
@@ -245,6 +422,8 @@ def call() -> dict[str, Any]:
         ("financial_fixed_assets", ["operating", "non_operating", "financial_asset"]),
         ("shareholder_loans", ["financial_debt", "quasi_equity"]),
         ("derivative_liabilities", ["financial_liability", "operating_provision"]),
+        ("write_downs_of_receivables", ["investing", "operating"]),
+        ("write_downs_of_fixed_assets", ["investing", "operating"]),
     ):
         if RNG.random() < 0.85:
             treatments[key] = RNG.choice(options)
@@ -259,6 +438,7 @@ def engine_view(value: dict[str, Any], meta: dict[str, Any]) -> dict[str, Any]:
             {
                 "form": y["form"],
                 "balance_sheet": y["balance_sheet"],
+                "income_statement": y["income_statement"],
                 "current_non_current": y["current_non_current"],
                 "checks": {k: c["status"] for k, c in y["checks"].items()},
                 "not_computed": y["not_computed"],
@@ -286,7 +466,7 @@ def normalise(node: Any) -> Any:
 
 
 @pytest.mark.parametrize("seed", range(400))
-def test_balance_sheets_match_the_reference(seed: int) -> None:
+def test_statements_match_the_reference(seed: int) -> None:
     RNG.seed(20261108 + seed)
     inp = call()
     try:
@@ -314,4 +494,32 @@ def test_the_random_calls_reach_every_outcome() -> None:
             continue
         missing = any(y["not_computed"]["balance_sheet"] for y in r["years"])
         outcomes.add("partial" if missing else "complete")
-    assert {"partial", "complete"} <= outcomes, outcomes
+        for y in r["years"]:
+            is_ = y["income_statement"]
+            outcomes.add("net income" if is_["net_income"] is not None else "no net income")
+            if is_["reconciliations"]["operating_profit"] is not None:
+                outcomes.add("reconciled")
+            if is_["income_from_operating_investments"] not in (None, 0):
+                outcomes.add("operating investments")
+            if any("permitted" in e for e in y["not_computed"]["income_statement"]):
+                outcomes.add("waits for the treatment")
+        for y in r["years"]:
+            status = y["checks"].get("interest_cost_within_personnel_costs")
+            if status:
+                outcomes.add(f"interest cost {status}")
+        for adj in inp.get("adjustments") or []:
+            if any(c is not None for c in adj.get("interest_cost") or []):
+                outcomes.add("interest cost")
+    expected = {
+        "partial",
+        "complete",
+        "net income",
+        "no net income",
+        "reconciled",
+        "operating investments",
+        "waits for the treatment",
+        "interest cost",
+        "interest cost reconciled",
+        "interest cost not_checked",
+    }
+    assert expected <= outcomes, outcomes

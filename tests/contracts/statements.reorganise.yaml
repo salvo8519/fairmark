@@ -61,6 +61,46 @@ extreme_inputs:
         profit_before_tax: MIN
         income_taxes: MAX
         profit_or_loss_for_the_year: MIN
+- years:
+  - statutory:
+      income_statement:
+        revenue: MAX
+        change_in_product_inventories: MIN
+        own_work_capitalised: '0'
+        other_revenue_and_income: MAX
+        purchases: MAX
+        services: MAX
+        use_of_third_party_assets: MAX
+        personnel_costs: MAX
+        depreciation_and_write_downs: {value_adjustments_of_fixed_assets: MAX, write_downs_of_receivables: MAX}
+        change_in_raw_material_inventories: MIN
+        provisions_for_risks: MAX
+        other_provisions: MAX
+        other_operating_expenses: MAX
+        income_from_equity_investments: MAX
+        other_financial_income: MAX
+        interest_and_other_financial_charges: MAX
+        exchange_gains_and_losses: MIN
+        revaluations_of_financial_assets: MAX
+        write_downs_of_financial_assets: MAX
+        income_taxes: MIN
+  adjustments:
+  - {kind: investing, label: Rent, reason: Investment property, aggregate: other_revenue_and_income, amounts: [MAX]}
+  - {kind: non_recurring, label: Gain, reason: Disposal, aggregate: revenue, amounts: [MAX]}
+  - kind: lease
+    label: Head office
+    reason: Financial method
+    amounts: [{asset: MAX, liability: MAX, liability_current: '0', prepayment: '0', payments: MAX, depreciation: MAX, interest: MAX}]
+- years:
+  - reclassified:
+      income_statement:
+        value_added: MAX
+        personnel_costs: '0.0000000000000000000000000001'
+        operating_profit: MAX
+        investing_result: MAX
+        non_recurring_result: MIN
+        financing_result: MIN
+        income_taxes: MAX
 conventions:
 - input:
     years:
@@ -76,17 +116,87 @@ conventions:
   expect:
   - 'default: `/years/0/statutory/balance_sheet/cash` assigned to'
   - 'Appendix A.1, C.IV: all cash in the net financial position (Decision 11)'
-  - 'default: `/treatments/write_downs_of_receivables` not given, set to'
   - 'year 2024: statutory form'
   - 'year 2024: no date given: the order of `years` is taken as oldest first'
   - 'layout `abridged` echoed; no number depends on it'
   - 'year 2024: financial fixed assets (B.III) are zero: no treatment is needed'
   - 'missing inputs are never taken as zero'
   - 'checks are exact, with no tolerance'
-  - 'the income statement is not reorganised in this build'
   - 'net financial position = gross debt − cash + other items, positive for net debt'
   - 'current and non-current: receivables (C.II) and payables (D) split by their statutory amounts beyond one year, read as twelve months'
   - 'year 2024: provisions (B) read as non-current: the part beyond one year is not given'
+- input:
+    years:
+    - label: '2024'
+      statutory:
+        income_statement:
+          other_revenue_and_income: '10'
+          depreciation_and_write_downs: {value_adjustments_of_fixed_assets: '100', write_downs_of_receivables: '5'}
+    adjustments:
+    - kind: lease
+      label: Head office
+      reason: Financial method
+      amounts: [{asset: '10', liability: '8', liability_current: '2', prepayment: '0', payments: '3', depreciation: '2', interest: '1'}]
+    treatments: {write_downs_of_fixed_assets: investing}
+  expect:
+  - 'income statement by nature reorganised into the layers of Appendix B.2 (R16)'
+  - 'ebitda_definition: EBITDA (margine operativo lordo, MOL) = value added − personnel costs (B9)'
+  - 'A5 and B14 are core by default (Decision 7, R18)'
+  - 'D18 and D19 in the investing result; B10 c in the investing result (treatment `investing`); B10 d below EBITDA in other_charges_below_ebitda (treatment `operating`, the default)'
+  - 'default: `/treatments/write_downs_of_receivables` not given, set to'
+  - 'C15 in the investing result, or in income_from_operating_investments when financial fixed assets (B.III) are wholly operating for the year (P2)'
+  - 'income taxes: item 20 as given; no IRES, IRAP, deferred taxes or NOPAT are computed'
+  - 'cost_of_sales is not returned (Decision 13)'
+  - 'operating_profit feeds `ebit` of dcf.free_cash_flows'
+  - 'leases restated by the financial method (R21, Decision 9'
+  - 'year 2024: B10 a to c given as one amount without its B10 c part: read as depreciation and amortisation'
+  - 'default: `/years/0/statutory/income_statement/other_revenue_and_income` assigned to'
+  - 'default: `/years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_receivables` assigned to'
+- input:
+    years:
+    - label: '2024'
+      statutory:
+        balance_sheet: {financial_fixed_assets: '50', employee_severance_indemnity: {total: '30'}}
+        income_statement: {personnel_costs: '100', income_from_equity_investments: '4'}
+    - label: '2025'
+      statutory:
+        balance_sheet: {financial_fixed_assets: '50', employee_severance_indemnity: {total: '30'}}
+        income_statement: {personnel_costs: '100', income_from_equity_investments: '4'}
+      treatment_overrides:
+        financial_fixed_assets:
+          split:
+          - {destination: operating, amount: '20', label: Supplier stake}
+          - {destination: non_operating, amount: '30', label: Minority stake}
+    treatments: {financial_fixed_assets: operating}
+    adjustments:
+    - kind: debt_like_provision
+      label: Severance indemnity
+      reason: Treated as debt
+      aggregate: employee_severance_indemnity
+      amounts: ['30', '30']
+      interest_cost: ['1', null]
+  expect:
+  - 'year 2024: financial fixed assets (B.III) are operating: C15, income from equity investments, is income_from_operating_investments, below EBITDA and in operating profit (P2)'
+  - 'year 2025: financial fixed assets (B.III) are split between destinations and the income of each part is not given: C15 stays in the investing result (P2)'
+  - "year 2025: adjustment 0 'Severance indemnity' treats the employee severance indemnity as debt-like without its interest cost: the revaluation stays in personnel costs (B9) and EBITDA"
+  - "year 2024: adjustment 0 'Severance indemnity' moves the interest cost of the employee severance indemnity (1) from B9 to the financing result: financing_result = C17-bis − interest_and_other_financial_charges − the interest cost"
+- input:
+    years:
+    - label: '2024'
+      statutory:
+        balance_sheet: {financial_fixed_assets: '50'}
+        income_statement: {income_from_equity_investments: '4'}
+  expect:
+  - 'year 2024: C15 follows financial fixed assets (B.III), given without a treatment: the outputs C15 reaches wait for `/treatments/financial_fixed_assets` (P2, R8)'
+- input:
+    years:
+    - label: '2024'
+      statutory:
+        income_statement: {income_from_equity_investments: '4'}
+    treatments: {financial_fixed_assets: operating}
+  expect:
+  - 'year 2024: financial fixed assets (B.III) are treated as operating but are not given or zero: there is no operating investment to follow, C15 stays in the investing result and income_from_operating_investments is zero (P2, D2-IS)'
+  - 'default: `/treatments/write_downs_of_fixed_assets` not given, set to'
 - input:
     years:
     - label: '2024'

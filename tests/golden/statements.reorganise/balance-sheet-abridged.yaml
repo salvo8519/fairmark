@@ -105,5 +105,7 @@ expect_meta:
   /defaults_applied/7/field: /years/0/statutory/balance_sheet/payables
   /defaults_applied/7/value: operating_working_capital
   /defaults_applied/8/field: /treatments/write_downs_of_receivables
-  /defaults_applied/8/value: investing
+  /defaults_applied/8/value: operating
+  /defaults_applied/9/field: /treatments/write_downs_of_fixed_assets
+  /defaults_applied/9/value: operating
 tolerance: '0'

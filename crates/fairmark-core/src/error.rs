@@ -4,6 +4,7 @@
 //! match on them. The catalogue lives in `docs/en/reference/errors.md`.
 
 use rust_decimal::Decimal;
+use schemars::JsonSchema;
 use serde::Serialize;
 
 /// Every failure the engine can report. Nothing is ever silently defaulted.
@@ -202,6 +203,42 @@ pub enum FairmarkError {
         .0.left_name, .0.left, .0.right_name, .0.right, .0.difference, .0.fix
     )]
     StatementsDoNotReconcile(Box<Reconciliation>),
+
+    /// The input is below the minimum of the method (ADR 0014 G10.1, SPEC-0007 R12): no output
+    /// has every input it needs, so the result would be made of nulls only. The message lists
+    /// the alternative sets of inputs, any one of which lifts the input above the floor. Boxed,
+    /// so that every `Result` of the engine stays small.
+    #[error(
+        "below the minimum input of `{}`: no output has every input it needs; give at least one \
+         of these sets of inputs: {}; the method choices alone compute nothing",
+        .0.method,
+        .0.sets()
+    )]
+    BelowMinimumInput(Box<MinimumInput>),
+}
+
+/// What an input below the floor lacks (`FM-E027`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct MinimumInput {
+    /// The method id, for example `ratios.liquidity`.
+    pub method: &'static str,
+    /// Alternative sets of JSON pointers of the input, shortest first; giving every input of
+    /// any one set lifts the input above the floor.
+    pub missing_any_of: Vec<Vec<String>>,
+}
+
+impl MinimumInput {
+    /// "[`/a`, `/b`] or [`/c`]".
+    fn sets(&self) -> String {
+        self.missing_any_of
+            .iter()
+            .map(|set| {
+                let names: Vec<String> = set.iter().map(|p| format!("`{p}`")).collect();
+                format!("[{}]", names.join(", "))
+            })
+            .collect::<Vec<_>>()
+            .join(" or ")
+    }
 }
 
 /// The two sides of a relation of the financial statements that differ (`FM-E026`).
@@ -309,6 +346,7 @@ impl FairmarkError {
             Self::TermsMismatch(_) => "FM-E024",
             Self::CountMismatch(_) => "FM-E025",
             Self::StatementsDoNotReconcile(_) => "FM-E026",
+            Self::BelowMinimumInput(_) => "FM-E027",
         }
     }
 
@@ -321,9 +359,12 @@ impl FairmarkError {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+/// The report of an error: its stable code and a message in English.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct ErrorReport {
+    /// Stable error code, for example `FM-E004` (see the errors reference).
     pub code: &'static str,
+    /// What is wrong and, where known, how to fix it.
     pub message: String,
 }
 

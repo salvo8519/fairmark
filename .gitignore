@@ -25,3 +25,6 @@ proptest-regressions/
 
 # Personal Claude Code preferences
 CLAUDE.local.md
+
+# cargo-mutants output (local runs write to target/mutants*)
+mutants.out*/

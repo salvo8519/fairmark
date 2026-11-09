@@ -1,0 +1,120 @@
+{
+  "$defs": {
+    "ScheduleRow": {
+      "description": "One period of the schedule.",
+      "properties": {
+        "balloon_amount": {
+          "description": "Balloon amount repaid with the instalment, in currency units; present in the last row\nonly.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "instalment": {
+          "description": "Amount paid, interest plus principal portion (balloon amount included in the last row),\nin currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "interest_portion": {
+          "description": "Periodic rate × outstanding balance at the start of the period, in currency units; not\nrounded.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "outstanding_balance": {
+          "description": "Outstanding balance after the instalment, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "period": {
+          "description": "Period number (a count of payment periods), from 1 to n.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "principal_portion": {
+          "description": "Principal repaid in the period (balloon amount included in the last row), in currency\nunits.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "time": {
+          "description": "Payment time of the instalment, in periods from the start (time k for period k).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "period",
+        "time",
+        "instalment",
+        "interest_portion",
+        "principal_portion",
+        "outstanding_balance"
+      ],
+      "type": "object"
+    },
+    "ScheduleTotals": {
+      "description": "Sums over all the rows.",
+      "properties": {
+        "instalments": {
+          "description": "Sum of the instalments, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "interest": {
+          "description": "Sum of the interest portions, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "principal": {
+          "description": "Sum of the principal portions (equal to the principal), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "instalments",
+        "interest",
+        "principal"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:loans.amortisation_schedule:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `loans.amortisation_schedule`.",
+  "properties": {
+    "final_adjustment": {
+      "description": "Last instalment less the balloon amount less the regular instalment of the last period:\nthe correction that brings the outstanding balance exactly to zero, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "periodic_rate": {
+      "description": "Rate per payment period used, decimal fraction.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "rows": {
+      "description": "One row per period, amounts in currency units.",
+      "items": {
+        "$ref": "#/$defs/ScheduleRow"
+      },
+      "type": "array"
+    },
+    "totals": {
+      "$ref": "#/$defs/ScheduleTotals",
+      "description": "Totals of instalments, interest and principal, in currency units."
+    }
+  },
+  "required": [
+    "periodic_rate",
+    "rows",
+    "totals",
+    "final_adjustment"
+  ],
+  "title": "AmortisationScheduleOutput",
+  "type": "object",
+  "x-fairmark-method": "loans.amortisation_schedule",
+  "x-fairmark-method-version": "1"
+}

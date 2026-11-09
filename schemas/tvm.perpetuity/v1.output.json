@@ -1,0 +1,19 @@
+{
+  "$id": "urn:fairmark:schema:tvm.perpetuity:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `tvm.perpetuity`.",
+  "properties": {
+    "present_value": {
+      "description": "Present value at t = 0.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "present_value"
+  ],
+  "title": "PerpetuityOutput",
+  "type": "object",
+  "x-fairmark-method": "tvm.perpetuity",
+  "x-fairmark-method-version": "1"
+}

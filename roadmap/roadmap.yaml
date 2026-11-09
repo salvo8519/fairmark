@@ -159,10 +159,10 @@ milestones:
         tasks:
           - { issue: 35, title: "Filed statutory totals and the reorganised balance sheet", tags: [parallel], spec: "0005", status: done }
           - { issue: 36, title: "Several financial years and exact changes in the statements reorganisation", tags: [parallel], spec: "0005", status: open }
-          - { issue: 236, title: "Reorganised income statement with IFRS 18 aligned subtotals", spec: "0005", status: open }
+          - { issue: 236, title: "Reorganised income statement with IFRS 18 aligned subtotals", spec: "0005", status: done }
           - { issue: 245, title: "Intercompany financial payables in the net financial position", tags: [needs-methodology], spec: "0005", status: open }
           - { issue: 251, title: "Non-recurring exchange losses in the reorganised income statement", tags: [needs-methodology], spec: "0005", status: open }
-          - { issue: 253, title: "OIC 10 cash flow statement from the reorganised statements", tags: [needs-methodology], status: open }
+          - { issue: 253, title: "OIC 10 cash flow statement from the reorganised statements", tags: [needs-methodology], spec: "0011", status: open }
           - { issue: 267, title: "ESMA view of the net financial position", tags: [needs-methodology], spec: "0005", status: open }
       - title: "Free cash flows"
         issue: 37
@@ -268,16 +268,27 @@ milestones:
       - title: "Contract hardening for v0.1"
         labels: []
         tasks:
-          - { issue: 257, title: "ADR: contract guidelines for inputs, envelope and errors", status: open }
+          - { issue: 257, title: "ADR: contract guidelines for inputs, envelope and errors", status: done }
           - { issue: 258, title: "Structured error report with pointer, reason, expected and fix", status: open }
           - { issue: 259, title: "One envelope: diagnostics block and envelope version", status: open }
           - { issue: 260, title: "Output versioning rule and version pin", status: open }
-          - { issue: 261, title: "DCF: equity value not computed without a net financial position", status: open }
-          - { issue: 262, title: "Ratios computed from partial input", status: open }
+          - { issue: 261, title: "DCF: report the net financial position default and warn", status: done }
+          - { issue: 262, title: "Ratios computed from partial input", spec: "0007", status: done }
           - { issue: 263, title: "Statements v2 contract: dated years, amounts unit, simpler input", status: open }
-          - { issue: 264, title: "Tool definitions: enum descriptions, examples, compact schemas", status: open }
-          - { issue: 265, title: "Output schemas and schema-driven Python decoding", status: open }
+          - { issue: 264, title: "Tool definitions: enum descriptions, examples, compact schemas", status: done }
+          - { issue: 265, title: "Output schemas and schema-driven Python decoding", status: done }
           - { issue: 266, title: "Null equals absent and one number grammar", status: open }
+          - { issue: 271, title: "ADR 0014: default admission tests and the floor of best effort", status: done }
+          - { issue: 280, title: "Fix every review finding before v0.1", status: open }
+          - { issue: 282, title: "Mutation testing of the core with cargo-mutants", status: open }
+      - title: "Release readiness for v0.1"
+        labels: []
+        tasks:
+          - { issue: 285, title: "Conformity audit of every method against ADR 0014", status: open }
+          - { issue: 286, title: "Cross-adapter consistency tests", status: open }
+          - { issue: 287, title: "Performance budgets and scalability benchmarks", status: open }
+          - { issue: 288, title: "Documentation accuracy review", status: open }
+          - { issue: 292, title: "Close the open Dependabot alerts in the dev tools", status: done }
 
   - title: "M4 · Traditional European methods"
     gate: "Golden cases green for every method."
@@ -342,19 +353,10 @@ milestones:
           - { issue: 81, title: "Open-source collector without IP storage", tags: [parallel], status: open }
           - { issue: 82, title: "Public aggregated dashboard", tags: [parallel], status: open }
 
-  - title: "M6 · v1.0 and real estate"
+  - title: "M6 · v1.0 corporate valuation"
     gate: "Stable API with a published deprecation policy."
     release: "1.0.0"
     epics:
-      - title: "Real estate module"
-        issue: 83
-        labels: ["area:core", "method:real-estate"]
-        tasks:
-          - { issue: 84, title: "Property DCF and direct capitalisation", tags: [parallel, needs-methodology], status: open }
-          - { issue: 85, title: "Debt schedule, levered returns and equity waterfall", tags: [parallel], status: open }
-          - { issue: 86, title: "Market comparison approach with explicit adjustments", tags: [parallel, needs-methodology], status: open }
-          - { issue: 207, title: "Lease-based income: passing rent, ERV, reversion and lease expiries", tags: [needs-methodology], status: open }
-          - { issue: 228, title: "Build-up approach for property discount rates", tags: [needs-methodology], status: open }
       - title: "Platform"
         issue: 87
         labels: ["area:core"]
@@ -366,3 +368,18 @@ milestones:
           - { issue: 92, title: "Jurisdiction profiles and translated manuals", tags: [parallel], status: open }
           - { issue: 167, title: "Dated periods and a stub first period in the DCF", spec: "0001", status: open }
           - { issue: 232, title: "Integrations with ChatGPT, Gemini and Copilot through the hosted MCP", status: open }
+          - { issue: 283, title: "Mutation testing release gate for v1.0", status: open }
+
+  - title: "M7 · v2.0 real estate"
+    gate: "Property valuation methods released with the same contract, golden cases and audits as the corporate methods."
+    release: "2.0.0"
+    epics:
+      - title: "Real estate module"
+        issue: 83
+        labels: ["area:core", "method:real-estate"]
+        tasks:
+          - { issue: 84, title: "Property DCF and direct capitalisation", tags: [parallel, needs-methodology], status: open }
+          - { issue: 85, title: "Debt schedule, levered returns and equity waterfall", tags: [parallel], status: open }
+          - { issue: 86, title: "Market comparison approach with explicit adjustments", tags: [parallel, needs-methodology], status: open }
+          - { issue: 207, title: "Lease-based income: passing rent, ERV, reversion and lease expiries", tags: [needs-methodology], status: open }
+          - { issue: 228, title: "Build-up approach for property discount rates", tags: [needs-methodology], status: open }

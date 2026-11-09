@@ -42,7 +42,8 @@ pub struct SensitivityInput {
     pub columns: Option<Axis>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+/// Output of `analysis.sensitivity`.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct SensitivityOutput {
     /// The method evaluated, at the version run.
     pub inner_method: InnerMethod,

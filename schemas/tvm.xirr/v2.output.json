@@ -1,0 +1,48 @@
+{
+  "$id": "urn:fairmark:schema:tvm.xirr:v2:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `tvm.xirr`.",
+  "properties": {
+    "iterations": {
+      "description": "Iterations of the solver that produced the rate (0 for an exact grid root).",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "solver": {
+      "description": "\"newton\", \"bisection\" or \"grid (exact root)\".",
+      "type": "string"
+    },
+    "tolerance": {
+      "description": "Stopping tolerance on the rate step, decimal fraction (1e-18).",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "uniqueness_verified": {
+      "description": "True when no other rate can solve the equation (see `explain.conventions`).",
+      "type": "boolean"
+    },
+    "xirr": {
+      "description": "Annual rate at which XNPV is zero, decimal fraction, with the chosen compounding.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "xnpv_at_xirr": {
+      "description": "XNPV at the returned rate (should be about zero).",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "xirr",
+    "uniqueness_verified",
+    "xnpv_at_xirr",
+    "solver",
+    "iterations",
+    "tolerance"
+  ],
+  "title": "XirrOutput",
+  "type": "object",
+  "x-fairmark-method": "tvm.xirr",
+  "x-fairmark-method-version": "2"
+}

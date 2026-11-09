@@ -51,7 +51,7 @@ pub struct ScenariosInput {
 }
 
 /// One output of the base case.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct BaseOutput {
     /// The output pointer.
     pub output: String,
@@ -60,7 +60,7 @@ pub struct BaseOutput {
 }
 
 /// One output of a scenario, compared with the base case.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct ScenarioOutput {
     /// The output pointer.
     pub output: String,
@@ -73,7 +73,7 @@ pub struct ScenarioOutput {
 }
 
 /// The result of one scenario.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct ScenarioResult {
     /// The scenario name.
     pub name: String,
@@ -83,7 +83,8 @@ pub struct ScenarioResult {
     pub result: Outcome<Vec<ScenarioOutput>>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+/// Output of `analysis.scenarios`.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct ScenariosOutput {
     /// The method evaluated, at the version run.
     pub inner_method: InnerMethod,

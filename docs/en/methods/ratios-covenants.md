@@ -148,8 +148,8 @@ assert r.summary == {"passed": 2, "breached": 1, "not_tested": 1}
 | `covenants` | List of covenants, at least one; each is tested on its own and the results keep the order | required |
 | `covenants[].name` | Name of the covenant as in the loan agreement, not blank | required |
 | `covenants[].test_date` | Test date, `YYYY-MM-DD`; the amounts refer to the period ending on it | required |
-| `covenants[].numerator` | `definition` (the words of the agreement, not blank) and `amount` (currency units) | required |
-| `covenants[].denominator` | Same as `numerator` | required |
+| `covenants[].numerator` | `definition` (the words of the agreement, not blank) and `amount` (currency units) | `definition` required; `amount` optional (see Partial input) |
+| `covenants[].denominator` | Same as `numerator` | `definition` required; `amount` optional |
 | `covenants[].operator` | `at_most` (≤), `less_than` (<), `at_least` (≥) or `greater_than` (>) | required, no default |
 | `covenants[].threshold` | In the unit of the ratio: a multiple (`3.5`) or a decimal fraction (`0.30` for 30%) | required |
 | `covenants[].if_denominator_not_positive` | Outcome when the denominator is zero or negative, as the agreement states: `breached`, `passed` or `not_tested` | required, no default |
@@ -167,9 +167,41 @@ assert r.summary == {"passed": 2, "breached": 1, "not_tested": 1}
 | `covenants[].value_unrounded` | With `rounding`: numerator / denominator before the rounding; null otherwise |
 | `covenants[].headroom` | Distance of `value` from the threshold in the unit of the ratio, positive on the compliant side; null when `value` is null |
 | `covenants[].headroom_relative` | `{"value": ..., "not_defined": ...}`: headroom / threshold, decimal fraction, same sign as the headroom |
-| `covenants[].not_tested_code` | `denominator_not_positive` or `overflow`; null when the outcome is `passed` or `breached` |
+| `covenants[].not_tested_code` | `denominator_not_positive`, `overflow` or `missing_input`; null when the outcome is `passed` or `breached` |
 | `covenants[].not_tested_reason` | Why the covenant was not tested, in words; null when the outcome is `passed` or `breached` |
 | `summary` | `passed`, `breached`, `not_tested`: how many covenants have each outcome |
+| `not_computed` | For each covenant not tested because an amount is missing, its `value`, `headroom` and `headroom_relative`: `{"output", "missing", "reason"}`, with `output` the JSON pointer of the output in the result value (`/covenants/0/value`) and `missing` the JSON pointers of the amounts it lacks; empty otherwise |
+
+## Partial input
+
+The amounts are optional (version 2, SPEC-0007 R11). A covenant whose denominator amount is not
+given, or whose denominator is positive and numerator amount is not given, is not tested with
+`not_tested_code` `missing_input`, never breached, and its outputs are listed in
+`not_computed`. A denominator given zero or negative gives the outcome of
+`if_denominator_not_positive` whatever the numerator, also when the numerator amount is not
+given, since the agreement decides that case without it: the covenant is decided, not listed.
+A missing amount is never taken as zero. The floor: at least one covenant must be testable or
+decided by its rule; otherwise the input is refused with `FM-E027`, whose message lists the
+amounts that would lift it.
+
+```python
+r = fm.ratios.covenants(covenants=[
+    {"name": "net leverage", "test_date": "2026-12-31",
+     "numerator": {"definition": "net debt"},
+     "denominator": {"definition": "EBITDA, last 12 months", "amount": 1000},
+     "operator": "at_most", "threshold": "3.5",
+     "if_denominator_not_positive": "breached"},
+    {"name": "interest cover", "test_date": "2026-12-31",
+     "numerator": {"definition": "EBITDA, last 12 months", "amount": 1000},
+     "denominator": {"definition": "net finance charges", "amount": 200},
+     "operator": "at_least", "threshold": "4",
+     "if_denominator_not_positive": "breached"}])
+c = r.covenants[0]
+assert (c["outcome"], c["not_tested_code"]) == ("not_tested", "missing_input")
+assert r.not_computed[0]["missing"] == ["/covenants/0/numerator/amount"]
+assert r.covenants[1]["outcome"] == "passed"  # 1000 / 200 = 5, at least 4
+# With the first covenant alone the input would be below the floor (FM-E027).
+```
 
 ## Conventions (explicit, reported in `explain.conventions`)
 
@@ -185,6 +217,7 @@ assert r.summary == {"passed": 2, "breached": 1, "not_tested": 1}
 | Headroom sign | positive on the compliant side, negative on the breach side | fixed |
 | Relative headroom | headroom / threshold; not defined when the threshold is zero or negative, or when there is no tested value | fixed |
 | Overflow | the value, the rounded value or the headroom exceeds the range of the decimal type: not tested (`overflow`), never breached, and the other covenants are tested | fixed |
+| Missing amount | not tested (`missing_input`), never breached, unless a denominator given zero or negative decides by its rule; listed in `not_computed` | fixed |
 
 Covenants are numbered from 1 in the audit trail. Each covenant adds its own test rule
 ("covenant 1, net leverage (2026-12-31): passes when the tested value ≤ 3.5 (maximum,
@@ -208,6 +241,7 @@ a maximum; a negative EBITDA gives a negative cover, which breaches a minimum.
 | Code | When |
 | --- | --- |
 | `FM-E001` | `covenants` is empty; a blank `name` or `definition`; `rounding.decimal_places` above 6; a missing or unknown field (including `operator`, `if_denominator_not_positive`, or `rounding.mode` when `rounding` is given), or an unknown value |
+| `FM-E027` | Below the minimum input: no covenant can be tested or decided by its rule, because each lacks an amount; the message lists the alternative sets of amounts (any one is enough) |
 | `FM-E009` | A `test_date` that is not a valid `YYYY-MM-DD` date |
 
 ## Accuracy
@@ -227,6 +261,8 @@ digits of the decimal type.
   3.504 tested at most 3.50 with and without rounding to 2 decimals, `half_up` against
   `half_even` on a half, both operators of each direction at the threshold, negative
   numerators and non-positive thresholds; a constructed case for overflow.
+- A golden case with missing amounts (`missing-amounts`) and a seeded random comparison on
+  partial inputs, against `scripts/reference_ratios_partial.py`.
 - Unit tests on values that round to the threshold at 28 digits, for example
   3.0000000000000000000000000001 / 3 tested at most 1, which is breached, and on a quotient
   whose 28-digit rounding would round the wrong way at 2 decimals.

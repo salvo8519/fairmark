@@ -1,0 +1,110 @@
+{
+  "$defs": {
+    "CapStatus": {
+      "description": "Outcome of the growth cap check (SPEC-0006 R8).",
+      "oneOf": [
+        {
+          "const": "respected",
+          "description": "The growth is at or below the cap.",
+          "type": "string"
+        },
+        {
+          "const": "exceeded",
+          "description": "The growth is above the cap: reported, not refused.",
+          "type": "string"
+        }
+      ]
+    },
+    "GrowthCapCheck": {
+      "description": "The perpetual growth compared with the cap the analyst gave.",
+      "properties": {
+        "cap": {
+          "description": "The cap given, decimal fraction per period.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "growth": {
+          "description": "The perpetual growth checked, decimal fraction per period.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/CapStatus",
+          "description": "`respected` when growth ≤ cap, `exceeded` otherwise."
+        }
+      },
+      "required": [
+        "growth",
+        "cap",
+        "status"
+      ],
+      "type": "object"
+    },
+    "ValueOfGrowth": {
+      "description": "Whether growth adds value, from the return on new capital against the rate.",
+      "oneOf": [
+        {
+          "const": "creates",
+          "description": "RONIC above the rate: growth creates value.",
+          "type": "string"
+        },
+        {
+          "const": "none",
+          "description": "RONIC equal to the rate: growth creates no value; TV = NOPAT_{N+1} / r for any g.",
+          "type": "string"
+        },
+        {
+          "const": "destroys",
+          "description": "RONIC below the rate: growth destroys value.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:fairmark:schema:tv.value_driver:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `tv.value_driver`.",
+  "properties": {
+    "growth_cap": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GrowthCapCheck"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Growth compared with the cap; `null` when no cap is given."
+    },
+    "next_free_cash_flow": {
+      "description": "Free cash flow at N + 1, NOPAT_{N+1} × (1 − g / RONIC), in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "reinvestment_rate": {
+      "description": "Share of NOPAT reinvested to earn the growth, g / RONIC, decimal fraction.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "terminal_value": {
+      "description": "Terminal value at N, not discounted, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "value_of_growth": {
+      "$ref": "#/$defs/ValueOfGrowth",
+      "description": "`creates`, `none` or `destroys`: RONIC above, equal to or below the rate."
+    }
+  },
+  "required": [
+    "terminal_value",
+    "reinvestment_rate",
+    "next_free_cash_flow",
+    "value_of_growth",
+    "growth_cap"
+  ],
+  "title": "ValueDriverOutput",
+  "type": "object",
+  "x-fairmark-method": "tv.value_driver",
+  "x-fairmark-method-version": "1"
+}

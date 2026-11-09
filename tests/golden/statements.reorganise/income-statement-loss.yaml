@@ -1,0 +1,79 @@
+method: statements.reorganise
+description: 'AC10, R3, R16: a loss-making year with the signed items of art. 2425 (A2 and A3 a decrease,
+  B11 a decrease of raw materials, C17-bis a net gain, item 20 a tax income): negative value added, EBITDA
+  and profit; every layer and both reconciliations'
+source: scripts/reference_statements.py (Python decimal, 50 digits, local context); its income statement
+  section was written from Appendices A.2, B.2 and C of specs/0005-statements-reclassification/spec.md,
+  R16 to R21 and Decision 17 before the engine's income statement code existed. The later decisions (E1
+  to E6, P1, P2, A2 to A4) and corrections (D1-IS to D3-IS) were added to the reference by the same agent,
+  each before the engine change of its round, and the expectations were regenerated from it.
+input:
+  years:
+  - label: '2024'
+    date: '2024-12-31'
+    statutory:
+      layout: ordinary
+      income_statement:
+        revenue: '800000'
+        change_in_product_inventories: '-25000'
+        own_work_capitalised: '0'
+        other_revenue_and_income: '5000'
+        purchases: '420000'
+        services: '260000'
+        use_of_third_party_assets: '60000'
+        personnel_costs: '210000'
+        depreciation_and_write_downs:
+          depreciation_and_amortisation: '70000'
+          write_downs_of_fixed_assets: '0'
+          write_downs_of_receivables: '4000'
+        change_in_raw_material_inventories: '12000'
+        provisions_for_risks: '0'
+        other_provisions: '0'
+        other_operating_expenses: '9000'
+        income_from_equity_investments: '0'
+        other_financial_income: '500'
+        interest_and_other_financial_charges: '18000'
+        exchange_gains_and_losses: '1500'
+        revaluations_of_financial_assets: '0'
+        write_downs_of_financial_assets: '0'
+        income_taxes: '-12000'
+        profit_or_loss_for_the_year: '-269000'
+expect:
+  /years/0/income_statement/revenue: '800000'
+  /years/0/income_statement/value_of_production: '780000'
+  /years/0/income_statement/purchases: '420000'
+  /years/0/income_statement/materials_consumed: '432000'
+  /years/0/income_statement/value_added: '19000'
+  /years/0/income_statement/personnel_costs: '210000'
+  /years/0/income_statement/external_costs: '761000'
+  /years/0/income_statement/ebitda: '-191000'
+  /years/0/income_statement/depreciation_and_amortisation: '70000'
+  /years/0/income_statement/other_charges_below_ebitda: '4000'
+  /years/0/income_statement/income_from_operating_investments: '0'
+  /years/0/income_statement/operating_profit: '-265000'
+  /years/0/income_statement/investing_result: '500'
+  /years/0/income_statement/profit_before_financing_and_taxes: '-264500'
+  /years/0/income_statement/non_recurring_result: '0'
+  /years/0/income_statement/financing_result: '-16500'
+  /years/0/income_statement/interest_and_other_financial_charges: '18000'
+  /years/0/income_statement/profit_before_tax: '-281000'
+  /years/0/income_statement/income_taxes: '-12000'
+  /years/0/income_statement/net_income: '-269000'
+  /years/0/income_statement/reconciliations/operating_profit/start: '-265000'
+  /years/0/income_statement/reconciliations/operating_profit/end: '-265000'
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/start: '-265000'
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/label: C15, income
+    from equity investments (investing result)
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/sources/0: /years/0/statutory/income_statement/income_from_equity_investments
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/amount: '0'
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/label: C16, other
+    financial income (investing result)
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/sources/0: /years/0/statutory/income_statement/other_financial_income
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/amount: '500'
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/label: D18 − D19,
+    value adjustments of financial assets (investing result)
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/sources/0: /years/0/statutory/income_statement/revaluations_of_financial_assets
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/sources/1: /years/0/statutory/income_statement/write_downs_of_financial_assets
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/amount: '0'
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/end: '-264500'
+tolerance: '0'

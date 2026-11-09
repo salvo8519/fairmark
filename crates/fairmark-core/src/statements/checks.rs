@@ -5,6 +5,7 @@
 use std::collections::BTreeMap;
 
 use rust_decimal::Decimal;
+use schemars::JsonSchema;
 use serde::Serialize;
 
 use super::input::{StatutoryBalanceSheet, StatutoryIncomeStatement};
@@ -12,7 +13,7 @@ use crate::error::{FairmarkError, Reconciliation, Result};
 use crate::num;
 
 /// Outcome of one relation. A relation whose sides differ is not an outcome: it is `FM-E026`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum CheckStatus {
     /// Both sides given and equal.
@@ -22,7 +23,7 @@ pub enum CheckStatus {
 }
 
 /// One relation of R7 or R12 in the result.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct Check {
     /// `reconciled` or `not_checked`.
     pub status: CheckStatus,
@@ -611,6 +612,32 @@ pub(crate) fn income_statement(
         ac_given.side("B10 a to c"),
         ab_c.side("B10 a and b + B10 c"),
         FIX_TOTAL,
+    )?;
+    // B10 c is a part of the group B10 a to c (review of PR 2, blocking 1): the group less
+    // B10 c is depreciation and amortisation, never negative. Without B10 c, its B10 a, b part
+    // is, and B10 c is the difference (D1-IS of 2026-11-09).
+    let (part, part_name) = if b10.write_downs_of_fixed_assets.is_some() {
+        (
+            b10i(
+                "write_downs_of_fixed_assets",
+                b10.write_downs_of_fixed_assets,
+            ),
+            "B10 c",
+        )
+    } else {
+        (
+            b10i(
+                "depreciation_and_amortisation",
+                b10.depreciation_and_amortisation,
+            ),
+            "B10 a, b",
+        )
+    };
+    c.at_most(
+        "value_adjustments_of_fixed_assets_of_which",
+        part.side(part_name),
+        ac_given.side("B10 a to c"),
+        "B10 c and B10 a, b are parts of B10 a to c: correct the part or the group",
     )?;
     let b10_der = Read::sum(&[
         (1, &ac_given.or(ab_c)),

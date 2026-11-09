@@ -141,11 +141,17 @@ pub struct Meta {
     pub defaults_applied: Vec<DefaultApplied>,
 }
 
-/// The envelope every method returns.
-#[derive(Debug, Clone, Serialize)]
+/// The envelope every method returns. Its JSON Schema, with `value` described by the method's
+/// output schema, is `registry::result_schema`.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct Valuation<T: Serialize> {
+    /// Id of the method that produced the result, for example `dcf.fcff`.
     pub method: String,
+    /// The method's output: its schema is `registry::output_schema`, snapshotted as
+    /// `schemas/<method>/v<N>.output.json`.
     pub value: T,
+    /// How the result was obtained: formula, conventions and every step.
     pub explain: Explain,
+    /// Reproducibility metadata: engine and method versions, status, input hash, defaults.
     pub meta: Meta,
 }

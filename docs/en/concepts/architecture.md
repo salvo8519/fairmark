@@ -5,11 +5,11 @@
 - **One engine, thin adapters.** All financial logic lives in `fairmark-core` (Rust). Adapters
   translate, they never compute.
 - **The registry is the single source of truth.** `registry.rs` lists every method with its
-  version and its input type. JSON Schemas are generated from the Rust types (`schemars`), and
-  every adapter is generated from them: Python helpers, CLI, MCP tools, function-calling
-  definitions, documentation.
+  version, its input type and its output type. JSON Schemas of both are generated from the Rust
+  types (`schemars`), and every adapter is generated from them: Python helpers and the
+  decoding of their results, CLI, MCP tools, function-calling definitions, documentation.
 - **JSON at the boundaries.** Data crosses the Rust/Python boundary as JSON strings with
-  decimals as strings. This keeps the FFI surface to three functions and makes every adapter
+  decimals as strings. This keeps the FFI surface to five functions and makes every adapter
   testable with the same fixtures.
 - **No I/O in the core.** The core is a pure function from input to result. Telemetry, files
   and network live only in adapters.
@@ -20,7 +20,7 @@
 crates/
   fairmark-core/    methods, decimal math, explain, registry, errors (no I/O)
   fairmark-cli/     `fairmark` binary: methods | schema | run | verify
-  fairmark-py/      PyO3 bridge (3 functions), built by maturin as fairmark._engine
+  fairmark-py/      PyO3 bridge (5 functions), built by maturin as fairmark._engine
 python/fairmark/    Pythonic API, function-calling tools, MCP server
 skills/fairmark/    Agent Skill for Claude Code, Codex and compatible agents
 tests/golden/       shared golden cases (Rust + Python)
@@ -32,10 +32,12 @@ roadmap/            roadmap.yaml → GitHub milestones, epics and tasks
 
 1. Implement it in the module of its theme, `crates/fairmark-core/src/<theme>.rs`: an `Input`
    struct (serde + `JsonSchema`, `deny_unknown_fields`, doc comment with units on every field),
-   an `Output` struct and a unit type that implements the `Method` trait (id, version, title,
+   an `Output` struct (`Serialize` + `JsonSchema`, doc comment with units on the type and on
+   every field) and a unit type that implements the `Method` trait (id, version, title,
    description, `compute`) (ADR 0009).
-2. Add one line to the list in `registry.rs`; `uv run just generate` writes its schema to
-   `schemas/<method>/v1.json` and updates `schemas/index.json`.
+2. Add one line to the list in `registry.rs`; `uv run just generate` writes its input and
+   output schemas to `schemas/<method>/v1.json` and `schemas/<method>/v1.output.json` and
+   updates `schemas/index.json`.
 3. Add golden cases in `tests/golden/<method>/` from an independent source.
 4. Add a thin Python helper in `python/fairmark/<area>.py`.
 5. Write the methodology page in `docs/en/methods/`.

@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-capital-structure.md
-source_hash: 3b22987f4f43
+source_hash: 78750697aefc
 ---
 # Indici di struttura finanziaria (`ratios.capital_structure`)
 
@@ -75,12 +75,19 @@ assert r.secondary_structure_margin == Decimal("300")  # 2000 + 1800 − 3500
 | Campo | Significato | Default |
 | --- | --- | --- |
 | `balances` | `closing`, oppure `average` degli stati patrimoniali di apertura e di chiusura | obbligatorio |
-| `closing` | `equity`, `total_assets`, `fixed_assets`, `non_current_liabilities`, `net_financial_position`, in unità monetarie | obbligatorio |
-| `opening` | Gli stessi campi all'inizio del periodo | obbligatorio con saldi medi, non usato altrimenti |
+| `closing` | `equity`, `total_assets`, `fixed_assets`, `non_current_liabilities`, `net_financial_position`, in unità monetarie | ogni importo facoltativo |
+| `opening` | Gli stessi campi all'inizio del periodo | usato con saldi medi, non usato altrimenti; ogni importo facoltativo |
 
 `net_financial_position` contiene `gross_debt`, `cash` e `other_items`, un elenco di
 `{"name", "amount"}` sommati con il loro segno (positivo per le voci assimilabili al debito,
-negativo per le attività finanziarie; default: nessuna).
+negativo per le attività finanziarie). `gross_debt`, `cash` e l'`amount` di ogni voce sono
+facoltativi; la posizione finanziaria netta è calcolata solo quando sono tutti forniti.
+
+`other_items` assente, con `gross_debt` e `cash` forniti, è un default documentato: nessuna
+altra voce. È elencato in `meta.defaults_applied` (`/closing/net_financial_position/other_items`,
+valore `[]`) con una convenzione che inizia con "warning:"; `"other_items": []` indica nessuna
+voce in modo esplicito, senza voce di default né avvertimento, e con lo stesso
+`meta.input_hash`.
 
 ## Output
 
@@ -94,8 +101,32 @@ negativo per le attività finanziarie; default: nessuna).
 | `secondary_structure_margin` | Capitale proprio + passività consolidate − immobilizzazioni, in unità monetarie |
 | `primary_fixed_asset_coverage` | Capitale proprio / immobilizzazioni, multiplo |
 | `secondary_fixed_asset_coverage` | (Capitale proprio + passività consolidate) / immobilizzazioni, multiplo |
+| `not_computed` | Output non calcolati perché manca un input, nell'ordine degli output: `{"output", "missing", "reason"}`, con `output` il JSON pointer dell'output nel valore del risultato e `missing` i JSON pointer ordinati degli input che gli mancano; vuoto quando ogni output è calcolato |
 
-Gli indici sono oggetti `{"value": ..., "not_defined": ...}`, come in ogni gruppo di indici.
+Gli indici sono oggetti `{"value": ..., "not_defined": ...}`, come in ogni gruppo di indici; la
+posizione finanziaria netta e i margini sono importi, null quando non calcolati.
+
+## Input parziale
+
+Ogni importo è facoltativo (versione 2, SPEC-0007 R7). Si fornisce ciò che il bilancio riporta:
+ogni output è calcolato quando sono forniti i suoi importi; altrimenti è null ed è elencato in
+`not_computed` con i JSON pointer degli input che gli mancano. Un importo mancante non è mai
+considerato zero e da solo non è un errore. La soglia minima: almeno un output deve avere tutti
+gli input che gli servono (conta anche un indice non definito dai propri input); sotto la soglia
+l'input è rifiutato con `FM-E027`, il cui messaggio elenca gli insiemi alternativi di input che
+la superano, così non si restituisce mai un risultato fatto solo di null. Con i saldi medi un importo richiede sia
+`/closing/<campo>` sia `/opening/<campo>`. Un importo fornito che rende già l'indice non definito
+(per esempio un denominatore nullo) prevale: l'indice è allora non definito, con il suo motivo, e
+non è elencato.
+
+| Output | Input necessari |
+| --- | --- |
+| `net_financial_position` | debiti finanziari lordi, disponibilità liquide, l'importo di ogni altra voce fornita |
+| `debt_to_equity` | debiti finanziari lordi, capitale proprio |
+| `nfp_to_equity` | la posizione finanziaria netta, capitale proprio |
+| `equity_ratio` | capitale proprio, totale attivo |
+| `primary_structure_margin`, `primary_fixed_asset_coverage` | capitale proprio, immobilizzazioni |
+| `secondary_structure_margin`, `secondary_fixed_asset_coverage` | capitale proprio, passività consolidate, immobilizzazioni |
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
 
@@ -103,6 +134,7 @@ Gli indici sono oggetti `{"value": ..., "not_defined": ...}`, come in ogni grupp
 | --- | --- | --- |
 | Saldi | di chiusura, media tra apertura e chiusura (applicata a ogni saldo, PFN inclusa) | obbligatorio |
 | Posizione finanziaria netta | debiti finanziari lordi − disponibilità liquide + altre voci, positiva se indebitamento netto | fissa |
+| Altre voci | nessuna quando `other_items` è assente: riportato in `meta.defaults_applied`, con un avvertimento | nessuna (default documentato) |
 | D/E | solo debiti finanziari lordi: disponibilità liquide e altre voci della posizione finanziaria netta escluse | fissa |
 | Non definito | denominatore nullo; capitale proprio nullo o negativo per D/E e PFN/E | fissa |
 
@@ -110,7 +142,8 @@ Gli indici sono oggetti `{"value": ..., "not_defined": ...}`, come in ogni grupp
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | Saldi medi senza `opening`; un campo mancante o sconosciuto |
+| `FM-E001` | `balances` mancante o diverso da `closing` e `average`; un campo sconosciuto; un'altra voce senza `name`; un importo che non è un decimale |
+| `FM-E027` | Sotto la soglia minima di input: nessun output ha tutti gli input che gli servono; il messaggio elenca gli insiemi alternativi di input (ne basta uno) |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 
 ## Precisione
@@ -124,3 +157,5 @@ significative del tipo decimale.
   chiusura e saldi medi, capitale proprio negativo), i cui valori attesi provengono da
   `scripts/reference_ratios.py` (decimal di Python a 50 cifre), con la forma chiusa scritta in
   ciascun file.
+- Un caso di riferimento con uno stato patrimoniale parziale e un confronto casuale con seme
+  fisso su input parziali, rispetto a `scripts/reference_ratios_partial.py`.

@@ -1,0 +1,31 @@
+{
+  "$id": "urn:fairmark:schema:tvm.annuity:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `tvm.annuity`.",
+  "properties": {
+    "factor": {
+      "description": "Present value of a first payment of 1.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "future_value": {
+      "description": "Value at t = n of the same payments (present value × (1 + r)^n).",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "present_value": {
+      "description": "Present value at t = 0.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "present_value",
+    "future_value",
+    "factor"
+  ],
+  "title": "AnnuityOutput",
+  "type": "object",
+  "x-fairmark-method": "tvm.annuity",
+  "x-fairmark-method-version": "1"
+}

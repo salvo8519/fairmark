@@ -1,0 +1,99 @@
+{
+  "$defs": {
+    "CapStatus": {
+      "description": "Outcome of the growth cap check (SPEC-0006 R8).",
+      "oneOf": [
+        {
+          "const": "respected",
+          "description": "The growth is at or below the cap.",
+          "type": "string"
+        },
+        {
+          "const": "exceeded",
+          "description": "The growth is above the cap: reported, not refused.",
+          "type": "string"
+        }
+      ]
+    },
+    "FlowBasis": {
+      "description": "How the flow at N + 1 was obtained.",
+      "oneOf": [
+        {
+          "const": "next_flow_given",
+          "description": "CF_{N+1} given by the analyst.",
+          "type": "string"
+        },
+        {
+          "const": "last_flow_grown",
+          "description": "CF_{N+1} = CF_N × (1 + g).",
+          "type": "string"
+        }
+      ]
+    },
+    "GrowthCapCheck": {
+      "description": "The perpetual growth compared with the cap the analyst gave.",
+      "properties": {
+        "cap": {
+          "description": "The cap given, decimal fraction per period.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "growth": {
+          "description": "The perpetual growth checked, decimal fraction per period.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/CapStatus",
+          "description": "`respected` when growth ≤ cap, `exceeded` otherwise."
+        }
+      },
+      "required": [
+        "growth",
+        "cap",
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:tv.gordon:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `tv.gordon`.",
+  "properties": {
+    "flow_basis": {
+      "$ref": "#/$defs/FlowBasis",
+      "description": "`next_flow_given` or `last_flow_grown`."
+    },
+    "growth_cap": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GrowthCapCheck"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Growth compared with the cap; `null` when no cap is given."
+    },
+    "next_flow": {
+      "description": "Flow at N + 1 used, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "terminal_value": {
+      "description": "Terminal value at N, not discounted, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "terminal_value",
+    "next_flow",
+    "flow_basis",
+    "growth_cap"
+  ],
+  "title": "GordonOutput",
+  "type": "object",
+  "x-fairmark-method": "tv.gordon",
+  "x-fairmark-method-version": "1"
+}

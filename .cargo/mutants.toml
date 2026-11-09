@@ -1,0 +1,34 @@
+# cargo-mutants configuration (pinned tool version: 27.1.0, see
+# docs/en/project/mutation-testing.md). Read by `just mutants`, `just mutants-diff` and the
+# Mutation testing workflow. The package is always selected on the command line with
+# `--package fairmark-core`: the configuration file has no package key.
+
+# Scope: only the core, where all financial logic lives (adapters translate and never compute).
+# Every caller passes `--package fairmark-core`. No examine_globs here on purpose: cargo-mutants
+# adds them to the `--file` filter of `just mutants <module>` instead of narrowing it.
+
+# No file of the core is excluded. Equivalent mutants are recorded one by one, with a reason
+# and a reviewer, in tests/mutants/equivalent.toml; blanket exclusions are not accepted.
+exclude_globs = []
+exclude_re = []
+
+# Tests: the unit tests and every integration test of fairmark-core, golden cases included
+# (crates/fairmark-core/tests/golden.rs). Doctests are skipped: the core has one usage
+# example in lib.rs, each doctest is a separate binary, and the golden cases cover the same
+# path with independent expected values.
+test_package = ["fairmark-core"]
+additional_cargo_test_args = ["--lib", "--tests"]
+
+# Faster incremental builds: the test profile without debug information
+# ([profile.mutants] in the workspace Cargo.toml).
+profile = "mutants"
+
+# Timeouts. The test timeout is the baseline test time times the multiplier, never less than
+# the minimum; a mutant that turns a loop or a solver into a non-terminating one is reported
+# as "timeout", which counts as detected but is listed for review.
+timeout_multiplier = 3.0
+minimum_test_timeout = 60.0
+build_timeout_multiplier = 3.0
+
+# Do not copy ignored files (target/, .venv/, site/) into the scratch build directory.
+gitignore = true

@@ -156,6 +156,20 @@ macro_rules! registry {
             None
         }
 
+        fn output_schema_of(id: &str) -> Option<schemars::Schema> {
+            $(if id == <$m as Method>::ID {
+                return Some(serialize_schema::<<$m as Method>::Output>());
+            })+
+            None
+        }
+
+        fn result_schema_of(id: &str) -> Option<schemars::Schema> {
+            $(if id == <$m as Method>::ID {
+                return Some(serialize_schema::<Valuation<<$m as Method>::Output>>());
+            })+
+            None
+        }
+
         fn dispatch_to(id: &str, input_json: &str) -> Option<Result<Value>> {
             $(if id == <$m as Method>::ID {
                 return Some(execute::<$m>(input_json));
@@ -233,6 +247,36 @@ pub fn method(id: &str) -> Result<&'static MethodInfo> {
 pub fn input_schema(id: &str) -> Result<Value> {
     let schema = schema_of(id).ok_or_else(|| FairmarkError::UnknownMethod(id.to_owned()))?;
     serde_json::to_value(schema).map_err(|e| FairmarkError::InvalidInput(e.to_string()))
+}
+
+/// JSON Schema (2020-12) of a method's output: the `value` of its result envelope, as the
+/// engine serialises it (ADR 0014 G8). Decimals are strings matching `^-?\d+(\.\d+)?$`;
+/// a field that may be absent is not `required`; a field that may be `null` says so. A field
+/// holding the input or the output of another method carries `x-fairmark-input-of` or
+/// `x-fairmark-output-of`: an RFC 6901 pointer to that method's id, relative to the object
+/// that holds the field (for `analysis.goal_seek`, `/inner_method/id` in the same object).
+/// Clients accept enumeration values they do not know: a value added to an output enumeration
+/// is additive (ADR 0014 G8).
+pub fn output_schema(id: &str) -> Result<Value> {
+    let schema = output_schema_of(id).ok_or_else(|| FairmarkError::UnknownMethod(id.to_owned()))?;
+    serde_json::to_value(schema).map_err(|e| FairmarkError::InvalidInput(e.to_string()))
+}
+
+/// JSON Schema (2020-12) of a method's whole result envelope (`method`, `value`, `explain`,
+/// `meta`), with `value` described by [`output_schema`]. The envelope follows its own
+/// version (ADR 0014 G4), not the method version.
+pub fn result_schema(id: &str) -> Result<Value> {
+    let schema = result_schema_of(id).ok_or_else(|| FairmarkError::UnknownMethod(id.to_owned()))?;
+    serde_json::to_value(schema).map_err(|e| FairmarkError::InvalidInput(e.to_string()))
+}
+
+/// The schema of a type as it is serialised (an output), not as it is read (an input):
+/// decimals are strings, fields skipped when empty are optional.
+fn serialize_schema<T: JsonSchema>() -> schemars::Schema {
+    schemars::generate::SchemaSettings::draft2020_12()
+        .for_serialize()
+        .into_generator()
+        .into_root_schema_for::<T>()
 }
 
 /// Run a method on a JSON input and return the JSON result envelope.
@@ -588,6 +632,54 @@ mod tests {
         for m in METHODS {
             assert!(input_schema(m.id).is_ok(), "{}", m.id);
         }
+    }
+
+    /// ADR 0014 G8 (issue #265): every method publishes the schema of its output and of its
+    /// result envelope, each documented at the root.
+    #[test]
+    fn every_method_has_output_and_result_schemas() {
+        for m in METHODS {
+            let output = output_schema(m.id).unwrap();
+            assert_eq!(output["type"], "object", "{}", m.id);
+            assert!(
+                output["description"].is_string(),
+                "{}: document the output type",
+                m.id
+            );
+            let result = result_schema(m.id).unwrap();
+            let required = result["required"].as_array().unwrap();
+            for key in ["method", "value", "explain", "meta"] {
+                assert!(required.contains(&Value::from(key)), "{}: {key}", m.id);
+            }
+        }
+        assert_eq!(
+            output_schema("tvm.nope").unwrap_err().code(),
+            FairmarkError::UnknownMethod(String::new()).code()
+        );
+    }
+
+    /// ADR 0014 G7: decimals are returned as strings, and the output schema says so; a field
+    /// skipped when empty is not required.
+    #[test]
+    fn output_schemas_describe_what_is_serialised() {
+        let npv = output_schema("tvm.npv").unwrap();
+        assert_eq!(npv["properties"]["npv"]["type"], "string");
+        assert_eq!(npv["properties"]["npv"]["pattern"], r"^-?\d+(\.\d+)?$");
+        let result = result_schema("tv.gordon").unwrap();
+        let meta = &result["$defs"]["Meta"];
+        let required = meta["required"].as_array().unwrap();
+        assert!(required.contains(&Value::from("method_version")));
+        assert!(required.contains(&Value::from("method_status")));
+        assert!(!required.contains(&Value::from("defaults_applied")));
+        let seek = output_schema("analysis.goal_seek").unwrap();
+        assert_eq!(
+            seek["properties"]["inner_value"]["x-fairmark-output-of"],
+            "/inner_method/id"
+        );
+        assert_eq!(
+            seek["properties"]["solved_input"]["x-fairmark-input-of"],
+            "/inner_method/id"
+        );
     }
 
     #[test]

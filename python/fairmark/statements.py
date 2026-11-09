@@ -3,9 +3,12 @@
 ``reorganise`` takes one or more financial years, oldest first, each in the ``statutory`` form
 (the aggregates of art. 2424 and 2425 of the Italian Civil Code, ordinary or abridged layout)
 or in the ``reclassified`` form (totals already reorganised), and returns per year the
-reorganised balance sheet: invested capital, non-operating assets, equity, quasi-equity, the
-net financial position with its composition and maturities, debt-like items, and current and
-non-current amounts for the ratios.
+reorganised balance sheet (invested capital, non-operating assets, equity, quasi-equity, the
+net financial position with its composition and maturities, debt-like items, current and
+non-current amounts for the ratios) and the reorganised income statement (value of production,
+value added, EBITDA, operating profit, investing result, profit before financing and taxes,
+non-recurring and financing results, profit before tax, income taxes and net income, with the
+reconciliations of the two IFRS 18 aligned subtotals with A - B).
 
 Every input is optional. An output is computed when its inputs are given; otherwise it is
 ``None`` and listed in ``not_computed`` with the JSON pointers of the missing inputs, so an
@@ -15,7 +18,11 @@ strings or ``Decimal``.
 
 The outputs feed other methods unchanged: ``sources.net_financial_position.position``,
 ``non_operating_assets`` and ``sources.debt_like_items`` go to ``fm.dcf.fcff``;
-``current_non_current`` to ``fm.ratios.liquidity`` and ``fm.ratios.capital_structure``.
+``current_non_current`` to ``fm.ratios.liquidity`` and ``fm.ratios.capital_structure``;
+``income_statement.operating_profit`` and ``depreciation_and_amortisation`` to
+``fm.dcf.free_cash_flows``; ``revenue``, ``ebitda`` (with ``ebitda_definition``) and
+``net_income`` to ``fm.ratios.profitability``; ``profit_before_financing_and_taxes`` and
+``interest_and_other_financial_charges`` to ``fm.ratios.debt_service``.
 """
 
 from __future__ import annotations
@@ -37,7 +44,9 @@ def reorganise(
     ``{"reclassified": {...}}``; label and date are optional. ``treatments`` (stated once):
     ``financial_fixed_assets`` (``operating``, ``non_operating`` or ``financial_asset``),
     ``shareholder_loans`` (``financial_debt`` or ``quasi_equity``) and
-    ``derivative_liabilities``, each needed only when its aggregate is given and not zero.
+    ``derivative_liabilities``, each needed only when its aggregate is given and not zero, and
+    ``write_downs_of_receivables`` and ``write_downs_of_fixed_assets`` (``operating`` by
+    default, or ``investing``).
     ``adjustments``: labelled moves of Appendix C, each with ``kind``, ``label``, ``reason``
     and one amount per year (``None`` where it does not apply). No value is defaulted here
     beyond the engine's own defaults, listed in ``result.meta["defaults_applied"]``.
@@ -61,6 +70,14 @@ def reorganise(
     (Decimal('1200'), Decimal('400'))
     >>> bs["total_funds_invested"] == bs["sources"]["total_sources"]
     True
+    >>> r = reorganise([{"statutory": {"income_statement": {
+    ...     "revenue": "1000", "change_in_product_inventories": "0", "own_work_capitalised": "0",
+    ...     "other_revenue_and_income": "0", "purchases": "400",
+    ...     "change_in_raw_material_inventories": "0", "services": "200",
+    ...     "use_of_third_party_assets": "0", "other_operating_expenses": "0",
+    ...     "personnel_costs": "250"}}}])
+    >>> r.years[0]["income_statement"]["ebitda"]
+    Decimal('150')
     """
     payload: dict[str, Any] = {"years": [dict(y) for y in years]}
     if treatments is not None:

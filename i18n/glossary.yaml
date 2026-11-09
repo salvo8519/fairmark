@@ -261,6 +261,39 @@ terms:
   operating fixed assets: operating fixed assets (immobilizzazioni operative)
   operating provisions: operating provisions (fondi per rischi e oneri e TFR classificati come operativi)
   carrying amount: valore contabile
+  # SPEC-0005, income statement: captions of art. 2425 c.c. (as amended by D.Lgs. 139/2015)
+  value of production: valore della produzione
+  costs of production: costi della produzione
+  other revenue and income: altri ricavi e proventi
+  own work capitalised: incrementi di immobilizzazioni per lavori interni
+  services: servizi
+  use of third-party assets: godimento di beni di terzi
+  personnel costs: costi per il personale
+  other operating expenses: oneri diversi di gestione
+  income from equity investments: proventi da partecipazioni
+  interest and other financial charges: interessi e altri oneri finanziari
+  exchange gains and losses: utili e perdite su cambi
+  value adjustments of financial assets: rettifiche di valore di attività e passività finanziarie
+  profit before tax: risultato prima delle imposte
+  # SPEC-0005, Terminology and sources: Italian equivalents the spec records as verified
+  # (status "verified" in its table; V12, V30, V32)
+  EBITDA: margine operativo lordo (MOL)
+  operating profit: reddito operativo della gestione caratteristica (margine operativo netto, MON)
+  profit before financing and income taxes: reddito operativo aziendale (EBIT nella prassi italiana)
+  non-recurring items: componenti non ricorrenti
+  write-downs: svalutazioni
+  # Leases, OIC 12
+  financial method (leases): metodo finanziario
+  # Italian equivalent "to verify" in the spec or only partly verified: English kept with an
+  # Italian explanation (glossary rule of 2026-11-08).
+  value added: value added (valore aggiunto)
+  investing result: investing result (risultato della gestione accessoria)
+  financing result: financing result (risultato della gestione finanziaria)
+  materials consumed: materials consumed (consumi di materie prime, sussidiarie, di consumo e merci)
+  external costs: external costs (costi esterni)
+  other charges below EBITDA: other charges below EBITDA (altri oneri sotto il MOL)
+  income from operating investments: income from operating investments (proventi da partecipazioni, voce C15, di immobilizzazioni finanziarie operative)
+  interest cost of the employee severance indemnity: rivalutazione del TFR (interest cost)
   available (method status): disponibile
   preview (method status): anteprima
   promotion rule (method status): regola di promozione

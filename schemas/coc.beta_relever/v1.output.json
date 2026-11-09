@@ -1,0 +1,19 @@
+{
+  "$id": "urn:fairmark:schema:coc.beta_relever:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `coc.beta_relever`.",
+  "properties": {
+    "beta": {
+      "description": "The converted beta.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "beta"
+  ],
+  "title": "BetaReleverOutput",
+  "type": "object",
+  "x-fairmark-method": "coc.beta_relever",
+  "x-fairmark-method-version": "1"
+}

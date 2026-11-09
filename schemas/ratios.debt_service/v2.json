@@ -1,0 +1,274 @@
+{
+  "$defs": {
+    "Balances": {
+      "description": "Which balance-sheet amounts the ratios use (SPEC-0007 R2). No default: the analyst chooses.",
+      "oneOf": [
+        {
+          "const": "closing",
+          "description": "Balances at the end of the period (`closing`).",
+          "type": "string"
+        },
+        {
+          "const": "average",
+          "description": "Average of the opening and closing balances: (opening + closing) / 2. Needs `opening`.",
+          "type": "string"
+        }
+      ]
+    },
+    "DebtPeriod": {
+      "additionalProperties": false,
+      "description": "One period of the loan schedule.",
+      "properties": {
+        "cfads": {
+          "description": "Cash flow available for debt service in the period, in currency units. Absent or null:\nnot given; the DSCR of the period, the present value of CFADS and the LLCR are not\ncomputed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "debt_service": {
+          "description": "Debt service (principal and interest) due in the period, in currency units. Absent or\nnull: not given; the DSCR of the period is not computed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "DebtSchedule": {
+      "additionalProperties": false,
+      "description": "The loan schedule from the calculation date to the final maturity.",
+      "properties": {
+        "debt_outstanding": {
+          "description": "Debt outstanding at the start of the first period, in currency units. Absent or null:\nnot given; the LLCR is not computed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "discount_rate": {
+          "description": "Discount rate for the LLCR: the cost of debt per period of the schedule chosen by the\nanalyst, as a decimal fraction (0.06 = 6% per period). Absent or null: not given; the\npresent value of CFADS and the LLCR are not computed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "periods": {
+          "description": "Periods 1..n, in order, up to the final maturity of the loan. At least one.",
+          "items": {
+            "$ref": "#/$defs/DebtPeriod"
+          },
+          "type": "array"
+        },
+        "reserve_balance": {
+          "description": "Balance of the debt service reserve account at the valuation date, in currency units,\nadded undiscounted to the LLCR numerator. Absent: no reserve account.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "periods"
+      ],
+      "type": "object"
+    },
+    "DebtServiceBalances": {
+      "additionalProperties": false,
+      "description": "Balance-sheet amounts at one date.",
+      "properties": {
+        "net_financial_position": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NfpComposition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Net financial position with its composition, in currency units. Absent or null: not\ngiven."
+        }
+      },
+      "type": "object"
+    },
+    "DebtServiceIncome": {
+      "additionalProperties": false,
+      "description": "Flows of the period, in currency units. Every amount is optional: absent or null means not\ngiven, and the ratios that need it are not computed (never taken as zero).",
+      "properties": {
+        "ebit": {
+          "description": "EBIT (operating result) of the period, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "ebitda": {
+          "description": "EBITDA of the period, in currency units, as defined in `ebitda_definition` (the ratios\non EBITDA need both).",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "interest": {
+          "description": "Interest expense of the period, in currency units, as defined in `interest_definition`\n(gross, or net of interest income); the interest covers need both.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "NfpComposition": {
+      "additionalProperties": false,
+      "description": "The net financial position of a `ratios.*` input, with its composition (SPEC-0007 R6).\nFairmark adds what is given and does not choose which items are included. Every amount is\noptional (R7): without gross debt or cash the net financial position is not computed, never\ntaken as zero.",
+      "properties": {
+        "cash": {
+          "description": "Cash and cash equivalents, in currency units, subtracted from the gross debt. Absent or\nnull: not given.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "gross_debt": {
+          "description": "Gross financial debt (bank loans, bonds and other borrowings), in currency units. Absent\nor null: not given.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "other_items": {
+          "default": [],
+          "description": "Other items included by the analyst, each added with its sign; `[]` means none. Absent\nor null: none, a documented default (SPEC-0007 R13) listed in `meta.defaults_applied`\nwith a warning when the net financial position is computed with it.",
+          "items": {
+            "$ref": "#/$defs/NfpOtherItem"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "NfpOtherItem": {
+      "additionalProperties": false,
+      "description": "One item of the net financial position of a `ratios.*` input, other than gross debt and\ncash.",
+      "properties": {
+        "amount": {
+          "description": "Amount in currency units, added to the net financial position: positive for debt-like\nitems, negative for financial assets. Absent or null: not given, and the net financial\nposition is not computed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "What the item is, for example \"lease liabilities\" or \"derivative assets\".",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:ratios.debt_service:v2",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `ratios.debt_service` (version 2). Only `balances` is required; each ratio is\ncomputed when its own amounts are given (SPEC-0007 R7).",
+  "properties": {
+    "balances": {
+      "$ref": "#/$defs/Balances",
+      "description": "Balances used by the ratios: `closing`, or `average` of opening and closing."
+    },
+    "closing": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DebtServiceBalances"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Balance sheet at the end of the period. Absent or null: no amount given."
+    },
+    "debt_schedule": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DebtSchedule"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Loan schedule for DSCR and LLCR. Absent: DSCR and LLCR are not defined and the other\nratios are computed."
+    },
+    "ebitda_definition": {
+      "description": "How EBITDA was measured, in words (for example \"reported EBITDA, no adjustments\");\nechoed in the conventions. Absent or null: the ratios on EBITDA are not computed; given\nblank: refused.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "income_statement": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DebtServiceIncome"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Flows of the period. Absent or null: no flow given."
+    },
+    "interest_definition": {
+      "description": "How interest was measured, in words (for example \"gross interest expense\" or \"interest\nexpense net of interest income\"); echoed in the conventions. Absent or null: the interest\ncovers are not computed; given blank: refused.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "opening": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DebtServiceBalances"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Balance sheet at the start of the period, used with average balances; not used with\nclosing balances. Absent with average balances: the net financial position is not\ncomputed."
+    }
+  },
+  "required": [
+    "balances"
+  ],
+  "title": "DebtServiceInput",
+  "type": "object",
+  "x-fairmark-method": "ratios.debt_service",
+  "x-fairmark-method-version": "2"
+}

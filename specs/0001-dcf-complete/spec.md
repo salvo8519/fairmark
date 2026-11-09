@@ -272,7 +272,11 @@ nominal before taxes; a leading exit multiple.
   `equity_value` = `enterprise_value` − net financial position − Σ debt-like items −
   non-controlling interests; with the net financial position in the structure of SPEC-0007
   (gross debt − cash + signed other items, positive for net debt) and every line labelled in
-  `explain`.
+  `explain`. WHEN no net financial position is given, THE ENGINE SHALL subtract zero as a
+  documented default, list it in `meta.defaults_applied` (field `/net_financial_position`,
+  value `"0"`) and report a warning in `explain.conventions` that the equity value is not
+  reduced by any net financial position; a net financial position given, even zero, SHALL
+  produce no default entry and no warning. (Amended 2026-11-09, Decision 25.)
 - **R24** — WHEN the basis is FCFE, THE ENGINE SHALL return `equity_value` = present value of
   the explicit FCFE + present value of the terminal value + Σ non-operating assets − Σ
   debt-like items − non-controlling interests, and SHALL NOT return `value_of_operations` or
@@ -315,7 +319,9 @@ nominal before taxes; a leading exit multiple.
   `meta.defaults_applied` (JSON pointer of the field, value filled in, one-line reason), and
   SHALL compute `meta.input_hash` on the input with the defaults filled in, so that a minimal
   input and its explicit equivalent have the same hash. A field given explicitly SHALL always
-  prevail and SHALL produce no default entry. (Added 2026-11-08, Decision 24.)
+  prevail and SHALL produce no default entry. (Added 2026-11-08, Decision 24.) Except the net
+  financial position of `dcf.fcff` (Decision 25): reported, not filled in, not part of the
+  hash. (Amended 2026-11-09.)
 
 ## Conventions and parameters (Revised 2026-11-08)
 | Convention | Options | Default | Source |
@@ -333,7 +339,7 @@ nominal before taxes; a leading exit multiple.
 | Terminal discounting under mid-period | `horizon` (N), `mid_period` (N − 0.5, half-period shift at the terminal rate) | required when a terminal value is discounted; refused with `none` | Practice varies (Decisions 6, 16) |
 | Terminal option | any `tv.*` technique on the basis of the DCF; `given` (an amount at N on the basis of the DCF); `none` | `none`: the given flows only, with a warning (Decision 24) | SPEC-0006 |
 | First terminal flow (Gordon, H-model) | last flow grown, or normalised flow (Gordon: at N + 1; H-model: base flow at N, Decision 15) | required | PIV (normalised flow); to verify |
-| From value of operations to equity value | non-operating assets added to reach enterprise value (FCFF); net financial position (FCFF only), debt-like items and non-controlling interests subtracted to reach equity value | none given means none, reported | Koller et al., ch. 16; IVS 200 130 (Terminology [S12], [S5]) |
+| From value of operations to equity value | non-operating assets added to reach enterprise value (FCFF); net financial position (FCFF only), debt-like items and non-controlling interests subtracted to reach equity value | lists: none given means none, reported; net financial position: zero, reported as a default with a warning (Decision 25) | Koller et al., ch. 16; IVS 200 130 (Terminology [S12], [S5]) |
 | Measurement basis of debt-like items and non-controlling interests | `book_value`, `market_value`, `fair_value`, `present_value`, `other` with `basis_note` | required per item (Decision 21) | IFRS 13 (fair value); practice varies |
 
 ## Acceptance criteria (Revised 2026-11-08)
@@ -719,6 +725,37 @@ the source verification.
       N − 0.5 carries the warning of an amount stated at a date ("given: the analyst's
       terminal value at the horizon N"), as an exit multiple, a liquidation and a limited
       horizon do; with `none` the discounting time and factor are `null`.
+- [x] **25. Net financial position not given in `dcf.fcff`** (approved by the maintainer on
+      2026-11-09, issue #261; ADR 0014, maintainer decision 2 and guidelines G2, G3 and G10:
+      a missing input is never a silent zero). The DCF is always computed, best effort. When
+      `net_financial_position` is absent, `dcf.fcff` keeps subtracting zero, but as a
+      documented default: (a) the description of the field in the schema states the default;
+      (b) `meta.defaults_applied` lists it (field `/net_financial_position`, value `"0"`,
+      reason "net financial position not given"), and its "default:" convention comes first,
+      as for every default (R31); (c) a convention starting with "warning:" states that no net
+      financial position was given, so the equity value equals the enterprise value (less the
+      debt-like items and non-controlling interests, when some are given). It replaces the
+      convention "net financial position: none given". A net financial position given, even
+      with every amount zero, is a true zero: no default entry and no warning. No number
+      changes: `equity_value` and `bridge.equity_value` keep their values, and
+      `bridge.net_financial_position` stays `null` when none is given (it echoes the input).
+      The input is not rewritten with the default, so `meta.input_hash` is unchanged; a given
+      zero is not an equivalent of the default, because it carries no warning. The schema
+      carries no `default` keyword for the field, as for the other defaults of Decision 24:
+      the field is a structure, a `default` of `0` would not validate against it, and a
+      client that inserts schema defaults would send a given zero and suppress the warning.
+      The schema change is documentation only, additive to `dcf.fcff` version 3
+      (`scripts/schema_snapshots.py`); the version stays 3, because neither a number nor the
+      input contract changes. `dcf.fcfe` is unaffected: it refuses a net financial position
+      (R24, Decision 9) and its equity value comes from the FCFE, which already reflect the
+      debt. `dcf.free_cash_flows` has no bridge. No existing golden case changes. Against
+      the default admission tests of ADR 0014 G3: practice and acceptance are the maintainer's
+      decision 2 of that ADR; the default is reported (schema description and
+      `meta.defaults_applied`) and warned, since it determines the equity value. The schema
+      `default` keyword is absent, which G3 allows. G10.2 holds: the equity value always rests
+      on the flows and the rate given. In `meta.defaults_applied` the `value` of this entry is
+      the amount subtracted, not a value to write in the field. Amends R23, R31 and the
+      conventions table.
 
 Terminology decisions from the source verification:
 - [x] **a.** The projection option `linear_fade` is renamed `linear_decline` everywhere

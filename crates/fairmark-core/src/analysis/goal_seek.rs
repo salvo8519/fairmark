@@ -53,6 +53,7 @@ pub struct GoalSeekInput {
     pub max_iterations: u32,
 }
 
+/// Output of `analysis.goal_seek`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct GoalSeekOutput {
     /// The method evaluated, at the version run.
@@ -68,9 +69,15 @@ pub struct GoalSeekOutput {
     /// Tolerance applied, in the output's units.
     pub tolerance: Decimal,
     /// Input of the inner method at the solution (the variable written as a decimal string).
-    /// Running the inner method on it reproduces `inner_value` and its full explain.
+    /// Running the inner method on it reproduces `inner_value` and its full explain. Its schema
+    /// is the input schema of the method whose id is at `/inner_method/id`, relative to
+    /// this object (`x-fairmark-input-of`).
+    #[schemars(extend("x-fairmark-input-of" = "/inner_method/id"))]
     pub solved_input: Value,
-    /// `value` of the inner method's result at the solution.
+    /// `value` of the inner method's result at the solution. Its schema is the output schema
+    /// of the method whose id is at `/inner_method/id`, relative to this object
+    /// (`x-fairmark-output-of`).
+    #[schemars(extend("x-fairmark-output-of" = "/inner_method/id"))]
     pub inner_value: Value,
 }
 

@@ -1,0 +1,176 @@
+{
+  "$defs": {
+    "BaseOutput": {
+      "description": "One output of the base case.",
+      "properties": {
+        "output": {
+          "description": "The output pointer.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Its value for `base_input` unchanged, in the output's units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "output",
+        "value"
+      ],
+      "type": "object"
+    },
+    "ErrorReport": {
+      "description": "The report of an error: its stable code and a message in English.",
+      "properties": {
+        "code": {
+          "description": "Stable error code, for example `FM-E004` (see the errors reference).",
+          "type": "string"
+        },
+        "message": {
+          "description": "What is wrong and, where known, how to fix it.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "type": "object"
+    },
+    "InnerMethod": {
+      "description": "The method an analysis evaluated, at the version actually run.",
+      "properties": {
+        "id": {
+          "description": "Method id, for example `dcf.fcff`.",
+          "type": "string"
+        },
+        "version": {
+          "description": "Method version run by this engine.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "version"
+      ],
+      "type": "object"
+    },
+    "ScenarioOutput": {
+      "description": "One output of a scenario, compared with the base case.",
+      "properties": {
+        "delta": {
+          "description": "`value − base`, in the output's units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "output": {
+          "description": "The output pointer.",
+          "type": "string"
+        },
+        "relative_delta": {
+          "description": "`delta / base`, a decimal fraction; `null` when the base output is zero.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value": {
+          "description": "Its value in the scenario, in the output's units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "output",
+        "value",
+        "delta",
+        "relative_delta"
+      ],
+      "type": "object"
+    },
+    "ScenarioResult": {
+      "anyOf": [
+        {
+          "description": "The evaluation succeeded.",
+          "properties": {
+            "value": {
+              "description": "The output read from the inner result, in its units.",
+              "items": {
+                "$ref": "#/$defs/ScenarioOutput"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "The inner method returned this error; the rest of the request went on.",
+          "properties": {
+            "error": {
+              "$ref": "#/$defs/ErrorReport",
+              "description": "Code and message of the inner method's error."
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "The result of one scenario.",
+      "properties": {
+        "name": {
+          "description": "The scenario name.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:analysis.scenarios:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `analysis.scenarios`.",
+  "properties": {
+    "base": {
+      "description": "The outputs of the base case.",
+      "items": {
+        "$ref": "#/$defs/BaseOutput"
+      },
+      "type": "array"
+    },
+    "failed_scenarios": {
+      "description": "Number of scenarios refused by the inner method or whose deltas overflow.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "inner_method": {
+      "$ref": "#/$defs/InnerMethod",
+      "description": "The method evaluated, at the version run."
+    },
+    "scenarios": {
+      "description": "One result per scenario, in the order given.",
+      "items": {
+        "$ref": "#/$defs/ScenarioResult"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "inner_method",
+    "base",
+    "scenarios",
+    "failed_scenarios"
+  ],
+  "title": "ScenariosOutput",
+  "type": "object",
+  "x-fairmark-method": "analysis.scenarios",
+  "x-fairmark-method-version": "1"
+}

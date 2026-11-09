@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-goal-seek.md
-source_hash: c48f47d98f73
+source_hash: 787b352017f7
 ---
 # Ricerca obiettivo (`analysis.goal_seek`)
 
@@ -158,7 +158,11 @@ sull'output determina la variabile all'incirca entro $\varepsilon / \lvert dy/dx
 
 `solved_input` e `inner_value` rendono la soluzione riproducibile: eseguendo il metodo interno
 su `solved_input` si ottengono `inner_value` e l'explain completo del metodo interno, che la
-ricerca obiettivo non ripete.
+ricerca obiettivo non ripete. I loro schemi sono quelli del metodo interno: nello schema di
+output della ricerca obiettivo (`fairmark schema analysis.goal_seek --output`) riportano
+`x-fairmark-input-of` e `x-fairmark-output-of`, valorizzati con `/inner_method/id`, e l'SDK
+Python li decodifica con gli schemi di input e di output del metodo interno, quindi i loro
+decimali sono `Decimal` e il loro testo resta testo.
 
 I passaggi riportano una voce per ogni valutazione, con etichetta `Evaluation k (bracket end)`,
 `(bisection)`, `(secant)` o `(inverse quadratic interpolation)`, con la variabile, l'output e

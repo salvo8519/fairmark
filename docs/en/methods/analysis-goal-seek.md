@@ -142,7 +142,11 @@ about $\varepsilon / \lvert dy/dx \rvert$.
 
 `solved_input` and `inner_value` make the solution reproducible: running the inner method on
 `solved_input` returns `inner_value` and the inner method's full explain, which goal seek does
-not repeat.
+not repeat. Their schemas are those of the inner method: in the output schema of goal seek
+(`fairmark schema analysis.goal_seek --output`) they carry `x-fairmark-input-of` and
+`x-fairmark-output-of`, set to `/inner_method/id`, and the Python SDK decodes them with the
+inner method's input and output schemas, so their decimals are `Decimal` and their text stays
+text.
 
 The steps list one entry per evaluation, labelled `Evaluation k (bracket end)`, `(bisection)`,
 `(secant)` or `(inverse quadratic interpolation)`, with the variable, the output and the
