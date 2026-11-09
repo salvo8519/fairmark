@@ -556,8 +556,8 @@ pub(crate) fn conventions(input: &ReorganiseInput, ex: &mut Explain) {
     {
         ex.convention(
             "leases restated by the financial method (R21, Decision 9; OIC 12): asset to \
-             operating fixed assets, liability to the net financial position with its current \
-             part, prepayment out of assets D, asset − liability − prepayment to equity; \
+             operating fixed assets, liability to gross debt of the net financial position with \
+             its current part (P3; ESMA32-382-1138 paragraph 180), prepayment out of assets D, asset − liability − prepayment to equity; \
              payments out of B8, depreciation and interest added; no deferred taxes; profit \
              before tax and net income equal the statutory amounts except for payments − \
              depreciation − interest (E4): payments and depreciation are lines of both \
