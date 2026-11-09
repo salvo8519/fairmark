@@ -1,0 +1,39 @@
+method: ratios.debt_service
+description: 'R7: a debt schedule without the discount rate: PV of CFADS and LLCR not computed, DSCR computed'
+source: scripts/reference_ratios_partial.py (Python decimal, 50 digits, local context), written from the
+  formulas and the computability tables of specs/0007-ratios-covenants/spec.md (amendment of 2026-11-09).
+  DSCR 250 / 230 and 260 / 235; EBITDA cover 800 / 100 = 8; NFP / EBITDA 1900 / 800 = 2.375.
+input:
+  balances: closing
+  ebitda_definition: reported EBITDA, no adjustments
+  interest_definition: gross interest expense
+  income_statement:
+    ebitda: '800'
+    interest: '100'
+  closing:
+    net_financial_position:
+      gross_debt: '2200'
+      cash: '300'
+  debt_schedule:
+    debt_outstanding: '1000'
+    periods:
+    - cfads: '250'
+      debt_service: '230'
+    - cfads: '260'
+      debt_service: '235'
+expect:
+  /net_financial_position: '1900'
+  /interest_cover_ebit/value: 'null'
+  /interest_cover_ebitda/value: '8'
+  /nfp_to_ebitda/value: '2.375'
+  /dscr/0/value: '1.0869565217391304347826086956521739130434782608696'
+  /dscr/1/value: '1.1063829787234042553191489361702127659574468085106'
+  /pv_cfads: 'null'
+  /llcr/value: 'null'
+  /not_computed/0/output: '/interest_cover_ebit'
+  /not_computed/0/missing/0: '/income_statement/ebit'
+  /not_computed/1/output: '/pv_cfads'
+  /not_computed/1/missing/0: '/debt_schedule/discount_rate'
+  /not_computed/2/output: '/llcr'
+  /not_computed/2/missing/0: '/debt_schedule/discount_rate'
+tolerance: '0.00000000000000000001'

@@ -1,0 +1,74 @@
+method: ratios.covenants
+description: 'R11: covenants with a missing amount are not tested; a zero denominator follows its rule'
+source: 'scripts/reference_ratios_partial.py (Python decimal, 50 digits, local context), written from
+  the formulas and the computability tables of specs/0007-ratios-covenants/spec.md (amendment of 2026-11-09).
+  Covenant 1 lacks the numerator, covenant 3 the denominator (not tested, missing_input); covenant 2 has
+  a zero denominator and the rule breached; covenant 4: 1300 / 1000 = 1.3 at least 1.2, headroom 0.1.'
+input:
+  covenants:
+  - name: net leverage
+    test_date: '2026-12-31'
+    numerator:
+      definition: net financial debt at the test date
+    denominator:
+      definition: consolidated EBITDA, 12 months
+      amount: '1000'
+    operator: at_most
+    threshold: '3.5'
+    if_denominator_not_positive: breached
+  - name: net leverage, zero EBITDA
+    test_date: '2026-12-31'
+    numerator:
+      definition: net financial debt at the test date
+    denominator:
+      definition: consolidated EBITDA, 12 months
+      amount: '0'
+    operator: at_most
+    threshold: '3.5'
+    if_denominator_not_positive: breached
+  - name: interest cover
+    test_date: '2026-12-31'
+    numerator:
+      definition: consolidated EBITDA, 12 months
+      amount: '900'
+    denominator:
+      definition: net finance charges, 12 months
+    operator: at_least
+    threshold: '4'
+    if_denominator_not_positive: not_tested
+  - name: debt service cover
+    test_date: '2026-12-31'
+    numerator:
+      definition: cash flow available for debt service
+      amount: '1300'
+    denominator:
+      definition: debt service
+      amount: '1000'
+    operator: at_least
+    threshold: '1.2'
+    if_denominator_not_positive: breached
+expect:
+  /covenants/0/outcome: 'not_tested'
+  /covenants/0/not_tested_code: 'missing_input'
+  /covenants/0/value: 'null'
+  /covenants/1/outcome: 'breached'
+  /covenants/1/value: 'null'
+  /covenants/2/outcome: 'not_tested'
+  /covenants/2/not_tested_code: 'missing_input'
+  /covenants/2/value: 'null'
+  /covenants/3/outcome: 'passed'
+  /covenants/3/value: '1.3'
+  /covenants/3/headroom: '0.1'
+  /not_computed/0/output: '/covenants/0/value'
+  /not_computed/0/missing/0: '/covenants/0/numerator/amount'
+  /not_computed/1/output: '/covenants/0/headroom'
+  /not_computed/1/missing/0: '/covenants/0/numerator/amount'
+  /not_computed/2/output: '/covenants/0/headroom_relative'
+  /not_computed/2/missing/0: '/covenants/0/numerator/amount'
+  /not_computed/3/output: '/covenants/2/value'
+  /not_computed/3/missing/0: '/covenants/2/denominator/amount'
+  /not_computed/4/output: '/covenants/2/headroom'
+  /not_computed/4/missing/0: '/covenants/2/denominator/amount'
+  /not_computed/5/output: '/covenants/2/headroom_relative'
+  /not_computed/5/missing/0: '/covenants/2/denominator/amount'
+tolerance: '0.00000000000000000001'

@@ -1,0 +1,33 @@
+method: ratios.capital_structure
+description: 'R7: equity, fixed assets and gross debt only'
+source: scripts/reference_ratios_partial.py (Python decimal, 50 digits, local context), written from the
+  formulas and the computability tables of specs/0007-ratios-covenants/spec.md (amendment of 2026-11-09).
+  D/E 2200 / 2000 = 1.1; primary margin 2000 − 3500 = −1500; primary coverage 2000 / 3500; the net financial
+  position lacks cash.
+input:
+  balances: closing
+  closing:
+    equity: '2000'
+    fixed_assets: '3500'
+    net_financial_position:
+      gross_debt: '2200'
+expect:
+  /net_financial_position: 'null'
+  /debt_to_equity/value: '1.1'
+  /nfp_to_equity/value: 'null'
+  /equity_ratio/value: 'null'
+  /primary_structure_margin: '-1500'
+  /secondary_structure_margin: 'null'
+  /primary_fixed_asset_coverage/value: '0.57142857142857142857142857142857142857142857142857'
+  /secondary_fixed_asset_coverage/value: 'null'
+  /not_computed/0/output: '/net_financial_position'
+  /not_computed/0/missing/0: '/closing/net_financial_position/cash'
+  /not_computed/1/output: '/nfp_to_equity'
+  /not_computed/1/missing/0: '/closing/net_financial_position/cash'
+  /not_computed/2/output: '/equity_ratio'
+  /not_computed/2/missing/0: '/closing/total_assets'
+  /not_computed/3/output: '/secondary_structure_margin'
+  /not_computed/3/missing/0: '/closing/non_current_liabilities'
+  /not_computed/4/output: '/secondary_fixed_asset_coverage'
+  /not_computed/4/missing/0: '/closing/non_current_liabilities'
+tolerance: '0.00000000000000000001'
