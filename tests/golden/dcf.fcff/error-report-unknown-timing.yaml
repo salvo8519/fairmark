@@ -1,0 +1,32 @@
+method: dcf.fcff
+description: 'ADR 0014 G5 (issue #258): an unknown value of `timing` is FM-E001 with the pointer, reason
+  enum and the accepted values in the error report'
+source: ADR 0013 (pointer of a field that cannot be read) and ADR 0014 G5 (reason, expected, fix); the
+  accepted values are those of `/properties/timing` in schemas/dcf.fcff/v3.json. Written from the ADRs
+  and the schema, not from the engine's output.
+input:
+  stages:
+  - periods: 2
+    projection: given
+    flows:
+    - '100'
+    - '110'
+  cash_flow_terms: nominal
+  discount_rate_terms: nominal
+  wacc: '0.09'
+  timing: end
+  terminal:
+    tv.gordon:
+      growth: '0.02'
+      first_flow: last_flow_grown
+  net_financial_position:
+    gross_debt: '0'
+    cash: '0'
+expect_error: FM-E001
+expect_error_report:
+  /pointer: /timing
+  /reason: enum
+  /expected/0: end_of_period
+  /expected/1: mid_period
+  /fix: use one of the values in `expected`
+  /errors/0/pointer: /timing

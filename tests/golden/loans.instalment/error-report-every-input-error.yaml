@@ -1,0 +1,25 @@
+method: loans.instalment
+description: 'ADR 0014 G5 (issue #258): validation reports every input error in `errors`, in the order
+  of the checks: principal, number of instalments, rounding, rate form; the first is also at the top level'
+source: 'SPEC-0009 R1a, R2, R19 (each condition is FM-E001) and ADR 0014 G5 (every input error in `errors`,
+  the first at the top level). The order is that of the validation of the instalment: principal, number
+  of instalments, rounding, rate form. Written from the spec and the ADR, not from the engine''s output.'
+input:
+  principal: '0'
+  number_of_instalments: 0
+  timing: ordinary
+  rounding:
+    decimal_places: 9
+    mode: half_up
+  periodic_rate: '0.01'
+  rate: '0.12'
+expect_error: FM-E001
+expect_error_report:
+  /pointer: /principal
+  /reason: range
+  /errors/0/pointer: /principal
+  /errors/1/pointer: /number_of_instalments
+  /errors/2/pointer: /rounding/decimal_places
+  /errors/3/pointer: /periodic_rate
+  /errors/3/reason: conflict
+  /errors/3/pointers/1: /rate
