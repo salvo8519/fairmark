@@ -93,7 +93,9 @@ Every missed mutant ends in exactly one of two ways:
 Not accepted: exclusions of whole files, functions or modules; `#[mutants::skip]` attributes
 on financial code; raising the timeout to hide a timeout; deleting or weakening a test.
 A missed mutant is never "for later": on a pull request it is resolved in that pull request,
-and the weekly report is the triage list for the code that predates this check. Equivalent
+and the weekly report is the triage list for the code that predates this check. The
+missed mutants of the first baseline, with a provisional category each, are tracked in
+`tests/mutants/triage.md` until they are resolved. Equivalent
 mutants are still built and tested, so a full run lists entries that no longer match a missed
 mutant; remove them in the next pull request on that module.
 
