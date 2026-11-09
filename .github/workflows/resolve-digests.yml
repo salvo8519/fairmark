@@ -1,0 +1,35 @@
+name: Resolve image digests
+
+# Temporary (issue 295): prints the digests of the Alpine images that smoke-test the
+# musllinux wheels, so that they can be pinned in .github/release/images/. Removed before
+# review.
+on:
+  pull_request:
+    paths:
+      - .github/workflows/resolve-digests.yml
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Resolve digests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Inspect images
+        run: |
+          set -euo pipefail
+          for image in \
+            docker.io/library/python:3.12-alpine \
+            docker.io/library/python:3.15-alpine; do
+            echo "::group::$image"
+            docker buildx imagetools inspect "$image"
+            echo "MANIFEST_JSON $image $(docker buildx imagetools inspect "$image" --format '{{json .Manifest}}')"
+            # os/architecture from the image configuration: one line per platform of an
+            # index, one line for a single-platform manifest.
+            docker buildx imagetools inspect "$image" --format '{{json .Image}}' \
+              | jq -r --arg image "$image" 'if has("architecture") then [.] else [.[]] end
+                  | .[] | "PLATFORM \($image) \(.os)/\(.architecture)\(if .variant then "/" + .variant else "" end)"'
+            echo "::endgroup::"
+          done
