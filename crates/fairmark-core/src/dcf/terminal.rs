@@ -721,6 +721,29 @@ pub(crate) fn choose(t: &Terminal) -> Result<TerminalChoice<'_>> {
     }
 }
 
+/// The checks of [`check`] that do not depend on the terminal rate, for an input whose rates
+/// are refused: the first terminal flow, the basis and the technique's own terms, without the
+/// comparisons with the rate.
+pub(crate) fn check_terms(choice: TerminalChoice<'_>, basis: TerminalBasis) -> Vec<FairmarkError> {
+    match check(choice, Some(Decimal::MAX), "", None, basis) {
+        Ok(_) => Vec::new(),
+        Err(e) => e
+            .into_errors()
+            .into_iter()
+            .filter(|e| {
+                !matches!(
+                    e.kind(),
+                    FairmarkError::GrowthNotBelowRate { .. }
+                        | FairmarkError::GrowthNotBelowTerminalRate { .. }
+                        | FairmarkError::RateOutOfRange(_)
+                        | FairmarkError::DiscountRateOutOfRange { .. }
+                        | FairmarkError::CompoundedRateOutOfRange { .. }
+                )
+            })
+            .collect(),
+    }
+}
+
 /// R19, R20: a technique on the basis of the DCF, with the first terminal flow stated; the
 /// terms checked by the technique's own method, every error with its JSON pointer (R27). Runs
 /// before any calculation. `given` and `none` have nothing to check here.

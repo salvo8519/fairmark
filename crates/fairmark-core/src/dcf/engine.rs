@@ -1013,27 +1013,31 @@ fn resolve_rates(r: &RateInput<'_>, n: usize, rate_use: TerminalRateUse) -> Resu
         }
     };
     let terminal = terminal.filter(|_| uses_terminal_rate);
+    // Every rate out of range is reported (ADR 0014 G5); one rate given is reported once.
+    let mut found = Found::new();
     for (k, rate) in rates.iter().enumerate() {
         if *rate <= -Decimal::ONE {
             let field = match r.single {
+                Some(_) if k > 0 => continue,
                 Some(_) => format!("/{}", f.single),
                 None => format!("/{}/{k}", f.per_period),
             };
-            return Err(FairmarkError::DiscountRateOutOfRange {
+            found.push(FairmarkError::DiscountRateOutOfRange {
                 field,
                 rate: *rate,
                 converted_with: None,
             });
         }
     }
-    match terminal {
-        Some(t) if t <= -Decimal::ONE => Err(FairmarkError::DiscountRateOutOfRange {
-            field: terminal_field,
+    if let Some(t) = terminal.filter(|t| *t <= -Decimal::ONE && r.single.is_none()) {
+        found.push(FairmarkError::DiscountRateOutOfRange {
+            field: terminal_field.clone(),
             rate: t,
             converted_with: None,
-        }),
-        _ => Ok((rates, terminal.map(|t| (t, terminal_field)))),
+        });
     }
+    found.finish()?;
+    Ok((rates, terminal.map(|t| (t, terminal_field))))
 }
 
 /// Expected inflation after validation: the value of each explicit period, the value of the
@@ -1730,20 +1734,30 @@ pub(crate) fn run(
         no_terminal_value,
         input.defaulted.timing,
     ));
-    let choice = found.take(choice);
+    // The terms of the terminal technique are checked with the rest of the input: with the
+    // terminal rate when it is known, otherwise every term that does not depend on it.
+    let choice = match (found.take(choice), &used) {
+        (Some(choice), Some(used)) => found.take(terminal::check(
+            choice,
+            used.terminal,
+            &used.terminal_field,
+            used.terminal_converted_with.as_deref(),
+            input.basis,
+        )),
+        (Some(choice), None) => {
+            for e in terminal::check_terms(choice, input.basis) {
+                found.push(e);
+            }
+            None
+        }
+        (None, _) => None,
+    };
     let (Some(choice), Some(used), Some((given_rates, terminal_given)), Some(inflation), true) =
         (choice, used, rates, inflation, found.is_empty())
     else {
         return Err(found.into_error());
     };
     let terminal_rate = used.terminal;
-    let choice = terminal::check(
-        choice,
-        terminal_rate,
-        &used.terminal_field,
-        used.terminal_converted_with.as_deref(),
-        input.basis,
-    )?;
     let rates: Vec<Decimal> = used.per_period.iter().map(|(r, _)| *r).collect();
 
     ex.convention(format!(
