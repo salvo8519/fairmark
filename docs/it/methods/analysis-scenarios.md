@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-scenarios.md
-source_hash: 5ce282c0f0c4
+source_hash: 570bdc7ca464
 ---
 # Analisi di scenario (`analysis.scenarios`)
 
@@ -175,8 +175,9 @@ scenari in errore. Una richiesta esegue una valutazione per scenario più il cas
 | `FM-E016` | Il numero di scenari più uno supera 10.000 valutazioni oppure valutazioni × valori in `base_input` superano 1.000.000; restituito prima della prima valutazione |
 | `FM-E017` | `method` indica un metodo di analisi |
 
-I puntatori delle sostituzioni e la sintassi degli output sono verificati prima di qualsiasi
-valutazione; gli output sono risolti sul caso base. Un errore del metodo interno sul caso base è
+I puntatori delle sostituzioni, la sintassi degli output e `base_input` sono verificati prima
+di qualsiasi valutazione, `base_input` con la sola validazione del metodo interno (ogni controllo del suo input,
+nessun calcolo, i suoi errori di input riportati sotto `/base_input`); gli output sono risolti sul caso base. Un errore del metodo interno sul caso base è
 restituito invariato, con il proprio codice. Un errore del metodo interno in uno scenario è
 registrato in quello scenario, salvo `FM-E012`, che interrompe la richiesta.
 

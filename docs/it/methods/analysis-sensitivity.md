@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-sensitivity.md
-source_hash: afe2333b74fb
+source_hash: 7ca863a2e875
 ---
 # Tabella di sensitività (`analysis.sensitivity`)
 
@@ -152,8 +152,9 @@ il limite di 10.000 consente al massimo 9.999 celle.
 | `FM-E016` | righe × colonne + 1 supera 10.000 valutazioni oppure valutazioni × valori in `base_input` superano 1.000.000; restituito prima della prima valutazione |
 | `FM-E017` | `method` indica un metodo di analisi |
 
-I puntatori delle variabili e la sintassi di `output` sono verificati prima di qualsiasi
-valutazione; `output` è risolto sul caso base. Un errore del metodo interno sul caso base è
+I puntatori delle variabili, la sintassi di `output` e `base_input` sono verificati prima di
+qualsiasi valutazione, `base_input` con la sola validazione del metodo interno (ogni controllo del suo input,
+nessun calcolo, i suoi errori di input riportati sotto `/base_input`); `output` è risolto sul caso base. Un errore del metodo interno sul caso base è
 restituito invariato, con il proprio codice: senza caso base la tabella non ha un riferimento.
 Un errore del metodo interno in una cella (ad esempio `FM-E004` in `dcf.fcff`, oppure `FM-E001`
 quando un valore è fuori dall'intervallo accettato dal metodo interno) è registrato in quella

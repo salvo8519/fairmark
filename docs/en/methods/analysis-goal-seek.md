@@ -182,7 +182,10 @@ The last convention reported is the number of evaluations of the inner method.
 | `FM-E016` | The request would exceed 10,000 inner evaluations; goal seek needs at most 1,002, so this code concerns the other analysis methods |
 | `FM-E017` | `method` names an analysis method |
 
-`variable` is checked before any evaluation, `output` on the first one. An error of the inner
+`variable` is checked before any evaluation, `output` on the first one. `base_input` is also
+checked before any evaluation, with the variable at the low end of the bracket, by the
+validation alone of the inner method (every check of its input, nothing computed); its input
+errors are reported under `/base_input` with the other errors of the request. An error of the inner
 method at any evaluation is returned unchanged, with its own code: for example `FM-E004` when a
 discount rate in the bracket is at or below the terminal growth of `dcf.fcff`. A root search
 over a partly undefined function is not defined, so choose a bracket on which the inner method

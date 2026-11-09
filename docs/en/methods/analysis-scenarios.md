@@ -164,7 +164,9 @@ failed scenarios. A request needs one evaluation per scenario plus the base case
 | `FM-E016` | The number of scenarios plus one exceeds 10,000 evaluations or the evaluations × values in `base_input` exceed 1,000,000; returned before the first evaluation |
 | `FM-E017` | `method` names an analysis method |
 
-Override pointers and the syntax of the outputs are checked before any evaluation; the outputs
+Override pointers, the syntax of the outputs and `base_input` are checked before any
+evaluation, `base_input` by the validation alone of the inner method (every check of its input,
+nothing computed, its input errors reported under `/base_input`); the outputs
 are resolved on the base case. An error of the inner method on the base case is returned
 unchanged, with its own code. An error of the inner method in a scenario is recorded in that
 scenario, except `FM-E012`, which aborts the request.

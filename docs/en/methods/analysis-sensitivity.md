@@ -143,7 +143,9 @@ of 10,000 allows at most 9,999 cells.
 | `FM-E016` | rows × columns + 1 exceeds 10,000 evaluations or the evaluations × values in `base_input` exceed 1,000,000; returned before the first evaluation |
 | `FM-E017` | `method` names an analysis method |
 
-Variable pointers and the syntax of `output` are checked before any evaluation; `output` is
+Variable pointers, the syntax of `output` and `base_input` are checked before any evaluation,
+`base_input` by the validation alone of the inner method (every check of its input, nothing
+computed, its input errors reported under `/base_input`); `output` is
 resolved on the base case. An error of the inner method on the base case is returned unchanged,
 with its own code: without a base case the table has no reference. An error of the inner method
 in a cell (for example `FM-E004` in `dcf.fcff`, or `FM-E001` when a value is outside the range

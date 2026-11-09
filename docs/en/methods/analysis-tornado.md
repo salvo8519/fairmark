@@ -147,7 +147,9 @@ plus the base case.
 | `FM-E016` | Two evaluations per variable plus the base case exceed 10,000 or the evaluations × values in `base_input` exceed 1,000,000; returned before the first evaluation |
 | `FM-E017` | `method` names an analysis method |
 
-Variable pointers, low and high, and the syntax of `output` are checked before any evaluation;
+Variable pointers, low and high, the syntax of `output` and `base_input` are checked before any
+evaluation, `base_input` by the validation alone of the inner method (every check of its input,
+nothing computed, its input errors reported under `/base_input`);
 `output` is resolved on the base case. Unlike tables and scenarios, an error of the inner method
 at any evaluation, base case included, ends the request and is returned unchanged with its own
 code: a ranking with a missing bar is not defined. For example, a terminal growth high value at
