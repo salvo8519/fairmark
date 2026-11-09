@@ -2,7 +2,8 @@ name: Mutation testing
 
 # Mutation testing of the whole fairmark-core, weekly and on demand (issue #282). Report only:
 # missed mutants are listed for triage in the job summary and do not fail the run; a broken
-# baseline, a tool failure or a missing shard do. The release gate on missed mutants is #283.
+# baseline, a tool failure or a missing shard do, and a failed scheduled run opens (or updates)
+# the issue labelled `maintenance`. The release gate on missed mutants is #283.
 # Pull requests test only their changed lines (job "Mutation testing · changed lines of the
 # core" in ci.yml). Policy and triage rules: docs/en/project/mutation-testing.md.
 on:
@@ -15,7 +16,8 @@ permissions:
 
 concurrency:
   group: mutants-${{ github.ref }}
-  cancel-in-progress: true
+  # A run in progress is never cancelled: a manual run waits for the scheduled one to finish.
+  cancel-in-progress: false
 
 env:
   CARGO_TERM_COLOR: always
@@ -71,7 +73,8 @@ jobs:
         with:
           name: mutants-shard-${{ matrix.shard }}
           path: mutants.out
-          if-no-files-found: error
+          # A missing shard is reported by the summary job ("Every shard reported").
+          if-no-files-found: warn
           retention-days: 30
 
   summary:
@@ -101,3 +104,24 @@ jobs:
           # shellcheck disable=SC2046
           python3 scripts/mutants.py summary --full $(find shards -name outcomes.json -printf '%h\n' | sort) \
             | tee -a "$GITHUB_STEP_SUMMARY"
+
+  report:
+    name: Open or update the maintenance issue
+    needs: [shard, summary]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # The only job with a write permission, and only on issues.
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RESULTS: >-
+            shards=${{ needs.shard.result }}, summary=${{ needs.summary.result }}
+        run: |
+          body="Weekly mutation testing failed: ${RESULTS}. Run: ${RUN}. Missed mutants alone do not fail it: look for a broken baseline, a tool failure or a missing shard (docs/en/project/mutation-testing.md)."
+          n=$(gh issue list -R "$GITHUB_REPOSITORY" --label maintenance --state open --json number -q '.[0].number')
+          if [ -n "$n" ]; then gh issue comment "$n" -R "$GITHUB_REPOSITORY" --body "$body"
+          else gh issue create -R "$GITHUB_REPOSITORY" --title "Weekly maintenance report" --label maintenance --body "$body"; fi
