@@ -252,7 +252,7 @@ Per year: `label`, `date`, `form`, `layout`, then:
 | `assignments` | Each aggregate given: reference, pointer, amount, destination, origin (`mapping` or `analyst`) |
 | `adjustments_applied` | Each adjustment: kind, label, amount, reason, source, target |
 | `checks` | Each relation by id: `reconciled` or `not_checked`, with its pointers |
-| `not_computed` | Per block, each missing output with the pointers of its missing inputs and, for a missing treatment, the permitted destinations |
+| `not_computed` | Per block, each missing output with the pointers of its missing inputs and, for a missing treatment, the permitted destinations; the entry has the same shape as in the `ratios.*` methods (`output`, `missing`, `permitted`) |
 
 | Output | Feeds |
 | --- | --- |

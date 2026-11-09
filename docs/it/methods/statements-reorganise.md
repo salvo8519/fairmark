@@ -1,6 +1,6 @@
 ---
 source: methods/statements-reorganise.md
-source_hash: 6ef22d053a43
+source_hash: fc02231b3719
 ---
 # Bilancio riclassificato (`statements.reorganise`)
 
@@ -270,7 +270,7 @@ Per esercizio: `label`, `date`, `form`, `layout`, poi:
 | `assignments` | Ogni aggregato fornito: riferimento, pointer, importo, destinazione, origine (`mapping` o `analyst`) |
 | `adjustments_applied` | Ogni rettifica: tipo, etichetta, importo, motivo, origine, destinazione |
 | `checks` | Ogni relazione per identificativo: `reconciled` o `not_checked`, con i suoi pointer |
-| `not_computed` | Per blocco, ogni output mancante con i pointer degli input mancanti e, per una classificazione mancante, le destinazioni ammesse |
+| `not_computed` | Per blocco, ogni output mancante con i pointer degli input mancanti e, per una classificazione mancante, le destinazioni ammesse; la voce ha la stessa forma dei metodi `ratios.*` (`output`, `missing`, `permitted`) |
 
 | Output | Alimenta |
 | --- | --- |

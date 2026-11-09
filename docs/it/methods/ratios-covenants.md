@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-covenants.md
-source_hash: 1d78f9a84890
+source_hash: 4fd4169844ab
 ---
 # Verifica dei covenant (`ratios.covenants`)
 
@@ -155,8 +155,8 @@ assert r.summary == {"passed": 2, "breached": 1, "not_tested": 1}
 | `covenants` | Elenco dei covenant, almeno uno; ciascuno è verificato da solo e i risultati mantengono l'ordine | obbligatorio |
 | `covenants[].name` | Nome del covenant come nel contratto di finanziamento, non vuoto | obbligatorio |
 | `covenants[].test_date` | Data di verifica, `YYYY-MM-DD`; gli importi si riferiscono al periodo che termina in quella data | obbligatorio |
-| `covenants[].numerator` | `definition` (le parole del contratto, non vuote) e `amount` (unità monetarie) | obbligatorio |
-| `covenants[].denominator` | Come `numerator` | obbligatorio |
+| `covenants[].numerator` | `definition` (le parole del contratto, non vuote) e `amount` (unità monetarie) | `definition` obbligatorio; `amount` facoltativo (vedi Input parziale) |
+| `covenants[].denominator` | Come `numerator` | `definition` obbligatorio; `amount` facoltativo |
 | `covenants[].operator` | `at_most` (≤), `less_than` (<), `at_least` (≥) o `greater_than` (>) | obbligatorio, nessun default |
 | `covenants[].threshold` | Nell'unità dell'indice: un multiplo (`3.5`) o una frazione decimale (`0.30` per 30%) | obbligatorio |
 | `covenants[].if_denominator_not_positive` | Esito quando il denominatore è nullo o negativo, come stabilisce il contratto: `breached`, `passed` o `not_tested` | obbligatorio, nessun default |
@@ -174,9 +174,30 @@ assert r.summary == {"passed": 2, "breached": 1, "not_tested": 1}
 | `covenants[].value_unrounded` | Con `rounding`: numeratore / denominatore prima dell'arrotondamento; null altrimenti |
 | `covenants[].headroom` | Distanza di `value` dalla soglia nell'unità dell'indice, positiva dal lato del rispetto; null se `value` è null |
 | `covenants[].headroom_relative` | `{"value": ..., "not_defined": ...}`: headroom / soglia, frazione decimale, con lo stesso segno dell'headroom |
-| `covenants[].not_tested_code` | `denominator_not_positive` o `overflow`; null se l'esito è `passed` o `breached` |
+| `covenants[].not_tested_code` | `denominator_not_positive`, `overflow` o `missing_input`; null se l'esito è `passed` o `breached` |
 | `covenants[].not_tested_reason` | Perché il covenant non è stato verificato, a parole; null se l'esito è `passed` o `breached` |
 | `summary` | `passed`, `breached`, `not_tested`: quanti covenant hanno ciascun esito |
+| `not_computed` | Per ogni covenant non verificato perché manca un importo, i suoi `value`, `headroom` e `headroom_relative`: `{"output", "missing", "reason"}`, con `output` il JSON pointer dell'output nel valore del risultato (`/covenants/0/value`) e `missing` i JSON pointer degli importi che gli mancano; vuoto altrimenti |
+
+## Input parziale
+
+Gli importi sono facoltativi (versione 2, SPEC-0007 R11). Un covenant di cui non è fornito
+l'importo del denominatore, oppure con denominatore positivo e senza l'importo del numeratore,
+non è verificato con `not_tested_code` `missing_input`, mai una violazione, e i suoi output sono
+elencati in `not_computed`. Un denominatore fornito nullo o negativo dà l'esito di
+`if_denominator_not_positive` qualunque sia il numeratore, perché il contratto decide quel caso
+senza di esso. Un importo mancante non è mai considerato zero.
+
+```python
+r = fm.ratios.covenants(covenants=[{"name": "net leverage", "test_date": "2026-12-31",
+    "numerator": {"definition": "net debt"},
+    "denominator": {"definition": "EBITDA, last 12 months", "amount": 1000},
+    "operator": "at_most", "threshold": "3.5",
+    "if_denominator_not_positive": "breached"}])
+c = r.covenants[0]
+assert (c["outcome"], c["not_tested_code"]) == ("not_tested", "missing_input")
+assert r.not_computed[0]["missing"] == ["/covenants/0/numerator/amount"]
+```
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
 
@@ -192,6 +213,7 @@ assert r.summary == {"passed": 2, "breached": 1, "not_tested": 1}
 | Segno dell'headroom | positivo dal lato del rispetto, negativo dal lato della violazione | fissa |
 | Headroom relativo | headroom / soglia; non definito quando la soglia è nulla o negativa, o quando non c'è un valore verificato | fissa |
 | Overflow | il valore, il valore arrotondato o l'headroom superano l'intervallo del tipo decimale: non verificato (`overflow`), mai una violazione, e gli altri covenant sono verificati | fissa |
+| Importo mancante | non verificato (`missing_input`), mai una violazione, salvo che un denominatore fornito nullo o negativo decida con la sua regola; elencato in `not_computed` | fissa |
 
 I covenant sono numerati da 1 nella tracciabilità del calcolo. Ogni covenant aggiunge la propria
 regola di verifica ("covenant 1, net leverage (2026-12-31): passes when the tested value ≤ 3.5
@@ -238,6 +260,8 @@ significative del tipo decimale.
   arrotondamento a 2 decimali, `half_up` e `half_even` su una metà, entrambi gli operatori di
   ogni direzione alla soglia, numeratori negativi e soglie non positive; un caso costruito per
   l'overflow.
+- Un caso di riferimento con importi mancanti (`missing-amounts`) e un confronto casuale con seme
+  fisso su input parziali, rispetto a `scripts/reference_ratios_partial.py`.
 - Test unitari su valori che a 28 cifre si arrotondano alla soglia, per esempio
   3.0000000000000000000000000001 / 3 verificato con massimo 1, che risulta violato, e su un
   quoziente il cui arrotondamento a 28 cifre porterebbe a un arrotondamento errato a 2 decimali.

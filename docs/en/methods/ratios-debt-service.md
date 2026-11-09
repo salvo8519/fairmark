@@ -66,12 +66,12 @@ assert s.interest_cover_ebitda["value"] == Decimal("8")
 | Field | Meaning | Default |
 | --- | --- | --- |
 | `balances` | `closing`, or `average` of the opening and closing net financial position | required |
-| `ebitda_definition` | How EBITDA was measured, in words, not empty; echoed in the conventions | required |
-| `interest_definition` | How interest was measured (gross, or net of interest income), in words, not empty; echoed in the conventions | required |
-| `income_statement` | `ebitda`, `ebit`, `interest` of the period, currency units | required |
-| `closing` | `net_financial_position` with `gross_debt`, `cash` and `other_items` | required |
-| `opening` | Same field at the start of the period | required with average balances, not used otherwise |
-| `debt_schedule` | `discount_rate`: the cost of debt per period chosen by the analyst (decimal fraction); `debt_outstanding` at the start of the first period; optional `reserve_balance` (debt service reserve account at the valuation date); `periods`: a list of `{"cfads", "debt_service"}` up to the final maturity | optional: without it DSCR and LLCR are not defined |
+| `ebitda_definition` | How EBITDA was measured, in words, not empty when given; echoed in the conventions | optional: without it the ratios on EBITDA are not computed |
+| `interest_definition` | How interest was measured (gross, or net of interest income), in words, not empty when given; echoed in the conventions | optional: without it the interest covers are not computed |
+| `income_statement` | `ebitda`, `ebit`, `interest` of the period, currency units | each amount optional |
+| `closing` | `net_financial_position` with `gross_debt`, `cash` and `other_items` | each amount optional |
+| `opening` | Same field at the start of the period | used with average balances, not used otherwise; each amount optional |
+| `debt_schedule` | `discount_rate`: the cost of debt per period chosen by the analyst (decimal fraction); `debt_outstanding` at the start of the first period; optional `reserve_balance` (debt service reserve account at the valuation date); `periods`: a list of `{"cfads", "debt_service"}` up to the final maturity, at least one | optional: without it DSCR and LLCR are not defined; every amount in it optional |
 
 ## Outputs
 
@@ -84,16 +84,40 @@ assert s.interest_cover_ebitda["value"] == Decimal("8")
 | `dscr` | CFADS / debt service of each period, multiple, in the order of the schedule; empty without a debt schedule |
 | `pv_cfads` | Present value of the CFADS at the start of the first period, currency units; null without a debt schedule |
 | `llcr` | (Present value of CFADS + reserve balance) / debt outstanding, multiple |
+| `not_computed` | Outputs not computed because an input is missing, in the order of the outputs: `{"output", "missing", "reason"}`, with `output` the JSON pointer of the output in the result value and `missing` the sorted JSON pointers of the inputs it lacks; empty when every output is computed |
 
 Ratios are objects `{"value": ..., "not_defined": ...}`, as in every ratio group.
+
+## Partial input
+
+Every amount is optional (version 2, SPEC-0007 R7). Give what the statements show: each output
+is computed when its own amounts are given; otherwise it is null and listed in `not_computed`
+with the JSON pointers of the inputs it lacks. A missing amount is never taken as zero, and
+missing data is never an error. With average balances an amount needs both `/closing/<field>`
+and `/opening/<field>`. A given amount that already makes a ratio not defined (a zero
+denominator, for example) decides first: the ratio is then not defined, with its reason, and not
+listed.
+
+| Output | Inputs it needs |
+| --- | --- |
+| `net_financial_position` | gross debt, cash, the amount of each other item given |
+| `interest_cover_ebit` | EBIT, interest, `interest_definition` |
+| `interest_cover_ebitda` | EBITDA, `ebitda_definition`, interest, `interest_definition` |
+| `nfp_to_ebitda` | the net financial position, EBITDA, `ebitda_definition` |
+| `dscr` (each period) | the CFADS and the debt service of the period |
+| `pv_cfads` | `discount_rate` and the CFADS of every period |
+| `llcr` | the present value of CFADS, `debt_outstanding` |
+
+Without a debt schedule `dscr` is empty and `pv_cfads` and `llcr` are listed with
+`/debt_schedule`; `llcr` keeps its version 1 reason, "no debt schedule given".
 
 ## Conventions (explicit, reported in `explain.conventions`)
 
 | Convention | Options | Default |
 | --- | --- | --- |
 | Balances | closing, average of opening and closing (net financial position) | required |
-| EBITDA definition | as given by the analyst, non-empty | required |
-| Interest definition | as given by the analyst (gross, or net of interest income), non-empty | required |
+| EBITDA definition | as given by the analyst, non-empty | optional; without it the ratios on EBITDA are not computed |
+| Interest definition | as given by the analyst (gross, or net of interest income), non-empty | optional; without it the interest covers are not computed |
 | Debt service | as given | fixed |
 | LLCR discounting | end of each period, at `discount_rate` per period, the cost of debt chosen by the analyst | fixed |
 | Reserve balance | added undiscounted to the LLCR numerator | none |
@@ -104,7 +128,7 @@ Ratios are objects `{"value": ..., "not_defined": ...}`, as in every ratio group
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | Average balances without `opening`; an empty or blank `ebitda_definition` or `interest_definition`; a field is missing or unknown |
+| `FM-E001` | `balances` missing; an empty or blank `ebitda_definition` or `interest_definition`; an unknown field; an amount that is not a decimal |
 | `FM-E002` | A debt schedule is given with no periods |
 | `FM-E003` | Discount rate at or below −100% per period; the message names `/debt_schedule/discount_rate` |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
@@ -120,3 +144,6 @@ are exact up to the 28 significant digits of the decimal type.
   `scripts/reference_ratios.py` (Python decimal at 50 digits); the LLCR of a level CFADS equals
   the annuity closed form $C\,(1 - (1 + r)^{-n}) / r$ divided by the debt outstanding. Further
   cases cover the reserve balance, a missing schedule and each not-meaningful sign.
+- Golden cases with partial input (interest without its definition, a period without debt
+  service, a schedule without the discount rate) and a seeded random comparison on partial
+  inputs, against `scripts/reference_ratios_partial.py`.

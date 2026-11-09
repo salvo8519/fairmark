@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-profitability.md
-source_hash: 13f455e5c636
+source_hash: 34b1cdd6d370
 ---
 # Indici di redditività (`ratios.profitability`)
 
@@ -120,11 +120,11 @@ assert lev.roe_leverage["roe"]["value"] == Decimal("0.13")  # 0,2 × (1 − 0,35
 | --- | --- | --- |
 | `balances` | `closing`, oppure `average` degli stati patrimoniali di apertura e di chiusura | obbligatorio |
 | `operating_return_base` | `invested_capital` o `total_assets`: il capitale del ROI e della rotazione | obbligatorio |
-| `ebitda_definition` | Come è stato misurato l'EBITDA, a parole, non vuoto; riportato nelle convenzioni | obbligatorio |
-| `income_statement` | `revenue`, `ebitda`, `ebit`, `net_income` del periodo, in unità monetarie | obbligatorio |
-| `closing` | `equity`, `total_assets`; con base capitale investito, `invested_capital`; con `leverage`, `debt` (D sulla base scelta); in unità monetarie | obbligatorio |
-| `opening` | Gli stessi campi all'inizio del periodo | obbligatorio con saldi medi, non usato altrimenti |
-| `leverage` | `debt_basis` (`gross_financial_debt` o `net_financial_position`, senza default), `financial_charges`, `taxes`, `pre_tax_income` del periodo, in unità monetarie | facoltativo: senza di esso la forma con leva finanziaria non è definita |
+| `ebitda_definition` | Come è stato misurato l'EBITDA, a parole, non vuoto se fornito; riportato nelle convenzioni | facoltativo: senza di esso l'EBITDA margin non è calcolato |
+| `income_statement` | `revenue`, `ebitda`, `ebit`, `net_income` del periodo, in unità monetarie | ogni importo facoltativo |
+| `closing` | `equity`, `total_assets`; con base capitale investito, `invested_capital`; con `leverage`, `debt` (D sulla base scelta); in unità monetarie | ogni importo facoltativo |
+| `opening` | Gli stessi campi all'inizio del periodo | usato con saldi medi, non usato altrimenti; ogni importo facoltativo |
+| `leverage` | `debt_basis` (`gross_financial_debt` o `net_financial_position`, senza default, obbligatorio nel blocco), `financial_charges`, `taxes`, `pre_tax_income` del periodo, in unità monetarie | facoltativo: senza di esso la forma con leva finanziaria non è definita; ogni importo facoltativo |
 
 ## Output
 
@@ -142,6 +142,40 @@ non è definito, e `not_defined` ne indica allora il motivo.
 | `capital_turnover` | Ricavi / base del rendimento operativo, volte nel periodo |
 | `roe_three_factor` | `net_margin`, `asset_turnover`, `equity_multiplier` e il loro prodotto `roe` |
 | `roe_leverage` | `roi`, `cost_of_debt` (i), `debt_to_equity` (D/E), `leverage_effect` (effetto leva), `pre_tax_roe`, `tax_rate` (t) e `roe` |
+| `not_computed` | Output non calcolati perché manca un input, nell'ordine degli output: `{"output", "missing", "reason"}`, con `output` il JSON pointer dell'output nel valore del risultato e `missing` i JSON pointer ordinati degli input che gli mancano; vuoto quando ogni output è calcolato |
+
+## Input parziale
+
+Ogni importo è facoltativo (versione 2, SPEC-0007 R7). Si fornisce ciò che il bilancio riporta:
+ogni output è calcolato quando sono forniti i suoi importi; altrimenti è null ed è elencato in
+`not_computed` con i JSON pointer degli input che gli mancano. Un importo mancante non è mai
+considerato zero, e un dato mancante non è mai un errore. Con i saldi medi un importo richiede sia
+`/closing/<campo>` sia `/opening/<campo>`. Un importo fornito che rende già l'indice non definito
+(per esempio un denominatore nullo) prevale: l'indice è allora non definito, con il suo motivo, e
+non è elencato.
+
+| Output | Input necessari |
+| --- | --- |
+| `roe` | utile netto, capitale proprio |
+| `roi`, `capital_turnover` | EBIT (ROI) o ricavi (rotazione), e la base del rendimento operativo |
+| `roa` | EBIT, totale attivo |
+| `ros`, `ebit_margin` | EBIT, ricavi |
+| `ebitda_margin` | EBITDA, `ebitda_definition`, ricavi |
+| `roe_three_factor` | net margin: utile netto, ricavi; asset turnover: ricavi, totale attivo; equity multiplier: totale attivo, capitale proprio; `roe`: i tre fattori |
+| `roe_leverage` | il blocco `leverage` (ogni output elencato con `/leverage` quando manca, con il motivo della versione 1 "leverage inputs not given"); i: oneri finanziari, D; D/E: D, capitale proprio; t: imposte, risultato ante imposte; effetto leva e ROE ante imposte: ROI, i, D/E; `roe`: ROE ante imposte, t |
+
+```python
+r = fm.ratios.profitability(
+    balances="closing",
+    operating_return_base="total_assets",
+    income_statement={"net_income": 260},
+    closing={"equity": 2000},
+)
+assert r.roe["value"] == Decimal("0.13")  # 260 / 2000
+assert r.roa["value"] is None
+assert r.not_computed[1]["output"] == "/roa"
+assert r.not_computed[1]["missing"] == ["/closing/total_assets", "/income_statement/ebit"]
+```
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
 
@@ -149,7 +183,7 @@ non è definito, e `not_defined` ne indica allora il motivo.
 | --- | --- | --- |
 | Saldi | di chiusura, media tra apertura e chiusura | obbligatorio |
 | Base del rendimento operativo | capitale investito, totale attivo; un capitale investito fornito con base totale attivo è segnalato come non usato | obbligatorio |
-| Definizione dell'EBITDA | come indicata dall'analista, non vuota | obbligatorio |
+| Definizione dell'EBITDA | come indicata dall'analista, non vuota | facoltativa; senza di essa l'EBITDA margin non è calcolato |
 | ROS | EBIT / ricavi, pari all'EBIT margin | fissa |
 | ROA | EBIT / totale attivo | fissa |
 | Forma con leva finanziaria | D secondo `debt_basis`; i = oneri finanziari / D; t = imposte / risultato ante imposte (aliquota effettiva); ROI sulla base del rendimento operativo; `debt` fornito senza `leverage` è segnalato come non usato | `debt_basis` obbligatorio quando `leverage` è fornito |
@@ -164,7 +198,7 @@ la catena ROI = ROS × rotazione del capitale investito si legga direttamente.
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | Saldi medi senza `opening`; `invested_capital` mancante con base capitale investito; `debt` o `debt_basis` mancante con `leverage`; `ebitda_definition` vuoto o composto solo da spazi; un campo mancante o sconosciuto |
+| `FM-E001` | `balances` o `operating_return_base` mancante; `debt_basis` mancante in un blocco `leverage`; `ebitda_definition` vuoto o composto solo da spazi; un campo sconosciuto; un importo che non è un decimale |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 
 ## Precisione
@@ -181,3 +215,6 @@ ROE diretto alla ventottesima cifra.
   risultato ante imposte nullo), i cui valori attesi provengono da
   `scripts/reference_ratios.py` (decimal di Python a 50 cifre), con la forma chiusa scritta in
   ciascun file.
+- Casi di riferimento con input parziale (solo ROE, EBITDA senza la sua definizione, capitale
+  investito, D o stato patrimoniale di apertura non forniti) e un confronto casuale con seme
+  fisso su input parziali, rispetto a `scripts/reference_ratios_partial.py`.

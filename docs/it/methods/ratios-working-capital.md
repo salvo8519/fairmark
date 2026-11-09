@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-working-capital.md
-source_hash: bfcc52677556
+source_hash: 75629c54fc11
 ---
 # Indici del capitale circolante (`ratios.working_capital`)
 
@@ -52,9 +52,9 @@ assert r.cash_conversion_cycle["value"] == Decimal("69.35")
 | --- | --- | --- |
 | `balances` | `closing`, oppure `average` degli stati patrimoniali di apertura e di chiusura | obbligatorio |
 | `day_basis` | `"360"` o `"365"` | obbligatorio |
-| `income_statement` | `revenue`, `cost_of_sales`, `purchases` dell'anno, in unità monetarie | obbligatorio |
-| `closing` | `trade_receivables`, `inventories`, `trade_payables`, in unità monetarie | obbligatorio |
-| `opening` | Gli stessi campi all'inizio del periodo | obbligatorio con saldi medi, non usato altrimenti |
+| `income_statement` | `revenue`, `cost_of_sales`, `purchases` dell'anno, in unità monetarie | ogni importo facoltativo |
+| `closing` | `trade_receivables`, `inventories`, `trade_payables`, in unità monetarie | ogni importo facoltativo |
+| `opening` | Gli stessi campi all'inizio del periodo | usato con saldi medi, non usato altrimenti; ogni importo facoltativo |
 
 Gli importi sono usati come forniti: crediti commerciali e ricavi vanno espressi sulla stessa
 base IVA, e così debiti commerciali e acquisti.
@@ -66,9 +66,27 @@ base IVA, e così debiti commerciali e acquisti.
 | `days_sales_outstanding` | Crediti commerciali × giorni / ricavi, giorni |
 | `days_inventory_outstanding` | Rimanenze × giorni / costo del venduto, giorni |
 | `days_payable_outstanding` | Debiti commerciali × giorni / acquisti, giorni |
-| `cash_conversion_cycle` | DSO + DIO − DPO, giorni; non definito quando uno dei tre non lo è |
+| `cash_conversion_cycle` | DSO + DIO − DPO, giorni; non definito quando uno dei tre non lo è, non calcolato quando uno dei tre non è calcolato |
+| `not_computed` | Output non calcolati perché manca un input, nell'ordine degli output: `{"output", "missing", "reason"}`, con `output` il JSON pointer dell'output nel valore del risultato e `missing` i JSON pointer ordinati degli input che gli mancano; vuoto quando ogni output è calcolato |
 
 Gli indici sono oggetti `{"value": ..., "not_defined": ...}`, come in ogni gruppo di indici.
+
+## Input parziale
+
+Ogni importo è facoltativo (versione 2, SPEC-0007 R7). Si fornisce ciò che il bilancio riporta:
+ogni output è calcolato quando sono forniti i suoi importi; altrimenti è null ed è elencato in
+`not_computed` con i JSON pointer degli input che gli mancano. Un importo mancante non è mai
+considerato zero, e un dato mancante non è mai un errore. Con i saldi medi un importo richiede sia
+`/closing/<campo>` sia `/opening/<campo>`. Un importo fornito che rende già l'indice non definito
+(per esempio un denominatore nullo) prevale: l'indice è allora non definito, con il suo motivo, e
+non è elencato.
+
+| Output | Input necessari |
+| --- | --- |
+| `days_sales_outstanding` | crediti commerciali, ricavi |
+| `days_inventory_outstanding` | rimanenze, costo del venduto |
+| `days_payable_outstanding` | debiti commerciali, acquisti |
+| `cash_conversion_cycle` | i tre precedenti |
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
 
@@ -84,7 +102,7 @@ Gli indici sono oggetti `{"value": ..., "not_defined": ...}`, come in ogni grupp
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | Saldi medi senza `opening`; una base giorni diversa da 360 o 365; un campo mancante o sconosciuto |
+| `FM-E001` | `balances` o `day_basis` mancante; una base giorni diversa da 360 o 365; un campo sconosciuto; un importo che non è un decimale |
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 
 ## Precisione
@@ -98,3 +116,5 @@ significative del tipo decimale.
   su 365 e su 360 giorni, saldi medi su 360 giorni, acquisti nulli), i cui valori attesi provengono da
   `scripts/reference_ratios.py` (decimal di Python a 50 cifre), con la forma chiusa scritta in
   ciascun file.
+- Un caso di riferimento senza acquisti e un confronto casuale con seme fisso su input parziali,
+  rispetto a `scripts/reference_ratios_partial.py`.

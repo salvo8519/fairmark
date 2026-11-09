@@ -61,15 +61,15 @@ parallel; tick a task only when `just check` passes.
 - [x] T35 `uv run just check` green
 
 ## Partial input, issue #262 (amendment of 2026-11-09)
-- [ ] T36 Reference `scripts/reference_ratios_partial.py` (Python `decimal`, written from the
+- [x] T36 Reference `scripts/reference_ratios_partial.py` (Python `decimal`, written from the
   formulas, no shared code) [R7, R10, R11; AC7, AC8]
-- [ ] T37 Golden cases with partial inputs for each method; the three approved version 1
+- [x] T37 Golden cases with partial inputs for each method; the three approved version 1
   error cases of `ratios.profitability` replaced by their partial results [AC7, AC8, AC9,
   AC10]
-- [ ] T38 Engine test removing each input of the computability table [AC6]
-- [ ] T39 Shared `NotComputedEntry` with an optional `reason`; `statements.reorganise` output
+- [x] T38 Engine test removing each input of the computability table [AC6]
+- [x] T39 Shared `NotComputedEntry` with an optional `reason`; `statements.reorganise` output
   unchanged
-- [ ] T40 Every `ratios.*` method: optional amounts, `not_computed`, version 2, schemas v2
+- [x] T40 Every `ratios.*` method: optional amounts, `not_computed`, version 2, schemas v2
   [R7 to R11]
 - [ ] T41 Python helpers, methodology pages (English and Italian), release note
   `changes/262.feature.md`; roadmap #262 done

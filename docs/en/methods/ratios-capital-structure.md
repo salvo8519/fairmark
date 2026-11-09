@@ -69,12 +69,13 @@ assert r.secondary_structure_margin == Decimal("300")  # 2000 + 1800 − 3500
 | Field | Meaning | Default |
 | --- | --- | --- |
 | `balances` | `closing`, or `average` of the opening and closing balance sheets | required |
-| `closing` | `equity`, `total_assets`, `fixed_assets`, `non_current_liabilities`, `net_financial_position`, currency units | required |
-| `opening` | Same fields at the start of the period | required with average balances, not used otherwise |
+| `closing` | `equity`, `total_assets`, `fixed_assets`, `non_current_liabilities`, `net_financial_position`, currency units | each amount optional |
+| `opening` | Same fields at the start of the period | used with average balances, not used otherwise; each amount optional |
 
 `net_financial_position` has `gross_debt`, `cash` and `other_items`, a list of
 `{"name", "amount"}` added with their sign (positive for debt-like items, negative for financial
-assets; default: none).
+assets; default: none). `gross_debt`, `cash` and the `amount` of each item are optional; the
+net financial position is computed only when all of them are given.
 
 ## Outputs
 
@@ -88,8 +89,29 @@ assets; default: none).
 | `secondary_structure_margin` | Equity + non-current liabilities − fixed assets, currency units |
 | `primary_fixed_asset_coverage` | Equity / fixed assets, multiple |
 | `secondary_fixed_asset_coverage` | (Equity + non-current liabilities) / fixed assets, multiple |
+| `not_computed` | Outputs not computed because an input is missing, in the order of the outputs: `{"output", "missing", "reason"}`, with `output` the JSON pointer of the output in the result value and `missing` the sorted JSON pointers of the inputs it lacks; empty when every output is computed |
 
-Ratios are objects `{"value": ..., "not_defined": ...}`, as in every ratio group.
+Ratios are objects `{"value": ..., "not_defined": ...}`, as in every ratio group; the net
+financial position and the margins are amounts, null when not computed.
+
+## Partial input
+
+Every amount is optional (version 2, SPEC-0007 R7). Give what the statements show: each output
+is computed when its own amounts are given; otherwise it is null and listed in `not_computed`
+with the JSON pointers of the inputs it lacks. A missing amount is never taken as zero, and
+missing data is never an error. With average balances an amount needs both `/closing/<field>`
+and `/opening/<field>`. A given amount that already makes a ratio not defined (a zero
+denominator, for example) decides first: the ratio is then not defined, with its reason, and not
+listed.
+
+| Output | Inputs it needs |
+| --- | --- |
+| `net_financial_position` | gross debt, cash, the amount of each other item given |
+| `debt_to_equity` | gross debt, equity |
+| `nfp_to_equity` | the net financial position, equity |
+| `equity_ratio` | equity, total assets |
+| `primary_structure_margin`, `primary_fixed_asset_coverage` | equity, fixed assets |
+| `secondary_structure_margin`, `secondary_fixed_asset_coverage` | equity, non-current liabilities, fixed assets |
 
 ## Conventions (explicit, reported in `explain.conventions`)
 
@@ -104,7 +126,7 @@ Ratios are objects `{"value": ..., "not_defined": ...}`, as in every ratio group
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | Average balances without `opening`; a field is missing or unknown |
+| `FM-E001` | `balances` missing or not `closing` or `average`; an unknown field; an other item without `name`; an amount that is not a decimal |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 
 ## Accuracy
@@ -117,3 +139,5 @@ the decimal type.
 - Golden cases in `tests/golden/ratios.capital_structure/` (closing and average balances,
   negative equity), whose expected values come from `scripts/reference_ratios.py` (Python
   decimal at 50 digits), with the closed form written in each file.
+- A golden case with a partial balance sheet and a seeded random comparison on partial inputs,
+  against `scripts/reference_ratios_partial.py`.
