@@ -130,8 +130,13 @@ def nfp(data: dict[str, Any], which: str) -> Val:
     gross = amount(data, which, "net_financial_position", "gross_debt")
     cash = amount(data, which, "net_financial_position", "cash")
     items = get(data, which, "net_financial_position", "other_items") or []
-    other = sum((D(str(i["amount"])) for i in items), D(0))
-    return arith(lambda g, c: g - c + other, gross, cash)
+    parts = [
+        given(D(str(item["amount"])))
+        if item.get("amount") is not None
+        else lacking(f"/{which}/net_financial_position/other_items/{i}/amount")
+        for i, item in enumerate(items)
+    ]
+    return arith(lambda g, c, *other: g - c + sum(other, D(0)), gross, cash, *parts)
 
 
 def nfp_balance(data: dict[str, Any]) -> Val:

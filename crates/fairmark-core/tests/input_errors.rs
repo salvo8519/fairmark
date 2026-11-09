@@ -380,7 +380,7 @@ fn covenants_errors_inside_the_list() {
 }
 
 #[test]
-fn liquidity_wrong_enum_and_nested_missing_field() {
+fn liquidity_wrong_enum_and_nested_wrong_type() {
     let closing = json!({
         "current_assets": "2500", "inventories": "900", "cash": "200",
         "current_liabilities": "2000"
@@ -396,14 +396,15 @@ fn liquidity_wrong_enum_and_nested_missing_field() {
             "`average`",
         ],
     );
-    let mut partial = closing;
-    partial.as_object_mut().unwrap().remove("cash");
+    // A missing amount is not an error (SPEC-0007 R7); a nested amount of the wrong type is.
+    let mut wrong = closing;
+    wrong["cash"] = json!([200]);
     assert_error(
         "ratios.liquidity",
-        &json!({"balances": "closing", "closing": partial}),
+        &json!({"balances": "closing", "closing": wrong}),
         "FM-E001",
         "/closing/cash",
-        &["missing required field `cash`"],
+        &["invalid type: sequence"],
     );
 }
 

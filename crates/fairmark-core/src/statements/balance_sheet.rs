@@ -1683,6 +1683,7 @@ impl Outputs {
             output,
             missing: missing.into_iter().collect(),
             permitted,
+            reason: None,
         };
         match block {
             "current_non_current" => self.current_non_current.push(entry),

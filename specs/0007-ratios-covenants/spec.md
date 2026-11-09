@@ -219,7 +219,7 @@ error on a missing input.
 
 | Output | Inputs it needs | When an input is missing |
 | --- | --- | --- |
-| `net_financial_position` | gross debt, cash (other items: none when absent) | not computed |
+| `net_financial_position` | gross debt, cash, the amount of each other item given (other items: none when absent) | not computed |
 | `debt_to_equity` | gross debt, equity | not computed |
 | `nfp_to_equity` | gross debt, cash, equity | not computed |
 | `equity_ratio` | equity, total assets | not computed |
@@ -247,7 +247,7 @@ error on a missing input.
 
 | Output | Inputs it needs | When an input is missing |
 | --- | --- | --- |
-| `net_financial_position` | gross debt, cash | not computed |
+| `net_financial_position` | gross debt, cash, the amount of each other item given | not computed |
 | `interest_cover_ebit` | EBIT, interest, `interest_definition` | not computed |
 | `interest_cover_ebitda` | EBITDA, `ebitda_definition`, interest, `interest_definition` | not computed |
 | `nfp_to_ebitda` | gross debt, cash, EBITDA, `ebitda_definition` | not computed |
