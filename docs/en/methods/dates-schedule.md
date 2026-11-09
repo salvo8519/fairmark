@@ -176,7 +176,7 @@ from the sum of the returned values by up to $n$ half-units of their last digit.
   golden case in `tests/golden/dates.schedule/` is built by both libraries, which agree
   (`scripts/reference_schedule.py`), and the oracle tests compare random schedules with both.
   The golden cases were generated with python-dateutil 3.0.0 and give the same dates with
-  4.0.0, the version the lock file installs on Python 3.11 and later.
+  4.0.0, the version the lock file installs.
   The day clamping of python-dateutil was read in its source (`relativedelta.__add__`: the day
   is the smaller of the given day and the length of the month).
 - Year fractions: the 50-digit ISDA reference of `scripts/reference_time.py`, confirmed by the

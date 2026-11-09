@@ -1,6 +1,7 @@
 # Installation
 
-Fairmark requires Python 3.10 or newer. Prebuilt wheels are published for Linux on x86_64 and
+Fairmark requires Python 3.12 or newer
+([supported versions](../project/dependencies.md#supported-python-versions)). Prebuilt wheels are published for Linux on x86_64 and
 arm64 (glibc and musl), macOS on Intel and Apple silicon, and Windows on x86_64, so no Rust
 compiler is needed. On other platforms pip builds the package from source, which needs a Rust
 toolchain.

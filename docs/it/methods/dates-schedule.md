@@ -1,6 +1,6 @@
 ---
 source: methods/dates-schedule.md
-source_hash: 895f6bb5dfa8
+source_hash: c4077f6ac81d
 ---
 # Schedule dei periodi (`dates.schedule`)
 
@@ -188,7 +188,7 @@ della loro ultima cifra.
   librerie, che concordano (`scripts/reference_schedule.py`), e i test con gli oracoli
   confrontano schedule casuali con entrambe. I casi di riferimento sono stati generati con
   python-dateutil 3.0.0 e danno le stesse date con la 4.0.0, la versione che il lock file
-  installa da Python 3.11 in poi. La riduzione del giorno di python-dateutil è stata letta nel
+  installa. La riduzione del giorno di python-dateutil è stata letta nel
   suo codice sorgente (`relativedelta.__add__`: il giorno è il minore tra il giorno
   indicato e la lunghezza del mese).
 - Frazioni d'anno: il riferimento ISDA a 50 cifre di `scripts/reference_time.py`, confermato

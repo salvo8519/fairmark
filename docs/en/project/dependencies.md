@@ -107,6 +107,25 @@ uses it.
    follows the [conventions](conventions.md).
 4. A pull request that conflicts or is behind `main`: comment `@dependabot rebase`.
 
+## Supported Python versions
+
+Fairmark supports Python from 3.12 to the newest stable release. The floor is
+`requires-python` in `pyproject.toml`; the wheels are `abi3` builds for that floor
+(`cp312-abi3`), so one wheel per platform serves every later version.
+
+- **Raising the floor.** The floor is raised in a minor release when its Python version
+  reaches end of life, or earlier by maintainer decision. The release notes announce it as a
+  breaking change.
+- **Adding a version.** Every October, when a new Python version is released, it is added to
+  the test matrix and to the classifiers.
+- **What is tested.** The CI matrix and the release smoke test run the floor and the newest
+  stable version on Linux, macOS and Windows (`ci.yml`, `SMOKE_PYTHONS` in `release.yml`, and
+  the Alpine images in `.github/release/images/`). Versions in between are covered by the
+  `abi3` build and are not tested separately.
+
+When the matrix changes, the names of the required checks change with it: update
+`.github/required-checks.txt` and the ruleset in the same pull request.
+
 ## Lock files
 
 `Cargo.lock` and `uv.lock` are committed: every build of a given commit uses the same versions.
