@@ -203,7 +203,9 @@ jobs:
     name: Mutation testing · changed lines of the core
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # About 20 seconds per mutant after a 2-minute baseline: room for about 150 mutants, that is
+    # a pull request that changes several functions of the core.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

@@ -34,7 +34,7 @@ holds all financial logic. Adapters translate and never compute, so they are not
 | Locally, one module | `uv run just mutants tvm` (also `dcf/engine`, or a folder such as `tv`) | That module | No |
 | Locally, the whole core | `uv run just mutants` | All of `fairmark-core` (about 2,000 mutants, several hours) | No |
 | Locally, before a pull request | `uv run just mutants-diff` | Lines of `crates/fairmark-core/src` changed since the merge base with `origin/main` | Exit 1 on a missed mutant not recorded as equivalent |
-| Every pull request | CI job *Mutation testing · changed lines of the core* | Changed lines of `crates/fairmark-core/src` (`--in-diff`); finishes in seconds when the core is not touched | Yes |
+| Every pull request | CI job *Mutation testing · changed lines of the core* | Changed lines of `crates/fairmark-core/src` (`--in-diff`); finishes in seconds when the core is not touched, and has 60 minutes (about 150 mutants) otherwise: split larger changes | Yes |
 | Weekly (Sunday) and on demand | Workflow *Mutation testing* (`.github/workflows/mutants.yml`) | All of `fairmark-core`, in 16 shards | Report only; the v1.0 release gate on missed mutants is issue #283 |
 
 Local runs write to `target/mutants/` and `target/mutants-diff/`. The workflows upload each
