@@ -15,7 +15,10 @@ Every result is an envelope with four parts:
 }
 ```
 
-- **`value`** holds the results, exact, as decimal strings.
+- **`value`** holds the results, exact, as decimal strings. Its JSON Schema documents every
+  field with its unit (`fairmark schema <method> --output`, `fm.output_schema(method)`); in
+  Python, `result.value` is decoded by it: each decimal becomes a `Decimal`, and labels, ids,
+  versions, pointers and messages stay text even when they look like numbers.
 - **`explain.steps`** lists each intermediate calculation with the actual numbers substituted.
   An analyst can recompute any step by hand; an agent cites them instead of recomputing.
 - **`explain.conventions`** states every choice that changes the number (timing, terminal
@@ -31,6 +34,13 @@ Every result is an envelope with four parts:
   "default:". The key is omitted when no default applies, as for every method without
   documented defaults; a field given explicitly always prevails and is never listed. The DCF
   methods use it for their minimal input (SPEC-0001 Decision 24, see
-  [`dcf.fcff`](../methods/dcf-fcff.md#minimal-input)).
+  [`dcf.fcff`](../methods/dcf-fcff.md#minimal-input)); `dcf.fcff` also lists a net financial
+  position not given, subtracted as zero with a warning (Decision 25): for this entry `value`
+  (`"0"`) is the amount subtracted, not a value to write in the field, which is a structure,
+  and the default is not part of `meta.input_hash`. A method that maps input items to
+  destinations also lists there each item given whose destination is a documented default:
+  `field` is the pointer of the item, `value` the destination, and the convention says
+  "assigned to" instead of "not given, set to" (SPEC-0005 R8, see
+  [`statements.reorganise`](../methods/statements-reorganise.md#defaults)).
 
 In Python, `result.explain_markdown()` renders a methodology note for reports.

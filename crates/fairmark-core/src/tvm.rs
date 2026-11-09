@@ -85,6 +85,7 @@ pub struct NpvInput {
     pub cash_flows: Vec<Decimal>,
 }
 
+/// Output of `tvm.npv`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct NpvOutput {
     /// Net present value at t = 0, in the currency units of the cash flows.
@@ -140,6 +141,7 @@ pub struct IrrInput {
     pub guess: Option<Decimal>,
 }
 
+/// Output of `tvm.irr`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct IrrOutput {
     /// Internal rate of return per period as a decimal fraction.
@@ -573,6 +575,7 @@ pub struct PresentValueInput {
     pub timing: PeriodTiming,
 }
 
+/// Output of `tvm.present_value`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct PresentValueOutput {
     /// Sum of the present values.
@@ -730,6 +733,7 @@ pub struct DatedFlowValue {
     pub present_value: Decimal,
 }
 
+/// Output of `tvm.xnpv`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct XnpvOutput {
     /// Net present value at the valuation date, in currency units.
@@ -941,6 +945,7 @@ pub struct XirrInput {
     pub guess: Option<Decimal>,
 }
 
+/// Output of `tvm.xirr`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct XirrOutput {
     /// Annual rate at which XNPV is zero, decimal fraction, with the chosen compounding.
@@ -1027,6 +1032,7 @@ pub struct MirrInput {
     pub reinvest_rate: Decimal,
 }
 
+/// Output of `tvm.mirr`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct MirrOutput {
     /// Modified internal rate of return per period.
@@ -1174,6 +1180,7 @@ pub struct AnnuityInput {
     pub timing: AnnuityTiming,
 }
 
+/// Output of `tvm.annuity`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct AnnuityOutput {
     /// Present value at t = 0.
@@ -1353,6 +1360,7 @@ pub struct PerpetuityInput {
     pub timing: AnnuityTiming,
 }
 
+/// Output of `tvm.perpetuity`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct PerpetuityOutput {
     /// Present value at t = 0.
@@ -1458,6 +1466,7 @@ pub struct FutureValueInput {
     pub timing: AnnuityTiming,
 }
 
+/// Output of `tvm.future_value`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct FutureValueOutput {
     /// Value at t = n of the present amount and of the payments, in currency units.

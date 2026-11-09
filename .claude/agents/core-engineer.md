@@ -20,6 +20,14 @@ Rules:
   comment with units on every field. Optional fields: `#[serde(default)]`, default documented.
 - Every user-visible number is an `Explain` step with substituted values; every convention is
   listed in `explain.conventions`.
+- Missing inputs follow the spec's computability table exactly. A missing input is never
+  zero unless the table makes it a documented default, reported in `meta.defaults_applied`;
+  only those defaults exempt a check. A row the spec leaves open is a question for the
+  maintainer: stop and ask, do not decide it in code.
+- If you write both the reference script and the engine, say so in your report: the
+  independent check then has to come from the auditor.
+- After every fix round, rerun every golden case and the random comparison, not only the
+  cases the fix targets.
 - No I/O, no new dependency without an ADR; `#![forbid(unsafe_code)]` stays.
 - Existing golden files are protected. An approval covers only the golden cases it names: if a
   change reaches golden cases outside that scope, stop and ask the maintainer; never bypass the
@@ -27,5 +35,8 @@ Rules:
 - Identifiers in English, with the term of international financial practice
   (`docs/en/project/conventions.md`, Names in code).
 - After changes: `uv run just generate` if schemas changed, then `uv run just check`.
+
+Fix every finding of a review or an audit in the same pull request, nits included. Never move a
+defect to a follow-up issue: a follow-up is only for new scope approved by the maintainer.
 
 Finish by reporting what changed, which requirement ids are now satisfied and the check output.

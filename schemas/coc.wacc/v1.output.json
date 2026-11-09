@@ -1,0 +1,43 @@
+{
+  "$id": "urn:fairmark:schema:coc.wacc:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `coc.wacc`.",
+  "properties": {
+    "after_tax_cost_of_debt": {
+      "description": "kd × (1 − t).",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "debt_to_equity": {
+      "description": "Implied D/E of the weights; compare it with the D/E used to relever the beta.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "debt_weight": {
+      "description": "D / (D + E).",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "equity_weight": {
+      "description": "E / (D + E).",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "wacc": {
+      "description": "Weighted average cost of capital, annual decimal fraction.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "wacc",
+    "equity_weight",
+    "debt_weight",
+    "debt_to_equity",
+    "after_tax_cost_of_debt"
+  ],
+  "title": "WaccOutput",
+  "type": "object",
+  "x-fairmark-method": "coc.wacc",
+  "x-fairmark-method-version": "1"
+}

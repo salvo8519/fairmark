@@ -1,6 +1,6 @@
 ---
 source: reference/python.md
-source_hash: 560d690af0d3
+source_hash: 4deec4823905
 ---
 # API Python
 
@@ -16,6 +16,8 @@ La documentazione delle singole funzioni è generata dal codice sorgente ed è i
 ::: fairmark.run_json
 ::: fairmark.methods
 ::: fairmark.input_schema
+::: fairmark.output_schema
+::: fairmark.result_schema
 
 ## Risultati ed errori
 

@@ -1,0 +1,138 @@
+method: statements.reorganise
+description: 'P2: with financial fixed assets (B.III) treated as operating, C15 (12000) follows them into
+  income_from_operating_investments, below EBITDA and in operating profit; EBITDA and profit before financing
+  and taxes equal those of ordinary-aggregates, operating profit is 12000 higher and the investing result
+  12000 lower; C16, D18 and D19 stay in the investing result'
+source: 'scripts/reference_statements.py (Python decimal, 50 digits, local context). Written by the same
+  agent as the engine and after the engine''s income statement code existed: the reference section for
+  P2 was changed from the decisions recorded in specs/0005-statements-reclassification/spec.md before
+  the engine change of the same round (test first), not before the engine as a whole. Recomputed independently
+  by the numerical audit of 2026-11-09 (round 2).'
+input:
+  years:
+  - label: '2024'
+    date: '2024-12-31'
+    statutory:
+      layout: ordinary
+      balance_sheet:
+        subscribed_capital_unpaid: '0'
+        intangible_assets:
+          total: '120000'
+          gross: '200000'
+          accumulated: '80000'
+        tangible_assets:
+          total: '900000'
+          gross: '1500000'
+          accumulated: '600000'
+        financial_fixed_assets: '150000'
+        fixed_assets: '1170000'
+        inventories: '400000'
+        receivables:
+          total: '950000'
+          beyond_one_year: '50000'
+          trade: '800000'
+        current_financial_assets: '60000'
+        cash: '240000'
+        current_assets: '1650000'
+        prepayments_and_accrued_income:
+          total: '30000'
+        total_assets: '2850000'
+        equity:
+          total: '900000'
+          share_capital: '100000'
+          share_premium: '0'
+          revaluation_reserves: '0'
+          legal_reserve: '20000'
+          statutory_reserves: '0'
+          other_reserves: '380000'
+          cash_flow_hedge_reserve: '0'
+          retained_earnings: '250000'
+          profit_or_loss_for_the_year: '150000'
+          negative_reserve_for_own_shares: '0'
+        provisions:
+          total: '70000'
+          of_which_derivative_liabilities: '10000'
+        employee_severance_indemnity:
+          total: '180000'
+        payables:
+          total: '1650000'
+          beyond_one_year: '600000'
+          financial_debt:
+            total: '900000'
+            beyond_one_year: '550000'
+          shareholder_loans:
+            total: '100000'
+            beyond_one_year: '50000'
+          trade: '500000'
+        accruals_and_deferred_income:
+          total: '50000'
+        total_liabilities_and_equity: '2850000'
+      income_statement:
+        value_of_production: '5100000'
+        revenue: '5000000'
+        change_in_product_inventories: '40000'
+        own_work_capitalised: '10000'
+        other_revenue_and_income: '50000'
+        costs_of_production: '4834000'
+        purchases: '2200000'
+        services: '1244000'
+        use_of_third_party_assets: '150000'
+        personnel_costs: '1000000'
+        depreciation_and_write_downs:
+          total: '215000'
+          value_adjustments_of_fixed_assets: '200000'
+          depreciation_and_amortisation: '180000'
+          write_downs_of_fixed_assets: '20000'
+          write_downs_of_receivables: '15000'
+        change_in_raw_material_inventories: '-30000'
+        provisions_for_risks: '10000'
+        other_provisions: '5000'
+        other_operating_expenses: '40000'
+        difference_between_value_and_costs_of_production: '266000'
+        financial_income_and_charges: '-46000'
+        income_from_equity_investments: '12000'
+        other_financial_income: '3000'
+        interest_and_other_financial_charges: '60000'
+        exchange_gains_and_losses: '-1000'
+        value_adjustments_of_financial_assets: '-6000'
+        revaluations_of_financial_assets: '2000'
+        write_downs_of_financial_assets: '8000'
+        profit_before_tax: '214000'
+        income_taxes: '64000'
+        profit_or_loss_for_the_year: '150000'
+  treatments:
+    financial_fixed_assets: operating
+    shareholder_loans: financial_debt
+    derivative_liabilities: financial_liability
+expect:
+  /years/0/income_statement/ebitda: '496000'
+  /years/0/income_statement/personnel_costs: '1000000'
+  /years/0/income_statement/income_from_operating_investments: '12000'
+  /years/0/income_statement/operating_profit: '278000'
+  /years/0/income_statement/investing_result: '-3000'
+  /years/0/income_statement/profit_before_financing_and_taxes: '275000'
+  /years/0/income_statement/financing_result: '-61000'
+  /years/0/income_statement/interest_and_other_financial_charges: '60000'
+  /years/0/income_statement/profit_before_tax: '214000'
+  /years/0/income_statement/net_income: '150000'
+  /years/0/income_statement/reconciliations/operating_profit/start: '266000'
+  /years/0/income_statement/reconciliations/operating_profit/lines/0/label: C15, income from equity investments
+    (operating investments, P2)
+  /years/0/income_statement/reconciliations/operating_profit/lines/0/sources/0: /years/0/statutory/income_statement/income_from_equity_investments
+  /years/0/income_statement/reconciliations/operating_profit/lines/0/amount: '12000'
+  /years/0/income_statement/reconciliations/operating_profit/end: '278000'
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/start: '266000'
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/label: C15, income
+    from equity investments (operating investments, P2)
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/sources/0: /years/0/statutory/income_statement/income_from_equity_investments
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/amount: '12000'
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/label: C16, other
+    financial income (investing result)
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/sources/0: /years/0/statutory/income_statement/other_financial_income
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/amount: '3000'
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/label: D18 − D19,
+    value adjustments of financial assets (investing result)
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/sources/0: /years/0/statutory/income_statement/value_adjustments_of_financial_assets
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/amount: '-6000'
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/end: '275000'
+tolerance: '0'

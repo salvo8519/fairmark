@@ -7,6 +7,8 @@
         "1": {
           "file": "analysis.goal_seek/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "analysis.goal_seek/v1.output.json",
+          "output_sha256": "97dda701376a2672de743d118632f9d791978d385fba0f983a64cd30801d98a1",
           "sha256": "5459dabe66dc9234feed55398e319ebfb2f816a41ebe88e4f19cd32f00f45cf2"
         }
       }
@@ -17,6 +19,8 @@
         "1": {
           "file": "analysis.scenarios/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "analysis.scenarios/v1.output.json",
+          "output_sha256": "7c0af51c1357823d330dddb9f47a6577ff29befb38618b8a3e8ec843e08b4d26",
           "sha256": "cb66bb4298bdf2fd2b4584737190182141122b969d6be7175c1bda231905cabc"
         }
       }
@@ -27,6 +31,8 @@
         "1": {
           "file": "analysis.sensitivity/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "analysis.sensitivity/v1.output.json",
+          "output_sha256": "33dd92f99de389e9c6570b3597bcda6d7378a2162e4cb135ed9444b243b6aa4f",
           "sha256": "0a0656e61b1bcd20262ea836996e8d965761f2116796f6e22b371ee0bc0eb1b4"
         }
       }
@@ -37,6 +43,8 @@
         "1": {
           "file": "analysis.tornado/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "analysis.tornado/v1.output.json",
+          "output_sha256": "7f2214e5fe8064d64af2403aba9738104715bd5f2f5555031d605710192833c6",
           "sha256": "2727a053838eb8761e489b543b981c36eb65dc2f8863df8b05edbd59d3df9504"
         }
       }
@@ -47,6 +55,8 @@
         "1": {
           "file": "coc.beta_peers/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "coc.beta_peers/v1.output.json",
+          "output_sha256": "e0f70c654f9668b52a97c55e34ed7e2b9d1ba473a1828cc39327b276b9733511",
           "sha256": "5813875b423ff1918da9dd02fe57ae7c02a18b59fcc0c5f668d98fd78ff465c4"
         }
       }
@@ -57,6 +67,8 @@
         "1": {
           "file": "coc.beta_relever/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "coc.beta_relever/v1.output.json",
+          "output_sha256": "e8df6716e8663f4590b3fbacad5a759ddd1e23c0ff6d9c8ab967cd567e166e3d",
           "sha256": "f650a8cfc9d2d8783df954e4d2fd59ef6d3b3ecb1d4b3acc2211929fac83038c"
         }
       }
@@ -67,6 +79,8 @@
         "1": {
           "file": "coc.cost_of_debt/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "coc.cost_of_debt/v1.output.json",
+          "output_sha256": "b4f5cc78eb08564001b2cacdf8223dbaf631fac650c2d62e246dde4a7315b385",
           "sha256": "346cf71636cc053d3f4ad61320d40e4b47ce3b0b8b503fe10aa2c01d9d0e6af3"
         }
       }
@@ -77,6 +91,8 @@
         "1": {
           "file": "coc.cost_of_equity/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "coc.cost_of_equity/v1.output.json",
+          "output_sha256": "1de2d59eba60f79cf9d74347613ba9631f349f1191943e99cff9c4ac534249aa",
           "sha256": "a1abaddf05c473dc58f3ad15871881e355273002b678fac129ef6f32815a32be"
         }
       }
@@ -87,6 +103,8 @@
         "1": {
           "file": "coc.wacc/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "coc.wacc/v1.output.json",
+          "output_sha256": "043513b524f5059bddc6115387bbb57ecf591695f79dc442a35f2e03bb293b54",
           "sha256": "ce65fc3cbe0a97dc6efbf1067951f7199df6365982bb43a164b62fd3ef8d3434"
         }
       }
@@ -97,6 +115,8 @@
         "1": {
           "file": "dates.schedule/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "dates.schedule/v1.output.json",
+          "output_sha256": "cc9b6479b1ec8cd28a0d2eed1ab3a1b4f1025c7c90f4533d7df595f7d0d0b861",
           "sha256": "cd8ee332d77b29e6d23765be465dc010b79a51dc231e7d3356591d42c57e76d2"
         }
       }
@@ -107,6 +127,8 @@
         "1": {
           "file": "dates.year_fraction/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "dates.year_fraction/v1.output.json",
+          "output_sha256": "9c23630159f6276946850bc0058b02ceeeda795df850c12bb66ac47575437562",
           "sha256": "51ab5b308f51a54753187d0da3472cea8078439a0f7b79fe93f2b2a8ac3c88e5"
         }
       }
@@ -117,6 +139,8 @@
         "1": {
           "file": "dcf.fcfe/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "dcf.fcfe/v1.output.json",
+          "output_sha256": "061cd6fea5bfe14841d3be98a39835e5a2a810d337b6e53386837bb27d796d64",
           "sha256": "5db119671e175bce927b3cd7ba4cb0494f8aa56095487bba48c07894ddad613d"
         }
       }
@@ -137,7 +161,9 @@
         "3": {
           "file": "dcf.fcff/v3.json",
           "introduced_in": "unreleased",
-          "sha256": "af734bfd53288002ace401f08e7f7411bd001f236857a416aa1b0b2bd1b97dec"
+          "output_file": "dcf.fcff/v3.output.json",
+          "output_sha256": "071f1bcf161574554f7c169131f514e8627067a06965ff84633bf97d522212b6",
+          "sha256": "6f0efc818fadb465cf73df6c4a5bf3af358de1f4bda3540f82f9e8b68d0152c4"
         }
       }
     },
@@ -152,6 +178,8 @@
         "2": {
           "file": "dcf.free_cash_flows/v2.json",
           "introduced_in": "unreleased",
+          "output_file": "dcf.free_cash_flows/v2.output.json",
+          "output_sha256": "26816bbbb1d0b1cea4635e29ccde7addd165d95c7b7bdd5ede3c3934a26265fe",
           "sha256": "98b068de36ea309471af0e4cdb8dce28deb5b952ccdd71a9d81688b428a1341b"
         }
       }
@@ -162,6 +190,8 @@
         "1": {
           "file": "loans.amortisation_schedule/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "loans.amortisation_schedule/v1.output.json",
+          "output_sha256": "17e298a56d9e1d47dd2ef5c8636212126a8b98be6d57589df8c698451f15acc9",
           "sha256": "93b627fa0bfbc40cbb1521425a2ca4bceb17645aaa3582bac263ea3107d8f003"
         }
       }
@@ -172,6 +202,8 @@
         "1": {
           "file": "loans.instalment/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "loans.instalment/v1.output.json",
+          "output_sha256": "4a6d946d48ad3acdab352b68ef3b1a2af764d02cfdae11c936097f0ad231c5dd",
           "sha256": "8be985160ba37e52181ee286c7f97b794209cfdbbcc8fcaedaa371f056ecb536"
         }
       }
@@ -182,6 +214,8 @@
         "1": {
           "file": "loans.number_of_instalments/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "loans.number_of_instalments/v1.output.json",
+          "output_sha256": "4d99b8881d0e6b673d89044a1ec5662ed50b3b793bfd6359666b2859f11e1518",
           "sha256": "86b89dce9439ab9bacb79bceec52b6f7df5a79fad811607563af2585841a9b9b"
         }
       }
@@ -192,6 +226,8 @@
         "1": {
           "file": "rates.convert/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "rates.convert/v1.output.json",
+          "output_sha256": "a29ba57eb7f39b05c2a44db1efea664bf2b458fc805730985004a2281f5d7de2",
           "sha256": "74a6e1a949d00b453a1cdfa382d23f123424f069c492c32d057a389fcad1ce31"
         }
       }
@@ -202,67 +238,111 @@
         "1": {
           "file": "rates.real_nominal/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "rates.real_nominal/v1.output.json",
+          "output_sha256": "283a3b245a49b9a99f676e826686fd9f6be14304bb6680c0d76f08600e3221f5",
           "sha256": "5d70756fff0ebea5011e1d4689d5963e23c0d4bb2ef25a46246febcf1944de33"
         }
       }
     },
     "ratios.capital_structure": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "ratios.capital_structure/v1.json",
           "introduced_in": "unreleased",
           "sha256": "86a9ef31d167a047893507837e85780e56deac3e662d61faab00d02076dae7ec"
+        },
+        "2": {
+          "file": "ratios.capital_structure/v2.json",
+          "introduced_in": "unreleased",
+          "output_file": "ratios.capital_structure/v2.output.json",
+          "output_sha256": "b1fe8c67ae50c6f7993e2caf118cd4617a77820987e041796f4c378a92273ed7",
+          "sha256": "273135992a21cbdd2604917e9c4b6739bc7f92b849718025ba672cad9bab447b"
         }
       }
     },
     "ratios.covenants": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "ratios.covenants/v1.json",
           "introduced_in": "unreleased",
           "sha256": "28e7e3eda8073f3b693143ad3c6da07629c054560a61736ba3e2a886a4b7adf4"
+        },
+        "2": {
+          "file": "ratios.covenants/v2.json",
+          "introduced_in": "unreleased",
+          "output_file": "ratios.covenants/v2.output.json",
+          "output_sha256": "abe33e5a824481de662548ccb9842ae8e31e5c5cf4416d1b59df3a9c24fe69b0",
+          "sha256": "ca0d866e9d9958b0b64aea16713512b29cb7a2eb97d16b8bb0bc9668f2629602"
         }
       }
     },
     "ratios.debt_service": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "ratios.debt_service/v1.json",
           "introduced_in": "unreleased",
           "sha256": "e40767bbd103c3029383d4cbb9f0821a4cc3a26a18026c4f5a951328526b4cab"
+        },
+        "2": {
+          "file": "ratios.debt_service/v2.json",
+          "introduced_in": "unreleased",
+          "output_file": "ratios.debt_service/v2.output.json",
+          "output_sha256": "2f8388ac32d96da621439596689936a4e5be59ab8c34369d725aafc578c494eb",
+          "sha256": "cc252a4cd59102cbfcb24adb47e2a55addc32b12eaff545a9667e3328a97cc8e"
         }
       }
     },
     "ratios.liquidity": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "ratios.liquidity/v1.json",
           "introduced_in": "unreleased",
           "sha256": "606b1e97ae4193aef5babaa8052322757e27fb30875e0bb7d409235dcd52b7dd"
+        },
+        "2": {
+          "file": "ratios.liquidity/v2.json",
+          "introduced_in": "unreleased",
+          "output_file": "ratios.liquidity/v2.output.json",
+          "output_sha256": "18963c0f51645151c1d57f1a9b78e085077434bcab423771670ad8846ad462e1",
+          "sha256": "b7efc0e28dc9921df3b7a4a801d073a6ebb3576a9969a5494c2e23a485b60e48"
         }
       }
     },
     "ratios.profitability": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "ratios.profitability/v1.json",
           "introduced_in": "unreleased",
           "sha256": "e97765b6c61b13fe3ba243810d40cb32e22c8a9a977766c770145c6aaf8f8c19"
+        },
+        "2": {
+          "file": "ratios.profitability/v2.json",
+          "introduced_in": "unreleased",
+          "output_file": "ratios.profitability/v2.output.json",
+          "output_sha256": "76d5309605c4227664bf09fb394fe917c5afad66a68524c589d9d017d4484f22",
+          "sha256": "9bd8e3d81a7160fc19a021624633b6a9edb1e8fb4b072250d2a86da3daab1fe4"
         }
       }
     },
     "ratios.working_capital": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "ratios.working_capital/v1.json",
           "introduced_in": "unreleased",
           "sha256": "b90dfe455ca0d4adaa88d071f21bac192a14da2558a78f7398da4e96a1f74c21"
+        },
+        "2": {
+          "file": "ratios.working_capital/v2.json",
+          "introduced_in": "unreleased",
+          "output_file": "ratios.working_capital/v2.output.json",
+          "output_sha256": "34dea1694454785f2ead93218d0994116b7d14da863af6a1b45cc547b8641e83",
+          "sha256": "8d62175cdff9cd251a44f011c7f082894f27734328d233f14cef41eae1da3d52"
         }
       }
     },
@@ -272,7 +352,21 @@
         "1": {
           "file": "series.project/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "series.project/v1.output.json",
+          "output_sha256": "2731a79d77ae840070d99c6ad8b9f84a6ae9718c09df26ed5812ba4527afbbb2",
           "sha256": "4be04f388b60ed097fb5c5aff7f4be909f24b27e6ec00d63b3418d5a8e1e2b09"
+        }
+      }
+    },
+    "statements.reorganise": {
+      "current": "1",
+      "versions": {
+        "1": {
+          "file": "statements.reorganise/v1.json",
+          "introduced_in": "unreleased",
+          "output_file": "statements.reorganise/v1.output.json",
+          "output_sha256": "264b34bc6cbe44358f17b52425634317abc01c9222a3ea5a77043fcec4ee85ac",
+          "sha256": "32b1556dd4fc1f500ef72893282b39bc20a39eb544899b0ea0dac8be4f629776"
         }
       }
     },
@@ -287,6 +381,8 @@
         "2": {
           "file": "tv.compare/v2.json",
           "introduced_in": "unreleased",
+          "output_file": "tv.compare/v2.output.json",
+          "output_sha256": "af370169feafeebb4e788226e9a3c43bac9163f8c3dd6edd473f9bc2ff322c90",
           "sha256": "a91a1b5e14382cfaba58912f766e9dcd04f140f2fbed33611dd79cd3f54f2fb6"
         }
       }
@@ -297,6 +393,8 @@
         "1": {
           "file": "tv.exit_multiple/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "tv.exit_multiple/v1.output.json",
+          "output_sha256": "469935dd32d479c469393b0d0bcde9087b34ff9df40e772646055139a1dffb07",
           "sha256": "e4f6aea3edc0a61954c0dfc6367c370a4d7b29dc660bf93c18dca2f09e4ddb30"
         }
       }
@@ -307,6 +405,8 @@
         "1": {
           "file": "tv.gordon/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "tv.gordon/v1.output.json",
+          "output_sha256": "68b0cbc4e93ab8ae8d86875de88c3d1077864e3991e11de97e4e36401850a12c",
           "sha256": "4f1fb45a04b513cfd482286c5641de6c3beb7733cee878affa42bc4b40d72b5c"
         }
       }
@@ -317,6 +417,8 @@
         "1": {
           "file": "tv.h_model/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "tv.h_model/v1.output.json",
+          "output_sha256": "2236a52c459e866dd69ff5871400682e52c7471d0994db4034f4f64b8d4d396f",
           "sha256": "b17adafae91b11795da2bc3e8f6e4b3b47ec9376fce519be375e01a36885fae4"
         }
       }
@@ -327,6 +429,8 @@
         "1": {
           "file": "tv.limited_horizon/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "tv.limited_horizon/v1.output.json",
+          "output_sha256": "7b6dde73b56a68ea33442f5e6a1464cc87534a270b657612ace404bf5228099e",
           "sha256": "aef1079641300a077852330709bc760e4db59fe4f7d22759768303a8612ed416"
         }
       }
@@ -337,6 +441,8 @@
         "1": {
           "file": "tv.liquidation/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "tv.liquidation/v1.output.json",
+          "output_sha256": "864287a03d6deb3c47b2be5e8f4619c20635247514cde632f948ab5fadb46154",
           "sha256": "82c7f1ae95a4544a90b1884fec1f4cbe86b10eeb96b9634c074ac568dd9191bc"
         }
       }
@@ -347,6 +453,8 @@
         "1": {
           "file": "tv.normalised_income/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "tv.normalised_income/v1.output.json",
+          "output_sha256": "991132ee868a8b3eba482bc366274946e7937ff6c44e6b07d67710ae336bbda8",
           "sha256": "2da01c06674fad70b9c18a757b08da92d1070c61d7809b745d94200beb79200f"
         }
       }
@@ -357,6 +465,8 @@
         "1": {
           "file": "tv.value_driver/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "tv.value_driver/v1.output.json",
+          "output_sha256": "8f5516d882f68fbf8b8c7207b3b16fe15b534bba3ebc3a9eddbf033fbb22bde8",
           "sha256": "f62f78fe375fcd6f833752009f67cd0296f5fc509b357deb9b533060f16c1184"
         }
       }
@@ -367,6 +477,8 @@
         "1": {
           "file": "tvm.annuity/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "tvm.annuity/v1.output.json",
+          "output_sha256": "2f1ed88166b5d631291ebb79c704e146c9c5c4c34dc78caae604dd3ac8b9a11c",
           "sha256": "c9f3fd7e0088eb84911526e0b6f75c5513c8e783b7f9f349074e877bb5817272"
         }
       }
@@ -377,6 +489,8 @@
         "1": {
           "file": "tvm.future_value/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "tvm.future_value/v1.output.json",
+          "output_sha256": "7b674e4f4c9d7bd16f727862f835248a032464ffb21698673b727b7a3dc87902",
           "sha256": "79207d786e0f87ce667b51333c666947c954fc6bb79ac024a4a95b13c07cd2d1"
         }
       }
@@ -397,6 +511,8 @@
         "3": {
           "file": "tvm.irr/v3.json",
           "introduced_in": "unreleased",
+          "output_file": "tvm.irr/v3.output.json",
+          "output_sha256": "063c90dc267a0d9181d197500a68b064b01934e3b75785f39c1f5b9154f524d7",
           "sha256": "006ec8c556e4ede1bd91f32acfa5b8138571bff5f94a547c024da827b0107572"
         }
       }
@@ -407,6 +523,8 @@
         "1": {
           "file": "tvm.mirr/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "tvm.mirr/v1.output.json",
+          "output_sha256": "fab6068020cd56c08b1e70a72c568881b5fda0cf50b2b72ff29bf227833b31e8",
           "sha256": "1b5faf47afcc655c7a293ee225e7d567d6a203f2ddbe1b0f38c1a5f9bdb2e213"
         }
       }
@@ -422,6 +540,8 @@
         "2": {
           "file": "tvm.npv/v2.json",
           "introduced_in": "unreleased",
+          "output_file": "tvm.npv/v2.output.json",
+          "output_sha256": "cd9a5bcfc46049a762aca11977a40765e7116521dcc9dc7014e7deae21451931",
           "sha256": "9add4abd9272012a0e8ccb3f0f115e1bc7d49581a1a3d17852e530ea6e12d241"
         }
       }
@@ -432,6 +552,8 @@
         "1": {
           "file": "tvm.perpetuity/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "tvm.perpetuity/v1.output.json",
+          "output_sha256": "c5bd06b7cb4f8e19d2fe988e4c08dd2263505c74317314afa7786477111b68f0",
           "sha256": "849fdfc1217df9ba2664e2eb6837c10e98077c04f2c0e84cf4dcc36f9c66bb5e"
         }
       }
@@ -442,6 +564,8 @@
         "1": {
           "file": "tvm.present_value/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "tvm.present_value/v1.output.json",
+          "output_sha256": "54bdb7519802649d473d018e76147ee7f853edbabc9afa3e63372674370afabb",
           "sha256": "5747a80082a6157d6b925bd5a3ebf008b6d931323cde40835e783eb44a993697"
         }
       }
@@ -457,6 +581,8 @@
         "2": {
           "file": "tvm.xirr/v2.json",
           "introduced_in": "unreleased",
+          "output_file": "tvm.xirr/v2.output.json",
+          "output_sha256": "21551ae88463e8ba669cf4616324be644edf8b65cfc83c89679a2f61c7395634",
           "sha256": "4e14a92ad6c9df03f57a1449b8e9230d03f3f1435a695cdf9389bbce45f408f4"
         }
       }
@@ -467,6 +593,8 @@
         "1": {
           "file": "tvm.xnpv/v1.json",
           "introduced_in": "unreleased",
+          "output_file": "tvm.xnpv/v1.output.json",
+          "output_sha256": "9b8350680ac8d8cc84303ae3f4dd19efaaf5eca2c4a7c0c727beb9663c7d08ec",
           "sha256": "0702b4505d2cbc5c0f45e2ec68b01df4e98ffe4e56b9537cec1c824b24694b8d"
         }
       }

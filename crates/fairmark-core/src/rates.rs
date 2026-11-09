@@ -215,6 +215,7 @@ pub struct ConvertInput {
     pub to: Compounding,
 }
 
+/// Output of `rates.convert`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct ConvertOutput {
     /// Equivalent annual rate with the target compounding.
@@ -288,6 +289,7 @@ pub struct RealNominalInput {
     pub direction: FisherDirection,
 }
 
+/// Output of `rates.real_nominal`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct RealNominalOutput {
     /// The converted rate, decimal fraction per period.

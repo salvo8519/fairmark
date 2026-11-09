@@ -1,0 +1,37 @@
+{
+  "$id": "urn:fairmark:schema:loans.instalment:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `loans.instalment`.",
+  "properties": {
+    "instalment": {
+      "description": "Constant instalment, in currency units (rounded when `rounding` is given).",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "periodic_rate": {
+      "description": "Rate per payment period used, decimal fraction.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "total_interest": {
+      "description": "Total paid less the principal, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "total_paid": {
+      "description": "Instalments times their number, plus the balloon amount, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "instalment",
+    "periodic_rate",
+    "total_paid",
+    "total_interest"
+  ],
+  "title": "InstalmentOutput",
+  "type": "object",
+  "x-fairmark-method": "loans.instalment",
+  "x-fairmark-method-version": "1"
+}

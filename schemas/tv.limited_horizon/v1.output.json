@@ -1,0 +1,97 @@
+{
+  "$defs": {
+    "CapStatus": {
+      "description": "Outcome of the growth cap check (SPEC-0006 R8).",
+      "oneOf": [
+        {
+          "const": "respected",
+          "description": "The growth is at or below the cap.",
+          "type": "string"
+        },
+        {
+          "const": "exceeded",
+          "description": "The growth is above the cap: reported, not refused.",
+          "type": "string"
+        }
+      ]
+    },
+    "GrowthCapCheck": {
+      "description": "The perpetual growth compared with the cap the analyst gave.",
+      "properties": {
+        "cap": {
+          "description": "The cap given, decimal fraction per period.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "growth": {
+          "description": "The perpetual growth checked, decimal fraction per period.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/CapStatus",
+          "description": "`respected` when growth ≤ cap, `exceeded` otherwise."
+        }
+      },
+      "required": [
+        "growth",
+        "cap",
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:tv.limited_horizon:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `tv.limited_horizon`.",
+  "properties": {
+    "annuity_factor": {
+      "description": "Value at N of a first flow of 1 (the annuity factor shared with `tvm.annuity`).",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "discount_factor": {
+      "description": "(1 + r)^−n, the factor that brings the residual value from N + n to N.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "flows_value": {
+      "description": "Value at N of the flows of periods N + 1 to N + n, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "growth_cap": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GrowthCapCheck"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Growth compared with the cap; `null` when no cap is given."
+    },
+    "residual_value_discounted": {
+      "description": "Residual value brought to N, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "terminal_value": {
+      "description": "Terminal value at N, not discounted to the valuation date, in currency units: the value\nof the n flows plus the discounted residual value.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "terminal_value",
+    "flows_value",
+    "annuity_factor",
+    "discount_factor",
+    "residual_value_discounted",
+    "growth_cap"
+  ],
+  "title": "LimitedHorizonOutput",
+  "type": "object",
+  "x-fairmark-method": "tv.limited_horizon",
+  "x-fairmark-method-version": "1"
+}

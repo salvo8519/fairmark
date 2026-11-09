@@ -42,7 +42,7 @@ pub struct TornadoInput {
 }
 
 /// One bar of the tornado.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct TornadoBar {
     /// The input varied.
     pub variable: String,
@@ -60,7 +60,8 @@ pub struct TornadoBar {
     pub abs_swing: Decimal,
 }
 
-#[derive(Debug, Clone, Serialize)]
+/// Output of `analysis.tornado`.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct TornadoOutput {
     /// The method evaluated, at the version run.
     pub inner_method: InnerMethod,

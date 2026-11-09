@@ -23,9 +23,14 @@ def test_golden(path: Path) -> None:
         assert err.value.code == case["expect_error"]
         return
     result = fm.run(case["method"], case["input"])
+    for field, count in case.get("expect_length", {}).items():
+        items = resolve(result.value, field)
+        assert isinstance(items, list) and len(items) == int(count), f"{field}: length"
     tolerance = Decimal(case["tolerance"])
-    for field, expected in case["expect"].items():
-        raw = resolve(result.value, field)
+    expectations = [(result.value, f, e) for f, e in case["expect"].items()]
+    expectations += [(result.meta, f, e) for f, e in case.get("expect_meta", {}).items()]
+    for part, field, expected in expectations:
+        raw = resolve(part, field)
         try:
             want = Decimal(str(expected))
             if not want.is_finite():  # NaN, Infinity: not numbers, as in the Rust runner
@@ -60,7 +65,17 @@ def test_golden_cases_exist() -> None:
     assert CASES, "no golden cases found"
 
 
-NEW_CASE_KEYS = {"method", "description", "source", "input", "expect", "expect_error", "tolerance"}
+NEW_CASE_KEYS = {
+    "method",
+    "description",
+    "source",
+    "input",
+    "expect",
+    "expect_meta",
+    "expect_length",
+    "expect_error",
+    "tolerance",
+}
 
 
 @pytest.mark.parametrize("path", CASES, ids=lambda p: f"{p.parent.name}/{p.stem}")
@@ -70,3 +85,6 @@ def test_golden_case_shape(path: Path) -> None:
     assert ("expect" in case) != ("expect_error" in case), "exactly one of expect, expect_error"
     if "expect" in case:
         assert "tolerance" in case, "value cases need a tolerance"
+    else:
+        assert "expect_meta" not in case, "expect_meta needs expect"
+        assert "expect_length" not in case, "expect_length needs expect"

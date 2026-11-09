@@ -1,0 +1,70 @@
+{
+  "$defs": {
+    "Date": {
+      "description": "Calendar date, ISO 8601 YYYY-MM-DD, from 1900-01-01 to 2199-12-31.",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "type": "string"
+    },
+    "DatedFlowValue": {
+      "properties": {
+        "date": {
+          "$ref": "#/$defs/Date",
+          "description": "Date of the flow (ISO 8601)."
+        },
+        "discount_factor": {
+          "description": "Discount factor from the date of the flow to the valuation date.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "present_value": {
+          "description": "Value of the flow at the valuation date, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "year_fraction": {
+          "description": "Time from the valuation date in years.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "date",
+        "year_fraction",
+        "discount_factor",
+        "present_value"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:tvm.xnpv:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `tvm.xnpv`.",
+  "properties": {
+    "flows": {
+      "description": "Year fraction, discount factor and present value of each flow, in input order.",
+      "items": {
+        "$ref": "#/$defs/DatedFlowValue"
+      },
+      "type": "array"
+    },
+    "valuation_date": {
+      "$ref": "#/$defs/Date",
+      "description": "Valuation date used: the given one, or the earliest flow date (ISO 8601)."
+    },
+    "xnpv": {
+      "description": "Net present value at the valuation date, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "xnpv",
+    "valuation_date",
+    "flows"
+  ],
+  "title": "XnpvOutput",
+  "type": "object",
+  "x-fairmark-method": "tvm.xnpv",
+  "x-fairmark-method-version": "1"
+}

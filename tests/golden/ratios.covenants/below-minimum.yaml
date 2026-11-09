@@ -1,0 +1,17 @@
+method: ratios.covenants
+description: 'R11, R12: a single covenant with no amount can be neither tested nor decided: refused with
+  FM-E027'
+source: 'Constructed: no covenant can be tested or decided. Alternative minimum sets from scripts/reference_ratios_partial.py:
+  [[''/covenants/0/denominator/amount'', ''/covenants/0/numerator/amount'']].'
+input:
+  covenants:
+  - name: net leverage
+    test_date: '2026-12-31'
+    numerator:
+      definition: net financial debt at the test date
+    denominator:
+      definition: consolidated EBITDA, 12 months
+    operator: at_most
+    threshold: '3.5'
+    if_denominator_not_positive: breached
+expect_error: FM-E027

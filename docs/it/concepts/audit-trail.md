@@ -1,6 +1,6 @@
 ---
 source: concepts/audit-trail.md
-source_hash: be5fa11534c3
+source_hash: 5dd0774d492a
 ---
 # La tracciabilità del calcolo (audit trail)
 
@@ -19,7 +19,11 @@ Ogni risultato è una busta in quattro parti:
 }
 ```
 
-- **`value`** contiene i risultati, esatti, come stringhe decimali.
+- **`value`** contiene i risultati, esatti, come stringhe decimali. Il suo JSON Schema
+  documenta ogni campo con la sua unità (`fairmark schema <metodo> --output`,
+  `fm.output_schema(metodo)`); in Python `result.value` è decodificato in base a esso: ogni
+  decimale diventa un `Decimal`, mentre etichette, id, versioni, puntatori e messaggi restano
+  testo anche quando sembrano numeri.
 - **`explain.steps`** elenca ogni calcolo intermedio con i numeri effettivi sostituiti. Un
   analista può rifare a mano qualsiasi passaggio; un agente li cita invece di ricalcolarli.
 - **`explain.conventions`** dichiara ogni scelta che cambia il numero (tempistica dei flussi,
@@ -37,7 +41,14 @@ Ogni risultato è una busta in quattro parti:
   alcun valore predefinito, come per ogni metodo senza valori predefiniti documentati; un campo
   fornito esplicitamente prevale sempre e non è mai elencato. I metodi DCF la usano per il loro
   input minimo (Decision 24 di SPEC-0001, si veda
-  [`dcf.fcff`](../methods/dcf-fcff.md#input-minimo)).
+  [`dcf.fcff`](../methods/dcf-fcff.md#input-minimo)); `dcf.fcff` elenca anche una posizione
+  finanziaria netta non fornita, sottratta come zero con un'avvertenza (Decision 25): per
+  questa voce `value` (`"0"`) è l'importo sottratto, non un valore da scrivere nel campo, che è
+  una struttura, e il valore predefinito non entra in `meta.input_hash`. Un metodo che assegna voci dell'input a
+  destinazioni vi elenca anche ogni voce fornita la cui destinazione è un valore predefinito
+  documentato: `field` è il pointer della voce, `value` la destinazione, e la convenzione
+  riporta "assigned to" invece di "not given, set to" (R8 di SPEC-0005, si veda
+  [`statements.reorganise`](../methods/statements-reorganise.md#valori-predefiniti)).
 
 Le etichette dei passaggi sono in inglese, perché fanno parte dell'output del motore. In
 Python, `result.explain_markdown()` produce una nota metodologica per la relazione.

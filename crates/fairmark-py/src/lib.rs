@@ -33,6 +33,26 @@ fn input_schema(method: &str) -> PyResult<String> {
         })
 }
 
+/// JSON Schema of a method's output (the `value` of the result envelope).
+#[pyfunction]
+fn output_schema(method: &str) -> PyResult<String> {
+    fairmark_core::output_schema(method)
+        .map(|v| v.to_string())
+        .map_err(|e| {
+            EngineError::new_err(serde_json::to_string(&e.to_report()).unwrap_or_default())
+        })
+}
+
+/// JSON Schema of a method's whole result envelope.
+#[pyfunction]
+fn result_schema(method: &str) -> PyResult<String> {
+    fairmark_core::result_schema(method)
+        .map(|v| v.to_string())
+        .map_err(|e| {
+            EngineError::new_err(serde_json::to_string(&e.to_report()).unwrap_or_default())
+        })
+}
+
 #[pymodule]
 fn _engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("ENGINE_VERSION", fairmark_core::ENGINE_VERSION)?;
@@ -40,5 +60,7 @@ fn _engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(run, m)?)?;
     m.add_function(wrap_pyfunction!(methods, m)?)?;
     m.add_function(wrap_pyfunction!(input_schema, m)?)?;
+    m.add_function(wrap_pyfunction!(output_schema, m)?)?;
+    m.add_function(wrap_pyfunction!(result_schema, m)?)?;
     Ok(())
 }

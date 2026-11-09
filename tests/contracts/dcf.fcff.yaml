@@ -134,7 +134,8 @@ conventions:
   - 'timing: mid period'
   - 'first terminal flow: normalised flow at N + 1'
   - 'terminal discounting time: horizon, t = N'
-  - 'net financial position: none given'
+  - 'default: `/net_financial_position` not given, set to'
+  - 'warning: no net financial position given (`/net_financial_position`): zero is subtracted'
 - input:
     stages: [{periods: 3, projection: given, flows: ['100', '110', '120']}]
     cash_flow_terms: nominal

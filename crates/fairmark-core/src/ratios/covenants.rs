@@ -12,6 +12,11 @@
 //! ([`exact_cmp`]); with rounding the value is rounded exactly from the rational quotient
 //! ([`round_exact`]) and compared with the threshold. Value and headroom are shown to the 28
 //! significant digits of the decimal type.
+//!
+//! Partial input (amendment of 2026-11-09, R11): the amounts are optional. A covenant whose
+//! denominator amount is missing, or whose denominator is positive and numerator amount is
+//! missing, is not tested with the code `missing_input`, never breached; a denominator given
+//! zero or negative gives the outcome of `if_denominator_not_positive` whatever the numerator.
 
 use std::cmp::Ordering;
 
@@ -19,11 +24,12 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::RatioValue;
+use super::{Missing, NotComputedList, RatioValue, MISSING_CONVENTION};
 use crate::dates::Date;
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
 use crate::method::Method;
+use crate::not_computed::NotComputedEntry;
 use crate::num;
 
 /// Most decimal places a contractual rounding may state.
@@ -38,8 +44,10 @@ pub struct ContractualAmount {
     #[schemars(length(min = 1))]
     pub definition: String,
     /// The amount under that definition for the period ending on the test date, in currency
-    /// units.
-    pub amount: Decimal,
+    /// units. Absent or null: not given, and the covenant is not tested (`missing_input`)
+    /// unless a denominator given zero or negative decides it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub amount: Option<Decimal>,
 }
 
 /// How the tested value is compared with the threshold. Required, no default.
@@ -221,6 +229,9 @@ pub enum NotTestedCode {
     /// The tested value, the rounded value or the headroom exceeds the range of the decimal
     /// type.
     Overflow,
+    /// An amount the test needs is not given: the denominator, or the numerator with a
+    /// positive denominator. The outputs are listed in `not_computed`.
+    MissingInput,
 }
 
 /// Result of one covenant test.
@@ -256,8 +267,8 @@ pub struct CovenantResult {
     /// headroom; not defined when the threshold is zero or negative, when the quotient
     /// overflows, or when `value` is null.
     pub headroom_relative: RatioValue,
-    /// Why the covenant was not tested: `denominator_not_positive` or `overflow`; null when
-    /// the outcome is `passed` or `breached`.
+    /// Why the covenant was not tested: `denominator_not_positive`, `overflow` or
+    /// `missing_input`; null when the outcome is `passed` or `breached`.
     pub not_tested_code: Option<NotTestedCode>,
     /// Why the covenant was not tested, in words, for example "denominator is zero:
     /// consolidated EBITDA for the 12 months ending on the test date"; null when the outcome is
@@ -283,6 +294,9 @@ pub struct CovenantsOutput {
     pub covenants: Vec<CovenantResult>,
     /// Count of each outcome.
     pub summary: CovenantSummary,
+    /// Outputs not computed because an amount is missing, in the order of the covenants, each
+    /// with the JSON pointers of the amounts it lacks (SPEC-0007 R11).
+    pub not_computed: Vec<NotComputedEntry>,
 }
 
 // ------------------------------------------------------------------ exact arithmetic
@@ -553,6 +567,32 @@ fn not_tested(
     }
 }
 
+/// Not tested because an amount is missing (R11): the outputs are null and listed.
+fn not_tested_missing(
+    ex: &mut Explain,
+    label: &str,
+    result: CovenantResult,
+    missing: &Missing,
+) -> CovenantResult {
+    let side = |s: &str| missing.iter().any(|p| p.ends_with(&format!("/{s}/amount")));
+    let reason = match (side("numerator"), side("denominator")) {
+        (true, true) => "numerator and denominator amounts not given",
+        (true, false) => "numerator amount not given",
+        _ => "denominator amount not given",
+    }
+    .to_owned();
+    let result = CovenantResult {
+        headroom_relative: RatioValue {
+            value: None,
+            not_defined: None,
+            missing: missing.clone(),
+            lacking: missing.clone(),
+        },
+        ..result
+    };
+    not_tested(ex, label, result, NotTestedCode::MissingInput, reason)
+}
+
 const OVERFLOW_VALUE: &str =
     "the tested value exceeds the range of the decimal type (28-29 significant digits)";
 const OVERFLOW_ROUNDED: &str =
@@ -560,8 +600,10 @@ const OVERFLOW_ROUNDED: &str =
 const OVERFLOW_HEADROOM: &str =
     "the headroom exceeds the range of the decimal type (28-29 significant digits)";
 
-/// Tests covenant number `k` (counted from 1 in the audit trail).
-fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
+/// Tests the covenant at position `i` (numbered from 1 in the audit trail); also returns the
+/// amounts it lacks, empty when none.
+fn test(i: usize, c: &Covenant, ex: &mut Explain) -> (CovenantResult, Missing) {
+    let k = i + 1;
     let label = format!("covenant {k}, {} ({})", c.name, c.test_date);
     let op = c.operator;
     let threshold = c.threshold;
@@ -593,16 +635,19 @@ fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
              exact value"
         )),
     }
-    ex.step(
-        format!("{label}: numerator"),
-        format!("as given: {}", c.numerator.definition),
-        c.numerator.amount,
-    );
-    ex.step(
-        format!("{label}: denominator"),
-        format!("as given: {}", c.denominator.definition),
-        c.denominator.amount,
-    );
+    let mut missing = Missing::new();
+    for (side, part) in [("numerator", &c.numerator), ("denominator", &c.denominator)] {
+        match part.amount {
+            Some(amount) => ex.step(
+                format!("{label}: {side}"),
+                format!("as given: {}", part.definition),
+                amount,
+            ),
+            None => {
+                missing.insert(format!("/covenants/{i}/{side}/amount"));
+            }
+        }
+    }
     let result = CovenantResult {
         name: c.name.clone(),
         test_date: c.test_date,
@@ -613,14 +658,18 @@ fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
         value: None,
         value_unrounded: None,
         headroom: None,
-        headroom_relative: RatioValue {
-            value: None,
-            not_defined: Some("no tested value".into()),
-        },
+        headroom_relative: RatioValue::undefined("no tested value".into()),
         not_tested_code: None,
         not_tested_reason: None,
     };
-    let (n, d) = (c.numerator.amount, c.denominator.amount);
+    let d = match (c.denominator.amount, missing.is_empty()) {
+        (Some(d), true) => d,
+        (Some(d), false) if d.is_zero() || d.is_sign_negative() => d,
+        _ => return (not_tested_missing(ex, &label, result, &missing), missing),
+    };
+    // A numerator not given was handled above unless the denominator is not positive, where
+    // the rule decides without it.
+    let numerator = c.numerator.amount;
 
     if d.is_zero() || d.is_sign_negative() {
         let reason = if d.is_zero() {
@@ -631,10 +680,7 @@ fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
                 c.denominator.definition
             )
         };
-        let relative = RatioValue {
-            value: None,
-            not_defined: Some(format!("no tested value: {reason}")),
-        };
+        let relative = RatioValue::undefined(format!("no tested value: {reason}"));
         let result = CovenantResult {
             outcome_basis: Some(OutcomeBasis::IfDenominatorNotPositive),
             ..result
@@ -646,30 +692,42 @@ fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
         );
         let outcome = match rule {
             IfDenominatorNotPositive::NotTested => {
-                return not_tested(
-                    ex,
-                    &label,
-                    CovenantResult {
-                        headroom_relative: relative,
-                        ..result
-                    },
-                    NotTestedCode::DenominatorNotPositive,
-                    reason,
+                return (
+                    not_tested(
+                        ex,
+                        &label,
+                        CovenantResult {
+                            headroom_relative: relative,
+                            ..result
+                        },
+                        NotTestedCode::DenominatorNotPositive,
+                        reason,
+                    ),
+                    Missing::new(),
                 );
             }
             IfDenominatorNotPositive::Breached => Outcome::Breached,
             IfDenominatorNotPositive::Passed => Outcome::Passed,
         };
-        return CovenantResult {
-            outcome,
-            headroom_relative: relative,
-            ..result
-        };
+        return (
+            CovenantResult {
+                outcome,
+                headroom_relative: relative,
+                ..result
+            },
+            Missing::new(),
+        );
     }
 
+    let Some(n) = numerator else {
+        return (not_tested_missing(ex, &label, result, &missing), missing);
+    };
     let Ok(unrounded) = num::div(n, d) else {
         let reason = OVERFLOW_VALUE.to_owned();
-        return not_tested(ex, &label, result, NotTestedCode::Overflow, reason);
+        return (
+            not_tested(ex, &label, result, NotTestedCode::Overflow, reason),
+            Missing::new(),
+        );
     };
     ex.step(
         format!("{label}: tested value"),
@@ -681,7 +739,10 @@ fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
         Some(r) => {
             let Some(rounded) = round_exact(n, d, r) else {
                 let reason = OVERFLOW_ROUNDED.to_owned();
-                return not_tested(ex, &label, result, NotTestedCode::Overflow, reason);
+                return (
+                    not_tested(ex, &label, result, NotTestedCode::Overflow, reason),
+                    Missing::new(),
+                );
             };
             ex.step(
                 format!("{label}: rounded tested value"),
@@ -709,7 +770,10 @@ fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
     };
     let Ok(headroom) = headroom else {
         let reason = OVERFLOW_HEADROOM.to_owned();
-        return not_tested(ex, &label, result, NotTestedCode::Overflow, reason);
+        return (
+            not_tested(ex, &label, result, NotTestedCode::Overflow, reason),
+            Missing::new(),
+        );
     };
     ex.step(format!("{label}: headroom"), formula, headroom);
 
@@ -784,15 +848,18 @@ fn test(k: usize, c: &Covenant, ex: &mut Explain) -> CovenantResult {
         ex.convention(format!("{label}: {note}"));
         ex.step(format!("{label}: display note"), note, headroom);
     }
-    CovenantResult {
-        outcome,
-        outcome_basis: Some(OutcomeBasis::TestedValue),
-        value: Some(value),
-        value_unrounded,
-        headroom: Some(headroom),
-        headroom_relative,
-        ..result
-    }
+    (
+        CovenantResult {
+            outcome,
+            outcome_basis: Some(OutcomeBasis::TestedValue),
+            value: Some(value),
+            value_unrounded,
+            headroom: Some(headroom),
+            headroom_relative,
+            ..result
+        },
+        Missing::new(),
+    )
 }
 
 pub fn covenants(input: &CovenantsInput) -> Result<(CovenantsOutput, Explain)> {
@@ -842,6 +909,13 @@ pub fn covenants(input: &CovenantsInput) -> Result<(CovenantsOutput, Explain)> {
         "a covenant whose tested value, rounded value or headroom exceeds the range of the \
          decimal type is not tested, never breached; the other covenants are tested",
     );
+    ex.convention(MISSING_CONVENTION);
+    ex.convention(
+        "a covenant whose denominator amount, or whose numerator amount with a positive \
+         denominator, is not given is not tested (missing_input), never breached; a \
+         denominator given zero or negative gives the outcome of if_denominator_not_positive \
+         whatever the numerator",
+    );
     ex.convention(
         "covenants are numbered from 1 in the audit trail; error messages name the zero-based \
          position, covenants[i]",
@@ -853,8 +927,16 @@ pub fn covenants(input: &CovenantsInput) -> Result<(CovenantsOutput, Explain)> {
         breached: 0,
         not_tested: 0,
     };
+    let mut nc = NotComputedList::default();
     for (i, c) in input.covenants.iter().enumerate() {
-        let r = test(i + 1, c, &mut ex);
+        let (r, missing) = test(i, c, &mut ex);
+        if !missing.is_empty() {
+            for output in ["value", "headroom", "headroom_relative"] {
+                nc.push(format!("/covenants/{i}/{output}"), &missing);
+            }
+        }
+        // A covenant tested, or decided by its rule, has every input it needs (R12).
+        nc.observe(&missing);
         let count = match r.outcome {
             Outcome::Passed => &mut summary.passed,
             Outcome::Breached => &mut summary.breached,
@@ -880,6 +962,7 @@ pub fn covenants(input: &CovenantsInput) -> Result<(CovenantsOutput, Explain)> {
         CovenantsOutput {
             covenants: results,
             summary,
+            not_computed: nc.finish(Covenants::ID)?,
         },
         ex,
     ))
@@ -898,8 +981,9 @@ impl Method for Covenants {
         outcome when the denominator is zero or negative, and the rounding of the tested \
         value. Returns for each covenant the outcome (passed, breached, or not tested with a \
         code and the reason), decided exactly, the tested value and the headroom, absolute and \
-        relative to the threshold.";
-    const VERSION: &'static str = "1";
+        relative to the threshold. The amounts are optional: a covenant without the amounts \
+        it needs is not tested (missing_input), never breached, and listed in not_computed.";
+    const VERSION: &'static str = "2";
     type Input = CovenantsInput;
     type Output = CovenantsOutput;
 
@@ -925,7 +1009,7 @@ mod tests {
     fn amount(definition: &str, v: Decimal) -> ContractualAmount {
         ContractualAmount {
             definition: definition.into(),
-            amount: v,
+            amount: Some(v),
         }
     }
 

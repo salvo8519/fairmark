@@ -3,8 +3,16 @@
 Every group takes the flows of the period in ``income_statement`` (where it needs flows), the
 closing balance sheet in ``closing`` and, for average balances, the opening balance sheet in
 ``opening``. Amounts are in currency units; ratios come back as decimal fractions (``0.13`` =
-13%), multiples or days, as each field states. A ratio that cannot be computed has ``value``
-``None`` and the reason in ``not_defined``; the other ratios of the group are still computed.
+13%), multiples or days, as each field states.
+
+Every amount is optional (version 2): give what you have. A ratio whose amounts are not all
+given has ``value`` ``None`` and is listed in ``not_computed`` with the JSON pointers of the
+inputs it lacks; a missing amount is never taken as zero. A ratio that is not meaningful (a zero
+denominator, negative equity) has ``value`` ``None`` and the reason in ``not_defined``. The
+other ratios of the group are still computed. Only the method choices are required:
+``balances``, and ``operating_return_base`` or ``day_basis`` where the group uses them. At
+least one output must have every input it needs: otherwise the engine raises ``FM-E027``,
+whose message lists the sets of inputs that would be enough.
 
 ``covenants`` tests covenants on the definitions of the loan agreement, with an explicit
 outcome per covenant.
@@ -34,9 +42,9 @@ def profitability(
     *,
     balances: Balances,
     operating_return_base: OperatingReturnBase,
-    ebitda_definition: str,
-    income_statement: Mapping[str, Any],
-    closing: Mapping[str, Any],
+    ebitda_definition: str | None = None,
+    income_statement: Mapping[str, Any] | None = None,
+    closing: Mapping[str, Any] | None = None,
     opening: Mapping[str, Any] | None = None,
     leverage: Mapping[str, Any] | None = None,
 ) -> Result:
@@ -44,7 +52,8 @@ def profitability(
 
     ``income_statement``: ``revenue``, ``ebitda``, ``ebit``, ``net_income``. Balance sheets:
     ``equity``, ``total_assets`` and, when ``operating_return_base`` is ``invested_capital``,
-    ``invested_capital``. ``ebitda_definition`` states in words how EBITDA was measured.
+    ``invested_capital``. ``ebitda_definition`` states in words how EBITDA was measured; the
+    EBITDA margin needs it. Every amount is optional.
 
     ``leverage`` (optional) enables the leverage form ROE = [ROI + (ROI - i) x D/E] x (1 - t):
     ``debt_basis`` (``"gross_financial_debt"`` or ``"net_financial_position"``),
@@ -57,6 +66,15 @@ def profitability(
     ...     "ebit": 500, "net_income": 260})
     >>> r.roe["value"]
     Decimal('0.13')
+
+    With net income and equity only, ROE is computed and the rest is listed as not computed:
+
+    >>> r = profitability(balances="closing", operating_return_base="total_assets",
+    ...     income_statement={"net_income": 260}, closing={"equity": 2000})
+    >>> r.roe["value"], r.roa["value"], r.not_computed[1]["output"]
+    (Decimal('0.13'), None, '/roa')
+    >>> r.not_computed[1]["missing"]
+    ['/closing/total_assets', '/income_statement/ebit']
     """
     return run(
         "ratios.profitability",
@@ -75,13 +93,14 @@ def profitability(
 def capital_structure(
     *,
     balances: Balances,
-    closing: Mapping[str, Any],
+    closing: Mapping[str, Any] | None = None,
     opening: Mapping[str, Any] | None = None,
 ) -> Result:
     """D/E, NFP/E, equity ratio, primary and secondary structure margins and coverage.
 
     Balance sheets: ``equity``, ``total_assets``, ``fixed_assets``, ``non_current_liabilities``
-    and ``net_financial_position`` (``gross_debt``, ``cash``, optional ``other_items``).
+    and ``net_financial_position`` (``gross_debt``, ``cash``, optional ``other_items``). Every
+    amount is optional.
     """
     return run(
         "ratios.capital_structure",
@@ -92,12 +111,13 @@ def capital_structure(
 def liquidity(
     *,
     balances: Balances,
-    closing: Mapping[str, Any],
+    closing: Mapping[str, Any] | None = None,
     opening: Mapping[str, Any] | None = None,
 ) -> Result:
     """Current, quick and cash ratios, net working capital and treasury margin.
 
     Balance sheets: ``current_assets``, ``inventories``, ``cash``, ``current_liabilities``.
+    Every amount is optional.
     """
     return run("ratios.liquidity", _payload(balances=balances, closing=closing, opening=opening))
 
@@ -106,14 +126,15 @@ def working_capital(
     *,
     balances: Balances,
     day_basis: Literal[360, 365, "360", "365"],
-    income_statement: Mapping[str, Any],
-    closing: Mapping[str, Any],
+    income_statement: Mapping[str, Any] | None = None,
+    closing: Mapping[str, Any] | None = None,
     opening: Mapping[str, Any] | None = None,
 ) -> Result:
     """Days sales, inventory and payable outstanding and the cash conversion cycle.
 
     ``income_statement``: ``revenue``, ``cost_of_sales``, ``purchases``. Balance sheets:
     ``trade_receivables``, ``inventories``, ``trade_payables``. ``day_basis`` is 360 or 365.
+    Every amount is optional.
     """
     return run(
         "ratios.working_capital",
@@ -130,17 +151,18 @@ def working_capital(
 def debt_service(
     *,
     balances: Balances,
-    ebitda_definition: str,
-    interest_definition: str,
-    income_statement: Mapping[str, Any],
-    closing: Mapping[str, Any],
+    ebitda_definition: str | None = None,
+    interest_definition: str | None = None,
+    income_statement: Mapping[str, Any] | None = None,
+    closing: Mapping[str, Any] | None = None,
     debt_schedule: Mapping[str, Any] | None = None,
     opening: Mapping[str, Any] | None = None,
 ) -> Result:
     """Interest cover, NFP / EBITDA, DSCR per period and LLCR.
 
     ``income_statement``: ``ebitda``, ``ebit``, ``interest``; ``ebitda_definition`` and
-    ``interest_definition`` state in words how EBITDA and interest were measured. Balance sheets:
+    ``interest_definition`` state in words how EBITDA and interest were measured; the ratios on
+    EBITDA and the interest covers need them. Every amount is optional. Balance sheets:
     ``net_financial_position``. ``debt_schedule`` (optional; without it DSCR and LLCR are not
     defined): ``discount_rate`` (cost of debt per period), ``debt_outstanding`` (at the start of
     the first period), optional ``reserve_balance`` (added undiscounted to the LLCR numerator)
@@ -179,8 +201,10 @@ def covenants(*, covenants: Sequence[Mapping[str, Any]]) -> Result:
     ``value`` (the value compared, rounded only when ``rounding`` is given),
     ``value_unrounded`` (with ``rounding``), ``headroom`` (positive on the compliant side,
     negative on the breach side), ``headroom_relative`` (headroom / threshold),
-    ``not_tested_code`` (``"denominator_not_positive"`` or ``"overflow"``) and
-    ``not_tested_reason``.
+    ``not_tested_code`` (``"denominator_not_positive"``, ``"overflow"`` or
+    ``"missing_input"``) and ``not_tested_reason``. An ``amount`` may be omitted: the covenant is
+    then not tested (``"missing_input"``) and listed in ``not_computed``, unless a denominator
+    given zero or negative decides it by its rule.
 
     >>> r = covenants(covenants=[{"name": "net leverage", "test_date": "2026-12-31",
     ...     "numerator": {"definition": "net debt", "amount": 3504},

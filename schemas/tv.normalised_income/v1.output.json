@@ -1,0 +1,93 @@
+{
+  "$defs": {
+    "CapStatus": {
+      "description": "Outcome of the growth cap check (SPEC-0006 R8).",
+      "oneOf": [
+        {
+          "const": "respected",
+          "description": "The growth is at or below the cap.",
+          "type": "string"
+        },
+        {
+          "const": "exceeded",
+          "description": "The growth is above the cap: reported, not refused.",
+          "type": "string"
+        }
+      ]
+    },
+    "GrowthCapCheck": {
+      "description": "The perpetual growth compared with the cap the analyst gave.",
+      "properties": {
+        "cap": {
+          "description": "The cap given, decimal fraction per period.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "growth": {
+          "description": "The perpetual growth checked, decimal fraction per period.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/CapStatus",
+          "description": "`respected` when growth ≤ cap, `exceeded` otherwise."
+        }
+      },
+      "required": [
+        "growth",
+        "cap",
+        "status"
+      ],
+      "type": "object"
+    },
+    "TerminalBasis": {
+      "description": "Whether a terminal value is a value of the whole business or of its equity.",
+      "oneOf": [
+        {
+          "const": "enterprise",
+          "description": "Enterprise value: flows to all capital providers (FCFF), discounted at the WACC;\nmultiples EV/EBITDA, EV/EBIT, EV/Sales.",
+          "type": "string"
+        },
+        {
+          "const": "equity",
+          "description": "Equity value: flows to shareholders (FCFE, dividends), discounted at the cost of\nequity; multiple P/E.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:fairmark:schema:tv.normalised_income:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `tv.normalised_income`.",
+  "properties": {
+    "basis": {
+      "$ref": "#/$defs/TerminalBasis",
+      "description": "`enterprise` or `equity`, as declared."
+    },
+    "growth_cap": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GrowthCapCheck"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Growth compared with the cap (0 when no growth is given); `null` when no cap is given."
+    },
+    "terminal_value": {
+      "description": "Terminal value at N, not discounted, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "terminal_value",
+    "basis",
+    "growth_cap"
+  ],
+  "title": "NormalisedIncomeOutput",
+  "type": "object",
+  "x-fairmark-method": "tv.normalised_income",
+  "x-fairmark-method-version": "1"
+}

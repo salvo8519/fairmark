@@ -65,6 +65,21 @@ pub struct DefaultApplied {
     pub value: serde_json::Value,
     /// Why this value: one line, citing the practice or the rule it follows.
     pub reason: String,
+    /// What the default fills in; only the wording of the convention depends on it, so it is
+    /// not serialised.
+    #[serde(skip)]
+    kind: DefaultKind,
+}
+
+/// A field filled in, or a destination given to an input item by a documented mapping.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+enum DefaultKind {
+    /// The field was not given and is filled in with its documented value.
+    #[default]
+    Field,
+    /// The item was given; its destination is the documented default of the mapping, for
+    /// example a statutory aggregate assigned to its default block (SPEC-0005 R8).
+    Destination,
 }
 
 impl DefaultApplied {
@@ -73,15 +88,33 @@ impl DefaultApplied {
             field: field.into(),
             value,
             reason: reason.to_owned(),
+            kind: DefaultKind::Field,
+        }
+    }
+
+    /// The default destination of an input item that was given, named by its pointer
+    /// (SPEC-0005 R8, as clarified on 2026-11-08): `value` is the destination.
+    pub fn destination(field: impl Into<String>, destination: &str, reason: &str) -> Self {
+        Self {
+            field: field.into(),
+            value: serde_json::Value::String(destination.to_owned()),
+            reason: reason.to_owned(),
+            kind: DefaultKind::Destination,
         }
     }
 
     /// The text reported in `explain.conventions`.
     pub fn convention(&self) -> String {
-        format!(
-            "default: `{}` not given, set to {}: {}",
-            self.field, self.value, self.reason
-        )
+        match self.kind {
+            DefaultKind::Field => format!(
+                "default: `{}` not given, set to {}: {}",
+                self.field, self.value, self.reason
+            ),
+            DefaultKind::Destination => format!(
+                "default: `{}` assigned to {}: {}",
+                self.field, self.value, self.reason
+            ),
+        }
     }
 }
 
@@ -108,11 +141,17 @@ pub struct Meta {
     pub defaults_applied: Vec<DefaultApplied>,
 }
 
-/// The envelope every method returns.
-#[derive(Debug, Clone, Serialize)]
+/// The envelope every method returns. Its JSON Schema, with `value` described by the method's
+/// output schema, is `registry::result_schema`.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct Valuation<T: Serialize> {
+    /// Id of the method that produced the result, for example `dcf.fcff`.
     pub method: String,
+    /// The method's output: its schema is `registry::output_schema`, snapshotted as
+    /// `schemas/<method>/v<N>.output.json`.
     pub value: T,
+    /// How the result was obtained: formula, conventions and every step.
     pub explain: Explain,
+    /// Reproducibility metadata: engine and method versions, status, input hash, defaults.
     pub meta: Meta,
 }

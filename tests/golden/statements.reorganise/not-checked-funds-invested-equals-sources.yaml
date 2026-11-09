@@ -1,0 +1,43 @@
+method: statements.reorganise
+description: 'AC4, R7: the inputs of reconcile-funds-invested-equals-sources with one side of the relation
+  removed pass, and the relation is reported as not checked'
+source: scripts/reference_statements.py (Python decimal, 50 digits, local context), written from Appendices
+  A.1, B.1 and C of specs/0005-statements-reclassification/spec.md and R2 to R15, R22, without reading
+  the Rust code.
+input:
+  years:
+  - label: '2024'
+    reclassified:
+      balance_sheet:
+        operating_fixed_assets: '1020000'
+        operating_working_capital:
+          total: '680000'
+          trade_receivables: '800000'
+          inventories: '400000'
+          other_operating_assets: '180000'
+          trade_payables: '500000'
+          other_operating_liabilities: '200000'
+        operating_provisions: '240000'
+        invested_capital: '1460000'
+        non_operating_assets:
+        - label: Financial fixed assets (B.III)
+          value: '150000'
+        total_funds_invested: '1610000'
+        quasi_equity_items: []
+        net_financial_position:
+          total: '710000'
+          position:
+            gross_debt: '1000000'
+            cash: '240000'
+            other_items:
+            - name: Current financial assets (C.III)
+              amount: '-60000'
+            - name: Derivative liabilities (B)
+              amount: '10000'
+          current: '100000'
+          non_current: '610000'
+        debt_like_items: []
+expect:
+  /years/0/checks/funds_invested_equals_sources/status: not_checked
+  /years/0/form: reclassified
+tolerance: '0'

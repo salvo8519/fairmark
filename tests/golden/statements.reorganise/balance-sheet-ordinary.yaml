@@ -1,0 +1,181 @@
+method: statements.reorganise
+description: 'AC1 (balance sheet part), R4, R12, R13, R15: a company in the ordinary layout, every aggregate,
+  treatments stated once; operating block, non-operating assets, sources, net financial position with
+  composition and maturity, current and non-current block, every check reconciled'
+source: scripts/reference_statements.py (Python decimal, 50 digits, local context), written from Appendices
+  A.1, B.1 and C of specs/0005-statements-reclassification/spec.md and R2 to R15, R22, without reading
+  the Rust code.
+input:
+  years:
+  - label: '2024'
+    date: '2024-12-31'
+    statutory:
+      layout: ordinary
+      balance_sheet:
+        subscribed_capital_unpaid: '0'
+        intangible_assets:
+          total: '120000'
+          gross: '200000'
+          accumulated: '80000'
+        tangible_assets:
+          total: '900000'
+          gross: '1500000'
+          accumulated: '600000'
+        financial_fixed_assets: '150000'
+        fixed_assets: '1170000'
+        inventories: '400000'
+        receivables:
+          total: '950000'
+          beyond_one_year: '50000'
+          trade: '800000'
+        current_financial_assets: '60000'
+        cash: '240000'
+        current_assets: '1650000'
+        prepayments_and_accrued_income:
+          total: '30000'
+        total_assets: '2850000'
+        equity:
+          total: '900000'
+          share_capital: '100000'
+          share_premium: '0'
+          revaluation_reserves: '0'
+          legal_reserve: '20000'
+          statutory_reserves: '0'
+          other_reserves: '380000'
+          cash_flow_hedge_reserve: '0'
+          retained_earnings: '250000'
+          profit_or_loss_for_the_year: '150000'
+          negative_reserve_for_own_shares: '0'
+        provisions:
+          total: '70000'
+          of_which_derivative_liabilities: '10000'
+        employee_severance_indemnity:
+          total: '180000'
+        payables:
+          total: '1650000'
+          beyond_one_year: '600000'
+          financial_debt:
+            total: '900000'
+            beyond_one_year: '550000'
+          shareholder_loans:
+            total: '100000'
+            beyond_one_year: '50000'
+          trade: '500000'
+        accruals_and_deferred_income:
+          total: '50000'
+        total_liabilities_and_equity: '2850000'
+      income_statement:
+        profit_or_loss_for_the_year: '150000'
+  treatments:
+    financial_fixed_assets: non_operating
+    shareholder_loans: financial_debt
+    derivative_liabilities: financial_liability
+expect:
+  /years/0/balance_sheet/operating/operating_fixed_assets: '1020000'
+  /years/0/balance_sheet/operating/operating_working_capital: '680000'
+  /years/0/balance_sheet/operating/trade_working_capital: '700000'
+  /years/0/balance_sheet/operating/operating_provisions: '240000'
+  /years/0/balance_sheet/operating/invested_capital: '1460000'
+  /years/0/balance_sheet/non_operating_assets_total: '150000'
+  /years/0/balance_sheet/total_funds_invested: '1610000'
+  /years/0/balance_sheet/sources/equity: '900000'
+  /years/0/balance_sheet/sources/quasi_equity_items_total: '0'
+  /years/0/balance_sheet/sources/net_financial_position/total: '710000'
+  /years/0/balance_sheet/sources/net_financial_position/current: '100000'
+  /years/0/balance_sheet/sources/net_financial_position/non_current: '610000'
+  /years/0/balance_sheet/sources/debt_like_items_total: '0'
+  /years/0/balance_sheet/sources/total_sources: '1610000'
+  /years/0/balance_sheet/excess_cash: '240000'
+  /years/0/current_non_current/fixed_assets: '1220000'
+  /years/0/current_non_current/current_assets: '1630000'
+  /years/0/current_non_current/inventories: '400000'
+  /years/0/current_non_current/cash: '240000'
+  /years/0/current_non_current/total_assets: '2850000'
+  /years/0/current_non_current/current_liabilities: '1100000'
+  /years/0/current_non_current/non_current_liabilities: '850000'
+  /years/0/form: statutory
+  /years/0/balance_sheet/non_operating_assets/0/label: Financial fixed assets (B.III)
+  /years/0/balance_sheet/non_operating_assets/0/value: '150000'
+  /years/0/balance_sheet/sources/net_financial_position/position/gross_debt: '1000000'
+  /years/0/balance_sheet/sources/net_financial_position/position/cash: '240000'
+  /years/0/balance_sheet/sources/net_financial_position/position/other_items/0/name: Current financial
+    assets (C.III)
+  /years/0/balance_sheet/sources/net_financial_position/position/other_items/0/amount: '-60000'
+  /years/0/balance_sheet/sources/net_financial_position/position/other_items/1/name: Derivative liabilities
+    (B)
+  /years/0/balance_sheet/sources/net_financial_position/position/other_items/1/amount: '10000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/0/label: Financial debt (D)
+  /years/0/balance_sheet/sources/net_financial_position/composition/0/source: /years/0/statutory/balance_sheet/payables/financial_debt
+  /years/0/balance_sheet/sources/net_financial_position/composition/0/amount: '900000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/0/current: '350000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/0/non_current: '550000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/1/label: Shareholder loans (D)
+  /years/0/balance_sheet/sources/net_financial_position/composition/1/source: /years/0/statutory/balance_sheet/payables/shareholder_loans
+  /years/0/balance_sheet/sources/net_financial_position/composition/1/amount: '100000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/1/current: '50000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/1/non_current: '50000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/2/label: Cash (C.IV)
+  /years/0/balance_sheet/sources/net_financial_position/composition/2/source: /years/0/statutory/balance_sheet/cash
+  /years/0/balance_sheet/sources/net_financial_position/composition/2/amount: '-240000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/2/current: '-240000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/2/non_current: '0'
+  /years/0/balance_sheet/sources/net_financial_position/composition/3/label: Current financial assets
+    (C.III)
+  /years/0/balance_sheet/sources/net_financial_position/composition/3/source: /years/0/statutory/balance_sheet/current_financial_assets
+  /years/0/balance_sheet/sources/net_financial_position/composition/3/amount: '-60000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/3/current: '-60000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/3/non_current: '0'
+  /years/0/balance_sheet/sources/net_financial_position/composition/4/label: Derivative liabilities (B)
+  /years/0/balance_sheet/sources/net_financial_position/composition/4/source: /years/0/statutory/balance_sheet/provisions/of_which_derivative_liabilities
+  /years/0/balance_sheet/sources/net_financial_position/composition/4/amount: '10000'
+  /years/0/balance_sheet/sources/net_financial_position/composition/4/current: '0'
+  /years/0/balance_sheet/sources/net_financial_position/composition/4/non_current: '10000'
+  /years/0/checks/intangible_assets_net/status: reconciled
+  /years/0/checks/tangible_assets_net/status: reconciled
+  /years/0/checks/fixed_assets_total/status: reconciled
+  /years/0/checks/current_assets_total/status: reconciled
+  /years/0/checks/equity_total/status: reconciled
+  /years/0/checks/total_assets_total/status: reconciled
+  /years/0/checks/total_liabilities_and_equity_total/status: reconciled
+  /years/0/checks/total_assets_equals_total_liabilities_and_equity/status: reconciled
+  /years/0/checks/receivables_beyond_one_year/status: reconciled
+  /years/0/checks/receivables_of_which/status: reconciled
+  /years/0/checks/payables_beyond_one_year/status: reconciled
+  /years/0/checks/payables_of_which/status: reconciled
+  /years/0/checks/financial_debt_beyond_one_year/status: reconciled
+  /years/0/checks/shareholder_loans_beyond_one_year/status: reconciled
+  /years/0/checks/provisions_beyond_one_year/status: not_checked
+  /years/0/checks/provisions_of_which/status: reconciled
+  /years/0/checks/employee_severance_indemnity_beyond_one_year/status: not_checked
+  /years/0/checks/prepayments_and_accrued_income_beyond_one_year/status: not_checked
+  /years/0/checks/accruals_and_deferred_income_beyond_one_year/status: not_checked
+  /years/0/checks/profit_for_the_year/status: reconciled
+  /years/0/checks/financial_fixed_assets_split/status: not_checked
+  /years/0/checks/shareholder_loans_split/status: not_checked
+  /years/0/checks/funds_invested_equals_sources/status: reconciled
+expect_meta:
+  /defaults_applied/0/field: /years/0/statutory/balance_sheet/intangible_assets
+  /defaults_applied/0/value: operating_fixed_assets
+  /defaults_applied/1/field: /years/0/statutory/balance_sheet/tangible_assets
+  /defaults_applied/1/value: operating_fixed_assets
+  /defaults_applied/2/field: /years/0/statutory/balance_sheet/receivables
+  /defaults_applied/2/value: operating_working_capital
+  /defaults_applied/3/field: /years/0/statutory/balance_sheet/current_financial_assets
+  /defaults_applied/3/value: net_financial_position_other_financial_asset
+  /defaults_applied/4/field: /years/0/statutory/balance_sheet/cash
+  /defaults_applied/4/value: net_financial_position_cash
+  /defaults_applied/5/field: /years/0/statutory/balance_sheet/prepayments_and_accrued_income
+  /defaults_applied/5/value: operating_working_capital
+  /defaults_applied/6/field: /years/0/statutory/balance_sheet/provisions
+  /defaults_applied/6/value: operating_provisions
+  /defaults_applied/7/field: /years/0/statutory/balance_sheet/employee_severance_indemnity
+  /defaults_applied/7/value: operating_provisions
+  /defaults_applied/8/field: /years/0/statutory/balance_sheet/payables
+  /defaults_applied/8/value: operating_working_capital
+  /defaults_applied/9/field: /years/0/statutory/balance_sheet/accruals_and_deferred_income
+  /defaults_applied/9/value: operating_working_capital
+  /defaults_applied/10/field: /treatments/write_downs_of_receivables
+  /defaults_applied/10/value: operating
+  /defaults_applied/11/field: /treatments/write_downs_of_fixed_assets
+  /defaults_applied/11/value: operating
+tolerance: '0'

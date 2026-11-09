@@ -20,6 +20,14 @@ struct Case {
     /// `expect_error` with a stable error code.
     #[serde(default)]
     expect: std::collections::BTreeMap<String, String>,
+    /// Expected fields of `meta` (keys are JSON Pointers into `meta`, for example
+    /// `/defaults_applied/0/field`), compared like `expect`; optional.
+    #[serde(default)]
+    expect_meta: std::collections::BTreeMap<String, String>,
+    /// Expected lengths of arrays of `value` (keys are JSON Pointers, values counts), so that a
+    /// list such as `/not_computed` has no entry beyond those asserted; optional.
+    #[serde(default)]
+    expect_length: std::collections::BTreeMap<String, String>,
     #[serde(default)]
     expect_error: Option<String>,
     #[serde(default)]
@@ -77,14 +85,32 @@ fn golden_cases() {
         {
             failures.push(format!("{}: no conventions reported", file.display()));
         }
+        for (field, count) in &case.expect_length {
+            let got = out["value"]
+                .pointer(field)
+                .and_then(|v| v.as_array())
+                .map(Vec::len);
+            if got.map(|n| n.to_string()).as_deref() != Some(count.as_str()) {
+                failures.push(format!(
+                    "{} [{}] {field}: length {got:?}, want {count}",
+                    file.display(),
+                    case.description
+                ));
+            }
+        }
         let tolerance = case.tolerance.as_deref().expect("tolerance");
-        for (field, expected) in &case.expect {
-            // A key starting with '/' is an RFC 6901 pointer into `value` (tables, nested
-            // results); any other key is a top-level field.
+        let expectations = case
+            .expect
+            .iter()
+            .map(|(f, e)| ("value", f, e))
+            .chain(case.expect_meta.iter().map(|(f, e)| ("meta", f, e)));
+        for (part, field, expected) in expectations {
+            // A key starting with '/' is an RFC 6901 pointer into `value` (or `meta` for
+            // `expect_meta`); any other key is a top-level field.
             let found = if field.starts_with('/') {
-                out["value"].pointer(field)
+                out[part].pointer(field)
             } else {
-                out["value"].get(field.as_str())
+                out[part].get(field.as_str())
             };
             // A missing field always fails, even when null is expected: a typo in a key must
             // never pass.

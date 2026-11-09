@@ -47,9 +47,9 @@ assert r.cash_conversion_cycle["value"] == Decimal("69.35")
 | --- | --- | --- |
 | `balances` | `closing`, or `average` of the opening and closing balance sheets | required |
 | `day_basis` | `"360"` or `"365"` | required |
-| `income_statement` | `revenue`, `cost_of_sales`, `purchases` of the year, currency units | required |
-| `closing` | `trade_receivables`, `inventories`, `trade_payables`, currency units | required |
-| `opening` | Same fields at the start of the period | required with average balances, not used otherwise |
+| `income_statement` | `revenue`, `cost_of_sales`, `purchases` of the year, currency units | each amount optional |
+| `closing` | `trade_receivables`, `inventories`, `trade_payables`, currency units | each amount optional |
+| `opening` | Same fields at the start of the period | used with average balances, not used otherwise; each amount optional |
 
 Amounts are used as given: state trade receivables and revenue on the same VAT basis, and trade
 payables and purchases likewise.
@@ -61,9 +61,30 @@ payables and purchases likewise.
 | `days_sales_outstanding` | Trade receivables × days / revenue, days |
 | `days_inventory_outstanding` | Inventories × days / cost of sales, days |
 | `days_payable_outstanding` | Trade payables × days / purchases, days |
-| `cash_conversion_cycle` | DSO + DIO − DPO, days; not defined when one of the three is not |
+| `cash_conversion_cycle` | DSO + DIO − DPO, days; not defined when one of the three is not, not computed when one of the three is not computed |
+| `not_computed` | Outputs not computed because an input is missing, in the order of the outputs: `{"output", "missing", "reason"}`, with `output` the JSON pointer of the output in the result value and `missing` the sorted JSON pointers of the inputs it lacks; empty when every output is computed |
 
 Ratios are objects `{"value": ..., "not_defined": ...}`, as in every ratio group.
+
+## Partial input
+
+Every amount is optional (version 2, SPEC-0007 R7). Give what the statements show: each output
+is computed when its own amounts are given; otherwise it is null and listed in `not_computed`
+with the JSON pointers of the inputs it lacks. A missing amount is never taken as zero and is
+not an error by itself. The floor: at least one output must have every input it needs (a ratio
+not defined by its own inputs counts); below it the input is refused with `FM-E027`, whose
+message lists the alternative sets of inputs that would lift it, so a result made only of nulls
+is never returned. With average balances an amount needs both `/closing/<field>`
+and `/opening/<field>`. A given amount that already makes a ratio not defined (a zero
+denominator, for example) decides first: the ratio is then not defined, with its reason, and not
+listed.
+
+| Output | Inputs it needs |
+| --- | --- |
+| `days_sales_outstanding` | trade receivables, revenue |
+| `days_inventory_outstanding` | inventories, cost of sales |
+| `days_payable_outstanding` | trade payables, purchases |
+| `cash_conversion_cycle` | the three above |
 
 ## Conventions (explicit, reported in `explain.conventions`)
 
@@ -79,7 +100,8 @@ Ratios are objects `{"value": ..., "not_defined": ...}`, as in every ratio group
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | Average balances without `opening`; a day basis other than 360 or 365; a field is missing or unknown |
+| `FM-E001` | `balances` or `day_basis` missing; a day basis other than 360 or 365; an unknown field; an amount that is not a decimal |
+| `FM-E027` | Below the minimum input: no output has every input it needs; the message lists the alternative sets of inputs (any one is enough) |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 
 ## Accuracy
@@ -93,3 +115,5 @@ the decimal type.
   days, average balances on 360 days, zero purchases), whose expected values come from
   `scripts/reference_ratios.py` (Python decimal at 50 digits), with the closed form written in
   each file.
+- A golden case without purchases and a seeded random comparison on partial inputs, against
+  `scripts/reference_ratios_partial.py`.

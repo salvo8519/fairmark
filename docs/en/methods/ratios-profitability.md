@@ -113,11 +113,11 @@ assert lev.roe_leverage["roe"]["value"] == Decimal("0.13")  # 0.2 × (1 − 0.35
 | --- | --- | --- |
 | `balances` | `closing`, or `average` of the opening and closing balance sheets | required |
 | `operating_return_base` | `invested_capital` or `total_assets`: the capital of ROI and of the capital turnover | required |
-| `ebitda_definition` | How EBITDA was measured, in words, not empty; echoed in the conventions | required |
-| `income_statement` | `revenue`, `ebitda`, `ebit`, `net_income` of the period, currency units | required |
-| `closing` | `equity`, `total_assets`; with an invested capital base, `invested_capital`; with `leverage`, `debt` (D on the chosen basis); currency units | required |
-| `opening` | Same fields at the start of the period | required with average balances, not used otherwise |
-| `leverage` | `debt_basis` (`gross_financial_debt` or `net_financial_position`, no default), `financial_charges`, `taxes`, `pre_tax_income` of the period, currency units | optional: without it the leverage form is not defined |
+| `ebitda_definition` | How EBITDA was measured, in words, not empty when given; echoed in the conventions | optional: without it the EBITDA margin is not computed |
+| `income_statement` | `revenue`, `ebitda`, `ebit`, `net_income` of the period, currency units | each amount optional |
+| `closing` | `equity`, `total_assets`; with an invested capital base, `invested_capital`; with `leverage`, `debt` (D on the chosen basis); currency units | each amount optional |
+| `opening` | Same fields at the start of the period | used with average balances, not used otherwise; each amount optional |
+| `leverage` | `debt_basis` (`gross_financial_debt` or `net_financial_position`, no default, required in the block), `financial_charges`, `taxes`, `pre_tax_income` of the period, currency units | optional: without it the leverage form is not defined; each amount optional |
 
 ## Outputs
 
@@ -135,6 +135,43 @@ is not defined, and `not_defined` then gives the reason.
 | `capital_turnover` | Revenue / operating return base, times per period |
 | `roe_three_factor` | `net_margin`, `asset_turnover`, `equity_multiplier` and their product `roe` |
 | `roe_leverage` | `roi`, `cost_of_debt` (i), `debt_to_equity` (D/E), `leverage_effect`, `pre_tax_roe`, `tax_rate` (t) and `roe` |
+| `not_computed` | Outputs not computed because an input is missing, in the order of the outputs: `{"output", "missing", "reason"}`, with `output` the JSON pointer of the output in the result value and `missing` the sorted JSON pointers of the inputs it lacks; empty when every output is computed |
+
+## Partial input
+
+Every amount is optional (version 2, SPEC-0007 R7). Give what the statements show: each output
+is computed when its own amounts are given; otherwise it is null and listed in `not_computed`
+with the JSON pointers of the inputs it lacks. A missing amount is never taken as zero and is
+not an error by itself. The floor: at least one output must have every input it needs (a ratio
+not defined by its own inputs counts); below it the input is refused with `FM-E027`, whose
+message lists the alternative sets of inputs that would lift it, so a result made only of nulls
+is never returned. With average balances an amount needs both `/closing/<field>`
+and `/opening/<field>`. A given amount that already makes a ratio not defined (a zero
+denominator, for example) decides first: the ratio is then not defined, with its reason, and not
+listed.
+
+| Output | Inputs it needs |
+| --- | --- |
+| `roe` | net income, equity |
+| `roi`, `capital_turnover` | EBIT (ROI) or revenue (turnover), and the operating return base |
+| `roa` | EBIT, total assets |
+| `ros`, `ebit_margin` | EBIT, revenue |
+| `ebitda_margin` | EBITDA, `ebitda_definition`, revenue |
+| `roe_three_factor` | net margin: net income, revenue; asset turnover: revenue, total assets; equity multiplier: total assets, equity; `roe`: the three factors |
+| `roe_leverage` | the `leverage` block (each output listed with `/leverage` when it is absent, with the version 1 reason "leverage inputs not given"); i: financial charges, D; D/E: D, equity; t: taxes, pre-tax income; leverage effect and pre-tax ROE: ROI, i, D/E; `roe`: pre-tax ROE, t |
+
+```python
+r = fm.ratios.profitability(
+    balances="closing",
+    operating_return_base="total_assets",
+    income_statement={"net_income": 260},
+    closing={"equity": 2000},
+)
+assert r.roe["value"] == Decimal("0.13")  # 260 / 2000
+assert r.roa["value"] is None
+assert r.not_computed[1]["output"] == "/roa"
+assert r.not_computed[1]["missing"] == ["/closing/total_assets", "/income_statement/ebit"]
+```
 
 ## Conventions (explicit, reported in `explain.conventions`)
 
@@ -142,7 +179,7 @@ is not defined, and `not_defined` then gives the reason.
 | --- | --- | --- |
 | Balances | closing, average of opening and closing | required |
 | Operating return base | invested capital, total assets; an invested capital given with a total-assets base is reported as not used | required |
-| EBITDA definition | as given by the analyst, non-empty | required |
+| EBITDA definition | as given by the analyst, non-empty | optional; without it the EBITDA margin is not computed |
 | ROS | EBIT / revenue, equal to the EBIT margin | fixed |
 | ROA | EBIT / total assets | fixed |
 | Leverage form | D on `debt_basis`; i = financial charges / D; t = taxes / pre-tax income (effective); ROI on the operating return base; `debt` given without `leverage` is reported as not used | `debt_basis` required when `leverage` is given |
@@ -157,7 +194,8 @@ ROS is EBIT over revenue, so it equals the EBIT margin; both are returned so tha
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | Average balances without `opening`; `invested_capital` missing with an invested capital base; `debt` missing or `debt_basis` missing with `leverage`; an empty or blank `ebitda_definition`; a field is missing or unknown |
+| `FM-E001` | `balances` or `operating_return_base` missing; `debt_basis` missing in a `leverage` block; an empty or blank `ebitda_definition`; an unknown field; an amount that is not a decimal |
+| `FM-E027` | Below the minimum input: no output has every input it needs; the message lists the alternative sets of inputs (any one is enough) |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 
 ## Accuracy
@@ -172,3 +210,6 @@ ROE in the 28th digit.
   operating return bases, negative equity, negative invested capital, zero revenue, the
   leverage form on both bases of D and with zero pre-tax income), whose expected values come from `scripts/reference_ratios.py` (Python
   decimal at 50 digits), with the closed form written in each file.
+- Golden cases with partial input (ROE only, EBITDA without its definition, the invested capital,
+  D or the opening balance sheet not given) and a seeded random comparison on partial inputs,
+  against `scripts/reference_ratios_partial.py`.

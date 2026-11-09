@@ -19,6 +19,18 @@ updates:
     commit-message: { prefix: "build", include: scope }
     ignore:
       - dependency-name: maturin
+  # Container images of the Release workflow, pinned by digest in the FROM line of
+  # .github/release/images/*.Dockerfile: Dependabot updates the digest when the tag moves.
+  # The Python versions of the smoke images follow SMOKE_PYTHONS in release.yml and ci.yml:
+  # change them by hand, so version updates of python are ignored (digest updates are not).
+  - package-ecosystem: docker
+    directory: "/.github/release/images"
+    schedule: { interval: weekly }
+    commit-message: { prefix: "ci", include: scope }
+    groups: { release-images: { patterns: ["*"] } }
+    ignore:
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule: { interval: weekly }

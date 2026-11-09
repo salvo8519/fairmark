@@ -1,0 +1,28 @@
+method: ratios.liquidity
+description: 'R2, R7: average balances with the opening cash missing: only the cash ratio not computed'
+source: 'scripts/reference_ratios_partial.py (Python decimal, 50 digits, local context), written from
+  the formulas and the computability tables of specs/0007-ratios-covenants/spec.md (amendment of 2026-11-09).
+  Averages: current assets 2400, inventories 850, current liabilities 1950; current ratio 2400 / 1950;
+  quick ratio 1550 / 1950.'
+input:
+  balances: average
+  closing:
+    current_assets: '2500'
+    inventories: '900'
+    cash: '200'
+    current_liabilities: '2000'
+  opening:
+    current_assets: '2300'
+    inventories: '800'
+    current_liabilities: '1900'
+expect:
+  /current_ratio/value: '1.2307692307692307692307692307692307692307692307692'
+  /quick_ratio/value: '0.79487179487179487179487179487179487179487179487179'
+  /cash_ratio/value: 'null'
+  /net_working_capital: '450'
+  /treasury_margin: '-400'
+  /not_computed/0/output: '/cash_ratio'
+  /not_computed/0/missing/0: '/opening/cash'
+expect_length:
+  /not_computed: '1'
+tolerance: '0.00000000000000000001'

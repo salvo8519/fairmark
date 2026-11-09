@@ -12,6 +12,10 @@ built from the engine's JSON Schemas, so they always match the implementation.
 | By provider name | `fm.tools.for_provider("ollama")` | the right format for that provider |
 | Anything else | `fm.tools.definitions(portable=False)` | `name`, `description`, `parameters` (JSON Schema) |
 
+Every function above also takes two keyword options, both off by default:
+`compact=True` (smaller schemas, see [Compact profile](#compact-profile)) and
+`areas=[...]` (only some tools, see [Tool subsets by area](#tool-subsets-by-area)).
+
 Supported providers and complete examples: [LLM providers](providers.md).
 
 ## Executing calls
@@ -48,3 +52,76 @@ used for Gemini and local open-weight runtimes) declares decimals as strings, tu
 values (`X or null`) into plain `X` (an optional field is simply not required), and removes
 `pattern` and `additionalProperties`. Dates are ISO 8601 strings (`"2026-06-30"`) in both
 variants.
+
+## Enum values and their meaning
+
+Many fields take one of a fixed set of values, each with a meaning: the statutory codes of
+`statements.reorganise` (`A1`, `B6`, `B7`, ...), `period_0` and `period_1` in
+`series.project`, the amortisation types of `loans.amortisation_schedule`. The engine
+documents each value separately; the tool definition turns the list into a plain `enum` and
+adds the meaning of every value to the description of the field, so nothing is lost:
+
+```text
+`french` (constant instalment), `fixed_amortisation_schedule` (constant principal portion)
+or `bullet` (principal repaid with the last instalment). Values: `french` (Constant
+instalment (French amortisation, "ammortamento alla francese")); `fixed_amortisation_schedule`
+(Constant principal portion ("ammortamento all'italiana")); `bullet` (Interest only; the full
+principal is repaid with the last instalment).
+```
+
+## Examples
+
+Every definition carries input examples, taken from the golden cases of the method:
+
+- the minimal example: a small, typical input;
+- where useful, a maximal example: an input that shows most of the optional fields.
+
+In the default definitions they are in the JSON Schema `examples` keyword of the parameters
+(`[minimal, maximal]`). In the portable variant, where some providers reject keywords they do
+not know, they are written in the description instead ("Minimal input example: {...}"), with
+every decimal written as a string, as the portable schema requires.
+`fm.tools.examples("dcf.fcff")` returns them as data.
+
+Which golden case provides each example is set in one table, `TABLE` in
+`scripts/tool_examples.py`; `python scripts/tool_examples.py` copies the inputs into
+`python/fairmark/tool_examples.json` (generated, never edited by hand, part of
+`just generate`). The test suite checks that every example validates against the method's
+schema and runs through the engine without error.
+
+## Compact profile
+
+`compact=True` produces smaller definitions for clients with a limited context. It removes
+only annotations, never a validation keyword, so it accepts exactly the same inputs as the
+definition without `compact`, and it keeps the meaning of every enum value:
+
+- a description of 40 characters or more, or a list of enum values, already given earlier in
+  the same tool is given once: later occurrences of the same field carry no description;
+- `"default": null` is removed (absent and null mean the same);
+- non-standard `format` values (`uint32`) are removed; `minimum` still applies;
+- in the portable variant, the decimal hint repeated on every amount is stated once in the
+  tool description, where that is shorter;
+- only the minimal example is kept.
+
+The decimal `pattern` stays on every amount, so an amount with thousands separators
+(`"1,200"`) or a percent sign (`"5%"`) is refused before the call, as the engine would refuse
+it.
+
+The saving is largest for the largest methods: about a sixth for `statements.reorganise` and
+a tenth for `dcf.fcff`, a third and a fifth in the portable variant; small methods change
+little. Most of a large schema is documentation that is not repeated, and the compact profile
+keeps it.
+
+## Tool subsets by area
+
+A client that needs only some methods can ask for the tools of some areas. The area is the
+part of the method id before the dot:
+
+```python
+fm.tools.areas()                                   # ["analysis", "coc", "dates", "dcf", ...]
+fm.tools.definitions(areas=["dcf", "tvm"])         # only dcf.* and tvm.* tools
+fm.tools.for_provider("ollama", compact=True, areas=["ratios"])
+```
+
+An empty selection or an unknown area raises `ValueError` with the list of known areas.
+`dispatch` still executes every tool: a subset reduces what the model sees, not what Fairmark
+can run.

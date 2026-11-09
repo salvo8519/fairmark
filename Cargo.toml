@@ -29,6 +29,12 @@ serde_norway = "0.9"
 # file persistence is disabled per test via config() in crates/fairmark-core/tests/properties.rs.
 proptest = { version = "1.12", default-features = false, features = ["std"] }
 
+# Mutation testing only (.cargo/mutants.toml): the test profile without debug information,
+# for faster incremental builds of each mutant. Never used for shipped artefacts.
+[profile.mutants]
+inherits = "test"
+debug = "none"
+
 [profile.release]
 lto = "thin"
 codegen-units = 1

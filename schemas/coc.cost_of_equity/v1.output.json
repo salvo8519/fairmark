@@ -1,0 +1,25 @@
+{
+  "$id": "urn:fairmark:schema:coc.cost_of_equity:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `coc.cost_of_equity`.",
+  "properties": {
+    "cost_of_equity": {
+      "description": "Cost of equity, annual decimal fraction.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "levered_beta": {
+      "description": "Levered beta used (given or relevered).",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "cost_of_equity",
+    "levered_beta"
+  ],
+  "title": "CostOfEquityOutput",
+  "type": "object",
+  "x-fairmark-method": "coc.cost_of_equity",
+  "x-fairmark-method-version": "1"
+}

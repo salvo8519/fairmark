@@ -18,6 +18,11 @@ description: Author a golden test case for a Fairmark method with expected value
    expect: { field: "value" }
    tolerance: "0.000000001"
    ```
+   Keys of `expect` are top-level fields or JSON Pointers (`/years/0/total`) into the result
+   `value`. To assert documented defaults, add `expect_meta` with JSON Pointers into `meta`,
+   for example `/defaults_applied/0/field`; it is compared like `expect` and protected like it.
+   To assert that a list has no entry beyond those asserted, add `expect_length` with JSON
+   Pointers into `value` and the expected count, for example `/not_computed: "3"`.
 3. Use only anonymised or synthetic data.
 4. Run `cargo test -p fairmark-core --test golden` and `uv run pytest python/tests/test_golden.py`.
 5. Existing golden files are protected by a hook: never edit them; propose a

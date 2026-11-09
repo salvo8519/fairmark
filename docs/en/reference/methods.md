@@ -453,7 +453,7 @@ Value of operations, enterprise value and equity value from FCFF discounted at t
 | `timing` | `end_of_period` \| `mid_period` | no |  | `end_of_period` (flow k at t = k) or `mid_period` (t = k − 0.5). Default: `end_of_period`, reported. |
 | `terminal_discount_time` |  | no |  | With `mid_period` timing and a terminal value to discount, required: `horizon` (terminal value at t = N) or `mid_period` (t = N − 0.5). Refused with `end_of_period` and with no terminal value. |
 | `terminal` | object | no |  | The terminal option, an object with exactly one key: a technique by its method id, for example `{"tv.gordon": {"growth", "first_flow", ...}}` (`tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income` or `tv.liquidation`, on the enterprise basis); `{"given": {"value": ...}}`, a terminal value at N given by the analyst (the value of operations at N); or `{"none": {}}`, no terminal value. Default: `none`, the value covers the given flows only, reported with a warning. |
-| `net_financial_position` |  | no |  | Net financial position at the valuation date (SPEC-0007): gross debt − cash + signed other items, positive for net debt, subtracted from enterprise value. Default: none, reported. |
+| `net_financial_position` |  | no |  | Net financial position at the valuation date (SPEC-0007): gross debt − cash + signed other items, positive for net debt, subtracted from enterprise value. Default: zero, reported in `meta.defaults_applied` with a warning that the equity value then equals the enterprise value (less the debt-like items and non-controlling interests); a net financial position given, even zero, carries neither. |
 | `non_operating_assets` | list of object | no |  | Non-operating assets at the valuation date, each a label and a value in currency units (zero or more), added to the value of operations. Default: none, reported. |
 | `debt_like_items` | list of object | no |  | Debt-like items (debt equivalents) at the valuation date, for example unfunded pension obligations or provisions, each a label, a value in currency units (zero or more) and its measurement basis, subtracted from enterprise value. Do not repeat an item already among the `other_items` of the net financial position. Default: none, reported. |
 | `non_controlling_interests` | list of object | no |  | Non-controlling interests (minority interests) at the valuation date, each a label, a value in currency units (zero or more) and its measurement basis (for example `book_value` or `fair_value`), subtracted from enterprise value. Default: none, reported. |
@@ -500,81 +500,93 @@ FCFF per period from EBIT, taxes on EBIT (a rate or amounts), depreciation and a
 | `negative_ebit` |  | no |  | Treatment of a negative EBIT in the rate form: `credit` (taxes = rate × EBIT) or `zero` (no tax; with the financing lines the interest tax shield is limited to the taxable income available, rate × min(interest, max(EBIT, 0)), so the taxes never fall below zero). Required with `notional_tax_rate`, there is no default; not accepted with `operating_taxes`. Tax loss carry-forwards are not modelled. |
 | `interest_tax_rate` | decimal | no |  | Tax rate t of the interest tax shield in the FCFE, decimal fraction from 0 to below 1. Required when the taxes are given as `operating_taxes` and the financing lines are given; not accepted otherwise (with `notional_tax_rate` the shield uses that rate). |
 
+## `statements.reorganise`
+
+**Financial statements — operating and financing reorganisation** · method version 1 · status preview · tool `fairmark_statements_reorganise`
+
+Reorganises statutory aggregates (art. 2424, 2425, abridged art. 2435-bis) or totals already reclassified, for one or more financial years, into invested capital, non-operating assets, equity, quasi-equity, the net financial position (SPEC-0007 type) and debt-like items, plus current and non-current amounts for the ratios, and the income statement by nature reorganised into value of production, value added, EBITDA, operating profit, investing result, profit before financing and taxes (subtotals aligned with IFRS 18), non-recurring and financing results, profit before tax and net income, with its reconciliations with A − B; best effort: each output is computed when its inputs are given, otherwise null and listed in `not_computed` with the missing input pointers; totals are checked exactly (FM-E026).
+
+| Input | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `years` | list of object | yes |  | One or more financial years, oldest first (R2), each in the `statutory` or the `reclassified` form. When two consecutive entries both have a `date`, the later must be one financial year after the earlier. |
+| `treatments` | object | no | `{"financial_fixed_assets": null, "shareholder_loans": null, "derivative_liabilities": null, "write_downs_of_receivables": null}` | Treatments stated once for the call, applied to every statutory year (R8, R9, R17). A treatment is needed only for an aggregate given and not zero. Default: none, except `write_downs_of_receivables` and `write_downs_of_fixed_assets`, which default to `operating`, filled in and listed in `meta.defaults_applied` whenever a statutory year gives an income statement (A4). Each treatment not given reads as not given; the `null` values of the schema default mean "not given", not a choice. |
+| `adjustments` | list of  | no | `[]` | Labelled adjustments of Appendix C, stated once for the call, each with one amount per year (R10). They apply to statutory entries only. Default: none. |
+
 ## `ratios.profitability`
 
-**Ratios — profitability** · method version 1 · status preview · tool `fairmark_ratios_profitability`
+**Ratios — profitability** · method version 2 · status preview · tool `fairmark_ratios_profitability`
 
-ROE, ROI, ROA, ROS, EBITDA and EBIT margins, capital turnover and the ROE decomposition in three factors and in the leverage form, on closing or average balances. A ratio that cannot be computed is reported as not defined with the reason.
+ROE, ROI, ROA, ROS, EBITDA and EBIT margins, capital turnover and the ROE decomposition in three factors and in the leverage form, on closing or average balances. Every amount is optional: a ratio whose amounts are not all given is null and listed in not_computed with the inputs it lacks; a ratio that is not meaningful is reported as not defined with the reason.
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `balances` | `closing` \| `average` | yes |  | Balances used by the ratios: `closing`, or `average` of opening and closing. |
 | `operating_return_base` | `invested_capital` \| `total_assets` | yes |  | Capital on which ROI and the capital turnover are measured. |
-| `ebitda_definition` | string | yes |  | How EBITDA was measured, in words (for example "reported EBITDA, no adjustments"); echoed in the conventions. |
-| `income_statement` | object | yes |  | Flows of the period. |
-| `closing` | object | yes |  | Balance sheet at the end of the period. |
-| `opening` |  | no |  | Balance sheet at the start of the period. Required with average balances; not used with closing balances. |
+| `ebitda_definition` | string \| null | no |  | How EBITDA was measured, in words (for example "reported EBITDA, no adjustments"); echoed in the conventions. Absent or null: the EBITDA margin is not computed; given blank: refused. |
+| `income_statement` |  | no |  | Flows of the period. Absent or null: no flow given. |
+| `closing` |  | no |  | Balance sheet at the end of the period. Absent or null: no amount given. |
+| `opening` |  | no |  | Balance sheet at the start of the period, used with average balances; not used with closing balances. Absent with average balances: the balance-sheet ratios are not computed. |
 | `leverage` |  | no |  | Inputs of the leverage form of the ROE decomposition. Absent: the leverage form is not defined and the other ratios are computed. |
 
 ## `ratios.capital_structure`
 
-**Ratios — capital structure** · method version 1 · status preview · tool `fairmark_ratios_capital_structure`
+**Ratios — capital structure** · method version 2 · status preview · tool `fairmark_ratios_capital_structure`
 
-Debt to equity, net financial position to equity, equity ratio, primary and secondary structure margins and fixed-asset coverage, with the net financial position and its composition stated. A ratio that cannot be computed is reported as not defined with the reason.
+Debt to equity, net financial position to equity, equity ratio, primary and secondary structure margins and fixed-asset coverage, with the net financial position and its composition stated. Every amount is optional: an output whose amounts are not all given is null and listed in not_computed with the inputs it lacks; a ratio that is not meaningful is reported as not defined with the reason.
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `balances` | `closing` \| `average` | yes |  | Balances used by the ratios: `closing`, or `average` of opening and closing. |
-| `closing` | object | yes |  | Balance sheet at the end of the period. |
-| `opening` |  | no |  | Balance sheet at the start of the period. Required with average balances; not used with closing balances. |
+| `closing` |  | no |  | Balance sheet at the end of the period. Absent or null: no amount given. |
+| `opening` |  | no |  | Balance sheet at the start of the period, used with average balances; not used with closing balances. Absent with average balances: no output is computed. |
 
 ## `ratios.liquidity`
 
-**Ratios — liquidity** · method version 1 · status preview · tool `fairmark_ratios_liquidity`
+**Ratios — liquidity** · method version 2 · status preview · tool `fairmark_ratios_liquidity`
 
-Current, quick and cash ratios, net working capital and treasury margin, on closing or average balances. A ratio that cannot be computed is reported as not defined with the reason.
+Current, quick and cash ratios, net working capital and treasury margin, on closing or average balances. Every amount is optional: an output whose amounts are not all given is null and listed in not_computed with the inputs it lacks; a ratio with a zero denominator is reported as not defined with the reason.
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `balances` | `closing` \| `average` | yes |  | Balances used by the ratios: `closing`, or `average` of opening and closing. |
-| `closing` | object | yes |  | Balance sheet at the end of the period. |
-| `opening` |  | no |  | Balance sheet at the start of the period. Required with average balances; not used with closing balances. |
+| `closing` |  | no |  | Balance sheet at the end of the period. Absent or null: no amount given. |
+| `opening` |  | no |  | Balance sheet at the start of the period, used with average balances; not used with closing balances. Absent with average balances: no output is computed. |
 
 ## `ratios.working_capital`
 
-**Ratios — working capital** · method version 1 · status preview · tool `fairmark_ratios_working_capital`
+**Ratios — working capital** · method version 2 · status preview · tool `fairmark_ratios_working_capital`
 
-Days sales outstanding, days inventory outstanding, days payable outstanding and the cash conversion cycle, on closing or average balances and a 360 or 365-day basis. A ratio that cannot be computed is reported as not defined with the reason.
+Days sales outstanding, days inventory outstanding, days payable outstanding and the cash conversion cycle, on closing or average balances and a 360 or 365-day basis. Every amount is optional: a ratio whose amounts are not all given is null and listed in not_computed with the inputs it lacks; a ratio with a zero denominator is reported as not defined with the reason.
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `balances` | `closing` \| `average` | yes |  | Balances used by the ratios: `closing`, or `average` of opening and closing. |
 | `day_basis` | `360` \| `365` | yes |  | Days in the year: "360" or "365". |
-| `income_statement` | object | yes |  | Flows of the period (one year). |
-| `closing` | object | yes |  | Balance sheet at the end of the period. |
-| `opening` |  | no |  | Balance sheet at the start of the period. Required with average balances; not used with closing balances. |
+| `income_statement` |  | no |  | Flows of the period (one year). Absent or null: no flow given. |
+| `closing` |  | no |  | Balance sheet at the end of the period. Absent or null: no amount given. |
+| `opening` |  | no |  | Balance sheet at the start of the period, used with average balances; not used with closing balances. Absent with average balances: no ratio is computed. |
 
 ## `ratios.debt_service`
 
-**Ratios — debt service** · method version 1 · status preview · tool `fairmark_ratios_debt_service`
+**Ratios — debt service** · method version 2 · status preview · tool `fairmark_ratios_debt_service`
 
-Interest cover on EBIT and EBITDA, net financial position to EBITDA, DSCR per period and LLCR on a loan schedule with an explicit discount rate. A ratio that cannot be computed is reported as not defined with the reason.
+Interest cover on EBIT and EBITDA, net financial position to EBITDA, DSCR per period and LLCR on a loan schedule with an explicit discount rate. Every amount is optional: a ratio whose amounts are not all given is null and listed in not_computed with the inputs it lacks; a ratio that is not meaningful is reported as not defined with the reason.
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `balances` | `closing` \| `average` | yes |  | Balances used by the ratios: `closing`, or `average` of opening and closing. |
-| `ebitda_definition` | string | yes |  | How EBITDA was measured, in words (for example "reported EBITDA, no adjustments"); echoed in the conventions. |
-| `interest_definition` | string | yes |  | How interest was measured, in words (for example "gross interest expense" or "interest expense net of interest income"); echoed in the conventions. |
-| `income_statement` | object | yes |  | Flows of the period. |
-| `closing` | object | yes |  | Balance sheet at the end of the period. |
-| `opening` |  | no |  | Balance sheet at the start of the period. Required with average balances; not used with closing balances. |
+| `ebitda_definition` | string \| null | no |  | How EBITDA was measured, in words (for example "reported EBITDA, no adjustments"); echoed in the conventions. Absent or null: the ratios on EBITDA are not computed; given blank: refused. |
+| `interest_definition` | string \| null | no |  | How interest was measured, in words (for example "gross interest expense" or "interest expense net of interest income"); echoed in the conventions. Absent or null: the interest covers are not computed; given blank: refused. |
+| `income_statement` |  | no |  | Flows of the period. Absent or null: no flow given. |
+| `closing` |  | no |  | Balance sheet at the end of the period. Absent or null: no amount given. |
+| `opening` |  | no |  | Balance sheet at the start of the period, used with average balances; not used with closing balances. Absent with average balances: the net financial position is not computed. |
 | `debt_schedule` |  | no |  | Loan schedule for DSCR and LLCR. Absent: DSCR and LLCR are not defined and the other ratios are computed. |
 
 ## `ratios.covenants`
 
-**Ratios — covenants** · method version 1 · status preview · tool `fairmark_ratios_covenants`
+**Ratios — covenants** · method version 2 · status preview · tool `fairmark_ratios_covenants`
 
-Tests financial covenants on the numerator and denominator defined by the loan agreement, against a threshold with an explicit operator (at most, less than, at least, greater than) at a test date. The agreement's own rules are explicit inputs: the outcome when the denominator is zero or negative, and the rounding of the tested value. Returns for each covenant the outcome (passed, breached, or not tested with a code and the reason), decided exactly, the tested value and the headroom, absolute and relative to the threshold.
+Tests financial covenants on the numerator and denominator defined by the loan agreement, against a threshold with an explicit operator (at most, less than, at least, greater than) at a test date. The agreement's own rules are explicit inputs: the outcome when the denominator is zero or negative, and the rounding of the tested value. Returns for each covenant the outcome (passed, breached, or not tested with a code and the reason), decided exactly, the tested value and the headroom, absolute and relative to the threshold. The amounts are optional: a covenant without the amounts it needs is not tested (missing_input), never breached, and listed in not_computed.
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |

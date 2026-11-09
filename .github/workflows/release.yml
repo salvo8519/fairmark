@@ -80,10 +80,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { platform: linux-x86_64-manylinux, os: ubuntu-latest, target: x86_64-unknown-linux-gnu, manylinux: auto, smoke: host }
-          - { platform: linux-aarch64-manylinux, os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu, manylinux: auto, smoke: host }
-          - { platform: linux-x86_64-musllinux, os: ubuntu-latest, target: x86_64-unknown-linux-musl, manylinux: musllinux_1_2, smoke: alpine }
-          - { platform: linux-aarch64-musllinux, os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, manylinux: musllinux_1_2, smoke: alpine }
+          # build-image: the container that builds a Linux wheel, pinned by digest in
+          # .github/release/images/<build-image>.Dockerfile.
+          - { platform: linux-x86_64-manylinux, os: ubuntu-latest, target: x86_64-unknown-linux-gnu, manylinux: auto, build-image: manylinux2014-x86_64, smoke: host }
+          - { platform: linux-aarch64-manylinux, os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu, manylinux: auto, build-image: manylinux2014-aarch64, smoke: host }
+          - { platform: linux-x86_64-musllinux, os: ubuntu-latest, target: x86_64-unknown-linux-musl, manylinux: musllinux_1_2, build-image: rust-musl-cross-x86_64, smoke: alpine }
+          - { platform: linux-aarch64-musllinux, os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, manylinux: musllinux_1_2, build-image: rust-musl-cross-aarch64, smoke: alpine }
           - { platform: macos-x86_64, os: macos-15-intel, target: x86_64-apple-darwin, manylinux: auto, smoke: host }
           - { platform: macos-arm64, os: macos-14, target: aarch64-apple-darwin, manylinux: auto, smoke: host }
           - { platform: windows-x86_64, os: windows-latest, target: x86_64-pc-windows-msvc, manylinux: auto, smoke: host }
@@ -91,13 +93,26 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      # Linux wheels are built in a container pinned by digest, not by tag: the FROM line of
+      # .github/release/images/<build-image>.Dockerfile, which Dependabot keeps current.
+      # The step fails when that line is not pinned by digest.
+      - name: Pinned build image
+        id: build-image
+        if: runner.os == 'Linux'
+        env:
+          BUILD_IMAGE: ${{ matrix.build-image }}
+        run: |
+          image="$(bash .github/release/pinned-image.sh "$BUILD_IMAGE")"
+          echo "Build image: $image"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
       # Every wheel is built on a runner of its own architecture, so that it can be tested
-      # there. `manylinux` is ignored outside Linux.
+      # there. `manylinux` and `container` are ignored outside Linux.
       - uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
           maturin-version: v${{ env.MATURIN_VERSION }}
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux }}
+          container: ${{ steps.build-image.outputs.image }}
           args: --release --locked --out dist
       # Uploaded before the smoke tests run, so that nothing they execute can change it.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -124,13 +139,17 @@ jobs:
             echo "::endgroup::"
           done
       # musllinux wheels are tested on Alpine Linux, which uses musl. The checkout, including
-      # dist/, is mounted read-only. The images are the official Python images, by tag.
+      # dist/, is mounted read-only. The images are the official Python images, pinned by
+      # digest in .github/release/images/smoke-python<version>-alpine.Dockerfile (one file
+      # per version in SMOKE_PYTHONS; a missing or unpinned file fails the step).
       - name: Smoke test in new environments (Alpine Linux)
         if: matrix.smoke == 'alpine'
         run: |
           for py in $SMOKE_PYTHONS; do
             echo "::group::Python $py on Alpine"
-            docker run --rm -v "$PWD:/src:ro" -w /tmp "python:$py-alpine" sh -euc '
+            image="$(bash .github/release/pinned-image.sh "smoke-python$py-alpine")"
+            echo "Smoke image: $image"
+            docker run --rm -v "$PWD:/src:ro" -w /tmp "$image" sh -euc '
               python -m venv /tmp/venv
               /tmp/venv/bin/pip install --disable-pip-version-check --no-index --find-links /src/dist --only-binary fairmark fairmark
               /tmp/venv/bin/pip install --disable-pip-version-check --require-hashes -r /src/.github/release/smoke-requirements.txt

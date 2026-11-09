@@ -412,6 +412,7 @@ pub struct InstalmentInput {
     pub rounding: Option<Rounding>,
 }
 
+/// Output of `loans.instalment`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct InstalmentOutput {
     /// Constant instalment, in currency units (rounded when `rounding` is given).
@@ -512,6 +513,7 @@ pub struct NumberOfInstalmentsInput {
     pub timing: AnnuityTiming,
 }
 
+/// Output of `loans.number_of_instalments`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct NumberOfInstalmentsOutput {
     /// Rate per payment period used, decimal fraction.
@@ -798,6 +800,7 @@ pub struct ScheduleTotals {
     pub principal: Decimal,
 }
 
+/// Output of `loans.amortisation_schedule`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct AmortisationScheduleOutput {
     /// Rate per payment period used, decimal fraction.

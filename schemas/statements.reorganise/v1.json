@@ -1,0 +1,2691 @@
+{
+  "$defs": {
+    "Adjustment": {
+      "description": "One labelled adjustment of Appendix C, tagged by `kind` (R10).",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "B.I, B.II, C.II or C.III to non-operating assets.",
+          "properties": {
+            "aggregate": {
+              "$ref": "#/$defs/NonOperatingSource",
+              "description": "Source aggregate: `intangible_assets`, `tangible_assets`, `receivables` or\n`current_financial_assets`."
+            },
+            "amounts": {
+              "description": "One entry per year, in the order of `years`: the amount in currency units, zero\nor more, or null where the adjustment does not apply (reported). Only for\nstatutory entries.",
+              "items": {
+                "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+                "type": [
+                  "string",
+                  "number",
+                  "null"
+                ]
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "non_operating_asset",
+              "type": "string"
+            },
+            "label": {
+              "description": "What the adjustment is, for example \"Idle warehouse\"; not blank.",
+              "type": "string"
+            },
+            "reason": {
+              "description": "Why it is made; not blank (R10).",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "label",
+            "reason",
+            "aggregate",
+            "amounts"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "C.II to the net financial position (other financial asset).",
+          "properties": {
+            "amounts": {
+              "description": "One entry per year, in the order of `years`: the amount in currency units, zero\nor more, or null where the adjustment does not apply (reported). Only for\nstatutory entries.",
+              "items": {
+                "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+                "type": [
+                  "string",
+                  "number",
+                  "null"
+                ]
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "financial_receivable",
+              "type": "string"
+            },
+            "label": {
+              "description": "What the adjustment is, for example \"Idle warehouse\"; not blank.",
+              "type": "string"
+            },
+            "maturity": {
+              "$ref": "#/$defs/Maturity",
+              "description": "`within_one_year` or `beyond_one_year`, for the parts of the net financial position."
+            },
+            "reason": {
+              "description": "Why it is made; not blank (R10).",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "label",
+            "reason",
+            "maturity",
+            "amounts"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Cash of the net financial position to operating working capital.",
+          "properties": {
+            "amounts": {
+              "description": "One entry per year, in the order of `years`: the amount in currency units, zero\nor more, or null where the adjustment does not apply (reported). Only for\nstatutory entries.",
+              "items": {
+                "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+                "type": [
+                  "string",
+                  "number",
+                  "null"
+                ]
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "operating_cash",
+              "type": "string"
+            },
+            "label": {
+              "description": "What the adjustment is, for example \"Idle warehouse\"; not blank.",
+              "type": "string"
+            },
+            "reason": {
+              "description": "Why it is made; not blank (R10).",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "label",
+            "reason",
+            "amounts"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "E to the net financial position (other financial liability).",
+          "properties": {
+            "amounts": {
+              "description": "One entry per year, in the order of `years`: the amount in currency units, zero\nor more, or null where the adjustment does not apply (reported). Only for\nstatutory entries.",
+              "items": {
+                "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+                "type": [
+                  "string",
+                  "number",
+                  "null"
+                ]
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "accrued_interest",
+              "type": "string"
+            },
+            "label": {
+              "description": "What the adjustment is, for example \"Idle warehouse\"; not blank.",
+              "type": "string"
+            },
+            "reason": {
+              "description": "Why it is made; not blank (R10).",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "label",
+            "reason",
+            "amounts"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Payables D to debt-like items.",
+          "properties": {
+            "amounts": {
+              "description": "One entry per year, in the order of `years`: the amount in currency units, zero\nor more, or null where the adjustment does not apply (reported). Only for\nstatutory entries.",
+              "items": {
+                "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+                "type": [
+                  "string",
+                  "number",
+                  "null"
+                ]
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "tax_instalments",
+              "type": "string"
+            },
+            "label": {
+              "description": "What the adjustment is, for example \"Idle warehouse\"; not blank.",
+              "type": "string"
+            },
+            "maturity": {
+              "$ref": "#/$defs/Maturity",
+              "description": "`within_one_year` or `beyond_one_year`, reported with the item."
+            },
+            "reason": {
+              "description": "Why it is made; not blank (R10).",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "label",
+            "reason",
+            "maturity",
+            "amounts"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Payables D to the net financial position (other financial liability).",
+          "properties": {
+            "amounts": {
+              "description": "One entry per year, in the order of `years`: the amount in currency units, zero\nor more, or null where the adjustment does not apply (reported). Only for\nstatutory entries.",
+              "items": {
+                "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+                "type": [
+                  "string",
+                  "number",
+                  "null"
+                ]
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "non_current_trade_payables",
+              "type": "string"
+            },
+            "label": {
+              "description": "What the adjustment is, for example \"Idle warehouse\"; not blank.",
+              "type": "string"
+            },
+            "reason": {
+              "description": "Why it is made; not blank (R10).",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "label",
+            "reason",
+            "amounts"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Provisions B or C to debt-like items.",
+          "properties": {
+            "aggregate": {
+              "$ref": "#/$defs/ProvisionSource",
+              "description": "Source aggregate: `provisions` or `employee_severance_indemnity`."
+            },
+            "amounts": {
+              "description": "One entry per year, in the order of `years`: the amount in currency units, zero\nor more, or null where the adjustment does not apply (reported). Only for\nstatutory entries.",
+              "items": {
+                "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+                "type": [
+                  "string",
+                  "number",
+                  "null"
+                ]
+              },
+              "type": "array"
+            },
+            "interest_cost": {
+              "description": "Optional, only with `aggregate` `employee_severance_indemnity` (P2): one entry per\nyear, in the order of `years`, the interest cost (revaluation) of the employee\nseverance indemnity included in B9, in currency units, zero or more and at most what\nremains of B9; null where not given, and only where `amounts` has an entry. It leaves\npersonnel costs and EBITDA and enters the financing result. Not given: nothing moves\nand a convention says so.",
+              "items": {
+                "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+                "type": [
+                  "string",
+                  "number",
+                  "null"
+                ]
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "kind": {
+              "const": "debt_like_provision",
+              "type": "string"
+            },
+            "label": {
+              "description": "What the adjustment is, for example \"Idle warehouse\"; not blank.",
+              "type": "string"
+            },
+            "reason": {
+              "description": "Why it is made; not blank (R10).",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "label",
+            "reason",
+            "aggregate",
+            "amounts"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Equity to debt-like items.",
+          "properties": {
+            "amounts": {
+              "description": "One entry per year, in the order of `years`: the amount in currency units, zero\nor more, or null where the adjustment does not apply (reported). Only for\nstatutory entries.",
+              "items": {
+                "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+                "type": [
+                  "string",
+                  "number",
+                  "null"
+                ]
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "dividends_declared",
+              "type": "string"
+            },
+            "label": {
+              "description": "What the adjustment is, for example \"Idle warehouse\"; not blank.",
+              "type": "string"
+            },
+            "reason": {
+              "description": "Why it is made; not blank (R10).",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "label",
+            "reason",
+            "amounts"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Financial-method restatement of a lease.",
+          "properties": {
+            "amounts": {
+              "description": "One entry per year, in the order of `years`: the amount in currency units, zero\nor more, or null where the adjustment does not apply (reported). Only for\nstatutory entries.",
+              "items": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/LeaseAmounts"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "lease",
+              "type": "string"
+            },
+            "label": {
+              "description": "What the adjustment is, for example \"Idle warehouse\"; not blank.",
+              "type": "string"
+            },
+            "reason": {
+              "description": "Why it is made; not blank (R10).",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "label",
+            "reason",
+            "amounts"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A5 or B14 to the investing result.",
+          "properties": {
+            "aggregate": {
+              "$ref": "#/$defs/InvestingSource",
+              "description": "Source aggregate: `other_revenue_and_income` or `other_operating_expenses`."
+            },
+            "amounts": {
+              "description": "One entry per year, in the order of `years`: the amount in currency units, zero\nor more, or null where the adjustment does not apply (reported). Only for\nstatutory entries.",
+              "items": {
+                "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+                "type": [
+                  "string",
+                  "number",
+                  "null"
+                ]
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "investing",
+              "type": "string"
+            },
+            "label": {
+              "description": "What the adjustment is, for example \"Idle warehouse\"; not blank.",
+              "type": "string"
+            },
+            "reason": {
+              "description": "Why it is made; not blank (R10).",
+              "type": "string"
+            },
+            "related_non_operating_asset": {
+              "default": null,
+              "description": "Label of the non-operating asset the income or expense relates to, if any;\nreported only.",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "label",
+            "reason",
+            "aggregate",
+            "amounts"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "An income statement aggregate to the non-recurring result.",
+          "properties": {
+            "aggregate": {
+              "$ref": "#/$defs/NonRecurringSource",
+              "description": "Source aggregate of Appendix A.2; D18 and D19 are not accepted (R17)."
+            },
+            "amounts": {
+              "description": "One entry per year, in the order of `years`: the amount in currency units, zero\nor more, or null where the adjustment does not apply (reported). Only for\nstatutory entries.",
+              "items": {
+                "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+                "type": [
+                  "string",
+                  "number",
+                  "null"
+                ]
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "non_recurring",
+              "type": "string"
+            },
+            "label": {
+              "description": "What the adjustment is, for example \"Idle warehouse\"; not blank.",
+              "type": "string"
+            },
+            "reason": {
+              "description": "Why it is made; not blank (R10).",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "label",
+            "reason",
+            "aggregate",
+            "amounts"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "BridgeClaim": {
+      "additionalProperties": false,
+      "description": "A claim on the value of the company other than the net financial position, subtracted from\nenterprise value to reach equity value: a debt-like item or a non-controlling interest\n(R25). Fairmark subtracts the amount as given and does not choose how it is measured.",
+      "properties": {
+        "basis_note": {
+          "description": "Free text that qualifies the basis, for example \"net of tax\" or \"49% of the book value\nof equity of the subsidiary\"; required with `other`, optional otherwise, never empty\nwhen given. Reported, never used in the calculation.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "label": {
+          "description": "What the claim is, for example \"Unfunded pension obligation\" or \"30% of Subsidiary A\".\nNot empty.",
+          "type": "string"
+        },
+        "measurement_basis": {
+          "$ref": "#/$defs/MeasurementBasis",
+          "description": "How the amount was measured, stated by the analyst: `book_value`, `market_value`,\n`fair_value`, `present_value` or `other` (then describe it in `basis_note`). Required,\nno default. Reported with the amount, never used in the calculation."
+        },
+        "value": {
+          "description": "Amount at the valuation date, in currency units, zero or more; subtracted.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "value",
+        "measurement_basis"
+      ],
+      "type": "object"
+    },
+    "Date": {
+      "description": "Calendar date, ISO 8601 YYYY-MM-DD, from 1900-01-01 to 2199-12-31.",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "type": "string"
+    },
+    "DepreciationAndWriteDowns": {
+      "additionalProperties": false,
+      "description": "B10 depreciation, amortisation and write-downs.",
+      "properties": {
+        "depreciation_and_amortisation": {
+          "default": null,
+          "description": "B10 a and b, amortisation of intangible and depreciation of tangible assets, in\ncurrency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "total": {
+          "default": null,
+          "description": "B10 total, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "value_adjustments_of_fixed_assets": {
+          "default": null,
+          "description": "B10 a to c as one amount, as grouped by the abridged layout (art. 2435-bis), in\ncurrency units. With its B10 a, b part and without `write_downs_of_fixed_assets`,\nB10 c is the difference (D1-IS). With neither part, it is all in depreciation and\namortisation under the treatment `operating`, and read as depreciation and\namortisation with B10 c none under `investing`, reported (R17).",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "write_downs_of_fixed_assets": {
+          "default": null,
+          "description": "B10 c, other write-downs of fixed assets, in currency units; with depreciation and\namortisation below EBITDA by default, or in the investing result with\n`treatments.write_downs_of_fixed_assets: investing` (R17, P1).",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "write_downs_of_receivables": {
+          "default": null,
+          "description": "B10 d, write-downs of current receivables and cash, in currency units; in the other\ncharges below EBITDA by default, or in the investing result with\n`treatments.write_downs_of_receivables: investing` (R17, E3).",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "DerivativeLiabilitiesDestination": {
+      "description": "Destination of the derivative liabilities within provisions B, Decision 5.",
+      "oneOf": [
+        {
+          "const": "financial_liability",
+          "description": "An other financial liability of the net financial position.",
+          "type": "string"
+        },
+        {
+          "const": "operating_provision",
+          "description": "Operating provisions, with the other provisions B.",
+          "type": "string"
+        }
+      ]
+    },
+    "Equity": {
+      "additionalProperties": false,
+      "description": "Equity, liabilities A, as a total or by its Roman numerals.",
+      "properties": {
+        "cash_flow_hedge_reserve": {
+          "default": null,
+          "description": "A.VII cash flow hedge reserve, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "legal_reserve": {
+          "default": null,
+          "description": "A.IV legal reserve, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "negative_reserve_for_own_shares": {
+          "default": null,
+          "description": "A.X negative reserve for own shares held, in currency units, zero or negative.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "other_reserves": {
+          "default": null,
+          "description": "A.VI other reserves, including the rounding reserve of statements in euro units, in\ncurrency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "profit_or_loss_for_the_year": {
+          "default": null,
+          "description": "A.IX profit (loss) for the year, in currency units, signed; checked against item 21.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "retained_earnings": {
+          "default": null,
+          "description": "A.VIII retained earnings (losses carried forward), in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "revaluation_reserves": {
+          "default": null,
+          "description": "A.III revaluation reserves, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "share_capital": {
+          "default": null,
+          "description": "A.I share capital, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "share_premium": {
+          "default": null,
+          "description": "A.II share premium reserve, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "statutory_reserves": {
+          "default": null,
+          "description": "A.V statutory reserves, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "total": {
+          "default": null,
+          "description": "Total equity A, in currency units, signed (negative for a deficit).",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "FinancialFixedAssetsDestination": {
+      "description": "Destination of financial fixed assets (B.III), Decision 10.",
+      "oneOf": [
+        {
+          "const": "operating",
+          "description": "Strategic holdings used by the business: operating fixed assets.",
+          "type": "string"
+        },
+        {
+          "const": "non_operating",
+          "description": "Surplus holdings: non-operating assets, outside invested capital, for the bridge.",
+          "type": "string"
+        },
+        {
+          "const": "financial_asset",
+          "description": "Financial investments: an other financial asset of the net financial position.",
+          "type": "string"
+        }
+      ]
+    },
+    "FinancialFixedAssetsOverride": {
+      "description": "Another treatment of financial fixed assets for one year: one destination, or a split.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "One destination for the whole of B.III this year.",
+          "properties": {
+            "destination": {
+              "$ref": "#/$defs/FinancialFixedAssetsDestination"
+            }
+          },
+          "required": [
+            "destination"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Parts with their destinations, summing to B.III of the year.",
+          "properties": {
+            "split": {
+              "items": {
+                "$ref": "#/$defs/FinancialFixedAssetsPart"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "split"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "FinancialFixedAssetsPart": {
+      "additionalProperties": false,
+      "description": "One part of a split of financial fixed assets for one year.",
+      "properties": {
+        "amount": {
+          "description": "Amount of this part, in currency units, zero or more. The parts sum to B.III.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "destination": {
+          "$ref": "#/$defs/FinancialFixedAssetsDestination",
+          "description": "Destination of this part."
+        },
+        "label": {
+          "description": "What the part is, for example \"Shares in a listed company\"; not blank. Used as the\nlabel of the non-operating asset or of the item of the net financial position.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "destination",
+        "amount",
+        "label"
+      ],
+      "type": "object"
+    },
+    "InvestingSource": {
+      "description": "Source of an `investing` adjustment.",
+      "oneOf": [
+        {
+          "const": "other_revenue_and_income",
+          "description": "A5.",
+          "type": "string"
+        },
+        {
+          "const": "other_operating_expenses",
+          "description": "B14.",
+          "type": "string"
+        }
+      ]
+    },
+    "Layout": {
+      "description": "The statutory layout, echoed in the result; no number depends on it.",
+      "oneOf": [
+        {
+          "const": "ordinary",
+          "description": "Ordinary layout, art. 2424 and 2425 of the Civil Code.",
+          "type": "string"
+        },
+        {
+          "const": "abridged",
+          "description": "Abridged layout, art. 2435-bis.",
+          "type": "string"
+        },
+        {
+          "const": "micro_entity",
+          "description": "Micro-entity layout, art. 2435-ter.",
+          "type": "string"
+        }
+      ]
+    },
+    "LeaseAmounts": {
+      "additionalProperties": false,
+      "description": "Amounts of a `lease` adjustment for one year (R21, financial method).",
+      "properties": {
+        "asset": {
+          "description": "Right-of-use asset added to operating fixed assets, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "depreciation": {
+          "description": "Depreciation of the right-of-use asset for the year, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "interest": {
+          "description": "Interest on the lease liability for the year, added to C17, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "liability": {
+          "description": "Lease liability added to the net financial position, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "liability_current": {
+          "description": "Of which due within the next financial year, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "payments": {
+          "description": "Lease payments of the year removed from B8, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "prepayment": {
+          "description": "Prepayment (maxicanone) removed from prepayments, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "asset",
+        "liability",
+        "liability_current",
+        "prepayment",
+        "payments",
+        "depreciation",
+        "interest"
+      ],
+      "type": "object"
+    },
+    "Line": {
+      "additionalProperties": false,
+      "description": "A labelled amount, for example an asset and its realisable value.",
+      "properties": {
+        "label": {
+          "description": "What the amount is, for example \"Land\" or \"Bank loan\". Not empty.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Amount in currency units, zero or positive.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    },
+    "Maturity": {
+      "description": "Maturity of a financial receivable or of tax instalments.",
+      "oneOf": [
+        {
+          "const": "within_one_year",
+          "description": "Due within the next financial year (current).",
+          "type": "string"
+        },
+        {
+          "const": "beyond_one_year",
+          "description": "Due beyond the next financial year (non-current).",
+          "type": "string"
+        }
+      ]
+    },
+    "MeasurementBasis": {
+      "description": "How the amount of a bridge claim was measured (Decision 21). Fairmark does not choose the\nbasis: the analyst states it and the result reports it next to the amount.",
+      "oneOf": [
+        {
+          "const": "book_value",
+          "description": "Book value per the accounts at the valuation date.",
+          "type": "string"
+        },
+        {
+          "const": "market_value",
+          "description": "Quoted market price at the valuation date.",
+          "type": "string"
+        },
+        {
+          "const": "fair_value",
+          "description": "Fair value as defined by IFRS 13.",
+          "type": "string"
+        },
+        {
+          "const": "present_value",
+          "description": "Present value of the obligation, for example unfunded pensions or provisions.",
+          "type": "string"
+        },
+        {
+          "const": "other",
+          "description": "Another basis, described in `basis_note` (required).",
+          "type": "string"
+        }
+      ]
+    },
+    "NetFinancialPosition": {
+      "additionalProperties": false,
+      "description": "The net financial position with its composition (SPEC-0007 R6). Fairmark adds what is\ngiven and does not choose which items are included.",
+      "properties": {
+        "cash": {
+          "description": "Cash and cash equivalents, in currency units, subtracted from the gross debt.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "gross_debt": {
+          "description": "Gross financial debt (bank loans, bonds and other borrowings), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "other_items": {
+          "default": [],
+          "description": "Other items included by the analyst, each added with its sign. Default: none.",
+          "items": {
+            "$ref": "#/$defs/NfpItem"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "gross_debt",
+        "cash"
+      ],
+      "type": "object"
+    },
+    "NetFixedAsset": {
+      "additionalProperties": false,
+      "description": "A fixed asset shown net of accumulated amortisation, depreciation and write-downs.",
+      "properties": {
+        "accumulated": {
+          "default": null,
+          "description": "Accumulated amortisation or depreciation and write-downs, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "gross": {
+          "default": null,
+          "description": "Gross amount (historical cost and revaluations), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "total": {
+          "default": null,
+          "description": "Net carrying amount, in currency units. Checked against `gross − accumulated` when all\nthree are given.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "NfpItem": {
+      "additionalProperties": false,
+      "description": "One item of the net financial position other than gross debt and cash.",
+      "properties": {
+        "amount": {
+          "description": "Amount in currency units, added to the net financial position: positive for debt-like\nitems, negative for financial assets.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "name": {
+          "description": "What the item is, for example \"lease liabilities\" or \"derivative assets\".",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "amount"
+      ],
+      "type": "object"
+    },
+    "NonOperatingSource": {
+      "description": "Source of a `non_operating_asset` adjustment.",
+      "oneOf": [
+        {
+          "const": "intangible_assets",
+          "description": "B.I.",
+          "type": "string"
+        },
+        {
+          "const": "tangible_assets",
+          "description": "B.II.",
+          "type": "string"
+        },
+        {
+          "const": "receivables",
+          "description": "C.II.",
+          "type": "string"
+        },
+        {
+          "const": "current_financial_assets",
+          "description": "C.III.",
+          "type": "string"
+        }
+      ]
+    },
+    "NonRecurringSource": {
+      "description": "Source of a `non_recurring` adjustment: an income statement aggregate of Appendix A.2 that\naccepts it. D18 and D19 are fixed in the investing result and cannot be moved (R17).",
+      "oneOf": [
+        {
+          "const": "revenue",
+          "description": "A1.",
+          "type": "string"
+        },
+        {
+          "const": "other_revenue_and_income",
+          "description": "A5.",
+          "type": "string"
+        },
+        {
+          "const": "purchases",
+          "description": "B6.",
+          "type": "string"
+        },
+        {
+          "const": "services",
+          "description": "B7.",
+          "type": "string"
+        },
+        {
+          "const": "use_of_third_party_assets",
+          "description": "B8.",
+          "type": "string"
+        },
+        {
+          "const": "personnel_costs",
+          "description": "B9.",
+          "type": "string"
+        },
+        {
+          "const": "depreciation_and_amortisation",
+          "description": "B10 a, b.",
+          "type": "string"
+        },
+        {
+          "const": "write_downs_of_fixed_assets",
+          "description": "B10 c.",
+          "type": "string"
+        },
+        {
+          "const": "write_downs_of_receivables",
+          "description": "B10 d.",
+          "type": "string"
+        },
+        {
+          "const": "provisions_for_risks",
+          "description": "B12.",
+          "type": "string"
+        },
+        {
+          "const": "other_provisions",
+          "description": "B13.",
+          "type": "string"
+        },
+        {
+          "const": "other_operating_expenses",
+          "description": "B14.",
+          "type": "string"
+        },
+        {
+          "const": "income_from_equity_investments",
+          "description": "C15.",
+          "type": "string"
+        },
+        {
+          "const": "other_financial_income",
+          "description": "C16.",
+          "type": "string"
+        },
+        {
+          "const": "interest_and_other_financial_charges",
+          "description": "C17.",
+          "type": "string"
+        },
+        {
+          "const": "exchange_gains_and_losses",
+          "description": "C17-bis.",
+          "type": "string"
+        }
+      ]
+    },
+    "OperatingWorkingCapital": {
+      "additionalProperties": false,
+      "description": "Operating working capital, as a total or by its components.",
+      "properties": {
+        "inventories": {
+          "default": null,
+          "description": "Inventories, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "other_operating_assets": {
+          "default": null,
+          "description": "Other operating assets (other receivables, prepayments, operating cash), in currency\nunits.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "other_operating_liabilities": {
+          "default": null,
+          "description": "Other operating liabilities (other payables, accruals), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "total": {
+          "default": null,
+          "description": "Operating working capital, in currency units, signed; checked against its components.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "trade_payables": {
+          "default": null,
+          "description": "Trade payables, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "trade_receivables": {
+          "default": null,
+          "description": "Trade receivables, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "Payables": {
+      "additionalProperties": false,
+      "description": "Payables, liabilities D, with their \"of which\" parts.",
+      "properties": {
+        "accruals_and_deferred_income": {
+          "default": null,
+          "description": "Of which accruals and deferred income (liabilities E presented within D,\nart. 2435-bis), in currency units; when given without a separate line E, that line is\nzero. Not given: none within D (D2), listed in `meta.defaults_applied`.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "beyond_one_year": {
+          "default": null,
+          "description": "Of which due beyond the next financial year, in currency units; needed for the current\nand non-current block.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "financial_debt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WithMaturity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Of which financial debt (bonds, banks, other lenders: D.1, D.2, D.4, D.5), with its\npart beyond one year; needed for the net financial position (Decision 4)."
+        },
+        "shareholder_loans": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WithMaturity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Of which shareholder loans (D.3), with its part beyond one year; needed for the net\nfinancial position, and needs the treatment `shareholder_loans` when not zero."
+        },
+        "total": {
+          "default": null,
+          "description": "Payables D, in currency units, including the parts below.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "trade": {
+          "default": null,
+          "description": "Of which trade payables, in currency units; needed for `trade_working_capital`.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "ProvisionSource": {
+      "description": "Source of a `debt_like_provision` adjustment.",
+      "oneOf": [
+        {
+          "const": "provisions",
+          "description": "Provisions B treated as operating.",
+          "type": "string"
+        },
+        {
+          "const": "employee_severance_indemnity",
+          "description": "Employee severance indemnity C.",
+          "type": "string"
+        }
+      ]
+    },
+    "Provisions": {
+      "additionalProperties": false,
+      "description": "Provisions for risks and charges, liabilities B.",
+      "properties": {
+        "beyond_one_year": {
+          "default": null,
+          "description": "Of which due beyond the next financial year, in currency units. Not given: all\nnon-current, reported.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "of_which_derivative_liabilities": {
+          "default": null,
+          "description": "Of which derivative liabilities (B.3), in currency units; needs the treatment\n`derivative_liabilities` when not zero. Not given: none within B (D2, D3), listed in\n`meta.defaults_applied`.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "total": {
+          "default": null,
+          "description": "Provisions B, in currency units, including the derivative part.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "Receivables": {
+      "additionalProperties": false,
+      "description": "Receivables (C.II) with their \"of which\" parts.",
+      "properties": {
+        "beyond_one_year": {
+          "default": null,
+          "description": "Of which due beyond the next financial year, in currency units; needed for the current\nand non-current block.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "prepayments_and_accrued_income": {
+          "default": null,
+          "description": "Of which prepayments and accrued income (assets D presented within C.II,\nart. 2435-bis), in currency units; when given without a separate line D, that line is\nzero. Not given: none within C.II (D2), listed in `meta.defaults_applied`.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "subscribed_capital_unpaid": {
+          "default": null,
+          "description": "Of which subscribed capital unpaid (item A presented within C.II, art. 2435-bis), in\ncurrency units; deducted from equity. Not given: none within C.II (D2), listed in\n`meta.defaults_applied`.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "total": {
+          "default": null,
+          "description": "Receivables C.II, in currency units, including the parts below.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "trade": {
+          "default": null,
+          "description": "Of which trade receivables, in currency units; needed for `trade_working_capital`.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "Reclassified": {
+      "additionalProperties": false,
+      "description": "A year in the reclassified form: totals already reorganised (Appendix B, R5).",
+      "properties": {
+        "balance_sheet": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReclassifiedBalanceSheet"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reclassified balance sheet totals (Appendix B.1)."
+        },
+        "income_statement": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReclassifiedIncomeStatement"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reclassified income statement totals (Appendix B.2)."
+        }
+      },
+      "type": "object"
+    },
+    "ReclassifiedBalanceSheet": {
+      "additionalProperties": false,
+      "description": "Reclassified balance sheet totals, the output fields of Appendix B.1 (R5). Each is\noptional; every total its formula allows is derived from what is given and checked against\na total given.",
+      "properties": {
+        "debt_like_items": {
+          "default": null,
+          "description": "Debt-like items, each a label, an amount in currency units and its measurement basis\n(the `dcf.fcff` bridge type). An empty list states that there are none.",
+          "items": {
+            "$ref": "#/$defs/BridgeClaim"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "equity": {
+          "default": null,
+          "description": "Equity, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "invested_capital": {
+          "default": null,
+          "description": "Invested capital, operating fixed assets + operating working capital − operating\nprovisions, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "net_financial_position": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReclassifiedNetFinancialPosition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Net financial position, as a total, the SPEC-0007 object, or both."
+        },
+        "non_operating_assets": {
+          "default": null,
+          "description": "Non-operating assets, each a label and a carrying amount in currency units (zero or\nmore). An empty list states that there are none.",
+          "items": {
+            "$ref": "#/$defs/Line"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "operating_fixed_assets": {
+          "default": null,
+          "description": "Operating fixed assets, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "operating_provisions": {
+          "default": null,
+          "description": "Operating provisions (provisions and employee severance indemnity treated as\noperating), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "operating_working_capital": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OperatingWorkingCapital"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Operating working capital, as a total or by its components."
+        },
+        "quasi_equity_items": {
+          "default": null,
+          "description": "Quasi-equity items (for example subordinated shareholder loans), each a label and an\namount in currency units. An empty list states that there are none.",
+          "items": {
+            "$ref": "#/$defs/Line"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "total_funds_invested": {
+          "default": null,
+          "description": "Total funds invested, invested capital + Σ non-operating assets, in currency units,\nsigned.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "total_sources": {
+          "default": null,
+          "description": "Total sources, equity + Σ quasi-equity items + net financial position + Σ debt-like\nitems, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "ReclassifiedIncomeStatement": {
+      "additionalProperties": false,
+      "description": "Reclassified income statement totals, the output fields of Appendix B.2 (R5). Each is\noptional.",
+      "properties": {
+        "depreciation_and_amortisation": {
+          "default": null,
+          "description": "Depreciation and amortisation: B10 a, b, plus B10 c when it is operating (P1) and lease\ndepreciation, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "ebitda": {
+          "default": null,
+          "description": "EBITDA (MOL), value added − personnel costs, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "external_costs": {
+          "default": null,
+          "description": "External costs, B6 + B7 + B8 + B11 + B14 net of the parts moved by adjustments (B8 also\nnet of lease payments), in currency units, signed (E1 of 2026-11-09).",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "financing_result": {
+          "default": null,
+          "description": "Financing result, C17-bis − C17, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "income_from_operating_investments": {
+          "default": null,
+          "description": "Income from operating investments, C15 of financial fixed assets treated as operating,\nin currency units, zero or more (P2); needed to derive operating profit.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "income_taxes": {
+          "default": null,
+          "description": "Income taxes (item 20), in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "interest_and_other_financial_charges": {
+          "default": null,
+          "description": "Interest and other financial charges (C17), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "investing_result": {
+          "default": null,
+          "description": "Investing result (accessory area), in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "materials_consumed": {
+          "default": null,
+          "description": "Materials consumed (B6 + B11), in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "net_income": {
+          "default": null,
+          "description": "Net income (item 21), in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "non_recurring_result": {
+          "default": null,
+          "description": "Non-recurring result, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "operating_profit": {
+          "default": null,
+          "description": "Operating profit (reddito operativo, MON), EBITDA − depreciation and amortisation −\nother charges below EBITDA + income from operating investments, in currency units,\nsigned; derived when not given and checked when given.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "other_charges_below_ebitda": {
+          "default": null,
+          "description": "Other charges below EBITDA, B12 + B13 (+ B10 d when it is treated as operating) net of\nmoved parts, in currency units, zero or more (E2 of 2026-11-09).",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "personnel_costs": {
+          "default": null,
+          "description": "Personnel costs (B9), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "profit_before_financing_and_taxes": {
+          "default": null,
+          "description": "Profit before financing and income taxes, operating profit + investing result, in\ncurrency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "profit_before_tax": {
+          "default": null,
+          "description": "Profit before tax, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "purchases": {
+          "default": null,
+          "description": "Purchases (B6), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "revenue": {
+          "default": null,
+          "description": "Revenue (A1), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "value_added": {
+          "default": null,
+          "description": "Value added, value of production − external costs, in currency units, signed; derived\nfrom them when not given and checked against them when given.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "value_of_production": {
+          "default": null,
+          "description": "Value of production (A, core), in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "ReclassifiedNetFinancialPosition": {
+      "additionalProperties": false,
+      "description": "The net financial position of a reclassified balance sheet: a total, the SPEC-0007 object,\nor both, and optionally its current and non-current parts.",
+      "properties": {
+        "current": {
+          "default": null,
+          "description": "Part due within the next financial year, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "non_current": {
+          "default": null,
+          "description": "Part due beyond the next financial year, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "position": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NetFinancialPosition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The net financial position with its composition (SPEC-0007 R6): gross debt − cash +\nsigned other items."
+        },
+        "total": {
+          "default": null,
+          "description": "Net financial position, in currency units, signed, positive for net debt.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "ShareholderLoansDestination": {
+      "description": "Destination of shareholder loans (D.3), Decision 6.",
+      "oneOf": [
+        {
+          "const": "financial_debt",
+          "description": "Gross debt of the net financial position.",
+          "type": "string"
+        },
+        {
+          "const": "quasi_equity",
+          "description": "Quasi-equity, among the sources next to equity.",
+          "type": "string"
+        }
+      ]
+    },
+    "ShareholderLoansOverride": {
+      "description": "Another treatment of shareholder loans for one year: one destination, or a split.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "One destination for the whole of the loans this year.",
+          "properties": {
+            "destination": {
+              "$ref": "#/$defs/ShareholderLoansDestination"
+            }
+          },
+          "required": [
+            "destination"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Parts with their destinations, summing to the loans of the year.",
+          "properties": {
+            "split": {
+              "items": {
+                "$ref": "#/$defs/ShareholderLoansPart"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "split"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ShareholderLoansPart": {
+      "additionalProperties": false,
+      "description": "One part of a split of shareholder loans for one year.",
+      "properties": {
+        "amount": {
+          "description": "Amount of this part, in currency units, zero or more. The parts sum to the loans.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "beyond_one_year": {
+          "default": null,
+          "description": "For a `financial_debt` part: of which due beyond the next financial year, in currency\nunits; needed for the current and non-current parts of the net financial position.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "destination": {
+          "$ref": "#/$defs/ShareholderLoansDestination",
+          "description": "Destination of this part."
+        },
+        "label": {
+          "description": "What the part is, for example \"Subordinated loan\"; not blank.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "destination",
+        "amount",
+        "label"
+      ],
+      "type": "object"
+    },
+    "Statutory": {
+      "additionalProperties": false,
+      "description": "A year in the statutory form.",
+      "properties": {
+        "balance_sheet": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StatutoryBalanceSheet"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Balance sheet aggregates (art. 2424; abridged art. 2435-bis)."
+        },
+        "income_statement": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StatutoryIncomeStatement"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Income statement aggregates (art. 2425; groupings of art. 2435-bis)."
+        },
+        "layout": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Layout"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "`ordinary`, `abridged` or `micro_entity`; optional, echoed only."
+        }
+      },
+      "type": "object"
+    },
+    "StatutoryBalanceSheet": {
+      "additionalProperties": false,
+      "description": "Balance sheet aggregates of art. 2424 (Appendix A.1). Each is optional; a node accepts a\ntotal, its components or both.",
+      "properties": {
+        "accruals_and_deferred_income": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WithMaturity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Liabilities E, accruals and deferred income, with the part beyond one year. Not needed\nwhen liabilities E are given within D."
+        },
+        "cash": {
+          "default": null,
+          "description": "C.IV cash and cash equivalents, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "current_assets": {
+          "default": null,
+          "description": "Total C, current assets, in currency units; checked against C.I + C.II + C.III + C.IV.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "current_financial_assets": {
+          "default": null,
+          "description": "C.III current financial assets (financial assets that are not fixed assets), in\ncurrency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "employee_severance_indemnity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WithMaturity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Liabilities C, employee severance indemnity (TFR), with the part beyond one year. Not\ngiven: all non-current, reported."
+        },
+        "equity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Equity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Liabilities A, equity, as a total or by its Roman numerals."
+        },
+        "financial_fixed_assets": {
+          "default": null,
+          "description": "B.III financial fixed assets, in currency units; needs the treatment\n`financial_fixed_assets` when not zero.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "fixed_assets": {
+          "default": null,
+          "description": "Total B, fixed assets, in currency units; checked against B.I + B.II + B.III.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "intangible_assets": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NetFixedAsset"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "B.I intangible assets, net, or gross and accumulated amortisation."
+        },
+        "inventories": {
+          "default": null,
+          "description": "C.I inventories, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "payables": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Payables"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Liabilities D, payables, with their \"of which\" parts."
+        },
+        "prepayments_and_accrued_income": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WithMaturity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Assets D, prepayments and accrued income, with the part beyond one year. Not needed\nwhen assets D are given within C.II."
+        },
+        "provisions": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provisions"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Liabilities B, provisions for risks and charges."
+        },
+        "receivables": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Receivables"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "C.II receivables with their \"of which\" parts."
+        },
+        "subscribed_capital_unpaid": {
+          "default": null,
+          "description": "Assets A, subscribed capital unpaid, in currency units; deducted from equity. Not given:\nzero (D1), listed in `meta.defaults_applied`; give it to have total assets checked.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "tangible_assets": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NetFixedAsset"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "B.II tangible assets, net, or gross and accumulated depreciation."
+        },
+        "total_assets": {
+          "default": null,
+          "description": "Total assets, in currency units; checked against A + B + C + D.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "total_liabilities_and_equity": {
+          "default": null,
+          "description": "Total liabilities and equity, in currency units; checked against A + B + C + D + E and\nagainst total assets.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "StatutoryIncomeStatement": {
+      "additionalProperties": false,
+      "description": "Income statement aggregates of art. 2425 by nature (Appendix A.2). Each is optional.",
+      "properties": {
+        "change_in_product_inventories": {
+          "default": null,
+          "description": "A2 and A3 changes in inventories of work in progress, semi-finished and finished\nproducts and in contract work in progress, in currency units, signed (positive for an\nincrease).",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "change_in_raw_material_inventories": {
+          "default": null,
+          "description": "B11 change in inventories of raw materials, consumables and goods, in currency units,\nsigned (positive for a decrease, a cost).",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "costs_of_production": {
+          "default": null,
+          "description": "Total B, costs of production, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "depreciation_and_write_downs": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DepreciationAndWriteDowns"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "B10 depreciation, amortisation and write-downs."
+        },
+        "difference_between_value_and_costs_of_production": {
+          "default": null,
+          "description": "A − B, difference between value and costs of production, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "exchange_gains_and_losses": {
+          "default": null,
+          "description": "C17-bis exchange gains and losses, in currency units, signed (positive for a net gain).",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "financial_income_and_charges": {
+          "default": null,
+          "description": "Total C, financial income and charges, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "income_from_equity_investments": {
+          "default": null,
+          "description": "C15 income from equity investments, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "income_taxes": {
+          "default": null,
+          "description": "Item 20, income taxes for the year, current, deferred and prepaid, in currency units,\nsigned (positive for a tax charge).",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "interest_and_other_financial_charges": {
+          "default": null,
+          "description": "C17 interest and other financial charges, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "other_financial_income": {
+          "default": null,
+          "description": "C16 other financial income, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "other_operating_expenses": {
+          "default": null,
+          "description": "B14 other operating expenses, in currency units. Default destination: external costs,\ncore (Decision 7, E1), listed in `meta.defaults_applied`; investing and non-recurring\nparts move only by adjustment.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "other_provisions": {
+          "default": null,
+          "description": "B13 other provisions, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "other_revenue_and_income": {
+          "default": null,
+          "description": "A5 other revenue and income, in currency units. Default destination: the value of\nproduction, core (Decision 7), listed in `meta.defaults_applied`; investing and\nnon-recurring parts move only by adjustment.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "own_work_capitalised": {
+          "default": null,
+          "description": "A4 own work capitalised, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "personnel_costs": {
+          "default": null,
+          "description": "B9 personnel costs, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "profit_before_tax": {
+          "default": null,
+          "description": "Profit (loss) before tax, A − B ± C ± D, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "profit_or_loss_for_the_year": {
+          "default": null,
+          "description": "Item 21, profit (loss) for the year, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "provisions_for_risks": {
+          "default": null,
+          "description": "B12 provisions for risks, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "purchases": {
+          "default": null,
+          "description": "B6 raw materials, consumables and goods purchased, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "revaluations_of_financial_assets": {
+          "default": null,
+          "description": "D18 revaluations of financial assets, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "revenue": {
+          "default": null,
+          "description": "A1 revenue from sales and services, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "services": {
+          "default": null,
+          "description": "B7 services, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "use_of_third_party_assets": {
+          "default": null,
+          "description": "B8 use of third-party assets, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "value_adjustments_of_financial_assets": {
+          "default": null,
+          "description": "Total D, value adjustments of financial assets, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "value_of_production": {
+          "default": null,
+          "description": "Total A, value of production, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "write_downs_of_financial_assets": {
+          "default": null,
+          "description": "D19 write-downs of financial assets, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "TreatmentOverrides": {
+      "additionalProperties": false,
+      "description": "Per-year overrides (R9): only financial fixed assets and shareholder loans.",
+      "properties": {
+        "financial_fixed_assets": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FinancialFixedAssetsOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Financial fixed assets (B.III) of this year: `{\"destination\": ...}` or\n`{\"split\": [...]}`."
+        },
+        "shareholder_loans": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ShareholderLoansOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Shareholder loans of this year: `{\"destination\": ...}` or `{\"split\": [...]}`."
+        }
+      },
+      "type": "object"
+    },
+    "Treatments": {
+      "additionalProperties": false,
+      "description": "Treatments stated once for the call (R8, R9, R17).",
+      "properties": {
+        "derivative_liabilities": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DerivativeLiabilitiesDestination"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Derivative liabilities within provisions B: `financial_liability` or\n`operating_provision`. Needed when the derivative part is given and not zero.\nDefault: none."
+        },
+        "financial_fixed_assets": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FinancialFixedAssetsDestination"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Financial fixed assets (B.III): `operating`, `non_operating` or `financial_asset`.\nNeeded when B.III is given and not zero. Default: none."
+        },
+        "shareholder_loans": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ShareholderLoansDestination"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Shareholder loans (D.3): `financial_debt` or `quasi_equity`. Needed when the loans are\ngiven and not zero. Default: none."
+        },
+        "write_downs_of_fixed_assets": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WriteDownsOfFixedAssets"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Write-downs of fixed assets (B10 c): `operating` (with depreciation and amortisation) or\n`investing`. Default: `operating`, filled in and reported in `meta.defaults_applied`\nwhenever a statutory year gives an income statement (P1, A4); `null` or absent means not\ngiven. Omitted from the canonical input when not given, an additive field of version 1."
+        },
+        "write_downs_of_receivables": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WriteDownsOfReceivables"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Write-downs of receivables (B10 d): `operating` (other charges below EBITDA) or\n`investing`. Default: `operating`, filled in and reported in `meta.defaults_applied`\nwhenever a statutory year gives an income statement (E3, A4); `null` or absent means not\ngiven."
+        }
+      },
+      "type": "object"
+    },
+    "WithMaturity": {
+      "additionalProperties": false,
+      "description": "An aggregate with its part due beyond the next financial year.",
+      "properties": {
+        "beyond_one_year": {
+          "default": null,
+          "description": "Of which due beyond the next financial year (non-current), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "total": {
+          "default": null,
+          "description": "The aggregate, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "WriteDownsOfFixedAssets": {
+      "description": "Where write-downs of tangible and intangible fixed assets (B10 c) go (R17, P1).",
+      "oneOf": [
+        {
+          "const": "investing",
+          "description": "Investing (extra-characteristic) result, below operating profit.",
+          "type": "string"
+        },
+        {
+          "const": "operating",
+          "description": "Operating profit, below EBITDA, with depreciation and amortisation (IFRS 18; OIC 12\nparagraph 75). The default (P1 of 2026-11-09).",
+          "type": "string"
+        }
+      ]
+    },
+    "WriteDownsOfReceivables": {
+      "description": "Where write-downs of receivables (B10 d) go (R17, Decision 17 as amended by E3).",
+      "oneOf": [
+        {
+          "const": "investing",
+          "description": "Investing (extra-characteristic) result, below operating profit.",
+          "type": "string"
+        },
+        {
+          "const": "operating",
+          "description": "Operating profit, below EBITDA, in the other charges below EBITDA (IFRS 18 practice\nfor trade receivables). The default (E3 of 2026-11-09).",
+          "type": "string"
+        }
+      ]
+    },
+    "Year": {
+      "additionalProperties": false,
+      "description": "One financial year (R2).",
+      "properties": {
+        "date": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Date"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Balance sheet date, ISO 8601 `YYYY-MM-DD`. Optional; when missing, the order given is\ntaken as oldest first and the conventions say so."
+        },
+        "label": {
+          "default": null,
+          "description": "Name of the year in the result, for example \"2024\". Optional; reported as given.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reclassified": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Reclassified"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Totals already reclassified (Appendix B). Give this or `statutory`, not both."
+        },
+        "statutory": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Statutory"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The statutory aggregates of art. 2424 and 2425 (Appendix A). Give this or\n`reclassified`, not both."
+        },
+        "treatment_overrides": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TreatmentOverrides"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For this year only, another treatment of financial fixed assets (B.III) or of\nshareholder loans, or a split by amounts (R9). No other aggregate can be overridden."
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:statements.reorganise:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `statements.reorganise` (version 1).",
+  "properties": {
+    "adjustments": {
+      "default": [],
+      "description": "Labelled adjustments of Appendix C, stated once for the call, each with one amount per\nyear (R10). They apply to statutory entries only. Default: none.",
+      "items": {
+        "$ref": "#/$defs/Adjustment"
+      },
+      "type": "array"
+    },
+    "treatments": {
+      "$ref": "#/$defs/Treatments",
+      "default": {
+        "derivative_liabilities": null,
+        "financial_fixed_assets": null,
+        "shareholder_loans": null,
+        "write_downs_of_receivables": null
+      },
+      "description": "Treatments stated once for the call, applied to every statutory year (R8, R9, R17).\nA treatment is needed only for an aggregate given and not zero. Default: none, except\n`write_downs_of_receivables` and `write_downs_of_fixed_assets`, which default to\n`operating`, filled in and listed in `meta.defaults_applied` whenever a statutory year\ngives an income statement (A4). Each treatment not given reads as not given; the\n`null` values of the schema default mean \"not given\", not a choice."
+    },
+    "years": {
+      "description": "One or more financial years, oldest first (R2), each in the `statutory` or the\n`reclassified` form. When two consecutive entries both have a `date`, the later must be\none financial year after the earlier.",
+      "items": {
+        "$ref": "#/$defs/Year"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "years"
+  ],
+  "title": "ReorganiseInput",
+  "type": "object",
+  "x-fairmark-method": "statements.reorganise",
+  "x-fairmark-method-version": "1"
+}

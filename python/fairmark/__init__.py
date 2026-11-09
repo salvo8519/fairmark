@@ -17,8 +17,18 @@ Agents: see ``fairmark.tools`` (function calling) and ``fairmark-mcp`` (MCP serv
 
 from importlib.metadata import PackageNotFoundError, version
 
-from . import analysis, coc, dates, dcf, loans, rates, ratios, series, tools, tv, tvm
-from ._core import FairmarkError, Result, Step, input_schema, methods, run, run_json
+from . import analysis, coc, dates, dcf, loans, rates, ratios, series, statements, tools, tv, tvm
+from ._core import (
+    FairmarkError,
+    Result,
+    Step,
+    input_schema,
+    methods,
+    output_schema,
+    result_schema,
+    run,
+    run_json,
+)
 from ._engine import ENGINE_VERSION
 
 try:
@@ -39,11 +49,14 @@ __all__ = [
     "input_schema",
     "loans",
     "methods",
+    "output_schema",
     "rates",
     "ratios",
+    "result_schema",
     "run",
     "run_json",
     "series",
+    "statements",
     "tools",
     "tv",
     "tvm",

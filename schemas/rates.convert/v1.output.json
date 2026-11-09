@@ -1,0 +1,25 @@
+{
+  "$id": "urn:fairmark:schema:rates.convert:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `rates.convert`.",
+  "properties": {
+    "annual_growth_factor": {
+      "description": "Growth of one unit over one year, identical for both rates.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "rate": {
+      "description": "Equivalent annual rate with the target compounding.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "rate",
+    "annual_growth_factor"
+  ],
+  "title": "ConvertOutput",
+  "type": "object",
+  "x-fairmark-method": "rates.convert",
+  "x-fairmark-method-version": "1"
+}

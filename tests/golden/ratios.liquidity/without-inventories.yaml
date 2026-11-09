@@ -1,0 +1,24 @@
+method: ratios.liquidity
+description: 'R7: inventories not given: quick ratio and treasury margin not computed'
+source: scripts/reference_ratios_partial.py (Python decimal, 50 digits, local context), written from the
+  formulas and the computability tables of specs/0007-ratios-covenants/spec.md (amendment of 2026-11-09).
+  Current ratio 2500 / 2000 = 1.25; cash ratio 200 / 2000 = 0.1; net working capital 500.
+input:
+  balances: closing
+  closing:
+    current_assets: '2500'
+    cash: '200'
+    current_liabilities: '2000'
+expect:
+  /current_ratio/value: '1.25'
+  /quick_ratio/value: 'null'
+  /cash_ratio/value: '0.1'
+  /net_working_capital: '500'
+  /treasury_margin: 'null'
+  /not_computed/0/output: '/quick_ratio'
+  /not_computed/0/missing/0: '/closing/inventories'
+  /not_computed/1/output: '/treasury_margin'
+  /not_computed/1/missing/0: '/closing/inventories'
+expect_length:
+  /not_computed: '2'
+tolerance: '0.00000000000000000001'

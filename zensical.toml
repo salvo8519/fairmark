@@ -70,6 +70,7 @@ nav = [
     "methods/dcf-fcff.md",
     "methods/dcf-fcfe.md",
     "methods/dcf-free-cash-flows.md",
+    "methods/statements-reorganise.md",
     "methods/ratios-profitability.md",
     "methods/ratios-capital-structure.md",
     "methods/ratios-liquidity.md",
@@ -103,6 +104,7 @@ nav = [
     "project/conventions.md",
     "project/maintainers.md",
     "project/dependencies.md",
+    "project/mutation-testing.md",
     "project/changelog.md",
     "project/telemetry.md",
     { "Decisions (ADR)" = [
@@ -119,6 +121,7 @@ nav = [
       "project/adr/0011-release-notes-translated-with-each-fragment.md",
       "project/adr/0012-method-status-in-the-registry.md",
       "project/adr/0013-json-pointer-of-input-errors.md",
+      "project/adr/0014-contract-guidelines-for-inputs-envelope-and-errors.md",
     ] },
   ] },
 ]

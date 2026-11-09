@@ -1,0 +1,25 @@
+{
+  "$id": "urn:fairmark:schema:dates.year_fraction:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `dates.year_fraction`.",
+  "properties": {
+    "actual_days": {
+      "description": "Actual calendar days between the two dates.",
+      "format": "int64",
+      "type": "integer"
+    },
+    "year_fraction": {
+      "description": "Fraction of a year between the two dates under the chosen day count.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "year_fraction",
+    "actual_days"
+  ],
+  "title": "YearFractionOutput",
+  "type": "object",
+  "x-fairmark-method": "dates.year_fraction",
+  "x-fairmark-method-version": "1"
+}

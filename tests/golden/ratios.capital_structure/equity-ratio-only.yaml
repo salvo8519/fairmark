@@ -1,0 +1,40 @@
+method: ratios.capital_structure
+description: 'R7, R12: the minimal input for the equity ratio'
+source: scripts/reference_ratios_partial.py (Python decimal, 50 digits, local context), written from the
+  formulas and the computability tables of specs/0007-ratios-covenants/spec.md (amendment of 2026-11-09).
+  Equity ratio 2000 / 6000; every other output lacks an input.
+input:
+  balances: closing
+  closing:
+    equity: '2000'
+    total_assets: '6000'
+expect:
+  /net_financial_position: 'null'
+  /debt_to_equity/value: 'null'
+  /nfp_to_equity/value: 'null'
+  /equity_ratio/value: '0.33333333333333333333333333333333333333333333333333'
+  /primary_structure_margin: 'null'
+  /secondary_structure_margin: 'null'
+  /primary_fixed_asset_coverage/value: 'null'
+  /secondary_fixed_asset_coverage/value: 'null'
+  /not_computed/0/output: '/net_financial_position'
+  /not_computed/0/missing/0: '/closing/net_financial_position/cash'
+  /not_computed/0/missing/1: '/closing/net_financial_position/gross_debt'
+  /not_computed/1/output: '/debt_to_equity'
+  /not_computed/1/missing/0: '/closing/net_financial_position/gross_debt'
+  /not_computed/2/output: '/nfp_to_equity'
+  /not_computed/2/missing/0: '/closing/net_financial_position/cash'
+  /not_computed/2/missing/1: '/closing/net_financial_position/gross_debt'
+  /not_computed/3/output: '/primary_structure_margin'
+  /not_computed/3/missing/0: '/closing/fixed_assets'
+  /not_computed/4/output: '/secondary_structure_margin'
+  /not_computed/4/missing/0: '/closing/fixed_assets'
+  /not_computed/4/missing/1: '/closing/non_current_liabilities'
+  /not_computed/5/output: '/primary_fixed_asset_coverage'
+  /not_computed/5/missing/0: '/closing/fixed_assets'
+  /not_computed/6/output: '/secondary_fixed_asset_coverage'
+  /not_computed/6/missing/0: '/closing/fixed_assets'
+  /not_computed/6/missing/1: '/closing/non_current_liabilities'
+expect_length:
+  /not_computed: '7'
+tolerance: '0.00000000000000000001'

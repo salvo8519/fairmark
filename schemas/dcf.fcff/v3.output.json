@@ -1,0 +1,903 @@
+{
+  "$defs": {
+    "BridgeClaim": {
+      "additionalProperties": false,
+      "description": "A claim on the value of the company other than the net financial position, subtracted from\nenterprise value to reach equity value: a debt-like item or a non-controlling interest\n(R25). Fairmark subtracts the amount as given and does not choose how it is measured.",
+      "properties": {
+        "basis_note": {
+          "description": "Free text that qualifies the basis, for example \"net of tax\" or \"49% of the book value\nof equity of the subsidiary\"; required with `other`, optional otherwise, never empty\nwhen given. Reported, never used in the calculation.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "label": {
+          "description": "What the claim is, for example \"Unfunded pension obligation\" or \"30% of Subsidiary A\".\nNot empty.",
+          "type": "string"
+        },
+        "measurement_basis": {
+          "$ref": "#/$defs/MeasurementBasis",
+          "description": "How the amount was measured, stated by the analyst: `book_value`, `market_value`,\n`fair_value`, `present_value` or `other` (then describe it in `basis_note`). Required,\nno default. Reported with the amount, never used in the calculation."
+        },
+        "value": {
+          "description": "Amount at the valuation date, in currency units, zero or more; subtracted.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value",
+        "measurement_basis"
+      ],
+      "type": "object"
+    },
+    "CapStatus": {
+      "description": "Outcome of the growth cap check (SPEC-0006 R8).",
+      "oneOf": [
+        {
+          "const": "respected",
+          "description": "The growth is at or below the cap.",
+          "type": "string"
+        },
+        {
+          "const": "exceeded",
+          "description": "The growth is above the cap: reported, not refused.",
+          "type": "string"
+        }
+      ]
+    },
+    "ExitMultipleOutput": {
+      "description": "Output of `tv.exit_multiple`.",
+      "properties": {
+        "basis": {
+          "$ref": "#/$defs/TerminalBasis",
+          "description": "`enterprise` (EV/EBITDA, EV/EBIT, EV/Sales) or `equity` (P/E, P/BV)."
+        },
+        "growth_cap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GrowthCapCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Implied growth compared with the cap; `null` when no cap is given."
+        },
+        "implied_growth": {
+          "description": "Perpetual growth implied by the multiple, r − CF_{N+1} / TV_N, decimal fraction per\nperiod; `null` when `rate` and `next_flow` are not given.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "terminal_value": {
+          "description": "Terminal value at N, not discounted, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "terminal_value",
+        "basis",
+        "implied_growth",
+        "growth_cap"
+      ],
+      "type": "object"
+    },
+    "FcffBridge": {
+      "description": "From value of operations to equity value, every line as given (R23, R25).",
+      "properties": {
+        "debt_like_items": {
+          "description": "Each debt-like item, label, value and measurement basis, as given.",
+          "items": {
+            "$ref": "#/$defs/BridgeClaim"
+          },
+          "type": "array"
+        },
+        "debt_like_items_total": {
+          "description": "Sum of the debt-like items, in currency units, subtracted.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "enterprise_value": {
+          "description": "Value of operations plus the non-operating assets.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "equity_value": {
+          "description": "Enterprise value minus the net financial position, the debt-like items and the\nnon-controlling interests.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "net_financial_position": {
+          "description": "Net financial position subtracted, positive for net debt; `null` when none is given,\nand then zero is subtracted as a documented default (Decision 25).",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "non_controlling_interests": {
+          "description": "Each non-controlling interest, label, value and measurement basis, as given.",
+          "items": {
+            "$ref": "#/$defs/BridgeClaim"
+          },
+          "type": "array"
+        },
+        "non_controlling_interests_total": {
+          "description": "Sum of the non-controlling interests, in currency units, subtracted.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "non_operating_assets": {
+          "description": "Each non-operating asset, label and value, as given.",
+          "items": {
+            "$ref": "#/$defs/Line"
+          },
+          "type": "array"
+        },
+        "non_operating_assets_total": {
+          "description": "Sum of the non-operating assets, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "value_of_operations": {
+          "description": "Present value of the explicit FCFF plus present value of the terminal value.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value_of_operations",
+        "non_operating_assets",
+        "non_operating_assets_total",
+        "enterprise_value",
+        "net_financial_position",
+        "debt_like_items",
+        "debt_like_items_total",
+        "non_controlling_interests",
+        "non_controlling_interests_total",
+        "equity_value"
+      ],
+      "type": "object"
+    },
+    "FlowBasis": {
+      "description": "How the flow at N + 1 was obtained.",
+      "oneOf": [
+        {
+          "const": "next_flow_given",
+          "description": "CF_{N+1} given by the analyst.",
+          "type": "string"
+        },
+        {
+          "const": "last_flow_grown",
+          "description": "CF_{N+1} = CF_N × (1 + g).",
+          "type": "string"
+        }
+      ]
+    },
+    "GordonOutput": {
+      "description": "Output of `tv.gordon`.",
+      "properties": {
+        "flow_basis": {
+          "$ref": "#/$defs/FlowBasis",
+          "description": "`next_flow_given` or `last_flow_grown`."
+        },
+        "growth_cap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GrowthCapCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Growth compared with the cap; `null` when no cap is given."
+        },
+        "next_flow": {
+          "description": "Flow at N + 1 used, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "terminal_value": {
+          "description": "Terminal value at N, not discounted, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "terminal_value",
+        "next_flow",
+        "flow_basis",
+        "growth_cap"
+      ],
+      "type": "object"
+    },
+    "GrowthCapCheck": {
+      "description": "The perpetual growth compared with the cap the analyst gave.",
+      "properties": {
+        "cap": {
+          "description": "The cap given, decimal fraction per period.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "growth": {
+          "description": "The perpetual growth checked, decimal fraction per period.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/CapStatus",
+          "description": "`respected` when growth ≤ cap, `exceeded` otherwise."
+        }
+      },
+      "required": [
+        "growth",
+        "cap",
+        "status"
+      ],
+      "type": "object"
+    },
+    "HModelOutput": {
+      "description": "Output of `tv.h_model`.",
+      "properties": {
+        "extra_growth_value": {
+          "description": "Value of the growth above g_l during the decline, CF_N × H × (g_s − g_l) / (r − g_l),\nin currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "growth_cap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GrowthCapCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Long-term growth compared with the cap; `null` when no cap is given."
+        },
+        "stable_growth_value": {
+          "description": "Value at stable growth, CF_N × (1 + g_l) / (r − g_l), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "terminal_value": {
+          "description": "Terminal value at N, not discounted, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "terminal_value",
+        "stable_growth_value",
+        "extra_growth_value",
+        "growth_cap"
+      ],
+      "type": "object"
+    },
+    "LimitedHorizonOutput": {
+      "description": "Output of `tv.limited_horizon`.",
+      "properties": {
+        "annuity_factor": {
+          "description": "Value at N of a first flow of 1 (the annuity factor shared with `tvm.annuity`).",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "discount_factor": {
+          "description": "(1 + r)^−n, the factor that brings the residual value from N + n to N.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "flows_value": {
+          "description": "Value at N of the flows of periods N + 1 to N + n, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "growth_cap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GrowthCapCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Growth compared with the cap; `null` when no cap is given."
+        },
+        "residual_value_discounted": {
+          "description": "Residual value brought to N, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "terminal_value": {
+          "description": "Terminal value at N, not discounted to the valuation date, in currency units: the value\nof the n flows plus the discounted residual value.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "terminal_value",
+        "flows_value",
+        "annuity_factor",
+        "discount_factor",
+        "residual_value_discounted",
+        "growth_cap"
+      ],
+      "type": "object"
+    },
+    "Line": {
+      "additionalProperties": false,
+      "description": "A labelled amount, for example an asset and its realisable value.",
+      "properties": {
+        "label": {
+          "description": "What the amount is, for example \"Land\" or \"Bank loan\". Not empty.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Amount in currency units, zero or positive.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    },
+    "LiquidationOutput": {
+      "description": "Output of `tv.liquidation`.",
+      "properties": {
+        "basis": {
+          "$ref": "#/$defs/TerminalBasis",
+          "description": "`enterprise` or `equity`, as declared."
+        },
+        "tax_on_gains": {
+          "description": "Tax on gains, in currency units, as given.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "terminal_value": {
+          "description": "Net liquidation value at N, not discounted, in currency units; negative when the\nliabilities and costs exceed the realisable values.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "total_assets": {
+          "description": "Sum of the realisable values of the assets, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "total_liabilities": {
+          "description": "Sum of the liabilities, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "total_liquidation_costs": {
+          "description": "Sum of the liquidation costs, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "terminal_value",
+        "total_assets",
+        "total_liabilities",
+        "total_liquidation_costs",
+        "tax_on_gains",
+        "basis"
+      ],
+      "type": "object"
+    },
+    "MeasurementBasis": {
+      "description": "How the amount of a bridge claim was measured (Decision 21). Fairmark does not choose the\nbasis: the analyst states it and the result reports it next to the amount.",
+      "oneOf": [
+        {
+          "const": "book_value",
+          "description": "Book value per the accounts at the valuation date.",
+          "type": "string"
+        },
+        {
+          "const": "market_value",
+          "description": "Quoted market price at the valuation date.",
+          "type": "string"
+        },
+        {
+          "const": "fair_value",
+          "description": "Fair value as defined by IFRS 13.",
+          "type": "string"
+        },
+        {
+          "const": "present_value",
+          "description": "Present value of the obligation, for example unfunded pensions or provisions.",
+          "type": "string"
+        },
+        {
+          "const": "other",
+          "description": "Another basis, described in `basis_note` (required).",
+          "type": "string"
+        }
+      ]
+    },
+    "NormalisedIncomeOutput": {
+      "description": "Output of `tv.normalised_income`.",
+      "properties": {
+        "basis": {
+          "$ref": "#/$defs/TerminalBasis",
+          "description": "`enterprise` or `equity`, as declared."
+        },
+        "growth_cap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GrowthCapCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Growth compared with the cap (0 when no growth is given); `null` when no cap is given."
+        },
+        "terminal_value": {
+          "description": "Terminal value at N, not discounted, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "terminal_value",
+        "basis",
+        "growth_cap"
+      ],
+      "type": "object"
+    },
+    "PeriodRow": {
+      "description": "One period of the explicit horizon (R10).",
+      "properties": {
+        "discount_factor": {
+          "description": "Discount factor of the flow under the timing chosen.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "discount_rate": {
+          "description": "Discount rate given for the period, decimal fraction.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "flow": {
+          "description": "Flow of the period, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "growth": {
+          "description": "Growth applied to the previous flow, decimal fraction; `null` for given flows.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "inflation": {
+          "description": "Expected inflation of the period used to convert the discount rate, decimal fraction;\n`null` when no conversion is made.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "period": {
+          "description": "Period number k, 1 to N.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "present_value": {
+          "description": "Present value of the flow, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "projection": {
+          "$ref": "#/$defs/Projection",
+          "description": "Projection of the stage."
+        },
+        "rate_used": {
+          "description": "Discount rate used, in the terms of the cash flows, decimal fraction: the rate given,\nor the rate converted with the expected inflation of the period when the terms differ.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "stage": {
+          "description": "Stage number, 1 to 3.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "period",
+        "stage",
+        "projection",
+        "growth",
+        "flow",
+        "discount_rate",
+        "rate_used",
+        "inflation",
+        "discount_factor",
+        "present_value"
+      ],
+      "type": "object"
+    },
+    "Projection": {
+      "description": "How the flows of a stage are obtained (Decision 3).",
+      "oneOf": [
+        {
+          "const": "given",
+          "description": "The flows are given, one per period, in `flows`, or built up from line items in\n`lines` (exactly one of the two).",
+          "type": "string"
+        },
+        {
+          "const": "constant_growth",
+          "description": "Each flow is the previous flow × (1 + `growth`).",
+          "type": "string"
+        },
+        {
+          "const": "linear_decline",
+          "description": "The growth moves from `from_growth` to `to_growth` in equal steps,\ng_k = g_from + (g_to − g_from) × k / m, reaching `to_growth` in the last period\n(Decision 4).",
+          "type": "string"
+        }
+      ]
+    },
+    "RateConversion": {
+      "description": "The conversion of the discount rates to the terms of the cash flows (R16, Decision 5).",
+      "oneOf": [
+        {
+          "const": "none",
+          "description": "The terms are equal: the rates are used as given.",
+          "type": "string"
+        },
+        {
+          "const": "to_real",
+          "description": "Nominal rates converted to real terms for real cash flows.",
+          "type": "string"
+        },
+        {
+          "const": "to_nominal",
+          "description": "Real rates converted to nominal terms for nominal cash flows.",
+          "type": "string"
+        }
+      ]
+    },
+    "TechniqueOutput": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GordonOutput"
+        },
+        {
+          "$ref": "#/$defs/HModelOutput"
+        },
+        {
+          "$ref": "#/$defs/ValueDriverOutput"
+        },
+        {
+          "$ref": "#/$defs/ExitMultipleOutput"
+        },
+        {
+          "$ref": "#/$defs/LimitedHorizonOutput"
+        },
+        {
+          "$ref": "#/$defs/NormalisedIncomeOutput"
+        },
+        {
+          "$ref": "#/$defs/LiquidationOutput"
+        }
+      ],
+      "description": "The output of the terminal technique, as its own method returns it."
+    },
+    "TerminalBasis": {
+      "description": "Whether a terminal value is a value of the whole business or of its equity.",
+      "oneOf": [
+        {
+          "const": "enterprise",
+          "description": "Enterprise value: flows to all capital providers (FCFF), discounted at the WACC;\nmultiples EV/EBITDA, EV/EBIT, EV/Sales.",
+          "type": "string"
+        },
+        {
+          "const": "equity",
+          "description": "Equity value: flows to shareholders (FCFE, dividends), discounted at the cost of\nequity; multiple P/E.",
+          "type": "string"
+        }
+      ]
+    },
+    "TerminalOutput": {
+      "description": "The terminal value and its discounting (R19 to R22).",
+      "properties": {
+        "discount_factor": {
+          "description": "Discount factor applied to the terminal value; `null` with no terminal value (`none`).",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "discount_time": {
+          "description": "Time at which the terminal value is discounted, in periods: N, or N − 0.5; `null` with\nno terminal value (`none`).",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "output": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TechniqueOutput"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The technique's own output, with its implied assumptions; `null` for `given` and `none`."
+        },
+        "present_value": {
+          "description": "Present value of the terminal value, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "rate": {
+          "description": "Rate of the terminal phase (the single rate, or the terminal rate given with rates per\nperiod), decimal fraction per period, in the terms of the cash flows; the conventions\nstate whether the technique uses it. `null` when no terminal rate is used (`none`, or\n`given` discounted at N).",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "technique": {
+          "description": "Method id of the technique, for example `tv.gordon`; `given` for a terminal value given\nby the analyst, `none` for no terminal value.",
+          "type": "string"
+        },
+        "technique_version": {
+          "description": "Version of the technique's method that produced the value; `null` for `given` and\n`none`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "terminal_value": {
+          "description": "Terminal value at the horizon N, not discounted, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "technique",
+        "technique_version",
+        "rate",
+        "terminal_value",
+        "discount_time",
+        "discount_factor",
+        "present_value",
+        "output"
+      ],
+      "type": "object"
+    },
+    "Terms": {
+      "description": "Whether amounts and growth rates, or discount rates, include expected inflation.",
+      "oneOf": [
+        {
+          "const": "nominal",
+          "description": "At current prices: expected inflation included.",
+          "type": "string"
+        },
+        {
+          "const": "real",
+          "description": "At constant prices: expected inflation excluded.",
+          "type": "string"
+        }
+      ]
+    },
+    "TermsOutput": {
+      "description": "The terms of the flows and of the rates, and what was done with expected inflation\n(R14 to R18).",
+      "properties": {
+        "cash_flow_terms": {
+          "$ref": "#/$defs/Terms",
+          "description": "Terms of every amount and growth rate of the input, as given."
+        },
+        "conversion": {
+          "$ref": "#/$defs/RateConversion",
+          "description": "`none`, `to_real` or `to_nominal`: the conversion applied to every discount rate."
+        },
+        "discount_rate_terms": {
+          "$ref": "#/$defs/Terms",
+          "description": "Terms of the discount rates, as given."
+        },
+        "perpetual_growth": {
+          "description": "Perpetual growth stated by the terminal technique, in the terms of the cash flows,\ndecimal fraction; `null` when the technique states none.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "perpetual_growth_other_terms": {
+          "description": "The perpetual growth restated in the other terms with the terminal inflation (R17),\ndecimal fraction; `null` without inflation or without a perpetual growth.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "terminal_inflation": {
+          "description": "Expected inflation of the terminal phase, decimal fraction; `null` without inflation or\nwhen the terminal value uses no rate.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "terminal_rate_given": {
+          "description": "Terminal rate as given (the single rate, or the terminal rate), decimal fraction; `null`\nwhen the terminal value uses no rate (no terminal value, or a given terminal value\ndiscounted at N).",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "terminal_rate_used": {
+          "description": "Terminal rate used, in the terms of the cash flows, decimal fraction; `null` when the\nterminal value uses no rate.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "cash_flow_terms",
+        "discount_rate_terms",
+        "conversion",
+        "terminal_rate_given",
+        "terminal_rate_used",
+        "terminal_inflation",
+        "perpetual_growth",
+        "perpetual_growth_other_terms"
+      ],
+      "type": "object"
+    },
+    "ValueDriverOutput": {
+      "description": "Output of `tv.value_driver`.",
+      "properties": {
+        "growth_cap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GrowthCapCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Growth compared with the cap; `null` when no cap is given."
+        },
+        "next_free_cash_flow": {
+          "description": "Free cash flow at N + 1, NOPAT_{N+1} × (1 − g / RONIC), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "reinvestment_rate": {
+          "description": "Share of NOPAT reinvested to earn the growth, g / RONIC, decimal fraction.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "terminal_value": {
+          "description": "Terminal value at N, not discounted, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "value_of_growth": {
+          "$ref": "#/$defs/ValueOfGrowth",
+          "description": "`creates`, `none` or `destroys`: RONIC above, equal to or below the rate."
+        }
+      },
+      "required": [
+        "terminal_value",
+        "reinvestment_rate",
+        "next_free_cash_flow",
+        "value_of_growth",
+        "growth_cap"
+      ],
+      "type": "object"
+    },
+    "ValueOfGrowth": {
+      "description": "Whether growth adds value, from the return on new capital against the rate.",
+      "oneOf": [
+        {
+          "const": "creates",
+          "description": "RONIC above the rate: growth creates value.",
+          "type": "string"
+        },
+        {
+          "const": "none",
+          "description": "RONIC equal to the rate: growth creates no value; TV = NOPAT_{N+1} / r for any g.",
+          "type": "string"
+        },
+        {
+          "const": "destroys",
+          "description": "RONIC below the rate: growth destroys value.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:fairmark:schema:dcf.fcff:v3:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `dcf.fcff` (version 3).",
+  "properties": {
+    "basis": {
+      "$ref": "#/$defs/TerminalBasis",
+      "description": "`enterprise`: FCFF discounted at the WACC."
+    },
+    "bridge": {
+      "$ref": "#/$defs/FcffBridge",
+      "description": "Every line from value of operations to equity value."
+    },
+    "enterprise_value": {
+      "description": "Value of operations plus the non-operating assets.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "equity_value": {
+      "description": "Enterprise value minus the net financial position, the debt-like items and the\nnon-controlling interests.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "periods": {
+      "description": "One row per period of the explicit horizon.",
+      "items": {
+        "$ref": "#/$defs/PeriodRow"
+      },
+      "type": "array"
+    },
+    "pv_explicit_period": {
+      "description": "Present value of the explicit flows (FCFF on the enterprise basis, FCFE on the equity\nbasis), in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "terminal": {
+      "$ref": "#/$defs/TerminalOutput",
+      "description": "The terminal value, its technique and its discounting."
+    },
+    "terminal_value_weight": {
+      "description": "Present value of the terminal value divided by the present value of the explicit flows\nplus the present value of the terminal value (the value of operations on the enterprise\nbasis), decimal fraction (R22); `null` when that sum is zero.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "terms": {
+      "$ref": "#/$defs/TermsOutput",
+      "description": "The terms of the flows and of the rates, the conversion of the rates and the perpetual\ngrowth in the other terms (R14 to R18)."
+    },
+    "value_of_operations": {
+      "description": "Present value of the explicit FCFF plus present value of the terminal value.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "basis",
+    "value_of_operations",
+    "enterprise_value",
+    "equity_value",
+    "pv_explicit_period",
+    "terminal_value_weight",
+    "periods",
+    "terms",
+    "terminal",
+    "bridge"
+  ],
+  "title": "DcfFcffOutput",
+  "type": "object",
+  "x-fairmark-method": "dcf.fcff",
+  "x-fairmark-method-version": "3"
+}

@@ -44,7 +44,15 @@ def main() -> None:
             continue
         before = yaml.safe_load(git("show", f"{args.base}:{paths[0]}"))
         after = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
-        for key in ("method", "input", "expect", "expect_error", "tolerance"):
+        for key in (
+            "method",
+            "input",
+            "expect",
+            "expect_meta",
+            "expect_length",
+            "expect_error",
+            "tolerance",
+        ):
             if before.get(key) != after.get(key):
                 problems.append(f"changed '{key}': {path}")
 

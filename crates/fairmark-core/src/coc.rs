@@ -162,6 +162,7 @@ pub struct BetaReleverInput {
     pub debt_beta: Option<Decimal>,
 }
 
+/// Output of `coc.beta_relever`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct BetaReleverOutput {
     /// The converted beta.
@@ -254,6 +255,7 @@ pub struct BetaPeersInput {
     pub debt_beta: Option<Decimal>,
 }
 
+/// Output of `coc.beta_peers`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct BetaPeersOutput {
     /// Unlevered beta of each peer, in input order.
@@ -419,6 +421,7 @@ pub struct CostOfEquityInput {
     pub specific_risk_justification: Option<String>,
 }
 
+/// Output of `coc.cost_of_equity`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct CostOfEquityOutput {
     /// Cost of equity, annual decimal fraction.
@@ -563,6 +566,7 @@ pub struct CostOfDebtInput {
     pub tax_rate: Decimal,
 }
 
+/// Output of `coc.cost_of_debt`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct CostOfDebtOutput {
     /// Pre-tax cost of debt, annual decimal fraction.
@@ -630,6 +634,7 @@ pub struct WaccInput {
     pub debt_weight: Option<Decimal>,
 }
 
+/// Output of `coc.wacc`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct WaccOutput {
     /// Weighted average cost of capital, annual decimal fraction.

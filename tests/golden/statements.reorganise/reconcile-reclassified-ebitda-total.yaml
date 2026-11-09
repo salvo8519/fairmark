@@ -1,0 +1,34 @@
+method: statements.reorganise
+description: 'AC4, R5, R7: in the reclassified form, EBITDA given as 496001 differs from its derivation
+  by Appendix B.2; FM-E026'
+source: scripts/reference_statements.py (Python decimal, 50 digits, local context); its income statement
+  section was written from Appendices A.2, B.2 and C of specs/0005-statements-reclassification/spec.md,
+  R16 to R21 and Decision 17 before the engine's income statement code existed. The later decisions (E1
+  to E6, P1, P2, A2 to A4) and corrections (D1-IS to D3-IS) were added to the reference by the same agent,
+  each before the engine change of its round, and the expectations were regenerated from it.
+input:
+  years:
+  - label: '2024'
+    reclassified:
+      income_statement:
+        revenue: '5000000'
+        value_of_production: '5100000'
+        purchases: '2200000'
+        materials_consumed: '2170000'
+        external_costs: '3604000'
+        value_added: '1496000'
+        personnel_costs: '1000000'
+        ebitda: '496001'
+        depreciation_and_amortisation: '180000'
+        other_charges_below_ebitda: '15000'
+        income_from_operating_investments: '0'
+        operating_profit: '301000'
+        investing_result: '-26000'
+        profit_before_financing_and_taxes: '275000'
+        non_recurring_result: '0'
+        financing_result: '-61000'
+        interest_and_other_financial_charges: '60000'
+        profit_before_tax: '214000'
+        income_taxes: '64000'
+        net_income: '150000'
+expect_error: FM-E026
