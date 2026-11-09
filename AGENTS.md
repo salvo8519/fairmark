@@ -159,6 +159,7 @@ Install [`uv`](https://docs.astral.sh/uv/) and Rust stable. `just` is installed 
 | Outdated dependencies / advisories | `uv run just deps-outdated` / `uv run just deps-audit` |
 | Version check / preview of release notes | `uv run just version` / `uv run just release-notes` |
 | Build both documentation sites | `uv run just docs` |
+| Disk usage of worktrees and caches (read-only; nothing is deleted without the maintainer's explicit approval) | `uv run just workspace-report` |
 | Docs preview (English or Italian) | `uv run just docs-serve` / `uv run just docs-serve it` |
 
 ## Adding a method (checklist)
