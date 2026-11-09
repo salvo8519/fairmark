@@ -53,15 +53,21 @@ comparison of a growth with a rate that is itself refused, or the rest of an adj
 amounts are not one per year); a check that does not is still made (a refused `wacc` does not
 hide a refused terminal growth, a refused `principal` does not hide a rate out of range).
 
-- **Reading the input.** `serde` stops at the first field it cannot read (ADR 0013); the text
-  is then read as JSON and walked against the schema of the method, and every unknown key,
-  every key given twice in one object and every object given as a positional array is
-  reported with it, each with its pointer. An unknown key comes with the fields its object
-  accepts in `expected` and a `fix` that names the closest accepted field when the key looks
-  like a typing error, ignoring case (for example "rename `wac` to `wacc`"). A second wrong
-  type, missing field or unknown value is not looked for: correct the first and call again.
-  `reason` `syntax` is given only for a text that is not JSON; a value of the wrong kind for a
-  choice (`true` for `timing`) is `enum` at its field with the values.
+- **Reading the input.** Every field that cannot be read is reported: the first as `serde`
+  reports it (ADR 0013), then every other value of the wrong type, missing required field and
+  unknown value of an enumeration, each with the message, pointer, reason, `expected` and `fix`
+  it would have if it were the only error. The text is also read as JSON and walked against
+  the schema of the method, and every unknown key, every key given twice in one object and
+  every object given as a positional array is reported, each with its pointer. An unknown key
+  comes with the fields its object accepts in `expected` and a `fix` that names the closest
+  accepted field when the key looks like a typing error, ignoring case (for example "rename
+  `wac` to `wacc`"). `reason` `syntax` is given only for a text that is not JSON; a value of
+  the wrong kind for a choice (`true` for `timing`) is `enum` at its field with the values.
+- **Number grammar.** A decimal is a JSON number or a string matching the pattern of the input
+  schema, `^-?\d+(\.\d+)?([eE]\d+)?$`: decimal point, digits on both sides of it, no sign
+  other than a leading minus, no thousands separators and no currency symbols. A string
+  outside it (`"+0.1"`, `".1"`, `"1."`, `"1_000"`, `"1,000"`) is `type` at its field, in every
+  method. A signed exponent (`"1e-3"`) is not accepted yet (issue #266).
 - **Ambiguous JSON is refused.** A key given twice in one object (`duplicate`, at the key) and
   an object given as an array of its values (`type`, at the array; `""` for an input that is an
   array) are refused in every method: they would be read with the last value or by position.
@@ -70,17 +76,27 @@ hide a refused terminal growth, a refused `principal` does not hide a rate out o
   choices is `unknown_field` at the key, with the choices and the closest one; no key, or a
   second key, is `length` (at the object, or at the second key).
 - **Analyses.** The fields of the analysis and its `base_input` are checked in one pass:
-  `base_input` is checked by the method it names (for `analysis.goal_seek`, with the variable at
-  the low end of the bracket), and its input errors are reported under `/base_input`, also
-  when the analysis input itself cannot be read. A variable or an override that points to a
-  field taking a whole number is `FM-E015` at its own field. The size of the request
-  (`FM-E016`) is checked first: a request over the limits evaluates nothing.
+  `base_input` is checked by the method it names, through the validation alone of that method
+  (every check of its input, nothing computed), and its input errors are reported under
+  `/base_input`, also when the analysis input itself cannot be read. Checking `base_input`
+  adds no evaluation: an analysis evaluates the inner method only for its results.
+  `analysis.goal_seek` checks `base_input` with the variable set at the low end of the
+  bracket, the first value it evaluates. A variable or an override that points to a field
+  taking a whole number is `FM-E015` at its own field. The size of the request (`FM-E016`, an
+  input error) is checked first: a request over the limits evaluates nothing.
 - **Computation errors.** An error of the computation (an overflow, a solver that does not
   converge, a defect) is never listed next to input errors: when the input has errors, they
   are reported; only an input without errors reaches the computation, whose first error stops
-  it and is the only entry. A reconciliation `FM-E026` of totals found while the statements are
-  reorganised, and a rounding too coarse for a loan (`FM-E023`, at
-  `/rounding/decimal_places`), also stop the computation and are reported alone.
+  it and is the only entry.
+- **Input conditions found by the computation.** A few conditions of the input can only be
+  found by computing, so they are not part of the validation (nor of the check of
+  `base_input` in an analysis) and are reported alone, once the input has no other error: a
+  reconciliation of totals of `statements.reorganise` (`FM-E026`); a rounding too coarse for a
+  loan schedule (`FM-E023`, at `/rounding/decimal_places`); for
+  `loans.number_of_instalments`, an instalment that never repays the loan (`FM-E021`) and a
+  count of instalments solved above the limit (`FM-E001`); a date generated by `dates.schedule`
+  after 2199-12-31 (`FM-E009`); an input of a `ratios.*` method below its minimum
+  (`FM-E027`).
 
 The schema of the report is part of every result schema (`fairmark schema <method>
 --envelope`, `fairmark.result_schema(method)`): `$defs/FairmarkErrorResponse`, named at the

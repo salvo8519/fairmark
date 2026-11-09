@@ -1,6 +1,6 @@
 ---
 source: concepts/architecture.md
-source_hash: a7886311c519
+source_hash: aed9cf69d1b9
 ---
 # Architettura
 
@@ -39,7 +39,9 @@ roadmap/            roadmap.yaml → milestone, epic e task su GitHub
    di input (serde + `JsonSchema`, `deny_unknown_fields`, commento con le unità su ogni campo),
    una struttura di output (`Serialize` + `JsonSchema`, commento con le unità sul tipo e su ogni
    campo) e un tipo che implementa il trait `Method` (id, versione, titolo, descrizione,
-   `compute`) (ADR 0009).
+   `compute`, e `validate` quando il metodo controlla il suo input: ogni controllo dell'input,
+   ogni errore riportato, nessun calcolo; `compute` esegue per primi gli stessi controlli)
+   (ADR 0009, ADR 0014 G5).
 2. Aggiungere una riga all'elenco in `registry.rs`; `uv run just generate` scrive i suoi schemi
    di input e di output in `schemas/<metodo>/v1.json` e `schemas/<metodo>/v1.output.json` e
    aggiorna `schemas/index.json`.

@@ -169,16 +169,22 @@ with `missing_any_of` for `FM-E027` and `errors` at the top level:
 - `errors` lists every error found, at least one, the first equal to the top level. Every
   method validates its whole input before computing and reports every error it finds, in the
   order of its checks; a check is skipped only when it needs an input already refused. An
-  analysis checks its own fields and its `base_input` (by the method it names) in the same
-  pass. Reading the input stops at the first field `serde` cannot read (ADR 0013); the input
-  is then walked against the method's schema, and every unknown key, every key repeated in an
-  object and every object given as a positional array is reported with that first error. A
+  analysis checks its own fields and its `base_input` in the same pass; `base_input` is
+  checked by the validation alone of the method it names (the `validate` of the `Method`
+  trait: every input check, nothing computed), so checking it adds no evaluation. Reading the
+  input reports the first field `serde` cannot read as `serde` reports it (ADR 0013), then
+  every other wrong type, missing field and unknown enumeration value, each as `serde` would
+  report it alone; a decimal string outside the pattern of the schema is a wrong type. The
+  input is also walked against the method's schema, and every unknown key, every key repeated
+  in an object and every object given as a positional array is reported. A
   repeated key and a positional array are refused in every method, never read with the last
   value or by position. An error of the computation (an overflow, a solver that does not
   converge, a defect) never sits in `errors` next to input errors: it is reached only by an
   input without errors, and it stops the computation and is reported alone. When an input
   error and a computation error met earlier coexist, the input error is reported, so the
   top-level error of such an input differs from the one reported before this rule.
+  The few input conditions that only the computation can find (listed in the error reference)
+  are reported alone, like a computation error.
 
 A new meaning gets a new code; a new location keeps the code of its condition (ADR 0013).
 Python, the CLI, MCP and function calling pass the whole report. The cells of an analysis table

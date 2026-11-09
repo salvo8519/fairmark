@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: fa2775f14a4c
+source_hash: fcee034fd4c7
 ---
 # Codici di errore
 
@@ -59,16 +59,24 @@ volta rifiutato, o il resto di una rettifica i cui importi non sono uno per eser
 controllo che non ne dipende viene comunque fatto (un `wacc` rifiutato non nasconde una crescita
 terminale rifiutata, un `principal` rifiutato non nasconde un tasso fuori intervallo).
 
-- **Lettura dell'input.** `serde` si ferma al primo campo che non riesce a leggere (ADR 0013);
-  il testo viene poi letto come JSON e percorso secondo lo schema del metodo, e insieme al primo
-  errore vengono riportate tutte le chiavi sconosciute, tutte le chiavi indicate due volte nello
-  stesso oggetto e tutti gli oggetti scritti come array posizionale, ciascuno con il suo
-  pointer. Una chiave sconosciuta riporta in `expected` i campi che il suo oggetto accetta e una
-  `fix` che indica il campo ammesso più vicino quando la chiave sembra un errore di battitura,
-  senza distinguere maiuscole e minuscole (per esempio "rename `wac` to `wacc`"). Un secondo
-  tipo errato, campo mancante o valore sconosciuto non viene cercato: correggi il primo e
-  richiama. `reason` `syntax` vale solo per un testo che non è JSON; un valore di tipo diverso
-  per una scelta (`true` per `timing`) è `enum` sul suo campo, con i valori ammessi.
+- **Lettura dell'input.** Viene riportato ogni campo che non si riesce a leggere: il primo
+  come lo riporta `serde` (ADR 0013), poi ogni altro valore di tipo errato, campo obbligatorio
+  mancante e valore sconosciuto di un'enumerazione, ciascuno con il messaggio, il pointer, la
+  reason, `expected` e `fix` che avrebbe se fosse l'unico errore. Il testo viene anche letto
+  come JSON e percorso secondo lo schema del metodo, e vengono riportate tutte le chiavi
+  sconosciute, tutte le chiavi indicate due volte nello stesso oggetto e tutti gli oggetti
+  scritti come array posizionale, ciascuno con il suo pointer. Una chiave sconosciuta riporta in
+  `expected` i campi che il suo oggetto accetta e una `fix` che indica il campo ammesso più
+  vicino quando la chiave sembra un errore di battitura, senza distinguere maiuscole e
+  minuscole (per esempio "rename `wac` to `wacc`"). `reason` `syntax` vale solo per un testo
+  che non è JSON; un valore di tipo diverso per una scelta (`true` per `timing`) è `enum` sul
+  suo campo, con i valori ammessi.
+- **Grammatica dei numeri.** Un decimale è un numero JSON o una stringa conforme al pattern
+  dello schema di input, `^-?\d+(\.\d+)?([eE]\d+)?$`: punto decimale, cifre da entrambi i
+  lati, nessun segno salvo un meno iniziale, nessun separatore delle migliaia e nessun simbolo
+  di valuta. Una stringa fuori dal pattern (`"+0.1"`, `".1"`, `"1."`, `"1_000"`, `"1,000"`) è
+  `type` sul suo campo, in tutti i metodi. Un esponente con segno (`"1e-3"`) non è ancora
+  accettato (issue #266).
 - **Il JSON ambiguo viene rifiutato.** Una chiave indicata due volte nello stesso oggetto
   (`duplicate`, sulla chiave) e un oggetto scritto come array dei suoi valori (`type`,
   sull'array; `""` per un input che è un array) sono rifiutati in tutti i metodi: verrebbero
@@ -78,18 +86,28 @@ terminale rifiutata, un `principal` rifiutato non nasconde un tasso fuori interv
   `unknown_field` sulla chiave, con le scelte e la più vicina; nessuna chiave, o una seconda
   chiave, è `length` (sull'oggetto, o sulla seconda chiave).
 - **Analisi.** I campi dell'analisi e il suo `base_input` sono controllati in un solo
-  passaggio: `base_input` è controllato dal metodo che indica (per `analysis.goal_seek`, con la
-  variabile all'estremo inferiore dell'intervallo), e i suoi errori di input sono riportati
-  sotto `/base_input`, anche quando l'input dell'analisi stesso non si riesce a leggere. Una
-  variabile o una modifica che punta a un campo che accetta un numero intero è `FM-E015` sul
-  proprio campo. La dimensione della richiesta (`FM-E016`) è controllata per prima: una
-  richiesta oltre i limiti non valuta nulla.
+  passaggio: `base_input` è controllato dal metodo che indica, con la sola validazione di quel
+  metodo (ogni controllo del suo input, nessun calcolo), e i suoi errori di input sono
+  riportati sotto `/base_input`, anche quando l'input dell'analisi stesso non si riesce a
+  leggere. Il controllo di `base_input` non aggiunge valutazioni: un'analisi valuta il metodo
+  interno solo per i suoi risultati. `analysis.goal_seek` controlla `base_input` con la
+  variabile all'estremo inferiore dell'intervallo, il primo valore che valuta. Una variabile o
+  una modifica che punta a un campo che accetta un numero intero è `FM-E015` sul proprio
+  campo. La dimensione della richiesta (`FM-E016`, un errore di input) è controllata per
+  prima: una richiesta oltre i limiti non valuta nulla.
 - **Errori del calcolo.** Un errore del calcolo (un overflow, un solver che non converge, un
   difetto) non compare mai accanto agli errori dell'input: quando l'input ha errori, vengono
   riportati quelli; solo un input senza errori arriva al calcolo, il cui primo errore lo
-  interrompe ed è l'unica voce. Anche una quadratura `FM-E026` dei totali trovata durante la
-  riclassificazione dei bilanci, e un arrotondamento troppo grossolano per un finanziamento
-  (`FM-E023`, su `/rounding/decimal_places`), interrompono il calcolo e sono riportati da soli.
+  interrompe ed è l'unica voce.
+- **Condizioni dell'input trovate dal calcolo.** Alcune condizioni dell'input si possono
+  trovare solo calcolando: non fanno parte della validazione (né del controllo di `base_input`
+  in un'analisi) e sono riportate da sole, quando l'input non ha altri errori: una quadratura
+  dei totali di `statements.reorganise` (`FM-E026`); un arrotondamento troppo grossolano per un
+  piano di ammortamento (`FM-E023`, su `/rounding/decimal_places`); per
+  `loans.number_of_instalments`, una rata che non rimborsa mai il finanziamento (`FM-E021`) e
+  un numero di rate calcolato oltre il limite (`FM-E001`); una data generata da
+  `dates.schedule` dopo il 2199-12-31 (`FM-E009`); un input di un metodo `ratios.*` sotto il suo
+  minimo (`FM-E027`).
 
 Lo schema del report fa parte di ogni schema del risultato (`fairmark schema <method>
 --envelope`, `fairmark.result_schema(method)`): `$defs/FairmarkErrorResponse`, indicato alla
