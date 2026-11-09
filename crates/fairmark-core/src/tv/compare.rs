@@ -47,8 +47,18 @@ impl Serialize for TechniqueEntry {
 }
 
 /// What a technique entry is, for the messages of the entry.
-const ONE_KEY: &str = "each technique is an object with exactly one key, the method id, for \
-                       example {\"tv.gordon\": {...}}";
+const ONE_KEY: &str = crate::error::CustomRefusal::TechniqueKeys.text();
+
+/// The method ids a technique entry accepts, in the order of [`Technique`].
+pub(crate) const TECHNIQUE_IDS: [&str; 7] = [
+    Gordon::ID,
+    ValueDriver::ID,
+    HModel::ID,
+    ExitMultiple::ID,
+    LimitedHorizon::ID,
+    NormalisedIncome::ID,
+    Liquidation::ID,
+];
 
 impl<'de> Deserialize<'de> for TechniqueEntry {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Self, D::Error> {
@@ -76,7 +86,10 @@ impl<'de> serde::de::Visitor<'de> for EntryVisitor {
         while let Some(key) = map.next_key::<String>()? {
             let value = map.next_value()?;
             if entries.iter().any(|(k, _)| *k == key) {
-                return Err(A::Error::custom(format!("duplicate key `{key}`; keep one")));
+                return Err(A::Error::custom(format!(
+                    "{} `{key}`; keep one",
+                    crate::error::CustomRefusal::DuplicateKey.text()
+                )));
             }
             entries.push((key, value));
         }

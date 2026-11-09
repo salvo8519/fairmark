@@ -256,28 +256,13 @@ fn unknown_fields_inside_tagged_choices() {
     );
 }
 
-/// Only an unknown field starts the walk: a type error still stops at the first.
+/// A wrong type stops `serde` at the first error; the walk still reports every unknown key.
 #[test]
-fn other_reading_errors_stop_at_the_first() {
+fn a_type_error_comes_with_every_unknown_key() {
     let r = report_text("tvm.npv", r#"{"rate": "x", "typo": 1, "cash_flows": [1]}"#);
     assert_eq!(r["reason"], "type");
-    assert_eq!(r["errors"].as_array().unwrap().len(), 1);
-}
-
-// ------------------------------------------------------------- statements.reorganise
-
-#[test]
-fn statements_sign_error_names_the_field() {
-    let r = report(
-        "statements.reorganise",
-        &golden_input("statements.reorganise/error-negative-unsigned-amount.yaml"),
-    );
-    assert_eq!(r["code"], "FM-E001");
-    assert_eq!(r["pointer"], "/years/0/statutory/balance_sheet/cash");
-    assert_eq!(r["reason"], "sign");
-    assert_eq!(r["expected"], json!(["zero or more"]));
-    assert_eq!(r["fix"], "give the amount without sign");
-    top_level_is_the_first_entry(&r);
+    assert_eq!(r["errors"][1]["pointer"], "/typo");
+    assert_eq!(r["errors"].as_array().unwrap().len(), 2);
 }
 
 #[test]

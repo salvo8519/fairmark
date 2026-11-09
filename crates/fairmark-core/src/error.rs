@@ -927,11 +927,22 @@ pub(crate) enum CustomRefusal {
     /// A non-recurring adjustment of D18 or D19, which are fixed in the investing result
     /// (SPEC-0005 R17); the producer writes the aggregate before the text.
     FixedAggregate,
+    /// A technique of `tv.compare` that is not an object with exactly one key; the producer
+    /// adds what it got.
+    TechniqueKeys,
+    /// A key repeated in an object that its type reads itself (a technique of `tv.compare`);
+    /// the producer writes the key after the text.
+    DuplicateKey,
 }
 
 impl CustomRefusal {
     /// Every refusal, for the registry's lookup.
-    pub(crate) const ALL: [Self; 2] = [Self::NullNotAccepted, Self::FixedAggregate];
+    pub(crate) const ALL: [Self; 4] = [
+        Self::NullNotAccepted,
+        Self::FixedAggregate,
+        Self::TechniqueKeys,
+        Self::DuplicateKey,
+    ];
 
     /// The fixed text of the refusal, written by its producer.
     pub(crate) const fn text(self) -> &'static str {
@@ -944,6 +955,23 @@ impl CustomRefusal {
                  (SPEC-0005 R17, Decision 17); remove the adjustment, or name the aggregate of \
                  Appendix A.2 the non-recurring part belongs to"
             }
+            Self::TechniqueKeys => {
+                "each technique is an object with exactly one key, the method id, for example \
+                 {\"tv.gordon\": {...}}"
+            }
+            Self::DuplicateKey => "duplicate key",
+        }
+    }
+
+    /// The accepted values the refusal lists, when they are a closed list of its own (the
+    /// values of a field are otherwise read from the schema).
+    pub(crate) fn expected(self) -> Vec<String> {
+        match self {
+            Self::TechniqueKeys => crate::tv::compare::TECHNIQUE_IDS
+                .iter()
+                .map(|id| (*id).to_owned())
+                .collect(),
+            _ => Vec::new(),
         }
     }
 
@@ -951,6 +979,8 @@ impl CustomRefusal {
         match self {
             Self::NullNotAccepted => Reason::Type,
             Self::FixedAggregate => Reason::Enum,
+            Self::TechniqueKeys => Reason::Length,
+            Self::DuplicateKey => Reason::Duplicate,
         }
     }
 
@@ -960,6 +990,11 @@ impl CustomRefusal {
             Self::FixedAggregate => {
                 "remove the adjustment, or name the aggregate the non-recurring part belongs to"
             }
+            Self::TechniqueKeys => {
+                "give each technique as an object with one key, the method id, and add one entry \
+                 per technique"
+            }
+            Self::DuplicateKey => "keep one",
         }
     }
 }
