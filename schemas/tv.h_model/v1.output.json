@@ -1,0 +1,85 @@
+{
+  "$defs": {
+    "CapStatus": {
+      "description": "Outcome of the growth cap check (SPEC-0006 R8).",
+      "oneOf": [
+        {
+          "const": "respected",
+          "description": "The growth is at or below the cap.",
+          "type": "string"
+        },
+        {
+          "const": "exceeded",
+          "description": "The growth is above the cap: reported, not refused.",
+          "type": "string"
+        }
+      ]
+    },
+    "GrowthCapCheck": {
+      "description": "The perpetual growth compared with the cap the analyst gave.",
+      "properties": {
+        "cap": {
+          "description": "The cap given, decimal fraction per period.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "growth": {
+          "description": "The perpetual growth checked, decimal fraction per period.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/CapStatus",
+          "description": "`respected` when growth ≤ cap, `exceeded` otherwise."
+        }
+      },
+      "required": [
+        "growth",
+        "cap",
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:tv.h_model:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `tv.h_model`.",
+  "properties": {
+    "extra_growth_value": {
+      "description": "Value of the growth above g_l during the decline, CF_N × H × (g_s − g_l) / (r − g_l),\nin currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "growth_cap": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GrowthCapCheck"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Long-term growth compared with the cap; `null` when no cap is given."
+    },
+    "stable_growth_value": {
+      "description": "Value at stable growth, CF_N × (1 + g_l) / (r − g_l), in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "terminal_value": {
+      "description": "Terminal value at N, not discounted, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "terminal_value",
+    "stable_growth_value",
+    "extra_growth_value",
+    "growth_cap"
+  ],
+  "title": "HModelOutput",
+  "type": "object",
+  "x-fairmark-method": "tv.h_model",
+  "x-fairmark-method-version": "1"
+}

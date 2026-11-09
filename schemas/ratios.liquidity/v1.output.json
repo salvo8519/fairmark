@@ -1,0 +1,67 @@
+{
+  "$defs": {
+    "RatioValue": {
+      "description": "A ratio, or the reason it is not defined (SPEC-0007 R3).",
+      "properties": {
+        "not_defined": {
+          "description": "Why the ratio is not defined, for example \"equity is negative (-100)\"; null when it is\ndefined.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value": {
+          "description": "The ratio, in the unit stated by the field that holds it (decimal fraction, multiple or\ndays); null when the ratio is not defined.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "value",
+        "not_defined"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:ratios.liquidity:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `ratios.liquidity`.",
+  "properties": {
+    "cash_ratio": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "Cash / current liabilities, multiple."
+    },
+    "current_ratio": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "Current assets / current liabilities, multiple."
+    },
+    "net_working_capital": {
+      "description": "Current assets − current liabilities, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "quick_ratio": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "(Current assets − inventories) / current liabilities, multiple."
+    },
+    "treasury_margin": {
+      "description": "Current assets − inventories − current liabilities, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "current_ratio",
+    "quick_ratio",
+    "cash_ratio",
+    "net_working_capital",
+    "treasury_margin"
+  ],
+  "title": "LiquidityOutput",
+  "type": "object",
+  "x-fairmark-method": "ratios.liquidity",
+  "x-fairmark-method-version": "1"
+}

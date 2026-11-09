@@ -1,0 +1,19 @@
+{
+  "$id": "urn:fairmark:schema:rates.real_nominal:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `rates.real_nominal`.",
+  "properties": {
+    "rate": {
+      "description": "The converted rate, decimal fraction per period.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "rate"
+  ],
+  "title": "RealNominalOutput",
+  "type": "object",
+  "x-fairmark-method": "rates.real_nominal",
+  "x-fairmark-method-version": "1"
+}

@@ -1,0 +1,907 @@
+{
+  "$defs": {
+    "AppliedAdjustment": {
+      "description": "One adjustment applied to a year (R11).",
+      "properties": {
+        "amount": {
+          "description": "Amount moved, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "index": {
+          "description": "Position of the adjustment in `adjustments`.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "kind": {
+          "description": "The kind of Appendix C, for example `operating_cash`.",
+          "type": "string"
+        },
+        "label": {
+          "description": "The adjustment's label, as given.",
+          "type": "string"
+        },
+        "reason": {
+          "description": "The adjustment's reason, as given.",
+          "type": "string"
+        },
+        "source": {
+          "description": "JSON pointer of the source aggregate.",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/Destination",
+          "description": "Where the amount goes."
+        }
+      },
+      "required": [
+        "index",
+        "kind",
+        "label",
+        "amount",
+        "reason",
+        "source",
+        "target"
+      ],
+      "type": "object"
+    },
+    "Assignment": {
+      "description": "One aggregate given, assigned to its destination before the adjustments (R11).",
+      "properties": {
+        "aggregate": {
+          "description": "JSON pointer of the input aggregate.",
+          "type": "string"
+        },
+        "amount": {
+          "description": "Amount assigned, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "destination": {
+          "$ref": "#/$defs/Destination",
+          "description": "Where the amount goes."
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin",
+          "description": "`mapping` (Appendix A) or `analyst` (treatment or override)."
+        },
+        "reference": {
+          "description": "Statutory reference, for example \"B.III\" or \"liabilities D, remainder\".",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reference",
+        "aggregate",
+        "amount",
+        "destination",
+        "origin"
+      ],
+      "type": "object"
+    },
+    "BalanceSheet": {
+      "description": "The reorganised balance sheet (R12).",
+      "properties": {
+        "excess_cash": {
+          "description": "Cash of the net financial position: C.IV less operating cash, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "non_operating_assets": {
+          "description": "In the type `dcf.fcff` takes, never part of invested capital; amounts in currency\nunits.",
+          "items": {
+            "$ref": "#/$defs/Line"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "non_operating_assets_total": {
+          "description": "Σ non-operating assets, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "operating": {
+          "$ref": "#/$defs/OperatingBlock",
+          "description": "The operating block, up to invested capital."
+        },
+        "sources": {
+          "$ref": "#/$defs/Sources",
+          "description": "Equity, quasi-equity, net financial position and debt-like items."
+        },
+        "total_funds_invested": {
+          "description": "Invested capital + Σ non-operating assets, in currency units, signed; equals\n`total_sources`.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "operating",
+        "non_operating_assets",
+        "non_operating_assets_total",
+        "total_funds_invested",
+        "sources",
+        "excess_cash"
+      ],
+      "type": "object"
+    },
+    "BridgeClaim": {
+      "additionalProperties": false,
+      "description": "A claim on the value of the company other than the net financial position, subtracted from\nenterprise value to reach equity value: a debt-like item or a non-controlling interest\n(R25). Fairmark subtracts the amount as given and does not choose how it is measured.",
+      "properties": {
+        "basis_note": {
+          "description": "Free text that qualifies the basis, for example \"net of tax\" or \"49% of the book value\nof equity of the subsidiary\"; required with `other`, optional otherwise, never empty\nwhen given. Reported, never used in the calculation.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "label": {
+          "description": "What the claim is, for example \"Unfunded pension obligation\" or \"30% of Subsidiary A\".\nNot empty.",
+          "type": "string"
+        },
+        "measurement_basis": {
+          "$ref": "#/$defs/MeasurementBasis",
+          "description": "How the amount was measured, stated by the analyst: `book_value`, `market_value`,\n`fair_value`, `present_value` or `other` (then describe it in `basis_note`). Required,\nno default. Reported with the amount, never used in the calculation."
+        },
+        "value": {
+          "description": "Amount at the valuation date, in currency units, zero or more; subtracted.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value",
+        "measurement_basis"
+      ],
+      "type": "object"
+    },
+    "Check": {
+      "description": "One relation of R7 or R12 in the result.",
+      "properties": {
+        "pointers": {
+          "description": "JSON pointers of the inputs on both sides of the relation: for a relation checked, the\nitems read. Empty for `funds_invested_equals_sources` of a statutory year, whose sides\nare computed outputs; its status counts the items taken as zero (D1, M2).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/CheckStatus",
+          "description": "`reconciled` or `not_checked`."
+        }
+      },
+      "required": [
+        "status",
+        "pointers"
+      ],
+      "type": "object"
+    },
+    "CheckStatus": {
+      "description": "Outcome of one relation. A relation whose sides differ is not an outcome: it is `FM-E026`.",
+      "oneOf": [
+        {
+          "const": "reconciled",
+          "description": "Both sides given and equal.",
+          "type": "string"
+        },
+        {
+          "const": "not_checked",
+          "description": "A side is missing: the relation could not be checked.",
+          "type": "string"
+        }
+      ]
+    },
+    "CurrentNonCurrent": {
+      "description": "Current and non-current amounts with the field names of the SPEC-0007 inputs (R15).",
+      "properties": {
+        "cash": {
+          "description": "Cash C.IV, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "current_assets": {
+          "description": "Current assets (C less C.II beyond one year and item A within it, plus assets D within\none year), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "current_liabilities": {
+          "description": "Liabilities due within one year (B, C, D, E), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fixed_assets": {
+          "description": "Non-current assets (B, C.II and assets D beyond one year), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "inventories": {
+          "description": "Inventories C.I, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "non_current_liabilities": {
+          "description": "Liabilities due beyond one year (B, C, D, E), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "total_assets": {
+          "description": "Fixed + current assets: total assets less subscribed capital unpaid, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "fixed_assets",
+        "current_assets",
+        "inventories",
+        "cash",
+        "total_assets",
+        "current_liabilities",
+        "non_current_liabilities"
+      ],
+      "type": "object"
+    },
+    "Date": {
+      "description": "Calendar date, ISO 8601 YYYY-MM-DD, from 1900-01-01 to 2199-12-31.",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "type": "string"
+    },
+    "Destination": {
+      "description": "Where an aggregate, or the part of it moved by an adjustment, goes (Appendix A, B, C).",
+      "oneOf": [
+        {
+          "const": "operating_fixed_assets",
+          "description": "Operating fixed assets, in invested capital.",
+          "type": "string"
+        },
+        {
+          "const": "operating_working_capital",
+          "description": "Operating working capital, in invested capital.",
+          "type": "string"
+        },
+        {
+          "const": "operating_provisions",
+          "description": "Operating provisions, deducted in invested capital.",
+          "type": "string"
+        },
+        {
+          "const": "non_operating_assets",
+          "description": "Non-operating assets, outside invested capital, for the bridge.",
+          "type": "string"
+        },
+        {
+          "const": "net_financial_position_gross_debt",
+          "description": "Gross debt of the net financial position.",
+          "type": "string"
+        },
+        {
+          "const": "net_financial_position_cash",
+          "description": "Cash of the net financial position.",
+          "type": "string"
+        },
+        {
+          "const": "net_financial_position_other_financial_asset",
+          "description": "An other item of the net financial position, an asset (negative in it).",
+          "type": "string"
+        },
+        {
+          "const": "net_financial_position_other_financial_liability",
+          "description": "An other item of the net financial position, a liability (positive in it).",
+          "type": "string"
+        },
+        {
+          "const": "quasi_equity_items",
+          "description": "Quasi-equity items, among the sources next to equity.",
+          "type": "string"
+        },
+        {
+          "const": "debt_like_items",
+          "description": "Debt-like items, for the bridge.",
+          "type": "string"
+        },
+        {
+          "const": "equity",
+          "description": "Equity.",
+          "type": "string"
+        },
+        {
+          "const": "deducted_from_equity",
+          "description": "Deducted from equity (subscribed capital unpaid).",
+          "type": "string"
+        }
+      ]
+    },
+    "Form": {
+      "description": "The form a year was given in (R6: every output states its form).",
+      "oneOf": [
+        {
+          "const": "statutory",
+          "description": "Aggregates of art. 2424 and 2425 (Appendix A).",
+          "type": "string"
+        },
+        {
+          "const": "reclassified",
+          "description": "Totals already reclassified (Appendix B).",
+          "type": "string"
+        }
+      ]
+    },
+    "Layout": {
+      "description": "The statutory layout, echoed in the result; no number depends on it.",
+      "oneOf": [
+        {
+          "const": "ordinary",
+          "description": "Ordinary layout, art. 2424 and 2425 of the Civil Code.",
+          "type": "string"
+        },
+        {
+          "const": "abridged",
+          "description": "Abridged layout, art. 2435-bis.",
+          "type": "string"
+        },
+        {
+          "const": "micro_entity",
+          "description": "Micro-entity layout, art. 2435-ter.",
+          "type": "string"
+        }
+      ]
+    },
+    "Line": {
+      "additionalProperties": false,
+      "description": "A labelled amount, for example an asset and its realisable value.",
+      "properties": {
+        "label": {
+          "description": "What the amount is, for example \"Land\" or \"Bank loan\". Not empty.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Amount in currency units, zero or positive.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    },
+    "MeasurementBasis": {
+      "description": "How the amount of a bridge claim was measured (Decision 21). Fairmark does not choose the\nbasis: the analyst states it and the result reports it next to the amount.",
+      "oneOf": [
+        {
+          "const": "book_value",
+          "description": "Book value per the accounts at the valuation date.",
+          "type": "string"
+        },
+        {
+          "const": "market_value",
+          "description": "Quoted market price at the valuation date.",
+          "type": "string"
+        },
+        {
+          "const": "fair_value",
+          "description": "Fair value as defined by IFRS 13.",
+          "type": "string"
+        },
+        {
+          "const": "present_value",
+          "description": "Present value of the obligation, for example unfunded pensions or provisions.",
+          "type": "string"
+        },
+        {
+          "const": "other",
+          "description": "Another basis, described in `basis_note` (required).",
+          "type": "string"
+        }
+      ]
+    },
+    "NetFinancialPosition": {
+      "additionalProperties": false,
+      "description": "The net financial position with its composition (SPEC-0007 R6). Fairmark adds what is\ngiven and does not choose which items are included.",
+      "properties": {
+        "cash": {
+          "description": "Cash and cash equivalents, in currency units, subtracted from the gross debt.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "gross_debt": {
+          "description": "Gross financial debt (bank loans, bonds and other borrowings), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "other_items": {
+          "default": [],
+          "description": "Other items included by the analyst, each added with its sign. Default: none.",
+          "items": {
+            "$ref": "#/$defs/NfpItem"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "gross_debt",
+        "cash",
+        "other_items"
+      ],
+      "type": "object"
+    },
+    "NetFinancialPositionBlock": {
+      "description": "The net financial position in the SPEC-0007 type, with its total, maturities and\ncomposition (R13).",
+      "properties": {
+        "composition": {
+          "description": "Every component by source (statutory form).",
+          "items": {
+            "$ref": "#/$defs/NfpComponent"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "current": {
+          "description": "Part due within one year, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "non_current": {
+          "description": "Part due beyond one year, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "position": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NetFinancialPosition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The SPEC-0007 object, accepted unchanged by `ratios.*` and `dcf.fcff`."
+        },
+        "total": {
+          "description": "Gross debt − cash + other items, positive for net debt, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "position",
+        "total",
+        "current",
+        "non_current",
+        "composition"
+      ],
+      "type": "object"
+    },
+    "NfpComponent": {
+      "description": "One component of the net financial position, with its source and maturities (R13).",
+      "properties": {
+        "amount": {
+          "description": "Amount added to the net financial position, in currency units, signed (negative for an\nasset).",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "current": {
+          "description": "Part due within one year, in currency units, signed; null when its maturity split is not\ngiven.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "label": {
+          "description": "What the component is, for example \"Cash (C.IV)\".",
+          "type": "string"
+        },
+        "non_current": {
+          "description": "Part due beyond one year, in currency units, signed; null when its maturity split is not\ngiven.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "description": "JSON pointer of the input it comes from (an aggregate or an adjustment).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "source",
+        "amount",
+        "current",
+        "non_current"
+      ],
+      "type": "object"
+    },
+    "NfpItem": {
+      "additionalProperties": false,
+      "description": "One item of the net financial position other than gross debt and cash.",
+      "properties": {
+        "amount": {
+          "description": "Amount in currency units, added to the net financial position: positive for debt-like\nitems, negative for financial assets.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "name": {
+          "description": "What the item is, for example \"lease liabilities\" or \"derivative assets\".",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "amount"
+      ],
+      "type": "object"
+    },
+    "NotComputed": {
+      "description": "The outputs not computed, one list per block, sorted by output pointer.",
+      "properties": {
+        "balance_sheet": {
+          "description": "Outputs of the balance sheet block.",
+          "items": {
+            "$ref": "#/$defs/NotComputedEntry"
+          },
+          "type": "array"
+        },
+        "current_non_current": {
+          "description": "Outputs of the current and non-current block.",
+          "items": {
+            "$ref": "#/$defs/NotComputedEntry"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "balance_sheet",
+        "current_non_current"
+      ],
+      "type": "object"
+    },
+    "NotComputedEntry": {
+      "description": "An output not computed, with the pointers of its missing inputs (R6).",
+      "properties": {
+        "missing": {
+          "description": "JSON pointers of the inputs it needs and lacks.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "output": {
+          "description": "JSON pointer of the output in the result value.",
+          "type": "string"
+        },
+        "permitted": {
+          "description": "For a missing treatment, its permitted destinations; omitted otherwise.",
+          "items": {
+            "$ref": "#/$defs/Permitted"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "output",
+        "missing"
+      ],
+      "type": "object"
+    },
+    "OperatingBlock": {
+      "description": "The operating block (Appendix B.1).",
+      "properties": {
+        "invested_capital": {
+          "description": "Operating fixed assets + operating working capital − operating provisions, in currency\nunits, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "operating_fixed_assets": {
+          "description": "Operating fixed assets, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "operating_provisions": {
+          "description": "Provisions and employee severance indemnity treated as operating, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "operating_working_capital": {
+          "description": "Operating working capital, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trade_working_capital": {
+          "description": "Trade receivables + inventories − trade payables, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "operating_fixed_assets",
+        "operating_working_capital",
+        "trade_working_capital",
+        "operating_provisions",
+        "invested_capital"
+      ],
+      "type": "object"
+    },
+    "Origin": {
+      "description": "Who chose a destination (R11).",
+      "oneOf": [
+        {
+          "const": "mapping",
+          "description": "The fixed or default destination of Appendix A.",
+          "type": "string"
+        },
+        {
+          "const": "analyst",
+          "description": "A treatment or an override stated by the analyst.",
+          "type": "string"
+        }
+      ]
+    },
+    "Permitted": {
+      "description": "A missing treatment and the destinations it permits (R8).",
+      "properties": {
+        "destinations": {
+          "description": "Its permitted values.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "treatment": {
+          "description": "JSON pointer of the treatment to give.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "treatment",
+        "destinations"
+      ],
+      "type": "object"
+    },
+    "Sources": {
+      "description": "The sources (Appendix B.1).",
+      "properties": {
+        "debt_like_items": {
+          "description": "In the type of the `dcf.fcff` bridge, at carrying amount (`book_value`), amounts in\ncurrency units.",
+          "items": {
+            "$ref": "#/$defs/BridgeClaim"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "debt_like_items_total": {
+          "description": "Σ debt-like items, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "equity": {
+          "description": "Equity after subscribed capital unpaid and dividends declared, in currency units,\nsigned.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "net_financial_position": {
+          "$ref": "#/$defs/NetFinancialPositionBlock",
+          "description": "The net financial position (SPEC-0007 type) with its total, parts and composition."
+        },
+        "quasi_equity_items": {
+          "description": "Quasi-equity items, each a label and an amount in currency units.",
+          "items": {
+            "$ref": "#/$defs/Line"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "quasi_equity_items_total": {
+          "description": "Σ quasi-equity items, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "total_sources": {
+          "description": "Equity + quasi-equity + net financial position + debt-like items, in currency units,\nsigned.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "equity",
+        "quasi_equity_items",
+        "quasi_equity_items_total",
+        "net_financial_position",
+        "debt_like_items",
+        "debt_like_items_total",
+        "total_sources"
+      ],
+      "type": "object"
+    },
+    "YearOutput": {
+      "description": "One financial year reorganised.",
+      "properties": {
+        "adjustments_applied": {
+          "description": "Every adjustment applied to the year (R11).",
+          "items": {
+            "$ref": "#/$defs/AppliedAdjustment"
+          },
+          "type": "array"
+        },
+        "assignments": {
+          "description": "Every aggregate given, with its destination (R11).",
+          "items": {
+            "$ref": "#/$defs/Assignment"
+          },
+          "type": "array"
+        },
+        "balance_sheet": {
+          "$ref": "#/$defs/BalanceSheet",
+          "description": "The reorganised balance sheet (R12)."
+        },
+        "checks": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Check"
+          },
+          "description": "Every relation of R7 and R12, by id.",
+          "type": "object"
+        },
+        "current_non_current": {
+          "$ref": "#/$defs/CurrentNonCurrent",
+          "description": "Current and non-current amounts for SPEC-0007 (R15)."
+        },
+        "date": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Date"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The balance sheet date, as given."
+        },
+        "form": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Form"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`statutory`, `reclassified`, or null when the entry gives neither."
+        },
+        "label": {
+          "description": "The year's label, as given.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "layout": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Layout"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The statutory layout, echoed."
+        },
+        "not_computed": {
+          "$ref": "#/$defs/NotComputed",
+          "description": "The outputs not computed, with the inputs they lack (R6)."
+        }
+      },
+      "required": [
+        "label",
+        "date",
+        "form",
+        "layout",
+        "balance_sheet",
+        "current_non_current",
+        "assignments",
+        "adjustments_applied",
+        "checks",
+        "not_computed"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:statements.reorganise:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `statements.reorganise` (version 1).",
+  "properties": {
+    "years": {
+      "description": "One entry per input year, in the same order.",
+      "items": {
+        "$ref": "#/$defs/YearOutput"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "years"
+  ],
+  "title": "ReorganiseOutput",
+  "type": "object",
+  "x-fairmark-method": "statements.reorganise",
+  "x-fairmark-method-version": "1"
+}

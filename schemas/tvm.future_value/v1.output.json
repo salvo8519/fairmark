@@ -1,0 +1,19 @@
+{
+  "$id": "urn:fairmark:schema:tvm.future_value:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `tvm.future_value`.",
+  "properties": {
+    "future_value": {
+      "description": "Value at t = n of the present amount and of the payments, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "future_value"
+  ],
+  "title": "FutureValueOutput",
+  "type": "object",
+  "x-fairmark-method": "tvm.future_value",
+  "x-fairmark-method-version": "1"
+}

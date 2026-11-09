@@ -1,0 +1,83 @@
+{
+  "$defs": {
+    "RatioValue": {
+      "description": "A ratio, or the reason it is not defined (SPEC-0007 R3).",
+      "properties": {
+        "not_defined": {
+          "description": "Why the ratio is not defined, for example \"equity is negative (-100)\"; null when it is\ndefined.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value": {
+          "description": "The ratio, in the unit stated by the field that holds it (decimal fraction, multiple or\ndays); null when the ratio is not defined.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "value",
+        "not_defined"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:ratios.capital_structure:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `ratios.capital_structure`.",
+  "properties": {
+    "debt_to_equity": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "Gross debt / equity, multiple."
+    },
+    "equity_ratio": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "Equity / total assets, decimal fraction."
+    },
+    "net_financial_position": {
+      "description": "Net financial position used by the ratios, in currency units (positive for net debt).",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "nfp_to_equity": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "Net financial position / equity, multiple."
+    },
+    "primary_fixed_asset_coverage": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "Equity / fixed assets, multiple."
+    },
+    "primary_structure_margin": {
+      "description": "Equity − fixed assets, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "secondary_fixed_asset_coverage": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "(Equity + non-current liabilities) / fixed assets, multiple."
+    },
+    "secondary_structure_margin": {
+      "description": "Equity + non-current liabilities − fixed assets, in currency units.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "net_financial_position",
+    "debt_to_equity",
+    "nfp_to_equity",
+    "equity_ratio",
+    "primary_structure_margin",
+    "secondary_structure_margin",
+    "primary_fixed_asset_coverage",
+    "secondary_fixed_asset_coverage"
+  ],
+  "title": "CapitalStructureOutput",
+  "type": "object",
+  "x-fairmark-method": "ratios.capital_structure",
+  "x-fairmark-method-version": "1"
+}

@@ -1,0 +1,48 @@
+{
+  "$id": "urn:fairmark:schema:tvm.irr:v3:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `tvm.irr`.",
+  "properties": {
+    "irr": {
+      "description": "Internal rate of return per period as a decimal fraction.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "iterations": {
+      "description": "Iterations of the solver that produced the rate (0 for an exact grid root).",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "npv_at_irr": {
+      "description": "NPV evaluated at the returned IRR (should be ~0).",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "solver": {
+      "description": "\"newton\", \"bisection\" or \"grid (exact root)\".",
+      "type": "string"
+    },
+    "tolerance": {
+      "description": "Stopping tolerance on the rate step, decimal fraction (1e-18).",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "uniqueness_verified": {
+      "description": "True when no other rate can solve the equation (see `explain.conventions`).",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "irr",
+    "uniqueness_verified",
+    "npv_at_irr",
+    "solver",
+    "iterations",
+    "tolerance"
+  ],
+  "title": "IrrOutput",
+  "type": "object",
+  "x-fairmark-method": "tvm.irr",
+  "x-fairmark-method-version": "3"
+}

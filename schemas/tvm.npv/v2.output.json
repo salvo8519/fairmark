@@ -1,0 +1,28 @@
+{
+  "$id": "urn:fairmark:schema:tvm.npv:v2:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `tvm.npv`.",
+  "properties": {
+    "npv": {
+      "description": "Net present value at t = 0, in the currency units of the cash flows.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "present_values": {
+      "description": "Present value of each cash flow at t = 0, in the order of `cash_flows`.",
+      "items": {
+        "pattern": "^-?\\d+(\\.\\d+)?$",
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "npv",
+    "present_values"
+  ],
+  "title": "NpvOutput",
+  "type": "object",
+  "x-fairmark-method": "tvm.npv",
+  "x-fairmark-method-version": "2"
+}

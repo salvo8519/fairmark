@@ -1,0 +1,31 @@
+{
+  "$id": "urn:fairmark:schema:tvm.mirr:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `tvm.mirr`.",
+  "properties": {
+    "fv_positive_flows": {
+      "description": "Value at t = n of the positive flows, at the reinvestment rate.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "mirr": {
+      "description": "Modified internal rate of return per period.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "pv_negative_flows": {
+      "description": "Present value at t = 0 of the negative flows, at the finance rate.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "mirr",
+    "pv_negative_flows",
+    "fv_positive_flows"
+  ],
+  "title": "MirrOutput",
+  "type": "object",
+  "x-fairmark-method": "tvm.mirr",
+  "x-fairmark-method-version": "1"
+}

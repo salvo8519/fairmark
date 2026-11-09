@@ -84,6 +84,14 @@ def test_every_snapshot_names_its_method_and_version() -> None:
             data = json.loads((ROOT / "schemas" / record["file"]).read_text(encoding="utf-8"))
             assert data["$id"] == f"urn:fairmark:schema:{method}:v{version}"
             assert data["x-fairmark-method-version"] == version
+            if "output_file" in record:
+                assert record["output_file"] == f"{method}/v{version}.output.json"
+                path = ROOT / "schemas" / record["output_file"]
+                data = json.loads(path.read_text(encoding="utf-8"))
+                assert data["$id"] == f"urn:fairmark:schema:{method}:v{version}:output"
+                assert data["x-fairmark-method-version"] == version
+        # ADR 0014 G8: the current version of every method has its output snapshot.
+        assert "output_file" in entry["versions"][entry["current"]], method
 
 
 def test_a_removed_definition_is_breaking(repo: tuple[Path, Path]) -> None:
@@ -153,7 +161,7 @@ def test_a_current_version_cannot_go_back(
 ) -> None:
     base, head = repo
     engine = snap.current()
-    engine["tvm.npv"] = ("1", (head / "tvm.npv/v1.json").read_text(encoding="utf-8"))
+    engine["tvm.npv"] = ("1", (head / "tvm.npv/v1.json").read_text(encoding="utf-8"), "{}\n")
     monkeypatch.setattr(snap, "current", lambda: engine)
     edit(head / "index.json", lambda d: d["methods"]["tvm.npv"].__setitem__("current", "1"))
     assert snap.diff_against(base) == 4
@@ -207,7 +215,7 @@ def test_stray_and_unindexed_files_fail_the_check(repo: tuple[Path, Path]) -> No
 def test_flat_base_layout(repo: tuple[Path, Path], tmp_path: Path) -> None:
     flat = tmp_path / "flat"
     flat.mkdir()
-    for method, (_, text) in snap.current().items():
+    for method, (_, text, _output) in snap.current().items():
         (flat / f"{method}.json").write_text(text, encoding="utf-8", newline="\n")
     assert snap.diff_against(flat) == 0
     edit(flat / "tvm.npv.json", lambda d: d["properties"].__setitem__("gone", {"type": "string"}))
@@ -218,3 +226,93 @@ def test_version_keys_sort_numerically() -> None:
     index = {"format": 1, "methods": {"m.x": {"current": "10", "versions": {"10": {}, "9": {}}}}}
     text = snap.dump_index(index)
     assert text.index('"9": {') < text.index('"10": {')
+
+
+# ---- output snapshots (issue #265, ADR 0014 G8)
+
+
+def test_removing_an_output_field_is_breaking(repo: tuple[Path, Path]) -> None:
+    base, _ = repo
+    # The base had an output field that the engine no longer writes (removed or renamed).
+    edit(
+        base / "tvm.npv/v2.output.json",
+        lambda d: d["properties"].__setitem__("legacy", {"type": "string"}),
+    )
+    assert snap.diff_against(base) == 3
+
+
+def test_an_output_field_made_nullable_or_retyped_is_breaking() -> None:
+    old = json.loads((ROOT / "schemas/tvm.npv/v2.output.json").read_text(encoding="utf-8"))
+    nullable = json.loads(json.dumps(old))
+    nullable["properties"]["npv"]["type"] = ["string", "null"]
+    assert snap.classify("tvm.npv", old, nullable, output=True) == ["tvm.npv.npv: 'type' changed"]
+    retyped = json.loads(json.dumps(old))
+    retyped["properties"]["npv"] = {"type": "number"}
+    assert snap.classify("tvm.npv", old, retyped, output=True)
+
+
+def test_an_output_field_that_may_be_absent_is_breaking() -> None:
+    old = json.loads((ROOT / "schemas/tvm.npv/v2.output.json").read_text(encoding="utf-8"))
+    new = json.loads(json.dumps(old))
+    new["required"].remove("npv")
+    assert snap.classify("tvm.npv", old, new, output=True) == ["tvm.npv.npv: may now be absent"]
+    # The same change to an input is additive: the field became optional.
+    assert snap.classify("tvm.npv", old, new, output=False) == []
+
+
+def test_a_new_output_field_is_additive(repo: tuple[Path, Path]) -> None:
+    base, _ = repo
+
+    # The base lacked an output field the engine now writes, even a required one.
+    def drop(d: dict[str, Any]) -> None:
+        field = next(iter(d["properties"]))
+        d["properties"].pop(field)
+        d["required"].remove(field)
+
+    edit(base / "tvm.irr/v3.output.json", drop)
+    assert snap.diff_against(base) == 0
+
+
+def test_earlier_output_snapshots_are_frozen(
+    repo: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base, head = repo
+    # Pretend tvm.npv moved to v3: its v2 output snapshot is now an earlier version.
+    engine = snap.current()
+    _version, text, output = engine["tvm.npv"]
+    engine["tvm.npv"] = ("3", text.replace(":v2", ":v3"), output.replace(":v2", ":v3"))
+    monkeypatch.setattr(snap, "current", lambda: engine)
+    assert snap.write() == 0
+    assert snap.check() == 0
+    assert snap.diff_against(base) == 0
+    edit(head / "tvm.npv/v2.output.json", lambda d: d.__setitem__("description", "rewritten"))
+    assert snap.diff_against(base) == 4
+    assert snap.check() == 1
+
+
+def test_a_stale_or_unindexed_output_snapshot_fails_the_check(repo: tuple[Path, Path]) -> None:
+    _, head = repo
+    edit(head / "tvm.npv/v2.output.json", lambda d: d.__setitem__("description", "stale"))
+    assert snap.check() == 1
+    (head / "tvm.npv/v2.output.json").unlink()
+    assert snap.check() == 1
+    assert snap.write() == 0 and snap.check() == 0
+    (head / "tvm.npv/v9.output.json").write_text("{}\n", encoding="utf-8", newline="\n")
+    assert snap.check() == 1
+
+
+def test_versions_without_an_output_snapshot_stay_valid(repo: tuple[Path, Path]) -> None:
+    base, _ = repo
+    # tvm.npv v1 was published before output snapshots existed: it has none, and needs none.
+    index = json.loads((base / "index.json").read_text(encoding="utf-8"))
+    assert "output_file" not in index["methods"]["tvm.npv"]["versions"]["1"]
+    assert snap.check() == 0
+    # A base without any output snapshot (main before #265) compares cleanly.
+    for path in base.glob("*/v*.output.json"):
+        path.unlink()
+    for entry in index["methods"].values():
+        for record in entry["versions"].values():
+            record.pop("output_file", None)
+            record.pop("output_sha256", None)
+    (base / "index.json").write_text(snap.dump_index(index), encoding="utf-8", newline="\n")
+    assert snap.diff_against(base) == 0

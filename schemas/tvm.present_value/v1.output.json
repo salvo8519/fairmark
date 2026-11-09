@@ -1,0 +1,37 @@
+{
+  "$id": "urn:fairmark:schema:tvm.present_value:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `tvm.present_value`.",
+  "properties": {
+    "discount_factors": {
+      "description": "Discount factor applied to each flow.",
+      "items": {
+        "pattern": "^-?\\d+(\\.\\d+)?$",
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "present_value": {
+      "description": "Sum of the present values.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": "string"
+    },
+    "present_values": {
+      "description": "Present value of each flow.",
+      "items": {
+        "pattern": "^-?\\d+(\\.\\d+)?$",
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "present_value",
+    "discount_factors",
+    "present_values"
+  ],
+  "title": "PresentValueOutput",
+  "type": "object",
+  "x-fairmark-method": "tvm.present_value",
+  "x-fairmark-method-version": "1"
+}

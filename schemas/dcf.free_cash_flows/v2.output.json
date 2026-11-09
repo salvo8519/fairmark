@@ -1,0 +1,245 @@
+{
+  "$defs": {
+    "Adjustment": {
+      "additionalProperties": false,
+      "description": "A signed, labelled amount added to the free cash flow of a period.",
+      "properties": {
+        "label": {
+          "description": "What the amount is, for example \"Disposal of a warehouse\". Not empty.",
+          "type": "string"
+        },
+        "value": {
+          "description": "Amount in currency units: positive for an inflow (for example proceeds from a disposal),\nnegative for an outflow.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    },
+    "FreeCashFlowPeriod": {
+      "description": "The build-up of one period, every component in currency units.",
+      "properties": {
+        "capital_expenditure": {
+          "description": "Capital expenditure as given.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "change_in_net_working_capital": {
+          "description": "Change in net working capital as given (positive for an increase).",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "depreciation_and_amortisation": {
+          "description": "Depreciation and amortisation as given.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "ebit": {
+          "description": "EBIT as given.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "ebit_after_taxes": {
+          "description": "EBIT − taxes on EBIT.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "free_cash_flow_to_equity": {
+          "description": "FCFE of the period; `null` without financing lines.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "free_cash_flow_to_firm": {
+          "description": "FCFF of the period.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "interest_after_taxes": {
+          "description": "Interest expense − interest tax shield; `null` without financing lines.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "interest_expense": {
+          "description": "Interest expense as given; `null` without financing lines.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "interest_tax_rate": {
+          "description": "Rate t of the interest tax shield applied in this period: 0 where the `zero` treatment\nof a negative EBIT applies (SPEC-0001 amendment 14); `null` without financing lines.\nThe shield applied is `interest_tax_shield`: under `zero` it can be below\nt × interest expense, when EBIT is below the interest (SPEC-0001 Decision 22).",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "interest_tax_shield": {
+          "description": "Interest tax shield of the period: t × interest expense; under the `zero` treatment\nt × min(interest expense, max(EBIT, 0)), the deduction limited to the taxable income\navailable (SPEC-0001 Decision 22); `null` without financing lines.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "net_borrowing": {
+          "description": "Net borrowing as given; `null` without financing lines.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "operating_taxes": {
+          "description": "Taxes on EBIT used: computed from the rate, or as given.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "other_adjustments": {
+          "description": "Labelled adjustments as given.",
+          "items": {
+            "$ref": "#/$defs/Adjustment"
+          },
+          "type": "array"
+        },
+        "other_adjustments_total": {
+          "description": "Sum of the adjustments (0 when none is given).",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "period": {
+          "description": "Period number, from 1.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "period",
+        "ebit",
+        "operating_taxes",
+        "ebit_after_taxes",
+        "depreciation_and_amortisation",
+        "capital_expenditure",
+        "change_in_net_working_capital",
+        "other_adjustments",
+        "other_adjustments_total",
+        "free_cash_flow_to_firm",
+        "interest_expense",
+        "interest_tax_rate",
+        "interest_tax_shield",
+        "interest_after_taxes",
+        "net_borrowing",
+        "free_cash_flow_to_equity"
+      ],
+      "type": "object"
+    },
+    "NegativeEbit": {
+      "description": "Tax on a negative EBIT when the taxes are computed from a rate (SPEC-0001 R4).",
+      "oneOf": [
+        {
+          "const": "credit",
+          "description": "Taxes = rate × EBIT also when EBIT is negative: a tax saving that raises the flow.",
+          "type": "string"
+        },
+        {
+          "const": "zero",
+          "description": "No tax when EBIT is negative.",
+          "type": "string"
+        }
+      ]
+    },
+    "TaxForm": {
+      "description": "How the taxes on EBIT were given (SPEC-0001 Decision 7).",
+      "oneOf": [
+        {
+          "const": "rate_on_ebit",
+          "description": "`notional_tax_rate` applied to the EBIT of every period.",
+          "type": "string"
+        },
+        {
+          "const": "amounts",
+          "description": "`operating_taxes` given for every period.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "urn:fairmark:schema:dcf.free_cash_flows:v2:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `dcf.free_cash_flows`.",
+  "properties": {
+    "free_cash_flows_to_equity": {
+      "description": "FCFE of periods 1..n, in currency units, not discounted; `null` without financing lines.",
+      "items": {
+        "pattern": "^-?\\d+(\\.\\d+)?$",
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "free_cash_flows_to_firm": {
+      "description": "FCFF of periods 1..n, in currency units, not discounted.",
+      "items": {
+        "pattern": "^-?\\d+(\\.\\d+)?$",
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "interest_tax_rate": {
+      "description": "Rate t of the interest tax shield of the tax form: the tax rate on EBIT, or the given\n`interest_tax_rate`; `null` without financing lines. The rate applied in each period is\n`periods[].interest_tax_rate`, 0 where the `zero` treatment applies.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "negative_ebit": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NegativeEbit"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Negative EBIT treatment of the rate form; `null` in the amounts form."
+    },
+    "periods": {
+      "description": "The build-up of every period.",
+      "items": {
+        "$ref": "#/$defs/FreeCashFlowPeriod"
+      },
+      "type": "array"
+    },
+    "tax_form": {
+      "$ref": "#/$defs/TaxForm",
+      "description": "`rate_on_ebit` or `amounts`."
+    }
+  },
+  "required": [
+    "periods",
+    "free_cash_flows_to_firm",
+    "free_cash_flows_to_equity",
+    "tax_form",
+    "negative_ebit",
+    "interest_tax_rate"
+  ],
+  "title": "FreeCashFlowsOutput",
+  "type": "object",
+  "x-fairmark-method": "dcf.free_cash_flows",
+  "x-fairmark-method-version": "2"
+}

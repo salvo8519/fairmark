@@ -1,0 +1,261 @@
+{
+  "$defs": {
+    "CovenantResult": {
+      "description": "Result of one covenant test.",
+      "properties": {
+        "headroom": {
+          "description": "Distance of `value` from the threshold: positive on the compliant side, negative on the\nbreach side; threshold − value for a maximum, value − threshold for a minimum. Zero at\nthe threshold, where an inclusive operator passes and a strict one breaches. Null when\n`value` is null.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "headroom_relative": {
+          "$ref": "#/$defs/RatioValue",
+          "description": "Headroom / threshold, decimal fraction (0.10 = 10% of the threshold), same sign as the\nheadroom; not defined when the threshold is zero or negative, when the quotient\noverflows, or when `value` is null."
+        },
+        "name": {
+          "description": "Name of the covenant, as given.",
+          "type": "string"
+        },
+        "not_tested_code": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotTestedCode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Why the covenant was not tested: `denominator_not_positive` or `overflow`; null when\nthe outcome is `passed` or `breached`."
+        },
+        "not_tested_reason": {
+          "description": "Why the covenant was not tested, in words, for example \"denominator is zero:\nconsolidated EBITDA for the 12 months ending on the test date\"; null when the outcome is\n`passed` or `breached`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "operator": {
+          "$ref": "#/$defs/Operator",
+          "description": "Comparison operator, as given."
+        },
+        "outcome": {
+          "$ref": "#/$defs/Outcome",
+          "description": "`passed`, `breached` or `not_tested`, decided exactly (never on a value rounded by the\ndecimal type)."
+        },
+        "outcome_basis": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OutcomeBasis"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "What decided the outcome: `tested_value` or `if_denominator_not_positive`; null when the\ncovenant is not tested because of an overflow (`not_tested_code` `overflow`)."
+        },
+        "test_date": {
+          "$ref": "#/$defs/Date",
+          "description": "Test date, as given."
+        },
+        "threshold": {
+          "description": "Threshold, as given.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "value": {
+          "description": "The value compared with the threshold: numerator / denominator to the 28 significant\ndigits of the decimal type, or rounded as `rounding` states; in the unit of the\nthreshold. Null when the denominator is not positive or the covenant is not tested.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value_unrounded": {
+          "description": "With `rounding`: numerator / denominator before the rounding, to 28 significant digits.\nNull without `rounding`, or when `value` is null.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "test_date",
+        "operator",
+        "threshold",
+        "outcome",
+        "outcome_basis",
+        "value",
+        "value_unrounded",
+        "headroom",
+        "headroom_relative",
+        "not_tested_code",
+        "not_tested_reason"
+      ],
+      "type": "object"
+    },
+    "CovenantSummary": {
+      "description": "How many covenants have each outcome.",
+      "properties": {
+        "breached": {
+          "description": "Number of covenants breached.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "not_tested": {
+          "description": "Number of covenants not tested.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "passed": {
+          "description": "Number of covenants passed.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "passed",
+        "breached",
+        "not_tested"
+      ],
+      "type": "object"
+    },
+    "Date": {
+      "description": "Calendar date, ISO 8601 YYYY-MM-DD, from 1900-01-01 to 2199-12-31.",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "type": "string"
+    },
+    "NotTestedCode": {
+      "description": "Why a covenant was not tested, machine-readable.",
+      "oneOf": [
+        {
+          "const": "denominator_not_positive",
+          "description": "The denominator is zero or negative and `if_denominator_not_positive` is `not_tested`.",
+          "type": "string"
+        },
+        {
+          "const": "overflow",
+          "description": "The tested value, the rounded value or the headroom exceeds the range of the decimal\ntype.",
+          "type": "string"
+        }
+      ]
+    },
+    "Operator": {
+      "description": "How the tested value is compared with the threshold. Required, no default.",
+      "oneOf": [
+        {
+          "const": "at_most",
+          "description": "Maximum, inclusive: passes when tested value ≤ threshold.",
+          "type": "string"
+        },
+        {
+          "const": "less_than",
+          "description": "Maximum, strict: passes when tested value < threshold.",
+          "type": "string"
+        },
+        {
+          "const": "at_least",
+          "description": "Minimum, inclusive: passes when tested value ≥ threshold.",
+          "type": "string"
+        },
+        {
+          "const": "greater_than",
+          "description": "Minimum, strict: passes when tested value > threshold.",
+          "type": "string"
+        }
+      ]
+    },
+    "Outcome": {
+      "description": "Outcome of one covenant test.",
+      "oneOf": [
+        {
+          "const": "passed",
+          "description": "The covenant is respected.",
+          "type": "string"
+        },
+        {
+          "const": "breached",
+          "description": "The covenant is breached.",
+          "type": "string"
+        },
+        {
+          "const": "not_tested",
+          "description": "The covenant is not tested; never a breach. The reason is in `not_tested_code` and\n`not_tested_reason`.",
+          "type": "string"
+        }
+      ]
+    },
+    "OutcomeBasis": {
+      "description": "What decided the outcome, machine-readable.",
+      "oneOf": [
+        {
+          "const": "tested_value",
+          "description": "The tested value (rounded when `rounding` is given) compared with the threshold.",
+          "type": "string"
+        },
+        {
+          "const": "if_denominator_not_positive",
+          "description": "The denominator is zero or negative: the outcome is the input\n`if_denominator_not_positive`.",
+          "type": "string"
+        }
+      ]
+    },
+    "RatioValue": {
+      "description": "A ratio, or the reason it is not defined (SPEC-0007 R3).",
+      "properties": {
+        "not_defined": {
+          "description": "Why the ratio is not defined, for example \"equity is negative (-100)\"; null when it is\ndefined.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value": {
+          "description": "The ratio, in the unit stated by the field that holds it (decimal fraction, multiple or\ndays); null when the ratio is not defined.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "value",
+        "not_defined"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:ratios.covenants:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `ratios.covenants`.",
+  "properties": {
+    "covenants": {
+      "description": "One result per covenant, in the order of the input.",
+      "items": {
+        "$ref": "#/$defs/CovenantResult"
+      },
+      "type": "array"
+    },
+    "summary": {
+      "$ref": "#/$defs/CovenantSummary",
+      "description": "Count of each outcome."
+    }
+  },
+  "required": [
+    "covenants",
+    "summary"
+  ],
+  "title": "CovenantsOutput",
+  "type": "object",
+  "x-fairmark-method": "ratios.covenants",
+  "x-fairmark-method-version": "1"
+}

@@ -1,0 +1,64 @@
+{
+  "$defs": {
+    "Date": {
+      "description": "Calendar date, ISO 8601 YYYY-MM-DD, from 1900-01-01 to 2199-12-31.",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "type": "string"
+    }
+  },
+  "$id": "urn:fairmark:schema:dates.schedule:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `dates.schedule`.",
+  "properties": {
+    "end_dates": {
+      "description": "End date of each period, in order (ISO 8601): the first day of the next period, not part\nof the period. A period runs from and including its start date to but excluding its end\ndate.",
+      "items": {
+        "$ref": "#/$defs/Date"
+      },
+      "type": "array"
+    },
+    "months_per_period": {
+      "description": "Months per period.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "periods_per_year": {
+      "description": "Periods a year (12 / months per period); absent when the months per period do not\ndivide 12.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "start_dates": {
+      "description": "Start date of each period, in order (ISO 8601). A period runs from and including its\nstart date to but excluding its end date.",
+      "items": {
+        "$ref": "#/$defs/Date"
+      },
+      "type": "array"
+    },
+    "year_fractions": {
+      "description": "Year fraction of each period from its start date to its end date under `day_count`;\nabsent without a day count.",
+      "items": {
+        "pattern": "^-?\\d+(\\.\\d+)?$",
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "start_dates",
+    "end_dates",
+    "months_per_period"
+  ],
+  "title": "ScheduleOutput",
+  "type": "object",
+  "x-fairmark-method": "dates.schedule",
+  "x-fairmark-method-version": "1"
+}

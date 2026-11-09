@@ -1,0 +1,156 @@
+{
+  "$defs": {
+    "RatioValue": {
+      "description": "A ratio, or the reason it is not defined (SPEC-0007 R3).",
+      "properties": {
+        "not_defined": {
+          "description": "Why the ratio is not defined, for example \"equity is negative (-100)\"; null when it is\ndefined.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value": {
+          "description": "The ratio, in the unit stated by the field that holds it (decimal fraction, multiple or\ndays); null when the ratio is not defined.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "value",
+        "not_defined"
+      ],
+      "type": "object"
+    },
+    "RoeLeverage": {
+      "description": "ROE = [ROI + (ROI − i) × D/E] × (1 − t).",
+      "properties": {
+        "cost_of_debt": {
+          "$ref": "#/$defs/RatioValue",
+          "description": "i = financial charges / D, decimal fraction."
+        },
+        "debt_to_equity": {
+          "$ref": "#/$defs/RatioValue",
+          "description": "D / equity, multiple."
+        },
+        "leverage_effect": {
+          "$ref": "#/$defs/RatioValue",
+          "description": "(ROI − i) × D/E, decimal fraction."
+        },
+        "pre_tax_roe": {
+          "$ref": "#/$defs/RatioValue",
+          "description": "ROI + leverage effect, decimal fraction."
+        },
+        "roe": {
+          "$ref": "#/$defs/RatioValue",
+          "description": "Pre-tax ROE × (1 − t), decimal fraction."
+        },
+        "roi": {
+          "$ref": "#/$defs/RatioValue",
+          "description": "ROI of the group (EBIT / operating return base), decimal fraction."
+        },
+        "tax_rate": {
+          "$ref": "#/$defs/RatioValue",
+          "description": "t = taxes / pre-tax income (effective tax rate), decimal fraction."
+        }
+      },
+      "required": [
+        "roi",
+        "cost_of_debt",
+        "debt_to_equity",
+        "leverage_effect",
+        "pre_tax_roe",
+        "tax_rate",
+        "roe"
+      ],
+      "type": "object"
+    },
+    "RoeThreeFactor": {
+      "description": "ROE = net margin × asset turnover × equity multiplier (DuPont).",
+      "properties": {
+        "asset_turnover": {
+          "$ref": "#/$defs/RatioValue",
+          "description": "Revenue / total assets, times per period."
+        },
+        "equity_multiplier": {
+          "$ref": "#/$defs/RatioValue",
+          "description": "Total assets / equity, multiple."
+        },
+        "net_margin": {
+          "$ref": "#/$defs/RatioValue",
+          "description": "Net income / revenue, decimal fraction."
+        },
+        "roe": {
+          "$ref": "#/$defs/RatioValue",
+          "description": "Product of the three factors, decimal fraction; equal to ROE."
+        }
+      },
+      "required": [
+        "net_margin",
+        "asset_turnover",
+        "equity_multiplier",
+        "roe"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:ratios.profitability:v1:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `ratios.profitability`. Fractions: 0.13 means 13%.",
+  "properties": {
+    "capital_turnover": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "Revenue / operating return base, times per period (ROI = ROS × capital turnover)."
+    },
+    "ebit_margin": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "EBIT / revenue, decimal fraction."
+    },
+    "ebitda_margin": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "EBITDA / revenue, decimal fraction."
+    },
+    "roa": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "EBIT / total assets, decimal fraction."
+    },
+    "roe": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "Net income / equity, decimal fraction."
+    },
+    "roe_leverage": {
+      "$ref": "#/$defs/RoeLeverage",
+      "description": "Leverage form of the ROE decomposition."
+    },
+    "roe_three_factor": {
+      "$ref": "#/$defs/RoeThreeFactor",
+      "description": "Three-factor decomposition of ROE."
+    },
+    "roi": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "EBIT / operating return base, decimal fraction."
+    },
+    "ros": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "EBIT / revenue, decimal fraction."
+    }
+  },
+  "required": [
+    "roe",
+    "roi",
+    "roa",
+    "ros",
+    "ebitda_margin",
+    "ebit_margin",
+    "capital_turnover",
+    "roe_three_factor",
+    "roe_leverage"
+  ],
+  "title": "ProfitabilityOutput",
+  "type": "object",
+  "x-fairmark-method": "ratios.profitability",
+  "x-fairmark-method-version": "1"
+}
