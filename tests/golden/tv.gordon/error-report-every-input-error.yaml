@@ -1,0 +1,20 @@
+method: tv.gordon
+description: 'ADR 0014 G5 (review of #279, round 3): a growth of -2 and both next_flow and last_flow are
+  reported together, in the order of the checks'
+source: 'SPEC-0006 (a growth at or below -1 and two first flows are each refused) and ADR 0014 G5 (every
+  input error in errors). The order is that of the checks of tv.gordon: the growth, then the first flow.
+  Written from the spec and the ADR, not from the engine''s output.'
+input:
+  rate: '0.10'
+  growth: '-2'
+  next_flow: '100'
+  last_flow: '100'
+expect_error: FM-E001
+expect_error_report:
+  /pointer: /growth
+  /reason: range
+  /errors/1/pointer: /next_flow
+  /errors/1/reason: conflict
+  /errors/1/pointers/1: /last_flow
+expect_length:
+  /errors: '2'

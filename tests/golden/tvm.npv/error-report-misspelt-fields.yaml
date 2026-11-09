@@ -1,0 +1,24 @@
+method: tvm.npv
+description: 'ADR 0014 G5 (review of #279, round 3): two misspelt fields are both reported as unknown
+  fields, each with the closest accepted field in fix'
+source: ADR 0014 G5 as amended (every unknown key reported, expected = the accepted fields, fix naming
+  the closest field within an edit distance of 2); the accepted fields rate and cash_flows are those of
+  schemas/tvm.npv/v1.json. Written from the ADR and the schema, not from the engine's output.
+input:
+  rat: '0.1'
+  cashflows:
+  - '-100'
+  - '60'
+  - '60'
+expect_error: FM-E001
+expect_error_report:
+  /pointer: /rat
+  /reason: unknown_field
+  /expected/0: rate
+  /expected/1: cash_flows
+  /errors/0/fix: rename `rat` to `rate`
+  /errors/1/pointer: /cashflows
+  /errors/1/reason: unknown_field
+  /errors/1/fix: rename `cashflows` to `cash_flows`
+expect_length:
+  /errors: '2'
