@@ -1,6 +1,6 @@
 ---
 source: methods/statements-reorganise.md
-source_hash: 0ab319d1cf0a
+source_hash: 52fb9e156715
 ---
 # Bilancio riclassificato (`statements.reorganise`)
 
@@ -181,38 +181,49 @@ dei crediti dell'attivo circolante e delle disponibilità liquide) è operativa 
 negli altri oneri sotto il MOL, come fa la prassi IFRS 18 per la svalutazione dei crediti
 commerciali; la classificazione `write_downs_of_receivables: investing` la colloca
 nell'investing result. Il MOL è lo stesso con l'una o l'altra classificazione. Una svalutazione
-non ricorrente si isola con una rettifica `non_recurring`. Con B10 c operativa, B10 a-c fornita
-come importo unico (bilancio in forma abbreviata, art. 2435-bis) dà gli stessi output con o
-senza la sua parte B10 c; con la classificazione `investing`, un gruppo fornito senza la parte
-B10 c è letto come ammortamenti, e le convenzioni lo indicano (Decision 8).
+non ricorrente si isola con una rettifica `non_recurring`. B10 a-c fornita come importo unico
+(bilancio in forma abbreviata, art. 2435-bis) con la sua parte B10 a e b e senza B10 c dà B10 c
+come differenza, e tutti i livelli sono calcolati (correzione D1-IS del 2026-11-09: più dati non
+danno mai meno output). Con B10 c operativa, il gruppo dà gli stessi output con o senza le sue
+parti; con la classificazione `investing`, un gruppo fornito senza alcuna parte è letto come
+ammortamenti, e le convenzioni lo indicano (Decision 8).
 
 **Proventi e oneri seguono la voce patrimoniale collegata** (decisione P2 del 2026-11-09). I
 proventi da partecipazioni (C15) seguono le immobilizzazioni finanziarie (B.III): quando B.III è
 interamente `operating` per l'esercizio (classificazione o override), C15 è
 `income_from_operating_investments`, sotto il MOL e nel reddito operativo; il MOL non cambia.
 D18 e D19 restano nell'investing result, e così C16, la cui parte relativa a B.III non è fornita
-separatamente. Con B.III ripartita tra più destinazioni per l'esercizio, i proventi di ciascuna
-parte non sono forniti: C15 resta nell'investing result e le convenzioni lo indicano. Con B.III
-fornita e diversa da zero e la sua classificazione mancante, C15 la attende: income from
-operating investments, reddito operativo, investing result e i livelli sottostanti non sono
-calcolati e sono elencati in `not_computed` con il pointer della classificazione e le
-destinazioni ammesse (R8).
+separatamente. Con B.III non fornita, pari a zero, o senza stato patrimoniale per l'esercizio,
+non vi è alcun investimento operativo da seguire: `income_from_operating_investments` è zero e
+C15 resta nell'investing result, anche con la classificazione `operating`, e le convenzioni lo
+indicano (D2-IS). Con B.III ripartita tra più destinazioni per l'esercizio, i proventi di
+ciascuna parte non sono forniti: C15 resta nell'investing result e le convenzioni lo indicano.
+Con B.III fornita e diversa da zero e la sua classificazione mancante, C15 la attende solo
+quando C15 è fornita e diversa da zero (A3): income from operating investments, reddito
+operativo, investing result e i livelli sottostanti non sono calcolati e sono elencati in
+`not_computed` con il pointer della classificazione e le destinazioni ammesse (R8). C15 fornita
+pari a zero non attende nulla; C15 non fornita manca con il proprio pointer.
 
 La rivalutazione del TFR (interest cost) è compresa in B9. Quando una rettifica
 `debt_like_provision` considera il TFR debt-like, il suo campo facoltativo `interest_cost` (un
 valore per esercizio, zero o più, al massimo quanto resta di B9) sposta quell'importo dai costi
 per il personale e dal MOL al financing result; è una riga di entrambe le riconciliazioni, e il
-risultato prima delle imposte non cambia. Senza di esso nulla si sposta e le convenzioni lo
-indicano. `interest_cost` è accettato solo con `aggregate` `employee_severance_indemnity` e solo
+risultato prima delle imposte non cambia. Poiché `interest_and_other_financial_charges` resta
+C17 più gli interessi dei beni in leasing, il financing result è allora C17-bis −
+`interest_and_other_financial_charges` − la rivalutazione, e le convenzioni lo indicano. La
+rivalutazione si sposta anche quando B9 non è fornita: il financing result è calcolato, i costi
+per il personale e il MOL no, e la verifica `interest_cost_within_personnel_costs` è riportata
+come non verificata (D3-IS). Senza di esso nulla si sposta e le convenzioni lo indicano. `interest_cost` è accettato solo con `aggregate` `employee_severance_indemnity` e solo
 per un esercizio in cui la rettifica si applica (`FM-E001` altrimenti); oltre quanto resta di B9
 è `FM-E026`.
 
 **Riconciliazioni** (R19). `reconciliations.operating_profit` e
 `reconciliations.profit_before_financing_and_taxes` partono da A − B del conto economico
 civilistico, elencano ogni importo spostato (svalutazioni, parti `investing` e `non_recurring`,
-righe del leasing, rivalutazioni del TFR, C15, C16 e D) con i pointer effettivamente letti (`sources`: D18 e D19
-entrambe quando sono lette entrambe; il gruppo B10 a-c, con la correzione, quando B10 c è letta
-come assente), e arrivano al subtotale, in modo esatto. Il risultato prima delle imposte è
+righe del leasing, rivalutazioni del TFR, C15, C16 e D) con i pointer effettivamente letti
+(`sources`: D18 e D19 entrambe quando sono lette entrambe; il gruppo B10 a-c, con la correzione,
+quando B10 c è letta come assente; per una rettifica, l'importo dell'esercizio che sposta, per
+esempio `/adjustments/0/amounts/0/payments` o `/adjustments/1/interest_cost/0`), e arrivano al subtotale, in modo esatto. Il risultato prima delle imposte è
 uguale ad A − B ± C ± D e l'utile netto alla voce 21, salvo la differenza dei leasing, canoni −
 ammortamento − interessi (E4).
 
@@ -442,8 +453,8 @@ indica la classificazione e le destinazioni ammesse.
 | `financial_fixed_assets` | `operating`, `non_operating`, `financial_asset` | nessuno |
 | `shareholder_loans` | `financial_debt`, `quasi_equity` | nessuno |
 | `derivative_liabilities` | `financial_liability`, `operating_provision` | nessuno |
-| `write_downs_of_receivables` | `operating` (B10 d negli other charges below EBITDA), `investing` (B10 d nell'investing result) | `operating`, elencata quando un esercizio civilistico fornisce B10 d |
-| `write_downs_of_fixed_assets` | `operating` (B10 c negli ammortamenti), `investing` (B10 c nell'investing result) | `operating`, elencata quando un esercizio civilistico fornisce B10 c |
+| `write_downs_of_receivables` | `operating` (B10 d negli other charges below EBITDA), `investing` (B10 d nell'investing result) | `operating`, elencata ogni volta che un esercizio civilistico fornisce il conto economico |
+| `write_downs_of_fixed_assets` | `operating` (B10 c negli ammortamenti), `investing` (B10 c nell'investing result) | `operating`, elencata ogni volta che un esercizio civilistico fornisce il conto economico |
 
 I `treatment_overrides` di un esercizio accettano solo `financial_fixed_assets` e
 `shareholder_loans`, come `{"destination": ...}` oppure
@@ -542,8 +553,9 @@ quest'ordine:
    è fornito il suo importo: un nodo che ne contiene solo una parte (per esempio
    `receivables.trade`) non basta;
 2. `treatments.write_downs_of_receivables` e `treatments.write_downs_of_fixed_assets`,
-   `operating` se non fornite, ciascuna elencata solo quando un esercizio civilistico fornisce il
-   suo aggregato (B10 d, B10 c; decisione F1): altrimenti nessun numero ne dipende;
+   `operating` se non fornite, ciascuna elencata ogni volta che un esercizio civilistico fornisce
+   il conto economico, perché decidono che cosa è calcolato (decisione A4 del 2026-11-09, che
+   modifica F1);
 3. ogni voce considerata pari a zero perché non fornita ([Calcolo sui dati
    disponibili](#calcolo-sui-dati-disponibili)): `value` è `"0"` e la convenzione riporta "not
    given, set to".
@@ -566,7 +578,7 @@ Le destinazioni fisse non sono valori predefiniti e non sono elencate.
 | Parti "di cui" non fornite | assenti nel loro aggregato, anche quando l'aggregato non è fornito | predefinito, elencato (D2) |
 | Derivati | passivi classificati come finanziari: non correnti nella posizione finanziaria netta; attivi secondo B.III (non correnti) o C.III (correnti) | fisso, indicato (D3) |
 | A5, B14 | parte caratteristica; parti `investing` e non ricorrenti tramite rettifica | predefinito, elencato (Decision 7) |
-| C15 | investing result; income from operating investments quando B.III è interamente `operating` per l'esercizio; attende la classificazione di B.III quando è necessaria | segue B.III (P2) |
+| C15 | investing result; income from operating investments quando B.III è fornita, diversa da zero e interamente `operating` per l'esercizio; attende la classificazione di B.III quando C15 e B.III sono fornite e diverse da zero e la classificazione manca | segue B.III (P2, A3, D2-IS) |
 | C16, D18, D19 | investing result | fisso |
 | C17, C17-bis | financing result | fisso |
 | MOL | value added − costi per il personale, restituito come `ebitda_definition` | fisso (Decision 8) |
@@ -593,9 +605,9 @@ netto, totale attivo e totale passivo e patrimonio netto rispetto alle loro voci
 loro aggregato; utile di A.IX = voce 21; ripartizione di un override = aggregato dell'esercizio;
 le scadenze di una ripartizione dei debiti verso soci per finanziamenti (si veda
 [Classificazioni](#classificazioni)); i totali del conto economico (A, B, B10 a-c, B10, A − B,
-C, D, risultato prima delle imposte, voce 21); B10 c entro B10 a-c; la parte corrente di una
-passività per leasing
-entro la passività. Forma riclassificata: operating working capital, capitale investito, total
+C, D, risultato prima delle imposte, voce 21); B10 c, o in sua assenza B10 a e b, entro
+B10 a-c; la parte corrente di una passività per leasing entro la passività; la rivalutazione del
+TFR entro quanto resta di B9. Forma riclassificata: operating working capital, capitale investito, total
 funds invested, posizione finanziaria netta (rispetto alla sua composizione e alle sue scadenze)
 e total sources rispetto alle loro componenti, e total funds invested = total sources; MOL,
 reddito operativo aziendale, risultato prima delle imposte e utile netto rispetto alla loro
@@ -628,7 +640,7 @@ riserve (A.VI), in modo che i totali quadrino esattamente.
 | `FM-E008` | Overflow aritmetico (input molto al di fuori di un intervallo realistico) |
 | `FM-E009` | Una data inesistente o fuori dall'intervallo 1900-2199 |
 | `FM-E012` | Difetto: total funds invested diverso dalle fonti di un esercizio civilistico con tutte le voci fornite; una riconciliazione con A − B che non quadra; il risultato riclassificato diverso da quello civilistico per una causa diversa dai leasing |
-| `FM-E026` | Una relazione del bilancio non quadra; total funds invested di un esercizio civilistico diverso dalle fonti una volta contate le voci separate considerate pari a zero (indicate nel messaggio); una rettifica, o la rivalutazione del TFR, supera quanto resta nella sua voce di origine; B10 c supera il gruppo B10 a-c a cui appartiene; oppure la parte corrente di una passività per leasing supera la passività |
+| `FM-E026` | Una relazione del bilancio non quadra; total funds invested di un esercizio civilistico diverso dalle fonti una volta contate le voci separate considerate pari a zero (indicate nel messaggio); una rettifica, o la rivalutazione del TFR, supera quanto resta nella sua voce di origine; B10 c, o in sua assenza B10 a e b, supera il gruppo B10 a-c a cui appartiene; oppure la parte corrente di una passività per leasing supera la passività |
 
 ## Limiti e note di prassi
 
