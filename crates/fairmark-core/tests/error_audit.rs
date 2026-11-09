@@ -649,3 +649,184 @@ fn every_method_reports_two_independent_errors() {
     }
     assert_eq!(checked, fairmark_core::METHODS.len());
 }
+
+// ------------------------------------------------------------- round 4: every reading error
+
+/// The report of `input` with only the field at `pointer` changed to `value` (or removed when
+/// `value` is `None`).
+fn with_field(input: &Value, pointer: &str, value: Option<Value>) -> Value {
+    let mut out = input.clone();
+    let (parent, key) = pointer.rsplit_once('/').unwrap();
+    let holder = out.pointer_mut(parent).unwrap().as_object_mut().unwrap();
+    match value {
+        Some(v) => {
+            holder.insert(key.to_owned(), v);
+        }
+        None => {
+            holder.shift_remove(key);
+        }
+    }
+    out
+}
+
+/// Changes to an input: each field (a JSON pointer) set to a value, or removed.
+type Changes<'a> = Vec<(&'a str, Option<Value>)>;
+
+/// Round 4, item 1: k independent type, enumeration and missing-field errors give k entries,
+/// each with the message, pointer, reason, expected and fix serde gives when it is the only
+/// one.
+#[test]
+fn every_reading_error_is_reported_as_serde_reports_it_alone() {
+    let dcf = golden_input("dcf.fcff/three-stage-given-linear-decline-gordon.yaml");
+    let annuity_case = annuity();
+    let loan = golden_input("loans.instalment/annual-rate-form.yaml");
+    let cases: Vec<(&str, Value, Changes)> = vec![
+        (
+            "tvm.annuity",
+            annuity_case,
+            vec![
+                ("/payment", Some(json!(true))),
+                ("/periods", Some(json!("2"))),
+                ("/timing", Some(json!("late"))),
+            ],
+        ),
+        (
+            "dcf.fcff",
+            dcf,
+            vec![
+                ("/wacc", Some(json!([1]))),
+                ("/timing", Some(json!(5))),
+                ("/terminal/tv.gordon/growth", None),
+                ("/cash_flow_terms", Some(json!(1))),
+            ],
+        ),
+        (
+            "loans.instalment",
+            loan,
+            vec![
+                ("/principal", None),
+                ("/number_of_instalments", Some(json!(-1))),
+                ("/compounding", Some(json!("weekly"))),
+            ],
+        ),
+    ];
+    for (method, base, changes) in cases {
+        let mut all = base.clone();
+        for (p, v) in &changes {
+            all = with_field(&all, p, v.clone());
+        }
+        let r = report(method, &all);
+        let entries = r["errors"].as_array().unwrap();
+        assert_eq!(entries.len(), changes.len(), "{method}: {r:#}");
+        for (p, v) in &changes {
+            let alone = report(method, &with_field(&base, p, v.clone()));
+            let mut expected = alone["errors"][0].clone();
+            expected.as_object_mut().unwrap().remove("errors");
+            assert!(
+                entries.contains(&expected),
+                "{method} {p}: {expected:#} not in {r:#}"
+            );
+        }
+    }
+}
+
+/// Round 4, item 1: a decimal written as a string follows the grammar of the input schema
+/// (`^-?\d+(\.\d+)?([eE]\d+)?$`): no sign `+`, no underscores, no missing digits.
+#[test]
+fn decimal_strings_follow_the_schema_grammar() {
+    for bad in ["+0.1", "0_1", "1_000", ".1", "1."] {
+        let r = report(
+            "tvm.npv",
+            &json!({"rate": bad, "cash_flows": [-100, 60, 60]}),
+        );
+        assert_eq!(r["pointer"], "/rate", "{bad}: {r:#}");
+        assert_eq!(r["reason"], "type", "{bad}");
+    }
+    let r = report(
+        "tvm.npv",
+        &json!({"rate": "+0.1", "cash_flows": ["-100", "6_0", "60"]}),
+    );
+    assert_eq!(pointers_of(&r), ["/rate", "/cash_flows/1"], "{r:#}");
+    for good in ["0.1", "-0.1", "1e2", "10", "0"] {
+        assert!(
+            run(
+                "tvm.npv",
+                &json!({"rate": good, "cash_flows": [-100, 60, 60]}).to_string()
+            )
+            .is_ok(),
+            "{good}"
+        );
+    }
+}
+
+/// True when the input schema `schema` describes the root field `key` as a decimal.
+fn root_decimal(schema: &Value, key: &str) -> bool {
+    let resolve = |s: &Value| -> Value {
+        match s.get("$ref").and_then(Value::as_str) {
+            Some(r) => schema
+                .pointer(r.trim_start_matches('#'))
+                .cloned()
+                .unwrap_or(Value::Null),
+            None => s.clone(),
+        }
+    };
+    let Some(field) = schema["properties"].get(key).map(resolve) else {
+        return false;
+    };
+    let decimal = |s: &Value| s["pattern"] == r"^-?\d+(\.\d+)?([eE]\d+)?$";
+    decimal(&field)
+        || field["anyOf"]
+            .as_array()
+            .is_some_and(|b| b.iter().map(resolve).any(|b| decimal(&b)))
+}
+
+/// Round 4, item 1, as a property over every method: on the first valid golden input of each
+/// method, up to three decimal fields at the root are given a value of the wrong type; there
+/// are as many errors as fields, each the error serde gives for that field alone.
+#[test]
+fn every_method_reports_every_type_error() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
+    let mut with_three = 0;
+    for m in fairmark_core::METHODS {
+        let mut files: Vec<_> = std::fs::read_dir(root.join(m.id))
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .collect();
+        files.sort();
+        let Some(base) = files.iter().find_map(|f| {
+            let case: Value = serde_norway::from_str(&std::fs::read_to_string(f).unwrap()).unwrap();
+            case.get("expect").map(|_| case["input"].clone())
+        }) else {
+            continue;
+        };
+        let schema = fairmark_core::input_schema(m.id).unwrap();
+        let fields: Vec<String> = base
+            .as_object()
+            .unwrap()
+            .keys()
+            .filter(|k| root_decimal(&schema, k))
+            .take(3)
+            .map(|k| format!("/{k}"))
+            .collect();
+        if fields.is_empty() {
+            continue;
+        }
+        let mut all = base.clone();
+        for f in &fields {
+            all = with_field(&all, f, Some(json!(true)));
+        }
+        let r = report(m.id, &all);
+        let entries = r["errors"].as_array().unwrap();
+        assert_eq!(entries.len(), fields.len(), "{}: {r:#}", m.id);
+        for f in &fields {
+            let alone = report(m.id, &with_field(&base, f, Some(json!(true))));
+            let mut expected = alone["errors"][0].clone();
+            expected.as_object_mut().unwrap().remove("errors");
+            assert!(entries.contains(&expected), "{} {f}: {r:#}", m.id);
+        }
+        if fields.len() == 3 {
+            with_three += 1;
+        }
+    }
+    assert!(with_three >= 5, "{with_three}");
+}

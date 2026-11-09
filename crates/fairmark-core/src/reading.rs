@@ -24,24 +24,62 @@ pub(crate) fn parse<T: serde::de::DeserializeOwned + JsonSchema>(
     analysis: bool,
 ) -> Result<T> {
     let mut de = serde_json::Deserializer::from_str(input_json);
+    // The next error `serde` raises on a text, for the reading of every error.
+    let reread = |text: &str| {
+        let mut de = serde_json::Deserializer::from_str(text);
+        serde_path_to_error::deserialize::<_, T>(&mut de)
+            .err()
+            .map(input_error)
+    };
     match serde_path_to_error::deserialize(&mut de) {
         Err(e) => {
             let first = input_error(e);
-            Err(
-                match reading_errors(Some(first), &schema_for!(T), input_json, analysis) {
-                    Err(e) => e,
-                    Ok(()) => FairmarkError::Internal("a refused input recorded no error"),
-                },
-            )
+            let reading = Reading {
+                schema: &schema_for!(T),
+                text: input_json,
+                analysis,
+                reread: &reread,
+            };
+            Err(match reading.errors(Some(first)) {
+                Err(e) => e,
+                Ok(()) => FairmarkError::Internal("a refused input recorded no error"),
+            })
         }
         Ok(input) => {
             // `serde_json::from_str` does the same: nothing but whitespace may follow the value.
             de.end().map_err(syntax_error)?;
-            reading_errors(None, &schema_for!(T), input_json, false)?;
+            let reading = Reading {
+                schema: &schema_for!(T),
+                text: input_json,
+                analysis: false,
+                reread: &reread,
+            };
+            reading.errors(None)?;
             Ok(input)
         }
     }
 }
+
+/// What the reading of every error needs: the schema of the input type, the text, whether it
+/// is the input of an analysis, and `serde`'s reader for that type.
+struct Reading<'a> {
+    schema: &'a schemars::Schema,
+    text: &'a str,
+    analysis: bool,
+    reread: &'a Reread,
+}
+
+/// `serde`'s reader of the input type: the first error it raises on a text, with its tokens.
+type Reread = dyn Fn(&str) -> Option<(FairmarkError, Vec<String>)>;
+
+impl Reading<'_> {
+    fn errors(&self, first: Option<(FairmarkError, Vec<String>)>) -> Result<()> {
+        reading_errors(first, self)
+    }
+}
+
+/// The most reading errors reported for one input: the reading is repeated once per error.
+const MAX_READING_ERRORS: usize = 200;
 
 /// Key under which `serde_json` (with `arbitrary_precision`) hands an exact number to its
 /// deserialiser; it is not part of the input, so it never appears in a pointer.
@@ -296,10 +334,9 @@ fn expected_names(msg: &str) -> Vec<String> {
 /// would accept. A text that is not JSON is reported alone, as a syntax error.
 fn reading_errors(
     first: Option<(FairmarkError, Vec<String>)>,
-    schema: &schemars::Schema,
-    text: &str,
-    analysis: bool,
+    reading: &Reading<'_>,
 ) -> Result<()> {
+    let (schema, text, analysis) = (reading.schema, reading.text, reading.analysis);
     let alone = |first: Option<(FairmarkError, Vec<String>)>| first.map_or(Ok(()), |(e, _)| Err(e));
     let (Ok(value), Ok(schema)) = (
         serde_json::from_str::<Value>(text),
@@ -319,13 +356,20 @@ fn reading_errors(
     let duplicates = duplicate_keys(text);
     let mut found = crate::error::Found::new();
     let mut reported: Vec<(Option<String>, Option<Reason>)> = Vec::new();
+    let mut extra = Vec::new();
     if let Some((error, tokens)) = first {
+        let reason = error.details().reason;
         let error = refine(error, &tokens, &value, &walk, &duplicates);
         let d = error.details();
         reported.push((d.pointer, d.reason));
         found.push(error);
+        // Every other error `serde` raises, each as it raises it when it is the first: the
+        // value at the error is repaired (the key removed, or a value the schema accepts put
+        // in its place) and the input read again, until it reads (ADR 0014 G5).
+        if reason != Some(Reason::Syntax) || serde_json::from_str::<Value>(text).is_ok() {
+            extra.extend(every_reading_error(&value, &tokens, reason, &walk, reading));
+        }
     }
-    let mut extra = Vec::new();
     for finding in std::mem::take(&mut walk.found) {
         extra.push(match finding {
             Finding::Unknown {
@@ -337,6 +381,7 @@ fn reading_errors(
                 unknown_field_error(pointer(&tokens).unwrap_or_default(), &key, allowed, &listed)
             }
             Finding::Positional { tokens } => positional_error(&tokens),
+            Finding::Grammar { tokens, text } => grammar_error(&tokens, &text),
         });
     }
     extra.extend(duplicates.iter().map(|t| duplicate_error(t)));
@@ -352,6 +397,124 @@ fn reading_errors(
         }
     }
     found.finish()
+}
+
+/// The errors `serde` raises after the first, each as it raises it alone: after each one the
+/// value at its location is repaired and the input is read again. The repair never reports
+/// anything itself; it only lets the reader go past the error.
+fn every_reading_error(
+    value: &Value,
+    first: &[String],
+    reason: Option<Reason>,
+    walk: &UnknownKeys<'_>,
+    reading: &Reading<'_>,
+) -> Vec<FairmarkError> {
+    let mut value = value.clone();
+    let mut errors = Vec::new();
+    let mut at = first.to_vec();
+    let mut reason = reason;
+    for _ in 0..MAX_READING_ERRORS {
+        if !repair(&mut value, &at, reason, walk) {
+            break;
+        }
+        let Some((error, tokens)) = (reading.reread)(&value.to_string()) else {
+            break;
+        };
+        if tokens == at {
+            // The repair did not let the reader go past this location: stop.
+            break;
+        }
+        reason = error.details().reason;
+        errors.push(refine(error, &tokens, &value, walk, &[]));
+        at = tokens;
+    }
+    errors
+}
+
+/// Lets the reader go past an error at `tokens`: an unknown key is removed, a missing field is
+/// added, any other value is replaced by one its schema accepts. False when it cannot.
+fn repair(
+    value: &mut Value,
+    tokens: &[String],
+    reason: Option<Reason>,
+    walk: &UnknownKeys<'_>,
+) -> bool {
+    let Some((key, parent)) = tokens.split_last() else {
+        return false;
+    };
+    let parent_at = pointer(parent).unwrap_or_default();
+    match reason {
+        Some(Reason::UnknownField) => value
+            .pointer_mut(&parent_at)
+            .and_then(Value::as_object_mut)
+            .is_some_and(|map| map.shift_remove(key).is_some()),
+        _ => {
+            let schema = if reason == Some(Reason::Missing) {
+                walk.property_schema(parent, key, value)
+            } else {
+                walk.schema_at(tokens, value)
+            };
+            let Some(schema) = schema else {
+                return false;
+            };
+            let filler = walk.placeholder(&schema, 0);
+            match value.pointer_mut(&parent_at) {
+                Some(Value::Object(map)) => {
+                    map.insert(key.clone(), filler);
+                    true
+                }
+                Some(Value::Array(items)) => match key.parse::<usize>() {
+                    Ok(i) if i < items.len() => {
+                        items[i] = filler;
+                        true
+                    }
+                    _ => false,
+                },
+                _ => false,
+            }
+        }
+    }
+}
+
+/// The pattern of a decimal of an input schema, the grammar a decimal written as a string
+/// follows (`rust_decimal` alone would also read `+0.1`, `.1` or `1_000`).
+const DECIMAL_PATTERN: &str = r"^-?\d+(\.\d+)?([eE]\d+)?$";
+
+/// True when `text` matches [`DECIMAL_PATTERN`].
+fn is_decimal_text(text: &str) -> bool {
+    fn digits(s: &str) -> Option<&str> {
+        let end = s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
+        (end > 0).then(|| &s[end..])
+    }
+    let rest = text.strip_prefix('-').unwrap_or(text);
+    let Some(mut rest) = digits(rest) else {
+        return false;
+    };
+    if let Some(fraction) = rest.strip_prefix('.') {
+        let Some(after) = digits(fraction) else {
+            return false;
+        };
+        rest = after;
+    }
+    if let Some(exponent) = rest.strip_prefix(['e', 'E']) {
+        let Some(after) = digits(exponent) else {
+            return false;
+        };
+        rest = after;
+    }
+    rest.is_empty()
+}
+
+/// A decimal written as a string outside the grammar of the schema: refused as the reader
+/// refuses any other text that is not a decimal.
+fn grammar_error(tokens: &[String], text: &str) -> FairmarkError {
+    at_error(
+        tokens,
+        format!("invalid value: string {text:?}, expected {DECIMAL_EXPECTED}"),
+    )
+    .because(Reason::Type)
+    .expected([DECIMAL_EXPECTED])
+    .fix(format!("give {DECIMAL_EXPECTED}"))
 }
 
 /// The input errors of `base_input` of an analysis input that cannot be read, checked by the
@@ -820,6 +983,8 @@ enum Finding {
     },
     /// An object given as an array.
     Positional { tokens: Vec<String> },
+    /// A decimal written as a string outside the grammar of the schema.
+    Grammar { tokens: Vec<String>, text: String },
 }
 
 /// What an object schema allows: its named properties, whether it is closed, and the schema of
@@ -851,6 +1016,12 @@ impl UnknownKeys<'_> {
     fn node(&mut self, schema: &Value, node: &Value, at: &mut Vec<String>) {
         let schema = self.resolve(schema);
         match node {
+            Value::String(text) if self.is_decimal(&schema) && !is_decimal_text(text) => {
+                self.found.push(Finding::Grammar {
+                    tokens: at.clone(),
+                    text: text.clone(),
+                });
+            }
             Value::Object(map) => self.object(&schema, map, at),
             Value::Array(items) => {
                 // The list itself, or the branch of an optional list that is an array.
@@ -1057,6 +1228,125 @@ impl UnknownKeys<'_> {
         Some(schema)
     }
 
+    /// True for the schema of a decimal (or of an optional decimal) of an input.
+    fn is_decimal(&self, schema: &Value) -> bool {
+        let schema = self.resolve(schema);
+        if schema.get("pattern").and_then(Value::as_str) == Some(DECIMAL_PATTERN) {
+            return true;
+        }
+        let branches = self.branches(&schema);
+        let values: Vec<&Value> = branches.iter().filter(|b| !has_type(b, "null")).collect();
+        !values.is_empty() && values.iter().all(|b| self.is_decimal(b))
+    }
+
+    /// The schema of the property `key` of the object at `parent` (a field that may be absent).
+    fn property_schema(&self, parent: &[String], key: &str, value: &Value) -> Option<Value> {
+        let schema = self.schema_at(parent, value)?;
+        let map = value
+            .pointer(&pointer(parent).unwrap_or_default())?
+            .as_object()?;
+        let shape = self.object_shape(&schema, map).or_else(|| {
+            self.branches(&schema)
+                .into_iter()
+                .map(|b| self.shape(&b))
+                .find(|sh| sh.properties.contains_key(key))
+        })?;
+        let sub = shape.properties.get(key).cloned().or(shape.extra)?;
+        Some(self.resolve(&sub))
+    }
+
+    /// A value the schema accepts when read, to stand in for a refused value while the reading
+    /// goes on: the first constant or enumeration value, the first branch of a choice, an object
+    /// with its required fields, an empty list, `"0"` for a decimal, a date for a date.
+    fn placeholder(&self, schema: &Value, depth: usize) -> Value {
+        let schema = self.resolve(schema);
+        if depth > 32 {
+            return Value::Null;
+        }
+        if let Some(c) = schema.get("const") {
+            return c.clone();
+        }
+        if let Some(first) = schema
+            .get("enum")
+            .and_then(Value::as_array)
+            .and_then(|e| e.first())
+        {
+            return first.clone();
+        }
+        if self.is_decimal(&schema) {
+            return Value::from("0");
+        }
+        let branches = self.branches(&schema);
+        if schema.get("properties").is_none() && !branches.is_empty() {
+            let branch = branches
+                .iter()
+                .find(|b| !(has_type(b, "null") && b.get("type").is_some_and(Value::is_string)))
+                .unwrap_or(&branches[0]);
+            return self.placeholder(branch, depth + 1);
+        }
+        if schema.get("properties").is_some() || has_type(&schema, "object") {
+            let shape = self.shape(&schema);
+            let mut map = serde_json::Map::new();
+            let mut required: Vec<String> = schema
+                .get("required")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(|r| r.as_str().map(str::to_owned))
+                .collect();
+            if let Some(branch) = branches.first() {
+                // An internally tagged choice: the first branch, its tag included.
+                let sub = self.shape(branch);
+                for (k, v) in sub.properties {
+                    if v.get("const").is_some() {
+                        map.insert(k, v["const"].clone());
+                    }
+                }
+                required.extend(
+                    branch
+                        .get("required")
+                        .and_then(Value::as_array)
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|r| r.as_str().map(str::to_owned)),
+                );
+            }
+            for r in required {
+                if map.contains_key(&r) {
+                    continue;
+                }
+                let sub = shape.properties.get(&r).cloned().or_else(|| {
+                    branches
+                        .first()
+                        .and_then(|b| self.shape(b).properties.get(&r).cloned())
+                });
+                let filler = sub.map_or(Value::Null, |s| self.placeholder(&s, depth + 1));
+                map.insert(r, filler);
+            }
+            return Value::Object(map);
+        }
+        if has_type(&schema, "array") {
+            return Value::Array(Vec::new());
+        }
+        if has_type(&schema, "string") {
+            if schema.get("format").and_then(Value::as_str) == Some("date") {
+                return Value::from("2000-01-01");
+            }
+            return Value::from("x");
+        }
+        if has_type(&schema, "integer") {
+            let min = schema.get("minimum").and_then(Value::as_u64).unwrap_or(1);
+            return Value::from(min.max(1));
+        }
+        if has_type(&schema, "number") {
+            return Value::from(0);
+        }
+        if has_type(&schema, "boolean") {
+            return Value::Bool(false);
+        }
+        Value::Null
+    }
+
     /// Every field the object at `tokens` accepts, and the fields `serde` lists for it.
     fn object_fields(
         &self,
@@ -1247,7 +1537,9 @@ mod tests {
         walk.found
             .into_iter()
             .map(|f| match f {
-                Finding::Unknown { tokens, .. } | Finding::Positional { tokens } => (tokens, ()),
+                Finding::Unknown { tokens, .. }
+                | Finding::Positional { tokens }
+                | Finding::Grammar { tokens, .. } => (tokens, ()),
             })
             .collect()
     }
