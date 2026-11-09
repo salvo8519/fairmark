@@ -22,6 +22,13 @@
           "description": "The adjustment's label, as given.",
           "type": "string"
         },
+        "line": {
+          "description": "For a `lease` adjustment, which of its amounts this entry moves: `asset`, `liability`,\n`prepayment`, `equity_effect`, `payments`, `depreciation` or `interest`; for a\n`debt_like_provision` of the employee severance indemnity, `interest_cost` on the entry\nthat moves its interest cost out of B9 (P2); omitted otherwise.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "reason": {
           "description": "The adjustment's reason, as given.",
           "type": "string"
@@ -343,6 +350,61 @@
           "const": "deducted_from_equity",
           "description": "Deducted from equity (subscribed capital unpaid).",
           "type": "string"
+        },
+        {
+          "const": "value_of_production",
+          "description": "Value of production, layer of the income statement (A1 to A5, core).",
+          "type": "string"
+        },
+        {
+          "const": "external_costs",
+          "description": "External costs, deducted in value added (B6, B7, B8, B11, B14, core; E1).",
+          "type": "string"
+        },
+        {
+          "const": "ebitda",
+          "description": "Deducted in EBITDA (B9).",
+          "type": "string"
+        },
+        {
+          "const": "depreciation_and_amortisation",
+          "description": "Depreciation and amortisation, below EBITDA (B10 a and b, lease depreciation).",
+          "type": "string"
+        },
+        {
+          "const": "other_charges_below_ebitda",
+          "description": "Other charges below EBITDA (B12, B13; B10 d with the treatment `operating`; E2).",
+          "type": "string"
+        },
+        {
+          "const": "income_from_operating_investments",
+          "description": "Income from operating investments, below EBITDA and in operating profit (C15 when\nfinancial fixed assets are wholly `operating` for the year; P2).",
+          "type": "string"
+        },
+        {
+          "const": "investing_result",
+          "description": "Investing result, below operating profit (A5 and B14 investing parts, C15 unless\noperating, C16, D18, D19; B10 c and B10 d with the treatment `investing`).",
+          "type": "string"
+        },
+        {
+          "const": "non_recurring_result",
+          "description": "Non-recurring result (parts moved by `non_recurring` adjustments).",
+          "type": "string"
+        },
+        {
+          "const": "financing_result",
+          "description": "Financing result (C17, C17-bis; the interest cost of a debt-like employee severance\nindemnity, P2).",
+          "type": "string"
+        },
+        {
+          "const": "income_taxes",
+          "description": "Income taxes, item 20 as given.",
+          "type": "string"
+        },
+        {
+          "const": "removed_by_restatement",
+          "description": "Removed from its aggregate by the financial-method restatement of a lease and replaced\nby depreciation and interest (lease payments out of B8, R21).",
+          "type": "string"
         }
       ]
     },
@@ -360,6 +422,204 @@
           "type": "string"
         }
       ]
+    },
+    "IncomeStatement": {
+      "description": "The reorganised income statement (Appendix B.2; R16 to R20). Amounts named after a\nstatutory item are the core amounts that enter the layers: less the parts moved by\nadjustments, with lease depreciation and interest added (R21).",
+      "properties": {
+        "depreciation_and_amortisation": {
+          "description": "Depreciation and amortisation (B10 a and b, core, plus B10 c when it is operating, P1,\nplus lease depreciation), in currency units; the field of `FreeCashFlowLines`.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ebitda": {
+          "description": "EBITDA (margine operativo lordo, MOL): value added − personnel costs, in currency units,\nsigned.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ebitda_definition": {
+          "description": "The definition of `ebitda` in words, usable as `ebitda_definition` of SPEC-0007 (R18).",
+          "type": "string"
+        },
+        "external_costs": {
+          "description": "External costs: B6 + B7 + B8 + B11 + B14, core (E1), in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "financing_result": {
+          "description": "C17-bis − C17 (core, with lease interest) − the interest cost of a debt-like employee\nseverance indemnity (P2), in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "income_from_operating_investments": {
+          "description": "Income from operating investments: C15 (core) when financial fixed assets (B.III) are\nwholly `operating` for the year, zero otherwise (P2), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "income_taxes": {
+          "description": "Item 20 as given, in currency units, signed (positive for a tax charge).",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "interest_and_other_financial_charges": {
+          "description": "C17 (core, plus lease interest), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "investing_result": {
+          "description": "Investing result (risultato della gestione accessoria), in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "materials_consumed": {
+          "description": "Materials consumed (B6 + B11, core), in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "net_income": {
+          "description": "Profit before tax − income taxes, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "non_recurring_result": {
+          "description": "Σ non-recurring income − Σ non-recurring charges, in currency units, signed; zero when no\nitem is labelled non-recurring, null when the year gives no income statement (E6).",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "operating_profit": {
+          "description": "Operating profit of the core business (reddito operativo della gestione caratteristica,\nMON; IFRS 18 \"operating profit or loss\"): EBITDA − depreciation and amortisation − other\ncharges below EBITDA + income from operating investments, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "other_charges_below_ebitda": {
+          "description": "Other charges below EBITDA: B12 + B13 (+ B10 d with the treatment `operating`), core\n(E2), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "personnel_costs": {
+          "description": "Personnel costs (B9, core), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "profit_before_financing_and_taxes": {
+          "description": "Operating profit + investing result (reddito operativo aziendale, EBIT in Italian\npractice; IFRS 18 \"profit or loss before financing and income taxes\"), in currency\nunits, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "profit_before_tax": {
+          "description": "Profit before financing and taxes + non-recurring result + financing result, in\ncurrency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "purchases": {
+          "description": "Purchases (B6, core), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reconciliations": {
+          "$ref": "#/$defs/Reconciliations",
+          "description": "The reconciliations of `operating_profit` and `profit_before_financing_and_taxes` with\nA − B (statutory form only)."
+        },
+        "revenue": {
+          "description": "Revenue (A1, core), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value_added": {
+          "description": "Value added: value of production − external costs, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value_of_production": {
+          "description": "Value of production (A1 to A5, core), in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "revenue",
+        "value_of_production",
+        "purchases",
+        "materials_consumed",
+        "external_costs",
+        "value_added",
+        "personnel_costs",
+        "ebitda",
+        "ebitda_definition",
+        "depreciation_and_amortisation",
+        "other_charges_below_ebitda",
+        "income_from_operating_investments",
+        "operating_profit",
+        "investing_result",
+        "profit_before_financing_and_taxes",
+        "non_recurring_result",
+        "financing_result",
+        "interest_and_other_financial_charges",
+        "profit_before_tax",
+        "income_taxes",
+        "net_income",
+        "reconciliations"
+      ],
+      "type": "object"
     },
     "Layout": {
       "description": "The statutory layout, echoed in the result; no number depends on it.",
@@ -597,10 +857,18 @@
             "$ref": "#/$defs/NotComputedEntry"
           },
           "type": "array"
+        },
+        "income_statement": {
+          "description": "Outputs of the income statement block.",
+          "items": {
+            "$ref": "#/$defs/NotComputedEntry"
+          },
+          "type": "array"
         }
       },
       "required": [
         "balance_sheet",
+        "income_statement",
         "current_non_current"
       ],
       "type": "object"
@@ -729,6 +997,93 @@
       ],
       "type": "object"
     },
+    "Reconciliation": {
+      "description": "A subtotal reconciled with the statutory difference between value and costs of production\n(R19): `start` + Σ `lines` = `end`, exactly.",
+      "properties": {
+        "end": {
+          "description": "The subtotal reconciled, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "lines": {
+          "description": "Every amount moved, in the order: write-downs, then adjustments in the order given, then\nthe investing items.",
+          "items": {
+            "$ref": "#/$defs/ReconciliationLine"
+          },
+          "type": "array"
+        },
+        "start": {
+          "description": "A − B of the statutory income statement, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "lines",
+        "end"
+      ],
+      "type": "object"
+    },
+    "ReconciliationLine": {
+      "description": "One amount moved between A − B and a subtotal (R19).",
+      "properties": {
+        "amount": {
+          "description": "Amount added to A − B, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        },
+        "label": {
+          "description": "What the amount is, for example \"B10 c, write-downs of fixed assets (investing result)\".",
+          "type": "string"
+        },
+        "sources": {
+          "description": "JSON pointers of the inputs actually read for it: an aggregate (both D18 and D19 when\nboth are read; the B10 a to c group when B10 c is read as none, with B10 a, b when\nB10 c is derived from them), or the amount of an adjustment for the year\n(`/adjustments/<k>/amounts/<i>`, its `payments` or `depreciation` for a lease,\n`/adjustments/<k>/interest_cost/<i>` for an interest cost).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "label",
+        "sources",
+        "amount"
+      ],
+      "type": "object"
+    },
+    "Reconciliations": {
+      "description": "The reconciliations of the two IFRS 18 aligned subtotals with A − B (R19).",
+      "properties": {
+        "operating_profit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Reconciliation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A − B to `operating_profit`."
+        },
+        "profit_before_financing_and_taxes": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Reconciliation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A − B to `profit_before_financing_and_taxes`."
+        }
+      },
+      "required": [
+        "operating_profit",
+        "profit_before_financing_and_taxes"
+      ],
+      "type": "object"
+    },
     "Sources": {
       "description": "The sources (Appendix B.1).",
       "properties": {
@@ -854,6 +1209,10 @@
           ],
           "description": "`statutory`, `reclassified`, or null when the entry gives neither."
         },
+        "income_statement": {
+          "$ref": "#/$defs/IncomeStatement",
+          "description": "The reorganised income statement (R16)."
+        },
         "label": {
           "description": "The year's label, as given.",
           "type": [
@@ -883,6 +1242,7 @@
         "form",
         "layout",
         "balance_sheet",
+        "income_statement",
         "current_non_current",
         "assignments",
         "adjustments_applied",

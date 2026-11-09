@@ -323,7 +323,7 @@ pub struct NotComputed {
 }
 
 /// One amount moved between A − B and a subtotal (R19).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct ReconciliationLine {
     /// What the amount is, for example "B10 c, write-downs of fixed assets (investing result)".
     pub label: String,
@@ -339,7 +339,7 @@ pub struct ReconciliationLine {
 
 /// A subtotal reconciled with the statutory difference between value and costs of production
 /// (R19): `start` + Σ `lines` = `end`, exactly.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct Reconciliation {
     /// A − B of the statutory income statement, in currency units, signed.
     pub start: Decimal,
@@ -351,7 +351,7 @@ pub struct Reconciliation {
 }
 
 /// The reconciliations of the two IFRS 18 aligned subtotals with A − B (R19).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct Reconciliations {
     /// A − B to `operating_profit`.
     pub operating_profit: Option<Reconciliation>,
@@ -362,7 +362,7 @@ pub struct Reconciliations {
 /// The reorganised income statement (Appendix B.2; R16 to R20). Amounts named after a
 /// statutory item are the core amounts that enter the layers: less the parts moved by
 /// adjustments, with lease depreciation and interest added (R21).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct IncomeStatement {
     /// Revenue (A1, core), in currency units.
     pub revenue: Option<Decimal>,
