@@ -34,8 +34,8 @@ holds all financial logic. Adapters translate and never compute, so they are not
 | Locally, one module | `uv run just mutants tvm` (also `dcf/engine`, or a folder such as `tv`) | That module | No |
 | Locally, the whole core | `uv run just mutants` | All of `fairmark-core` (about 2,000 mutants, several hours) | No |
 | Locally, before a pull request | `uv run just mutants-diff` | Lines of `crates/fairmark-core/src` changed since the merge base with `origin/main` | Exit 1 on a missed mutant not recorded as equivalent |
-| Every pull request | CI job *Mutation testing · changed lines of the core* | Changed lines of `crates/fairmark-core/src` (`--in-diff`); finishes in seconds when the core is not touched, and has 60 minutes (about 150 mutants) otherwise: split larger changes | Yes |
-| Weekly (Sunday) and on demand | Workflow *Mutation testing* (`.github/workflows/mutants.yml`) | All of `fairmark-core`, in 16 shards | Report only; the v1.0 release gate on missed mutants is issue #283 |
+| Every pull request | CI job *Mutation testing · changed lines of the core* | Changed lines of `crates/fairmark-core/src` (`--in-diff`); finishes in seconds when the core is not touched, and has 60 minutes (about 150 mutants) otherwise: split larger changes | Reported: the job fails on a missed mutant not recorded as equivalent, but it is not yet a required check. It becomes one once the triage debt is closed (the maintainer changes the ruleset) |
+| Weekly (Sunday) and on demand | Workflow *Mutation testing* (`.github/workflows/mutants.yml`) | All of `fairmark-core`, in 16 shards | Report only; a scheduled run that fails (broken baseline, tool failure, missing shard) opens or updates the issue labelled `maintenance`. The v1.0 release gate on missed mutants is issue #283 |
 
 Local runs write to `target/mutants/` and `target/mutants-diff/`. The workflows upload each
 `mutants.out` directory as an artifact (diffs and logs of every mutant) and write a table per
@@ -80,15 +80,19 @@ Every missed mutant ends in exactly one of two ways:
    file = "crates/fairmark-core/src/rates.rs"
    function = "inverse_pow"
    mutation = "replace match guard !g.is_zero() with true in inverse_pow"
-   line = 137                # optional: pins one occurrence
+   line = 137
    reason = "One line: why no input can produce a different output or error."
    reviewer = "github-login-of-the-maintainer"
    ```
 
-   The mutation text is copied exactly as cargo-mutants prints it. Matching is by exact text,
-   never by pattern; `python scripts/mutants.py check-exclusions` (part of `just lint`)
-   rejects an entry without a function, a reason or a reviewer, or outside the core. The
-   entry is approved by a maintainer in the pull request that adds it.
+   Every key is required. The mutation text and the line are copied exactly as cargo-mutants
+   prints them, so an entry excludes one mutation and nothing else: matching is by exact text
+   and line, never by pattern. `python scripts/mutants.py check-exclusions` (part of
+   `just lint`) rejects an entry with a missing key, outside the core, whose mutation does not
+   name its function (it ends with `in <function>`, or starts with `replace <function> ->` or
+   `replace <function> with` when the whole body is replaced), or that repeats an earlier
+   entry. When the code moves, the line is updated in the same pull request. The entry is
+   approved by a maintainer in the pull request that adds it.
 
 Not accepted: exclusions of whole files, functions or modules; `#[mutants::skip]` attributes
 on financial code; raising the timeout to hide a timeout; deleting or weakening a test.
@@ -96,8 +100,8 @@ A missed mutant is never "for later": on a pull request it is resolved in that p
 and the weekly report is the triage list for the code that predates this check. The
 missed mutants of the first baseline, with a provisional category each, are tracked in
 `tests/mutants/triage.md` until they are resolved. Equivalent
-mutants are still built and tested, so a full run lists entries that no longer match a missed
-mutant; remove them in the next pull request on that module.
+mutants are still built and tested, so a full run lists the entries whose mutant is no longer
+missed (now caught, unviable or gone); remove them in the next pull request on that module.
 
 ## Reading the results
 
@@ -110,5 +114,6 @@ test output.
 ## Security
 
 The workflows run with `contents: read`, use no secrets, do not persist credentials and pin
-every action to a commit. The pull-request job runs the tests of the pull request, as the
+every action to a commit. The only write permission is `issues: write`, on the job of the
+weekly workflow that opens or updates the `maintenance` issue after a failed scheduled run. The pull-request job runs the tests of the pull request, as the
 *Rust* job already does, with no more privileges than it.
