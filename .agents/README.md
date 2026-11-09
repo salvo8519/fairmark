@@ -31,7 +31,7 @@ specifics, imports `AGENTS.md`).
 
 `spec-new`, `implement-spec`, `add-method`, `golden-case`, `adr-new`, `pre-pr`, `fix-ci`,
 `release`, `plan-sprint`, `run-sprint`, `commit`, `explain-changes`, `translate`, `onboarding`,
-`session-start`, `session-end`, `pr-triage`, `roadmap-update`, `workspace-clean`.
+`session-start`, `session-end`, `pr-triage`.
 
 ## Journal
 

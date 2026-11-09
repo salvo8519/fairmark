@@ -112,8 +112,7 @@ Roles and workflows live in `.agents/` (see `.agents/README.md`): `architect`, `
 `security-reviewer`, `ci-investigator`, `release-manager`, `sprint-planner`, `translator`; skills
 `spec-new`, `implement-spec`, `add-method`, `golden-case`, `adr-new`, `pre-pr`, `fix-ci`,
 `release`, `plan-sprint`, `run-sprint`, `commit`, `explain-changes`, `translate`, `onboarding`,
-`session-start`, `session-end`, `pr-triage`, `roadmap-update`, `workspace-clean`. Sprints: see
-`sprints/README.md`.
+`session-start`, `session-end`, `pr-triage`, `roadmap-update`. Sprints: see `sprints/README.md`.
 Edit them in `.agents/` only; `uv run just generate` mirrors them to `.claude/`.
 
 ## Documentation stays in sync automatically
@@ -160,7 +159,7 @@ Install [`uv`](https://docs.astral.sh/uv/) and Rust stable. `just` is installed 
 | Outdated dependencies / advisories | `uv run just deps-outdated` / `uv run just deps-audit` |
 | Version check / preview of release notes | `uv run just version` / `uv run just release-notes` |
 | Build both documentation sites | `uv run just docs` |
-| Free disk space: merged worktrees, build caches (dry run unless `--apply`) | `uv run just clean-workspace [--caches] [--apply]` |
+| Disk usage of worktrees and caches (read-only; nothing is deleted without the maintainer's explicit approval) | `uv run just workspace-report` |
 | Docs preview (English or Italian) | `uv run just docs-serve` / `uv run just docs-serve it` |
 
 ## Adding a method (checklist)

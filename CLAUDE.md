@@ -36,7 +36,7 @@ dependencies or workflows changed) → `docs-writer` → PR.
 `/spec-new`, `/implement-spec`, `/add-method`, `/golden-case`, `/adr-new`, `/pre-pr`,
 `/fix-ci`, `/release`, `/plan-sprint`, `/run-sprint`, `/commit`, `/explain-changes`,
 `/translate`, `/onboarding`, `/session-start`, `/session-end`, `/pr-triage`,
-`/roadmap-update`, `/workspace-clean`.
+`/roadmap-update`.
 
 ### Languages
 Write everything that goes into the repository in English. Talk to each person in the
