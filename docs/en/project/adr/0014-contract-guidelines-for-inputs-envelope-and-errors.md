@@ -153,7 +153,11 @@ with `missing_any_of` for `FM-E027` and `errors` at the top level:
   fields of a conflict, a growth and the rate it must stay below, a value and the field its
   domain depends on: a nominal rate and its compounding, a technique of another basis and the
   basis of the comparison, the value of an exit multiple's metric and the metric); empty when
-  the error concerns one field.
+  the error concerns one field. Every field `pointer` and `pointers` name is one the client can
+  act on: it is in the input sent, or it is a field to give (`reason` `missing` or `requires`,
+  such as the expected inflation of `FM-E024`, or an item a reconciliation took as zero). A field left to its default is read, never
+  named (a compounding not given), and a conflict names only the fields given. A property test
+  checks this on golden inputs with every field changed or left out in turn.
 - `reason` is a sub-kind: `syntax`, `missing`, `unknown_field`, `duplicate`, `type`, `enum`,
   `conflict`, `requires`, `sign`, `blank`, `range`, `length` (a list with the wrong number of
   entries, or a choice written as an object with no key or two), `reconcile`. Values are

@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: d24e6709270f
+source_hash: 48bd385ce5a4
 ---
 # Codici di errore
 
@@ -43,7 +43,7 @@ Una chiamata rifiutata restituisce `{"error": <report>}` (ADR 0014 G5):
 | `code` | Il codice stabile della tabella sotto. |
 | `message` | Che cosa non va e, quando è noto, come correggerlo, in inglese. Lo stesso testo di prima che il report avesse gli altri campi. |
 | `pointer` | JSON Pointer del campo da correggere, sempre dalla radice dell'input inviato (dentro un'analisi, sotto `/base_input`); `""` (il pointer vuoto) per l'input nel suo insieme, per esempio un input che non è un oggetto. È `null` solo per un testo che non è JSON (`reason` `syntax`, il messaggio indica riga e colonna), per un errore sollevato durante il calcolo che nessun singolo campo causa (per esempio `FM-E005`, `FM-E008`, `FM-E012`), per `FM-E027`, che indica i suoi input in `missing_any_of`, e per `FM-E007` quando l'id del metodo non fa parte dell'input (l'argomento del metodo della CLI, di `fairmark.run` o di una chiamata di tool; dentro un'analisi è `/method`). |
-| `pointers` | Tutti i campi di una relazione: i due lati di una quadratura `FM-E026`, i due campi di un conflitto, un valore e il campo da cui dipende il suo dominio (un `/rate` nominale e il suo `/compounding` o `/from`, una tecnica di un'altra base e `/basis`, `metric_value` e `metric` di un multiplo di uscita), un campo mancante e la chiave scritta male che lo rappresenta; vuoto quando l'errore riguarda un solo campo. |
+| `pointers` | Tutti i campi di una relazione: i due lati di una quadratura `FM-E026`, i due campi di un conflitto, un valore e il campo da cui dipende il suo dominio (un `/rate` nominale e il suo `/compounding`, se indicato, o `/from`, una tecnica di un'altra base e `/basis`, `metric_value` e `metric` di un multiplo di uscita), un campo mancante e la chiave scritta male che lo rappresenta; vuoto quando l'errore riguarda un solo campo. Ogni campo indicato da `pointer` e `pointers` è nell'input inviato, oppure è un campo da indicare (`reason` `missing` o `requires`, per esempio `/inflation` di `FM-E024`, o una voce che una quadratura `FM-E026` ha considerato pari a zero); un campo lasciato al suo default (un `compounding` non indicato) non è mai indicato, e un conflitto indica solo i campi presenti. |
 | `reason` | Il sottotipo dell'errore (valori sotto), che distingue le condizioni che condividono un codice, soprattutto `FM-E001`; `null` quando il codice ha un solo significato. |
 | `expected` | Una lista di stringhe. Quando i valori ammessi formano un elenco chiuso, i valori letterali: i valori di un'enumerazione (`reason` `enum`, e gli id dei metodi di `FM-E007`), i campi che un oggetto accetta (`unknown_field`, compreso il tag di un oggetto etichettato internamente), le chiavi di una scelta scritta come oggetto con una sola chiave (`length`, `unknown_field`). Altrimenti brevi descrizioni della forma ammessa in parole semplici, per esempio `"an amount greater than 0"` o `"a whole number of 0 or more"`, mai il nome di un tipo Rust. Vuota quando non sono noti. Quando anche il messaggio cita i valori ammessi, l'elenco completo è `expected`, non il messaggio. |
 | `fix` | Una frase che risolve l'errore; `null` quando il messaggio è l'unica indicazione. La formulazione è un'indicazione e può cambiare tra un rilascio e l'altro; fai affidamento su `code`, `pointer` e `reason`. |
@@ -163,8 +163,8 @@ compatto, `{"code", "message"}`, che fa parte dell'output dei metodi di analisi.
 | `duplicate` | Un campo indicato due volte nello stesso oggetto, o un pointer ripetuto di un'analisi | `FM-E001` |
 | `type` | Un valore del tipo sbagliato, `null` per un campo che non lo accetta, un input che non è un oggetto, un oggetto scritto come array posizionale, o una data che non è una data di calendario | `FM-E001`, `FM-E009` |
 | `enum` | Un valore fuori da un elenco chiuso, o un valore di tipo diverso per una scelta; `expected` elenca i valori; un metodo sconosciuto (`expected` elenca gli id dei metodi) | `FM-E001`, `FM-E007` |
-| `conflict` | Campi che si escludono a vicenda sono indicati insieme, o si contraddicono (termini, basi, date fuori ordine) | `FM-E001`, `FM-E017`, `FM-E019`, `FM-E024` |
-| `requires` | Un campo è indicato senza il campo che gli serve, o non è usato dalla scelta fatta | `FM-E001`, `FM-E020`, `FM-E022`, `FM-E025` |
+| `conflict` | Campi che si escludono a vicenda sono indicati insieme, o si contraddicono (basi, date fuori ordine) | `FM-E001`, `FM-E017`, `FM-E019` |
+| `requires` | Un campo è indicato senza il campo che gli serve (flussi di cassa e tassi di attualizzazione in termini diversi senza inflazione attesa), o non è usato dalla scelta fatta | `FM-E001`, `FM-E020`, `FM-E022`, `FM-E024`, `FM-E025` |
 | `sign` | Un importo con il segno sbagliato per il suo campo | `FM-E001`, `FM-E006` |
 | `blank` | Un testo che deve dire qualcosa è vuoto o fatto di soli spazi | `FM-E001` |
 | `range` | Un numero fuori dal dominio del suo campo | `FM-E001`, `FM-E003`, `FM-E004`, `FM-E009`, `FM-E010`, `FM-E018`, da `FM-E020` a `FM-E023` |
