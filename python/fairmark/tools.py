@@ -60,13 +60,21 @@ def tool_name(method_id: str) -> str:
 
 def method_id(name: str) -> str:
     """`fairmark_dcf_fcff` -> `dcf.fcff`."""
-    if not name.startswith(PREFIX):
-        raise FairmarkError("FM-E007", f"not a fairmark tool: {name}")
     by_name = {tool_name(m["id"]): m["id"] for m in methods()}
-    try:
-        return by_name[name]
-    except KeyError:
-        raise FairmarkError("FM-E007", f"unknown tool: {name}") from None
+    message = (
+        f"not a fairmark tool: {name}" if not name.startswith(PREFIX) else f"unknown tool: {name}"
+    )
+    if name not in by_name:
+        # The tool names are the accepted values (ADR 0014 G5); the name is not an argument,
+        # so there is no pointer.
+        report = {
+            "code": "FM-E007",
+            "message": message,
+            "reason": "enum",
+            "expected": sorted(by_name),
+        }
+        raise FairmarkError("FM-E007", message, report)
+    return by_name[name]
 
 
 # Private key carrying the sentence that lists the documented values of an enum while the

@@ -68,6 +68,8 @@ def test_dispatch_reports_python_side_errors_in_the_same_shape() -> None:
     assert out["error"]["errors"][0]["code"] == "FM-E001"
     unknown = tools.dispatch("other_tool", {})["error"]
     assert unknown["code"] == "FM-E007" and unknown["errors"][0]["code"] == "FM-E007"
+    assert unknown["reason"] == "enum"
+    assert tools.tool_name("tvm.npv") in unknown["expected"]
 
 
 def test_mcp_returns_the_report_as_structured_content() -> None:
