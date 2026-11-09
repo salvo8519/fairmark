@@ -27,6 +27,19 @@
 - The tool was only run as a dry run against the real environment. Whether to apply it, and
   with `--caches`, is the maintainer's decision.
 
+## Rework after the maintainer's decision (2026-11-09)
+- The maintainer decided that automatic deletion is too risky. The pull request now keeps only
+  the `line-tables-only` debug profiles and a read-only report.
+- `scripts/clean_workspace.py` became `scripts/workspace_report.py` (recipe
+  `just workspace-report`) with no deletion capability; a test greps the source for deletion
+  calls. Merged detection hardened: `git worktree list --porcelain -z`, common-dir check before
+  any git query in a worktree, URL-encoded branch, pull request counted only with `merged_at`,
+  base `main`, head in this repository and matching head commit; malformed responses and
+  anything not established are `unknown`.
+- Dropped: skill `workspace-clean` and its entries in CLAUDE.md, AGENTS.md and
+  `.agents/README.md`. `session-end` step 10 now runs the report and reports to the maintainer.
+- Documentation page renamed to `docs/en/project/workspace-report.md`.
+
 ## Next steps
-1. After review and merge: `git fetch -q origin && uv run just clean-workspace`, read the kept
-   list, then `--apply`.
+1. After review and merge: `git fetch -q origin && uv run just workspace-report`; deletions are
+   decided by the maintainer.
