@@ -145,10 +145,10 @@ mutants-diff base="origin/main":
     if [ "$status" -ne 0 ] && [ "$status" -ne 2 ] && [ "$status" -ne 3 ]; then exit "$status"; fi
     python scripts/mutants.py summary target/mutants-diff --gate --allow-empty --title "Mutation testing of the changed lines"
 
-# Free disk space: merged agent worktrees, and build caches with --caches. Dry run unless --apply
-# (docs/en/project/workspace-cleaning.md): just clean-workspace | just clean-workspace --caches
-clean-workspace *args:
-    python scripts/clean_workspace.py {{args}}
+# Read-only report of worktrees, caches and disk usage; deletes nothing
+# (docs/en/project/workspace-report.md): just workspace-report | just workspace-report --offline
+workspace-report *args:
+    python scripts/workspace_report.py {{args}}
 
 # Check commit message, or pull request title, branch and body, against the conventions
 conventions title branch body="":
