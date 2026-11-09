@@ -8,7 +8,7 @@ use serde::Serialize;
 
 use super::bridge::{self, BridgeClaim};
 use super::engine::{self, dcf_input, DiscountedValue};
-use crate::error::Result;
+use crate::error::{Found, Result};
 use crate::explain::{DefaultApplied, Explain};
 use crate::method::Method;
 use crate::num::{add, sub};
@@ -153,14 +153,16 @@ fn fcff_with_defaults(
     ex.convention("basis: enterprise, free cash flows to the firm (FCFF) discounted at the WACC");
     let engine_input = input.engine_input(defaults)?;
     // Bridge items are checked before any calculation, like every other input.
+    let mut found = Found::new();
     bridge::check_lines(
         &input.non_operating_assets,
         &input.debt_like_items,
         &input.non_controlling_interests,
         "a non-operating asset is zero or more (obligations belong in the net financial \
          position)",
-    )?;
-    let out = engine::run(&engine_input, &mut ex)?;
+        &mut found,
+    );
+    let out = engine::run(&engine_input, &mut ex, found)?;
 
     let pv_tv = out.terminal.present_value;
     let value_of_operations = add(out.pv_explicit, pv_tv)?;

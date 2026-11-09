@@ -52,9 +52,10 @@ pub struct LiquidationOutput {
 fn check_lines(field: &str, lines: &[Line]) -> Checked {
     for (i, line) in lines.iter().enumerate() {
         if line.label.trim().is_empty() {
-            return Err(on(format!("{field}/{i}/label"))(invalid(format!(
-                "every line of {field} needs a label"
-            ))));
+            return Err(on(format!("{field}/{i}/label"))(
+                invalid(format!("every line of {field} needs a label"))
+                    .because(crate::error::Reason::Blank),
+            ));
         }
         if line.value < Decimal::ZERO {
             return Err(on(format!("{field}/{i}/value"))(domain(format!(
@@ -69,9 +70,9 @@ fn check_lines(field: &str, lines: &[Line]) -> Checked {
 /// Validates the input; each error names its field.
 pub(crate) fn check(input: &LiquidationInput) -> Checked {
     if input.assets.is_empty() {
-        return Err(on("assets")(invalid(
-            "give at least one asset to liquidate",
-        )));
+        return Err(on("assets")(
+            invalid("give at least one asset to liquidate").because(crate::error::Reason::Length),
+        ));
     }
     let tax = input.tax_on_gains;
     if tax < Decimal::ZERO {

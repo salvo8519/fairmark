@@ -12,7 +12,7 @@ use serde::Serialize;
 
 use super::bridge::{self, BridgeClaim};
 use super::engine::{self, dcf_input, DiscountedValue};
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Found, Reason, Result};
 use crate::explain::{DefaultApplied, Explain};
 use crate::method::Method;
 use crate::num::{add, sub};
@@ -167,7 +167,9 @@ fn fcfe_with_defaults(
              cash that the FCFE do not reflect in `/non_operating_assets`, or value the \
              enterprise with dcf.fcff, which subtracts the net financial position"
                 .to_owned(),
-        ));
+        )
+        .at("/net_financial_position", Reason::Conflict)
+        .fix("remove `/net_financial_position`"));
     }
     let mut ex = Explain::new(Fcfe::ID, FORMULA);
     ex.convention(
@@ -179,14 +181,16 @@ fn fcfe_with_defaults(
     );
     let engine_input = input.engine_input(defaults)?;
     // Bridge items are checked before any calculation, like every other input.
+    let mut found = Found::new();
     bridge::check_lines(
         &input.non_operating_assets,
         &input.debt_like_items,
         &input.non_controlling_interests,
         "a non-operating asset is zero or more (obligations whose cash flows are not in the \
          FCFE belong in `debt_like_items`)",
-    )?;
-    let out = engine::run(&engine_input, &mut ex)?;
+        &mut found,
+    );
+    let out = engine::run(&engine_input, &mut ex, found)?;
 
     let pv_tv = out.terminal.present_value;
     let start = add(out.pv_explicit, pv_tv)?;

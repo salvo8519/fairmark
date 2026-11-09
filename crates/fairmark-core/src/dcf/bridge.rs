@@ -9,7 +9,7 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Found, Reason, Result};
 use crate::explain::Explain;
 use crate::num::add;
 use crate::tv::Line;
@@ -75,7 +75,8 @@ pub(crate) fn check_lines(
     debt_like_items: &[BridgeClaim],
     non_controlling_interests: &[BridgeClaim],
     asset_sign_rule: &str,
-) -> Result<()> {
+    f: &mut Found,
+) {
     for (i, a) in non_operating_assets.iter().enumerate() {
         check_labelled_amount(
             &format!("/non_operating_assets/{i}"),
@@ -83,19 +84,22 @@ pub(crate) fn check_lines(
             a.value,
             "name the asset",
             asset_sign_rule,
-        )?;
+            f,
+        );
     }
     check_claims(
         debt_like_items,
         "debt_like_items",
         "a debt-like item is zero or more (an asset belongs in `non_operating_assets`)",
-    )?;
+        f,
+    );
     check_claims(
         non_controlling_interests,
         "non_controlling_interests",
         "a non-controlling interest is zero or more (SPEC-0001 R25); give zero or a positive \
          amount",
-    )
+        f,
+    );
 }
 
 /// R25, R27: a bridge line at `pointer` has a value of zero or more and a label that is not
@@ -106,23 +110,28 @@ fn check_labelled_amount(
     value: Decimal,
     label_fix: &str,
     sign_rule: &str,
-) -> Result<()> {
+    f: &mut Found,
+) {
     if value.is_sign_negative() && !value.is_zero() {
-        return Err(FairmarkError::InvalidInput(format!(
-            "`{pointer}/value` is {value}; {sign_rule}"
-        )));
+        f.push(
+            FairmarkError::InvalidInput(format!("`{pointer}/value` is {value}; {sign_rule}"))
+                .at(format!("{pointer}/value"), Reason::Sign)
+                .expected(["zero or more"])
+                .fix("give the amount as zero or more"),
+        );
     }
     if label.trim().is_empty() {
-        return Err(FairmarkError::InvalidInput(format!(
-            "`{pointer}/label` is empty; {label_fix}"
-        )));
+        f.push(
+            FairmarkError::InvalidInput(format!("`{pointer}/label` is empty; {label_fix}"))
+                .at(format!("{pointer}/label"), Reason::Blank)
+                .fix(label_fix),
+        );
     }
-    Ok(())
 }
 
 /// R25, R27, Decision 21: every claim has a label, a value of zero or more and a note when the
 /// basis is `other`; each refusal names the field by its JSON pointer and states the fix.
-fn check_claims(claims: &[BridgeClaim], field: &str, sign_rule: &str) -> Result<()> {
+fn check_claims(claims: &[BridgeClaim], field: &str, sign_rule: &str, f: &mut Found) {
     for (i, c) in claims.iter().enumerate() {
         check_labelled_amount(
             &format!("/{field}/{i}"),
@@ -130,26 +139,39 @@ fn check_claims(claims: &[BridgeClaim], field: &str, sign_rule: &str) -> Result<
             c.value,
             "name the item",
             sign_rule,
-        )?;
+            f,
+        );
+        let at = format!("/{field}/{i}/basis_note");
         let blank = c.basis_note.as_deref().map(|n| n.trim().is_empty());
         match (blank, c.measurement_basis) {
             (None | Some(true), MeasurementBasis::Other) => {
-                return Err(FairmarkError::InvalidInput(format!(
-                    "`/{field}/{i}/basis_note` is missing or empty; with `measurement_basis` `other`, \
-                     describe in `basis_note` how the amount was measured, for example \
-                     \"settlement amount, undiscounted\", or choose `book_value`, \
-                     `market_value`, `fair_value` or `present_value`"
-                )));
+                f.push(
+                    FairmarkError::InvalidInput(format!(
+                        "`{at}` is missing or empty; with `measurement_basis` `other`, \
+                         describe in `basis_note` how the amount was measured, for example \
+                         \"settlement amount, undiscounted\", or choose `book_value`, \
+                         `market_value`, `fair_value` or `present_value`"
+                    ))
+                    .at(at.clone(), Reason::Missing)
+                    .between([at, format!("/{field}/{i}/measurement_basis")])
+                    .fix(
+                        "describe in `basis_note` how the amount was measured, or choose \
+                         another `measurement_basis`",
+                    ),
+                );
             }
             (Some(true), _) => {
-                return Err(FairmarkError::InvalidInput(format!(
-                    "`/{field}/{i}/basis_note` is empty; write the note or remove the field"
-                )));
+                f.push(
+                    FairmarkError::InvalidInput(format!(
+                        "`{at}` is empty; write the note or remove the field"
+                    ))
+                    .at(at, Reason::Blank)
+                    .fix("write the note, or remove the field"),
+                );
             }
             _ => {}
         }
     }
-    Ok(())
 }
 
 /// R25: each non-operating asset as an explain step, "none given" when there is none, and

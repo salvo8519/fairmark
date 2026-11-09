@@ -14,7 +14,7 @@ use rust_decimal::{Decimal, MathematicalOps};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Found, Reason, Result};
 use crate::explain::{DefaultApplied, Explain};
 use crate::method::Method;
 use crate::num::{add, div, mul, one_plus, sub};
@@ -697,16 +697,34 @@ fn check_stages(
             "`/stages` has {} stages; give one to {MAX_STAGES} explicit stages, each followed \
              by the next and the last by the terminal value",
             stages.len()
-        )));
+        ))
+        .at("/stages", Reason::Length)
+        .expected([format!("1 to {MAX_STAGES} stages")]));
     }
     let mut horizon: u64 = 0;
     let mut resolved = Vec::with_capacity(stages.len());
+    let mut found = Found::new();
     for (i, s) in stages.iter().enumerate() {
+        // Each stage is checked: the first refusal of a stage ends its checks, not the others.
+        if let Some(stage) = found.take(check_stage(i, s)) {
+            horizon += u64::from(stage.periods);
+            resolved.push(stage);
+        }
+    }
+    found.finish()?;
+    finish_stages(resolved, horizon, base_flow)
+}
+
+/// The checks of stage `i` (R7 to R9, Decision 24), in a fixed order.
+fn check_stage(i: usize, s: &Stage) -> Result<ResolvedStage<'_>> {
+    {
         let at = format!("/stages/{i}");
         if s.periods == Some(0) {
             return Err(invalid(format!(
                 "`{at}/periods` is 0; a stage has at least 1 period"
-            )));
+            ))
+            .at(format!("{at}/periods"), Reason::Range)
+            .expected(["a whole number of periods, 1 or more"]));
         }
         // Decision 24: the projection defaults to `given` only for a stage with flows or lines.
         let Some(projection) = s.projection else {
@@ -714,13 +732,18 @@ fn check_stages(
                 return Err(invalid(format!(
                     "`{at}/flows` and `{at}/lines` are both given: give `flows` or `lines`, not \
                      both"
-                )));
+                ))
+                .at(format!("{at}/flows"), Reason::Conflict)
+                .between([format!("{at}/flows"), format!("{at}/lines")])
+                .fix("give `flows` or `lines`, not both"));
             }
             return Err(invalid(format!(
                 "`{at}/projection` is required: give `given` with `flows` or `lines`, \
                  `constant_growth` with `growth`, or `linear_decline` with `from_growth` and \
                  `to_growth`"
-            )));
+            ))
+            .at(format!("{at}/projection"), Reason::Missing)
+            .expected(["given", "constant_growth", "linear_decline"]));
         };
         if projection == Projection::Given {
             match (&s.flows, &s.lines) {
@@ -728,13 +751,18 @@ fn check_stages(
                     return Err(invalid(format!(
                         "`{at}/flows` and `{at}/lines` are both given; a `given` stage takes its \
                          flows as amounts (`flows`) or as line items (`lines`), not both"
-                    )))
+                    ))
+                    .at(format!("{at}/flows"), Reason::Conflict)
+                    .between([format!("{at}/flows"), format!("{at}/lines")])
+                    .fix("give `flows` or `lines`, not both"))
                 }
                 (None, None) => {
                     return Err(invalid(format!(
                         "`{at}/flows` or `{at}/lines` is required by the projection `given`: \
                          give the flows as amounts, or the line items to build them up"
-                    )))
+                    ))
+                    .at(format!("{at}/flows"), Reason::Missing)
+                    .between([format!("{at}/flows"), format!("{at}/lines")]))
                 }
                 _ => {}
             }
@@ -743,11 +771,18 @@ fn check_stages(
                 "`{at}/lines` is not used by the projection `{}`; remove it (line items belong \
                  to a `given` stage)",
                 projection.label()
-            )));
+            ))
+            .at(format!("{at}/lines"), Reason::Requires)
+            .fix("remove `lines`, or make the stage `given`"));
         }
         // Decision 24: the periods of a `given` stage default to the number of its flows or
         // lines; a generated stage states them.
         let Some(periods) = s.periods else {
+            let (field, reason) = match projection {
+                Projection::Given if s.lines.is_some() => ("lines", Reason::Length),
+                Projection::Given => ("flows", Reason::Length),
+                _ => ("periods", Reason::Missing),
+            };
             return Err(invalid(match projection {
                 Projection::Given if s.lines.is_some() => format!(
                     "`{at}/lines` is empty: a stage has at least 1 period; give the line items \
@@ -762,9 +797,9 @@ fn check_stages(
                      periods of the stage",
                     projection.label()
                 ),
-            }));
+            })
+            .at(format!("{at}/{field}"), reason));
         };
-        horizon += u64::from(periods);
         // For `given`, `flows` stands for `flows` or `lines`, checked above.
         let present = [
             ("flows", s.flows.is_some() || s.lines.is_some()),
@@ -785,13 +820,17 @@ fn check_stages(
                      projection takes {})",
                     projection.label(),
                     own.join(" and ")
-                )));
+                ))
+                .at(format!("{at}/{field}"), Reason::Requires)
+                .fix(format!("remove `{field}`")));
             }
             if !given && belongs {
                 return Err(invalid(format!(
                     "`{at}/{field}` is required by the projection `{}`",
                     projection.label()
-                )));
+                ))
+                .at(format!("{at}/{field}"), Reason::Missing)
+                .fix(format!("add `{field}`")));
             }
         }
         if let Some(lines) = &s.lines {
@@ -804,7 +843,9 @@ fn check_stages(
                     periods,
                     periods,
                     lines.len()
-                )));
+                ))
+                .at(format!("{at}/lines"), Reason::Length)
+                .between([format!("{at}/lines"), format!("{at}/periods")]));
             }
         }
         if let Some(flows) = &s.flows {
@@ -817,7 +858,9 @@ fn check_stages(
                     periods,
                     periods,
                     flows.len()
-                )));
+                ))
+                .at(format!("{at}/flows"), Reason::Length)
+                .between([format!("{at}/flows"), format!("{at}/periods")]));
             }
         }
         for (field, g) in [
@@ -830,7 +873,9 @@ fn check_stages(
                     return Err(invalid(format!(
                         "`{at}/{field}` is {g}; a growth must be greater than -1 (-100%); \
                          growth rates are decimal fractions, 5% is 0.05"
-                    )));
+                    ))
+                    .at(format!("{at}/{field}"), Reason::Range)
+                    .expected(["a growth greater than -1 (-100%)"]));
                 }
             }
         }
@@ -852,18 +897,28 @@ fn check_stages(
             }
             _ => return Err(FairmarkError::Internal("stage fields not checked")),
         };
-        resolved.push(ResolvedStage {
+        Ok(ResolvedStage {
             periods,
             projection,
             kind,
             built_up: None,
-        });
+        })
     }
+}
+
+/// R6, R29: the explicit horizon and the base flow, once every stage is valid.
+fn finish_stages(
+    resolved: Vec<ResolvedStage<'_>>,
+    horizon: u64,
+    base_flow: Option<Decimal>,
+) -> Result<(Vec<ResolvedStage<'_>>, usize)> {
     if horizon > MAX_PERIODS {
         return Err(invalid(format!(
             "`/stages` add up to {horizon} periods; the explicit horizon is at most \
              {MAX_PERIODS} periods"
-        )));
+        ))
+        .at("/stages", Reason::Range)
+        .expected([format!("at most {MAX_PERIODS} periods in all")]));
     }
     let generated = resolved[0].projection != Projection::Given;
     match (generated, base_flow) {
@@ -871,12 +926,17 @@ fn check_stages(
             "`/base_flow` is missing: the first stage (`/stages/0`) is `{}` and grows from the \
              base flow CF_0; give `/base_flow`",
             resolved[0].projection.label()
-        ))),
+        ))
+        .at("/base_flow", Reason::Missing)
+        .between(["/base_flow", "/stages/0/projection"])
+        .fix("give `/base_flow`")),
         (false, Some(_)) => Err(count(
             "`/base_flow` is given but the first stage (`/stages/0`) is `given`; remove \
              `/base_flow`, or make the first stage a generated one"
                 .to_owned(),
-        )),
+        )
+        .at("/base_flow", Reason::Requires)
+        .between(["/base_flow", "/stages/0/projection"])),
         _ => Ok((resolved, horizon as usize)),
     }
 }
@@ -896,27 +956,36 @@ fn resolve_rates(r: &RateInput<'_>, n: usize, rate_use: TerminalRateUse) -> Resu
             "`/{}` is not used: the terminal value takes no terminal rate (no terminal value, or \
              a given terminal value discounted at the horizon N); remove `/{}`",
             f.terminal, f.terminal
-        )));
+        ))
+        .at(format!("/{}", f.terminal), Reason::Requires)
+        .fix(format!("remove `/{}`", f.terminal)));
     }
     let (rates, terminal, terminal_field) = match (r.single, r.per_period, r.terminal) {
         (Some(_), Some(_), _) => {
             return Err(invalid(format!(
                 "give exactly one of `/{}` and `/{}`, not both",
                 f.single, f.per_period
-            )))
+            ))
+            .at(format!("/{}", f.single), Reason::Conflict)
+            .between([format!("/{}", f.single), format!("/{}", f.per_period)]))
         }
         (None, None, _) => {
             return Err(invalid(format!(
                 "give the discount rate: `/{}` for every period, or `/{}` with `/{}`",
                 f.single, f.per_period, f.terminal
-            )))
+            ))
+            .at(format!("/{}", f.single), Reason::Missing)
+            .between([format!("/{}", f.single), format!("/{}", f.per_period)])
+            .fix(format!("give `/{}`", f.single)))
         }
         (Some(_), None, Some(_)) => {
             return Err(invalid(format!(
                 "`/{}` is not accepted with `/{}`: one rate is used for every period and for \
                  the terminal value; remove `/{}`, or give `/{}` instead",
                 f.terminal, f.single, f.terminal, f.per_period
-            )))
+            ))
+            .at(format!("/{}", f.terminal), Reason::Conflict)
+            .between([format!("/{}", f.terminal), format!("/{}", f.single)]))
         }
         (None, Some(_), None) if uses_terminal_rate => {
             return Err(invalid(format!(
@@ -924,7 +993,9 @@ fn resolve_rates(r: &RateInput<'_>, n: usize, rate_use: TerminalRateUse) -> Resu
                 f.terminal,
                 f.per_period,
                 rate_use.note()
-            )))
+            ))
+            .at(format!("/{}", f.terminal), Reason::Missing)
+            .between([format!("/{}", f.terminal), format!("/{}", f.per_period)]))
         }
         (Some(rate), None, None) => (vec![rate; n], Some(rate), format!("/{}", f.single)),
         (None, Some(list), term) => {
@@ -934,7 +1005,9 @@ fn resolve_rates(r: &RateInput<'_>, n: usize, rate_use: TerminalRateUse) -> Resu
                      `/stages/*/periods`); give exactly {n} rates",
                     f.per_period,
                     list.len()
-                )));
+                ))
+                .at(format!("/{}", f.per_period), Reason::Length)
+                .expected([format!("{n} rates")]));
             }
             (list.to_vec(), term, format!("/{}", f.terminal))
         }
@@ -1003,7 +1076,9 @@ fn resolve_inflation(
                  (no terminal value, or a given terminal value discounted at the horizon N); \
                  remove `/terminal_inflation`"
                         .to_owned(),
-                ))
+                )
+                .at("/terminal_inflation", Reason::Requires)
+                .fix("remove `/terminal_inflation`"))
             }
             (Some(_), Some(_), _) => {
                 return Err(invalid(
@@ -1011,27 +1086,35 @@ fn resolve_inflation(
                  expected inflation for every period, or one per period with \
                  `/terminal_inflation`"
                         .to_owned(),
-                ))
+                )
+                .at("/inflation", Reason::Conflict)
+                .between(["/inflation", "/inflation_per_period"]))
             }
             (Some(_), None, Some(_)) => return Err(invalid(
                 "`/terminal_inflation` is not accepted with `/inflation`: one expected inflation \
                  applies to every period and to the terminal phase; remove \
                  `/terminal_inflation`, or give `/inflation_per_period` instead"
                     .to_owned(),
-            )),
+            )
+            .at("/terminal_inflation", Reason::Conflict)
+            .between(["/terminal_inflation", "/inflation"])),
             (None, Some(_), None) if uses_terminal_rate => {
                 return Err(invalid(format!(
                     "`/terminal_inflation` is required with `/inflation_per_period`: give the \
                      expected inflation of the terminal phase{}",
                     rate_use.note()
-                )))
+                ))
+                .at("/terminal_inflation", Reason::Missing)
+                .between(["/terminal_inflation", "/inflation_per_period"]))
             }
             (None, None, Some(_)) => {
                 return Err(invalid(
                     "`/terminal_inflation` is used only with `/inflation_per_period`; give \
                  `/inflation_per_period` too, or give one expected inflation in `/inflation`"
                         .to_owned(),
-                ))
+                )
+                .at("/terminal_inflation", Reason::Requires)
+                .between(["/terminal_inflation", "/inflation_per_period"]))
             }
             (Some(one), None, None) => Inflation {
                 per_period: vec![one; n],
@@ -1044,7 +1127,9 @@ fn resolve_inflation(
                         "`/inflation_per_period` has {} values for an explicit horizon of {n} \
                      periods (the sum of `/stages/*/periods`); give exactly {n} values",
                         list.len()
-                    )));
+                    ))
+                    .at("/inflation_per_period", Reason::Length)
+                    .expected([format!("{n} values")]));
                 }
                 Inflation {
                     per_period: list.to_vec(),
@@ -1215,7 +1300,9 @@ fn resolve_terms(
             flows.label(),
             given.label(),
             flows.label()
-        )));
+        ))
+        .at("/cash_flow_terms", Reason::Conflict)
+        .between(["/cash_flow_terms", "/discount_rate_terms", "/inflation"]));
     };
     let source = format!("{} v{}", RealNominal::ID, RealNominal::VERSION);
     ex.convention(format!(
@@ -1346,22 +1433,32 @@ fn check_timing(
              `/timing` was not given and defaults to end_of_period; give `timing: mid_period` \
              or remove `/terminal_discount_time`"
                 .to_owned(),
-        )),
+        )
+        .at("/terminal_discount_time", Reason::Requires)
+        .between(["/terminal_discount_time", "/timing"])),
         (Timing::EndOfPeriod, Some(_)) => Err(invalid(
             "`/terminal_discount_time` is not accepted with `/timing` = end_of_period: the \
              terminal value is then discounted at the horizon N; remove it"
                 .to_owned(),
-        )),
+        )
+        .at("/terminal_discount_time", Reason::Requires)
+        .between(["/terminal_discount_time", "/timing"])
+        .fix("remove `/terminal_discount_time`")),
         (Timing::MidPeriod, Some(_)) if no_terminal_value => Err(invalid(
             "`/terminal_discount_time` is not used: there is no terminal value to discount \
              (`/terminal` is none); remove it, or give a terminal value in `/terminal`"
                 .to_owned(),
-        )),
+        )
+        .at("/terminal_discount_time", Reason::Requires)
+        .between(["/terminal_discount_time", "/terminal"])),
         (Timing::MidPeriod, None) if !no_terminal_value => Err(invalid(
             "`/terminal_discount_time` is required with `/timing` = mid_period: give `horizon` \
              (t = N) or `mid_period` (t = N - 0.5)"
                 .to_owned(),
-        )),
+        )
+        .at("/terminal_discount_time", Reason::Missing)
+        .between(["/terminal_discount_time", "/timing"])
+        .expected(["horizon", "mid_period"])),
         _ => Ok(()),
     }
 }
@@ -1500,7 +1597,13 @@ fn build_up_stages(
                         "`{pointer}/{k}/interest_expense` and `{pointer}/{k}/net_borrowing` are \
                          not used on the enterprise basis: the DCF discounts FCFF, which is \
                          before financing; remove them"
-                    )));
+                    ))
+                    .at(format!("{pointer}/{k}/interest_expense"), Reason::Requires)
+                    .between([
+                        format!("{pointer}/{k}/interest_expense"),
+                        format!("{pointer}/{k}/net_borrowing"),
+                    ])
+                    .fix("remove `interest_expense` and `net_borrowing`"));
                 }
             }
             let at = Location {
@@ -1530,6 +1633,11 @@ fn build_up_stages(
                              missing: the equity basis discounts FCFE, which needs the interest \
                              expense and the net borrowing in every line of `{pointer}`"
                         ))
+                        .at(format!("{pointer}/0/interest_expense"), Reason::Missing)
+                        .between([
+                            format!("{pointer}/0/interest_expense"),
+                            format!("{pointer}/0/net_borrowing"),
+                        ])
                     })?,
                     "FCFE",
                 ),
@@ -1564,6 +1672,10 @@ fn build_up_stages(
             return Err(invalid(format!(
                 "`/{field}` is used only by a `given` stage with `lines`; remove it, or give the \
                  line items of a stage in `lines`"
+            ))
+            .at(format!("/{field}"), Reason::Requires)
+            .fix(format!(
+                "remove `/{field}`, or give the line items of a stage in `lines`"
             )));
         }
     }
@@ -1579,9 +1691,19 @@ fn period_timing(t: Timing) -> PeriodTiming {
 
 /// Runs the engine: validates every choice, projects the flows, discounts them, computes and
 /// discounts the terminal value. The caller adds its basis convention and its bridge.
-pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOutput> {
-    let (mut stages, n) = check_stages(input.stages, input.base_flow)?;
-    build_up_stages(&mut stages, input.basis, &input.taxes, ex)?;
+///
+/// `found` holds the refusals of the caller's own checks (the bridge lines). The checks of the
+/// input go on after a refusal and every refusal is reported (ADR 0014 G5), in the order of
+/// the checks; a check that needs a refused input is skipped.
+pub(crate) fn run(
+    input: &EngineInput<'_>,
+    ex: &mut Explain,
+    mut found: Found,
+) -> Result<EngineOutput> {
+    let Some((mut stages, n)) = found.take(check_stages(input.stages, input.base_flow)) else {
+        return Err(found.into_error());
+    };
+    found.check(build_up_stages(&mut stages, input.basis, &input.taxes, ex));
     // The terminal option is read first, because it decides whether a terminal rate is used
     // (Decision 24); an error in it is reported where the technique is checked, as before.
     let choice = terminal::choose(input.terminal);
@@ -1590,24 +1712,33 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain) -> Result<EngineOut
         Err(_) => TerminalRateUse::Technique,
     };
     let no_terminal_value = matches!(choice, Ok(TerminalChoice::None));
-    let (given_rates, terminal_given) = resolve_rates(&input.rates, n, rate_use)?;
-    let inflation = resolve_inflation(&input.inflation, n, rate_use)?;
-    let used = resolve_terms(
-        ex,
-        input,
-        &given_rates,
-        terminal_given.as_ref().map(|(r, f)| (*r, f.as_str())),
-        inflation.as_ref(),
-    )?;
-    check_timing(
+    let rates = found.take(resolve_rates(&input.rates, n, rate_use));
+    let inflation = found.take(resolve_inflation(&input.inflation, n, rate_use));
+    let used = match (&rates, &inflation) {
+        (Some((given_rates, terminal_given)), Some(inflation)) => found.take(resolve_terms(
+            ex,
+            input,
+            given_rates,
+            terminal_given.as_ref().map(|(r, f)| (*r, f.as_str())),
+            inflation.as_ref(),
+        )),
+        _ => None,
+    };
+    found.check(check_timing(
         input.timing,
         input.terminal_discount_time,
         no_terminal_value,
         input.defaulted.timing,
-    )?;
+    ));
+    let choice = found.take(choice);
+    let (Some(choice), Some(used), Some((given_rates, terminal_given)), Some(inflation), true) =
+        (choice, used, rates, inflation, found.is_empty())
+    else {
+        return Err(found.into_error());
+    };
     let terminal_rate = used.terminal;
     let choice = terminal::check(
-        choice?,
+        choice,
         terminal_rate,
         &used.terminal_field,
         used.terminal_converted_with.as_deref(),

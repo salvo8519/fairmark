@@ -12,7 +12,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Reason, Result};
 
 /// Largest number of periods of a schedule, a series or an annuity (bounds every loop over
 /// periods). Defined here, with the frequencies, so that the time model does not depend on a
@@ -28,7 +28,9 @@ pub(crate) fn check_number_of_periods(n: u32, pointer: &str, purpose: &str) -> R
             detail: format!(
                 "must be between 1 and {MAX_PERIODS} (got {n}); give the number of {purpose}"
             ),
-        });
+        }
+        .because(Reason::Range)
+        .expected([format!("a whole number from 1 to {MAX_PERIODS}")]));
     }
     Ok(())
 }
@@ -172,12 +174,22 @@ pub(crate) fn period_length(
             "`{prefix}/frequency` and `{prefix}/period_months` are both given; give exactly one: \
              a named frequency, or the number of months per period (for example `quarterly` or \
              3), and remove the other"
-        ))),
+        ))
+        .at(format!("{prefix}/frequency"), Reason::Conflict)
+        .between([
+            format!("{prefix}/frequency"),
+            format!("{prefix}/period_months"),
+        ])),
         (None, None) if required => Err(FairmarkError::InvalidInput(format!(
             "no period length: give exactly one of `{prefix}/frequency` (`monthly`, \
              `bimonthly`, `quarterly`, `four_monthly`, `semi_annual` or `annual`) and \
              `{prefix}/period_months` (a positive whole number of months per period)"
-        ))),
+        ))
+        .at(format!("{prefix}/frequency"), Reason::Missing)
+        .between([
+            format!("{prefix}/frequency"),
+            format!("{prefix}/period_months"),
+        ])),
         (None, None) => Ok(None),
         (Some(f), None) => Ok(Some(PeriodLength::Named(f))),
         (None, Some(0)) => Err(FairmarkError::InvalidInputAt {
@@ -185,7 +197,9 @@ pub(crate) fn period_length(
             detail: "must be a positive whole number of months per period (got 0); give for \
                      example 3 for quarterly periods or 18 for periods of eighteen months"
                 .to_owned(),
-        }),
+        }
+        .because(Reason::Range)
+        .expected(["a whole number of months, 1 or more"])),
         (None, Some(m)) => Ok(Some(PeriodLength::Months(m))),
     }
 }

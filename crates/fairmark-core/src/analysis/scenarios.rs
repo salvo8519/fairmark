@@ -100,10 +100,12 @@ pub fn scenarios(input: &ScenariosInput) -> Result<(ScenariosOutput, Explain)> {
     let mut inner = Inner::new(&input.method)?;
     let base = base_value(&input.base_input);
     if input.outputs.is_empty() {
-        return Err(FairmarkError::InvalidInput("outputs is empty".to_owned()));
+        return Err(FairmarkError::InvalidInput("outputs is empty".to_owned())
+            .at("/outputs", crate::error::Reason::Length));
     }
     if input.scenarios.is_empty() {
-        return Err(FairmarkError::InvalidInput("scenarios is empty".to_owned()));
+        return Err(FairmarkError::InvalidInput("scenarios is empty".to_owned())
+            .at("/scenarios", crate::error::Reason::Length));
     }
     unique("output", input.outputs.iter().map(String::as_str))?;
     for o in &input.outputs {
@@ -114,7 +116,8 @@ pub fn scenarios(input: &ScenariosInput) -> Result<(ScenariosOutput, Explain)> {
             return Err(FairmarkError::InvalidInput(format!(
                 "scenario name '{}' is empty or has leading or trailing spaces",
                 s.name
-            )));
+            ))
+            .because(crate::error::Reason::Blank));
         }
         unique(
             &format!("in scenario '{}' the pointer", s.name),

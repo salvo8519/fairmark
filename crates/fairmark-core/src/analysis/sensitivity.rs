@@ -67,9 +67,10 @@ pub struct SensitivityOutput {
 fn check_axis(name: &str, axis: &Axis, base: &serde_json::Value) -> Result<()> {
     pointer::read_decimal(base, &axis.variable)?;
     if axis.values.is_empty() {
-        return Err(FairmarkError::InvalidInput(format!(
-            "{name}.values is empty"
-        )));
+        return Err(
+            FairmarkError::InvalidInput(format!("{name}.values is empty"))
+                .at(format!("/{name}/values"), crate::error::Reason::Length),
+        );
     }
     Ok(())
 }
@@ -84,7 +85,9 @@ pub fn sensitivity(input: &SensitivityInput) -> Result<(SensitivityOutput, Expla
             return Err(FairmarkError::InvalidInput(format!(
                 "rows and columns use the same variable {}",
                 columns.variable
-            )));
+            ))
+            .at("/columns/variable", crate::error::Reason::Duplicate)
+            .between(["/columns/variable", "/rows/variable"]));
         }
     }
     pointer::check_syntax(&input.output)?;

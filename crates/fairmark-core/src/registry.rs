@@ -8,7 +8,7 @@ use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Reason, Result};
 use crate::explain::{Meta, Valuation};
 use crate::method::Method;
 use crate::{
@@ -265,9 +265,56 @@ pub fn output_schema(id: &str) -> Result<Value> {
 /// JSON Schema (2020-12) of a method's whole result envelope (`method`, `value`, `explain`,
 /// `meta`), with `value` described by [`output_schema`]. The envelope follows its own
 /// version (ADR 0014 G4), not the method version.
+///
+/// The schema also describes what the method returns when it fails (ADR 0014 G5):
+/// `$defs/FairmarkErrorResponse`, the `{"error": <report>}` document of every adapter, named at
+/// the root by `x-fairmark-error` (an RFC 6901 fragment of this schema). A client validates an
+/// error against `<this schema>#/$defs/FairmarkErrorResponse`.
 pub fn result_schema(id: &str) -> Result<Value> {
     let schema = result_schema_of(id).ok_or_else(|| FairmarkError::UnknownMethod(id.to_owned()))?;
-    serde_json::to_value(schema).map_err(|e| FairmarkError::InvalidInput(e.to_string()))
+    let mut result =
+        serde_json::to_value(schema).map_err(|e| FairmarkError::InvalidInput(e.to_string()))?;
+    let mut error = error_schema();
+    let error_defs = error
+        .as_object_mut()
+        .and_then(|e| e.remove("$defs"))
+        .unwrap_or_default();
+    if let Some(e) = error.as_object_mut() {
+        e.remove("$schema");
+    }
+    let root = result
+        .as_object_mut()
+        .ok_or(FairmarkError::Internal("result schema is not an object"))?;
+    let defs = root
+        .entry("$defs")
+        .or_insert_with(|| Value::Object(serde_json::Map::new()))
+        .as_object_mut()
+        .ok_or(FairmarkError::Internal(
+            "result schema $defs is not an object",
+        ))?;
+    for (name, def) in error_defs.as_object().into_iter().flatten() {
+        if defs.insert(name.clone(), def.clone()).is_some() {
+            return Err(FairmarkError::Internal("error report schema name collides"));
+        }
+    }
+    if defs.insert(ERROR_RESPONSE.to_owned(), error).is_some() {
+        return Err(FairmarkError::Internal("error report schema name collides"));
+    }
+    root.insert(
+        "x-fairmark-error".to_owned(),
+        Value::from(format!("#/$defs/{ERROR_RESPONSE}")),
+    );
+    Ok(result)
+}
+
+/// Name, in the `$defs` of a result schema, of the schema of an error document.
+const ERROR_RESPONSE: &str = "FairmarkErrorResponse";
+
+/// JSON Schema (2020-12) of what every adapter returns when a method fails (ADR 0014 G5):
+/// `{"error": {code, message, pointer, pointers, reason, expected, fix, missing_any_of,
+/// errors}}`. The same for every method; also embedded in each [`result_schema`].
+pub fn error_schema() -> Value {
+    serde_json::to_value(serialize_schema::<crate::error::ErrorResponse>()).unwrap_or_default()
 }
 
 /// The schema of a type as it is serialised (an output), not as it is read (an input):
@@ -330,8 +377,7 @@ fn parse<T: serde::de::DeserializeOwned>(input_json: &str) -> Result<T> {
     let mut de = serde_json::Deserializer::from_str(input_json);
     let input = serde_path_to_error::deserialize(&mut de).map_err(input_error)?;
     // `serde_json::from_str` does the same: nothing but whitespace may follow the value.
-    de.end()
-        .map_err(|e| FairmarkError::InvalidInput(e.to_string()))?;
+    de.end().map_err(syntax_error)?;
     Ok(input)
 }
 
@@ -380,11 +426,18 @@ pub(crate) fn nested_error_text(relative: &[String], message: &str) -> String {
     )
 }
 
+/// A text that is not JSON: no field to name, the line and column kept (ADR 0014 G5).
+fn syntax_error(e: serde_json::Error) -> FairmarkError {
+    FairmarkError::InvalidInput(e.to_string())
+        .because(Reason::Syntax)
+        .fix("send one well-formed JSON object")
+}
+
 fn input_error(e: serde_path_to_error::Error<serde_json::Error>) -> FairmarkError {
     let mut tokens = path_tokens(e.path());
     let inner = e.into_inner();
     if !inner.is_data() {
-        return FairmarkError::InvalidInput(inner.to_string());
+        return syntax_error(inner);
     }
     // The pointer replaces serde's position, which says where the reader stopped, not which
     // field is wrong.
@@ -405,28 +458,125 @@ fn input_error(e: serde_path_to_error::Error<serde_json::Error>) -> FairmarkErro
             None => FairmarkError::InvalidDate(detail),
         };
     }
-    let detail = if let Some(field) = quoted_field(msg, "missing field `") {
+    // The sub-kind, the accepted values and the fix of the report (ADR 0014 G5); the message
+    // is the one of ADR 0013.
+    let (detail, reason, expected, fix) = if let Some(field) = quoted_field(msg, "missing field `")
+    {
         // Reported at the object that lacks the field: the pointer is completed with it.
         tokens.push(field.to_owned());
-        format!("missing required field `{field}`; add it")
+        (
+            format!("missing required field `{field}`; add it"),
+            Some(Reason::Missing),
+            Vec::new(),
+            Some(format!("add the required field `{field}`")),
+        )
     } else if let Some(field) = quoted_field(msg, "duplicate field `") {
         // serde refuses a repeated field of a struct at the object that holds it.
         tokens.push(field.to_owned());
-        format!("field `{field}` appears more than once; keep one")
-    } else if quoted_field(msg, "unknown field `").is_some() {
+        (
+            format!("field `{field}` appears more than once; keep one"),
+            Some(Reason::Duplicate),
+            Vec::new(),
+            Some(format!("keep one `{field}`")),
+        )
+    } else if let Some(field) = quoted_field(msg, "unknown field `") {
         // The path already ends with the unknown key.
-        format!("{msg}; remove or rename it")
+        (
+            format!("{msg}; remove or rename it"),
+            Some(Reason::UnknownField),
+            expected_names(msg),
+            Some(format!(
+                "remove `{field}`, or rename it to one of the fields in `expected`"
+            )),
+        )
     } else if msg == OBJECT_FOR_NUMBER {
         // The path ends with the first key of the object; the decimal is its parent.
         tokens.pop();
-        format!("invalid type: map, expected {DECIMAL_EXPECTED}")
+        (
+            format!("invalid type: map, expected {DECIMAL_EXPECTED}"),
+            Some(Reason::Type),
+            vec![DECIMAL_EXPECTED.to_owned()],
+            Some(format!("give {DECIMAL_EXPECTED}")),
+        )
     } else {
-        without_type_names(&msg.replace(RUST_DECIMAL_EXPECTED, DECIMAL_EXPECTED))
+        let detail = without_type_names(&msg.replace(RUST_DECIMAL_EXPECTED, DECIMAL_EXPECTED));
+        let (reason, expected, fix) = classify(&detail);
+        (detail, reason, expected, fix)
     };
-    match pointer(&tokens) {
+    let error = match pointer(&tokens) {
         Some(pointer) => FairmarkError::InvalidInputAt { pointer, detail },
         None => FairmarkError::InvalidInput(detail),
+    };
+    let error = match reason {
+        Some(reason) => error.because(reason),
+        None => error,
+    };
+    let error = if expected.is_empty() {
+        error
+    } else {
+        error.expected(expected)
+    };
+    match fix {
+        Some(fix) => error.fix(fix),
+        None => error,
     }
+}
+
+/// The sub-kind, accepted values and fix of a `serde` error other than a missing, repeated or
+/// unknown field. An unknown enumeration value lists the values; a wrong type or value states
+/// what is expected. A custom error raised by a type of the engine keeps its own text and has
+/// no sub-kind here.
+fn classify(detail: &str) -> (Option<Reason>, Vec<String>, Option<String>) {
+    if detail.starts_with("unknown variant `") {
+        return (
+            Some(Reason::Enum),
+            expected_names(detail),
+            Some("use one of the values in `expected`".to_owned()),
+        );
+    }
+    // Custom errors of the engine's own readers, by their fixed texts.
+    if detail.starts_with("null is not accepted") {
+        return (
+            Some(Reason::Type),
+            Vec::new(),
+            Some("leave the field out to use the default, or give a value".to_owned()),
+        );
+    }
+    if detail.contains("cannot be moved by an adjustment") {
+        return (Some(Reason::Enum), Vec::new(), None);
+    }
+    let typed = ["invalid type: ", "invalid value: ", "invalid length "]
+        .iter()
+        .any(|p| detail.starts_with(p));
+    if !typed {
+        return (None, Vec::new(), None);
+    }
+    let reason = if detail.starts_with("invalid length ") {
+        Reason::Length
+    } else {
+        Reason::Type
+    };
+    match detail.split_once(", expected ") {
+        Some((_, form)) => (
+            Some(reason),
+            vec![form.to_owned()],
+            Some(format!("give {form}")),
+        ),
+        None => (Some(reason), Vec::new(), None),
+    }
+}
+
+/// The names `serde` lists after "expected": "expected `a`, `b` or `c`", "expected one of
+/// `a`, `b`", "expected `a`". Empty when it lists none ("there are no fields").
+fn expected_names(msg: &str) -> Vec<String> {
+    let Some((_, list)) = msg.split_once("expected ") else {
+        return Vec::new();
+    };
+    list.split('`')
+        .skip(1)
+        .step_by(2)
+        .map(str::to_owned)
+        .collect()
 }
 
 /// serde names the Rust type it expected ("expected struct Stage"); the input knows objects,
@@ -655,6 +805,43 @@ mod tests {
         assert_eq!(
             output_schema("tvm.nope").unwrap_err().code(),
             FairmarkError::UnknownMethod(String::new()).code()
+        );
+    }
+
+    /// ADR 0014 G5 (issue #258): the result schema describes the error document too, under a
+    /// name no output type uses, and every error report validates against it.
+    #[test]
+    fn result_schemas_describe_the_error_report() {
+        for m in METHODS {
+            let result = result_schema(m.id).unwrap();
+            assert_eq!(result["x-fairmark-error"], "#/$defs/FairmarkErrorResponse");
+            let response = &result["$defs"]["FairmarkErrorResponse"];
+            assert_eq!(
+                response["required"],
+                serde_json::json!(["error"]),
+                "{}",
+                m.id
+            );
+            let report = &result["$defs"]["FairmarkErrorReport"];
+            for key in [
+                "code", "message", "pointer", "pointers", "reason", "expected", "fix",
+            ] {
+                assert!(
+                    report["required"]
+                        .as_array()
+                        .unwrap()
+                        .contains(&Value::from(key)),
+                    "{key}"
+                );
+            }
+            assert!(result["$defs"]["FairmarkErrorReason"]["oneOf"].is_array());
+        }
+        // The compact report of an analysis cell keeps its name and shape.
+        let sensitivity = result_schema("analysis.sensitivity").unwrap();
+        let cell = &sensitivity["$defs"]["ErrorReport"]["properties"];
+        assert_eq!(
+            cell.as_object().unwrap().keys().collect::<Vec<_>>(),
+            ["code", "message"]
         );
     }
 

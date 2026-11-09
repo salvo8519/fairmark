@@ -12,7 +12,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::dates::{Date, DayCount};
-use crate::error::{rate_field, FairmarkError, Result};
+use crate::error::{rate_field, FairmarkError, Reason, Result};
 use crate::explain::{Explain, Step};
 use crate::method::Method;
 use crate::num;
@@ -624,12 +624,23 @@ pub fn present_value(input: &PresentValueInput) -> Result<(PresentValueOutput, E
             return Err(FairmarkError::InvalidInput(format!(
                 "period_rates has {} rates for {n} cash flows; give exactly one rate per period",
                 curve.len()
-            )))
+            ))
+            .at("/period_rates", Reason::Length)
+            .expected([format!("{n} rates, one per cash flow")]))
         }
         _ => {
             return Err(FairmarkError::InvalidInput(
                 "give exactly one of `rate` and `period_rates`".to_owned(),
-            ))
+            )
+            .at(
+                "/rate",
+                if input.rate.is_some() {
+                    Reason::Conflict
+                } else {
+                    Reason::Missing
+                },
+            )
+            .between(["/rate", "/period_rates"]))
         }
     };
     let mut ex = Explain::new(
@@ -1046,9 +1057,11 @@ pub struct MirrOutput {
 pub fn mirr(input: &MirrInput) -> Result<(MirrOutput, Explain)> {
     let cfs = &input.cash_flows;
     if cfs.len() < 2 {
-        return Err(FairmarkError::InvalidInput(
-            "MIRR needs at least two cash flows".to_owned(),
-        ));
+        return Err(
+            FairmarkError::InvalidInput("MIRR needs at least two cash flows".to_owned())
+                .at("/cash_flows", Reason::Length)
+                .expected(["at least two cash flows"]),
+        );
     }
     require_sign_change(cfs.iter(), false)?;
     check_rate("/finance_rate", input.finance_rate)?;
@@ -1221,7 +1234,9 @@ fn factor_with(
     if n == 0 || n > MAX_PERIODS {
         return Err(FairmarkError::InvalidInput(format!(
             "`/periods` must be between 1 and {MAX_PERIODS} (got {n})"
-        )));
+        ))
+        .at("/periods", Reason::Range)
+        .expected([format!("a whole number from 1 to {MAX_PERIODS}")]));
     }
     if r <= -Decimal::ONE {
         return Err(FairmarkError::RateOutOfRange(r));
@@ -1229,7 +1244,9 @@ fn factor_with(
     if g <= -Decimal::ONE {
         return Err(FairmarkError::InvalidInput(format!(
             "`/growth` must be greater than -1 (got {g})"
-        )));
+        ))
+        .at("/growth", Reason::Range)
+        .expected(["a growth greater than -1 (-100%)"]));
     }
     let one = Decimal::ONE;
     let periods = Decimal::from(n);
@@ -1375,7 +1392,9 @@ pub fn perpetuity(input: &PerpetuityInput) -> Result<(PerpetuityOutput, Explain)
         // meaningless (audit D6); aligned with `tvm.annuity`.
         return Err(FairmarkError::InvalidInput(format!(
             "`/growth` must be greater than -1 (got {g})"
-        )));
+        ))
+        .at("/growth", Reason::Range)
+        .expected(["a growth greater than -1 (-100%)"]));
     }
     if g >= r {
         return Err(FairmarkError::GrowthNotBelowTerminalRate {
@@ -1478,12 +1497,16 @@ pub fn future_value(input: &FutureValueInput) -> Result<(FutureValueOutput, Expl
     if input.present_value.is_none() && input.payment.is_none() {
         return Err(FairmarkError::InvalidInput(
             "give `present_value`, `payment` or both (each defaults to 0, but not both)".to_owned(),
-        ));
+        )
+        .at("/present_value", Reason::Missing)
+        .between(["/present_value", "/payment"]));
     }
     if n == 0 || n > MAX_PERIODS {
         return Err(FairmarkError::InvalidInput(format!(
             "`periods` must be between 1 and {MAX_PERIODS} (got {n})"
-        )));
+        ))
+        .at("/periods", Reason::Range)
+        .expected([format!("a whole number from 1 to {MAX_PERIODS}")]));
     }
     check_rate("/rate", r)?;
     let pv = input.present_value.unwrap_or_default();

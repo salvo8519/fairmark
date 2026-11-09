@@ -87,19 +87,22 @@ pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
     if low >= high {
         return Err(FairmarkError::InvalidInput(format!(
             "bracket low ({low}) must be lower than high ({high})"
-        )));
+        ))
+        .at("/bracket", crate::error::Reason::Range));
     }
     if input.tolerance <= Decimal::ZERO {
         return Err(FairmarkError::InvalidInput(format!(
             "tolerance must be greater than 0 (got {})",
             input.tolerance
-        )));
+        ))
+        .at("/tolerance", crate::error::Reason::Range));
     }
     if !(1..=MAX_ITERATIONS_LIMIT).contains(&input.max_iterations) {
         return Err(FairmarkError::InvalidInput(format!(
             "max_iterations must be between 1 and {MAX_ITERATIONS_LIMIT} (got {})",
             input.max_iterations
-        )));
+        ))
+        .at("/max_iterations", crate::error::Reason::Range));
     }
     let base = base_value(&input.base_input);
     pointer::read_decimal(&base, &input.variable)?;

@@ -311,7 +311,8 @@ fn run_one(
 /// Runs every technique on the shared inputs and returns the terminal values side by side.
 pub fn compare(input: &CompareInput) -> Result<(CompareOutput, Explain)> {
     if input.techniques.is_empty() {
-        return Err(invalid("give at least one technique to compare"));
+        return Err(invalid("give at least one technique to compare")
+            .at("/techniques", crate::error::Reason::Length));
     }
     let (r, cap, basis) = (input.rate, input.growth_cap, input.basis);
     let mut ex = Explain::new(

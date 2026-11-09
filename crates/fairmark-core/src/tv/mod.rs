@@ -131,7 +131,9 @@ impl FieldError {
     /// The error a standalone method, or `tv.compare` with its shared rate, reports: an
     /// `FM-E003` names the rate field (issue #174), every other error is unchanged.
     pub(crate) fn into_error(self) -> FairmarkError {
-        crate::error::rate_field(&format!("/{}", self.field), None)(self.error)
+        let pointer = format!("/{}", self.field);
+        let error = crate::error::rate_field(&pointer, None)(self.error);
+        error.located(pointer)
     }
 }
 
@@ -157,9 +159,11 @@ pub(crate) fn domain(msg: impl Into<String>) -> FairmarkError {
 /// `tvm.perpetuity` (`FM-E001`).
 pub(crate) fn check_growth(g: Decimal, field: &str) -> Result<()> {
     if g <= -Decimal::ONE {
-        return Err(invalid(format!(
-            "{field} must be greater than -1 (got {g})"
-        )));
+        return Err(
+            invalid(format!("{field} must be greater than -1 (got {g})"))
+                .because(crate::error::Reason::Range)
+                .expected(["a growth greater than -1 (-100%)"]),
+        );
     }
     Ok(())
 }

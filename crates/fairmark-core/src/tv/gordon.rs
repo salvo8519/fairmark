@@ -93,9 +93,11 @@ pub(crate) fn check(input: &GordonInput) -> Checked {
     check_growth(g, "growth").map_err(on("growth"))?;
     check_below_rate(g, r).map_err(on("growth"))?;
     if input.next_flow.is_some() == input.last_flow.is_some() {
-        return Err(on("next_flow")(invalid(
-            "give exactly one of next_flow (CF_{N+1}) and last_flow (CF_N)",
-        )));
+        return Err(on("next_flow")(
+            invalid("give exactly one of next_flow (CF_{N+1}) and last_flow (CF_N)")
+                .because(crate::error::Reason::Conflict)
+                .between(["/next_flow", "/last_flow"]),
+        ));
     }
     Ok(())
 }
@@ -118,9 +120,11 @@ pub fn gordon(input: &GordonInput) -> Result<(GordonOutput, Explain)> {
             (next, FlowBasis::LastFlowGrown)
         }
         _ => {
-            return Err(invalid(
-                "give exactly one of next_flow (CF_{N+1}) and last_flow (CF_N)",
-            ))
+            return Err(
+                invalid("give exactly one of next_flow (CF_{N+1}) and last_flow (CF_N)")
+                    .because(crate::error::Reason::Conflict)
+                    .between(["/next_flow", "/last_flow"]),
+            )
         }
     };
     rate_convention(&mut ex, r);

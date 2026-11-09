@@ -77,7 +77,8 @@ pub fn tornado(input: &TornadoInput) -> Result<(TornadoOutput, Explain)> {
     let mut inner = Inner::new(&input.method)?;
     let base = base_value(&input.base_input);
     if input.variables.is_empty() {
-        return Err(FairmarkError::InvalidInput("variables is empty".to_owned()));
+        return Err(FairmarkError::InvalidInput("variables is empty".to_owned())
+            .at("/variables", crate::error::Reason::Length));
     }
     unique(
         "variable",
@@ -89,7 +90,8 @@ pub fn tornado(input: &TornadoInput) -> Result<(TornadoOutput, Explain)> {
             return Err(FairmarkError::InvalidInput(format!(
                 "{}: low ({}) must be lower than high ({})",
                 v.variable, v.low, v.high
-            )));
+            ))
+            .because(crate::error::Reason::Range));
         }
     }
     pointer::check_syntax(&input.output)?;

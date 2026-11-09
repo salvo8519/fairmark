@@ -11,7 +11,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::engine::TerminalDiscountTime;
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Reason, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num::{div, mul, one_plus, sub};
@@ -517,7 +517,8 @@ fn check_basis(
         "`{at}/{field}` is {what}, on the {} basis, but this DCF values on the {} basis; {fix}",
         found.name(),
         dcf.name()
-    )))
+    ))
+    .at(format!("{at}/{field}"), Reason::Conflict))
 }
 
 /// The input of the technique's own method, built from its terms inside the DCF.
@@ -630,12 +631,15 @@ fn at_pointer(
         (Technique::Gordon(_), "next_flow") => (format!("{at}/normalised_next_flow"), ""),
         (_, field) => (format!("{at}/{field}"), ""),
     };
-    match e.error {
+    // The sub-kind given by the technique's check, if any; its pointer is the technique's own.
+    let reason = e.error.details().reason.unwrap_or(Reason::Range);
+    match e.error.plain() {
         FairmarkError::InvalidInput(m) => {
-            FairmarkError::InvalidInput(format!("`{pointer}`: {m}{note}"))
+            FairmarkError::InvalidInput(format!("`{pointer}`: {m}{note}")).at(pointer, reason)
         }
         FairmarkError::TerminalValueDomain(m) => {
             FairmarkError::TerminalValueDomain(format!("`{pointer}`: {m}{note}"))
+                .at(pointer, Reason::Range)
         }
         FairmarkError::GrowthNotBelowRate { growth, rate } => {
             FairmarkError::GrowthNotBelowTerminalRate {
@@ -691,7 +695,8 @@ pub(crate) fn choose(t: &Terminal) -> Result<TerminalChoice<'_>> {
             "`/terminal` names no technique: give exactly one, written with its method id, \
              for example {\"tv.gordon\": {\"growth\": 0.02, \"first_flow\": \"last_flow_grown\"}}"
                 .to_owned(),
-        )),
+        )
+        .at("/terminal", Reason::Missing)),
         [one] => Ok(*one),
         many => {
             let ids: Vec<&str> = many.iter().map(|t| t.id()).collect();
@@ -703,13 +708,15 @@ pub(crate) fn choose(t: &Terminal) -> Result<TerminalChoice<'_>> {
                      option: a `tv.*` technique, `given` (a terminal value at N) or `none`",
                     ids.len(),
                     ids.join(", ")
-                )));
+                ))
+                .at("/terminal", Reason::Conflict));
             }
             Err(invalid(format!(
                 "`/terminal` names {} techniques ({}); give exactly one terminal technique",
                 ids.len(),
                 ids.join(", ")
-            )))
+            ))
+            .at("/terminal", Reason::Conflict))
         }
     }
 }
@@ -737,14 +744,24 @@ pub(crate) fn check<'a>(
                 return Err(invalid(format!(
                     "`{at}/normalised_next_flow` is required with `{at}/first_flow` = \
                      normalised_next_flow: give the flow at N + 1"
-                )))
+                ))
+                .at(format!("{at}/normalised_next_flow"), Reason::Missing)
+                .between([
+                    format!("{at}/normalised_next_flow"),
+                    format!("{at}/first_flow"),
+                ]))
             }
             (FirstTerminalFlow::LastFlowGrown, Some(_)) => {
                 return Err(invalid(format!(
                     "`{at}/normalised_next_flow` is not used with `{at}/first_flow` = \
                      last_flow_grown; remove it, or set `{at}/first_flow` to \
                      normalised_next_flow"
-                )))
+                ))
+                .at(format!("{at}/normalised_next_flow"), Reason::Requires)
+                .between([
+                    format!("{at}/normalised_next_flow"),
+                    format!("{at}/first_flow"),
+                ]))
             }
             _ => {}
         },
@@ -753,14 +770,24 @@ pub(crate) fn check<'a>(
                 return Err(invalid(format!(
                     "`{at}/normalised_base_flow` is required with `{at}/first_flow` = \
                      normalised_base_flow: give the normalised flow CF_N at the horizon N"
-                )))
+                ))
+                .at(format!("{at}/normalised_base_flow"), Reason::Missing)
+                .between([
+                    format!("{at}/normalised_base_flow"),
+                    format!("{at}/first_flow"),
+                ]))
             }
             (HModelFirstFlow::LastFlowGrown, Some(_)) => {
                 return Err(invalid(format!(
                     "`{at}/normalised_base_flow` is not used with `{at}/first_flow` = \
                      last_flow_grown; remove it, or set `{at}/first_flow` to \
                      normalised_base_flow"
-                )))
+                ))
+                .at(format!("{at}/normalised_base_flow"), Reason::Requires)
+                .between([
+                    format!("{at}/normalised_base_flow"),
+                    format!("{at}/first_flow"),
+                ]))
             }
             _ => {}
         },
@@ -793,7 +820,8 @@ pub(crate) fn check<'a>(
                  of the enterprise basis, but this DCF values on the equity basis; its equity \
                  form is not available: use tv.gordon with `first_flow` = \
                  normalised_next_flow, or tv.exit_multiple on earnings or book_value"
-            )))
+            ))
+            .at(at, Reason::Conflict))
         }
         Technique::ValueDriver(_) | Technique::LimitedHorizon(_) => {}
     }

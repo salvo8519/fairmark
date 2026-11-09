@@ -14,7 +14,7 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Reason, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num::{add, mul, sub};
@@ -240,7 +240,9 @@ fn check_tax_rate(t: Decimal, pointer: &str) -> Result<()> {
         return Err(invalid(format!(
             "`{pointer}` must be at least 0 and below 1, as a decimal fraction (got {t}); \
              write 24% as 0.24"
-        )));
+        ))
+        .at(pointer, Reason::Range)
+        .expected(["a decimal fraction at least 0 and below 1"]));
     }
     Ok(())
 }
@@ -253,7 +255,9 @@ fn check_not_negative(value: Decimal, at: &Location, index: usize, field: &str) 
              with a positive sign",
             at.field(index, field)?,
             at.pointer(index, "other_adjustments")
-        )));
+        ))
+        .at(at.pointer(index, field), Reason::Sign)
+        .expected(["zero or more"]));
     }
     Ok(())
 }
@@ -276,7 +280,9 @@ fn validate(
         return Err(invalid(format!(
             "`{}` must contain at least one period with its line items",
             at.pointer_prefix
-        )));
+        ))
+        .at(at.pointer_prefix, Reason::Length)
+        .fix("give at least one period with its line items"));
     }
     let with_amounts: Vec<usize> = (0..p.len())
         .filter(|&i| p[i].operating_taxes.is_some())
@@ -290,7 +296,12 @@ fn validate(
                      of `{}`",
                     at.field(i, "operating_taxes")?,
                     at.pointer_prefix
-                )));
+                ))
+                .at("/notional_tax_rate", Reason::Conflict)
+                .between([
+                    "/notional_tax_rate".to_owned(),
+                    at.pointer(i, "operating_taxes"),
+                ]));
             }
             check_tax_rate(t, "/notional_tax_rate")?;
             let Some(treatment) = choice.negative_ebit else {
@@ -298,7 +309,10 @@ fn validate(
                     "`/negative_ebit` is required with `/notional_tax_rate`: `credit` (taxes = \
                      rate × EBIT, a saving when EBIT is negative) or `zero` (no tax when EBIT is \
                      negative); there is no default",
-                ));
+                )
+                .at("/negative_ebit", Reason::Missing)
+                .between(["/negative_ebit", "/notional_tax_rate"])
+                .expected(["credit", "zero"]));
             };
             Taxes::Rate(t, treatment)
         }
@@ -308,7 +322,8 @@ fn validate(
                     "no taxes on EBIT: give `/notional_tax_rate` (with `/negative_ebit`), or \
                      `operating_taxes` in every line of `{}`",
                     at.pointer_prefix
-                )));
+                ))
+                .at("/notional_tax_rate", Reason::Missing));
             }
             if let Some(i) = (0..p.len()).find(|&i| p[i].operating_taxes.is_none()) {
                 return Err(invalid(format!(
@@ -316,13 +331,16 @@ fn validate(
                      remove them and give `/notional_tax_rate`",
                     at.field(i, "operating_taxes")?,
                     at.pointer_prefix
-                )));
+                ))
+                .at(at.pointer(i, "operating_taxes"), Reason::Missing));
             }
             if choice.negative_ebit.is_some() {
                 return Err(invalid(
                     "`/negative_ebit` applies only with `/notional_tax_rate`: the taxes are given \
                      as amounts in `operating_taxes`; remove `negative_ebit`",
-                ));
+                )
+                .at("/negative_ebit", Reason::Requires)
+                .fix("remove `negative_ebit`"));
             }
             Taxes::Amounts
         }
@@ -344,7 +362,12 @@ fn validate(
                 return Err(invalid(format!(
                     "{} is empty: say what the amount is",
                     at.field(i, &format!("other_adjustments/{k}/label"))?
-                )));
+                ))
+                .at(
+                    at.pointer(i, &format!("other_adjustments/{k}/label")),
+                    Reason::Blank,
+                )
+                .fix("say what the amount is"));
             }
         }
         match (lines.interest_expense, lines.net_borrowing) {
@@ -354,7 +377,12 @@ fn validate(
                      together; give it (0 for none) or remove `{}`",
                     at.field(i, "net_borrowing")?,
                     at.pointer(i, "interest_expense")
-                )))
+                ))
+                .at(at.pointer(i, "net_borrowing"), Reason::Missing)
+                .between([
+                    at.pointer(i, "net_borrowing"),
+                    at.pointer(i, "interest_expense"),
+                ]))
             }
             (None, Some(_)) => {
                 return Err(invalid(format!(
@@ -362,7 +390,12 @@ fn validate(
                      together; give it (0 for none) or remove `{}`",
                     at.field(i, "interest_expense")?,
                     at.pointer(i, "net_borrowing")
-                )))
+                ))
+                .at(at.pointer(i, "interest_expense"), Reason::Missing)
+                .between([
+                    at.pointer(i, "interest_expense"),
+                    at.pointer(i, "net_borrowing"),
+                ]))
             }
             _ => {}
         }
@@ -379,7 +412,12 @@ fn validate(
             at.pointer(missing, "net_borrowing"),
             at.pointer(given, "interest_expense"),
             at.pointer(given, "net_borrowing"),
-        )));
+        ))
+        .at(at.pointer(missing, "interest_expense"), Reason::Missing)
+        .between([
+            at.pointer(missing, "interest_expense"),
+            at.pointer(missing, "net_borrowing"),
+        ]));
     }
 
     let shield =
@@ -387,7 +425,10 @@ fn validate(
             (Taxes::Rate(..), _, Some(_)) => return Err(invalid(
                 "`/interest_tax_rate` is not accepted with `/notional_tax_rate`: the interest tax \
                  shield uses the tax rate on EBIT (SPEC-0001 R3); remove `interest_tax_rate`",
-            )),
+            )
+            .at("/interest_tax_rate", Reason::Conflict)
+            .between(["/interest_tax_rate", "/notional_tax_rate"])
+            .fix("remove `interest_tax_rate`")),
             (Taxes::Rate(t, _), true, None) => Some(t),
             (Taxes::Amounts, true, Some(t)) => {
                 check_tax_rate(t, "/interest_tax_rate")?;
@@ -397,14 +438,16 @@ fn validate(
                 return Err(invalid(
                     "`/interest_tax_rate` is required: the taxes on EBIT are given as amounts, so \
                  the rate t of the interest tax shield in the FCFE must be given separately",
-                ))
+                )
+                .at("/interest_tax_rate", Reason::Missing))
             }
             (Taxes::Amounts, false, Some(_)) => {
                 return Err(invalid(format!(
                     "`/interest_tax_rate` is used only for the FCFE: give `interest_expense` and \
                      `net_borrowing` in every line of `{}`, or remove `interest_tax_rate`",
                     at.pointer_prefix
-                )))
+                ))
+                .at("/interest_tax_rate", Reason::Requires))
             }
             (_, false, None) => None,
         };

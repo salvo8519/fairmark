@@ -215,6 +215,157 @@ pub enum FairmarkError {
         .0.sets()
     )]
     BelowMinimumInput(Box<MinimumInput>),
+
+    /// An error with the details of its report (ADR 0014 G5): the field to correct, the
+    /// sub-kind, the accepted values and the fix. The code and the message are those of the
+    /// error it carries, unchanged; only the report gains fields. Built with
+    /// [`FairmarkError::at`] and the other builders, never directly.
+    #[error("{}", .0.error)]
+    Detailed(Box<Detailed>),
+
+    /// Every input error a validation found, in the order it checks the input (ADR 0014 G5).
+    /// The code and the message are those of the first, so a client that reads only `code`
+    /// and `message` sees what it saw before; the report lists all of them in `errors`. Built
+    /// only by [`Found`], with two or more errors.
+    #[error("{}", .0.first())]
+    Several(Box<Several>),
+}
+
+/// An error and the details of its report (`FairmarkError::Detailed`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Detailed {
+    /// The error, which gives the code and the message.
+    pub error: FairmarkError,
+    /// What the report adds.
+    pub details: Details,
+}
+
+/// Two or more input errors found by one validation (`FairmarkError::Several`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Several(Vec<FairmarkError>);
+
+impl Several {
+    /// The first error found: its code and message are those of the whole.
+    pub fn first(&self) -> &FairmarkError {
+        &self.0[0]
+    }
+
+    /// Every error found, in the order of the validation.
+    pub fn errors(&self) -> &[FairmarkError] {
+        &self.0
+    }
+}
+
+/// The sub-kind of an error (ADR 0014 G5): it tells apart the conditions that share a code,
+/// above all `FM-E001`, without new codes. Values are added, never renamed or removed; a
+/// client accepts a value it does not know.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+#[schemars(rename = "FairmarkErrorReason")]
+pub enum Reason {
+    /// The text is not JSON (a syntax error, a truncated input, trailing characters): there
+    /// is no field to name, and the message keeps the line and column.
+    Syntax,
+    /// A required field, or one required by the other fields given, is absent.
+    Missing,
+    /// A field the input does not define.
+    UnknownField,
+    /// A field given twice in the same object.
+    Duplicate,
+    /// A value of the wrong type: a text where a number is expected, an object where a list
+    /// is expected, a date that is not a calendar date.
+    Type,
+    /// A value outside a closed list of values; `expected` lists them.
+    Enum,
+    /// Fields that exclude each other are given together, or contradict each other.
+    Conflict,
+    /// A field is given without the field it needs, or is not used by the choice made.
+    Requires,
+    /// An amount with the wrong sign for its field.
+    Sign,
+    /// A text that must say something is empty or blank.
+    Blank,
+    /// A number outside the domain of its field.
+    Range,
+    /// A list with the wrong number of entries: empty, too long, or not one entry per period
+    /// or year.
+    Length,
+    /// Two sides of a relation that must agree differ: a total and its parts (`FM-E026`).
+    Reconcile,
+}
+
+/// What an error report says beyond its code and message (ADR 0014 G5). Every field is
+/// optional: a report says what is known about the error, nothing more.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Details {
+    /// JSON pointer (RFC 6901) of the field to correct, from the root of the input.
+    pub pointer: Option<String>,
+    /// JSON pointers of every field of a relation: both sides of a reconciliation, both
+    /// fields of a conflict. Empty when the error concerns one field.
+    pub pointers: Vec<String>,
+    /// The sub-kind of the error.
+    pub reason: Option<Reason>,
+    /// The accepted values, or a short description of the accepted form.
+    pub expected: Vec<String>,
+    /// One sentence that resolves the error.
+    pub fix: Option<String>,
+}
+
+/// Collects the input errors of a validation pass (ADR 0014 G5): the validation goes on after
+/// a refusal, so that the report lists every error it can find, in the order it checks them.
+#[derive(Debug, Default)]
+pub(crate) struct Found(Vec<FairmarkError>);
+
+impl Found {
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
+
+    /// Records the error of a check, if any; returns true when the check passed.
+    pub(crate) fn check(&mut self, result: Result<()>) -> bool {
+        self.take(result).is_some()
+    }
+
+    /// The value of a check that passed, or `None` after recording its error.
+    pub(crate) fn take<T>(&mut self, result: Result<T>) -> Option<T> {
+        match result {
+            Ok(v) => Some(v),
+            Err(e) => {
+                self.push(e);
+                None
+            }
+        }
+    }
+
+    /// Records an error; the errors of a nested validation are kept in their order.
+    pub(crate) fn push(&mut self, error: FairmarkError) {
+        match error {
+            FairmarkError::Several(several) => self.0.extend(several.0),
+            other => self.0.push(other),
+        }
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// The error of a validation that cannot go on: what was found, never empty when called
+    /// after a refusal (an empty collection is a defect, `FM-E012`).
+    pub(crate) fn into_error(self) -> FairmarkError {
+        match self.finish() {
+            Err(e) => e,
+            Ok(()) => FairmarkError::Internal("a refused check recorded no error"),
+        }
+    }
+
+    /// `Ok` when nothing was found, the error itself when one was, every error otherwise.
+    pub(crate) fn finish(mut self) -> Result<()> {
+        match self.0.len() {
+            0 => Ok(()),
+            1 => Err(self.0.remove(0)),
+            _ => Err(FairmarkError::Several(Box::new(Several(self.0)))),
+        }
+    }
 }
 
 /// What an input below the floor lacks (`FM-E027`).
@@ -257,6 +408,9 @@ pub struct Reconciliation {
     pub difference: Decimal,
     /// How to correct the input.
     pub fix: String,
+    /// JSON pointers of the fields of both sides, the first side first (the error report's
+    /// `pointers`).
+    pub pointers: Vec<String>,
 }
 
 /// " (converted with `/inflation`)" when the rate was converted with expected inflation.
@@ -347,21 +501,329 @@ impl FairmarkError {
             Self::CountMismatch(_) => "FM-E025",
             Self::StatementsDoNotReconcile(_) => "FM-E026",
             Self::BelowMinimumInput(_) => "FM-E027",
+            // Carriers: the code of the error carried, of the first error found.
+            Self::Detailed(d) => d.error.code(),
+            Self::Several(s) => s.first().code(),
         }
     }
 
-    /// JSON-friendly representation used by every adapter (CLI, Python, MCP).
-    pub fn to_report(&self) -> ErrorReport {
+    /// This error with the JSON pointer of the field to correct and the sub-kind; the code and
+    /// the message are unchanged (ADR 0014 G5).
+    pub(crate) fn at(self, pointer: impl Into<String>, reason: Reason) -> Self {
+        self.with(|d| {
+            d.pointer = Some(pointer.into());
+            d.reason = Some(reason);
+        })
+    }
+
+    /// This error with the JSON pointer of the field to correct, unless it already has one.
+    pub(crate) fn located(self, pointer: impl Into<String>) -> Self {
+        if self.details().pointer.is_some() {
+            return self;
+        }
+        let pointer = pointer.into();
+        self.with(|d| d.pointer = Some(pointer))
+    }
+
+    /// This error with its sub-kind.
+    pub(crate) fn because(self, reason: Reason) -> Self {
+        self.with(|d| d.reason = Some(reason))
+    }
+
+    /// This error with the pointers of every field of the relation it breaks; the first is
+    /// also the field to correct when none is set.
+    pub(crate) fn between<S: Into<String>>(self, pointers: impl IntoIterator<Item = S>) -> Self {
+        let pointers: Vec<String> = pointers.into_iter().map(Into::into).collect();
+        self.with(|d| {
+            if d.pointer.is_none() {
+                d.pointer = pointers.first().cloned();
+            }
+            d.pointers = pointers;
+        })
+    }
+
+    /// This error with the accepted values, or a short description of the accepted form.
+    pub(crate) fn expected<S: Into<String>>(self, values: impl IntoIterator<Item = S>) -> Self {
+        let values: Vec<String> = values.into_iter().map(Into::into).collect();
+        self.with(|d| d.expected = values)
+    }
+
+    /// This error with the sentence that resolves it.
+    pub(crate) fn fix(self, fix: impl Into<String>) -> Self {
+        let fix = fix.into();
+        self.with(|d| d.fix = Some(fix))
+    }
+
+    /// Applies `f` to the details of this error, which becomes `Detailed` if it was not.
+    fn with(self, f: impl FnOnce(&mut Details)) -> Self {
+        match self {
+            Self::Detailed(mut d) => {
+                f(&mut d.details);
+                Self::Detailed(d)
+            }
+            // Several errors have no details of their own; never built before `Found::finish`.
+            Self::Several(_) => self,
+            error => {
+                let mut details = error.details();
+                f(&mut details);
+                Self::Detailed(Box::new(Detailed { error, details }))
+            }
+        }
+    }
+
+    /// This error without the details set by the builders: the variant that gives its code
+    /// and message, for a caller that rewrites the message and locates it again.
+    pub(crate) fn plain(self) -> Self {
+        match self {
+            Self::Detailed(d) => d.error,
+            other => other,
+        }
+    }
+
+    /// The details of the report: those set by the builders, or those the variant carries.
+    pub fn details(&self) -> Details {
+        let range = Reason::Range;
+        match self {
+            Self::Detailed(d) => d.details.clone(),
+            Self::Several(s) => s.first().details(),
+            Self::RateOutOfRange(_) => Details {
+                reason: Some(range),
+                expected: vec!["a rate greater than -1 (-100%)".to_owned()],
+                ..Details::default()
+            },
+            Self::DiscountRateOutOfRange {
+                field,
+                converted_with,
+                ..
+            } => Details {
+                pointer: Some(field.clone()),
+                pointers: converted_with
+                    .as_ref()
+                    .map(|c| vec![field.clone(), c.to_string()])
+                    .unwrap_or_default(),
+                reason: Some(range),
+                expected: vec!["a rate greater than -1 (-100%)".to_owned()],
+                fix: Some(match converted_with {
+                    Some(c) => format!(
+                        "give `{field}` as a decimal fraction greater than -1, or check the \
+                         expected inflation `{c}`"
+                    ),
+                    None => format!("give `{field}` as a decimal fraction greater than -1"),
+                }),
+            },
+            Self::CompoundedRateOutOfRange {
+                field,
+                periods_per_year,
+                ..
+            } => Details {
+                pointer: Some(field.clone()),
+                reason: Some(range),
+                expected: vec![format!("a rate greater than -{periods_per_year}")],
+                fix: Some(format!(
+                    "give `{field}` as a decimal fraction greater than -{periods_per_year}"
+                )),
+                ..Details::default()
+            },
+            Self::GuessOutOfRange {
+                periods_per_year, ..
+            } => Details {
+                pointer: Some("/guess".to_owned()),
+                reason: Some(range),
+                expected: vec![format!("a rate greater than -{periods_per_year}")],
+                fix: Some("give a `guess` near the expected rate, or leave out `guess`".to_owned()),
+                ..Details::default()
+            },
+            Self::GrowthNotBelowRate { .. } => Details {
+                reason: Some(range),
+                expected: vec!["a growth lower than the discount rate".to_owned()],
+                ..Details::default()
+            },
+            Self::GrowthNotBelowTerminalRate {
+                growth_field,
+                rate_field,
+                converted_with,
+                ..
+            } => {
+                let mut pointers = vec![growth_field.clone(), rate_field.clone()];
+                pointers.extend(converted_with.as_ref().map(|c| c.to_string()));
+                Details {
+                    pointer: Some(growth_field.clone()),
+                    pointers,
+                    reason: Some(range),
+                    expected: vec![format!("a growth lower than `{rate_field}`")],
+                    fix: Some(format!(
+                        "lower `{growth_field}` below the discount rate, or check `{rate_field}`"
+                    )),
+                }
+            }
+            Self::EmptyCashFlows => Details {
+                pointer: Some("/cash_flows".to_owned()),
+                reason: Some(Reason::Length),
+                fix: Some("give at least one cash flow".to_owned()),
+                ..Details::default()
+            },
+            Self::NoSignChange { .. } => Details {
+                pointer: Some("/cash_flows".to_owned()),
+                reason: Some(Reason::Sign),
+                fix: Some("give at least one positive and one negative cash flow".to_owned()),
+                ..Details::default()
+            },
+            Self::InvalidInputAt { pointer, .. } => Details {
+                pointer: Some(pointer.clone()),
+                ..Details::default()
+            },
+            Self::InvalidDateAt { pointer, .. } => Details {
+                pointer: Some(pointer.clone()),
+                reason: Some(Reason::Type),
+                expected: vec!["an ISO 8601 calendar date, YYYY-MM-DD".to_owned()],
+                ..Details::default()
+            },
+            Self::InvalidDate(_) => Details {
+                reason: Some(Reason::Type),
+                expected: vec!["an ISO 8601 calendar date, YYYY-MM-DD".to_owned()],
+                ..Details::default()
+            },
+            Self::StatementsDoNotReconcile(r) => Details {
+                pointer: r.pointers.first().cloned(),
+                pointers: r.pointers.clone(),
+                reason: Some(Reason::Reconcile),
+                fix: Some(r.fix.clone()),
+                ..Details::default()
+            },
+            Self::BelowMinimumInput(_) => Details {
+                reason: Some(Reason::Missing),
+                fix: Some(
+                    "give every input of at least one of the sets in `missing_any_of`".to_owned(),
+                ),
+                ..Details::default()
+            },
+            Self::LoanNeverRepaid { .. } => Details {
+                pointer: Some("/instalment".to_owned()),
+                reason: Some(range),
+                fix: Some("raise `instalment` above the interest of the first period".to_owned()),
+                ..Details::default()
+            },
+            Self::TerminalValueDomain(_)
+            | Self::BalloonOutOfRange(_)
+            | Self::GracePeriodOutOfRange(_)
+            | Self::RoundingTooCoarse(_) => Details {
+                reason: Some(range),
+                ..Details::default()
+            },
+            Self::MixedBasis(_) | Self::TermsMismatch(_) => Details {
+                reason: Some(Reason::Conflict),
+                ..Details::default()
+            },
+            Self::CountMismatch(_) => Details {
+                reason: Some(Reason::Length),
+                ..Details::default()
+            },
+            _ => Details::default(),
+        }
+    }
+
+    /// The alternative sets of input pointers of `FM-E027`, empty for every other error.
+    fn missing_any_of(&self) -> Vec<Vec<String>> {
+        match self {
+            Self::BelowMinimumInput(m) => m.missing_any_of.clone(),
+            Self::Detailed(d) => d.error.missing_any_of(),
+            Self::Several(s) => s.first().missing_any_of(),
+            _ => Vec::new(),
+        }
+    }
+
+    /// The report of this error alone, without `errors`.
+    fn entry(&self) -> ErrorReport {
+        let Details {
+            pointer,
+            pointers,
+            reason,
+            expected,
+            fix,
+        } = self.details();
         ErrorReport {
+            code: self.code(),
+            message: self.to_string(),
+            pointer,
+            pointers,
+            reason,
+            expected,
+            fix,
+            missing_any_of: self.missing_any_of(),
+            errors: Vec::new(),
+        }
+    }
+
+    /// JSON-friendly representation used by every adapter (CLI, Python, MCP): the first
+    /// error at the top level, every error found in `errors` (ADR 0014 G5).
+    pub fn to_report(&self) -> ErrorReport {
+        let errors = match self {
+            Self::Several(s) => s.errors().iter().map(Self::entry).collect(),
+            other => vec![other.entry()],
+        };
+        ErrorReport {
+            errors,
+            ..self.entry()
+        }
+    }
+
+    /// The code and the message only: the error recorded in a cell of an analysis table,
+    /// whose shape is part of the output of the analysis methods.
+    pub fn to_compact_report(&self) -> CompactErrorReport {
+        CompactErrorReport {
             code: self.code(),
             message: self.to_string(),
         }
     }
 }
 
+/// The report of an error (ADR 0014 G5): the stable code, the message in English, and what a
+/// client needs to correct the input without reading the message.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[schemars(rename = "FairmarkErrorReport")]
+pub struct ErrorReport {
+    /// Stable error code, for example `FM-E004` (see the errors reference).
+    pub code: &'static str,
+    /// What is wrong and, where known, how to fix it.
+    pub message: String,
+    /// JSON pointer (RFC 6901) of the field to correct, from the root of the input; `null`
+    /// when no single field is at fault, for example for a text that is not JSON. Inside an
+    /// analysis, relative to `base_input`.
+    pub pointer: Option<String>,
+    /// JSON pointers of every field of a relation (both sides of an `FM-E026`
+    /// reconciliation, both fields of a conflict); empty when the error concerns one field.
+    pub pointers: Vec<String>,
+    /// The sub-kind of the error, which tells apart the conditions that share a code; `null`
+    /// when the code has one meaning only.
+    pub reason: Option<Reason>,
+    /// The accepted values, or a short description of the accepted form; empty when not
+    /// known.
+    pub expected: Vec<String>,
+    /// One sentence that resolves the error; `null` when the message is the only guidance.
+    pub fix: Option<String>,
+    /// `FM-E027` only: alternative sets of input pointers, any one of which lifts the input
+    /// above the minimum of the method. Omitted for every other code.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub missing_any_of: Vec<Vec<String>>,
+    /// Every error found, at least one: the validation of the input reports all the errors it
+    /// finds, the first of them also at the top level; an error raised during the computation
+    /// stops it and is the only entry. The entries carry no `errors` of their own.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub errors: Vec<ErrorReport>,
+}
+
+/// What an adapter returns when a method fails: `{"error": <report>}`.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[schemars(rename = "FairmarkErrorResponse")]
+pub struct ErrorResponse {
+    /// The report of the error.
+    pub error: ErrorReport,
+}
+
 /// The report of an error: its stable code and a message in English.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
-pub struct ErrorReport {
+#[schemars(rename = "ErrorReport")]
+pub struct CompactErrorReport {
     /// Stable error code, for example `FM-E004` (see the errors reference).
     pub code: &'static str,
     /// What is wrong and, where known, how to fix it.
@@ -384,6 +846,7 @@ mod tests {
             right: Decimal::from(1_170_000),
             difference: Decimal::ONE,
             fix: "correct the total or the items".into(),
+            pointers: vec!["/years/0/statutory/balance_sheet/fixed_assets".into()],
         }));
         assert_eq!(e.code(), "FM-E026");
         assert_eq!(

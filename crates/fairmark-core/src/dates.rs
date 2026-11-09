@@ -246,7 +246,10 @@ impl DayCount {
         if end < start {
             return Err(FairmarkError::InvalidInput(format!(
                 "`end` ({end}) precedes `start` ({start}); swap them"
-            )));
+            ))
+            .at("/end", crate::error::Reason::Range)
+            .between(["/end", "/start"])
+            .fix("swap `start` and `end`"));
         }
         let days = start.days_until(end);
         let one = |n: i64, d: i64| FractionTerms {
@@ -528,6 +531,8 @@ pub(crate) fn build_schedule(input: &ScheduleInput, prefix: &str) -> Result<Buil
                      {fix}"
                 ),
             }
+            .because(crate::error::Reason::Range)
+            .fix(fix.clone())
         })?;
         dates.push(date);
     }

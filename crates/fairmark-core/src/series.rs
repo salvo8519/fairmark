@@ -10,7 +10,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::dates::{self, BuiltSchedule, Date, ScheduleInput};
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Reason, Result};
 use crate::explain::Explain;
 use crate::frequency::{self, check_number_of_periods, Frequency, PeriodLength};
 use crate::method::Method;
@@ -244,9 +244,12 @@ fn resolve_basis(
     basis: Option<GrowthBasis>,
     length: Option<PeriodLength>,
 ) -> Result<(Conversion, String)> {
-    let at = |detail: String| FairmarkError::InvalidInputAt {
-        pointer: "/growth_basis".to_owned(),
-        detail,
+    let at = |detail: String| {
+        FairmarkError::InvalidInputAt {
+            pointer: "/growth_basis".to_owned(),
+            detail,
+        }
+        .because(Reason::Requires)
     };
     let Some(length) = length else {
         return match basis {
@@ -447,7 +450,9 @@ fn stated_rates(rule: &GrowthRule, steps: u32, n: u32, base: BasePeriod) -> Resu
                          {steps} rates",
                         p.growth_rates.len()
                     ),
-                });
+                }
+                .because(Reason::Length)
+                .expected([format!("{steps} rates")]));
             }
             Ok(p.growth_rates
                 .iter()
@@ -502,7 +507,9 @@ fn check_rate(g: Decimal, pointer: &str, converted: Option<&str>) -> Result<()> 
     Err(FairmarkError::InvalidInputAt {
         pointer: pointer.to_owned(),
         detail,
-    })
+    }
+    .because(Reason::Range)
+    .expected(["a growth rate greater than -1 (-100%)"]))
 }
 
 pub fn project(input: &ProjectInput) -> Result<(ProjectOutput, Explain)> {
@@ -525,7 +532,9 @@ pub fn project(input: &ProjectInput) -> Result<(ProjectOutput, Explain)> {
                     detail: "applies only to a `schedule` timeline, whose periods have \
                                  dates; remove it, or give the timeline as `schedule`"
                         .to_owned(),
-                });
+                }
+                .because(Reason::Requires)
+                .between(["/timing", "/timeline"]));
             }
             (n, length, None)
         }
@@ -539,7 +548,9 @@ pub fn project(input: &ProjectInput) -> Result<(ProjectOutput, Explain)> {
                                  day of the next period) or `beginning_of_period` (at its \
                                  start date)"
                         .to_owned(),
-                });
+                }
+                .because(Reason::Missing)
+                .expected(["end_of_period", "beginning_of_period"]));
             }
             (s.number_of_periods, Some(built.length), Some(built))
         }

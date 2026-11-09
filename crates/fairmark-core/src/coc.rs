@@ -9,7 +9,7 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Reason, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num::{add, div, mul, sub};
@@ -20,18 +20,28 @@ fn invalid(msg: impl Into<String>) -> FairmarkError {
     FairmarkError::InvalidInput(msg.into())
 }
 
+/// The JSON pointer of a field named as in the messages: `peers[0].tax_rate` is
+/// `/peers/0/tax_rate`.
+fn pointer(field: &str) -> String {
+    format!("/{}", field.replace("].", "/").replace(['[', '.'], "/"))
+}
+
 fn check_tax_rate(t: Decimal, field: &str) -> Result<()> {
     if t < Decimal::ZERO || t >= Decimal::ONE {
-        return Err(invalid(format!(
-            "{field} must be at least 0 and below 1 (got {t})"
-        )));
+        return Err(
+            invalid(format!("{field} must be at least 0 and below 1 (got {t})"))
+                .at(pointer(field), Reason::Range)
+                .expected(["a decimal fraction at least 0 and below 1"]),
+        );
     }
     Ok(())
 }
 
 fn check_leverage(de: Decimal, field: &str) -> Result<()> {
     if de < Decimal::ZERO {
-        return Err(invalid(format!("{field} cannot be negative (got {de})")));
+        return Err(invalid(format!("{field} cannot be negative (got {de})"))
+            .at(pointer(field), Reason::Sign)
+            .expected(["zero or more"]));
     }
     Ok(())
 }
@@ -272,7 +282,9 @@ pub struct BetaPeersOutput {
 
 pub fn beta_peers(input: &BetaPeersInput) -> Result<(BetaPeersOutput, Explain)> {
     if input.peers.is_empty() {
-        return Err(invalid("peers must contain at least one comparable"));
+        return Err(
+            invalid("peers must contain at least one comparable").at("/peers", Reason::Length)
+        );
     }
     check_leverage(input.target_debt_to_equity, "target_debt_to_equity")?;
     check_tax_rate(input.target_tax_rate, "target_tax_rate")?;
@@ -475,13 +487,23 @@ pub fn cost_of_equity(input: &CostOfEquityInput) -> Result<(CostOfEquityOutput, 
             );
             b
         }
-        _ => return Err(invalid("give exactly one of `levered_beta` and `relever`")),
+        (Some(_), Some(_)) => {
+            return Err(invalid("give exactly one of `levered_beta` and `relever`")
+                .at("/levered_beta", Reason::Conflict)
+                .between(["/levered_beta", "/relever"]))
+        }
+        _ => {
+            return Err(invalid("give exactly one of `levered_beta` and `relever`")
+                .at("/levered_beta", Reason::Missing)
+                .between(["/levered_beta", "/relever"]))
+        }
     };
     let crp = premium(&mut ex, input.country_risk_premium, "country risk premium");
     if crp < Decimal::ZERO {
         return Err(invalid(format!(
             "country_risk_premium cannot be negative (got {crp})"
-        )));
+        ))
+        .at("/country_risk_premium", Reason::Sign));
     }
     let lambda = match input.country_exposure {
         Some(l) => {
@@ -496,7 +518,8 @@ pub fn cost_of_equity(input: &CostOfEquityInput) -> Result<(CostOfEquityOutput, 
     if lambda < Decimal::ZERO {
         return Err(invalid(format!(
             "country_exposure cannot be negative (got {lambda})"
-        )));
+        ))
+        .at("/country_exposure", Reason::Sign));
     }
     let size = premium(&mut ex, input.size_premium, "size premium");
     let specific = premium(
@@ -514,7 +537,9 @@ pub fn cost_of_equity(input: &CostOfEquityInput) -> Result<(CostOfEquityOutput, 
         (false, None) => {
             return Err(invalid(
                 "a non-zero specific_risk_premium requires specific_risk_justification",
-            ))
+            )
+            .at("/specific_risk_justification", Reason::Missing)
+            .between(["/specific_risk_justification", "/specific_risk_premium"]))
         }
         (true, Some(j)) => ex.convention(format!(
             "specific risk justification given with a zero premium (recorded, not used): {j}"
@@ -597,7 +622,16 @@ pub fn cost_of_debt(input: &CostOfDebtInput) -> Result<(CostOfDebtOutput, Explai
             }
             _ => return Err(invalid(
                 "give either `pre_tax_cost_of_debt`, or both `risk_free_rate` and `credit_spread`",
-            )),
+            )
+            .at(
+                "/pre_tax_cost_of_debt",
+                if input.pre_tax_cost_of_debt.is_some() {
+                    Reason::Conflict
+                } else {
+                    Reason::Missing
+                },
+            )
+            .between(["/pre_tax_cost_of_debt", "/risk_free_rate", "/credit_spread"])),
         };
     let t = input.tax_rate;
     ex.convention(format!("tax rate of the tax shield {t}"));
@@ -663,7 +697,8 @@ pub fn wacc(input: &WaccInput) -> Result<(WaccOutput, Explain)> {
             if we.is_zero() {
                 return Err(invalid(format!(
                     "debt_to_equity {de} is too large: the equity weight rounds to zero"
-                )));
+                ))
+                .at("/debt_to_equity", Reason::Range));
             }
             ex.step("Equity weight", format!("1 / (1 + {de})"), we);
             let wd = sub(Decimal::ONE, we)?;
@@ -674,7 +709,9 @@ pub fn wacc(input: &WaccInput) -> Result<(WaccOutput, Explain)> {
             if w < Decimal::ZERO || w >= Decimal::ONE {
                 return Err(invalid(format!(
                     "debt_weight must be at least 0 and below 1 (got {w})"
-                )));
+                ))
+                .at("/debt_weight", Reason::Range)
+                .expected(["a decimal fraction at least 0 and below 1"]));
             }
             ex.convention(format!("target weights from D/(D + E) {w}"));
             ex.step("Debt weight", "given", w);
@@ -683,9 +720,18 @@ pub fn wacc(input: &WaccInput) -> Result<(WaccOutput, Explain)> {
             (we, w)
         }
         _ => {
-            return Err(invalid(
-                "give exactly one of `debt_to_equity` and `debt_weight`",
-            ))
+            return Err(
+                invalid("give exactly one of `debt_to_equity` and `debt_weight`")
+                    .at(
+                        "/debt_to_equity",
+                        if input.debt_to_equity.is_some() {
+                            Reason::Conflict
+                        } else {
+                            Reason::Missing
+                        },
+                    )
+                    .between(["/debt_to_equity", "/debt_weight"]),
+            )
         }
     };
     let de = div(wd, we)?;

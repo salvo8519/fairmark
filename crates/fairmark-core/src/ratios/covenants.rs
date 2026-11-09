@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{Missing, NotComputedList, RatioValue, MISSING_CONVENTION};
 use crate::dates::Date;
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Found, Reason, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::not_computed::NotComputedEntry;
@@ -520,36 +520,55 @@ fn invalid(message: String) -> FairmarkError {
 /// rounding to more decimal places than supported.
 fn validate(input: &CovenantsInput) -> Result<()> {
     if input.covenants.is_empty() {
-        return Err(invalid(
-            "`covenants` is empty: give at least one covenant to test".into(),
-        ));
+        return Err(
+            invalid("`covenants` is empty: give at least one covenant to test".into())
+                .at("/covenants", Reason::Length)
+                .fix("give at least one covenant to test"),
+        );
     }
+    // Every input error is reported (ADR 0014 G5), in the order of the checks.
+    let mut found = Found::new();
     for (i, c) in input.covenants.iter().enumerate() {
         if c.name.trim().is_empty() {
-            return Err(invalid(format!(
-                "`covenants[{i}].name` is empty: name the covenant as in the loan agreement, \
-                 for example \"net leverage\""
-            )));
+            found.push(
+                invalid(format!(
+                    "`covenants[{i}].name` is empty: name the covenant as in the loan \
+                     agreement, for example \"net leverage\""
+                ))
+                .at(format!("/covenants/{i}/name"), Reason::Blank)
+                .fix("name the covenant as in the loan agreement"),
+            );
         }
         for (side, part) in [("numerator", &c.numerator), ("denominator", &c.denominator)] {
             if part.definition.trim().is_empty() {
-                return Err(invalid(format!(
-                    "`covenants[{i}].{side}.definition` is empty: state the {side} as the loan \
-                     agreement defines it"
-                )));
+                found.push(
+                    invalid(format!(
+                        "`covenants[{i}].{side}.definition` is empty: state the {side} as the \
+                         loan agreement defines it"
+                    ))
+                    .at(format!("/covenants/{i}/{side}/definition"), Reason::Blank)
+                    .fix(format!("state the {side} as the loan agreement defines it")),
+                );
             }
         }
         if let Some(r) = c.rounding {
             if r.decimal_places > MAX_DECIMAL_PLACES {
-                return Err(invalid(format!(
-                    "`covenants[{i}].rounding.decimal_places` is {}: give 0 to \
-                     {MAX_DECIMAL_PLACES}, the decimal places stated by the loan agreement",
-                    r.decimal_places
-                )));
+                found.push(
+                    invalid(format!(
+                        "`covenants[{i}].rounding.decimal_places` is {}: give 0 to \
+                         {MAX_DECIMAL_PLACES}, the decimal places stated by the loan agreement",
+                        r.decimal_places
+                    ))
+                    .at(
+                        format!("/covenants/{i}/rounding/decimal_places"),
+                        Reason::Range,
+                    )
+                    .expected([format!("a whole number from 0 to {MAX_DECIMAL_PLACES}")]),
+                );
             }
         }
     }
-    Ok(())
+    found.finish()
 }
 
 fn not_tested(

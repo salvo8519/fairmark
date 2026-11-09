@@ -13,7 +13,7 @@ use rust_decimal::{Decimal, MathematicalOps, RoundingStrategy};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{rate_field, FairmarkError, Result};
+use crate::error::{rate_field, FairmarkError, Found, Reason, Result};
 use crate::explain::Explain;
 use crate::frequency::Frequency;
 use crate::method::Method;
@@ -118,13 +118,18 @@ impl Rounding {
                 "`rounding.mode` is required when `rounding` is given: `half_up` or `half_even` \
                  (there is no default mode); omit `rounding` for no rounding"
                     .to_owned(),
-            ));
+            )
+            .at("/rounding/mode", Reason::Missing)
+            .expected(["half_up", "half_even"])
+            .fix("give `mode`, or omit `rounding` for no rounding"));
         }
         if self.decimal_places > 6 {
             return Err(FairmarkError::InvalidInput(format!(
                 "`rounding.decimal_places` must be between 0 and 6 (got {})",
                 self.decimal_places
-            )));
+            ))
+            .at("/rounding/decimal_places", Reason::Range)
+            .expected(["a whole number from 0 to 6"]));
         }
         Ok(())
     }
@@ -155,8 +160,9 @@ struct RateForm {
     periodic_rate: Option<Decimal>,
 }
 
-/// Validates the rate form, reports it and returns the periodic rate (R1, R1a, R3, R5).
-fn periodic_rate(form: &RateForm, ex: &mut Explain) -> Result<Decimal> {
+/// R1, R1a, R3: one rate form, complete, and a periodic rate above -100%; the checks that need
+/// no conversion, so that they are reported with the other input errors (ADR 0014 G5).
+fn check_rate_form(form: &RateForm) -> Result<()> {
     let form_a = [
         ("rate", form.rate.is_some()),
         ("compounding", form.compounding.is_some()),
@@ -165,18 +171,59 @@ fn periodic_rate(form: &RateForm, ex: &mut Explain) -> Result<Decimal> {
     let given: Vec<&str> = form_a.iter().filter(|f| f.1).map(|f| f.0).collect();
     if let Some(i) = form.periodic_rate {
         if !given.is_empty() {
+            let mut pointers = vec!["/periodic_rate".to_owned()];
+            pointers.extend(given.iter().map(|g| format!("/{g}")));
             return Err(FairmarkError::InvalidInput(format!(
                 "give the rate in one form only: `periodic_rate` (form b) conflicts with `{}` \
                  (form a); remove `periodic_rate` or remove `rate`, `compounding` and \
                  `payment_frequency`",
                 given.join("`, `")
-            )));
+            ))
+            .at("/periodic_rate", Reason::Conflict)
+            .between(pointers)
+            .fix(
+                "remove `periodic_rate`, or remove `rate`, `compounding` and `payment_frequency`",
+            ));
         }
         if i <= -Decimal::ONE {
             return Err(rate_field("/periodic_rate", None)(
                 FairmarkError::RateOutOfRange(i),
             ));
         }
+        return Ok(());
+    }
+    if form.rate.is_some() && form.compounding.is_some() && form.payment_frequency.is_some() {
+        return Ok(());
+    }
+    if given.is_empty() {
+        return Err(FairmarkError::InvalidInput(
+            "no rate: give `periodic_rate` (form b), or `rate` with `compounding` and \
+             `payment_frequency` (form a)"
+                .to_owned(),
+        )
+        .at("/periodic_rate", Reason::Missing)
+        .between(["/periodic_rate", "/rate"])
+        .fix("give `periodic_rate`, or `rate` with `compounding` and `payment_frequency`"));
+    }
+    let missing: Vec<&str> = form_a.iter().filter(|f| !f.1).map(|f| f.0).collect();
+    Err(FairmarkError::InvalidInput(format!(
+        "rate form (a) needs `rate`, `compounding` and `payment_frequency`; missing `{}`: \
+         add it, or give `periodic_rate` (form b) instead",
+        missing.join("`, `")
+    ))
+    .at(format!("/{}", missing[0]), Reason::Missing)
+    .between(missing.iter().map(|m| format!("/{m}")))
+    .fix(format!(
+        "add `{}`, or give `periodic_rate` instead",
+        missing.join("`, `")
+    )))
+}
+
+/// Reports the rate form and returns the periodic rate (R1, R1a, R3, R5); the form was checked
+/// by [`check_rate_form`].
+fn periodic_rate(form: &RateForm, ex: &mut Explain) -> Result<Decimal> {
+    check_rate_form(form)?;
+    if let Some(i) = form.periodic_rate {
         ex.convention("rate form (b): rate per payment period, as given");
         ex.convention(format!("periodic rate: {i}"));
         ex.step("Periodic rate (given)", format!("{i}"), i);
@@ -185,19 +232,7 @@ fn periodic_rate(form: &RateForm, ex: &mut Explain) -> Result<Decimal> {
     let (Some(rate), Some(compounding), Some(frequency)) =
         (form.rate, form.compounding, form.payment_frequency)
     else {
-        if given.is_empty() {
-            return Err(FairmarkError::InvalidInput(
-                "no rate: give `periodic_rate` (form b), or `rate` with `compounding` and \
-                 `payment_frequency` (form a)"
-                    .to_owned(),
-            ));
-        }
-        let missing: Vec<&str> = form_a.iter().filter(|f| !f.1).map(|f| f.0).collect();
-        return Err(FairmarkError::InvalidInput(format!(
-            "rate form (a) needs `rate`, `compounding` and `payment_frequency`; missing `{}`: \
-             add it, or give `periodic_rate` (form b) instead",
-            missing.join("`, `")
-        )));
+        return Err(FairmarkError::Internal("rate form not checked"));
     };
     let target = frequency.compounding();
     // The rule is that of the given compounding: the conversion raises the rate's error.
@@ -258,7 +293,9 @@ fn check_principal(principal: Decimal) -> Result<()> {
     if principal <= Decimal::ZERO {
         return Err(FairmarkError::InvalidInput(format!(
             "`principal` must be greater than 0 (got {principal})"
-        )));
+        ))
+        .at("/principal", Reason::Range)
+        .expected(["an amount greater than 0"]));
     }
     Ok(())
 }
@@ -267,7 +304,9 @@ fn check_instalments(n: u32) -> Result<()> {
     if n == 0 || n > MAX_PERIODS {
         return Err(FairmarkError::InvalidInput(format!(
             "`number_of_instalments` must be between 1 and {MAX_PERIODS} (got {n})"
-        )));
+        ))
+        .at("/number_of_instalments", Reason::Range)
+        .expected([format!("a whole number from 1 to {MAX_PERIODS}")]));
     }
     Ok(())
 }
@@ -278,7 +317,9 @@ fn balloon(principal: Decimal, balloon: Option<Decimal>, ex: &mut Explain) -> Re
     if b < Decimal::ZERO || b >= principal {
         return Err(FairmarkError::BalloonOutOfRange(format!(
             "`balloon_amount` must be at least 0 and below `principal` ({principal}); got {b}"
-        )));
+        ))
+        .at("/balloon_amount", Reason::Range)
+        .between(["/balloon_amount", "/principal"]));
     }
     ex.convention(match balloon {
         Some(v) => format!("balloon amount: {v} (given), paid with the last instalment"),
@@ -426,11 +467,20 @@ pub struct InstalmentOutput {
 }
 
 pub fn instalment(input: &InstalmentInput) -> Result<(InstalmentOutput, Explain)> {
-    check_principal(input.principal)?;
-    check_instalments(input.number_of_instalments)?;
+    // Every input error is reported (ADR 0014 G5), in the order of the checks.
+    let mut found = Found::new();
+    found.check(check_principal(input.principal));
+    found.check(check_instalments(input.number_of_instalments));
     if let Some(r) = &input.rounding {
-        r.validate()?;
+        found.check(r.validate());
     }
+    found.check(check_rate_form(&RateForm {
+        rate: input.rate,
+        compounding: input.compounding,
+        payment_frequency: input.payment_frequency,
+        periodic_rate: input.periodic_rate,
+    }));
+    found.finish()?;
     let mut ex = Explain::new(
         "loans.instalment",
         "A = (P − B (1 + i)^−n) × i / (1 − (1 + i)^−n), divided by (1 + i) if due; \
@@ -532,7 +582,15 @@ pub struct NumberOfInstalmentsOutput {
 pub fn number_of_instalments(
     input: &NumberOfInstalmentsInput,
 ) -> Result<(NumberOfInstalmentsOutput, Explain)> {
-    check_principal(input.principal)?;
+    let mut found = Found::new();
+    found.check(check_principal(input.principal));
+    found.check(check_rate_form(&RateForm {
+        rate: input.rate,
+        compounding: input.compounding,
+        payment_frequency: input.payment_frequency,
+        periodic_rate: input.periodic_rate,
+    }));
+    found.finish()?;
     let (p, a) = (input.principal, input.instalment);
     let mut ex = Explain::new(
         "loans.number_of_instalments",
@@ -622,6 +680,8 @@ pub fn number_of_instalments(
             "with this `instalment` the loan needs more than the {MAX_PERIODS} instalments \
              allowed (n* = {exact}): raise `instalment`"
         ))
+        .at("/instalment", Reason::Range)
+        .fix("raise `instalment`")
     };
     // n* comes from series logarithms: far above the limit it cannot be within one period of
     // it, so the limit is applied at once; near the limit it is confirmed by the recurrence.
@@ -825,41 +885,72 @@ enum Regular {
 pub fn amortisation_schedule(
     input: &AmortisationScheduleInput,
 ) -> Result<(AmortisationScheduleOutput, Explain)> {
+    // Every input error is reported (ADR 0014 G5), in the order of the checks.
+    let mut found = Found::new();
     if input.timing == AnnuityTiming::Due {
-        return Err(FairmarkError::InvalidInput(
-            "`timing` must be `ordinary`: loans.amortisation_schedule version 1 supports \
-             payments in arrears only (got `due`)"
-                .to_owned(),
-        ));
+        found.push(
+            FairmarkError::InvalidInput(
+                "`timing` must be `ordinary`: loans.amortisation_schedule version 1 supports \
+                 payments in arrears only (got `due`)"
+                    .to_owned(),
+            )
+            .at("/timing", Reason::Enum)
+            .expected(["ordinary"]),
+        );
     }
-    check_principal(input.principal)?;
-    check_instalments(input.number_of_instalments)?;
+    found.check(check_principal(input.principal));
+    let instalments_valid = found.check(check_instalments(input.number_of_instalments));
     if let Some(r) = &input.rounding {
-        r.validate()?;
+        found.check(r.validate());
     }
     let kind = input.amortisation_type;
+    let mut grace_checked = false;
     if kind == AmortisationType::Bullet {
         if let Some(b) = input.balloon_amount {
-            return Err(FairmarkError::BalloonOutOfRange(format!(
-                "`balloon_amount` ({b}) cannot be given with `amortisation_type` `bullet`, which \
-                 repays the full principal with the last instalment: omit `balloon_amount`"
-            )));
+            found.push(
+                FairmarkError::BalloonOutOfRange(format!(
+                    "`balloon_amount` ({b}) cannot be given with `amortisation_type` `bullet`, \
+                     which repays the full principal with the last instalment: omit \
+                     `balloon_amount`"
+                ))
+                .at("/balloon_amount", Reason::Requires)
+                .between(["/balloon_amount", "/amortisation_type"])
+                .fix("omit `balloon_amount`"),
+            );
         }
         if let Some(g) = input.principal_grace_periods {
-            return Err(FairmarkError::GracePeriodOutOfRange(format!(
-                "`principal_grace_periods` ({g}) cannot be given with `amortisation_type` \
-                 `bullet`, which is interest only until the last instalment: omit \
-                 `principal_grace_periods`"
-            )));
+            grace_checked = true;
+            found.push(
+                FairmarkError::GracePeriodOutOfRange(format!(
+                    "`principal_grace_periods` ({g}) cannot be given with `amortisation_type` \
+                     `bullet`, which is interest only until the last instalment: omit \
+                     `principal_grace_periods`"
+                ))
+                .at("/principal_grace_periods", Reason::Requires)
+                .between(["/principal_grace_periods", "/amortisation_type"])
+                .fix("omit `principal_grace_periods`"),
+            );
         }
     }
     let (p, n) = (input.principal, input.number_of_instalments);
     let g = input.principal_grace_periods.unwrap_or_default();
-    if g >= n {
-        return Err(FairmarkError::GracePeriodOutOfRange(format!(
-            "`principal_grace_periods` must be lower than `number_of_instalments` ({n}); got {g}"
-        )));
+    if g >= n && instalments_valid && !grace_checked {
+        found.push(
+            FairmarkError::GracePeriodOutOfRange(format!(
+                "`principal_grace_periods` must be lower than `number_of_instalments` ({n}); got \
+                 {g}"
+            ))
+            .at("/principal_grace_periods", Reason::Range)
+            .between(["/principal_grace_periods", "/number_of_instalments"]),
+        );
     }
+    found.check(check_rate_form(&RateForm {
+        rate: input.rate,
+        compounding: input.compounding,
+        payment_frequency: input.payment_frequency,
+        periodic_rate: input.periodic_rate,
+    }));
+    found.finish()?;
     let mut ex = Explain::new(
         "loans.amortisation_schedule",
         "interest_k = i × opening balance_k; principal_k = instalment − interest_k (french), \

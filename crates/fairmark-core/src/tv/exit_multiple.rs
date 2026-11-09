@@ -146,14 +146,19 @@ pub(crate) fn check(input: &ExitMultipleInput) -> Checked {
         ))));
     }
     if input.rate.is_some() != input.next_flow.is_some() {
-        return Err(on("next_flow")(invalid(
-            "give both rate and next_flow, or neither",
-        )));
+        return Err(on("next_flow")(
+            invalid("give both rate and next_flow, or neither")
+                .because(crate::error::Reason::Requires)
+                .between(["/next_flow", "/rate"]),
+        ));
     }
     if input.next_flow.is_none() && input.growth_cap.is_some() {
-        return Err(on("growth_cap")(invalid(
-            "growth_cap needs rate and next_flow: the cap is checked on the implied growth",
-        )));
+        return Err(on("growth_cap")(
+            invalid(
+                "growth_cap needs rate and next_flow: the cap is checked on the implied growth",
+            )
+            .because(crate::error::Reason::Requires),
+        ));
     }
     Ok(())
 }

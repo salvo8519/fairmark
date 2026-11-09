@@ -16,7 +16,7 @@ use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value};
 
-use crate::error::{ErrorReport, FairmarkError, Result};
+use crate::error::{CompactErrorReport, FairmarkError, Result};
 use crate::registry;
 
 /// Most inner evaluations one analysis request may perform (ADR 0010).
@@ -217,7 +217,7 @@ pub enum Outcome<T: Serialize> {
     /// The inner method returned this error; the rest of the request went on.
     Error {
         /// Code and message of the inner method's error.
-        error: ErrorReport,
+        error: CompactErrorReport,
     },
 }
 
@@ -226,9 +226,10 @@ pub enum Outcome<T: Serialize> {
 pub(crate) fn recorded<T: Serialize>(result: Result<T>) -> Result<Outcome<T>> {
     match result {
         Ok(value) => Ok(Outcome::Value { value }),
-        Err(e @ FairmarkError::Internal(_)) => Err(e),
+        // By code, so that a defect carried with details still aborts.
+        Err(e) if e.code() == FairmarkError::Internal("").code() => Err(e),
         Err(e) => Ok(Outcome::Error {
-            error: e.to_report(),
+            error: e.to_compact_report(),
         }),
     }
 }
@@ -238,9 +239,10 @@ pub(crate) fn unique<'a>(what: &str, items: impl IntoIterator<Item = &'a str>) -
     let mut seen = std::collections::BTreeSet::new();
     for item in items {
         if !seen.insert(item) {
-            return Err(FairmarkError::InvalidInput(format!(
-                "{what} '{item}' appears twice"
-            )));
+            return Err(
+                FairmarkError::InvalidInput(format!("{what} '{item}' appears twice"))
+                    .because(crate::error::Reason::Duplicate),
+            );
         }
     }
     Ok(())
