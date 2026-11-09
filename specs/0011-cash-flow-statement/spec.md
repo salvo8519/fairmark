@@ -61,7 +61,7 @@ error pointers would point into a derived document the user never wrote, and the
 statement items the cash flow needs (item 20, C15, C16, C17) would have to be carried twice.
 
 ## Problem
-An analyst who values or lends to an Italian SME needs to see how the company generated and
+An analyst who values or lends to a small or medium-sized Italian company needs to see how the company generated and
 used cash: OIC 10 requires the statement for ordinary filers, abridged and micro filers are
 exempt (art. 2435-bis, art. 2435-ter), and banks rebuild it from the aggregates. A valuer needs
 the historical free cash flows on the same basis as the forecast flows of `dcf.free_cash_flows`.
