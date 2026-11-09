@@ -275,7 +275,7 @@ milestones:
           - { issue: 261, title: "DCF: report the net financial position default and warn", status: open }
           - { issue: 262, title: "Ratios computed from partial input", status: open }
           - { issue: 263, title: "Statements v2 contract: dated years, amounts unit, simpler input", status: open }
-          - { issue: 264, title: "Tool definitions: enum descriptions, examples, compact schemas", status: open }
+          - { issue: 264, title: "Tool definitions: enum descriptions, examples, compact schemas", status: done }
           - { issue: 265, title: "Output schemas and schema-driven Python decoding", status: open }
           - { issue: 266, title: "Null equals absent and one number grammar", status: open }
 
