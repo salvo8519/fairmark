@@ -207,62 +207,92 @@
       }
     },
     "ratios.capital_structure": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "ratios.capital_structure/v1.json",
           "introduced_in": "unreleased",
           "sha256": "86a9ef31d167a047893507837e85780e56deac3e662d61faab00d02076dae7ec"
+        },
+        "2": {
+          "file": "ratios.capital_structure/v2.json",
+          "introduced_in": "unreleased",
+          "sha256": "273135992a21cbdd2604917e9c4b6739bc7f92b849718025ba672cad9bab447b"
         }
       }
     },
     "ratios.covenants": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "ratios.covenants/v1.json",
           "introduced_in": "unreleased",
           "sha256": "28e7e3eda8073f3b693143ad3c6da07629c054560a61736ba3e2a886a4b7adf4"
+        },
+        "2": {
+          "file": "ratios.covenants/v2.json",
+          "introduced_in": "unreleased",
+          "sha256": "ca0d866e9d9958b0b64aea16713512b29cb7a2eb97d16b8bb0bc9668f2629602"
         }
       }
     },
     "ratios.debt_service": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "ratios.debt_service/v1.json",
           "introduced_in": "unreleased",
           "sha256": "e40767bbd103c3029383d4cbb9f0821a4cc3a26a18026c4f5a951328526b4cab"
+        },
+        "2": {
+          "file": "ratios.debt_service/v2.json",
+          "introduced_in": "unreleased",
+          "sha256": "cc252a4cd59102cbfcb24adb47e2a55addc32b12eaff545a9667e3328a97cc8e"
         }
       }
     },
     "ratios.liquidity": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "ratios.liquidity/v1.json",
           "introduced_in": "unreleased",
           "sha256": "606b1e97ae4193aef5babaa8052322757e27fb30875e0bb7d409235dcd52b7dd"
+        },
+        "2": {
+          "file": "ratios.liquidity/v2.json",
+          "introduced_in": "unreleased",
+          "sha256": "b7efc0e28dc9921df3b7a4a801d073a6ebb3576a9969a5494c2e23a485b60e48"
         }
       }
     },
     "ratios.profitability": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "ratios.profitability/v1.json",
           "introduced_in": "unreleased",
           "sha256": "e97765b6c61b13fe3ba243810d40cb32e22c8a9a977766c770145c6aaf8f8c19"
+        },
+        "2": {
+          "file": "ratios.profitability/v2.json",
+          "introduced_in": "unreleased",
+          "sha256": "9bd8e3d81a7160fc19a021624633b6a9edb1e8fb4b072250d2a86da3daab1fe4"
         }
       }
     },
     "ratios.working_capital": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "ratios.working_capital/v1.json",
           "introduced_in": "unreleased",
           "sha256": "b90dfe455ca0d4adaa88d071f21bac192a14da2558a78f7398da4e96a1f74c21"
+        },
+        "2": {
+          "file": "ratios.working_capital/v2.json",
+          "introduced_in": "unreleased",
+          "sha256": "8d62175cdff9cd251a44f011c7f082894f27734328d233f14cef41eae1da3d52"
         }
       }
     },

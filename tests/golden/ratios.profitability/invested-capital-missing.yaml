@@ -1,7 +1,10 @@
 method: ratios.profitability
-description: ROI on invested capital without the invested capital is refused
-source: Constructed. The operating return base is invested capital and the closing balance sheet
-  does not give it (FM-E001).
+description: 'R7: ROI on invested capital without the invested capital: ROI and capital turnover not computed,
+  the other ratios computed'
+source: 'scripts/reference_ratios_partial.py (Python decimal, 50 digits, local context), written from
+  the formulas and the computability tables of specs/0007-ratios-covenants/spec.md (amendment of 2026-11-09).
+  ROI and the capital turnover need `/closing/invested_capital`, which is not given; version 1 refused
+  the input (FM-E001), replaced under the maintainer approval of 2026-11-09 (issue #262).'
 input:
   balances: closing
   operating_return_base: invested_capital
@@ -14,4 +17,41 @@ input:
   closing:
     equity: '2000'
     total_assets: '6000'
-expect_error: FM-E001
+expect:
+  /roe/value: '0.13'
+  /roi/value: 'null'
+  /roa/value: '0.083333333333333333333333333333333333333333333333333'
+  /ros/value: '0.1'
+  /ebitda_margin/value: '0.16'
+  /ebit_margin/value: '0.1'
+  /capital_turnover/value: 'null'
+  /roe_three_factor/net_margin/value: '0.052'
+  /roe_three_factor/asset_turnover/value: '0.83333333333333333333333333333333333333333333333333'
+  /roe_three_factor/equity_multiplier/value: '3'
+  /roe_three_factor/roe/value: '0.13000000000000000000000000000000000000000000000000'
+  /roe_leverage/roi/value: 'null'
+  /roe_leverage/cost_of_debt/value: 'null'
+  /roe_leverage/debt_to_equity/value: 'null'
+  /roe_leverage/leverage_effect/value: 'null'
+  /roe_leverage/pre_tax_roe/value: 'null'
+  /roe_leverage/tax_rate/value: 'null'
+  /roe_leverage/roe/value: 'null'
+  /not_computed/0/output: '/roi'
+  /not_computed/0/missing/0: '/closing/invested_capital'
+  /not_computed/1/output: '/capital_turnover'
+  /not_computed/1/missing/0: '/closing/invested_capital'
+  /not_computed/2/output: '/roe_leverage/roi'
+  /not_computed/2/missing/0: '/leverage'
+  /not_computed/3/output: '/roe_leverage/cost_of_debt'
+  /not_computed/3/missing/0: '/leverage'
+  /not_computed/4/output: '/roe_leverage/debt_to_equity'
+  /not_computed/4/missing/0: '/leverage'
+  /not_computed/5/output: '/roe_leverage/leverage_effect'
+  /not_computed/5/missing/0: '/leverage'
+  /not_computed/6/output: '/roe_leverage/pre_tax_roe'
+  /not_computed/6/missing/0: '/leverage'
+  /not_computed/7/output: '/roe_leverage/tax_rate'
+  /not_computed/7/missing/0: '/leverage'
+  /not_computed/8/output: '/roe_leverage/roe'
+  /not_computed/8/missing/0: '/leverage'
+tolerance: '0.00000000000000000001'

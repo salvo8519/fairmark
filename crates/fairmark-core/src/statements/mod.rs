@@ -262,26 +262,7 @@ pub struct CurrentNonCurrent {
     pub non_current_liabilities: Option<Decimal>,
 }
 
-/// A missing treatment and the destinations it permits (R8).
-#[derive(Debug, Clone, Serialize)]
-pub struct Permitted {
-    /// JSON pointer of the treatment to give.
-    pub treatment: String,
-    /// Its permitted values.
-    pub destinations: Vec<&'static str>,
-}
-
-/// An output not computed, with the pointers of its missing inputs (R6).
-#[derive(Debug, Clone, Serialize)]
-pub struct NotComputedEntry {
-    /// JSON pointer of the output in the result value.
-    pub output: String,
-    /// JSON pointers of the inputs it needs and lacks.
-    pub missing: Vec<String>,
-    /// For a missing treatment, its permitted destinations; omitted otherwise.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub permitted: Vec<Permitted>,
-}
+pub use crate::not_computed::{NotComputedEntry, Permitted};
 
 /// The outputs not computed, one list per block, sorted by output pointer.
 #[derive(Debug, Clone, Serialize)]

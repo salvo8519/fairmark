@@ -62,9 +62,12 @@ RULES: list[tuple[str, str, str]] = [
 ]
 # Shared engine modules, not method themes. `solver` (Brent's method) is documented on the
 # pages of the methods that use it, such as docs/en/methods/analysis-goal-seek.md; `frequency`
-# (the named frequencies of SPEC-0010 R20) on the pages of the methods whose inputs use them.
+# (the named frequencies of SPEC-0010 R20) on the pages of the methods whose inputs use them;
+# `not_computed` (the shared entry of outputs not computed, ADR 0014 G2) on the pages of the
+# methods that list them.
 NON_METHOD_FILES = {
     "error", "explain", "registry", "types", "lib", "num", "method", "solver", "frequency",
+    "not_computed",
 }  # fmt: skip
 
 

@@ -1,0 +1,249 @@
+{
+  "$defs": {
+    "Balances": {
+      "description": "Which balance-sheet amounts the ratios use (SPEC-0007 R2). No default: the analyst chooses.",
+      "oneOf": [
+        {
+          "const": "closing",
+          "description": "Balances at the end of the period (`closing`).",
+          "type": "string"
+        },
+        {
+          "const": "average",
+          "description": "Average of the opening and closing balances: (opening + closing) / 2. Needs `opening`.",
+          "type": "string"
+        }
+      ]
+    },
+    "DebtBasis": {
+      "description": "What D measures in the leverage form of the ROE decomposition. No default.",
+      "oneOf": [
+        {
+          "const": "gross_financial_debt",
+          "description": "Gross financial debt.",
+          "type": "string"
+        },
+        {
+          "const": "net_financial_position",
+          "description": "Net financial position (gross debt minus cash and other items, as the analyst defines it).",
+          "type": "string"
+        }
+      ]
+    },
+    "LeverageInputs": {
+      "additionalProperties": false,
+      "description": "Inputs of the leverage form ROE = [ROI + (ROI − i) × D/E] × (1 − t). The debt D itself is\ngiven in the balance sheets (`debt`), so the balance convention applies to it.",
+      "properties": {
+        "debt_basis": {
+          "$ref": "#/$defs/DebtBasis",
+          "description": "Basis of D: `gross_financial_debt` or `net_financial_position`. Required when `leverage`\nis given, no default."
+        },
+        "financial_charges": {
+          "description": "Financial charges of the period, in currency units; i = financial charges / D. Absent\nor null: not given.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "pre_tax_income": {
+          "description": "Income before taxes of the period, in currency units. Absent or null: not given.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "taxes": {
+          "description": "Income taxes of the period, in currency units; t = taxes / pre-tax income. Absent or\nnull: not given.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "debt_basis"
+      ],
+      "type": "object"
+    },
+    "OperatingReturnBase": {
+      "description": "The capital on which the operating return (ROI) and the capital turnover are measured.",
+      "oneOf": [
+        {
+          "const": "invested_capital",
+          "description": "Operating invested capital (`invested_capital` in the balance sheets).",
+          "type": "string"
+        },
+        {
+          "const": "total_assets",
+          "description": "Total assets (`total_assets` in the balance sheets).",
+          "type": "string"
+        }
+      ]
+    },
+    "ProfitabilityBalances": {
+      "additionalProperties": false,
+      "description": "Balance-sheet amounts at one date, in currency units. Every amount is optional: absent or\nnull means not given, and the ratios that need it are not computed.",
+      "properties": {
+        "debt": {
+          "description": "Debt D of the leverage form, in currency units, on the basis chosen in\n`leverage.debt_basis`. Used when `leverage` is given; not used otherwise.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "equity": {
+          "description": "Shareholders' equity, in currency units. May be negative.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "invested_capital": {
+          "description": "Operating invested capital, in currency units. Used when `operating_return_base` is\n`invested_capital` (ROI and capital turnover); not used otherwise.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "total_assets": {
+          "description": "Total assets, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "ProfitabilityIncome": {
+      "additionalProperties": false,
+      "description": "Flows of the period, in currency units. Every amount is optional: absent or null means not\ngiven, and the ratios that need it are not computed (never taken as zero).",
+      "properties": {
+        "ebit": {
+          "description": "EBIT (operating result) of the period, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "ebitda": {
+          "description": "EBITDA of the period, in currency units, as defined in `ebitda_definition` (the EBITDA\nmargin needs both).",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "net_income": {
+          "description": "Net income of the period, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "revenue": {
+          "description": "Revenue of the period, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:ratios.profitability:v2",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `ratios.profitability` (version 2). Only `balances` and `operating_return_base`\nare required; each ratio is computed when its own amounts are given (SPEC-0007 R7).",
+  "properties": {
+    "balances": {
+      "$ref": "#/$defs/Balances",
+      "description": "Balances used by the ratios: `closing`, or `average` of opening and closing."
+    },
+    "closing": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProfitabilityBalances"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Balance sheet at the end of the period. Absent or null: no amount given."
+    },
+    "ebitda_definition": {
+      "description": "How EBITDA was measured, in words (for example \"reported EBITDA, no adjustments\");\nechoed in the conventions. Absent or null: the EBITDA margin is not computed; given\nblank: refused.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "income_statement": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProfitabilityIncome"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Flows of the period. Absent or null: no flow given."
+    },
+    "leverage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LeverageInputs"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Inputs of the leverage form of the ROE decomposition. Absent: the leverage form is not\ndefined and the other ratios are computed."
+    },
+    "opening": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProfitabilityBalances"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Balance sheet at the start of the period, used with average balances; not used with\nclosing balances. Absent with average balances: the balance-sheet ratios are not\ncomputed."
+    },
+    "operating_return_base": {
+      "$ref": "#/$defs/OperatingReturnBase",
+      "description": "Capital on which ROI and the capital turnover are measured."
+    }
+  },
+  "required": [
+    "balances",
+    "operating_return_base"
+  ],
+  "title": "ProfitabilityInput",
+  "type": "object",
+  "x-fairmark-method": "ratios.profitability",
+  "x-fairmark-method-version": "2"
+}

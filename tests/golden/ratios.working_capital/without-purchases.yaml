@@ -1,0 +1,27 @@
+method: ratios.working_capital
+description: 'R7, R10: purchases not given: DPO and the cash conversion cycle not computed'
+source: scripts/reference_ratios_partial.py (Python decimal, 50 digits, local context), written from the
+  formulas and the computability tables of specs/0007-ratios-covenants/spec.md (amendment of 2026-11-09).
+  DSO 1200 × 365 / 5000 = 87.6; DIO 600 × 365 / 3000 = 73.
+input:
+  balances: closing
+  day_basis: '365'
+  income_statement:
+    revenue: '5000'
+    cost_of_sales: '3000'
+  closing:
+    trade_receivables: '1200'
+    inventories: '600'
+    trade_payables: '700'
+expect:
+  /days_sales_outstanding/value: '87.6'
+  /days_inventory_outstanding/value: '73'
+  /days_payable_outstanding/value: 'null'
+  /cash_conversion_cycle/value: 'null'
+  /not_computed/0/output: '/days_payable_outstanding'
+  /not_computed/0/missing/0: '/income_statement/purchases'
+  /not_computed/1/output: '/cash_conversion_cycle'
+  /not_computed/1/missing/0: '/income_statement/purchases'
+expect_length:
+  /not_computed: '2'
+tolerance: '0.00000000000000000001'

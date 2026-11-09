@@ -1,0 +1,11 @@
+method: ratios.debt_service
+description: 'R12: EBITDA alone gives no ratio: refused with FM-E027'
+source: 'Constructed: no output has every input it needs. Alternative minimum sets from scripts/reference_ratios_partial.py:
+  [[''/closing/net_financial_position/cash'', ''/closing/net_financial_position/gross_debt''], [''/income_statement/interest'',
+  ''/interest_definition'']].'
+input:
+  balances: closing
+  ebitda_definition: reported EBITDA, no adjustments
+  income_statement:
+    ebitda: '800'
+expect_error: FM-E027

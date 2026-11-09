@@ -59,3 +59,29 @@ parallel; tick a task only when `just check` passes.
   Italian edition with the glossary, stamped
 - [x] T34 [P] Release note fragment `changes/147.feature.md`; roadmap #147 done
 - [x] T35 `uv run just check` green
+
+## Partial input, issue #262 (amendment of 2026-11-09)
+- [x] T36 Reference `scripts/reference_ratios_partial.py` (Python `decimal`, written from the
+  formulas, no shared code) [R7, R10, R11; AC7, AC8]
+- [x] T37 Golden cases with partial inputs for each method; the three approved version 1
+  error cases of `ratios.profitability` replaced by their partial results [AC7, AC8, AC9,
+  AC10]
+- [x] T38 Engine test removing each input of the computability table [AC6]
+- [x] T39 Shared `NotComputedEntry` with an optional `reason`; `statements.reorganise` output
+  unchanged
+- [x] T40 Every `ratios.*` method: optional amounts, `not_computed`, version 2, schemas v2
+  [R7 to R11]
+- [x] T41 Python helpers, methodology pages (English and Italian), release note
+  `changes/262.feature.md`; roadmap #262 done
+
+## Review of 2026-11-09 (issue #262)
+- [x] T42 The floor (R12): `FM-E027` with the alternative sets, a golden case and an engine
+  test per method; spec, errors page and method pages in English and Italian
+- [x] T43 The two documented defaults (R13) in `meta.defaults_applied` with their warnings and
+  their admission tests; `reserve_balance` reported, not written into the input
+- [x] T44 The discount rate checked whenever given (R14)
+- [x] T45 One net financial position formula and audit trail; no default value for a missing
+  term; pointers sorted with array indices as numbers; covenant reason wording
+- [x] T46 AC6 rows for the other items and the opening net financial position; `expect_length`
+  in the new golden cases
+- [x] T47 Minimal tool examples from the partial golden cases (`scripts/tool_examples.py`)

@@ -870,24 +870,12 @@
   },
   "ratios.capital_structure": {
     "minimal": {
-      "source": "tests/golden/ratios.capital_structure/closing-balances.yaml",
+      "source": "tests/golden/ratios.capital_structure/equity-ratio-only.yaml",
       "input": {
         "balances": "closing",
         "closing": {
           "equity": "2000",
-          "total_assets": "6000",
-          "fixed_assets": "3500",
-          "non_current_liabilities": "1800",
-          "net_financial_position": {
-            "gross_debt": "2200",
-            "cash": "300",
-            "other_items": [
-              {
-                "name": "lease liabilities",
-                "amount": "150"
-              }
-            ]
-          }
+          "total_assets": "6000"
         }
       }
     },
@@ -1003,22 +991,13 @@
   },
   "ratios.debt_service": {
     "minimal": {
-      "source": "tests/golden/ratios.debt_service/no-debt-schedule.yaml",
+      "source": "tests/golden/ratios.debt_service/interest-cover-only.yaml",
       "input": {
         "balances": "closing",
-        "ebitda_definition": "reported EBITDA, no adjustments",
         "interest_definition": "gross interest expense",
         "income_statement": {
-          "ebitda": "800",
           "ebit": "500",
           "interest": "100"
-        },
-        "closing": {
-          "net_financial_position": {
-            "gross_debt": "2200",
-            "cash": "300",
-            "other_items": []
-          }
         }
       }
     },
@@ -1071,13 +1050,11 @@
   },
   "ratios.liquidity": {
     "minimal": {
-      "source": "tests/golden/ratios.liquidity/closing-balances.yaml",
+      "source": "tests/golden/ratios.liquidity/current-ratio-only.yaml",
       "input": {
         "balances": "closing",
         "closing": {
           "current_assets": "2500",
-          "inventories": "900",
-          "cash": "200",
           "current_liabilities": "2000"
         }
       }
@@ -1103,21 +1080,15 @@
   },
   "ratios.profitability": {
     "minimal": {
-      "source": "tests/golden/ratios.profitability/closing-balances.yaml",
+      "source": "tests/golden/ratios.profitability/roe-only.yaml",
       "input": {
         "balances": "closing",
-        "operating_return_base": "invested_capital",
-        "ebitda_definition": "reported EBITDA, no adjustments",
+        "operating_return_base": "total_assets",
         "income_statement": {
-          "revenue": "5000",
-          "ebitda": "800",
-          "ebit": "500",
           "net_income": "260"
         },
         "closing": {
-          "equity": "2000",
-          "total_assets": "6000",
-          "invested_capital": "4000"
+          "equity": "2000"
         }
       }
     },
@@ -1156,19 +1127,15 @@
   },
   "ratios.working_capital": {
     "minimal": {
-      "source": "tests/golden/ratios.working_capital/closing-365.yaml",
+      "source": "tests/golden/ratios.working_capital/dso-only.yaml",
       "input": {
         "balances": "closing",
         "day_basis": "365",
         "income_statement": {
-          "revenue": "5000",
-          "cost_of_sales": "3000",
-          "purchases": "2800"
+          "revenue": "5000"
         },
         "closing": {
-          "trade_receivables": "1200",
-          "inventories": "600",
-          "trade_payables": "700"
+          "trade_receivables": "1200"
         }
       }
     },

@@ -1,0 +1,25 @@
+method: ratios.liquidity
+description: 'R7, R12: the minimal input for the current ratio and net working capital'
+source: scripts/reference_ratios_partial.py (Python decimal, 50 digits, local context), written from the
+  formulas and the computability tables of specs/0007-ratios-covenants/spec.md (amendment of 2026-11-09).
+  Current ratio 2500 / 2000 = 1.25; net working capital 500.
+input:
+  balances: closing
+  closing:
+    current_assets: '2500'
+    current_liabilities: '2000'
+expect:
+  /current_ratio/value: '1.25'
+  /quick_ratio/value: 'null'
+  /cash_ratio/value: 'null'
+  /net_working_capital: '500'
+  /treasury_margin: 'null'
+  /not_computed/0/output: '/quick_ratio'
+  /not_computed/0/missing/0: '/closing/inventories'
+  /not_computed/1/output: '/cash_ratio'
+  /not_computed/1/missing/0: '/closing/cash'
+  /not_computed/2/output: '/treasury_margin'
+  /not_computed/2/missing/0: '/closing/inventories'
+expect_length:
+  /not_computed: '3'
+tolerance: '0.00000000000000000001'

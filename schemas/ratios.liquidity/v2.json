@@ -1,0 +1,101 @@
+{
+  "$defs": {
+    "Balances": {
+      "description": "Which balance-sheet amounts the ratios use (SPEC-0007 R2). No default: the analyst chooses.",
+      "oneOf": [
+        {
+          "const": "closing",
+          "description": "Balances at the end of the period (`closing`).",
+          "type": "string"
+        },
+        {
+          "const": "average",
+          "description": "Average of the opening and closing balances: (opening + closing) / 2. Needs `opening`.",
+          "type": "string"
+        }
+      ]
+    },
+    "LiquidityBalances": {
+      "additionalProperties": false,
+      "description": "Balance-sheet amounts at one date, in currency units. Every amount is optional: absent or\nnull means not given, and the outputs that need it are not computed (never taken as zero).",
+      "properties": {
+        "cash": {
+          "description": "Cash and cash equivalents (part of current assets), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "current_assets": {
+          "description": "Current assets, inventories and cash included, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "current_liabilities": {
+          "description": "Current liabilities, in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "inventories": {
+          "description": "Inventories (part of current assets), in currency units.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:ratios.liquidity:v2",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input of `ratios.liquidity` (version 2). Only `balances` is required; each output is\ncomputed when its own amounts are given (SPEC-0007 R7).",
+  "properties": {
+    "balances": {
+      "$ref": "#/$defs/Balances",
+      "description": "Balances used by the ratios: `closing`, or `average` of opening and closing."
+    },
+    "closing": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LiquidityBalances"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Balance sheet at the end of the period. Absent or null: no amount given."
+    },
+    "opening": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LiquidityBalances"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Balance sheet at the start of the period, used with average balances; not used with\nclosing balances. Absent with average balances: no output is computed."
+    }
+  },
+  "required": [
+    "balances"
+  ],
+  "title": "LiquidityInput",
+  "type": "object",
+  "x-fairmark-method": "ratios.liquidity",
+  "x-fairmark-method-version": "2"
+}
