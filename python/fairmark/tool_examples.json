@@ -1,0 +1,1886 @@
+{
+  "analysis.goal_seek": {
+    "minimal": {
+      "source": "tests/golden/analysis.goal_seek/irr-via-npv.yaml",
+      "input": {
+        "method": "tvm.npv",
+        "base_input": {
+          "rate": "0.05",
+          "cash_flows": [
+            -1000,
+            300,
+            400,
+            500
+          ]
+        },
+        "variable": "/rate",
+        "output": "/npv",
+        "target": "0",
+        "bracket": [
+          "0",
+          "1"
+        ],
+        "tolerance": "0.000000000000000001"
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/analysis.goal_seek/dcf-implied-discount-rate.yaml",
+      "input": {
+        "method": "dcf.fcff",
+        "base_input": {
+          "stages": [
+            {
+              "periods": 3,
+              "projection": "given",
+              "flows": [
+                100,
+                110,
+                120
+              ]
+            }
+          ],
+          "cash_flow_terms": "nominal",
+          "discount_rate_terms": "nominal",
+          "wacc": "0.10",
+          "timing": "end_of_period",
+          "terminal": {
+            "tv.gordon": {
+              "growth": "0.02",
+              "first_flow": "last_flow_grown"
+            }
+          },
+          "net_financial_position": {
+            "gross_debt": 200,
+            "cash": 0
+          }
+        },
+        "variable": "/wacc",
+        "output": "/enterprise_value",
+        "target": "1300",
+        "bracket": [
+          "0.05",
+          "0.5"
+        ]
+      }
+    }
+  },
+  "analysis.scenarios": {
+    "minimal": {
+      "source": "tests/golden/analysis.scenarios/zero-base.yaml",
+      "input": {
+        "method": "tvm.npv",
+        "base_input": {
+          "rate": "0.10",
+          "cash_flows": [
+            -100,
+            110
+          ]
+        },
+        "outputs": [
+          "/npv"
+        ],
+        "scenarios": [
+          {
+            "name": "lower rate",
+            "overrides": [
+              {
+                "pointer": "/rate",
+                "value": "0.05"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/analysis.scenarios/dcf-three-cases.yaml",
+      "input": {
+        "method": "dcf.fcff",
+        "base_input": {
+          "stages": [
+            {
+              "periods": 5,
+              "projection": "given",
+              "flows": [
+                100,
+                110,
+                120,
+                130,
+                140
+              ]
+            }
+          ],
+          "cash_flow_terms": "nominal",
+          "discount_rate_terms": "nominal",
+          "wacc": "0.09",
+          "timing": "end_of_period",
+          "terminal": {
+            "tv.gordon": {
+              "growth": "0.02",
+              "first_flow": "last_flow_grown"
+            }
+          },
+          "net_financial_position": {
+            "gross_debt": 300,
+            "cash": 0
+          }
+        },
+        "outputs": [
+          "/enterprise_value",
+          "/equity_value"
+        ],
+        "scenarios": [
+          {
+            "name": "downside",
+            "overrides": [
+              {
+                "pointer": "/wacc",
+                "value": "0.10"
+              },
+              {
+                "pointer": "/terminal/tv.gordon/growth",
+                "value": "0.01"
+              },
+              {
+                "pointer": "/stages/0/flows/0",
+                "value": "90"
+              }
+            ]
+          },
+          {
+            "name": "upside",
+            "overrides": [
+              {
+                "pointer": "/wacc",
+                "value": "0.08"
+              },
+              {
+                "pointer": "/terminal/tv.gordon/growth",
+                "value": "0.025"
+              }
+            ]
+          },
+          {
+            "name": "impossible",
+            "overrides": [
+              {
+                "pointer": "/terminal/tv.gordon/growth",
+                "value": "0.12"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "analysis.sensitivity": {
+    "minimal": {
+      "source": "tests/golden/analysis.sensitivity/wacc-one-way.yaml",
+      "input": {
+        "method": "dcf.fcff",
+        "base_input": {
+          "stages": [
+            {
+              "periods": 5,
+              "projection": "given",
+              "flows": [
+                100,
+                110,
+                120,
+                130,
+                140
+              ]
+            }
+          ],
+          "cash_flow_terms": "nominal",
+          "discount_rate_terms": "nominal",
+          "wacc": "0.09",
+          "timing": "end_of_period",
+          "terminal": {
+            "tv.gordon": {
+              "growth": "0.02",
+              "first_flow": "last_flow_grown"
+            }
+          },
+          "net_financial_position": {
+            "gross_debt": 300,
+            "cash": 0
+          }
+        },
+        "output": "/enterprise_value",
+        "rows": {
+          "variable": "/wacc",
+          "values": [
+            "0.07",
+            "0.08",
+            "0.09",
+            "0.10",
+            "0.11"
+          ]
+        }
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/analysis.sensitivity/wacc-g-5x5.yaml",
+      "input": {
+        "method": "dcf.fcff",
+        "base_input": {
+          "stages": [
+            {
+              "periods": 5,
+              "projection": "given",
+              "flows": [
+                100,
+                110,
+                120,
+                130,
+                140
+              ]
+            }
+          ],
+          "cash_flow_terms": "nominal",
+          "discount_rate_terms": "nominal",
+          "wacc": "0.09",
+          "timing": "end_of_period",
+          "terminal": {
+            "tv.gordon": {
+              "growth": "0.02",
+              "first_flow": "last_flow_grown"
+            }
+          },
+          "net_financial_position": {
+            "gross_debt": 300,
+            "cash": 0
+          }
+        },
+        "output": "/enterprise_value",
+        "rows": {
+          "variable": "/wacc",
+          "values": [
+            "0.07",
+            "0.08",
+            "0.09",
+            "0.10",
+            "0.11"
+          ]
+        },
+        "columns": {
+          "variable": "/terminal/tv.gordon/growth",
+          "values": [
+            "0",
+            "0.01",
+            "0.02",
+            "0.03",
+            "0.08"
+          ]
+        }
+      }
+    }
+  },
+  "analysis.tornado": {
+    "minimal": {
+      "source": "tests/golden/analysis.tornado/npv-tie.yaml",
+      "input": {
+        "method": "tvm.npv",
+        "base_input": {
+          "rate": "0",
+          "cash_flows": [
+            -100,
+            50,
+            60
+          ]
+        },
+        "output": "/npv",
+        "variables": [
+          {
+            "variable": "/cash_flows/2",
+            "low": "59",
+            "high": "61"
+          },
+          {
+            "variable": "/cash_flows/1",
+            "low": "49",
+            "high": "51"
+          }
+        ]
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/analysis.tornado/dcf-four-drivers.yaml",
+      "input": {
+        "method": "dcf.fcff",
+        "base_input": {
+          "stages": [
+            {
+              "periods": 5,
+              "projection": "given",
+              "flows": [
+                100,
+                110,
+                120,
+                130,
+                140
+              ]
+            }
+          ],
+          "cash_flow_terms": "nominal",
+          "discount_rate_terms": "nominal",
+          "wacc": "0.09",
+          "timing": "end_of_period",
+          "terminal": {
+            "tv.gordon": {
+              "growth": "0.02",
+              "first_flow": "last_flow_grown"
+            }
+          },
+          "net_financial_position": {
+            "gross_debt": 300,
+            "cash": 0
+          }
+        },
+        "output": "/equity_value",
+        "variables": [
+          {
+            "variable": "/net_financial_position/gross_debt",
+            "low": "250",
+            "high": "350"
+          },
+          {
+            "variable": "/stages/0/flows/0",
+            "low": "90",
+            "high": "110"
+          },
+          {
+            "variable": "/terminal/tv.gordon/growth",
+            "low": "0.01",
+            "high": "0.03"
+          },
+          {
+            "variable": "/wacc",
+            "low": "0.08",
+            "high": "0.10"
+          }
+        ]
+      }
+    }
+  },
+  "coc.beta_peers": {
+    "minimal": {
+      "source": "tests/golden/coc.beta_peers/three-peers-mean-harris-pringle.yaml",
+      "input": {
+        "formula": "harris_pringle",
+        "statistic": "mean",
+        "debt_beta": "0.1",
+        "target_debt_to_equity": "0.25",
+        "target_tax_rate": "0.24",
+        "peers": [
+          {
+            "name": "Peer A",
+            "levered_beta": "1.2",
+            "debt_to_equity": "0.5",
+            "tax_rate": "0.24"
+          },
+          {
+            "name": "Peer B",
+            "levered_beta": "0.9",
+            "debt_to_equity": "0.2",
+            "tax_rate": "0.3"
+          },
+          {
+            "name": "Peer C",
+            "levered_beta": "1.0",
+            "debt_to_equity": "0",
+            "tax_rate": "0.24"
+          }
+        ]
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/coc.beta_peers/five-peers-median.yaml",
+      "input": {
+        "formula": "hamada",
+        "statistic": "median",
+        "target_debt_to_equity": "0.5",
+        "target_tax_rate": "0.24",
+        "peers": [
+          {
+            "name": "Peer A",
+            "levered_beta": "1.15",
+            "debt_to_equity": "0.40",
+            "tax_rate": "0.24"
+          },
+          {
+            "name": "Peer B",
+            "levered_beta": "0.95",
+            "debt_to_equity": "0.20",
+            "tax_rate": "0.25"
+          },
+          {
+            "name": "Peer C",
+            "levered_beta": "1.30",
+            "debt_to_equity": "0.75",
+            "tax_rate": "0.21"
+          },
+          {
+            "name": "Peer D",
+            "levered_beta": "1.05",
+            "debt_to_equity": "0.35",
+            "tax_rate": "0.24"
+          },
+          {
+            "name": "Peer E",
+            "levered_beta": "0.88",
+            "debt_to_equity": "0.10",
+            "tax_rate": "0.28"
+          }
+        ]
+      }
+    }
+  },
+  "coc.beta_relever": {
+    "minimal": {
+      "source": "tests/golden/coc.beta_relever/hamada-relever.yaml",
+      "input": {
+        "beta": "0.8",
+        "direction": "relever",
+        "debt_to_equity": "0.5",
+        "tax_rate": "0.24",
+        "formula": "hamada"
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/coc.beta_relever/harris-pringle-debt-beta.yaml",
+      "input": {
+        "beta": "0.8",
+        "direction": "relever",
+        "debt_to_equity": "0.5",
+        "tax_rate": "0.24",
+        "formula": "harris_pringle",
+        "debt_beta": "0.2"
+      }
+    }
+  },
+  "coc.cost_of_debt": {
+    "minimal": {
+      "source": "tests/golden/coc.cost_of_debt/spread.yaml",
+      "input": {
+        "risk_free_rate": "0.03",
+        "credit_spread": "0.025",
+        "tax_rate": "0.24"
+      }
+    }
+  },
+  "coc.cost_of_equity": {
+    "minimal": {
+      "source": "tests/golden/coc.cost_of_equity/capm-basic.yaml",
+      "input": {
+        "risk_free_rate": "0.03",
+        "levered_beta": "1.2",
+        "equity_risk_premium": "0.05"
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/coc.cost_of_equity/capm-with-premia.yaml",
+      "input": {
+        "risk_free_rate": "0.035",
+        "levered_beta": "1.1",
+        "equity_risk_premium": "0.055",
+        "country_risk_premium": "0.02",
+        "country_exposure": "0.5",
+        "size_premium": "0.02",
+        "specific_risk_premium": "0.01",
+        "specific_risk_justification": "Dependence on two customers for 60% of revenue"
+      }
+    }
+  },
+  "coc.wacc": {
+    "minimal": {
+      "source": "tests/golden/coc.wacc/target-debt-weight.yaml",
+      "input": {
+        "cost_of_equity": "0.10",
+        "pre_tax_cost_of_debt": "0.06",
+        "tax_rate": "0.25",
+        "debt_weight": "0.3"
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/coc.wacc/target-debt-to-equity.yaml",
+      "input": {
+        "cost_of_equity": "0.0852",
+        "pre_tax_cost_of_debt": "0.055",
+        "tax_rate": "0.24",
+        "debt_to_equity": "0.5"
+      }
+    }
+  },
+  "dates.schedule": {
+    "minimal": {
+      "source": "tests/golden/dates.schedule/quarterly-from-1-january.yaml",
+      "input": {
+        "start_date": "2026-01-01",
+        "frequency": "quarterly",
+        "number_of_periods": 4
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/dates.schedule/day-count-act-360.yaml",
+      "input": {
+        "start_date": "2024-01-31",
+        "frequency": "monthly",
+        "number_of_periods": 4,
+        "day_count": "act_360"
+      }
+    }
+  },
+  "dates.year_fraction": {
+    "minimal": {
+      "source": "tests/golden/dates.year_fraction/act-360.yaml",
+      "input": {
+        "start": "2024-01-15",
+        "end": "2024-07-15",
+        "day_count": "act_360"
+      }
+    }
+  },
+  "dcf.fcfe": {
+    "minimal": {
+      "source": "tests/golden/dcf.fcfe/flows-only-single-cost-of-equity.yaml",
+      "input": {
+        "stages": [
+          {
+            "flows": [
+              "80",
+              "85",
+              "92",
+              "96",
+              "101"
+            ]
+          }
+        ],
+        "cost_of_equity": "0.11"
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/dcf.fcfe/three-stage-cost-of-equity-per-period-bridge.yaml",
+      "input": {
+        "stages": [
+          {
+            "periods": 3,
+            "projection": "given",
+            "flows": [
+              "420",
+              "455",
+              "490"
+            ]
+          },
+          {
+            "periods": 3,
+            "projection": "linear_decline",
+            "from_growth": "0.08",
+            "to_growth": "0.03"
+          }
+        ],
+        "cash_flow_terms": "nominal",
+        "discount_rate_terms": "nominal",
+        "cost_of_equity_per_period": [
+          "0.125",
+          "0.125",
+          "0.12",
+          "0.115",
+          "0.11",
+          "0.105"
+        ],
+        "terminal_cost_of_equity": "0.10",
+        "timing": "end_of_period",
+        "terminal": {
+          "tv.gordon": {
+            "growth": "0.03",
+            "first_flow": "last_flow_grown"
+          }
+        },
+        "non_operating_assets": [
+          {
+            "label": "Excess cash not needed for operations, interest income not in the FCFE",
+            "value": "310"
+          },
+          {
+            "label": "Investment property",
+            "value": "95.5"
+          }
+        ],
+        "debt_like_items": [
+          {
+            "label": "Unfunded pension obligation",
+            "value": "140",
+            "measurement_basis": "present_value",
+            "basis_note": "net of plan assets, after tax"
+          }
+        ],
+        "non_controlling_interests": [
+          {
+            "label": "25% of Subsidiary B",
+            "value": "260",
+            "measurement_basis": "fair_value"
+          }
+        ]
+      }
+    }
+  },
+  "dcf.fcff": {
+    "minimal": {
+      "source": "tests/golden/dcf.fcff/flows-only-single-wacc.yaml",
+      "input": {
+        "stages": [
+          {
+            "flows": [
+              "120",
+              "135",
+              "150",
+              "160",
+              "170"
+            ]
+          }
+        ],
+        "wacc": "0.09"
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/dcf.fcff/bridge-every-line.yaml",
+      "input": {
+        "stages": [
+          {
+            "periods": 4,
+            "projection": "given",
+            "flows": [
+              "250",
+              "270",
+              "285",
+              "300"
+            ]
+          }
+        ],
+        "cash_flow_terms": "nominal",
+        "discount_rate_terms": "nominal",
+        "wacc": "0.09",
+        "timing": "end_of_period",
+        "terminal": {
+          "tv.gordon": {
+            "growth": "0.02",
+            "first_flow": "last_flow_grown"
+          }
+        },
+        "net_financial_position": {
+          "gross_debt": "900",
+          "cash": "150",
+          "other_items": [
+            {
+              "name": "lease liabilities",
+              "amount": "120"
+            },
+            {
+              "name": "derivative assets",
+              "amount": "-20"
+            }
+          ]
+        },
+        "non_operating_assets": [
+          {
+            "label": "Land held for sale",
+            "value": "80"
+          },
+          {
+            "label": "Investment in an associate",
+            "value": "45.5"
+          }
+        ],
+        "debt_like_items": [
+          {
+            "label": "Unfunded pension obligation",
+            "value": "95",
+            "measurement_basis": "present_value",
+            "basis_note": "obligation net of plan assets, after tax"
+          },
+          {
+            "label": "Environmental remediation provision",
+            "value": "32.25",
+            "measurement_basis": "other",
+            "basis_note": "best estimate of the settlement amount, undiscounted"
+          }
+        ],
+        "non_controlling_interests": [
+          {
+            "label": "30% of Subsidiary A",
+            "value": "210",
+            "measurement_basis": "fair_value"
+          }
+        ]
+      }
+    }
+  },
+  "dcf.free_cash_flows": {
+    "minimal": {
+      "source": "tests/golden/dcf.free_cash_flows/damodaran-boeing-illustration-15-7.yaml",
+      "input": {
+        "periods": [
+          {
+            "ebit": "1753",
+            "operating_taxes": "615",
+            "depreciation_and_amortisation": "1517",
+            "capital_expenditure": "1584",
+            "change_in_net_working_capital": "-105"
+          }
+        ]
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/dcf.free_cash_flows/amounts-form-with-adjustments.yaml",
+      "input": {
+        "interest_tax_rate": "0.279",
+        "periods": [
+          {
+            "ebit": "845.7",
+            "operating_taxes": "236.0",
+            "depreciation_and_amortisation": "120.4",
+            "capital_expenditure": "180",
+            "change_in_net_working_capital": "22.15",
+            "other_adjustments": [
+              {
+                "label": "Disposal of a warehouse",
+                "value": "60"
+              },
+              {
+                "label": "Provision utilisation",
+                "value": "-14.3"
+              }
+            ],
+            "interest_expense": "41.2",
+            "net_borrowing": "25"
+          },
+          {
+            "ebit": "910.25",
+            "operating_taxes": "253.96",
+            "depreciation_and_amortisation": "128.1",
+            "capital_expenditure": "205.5",
+            "change_in_net_working_capital": "18.4",
+            "other_adjustments": [
+              {
+                "label": "Provision utilisation",
+                "value": "-9.85"
+              }
+            ],
+            "interest_expense": "38.75",
+            "net_borrowing": "-30"
+          }
+        ]
+      }
+    }
+  },
+  "loans.amortisation_schedule": {
+    "minimal": {
+      "source": "tests/golden/loans.amortisation_schedule/french-annual.yaml",
+      "input": {
+        "principal": "200000",
+        "rate": "0.08",
+        "compounding": "annual",
+        "payment_frequency": "annual",
+        "number_of_instalments": 10,
+        "timing": "ordinary",
+        "amortisation_type": "french"
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/loans.amortisation_schedule/french-grace-balloon.yaml",
+      "input": {
+        "principal": "100000",
+        "rate": "0.048",
+        "compounding": "monthly",
+        "payment_frequency": "monthly",
+        "number_of_instalments": 60,
+        "timing": "ordinary",
+        "amortisation_type": "french",
+        "principal_grace_periods": 2,
+        "balloon_amount": "20000"
+      }
+    }
+  },
+  "loans.instalment": {
+    "minimal": {
+      "source": "tests/golden/loans.instalment/periodic-rate-form.yaml",
+      "input": {
+        "principal": "20000",
+        "periodic_rate": "0.005",
+        "number_of_instalments": 36,
+        "timing": "ordinary"
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/loans.instalment/balloon-arrears.yaml",
+      "input": {
+        "principal": "250000",
+        "rate": "0.054",
+        "compounding": "monthly",
+        "payment_frequency": "monthly",
+        "number_of_instalments": 120,
+        "timing": "ordinary",
+        "balloon_amount": "50000"
+      }
+    }
+  },
+  "loans.number_of_instalments": {
+    "minimal": {
+      "source": "tests/golden/loans.number_of_instalments/non-integer-arrears.yaml",
+      "input": {
+        "principal": "3000",
+        "periodic_rate": "0.02",
+        "instalment": "800",
+        "timing": "ordinary"
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/loans.number_of_instalments/non-integer-advance.yaml",
+      "input": {
+        "principal": "15000",
+        "rate": "0.07",
+        "compounding": "annual",
+        "payment_frequency": "monthly",
+        "instalment": "500",
+        "timing": "due"
+      }
+    }
+  },
+  "rates.convert": {
+    "minimal": {
+      "source": "tests/golden/rates.convert/monthly-to-annual.yaml",
+      "input": {
+        "rate": "0.12",
+        "from": "monthly",
+        "to": "annual"
+      }
+    }
+  },
+  "rates.real_nominal": {
+    "minimal": {
+      "source": "tests/golden/rates.real_nominal/to-real.yaml",
+      "input": {
+        "rate": "0.08",
+        "inflation": "0.03",
+        "direction": "to_real"
+      }
+    }
+  },
+  "ratios.capital_structure": {
+    "minimal": {
+      "source": "tests/golden/ratios.capital_structure/closing-balances.yaml",
+      "input": {
+        "balances": "closing",
+        "closing": {
+          "equity": "2000",
+          "total_assets": "6000",
+          "fixed_assets": "3500",
+          "non_current_liabilities": "1800",
+          "net_financial_position": {
+            "gross_debt": "2200",
+            "cash": "300",
+            "other_items": [
+              {
+                "name": "lease liabilities",
+                "amount": "150"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/ratios.capital_structure/average-balances.yaml",
+      "input": {
+        "balances": "average",
+        "closing": {
+          "equity": "2000",
+          "total_assets": "6000",
+          "fixed_assets": "3500",
+          "non_current_liabilities": "1800",
+          "net_financial_position": {
+            "gross_debt": "2200",
+            "cash": "300",
+            "other_items": [
+              {
+                "name": "lease liabilities",
+                "amount": "150"
+              }
+            ]
+          }
+        },
+        "opening": {
+          "equity": "1800",
+          "total_assets": "5600",
+          "fixed_assets": "3300",
+          "non_current_liabilities": "1700",
+          "net_financial_position": {
+            "gross_debt": "2400",
+            "cash": "250",
+            "other_items": []
+          }
+        }
+      }
+    }
+  },
+  "ratios.covenants": {
+    "minimal": {
+      "source": "tests/golden/ratios.covenants/display-at-threshold.yaml",
+      "input": {
+        "covenants": [
+          {
+            "name": "net leverage, half above the threshold",
+            "test_date": "2026-12-31",
+            "numerator": {
+              "definition": "consolidated net financial debt at the test date",
+              "amount": "79228162514264337593543950333"
+            },
+            "denominator": {
+              "definition": "consolidated EBITDA for the 12 months ending on the test date",
+              "amount": "2"
+            },
+            "operator": "at_most",
+            "threshold": "39614081257132168796771975166",
+            "if_denominator_not_positive": "not_tested"
+          }
+        ]
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/ratios.covenants/one-breach.yaml",
+      "input": {
+        "covenants": [
+          {
+            "name": "net leverage",
+            "test_date": "2026-12-31",
+            "numerator": {
+              "definition": "consolidated net financial debt at the test date",
+              "amount": "1900"
+            },
+            "denominator": {
+              "definition": "consolidated EBITDA for the 12 months ending on the test date",
+              "amount": "600"
+            },
+            "operator": "at_most",
+            "threshold": "3.5",
+            "if_denominator_not_positive": "not_tested"
+          },
+          {
+            "name": "interest cover",
+            "test_date": "2026-12-31",
+            "numerator": {
+              "definition": "consolidated EBITDA for the 12 months ending on the test date",
+              "amount": "600"
+            },
+            "denominator": {
+              "definition": "net finance charges for the 12 months ending on the test date",
+              "amount": "175"
+            },
+            "operator": "at_least",
+            "threshold": "4",
+            "if_denominator_not_positive": "not_tested"
+          },
+          {
+            "name": "debt service cover",
+            "test_date": "2026-12-31",
+            "numerator": {
+              "definition": "cash flow available for debt service for the 12 months ending on the test date",
+              "amount": "700"
+            },
+            "denominator": {
+              "definition": "debt service for the 12 months ending on the test date",
+              "amount": "530"
+            },
+            "operator": "at_least",
+            "threshold": "1.2",
+            "if_denominator_not_positive": "not_tested"
+          }
+        ]
+      }
+    }
+  },
+  "ratios.debt_service": {
+    "minimal": {
+      "source": "tests/golden/ratios.debt_service/no-debt-schedule.yaml",
+      "input": {
+        "balances": "closing",
+        "ebitda_definition": "reported EBITDA, no adjustments",
+        "interest_definition": "gross interest expense",
+        "income_statement": {
+          "ebitda": "800",
+          "ebit": "500",
+          "interest": "100"
+        },
+        "closing": {
+          "net_financial_position": {
+            "gross_debt": "2200",
+            "cash": "300",
+            "other_items": []
+          }
+        }
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/ratios.debt_service/level-cfads.yaml",
+      "input": {
+        "balances": "closing",
+        "ebitda_definition": "reported EBITDA, no adjustments",
+        "interest_definition": "gross interest expense",
+        "income_statement": {
+          "ebitda": "800",
+          "ebit": "500",
+          "interest": "100"
+        },
+        "closing": {
+          "net_financial_position": {
+            "gross_debt": "2200",
+            "cash": "300",
+            "other_items": []
+          }
+        },
+        "debt_schedule": {
+          "discount_rate": "0.06",
+          "debt_outstanding": "1000",
+          "periods": [
+            {
+              "cfads": "250",
+              "debt_service": "200"
+            },
+            {
+              "cfads": "250",
+              "debt_service": "200"
+            },
+            {
+              "cfads": "250",
+              "debt_service": "200"
+            },
+            {
+              "cfads": "250",
+              "debt_service": "200"
+            },
+            {
+              "cfads": "250",
+              "debt_service": "200"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "ratios.liquidity": {
+    "minimal": {
+      "source": "tests/golden/ratios.liquidity/closing-balances.yaml",
+      "input": {
+        "balances": "closing",
+        "closing": {
+          "current_assets": "2500",
+          "inventories": "900",
+          "cash": "200",
+          "current_liabilities": "2000"
+        }
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/ratios.liquidity/average-balances.yaml",
+      "input": {
+        "balances": "average",
+        "closing": {
+          "current_assets": "2500",
+          "inventories": "900",
+          "cash": "200",
+          "current_liabilities": "2000"
+        },
+        "opening": {
+          "current_assets": "2300",
+          "inventories": "850",
+          "cash": "150",
+          "current_liabilities": "1900"
+        }
+      }
+    }
+  },
+  "ratios.profitability": {
+    "minimal": {
+      "source": "tests/golden/ratios.profitability/closing-balances.yaml",
+      "input": {
+        "balances": "closing",
+        "operating_return_base": "invested_capital",
+        "ebitda_definition": "reported EBITDA, no adjustments",
+        "income_statement": {
+          "revenue": "5000",
+          "ebitda": "800",
+          "ebit": "500",
+          "net_income": "260"
+        },
+        "closing": {
+          "equity": "2000",
+          "total_assets": "6000",
+          "invested_capital": "4000"
+        }
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/ratios.profitability/leverage-gross-debt-average.yaml",
+      "input": {
+        "balances": "average",
+        "operating_return_base": "invested_capital",
+        "ebitda_definition": "reported EBITDA, no adjustments",
+        "income_statement": {
+          "revenue": "5000",
+          "ebitda": "800",
+          "ebit": "500",
+          "net_income": "260"
+        },
+        "closing": {
+          "equity": "2000",
+          "total_assets": "6000",
+          "invested_capital": "4000",
+          "debt": "2200"
+        },
+        "opening": {
+          "equity": "1800",
+          "total_assets": "5600",
+          "invested_capital": "3800",
+          "debt": "2000"
+        },
+        "leverage": {
+          "debt_basis": "gross_financial_debt",
+          "financial_charges": "100",
+          "taxes": "140",
+          "pre_tax_income": "400"
+        }
+      }
+    }
+  },
+  "ratios.working_capital": {
+    "minimal": {
+      "source": "tests/golden/ratios.working_capital/closing-365.yaml",
+      "input": {
+        "balances": "closing",
+        "day_basis": "365",
+        "income_statement": {
+          "revenue": "5000",
+          "cost_of_sales": "3000",
+          "purchases": "2800"
+        },
+        "closing": {
+          "trade_receivables": "1200",
+          "inventories": "600",
+          "trade_payables": "700"
+        }
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/ratios.working_capital/average-360.yaml",
+      "input": {
+        "balances": "average",
+        "day_basis": "360",
+        "income_statement": {
+          "revenue": "5000",
+          "cost_of_sales": "3000",
+          "purchases": "2800"
+        },
+        "closing": {
+          "trade_receivables": "1200",
+          "inventories": "600",
+          "trade_payables": "700"
+        },
+        "opening": {
+          "trade_receivables": "1000",
+          "inventories": "500",
+          "trade_payables": "650"
+        }
+      }
+    }
+  },
+  "series.project": {
+    "minimal": {
+      "source": "tests/golden/series.project/constant-period-1.yaml",
+      "input": {
+        "base_value": "100",
+        "base_period": "period_1",
+        "growth": {
+          "constant": {
+            "growth": "0.05"
+          }
+        },
+        "timeline": {
+          "periods": {
+            "number_of_periods": 3
+          }
+        }
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/series.project/schedule-quarterly-end-of-period.yaml",
+      "input": {
+        "base_value": "300",
+        "base_period": "period_0",
+        "growth": {
+          "constant": {
+            "growth": "0.02"
+          }
+        },
+        "growth_basis": "per_period",
+        "timeline": {
+          "schedule": {
+            "start_date": "2026-01-01",
+            "frequency": "quarterly",
+            "number_of_periods": 4
+          }
+        },
+        "timing": "end_of_period"
+      }
+    }
+  },
+  "statements.reorganise": {
+    "minimal": {
+      "source": "tests/golden/statements.reorganise/balance-sheet-abridged.yaml",
+      "input": {
+        "years": [
+          {
+            "label": "2024",
+            "date": "2024-12-31",
+            "statutory": {
+              "layout": "abridged",
+              "balance_sheet": {
+                "subscribed_capital_unpaid": "0",
+                "intangible_assets": {
+                  "total": "120000"
+                },
+                "tangible_assets": {
+                  "total": "900000"
+                },
+                "financial_fixed_assets": "150000",
+                "inventories": "400000",
+                "receivables": {
+                  "total": "980000",
+                  "beyond_one_year": "50000",
+                  "trade": "800000",
+                  "prepayments_and_accrued_income": "30000"
+                },
+                "current_financial_assets": "60000",
+                "cash": "240000",
+                "total_assets": "2850000",
+                "equity": {
+                  "total": "900000",
+                  "profit_or_loss_for_the_year": "150000"
+                },
+                "provisions": {
+                  "total": "70000",
+                  "of_which_derivative_liabilities": "10000"
+                },
+                "employee_severance_indemnity": {
+                  "total": "180000"
+                },
+                "payables": {
+                  "total": "1700000",
+                  "beyond_one_year": "600000",
+                  "financial_debt": {
+                    "total": "900000",
+                    "beyond_one_year": "550000"
+                  },
+                  "shareholder_loans": {
+                    "total": "100000",
+                    "beyond_one_year": "50000"
+                  },
+                  "trade": "500000",
+                  "accruals_and_deferred_income": "50000"
+                },
+                "total_liabilities_and_equity": "2850000"
+              },
+              "income_statement": {
+                "profit_or_loss_for_the_year": "150000"
+              }
+            }
+          }
+        ],
+        "treatments": {
+          "financial_fixed_assets": "non_operating",
+          "shareholder_loans": "financial_debt",
+          "derivative_liabilities": "financial_liability"
+        }
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/statements.reorganise/adjustment-non-operating-asset.yaml",
+      "input": {
+        "years": [
+          {
+            "label": "2024",
+            "date": "2024-12-31",
+            "statutory": {
+              "layout": "ordinary",
+              "balance_sheet": {
+                "subscribed_capital_unpaid": "0",
+                "intangible_assets": {
+                  "total": "120000",
+                  "gross": "200000",
+                  "accumulated": "80000"
+                },
+                "tangible_assets": {
+                  "total": "900000",
+                  "gross": "1500000",
+                  "accumulated": "600000"
+                },
+                "financial_fixed_assets": "150000",
+                "fixed_assets": "1170000",
+                "inventories": "400000",
+                "receivables": {
+                  "total": "950000",
+                  "beyond_one_year": "50000",
+                  "trade": "800000"
+                },
+                "current_financial_assets": "60000",
+                "cash": "240000",
+                "current_assets": "1650000",
+                "prepayments_and_accrued_income": {
+                  "total": "30000"
+                },
+                "total_assets": "2850000",
+                "equity": {
+                  "total": "900000",
+                  "share_capital": "100000",
+                  "share_premium": "0",
+                  "revaluation_reserves": "0",
+                  "legal_reserve": "20000",
+                  "statutory_reserves": "0",
+                  "other_reserves": "380000",
+                  "cash_flow_hedge_reserve": "0",
+                  "retained_earnings": "250000",
+                  "profit_or_loss_for_the_year": "150000",
+                  "negative_reserve_for_own_shares": "0"
+                },
+                "provisions": {
+                  "total": "70000",
+                  "of_which_derivative_liabilities": "10000"
+                },
+                "employee_severance_indemnity": {
+                  "total": "180000"
+                },
+                "payables": {
+                  "total": "1650000",
+                  "beyond_one_year": "600000",
+                  "financial_debt": {
+                    "total": "900000",
+                    "beyond_one_year": "550000"
+                  },
+                  "shareholder_loans": {
+                    "total": "100000",
+                    "beyond_one_year": "50000"
+                  },
+                  "trade": "500000"
+                },
+                "accruals_and_deferred_income": {
+                  "total": "50000"
+                },
+                "total_liabilities_and_equity": "2850000"
+              },
+              "income_statement": {
+                "profit_or_loss_for_the_year": "150000"
+              }
+            }
+          }
+        ],
+        "treatments": {
+          "financial_fixed_assets": "non_operating",
+          "shareholder_loans": "financial_debt",
+          "derivative_liabilities": "financial_liability"
+        },
+        "adjustments": [
+          {
+            "kind": "non_operating_asset",
+            "label": "Idle warehouse",
+            "reason": "Vacant since 2023 and held for sale; not used by the business",
+            "aggregate": "tangible_assets",
+            "amounts": [
+              "200000"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "tv.compare": {
+    "minimal": {
+      "source": "tests/golden/tv.compare/equity-basis.yaml",
+      "input": {
+        "rate": "0.09",
+        "basis": "equity",
+        "techniques": [
+          {
+            "tv.gordon": {
+              "growth": "0.02",
+              "next_flow": "70"
+            }
+          },
+          {
+            "tv.exit_multiple": {
+              "multiple": "1.4",
+              "metric": "book_value",
+              "metric_value": "750",
+              "next_flow": "63"
+            }
+          },
+          {
+            "tv.exit_multiple": {
+              "multiple": "12",
+              "metric": "earnings",
+              "metric_value": "50"
+            }
+          },
+          {
+            "tv.normalised_income": {
+              "income": "80",
+              "capitalisation_rate": "0.09",
+              "basis": "equity"
+            }
+          }
+        ]
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/tv.compare/seven-techniques.yaml",
+      "input": {
+        "rate": "0.10",
+        "basis": "enterprise",
+        "growth_cap": "0.03",
+        "techniques": [
+          {
+            "tv.gordon": {
+              "growth": "0.02",
+              "last_flow": "100"
+            }
+          },
+          {
+            "tv.value_driver": {
+              "nopat_next": "150",
+              "growth": "0.02",
+              "ronic": "0.12"
+            }
+          },
+          {
+            "tv.h_model": {
+              "last_flow": "100",
+              "short_term_growth": "0.08",
+              "long_term_growth": "0.02",
+              "half_life": "2.5"
+            }
+          },
+          {
+            "tv.exit_multiple": {
+              "multiple": "7.5",
+              "metric": "ebitda",
+              "metric_value": "180",
+              "next_flow": "95"
+            }
+          },
+          {
+            "tv.limited_horizon": {
+              "flow": "100",
+              "periods": 5,
+              "growth": "0.02",
+              "residual_value": "500"
+            }
+          },
+          {
+            "tv.normalised_income": {
+              "income": "95",
+              "capitalisation_rate": "0.11",
+              "basis": "enterprise",
+              "growth": "0.015"
+            }
+          },
+          {
+            "tv.liquidation": {
+              "assets": [
+                {
+                  "label": "Land",
+                  "value": "800"
+                },
+                {
+                  "label": "Plant",
+                  "value": "300"
+                },
+                {
+                  "label": "Receivables",
+                  "value": "200"
+                }
+              ],
+              "liabilities": [
+                {
+                  "label": "Suppliers",
+                  "value": "250"
+                }
+              ],
+              "liquidation_costs": [
+                {
+                  "label": "Legal fees",
+                  "value": "40"
+                },
+                {
+                  "label": "Closure",
+                  "value": "60"
+                }
+              ],
+              "tax_on_gains": "30",
+              "basis": "enterprise"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "tv.exit_multiple": {
+    "minimal": {
+      "source": "tests/golden/tv.exit_multiple/pe-equity-basis.yaml",
+      "input": {
+        "multiple": "12",
+        "metric": "earnings",
+        "metric_value": "50"
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/tv.exit_multiple/ev-ebitda-implied-growth.yaml",
+      "input": {
+        "multiple": "8",
+        "metric": "ebitda",
+        "metric_value": "125",
+        "rate": "0.10",
+        "next_flow": "60",
+        "growth_cap": "0.03"
+      }
+    }
+  },
+  "tv.gordon": {
+    "minimal": {
+      "source": "tests/golden/tv.gordon/damodaran-fcff-from-roc-table.yaml",
+      "input": {
+        "rate": "0.10",
+        "growth": "0.03",
+        "next_flow": "75"
+      }
+    }
+  },
+  "tv.h_model": {
+    "minimal": {
+      "source": "tests/golden/tv.h_model/declining-growth.yaml",
+      "input": {
+        "last_flow": "100",
+        "short_term_growth": "0.10",
+        "long_term_growth": "0.03",
+        "half_life": "5",
+        "rate": "0.09"
+      }
+    }
+  },
+  "tv.limited_horizon": {
+    "minimal": {
+      "source": "tests/golden/tv.limited_horizon/level-flow-ten-periods.yaml",
+      "input": {
+        "flow": "100",
+        "rate": "0.08",
+        "periods": 10
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/tv.limited_horizon/growing-flow-with-residual.yaml",
+      "input": {
+        "flow": "100",
+        "rate": "0.10",
+        "periods": 5,
+        "growth": "0.02",
+        "residual_value": "500"
+      }
+    }
+  },
+  "tv.liquidation": {
+    "minimal": {
+      "source": "tests/golden/tv.liquidation/separable-assets.yaml",
+      "input": {
+        "assets": [
+          {
+            "label": "Land",
+            "value": "800"
+          },
+          {
+            "label": "Plant",
+            "value": "300"
+          },
+          {
+            "label": "Receivables",
+            "value": "200"
+          }
+        ],
+        "liabilities": [
+          {
+            "label": "Bank loan",
+            "value": "600"
+          },
+          {
+            "label": "Suppliers",
+            "value": "250"
+          }
+        ],
+        "liquidation_costs": [
+          {
+            "label": "Legal fees",
+            "value": "40"
+          },
+          {
+            "label": "Closure",
+            "value": "60"
+          }
+        ],
+        "basis": "equity",
+        "tax_on_gains": "30"
+      }
+    }
+  },
+  "tv.normalised_income": {
+    "minimal": {
+      "source": "tests/golden/tv.normalised_income/no-growth.yaml",
+      "input": {
+        "income": "120",
+        "capitalisation_rate": "0.08",
+        "basis": "equity"
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/tv.normalised_income/with-growth.yaml",
+      "input": {
+        "income": "120",
+        "capitalisation_rate": "0.09",
+        "basis": "equity",
+        "growth": "0.01"
+      }
+    }
+  },
+  "tv.value_driver": {
+    "minimal": {
+      "source": "tests/golden/tv.value_driver/damodaran-g-002-ronic-006.yaml",
+      "input": {
+        "nopat_next": "100",
+        "growth": "0.02",
+        "ronic": "0.06",
+        "rate": "0.10"
+      }
+    }
+  },
+  "tvm.annuity": {
+    "minimal": {
+      "source": "tests/golden/tvm.annuity/ordinary.yaml",
+      "input": {
+        "payment": "1000",
+        "rate": "0.05",
+        "periods": 10,
+        "timing": "ordinary"
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/tvm.annuity/growing.yaml",
+      "input": {
+        "payment": "1000",
+        "rate": "0.08",
+        "growth": "0.03",
+        "periods": 20,
+        "timing": "ordinary"
+      }
+    }
+  },
+  "tvm.future_value": {
+    "minimal": {
+      "source": "tests/golden/tvm.future_value/present-value-only.yaml",
+      "input": {
+        "present_value": "1000",
+        "rate": "0.05",
+        "periods": 3,
+        "timing": "ordinary"
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/tvm.future_value/ecma-376-present-and-payments-due.yaml",
+      "input": {
+        "present_value": "500",
+        "payment": "200",
+        "rate": "0.005",
+        "periods": 10,
+        "timing": "due"
+      }
+    }
+  },
+  "tvm.irr": {
+    "minimal": {
+      "source": "tests/golden/tvm.irr/conventional.yaml",
+      "input": {
+        "cash_flows": [
+          -1000,
+          300,
+          400,
+          500
+        ]
+      }
+    }
+  },
+  "tvm.mirr": {
+    "minimal": {
+      "source": "tests/golden/tvm.mirr/ecma-376-three-years.yaml",
+      "input": {
+        "cash_flows": [
+          "-120000",
+          "39000",
+          "30000",
+          "21000"
+        ],
+        "finance_rate": "0.10",
+        "reinvest_rate": "0.12"
+      }
+    }
+  },
+  "tvm.npv": {
+    "minimal": {
+      "source": "tests/golden/tvm.npv/five-flows.yaml",
+      "input": {
+        "rate": "0.07",
+        "cash_flows": [
+          -5000,
+          1200,
+          1500,
+          1800,
+          2100
+        ]
+      }
+    }
+  },
+  "tvm.perpetuity": {
+    "minimal": {
+      "source": "tests/golden/tvm.perpetuity/growing.yaml",
+      "input": {
+        "payment": "100",
+        "rate": "0.08",
+        "growth": "0.02",
+        "timing": "ordinary"
+      }
+    }
+  },
+  "tvm.present_value": {
+    "minimal": {
+      "source": "tests/golden/tvm.present_value/flat-rate-end.yaml",
+      "input": {
+        "cash_flows": [
+          "100",
+          "110",
+          "121"
+        ],
+        "rate": "0.10",
+        "timing": "end_of_period"
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/tvm.present_value/curve-mid.yaml",
+      "input": {
+        "cash_flows": [
+          "100",
+          "100",
+          "100"
+        ],
+        "period_rates": [
+          "0.05",
+          "0.06",
+          "0.07"
+        ],
+        "timing": "mid_period"
+      }
+    }
+  },
+  "tvm.xirr": {
+    "minimal": {
+      "source": "tests/golden/tvm.xirr/ecma-376-example.yaml",
+      "input": {
+        "cash_flows": [
+          {
+            "date": "2008-01-01",
+            "amount": "-10000"
+          },
+          {
+            "date": "2008-03-01",
+            "amount": "2750"
+          },
+          {
+            "date": "2008-10-30",
+            "amount": "4250"
+          },
+          {
+            "date": "2009-02-15",
+            "amount": "3250"
+          },
+          {
+            "date": "2009-04-01",
+            "amount": "2750"
+          }
+        ]
+      }
+    }
+  },
+  "tvm.xnpv": {
+    "minimal": {
+      "source": "tests/golden/tvm.xnpv/ecma-376-example.yaml",
+      "input": {
+        "rate": "0.09",
+        "cash_flows": [
+          {
+            "date": "2008-01-01",
+            "amount": "-10000"
+          },
+          {
+            "date": "2008-03-01",
+            "amount": "2750"
+          },
+          {
+            "date": "2008-10-30",
+            "amount": "4250"
+          },
+          {
+            "date": "2009-02-15",
+            "amount": "3250"
+          },
+          {
+            "date": "2009-04-01",
+            "amount": "2750"
+          }
+        ]
+      }
+    },
+    "maximal": {
+      "source": "tests/golden/tvm.xnpv/explicit-valuation-date.yaml",
+      "input": {
+        "rate": "0.09",
+        "valuation_date": "2007-07-01",
+        "cash_flows": [
+          {
+            "date": "2008-01-01",
+            "amount": "-10000"
+          },
+          {
+            "date": "2008-03-01",
+            "amount": "2750"
+          },
+          {
+            "date": "2008-10-30",
+            "amount": "4250"
+          },
+          {
+            "date": "2009-02-15",
+            "amount": "3250"
+          },
+          {
+            "date": "2009-04-01",
+            "amount": "2750"
+          }
+        ]
+      }
+    }
+  }
+}

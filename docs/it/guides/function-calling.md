@@ -1,6 +1,6 @@
 ---
 source: guides/function-calling.md
-source_hash: 4dcebfd3f7a7
+source_hash: 6c9b9a9143f5
 ---
 # Function calling
 
@@ -15,6 +15,11 @@ costruite dagli JSON Schema del motore, quindi corrispondono sempre all'implemen
 | Google Gemini | `fm.tools.gemini()` | `name`, `description`, `parametersJsonSchema` |
 | Per nome del provider | `fm.tools.for_provider("ollama")` | il formato giusto per quel provider |
 | Qualsiasi altro | `fm.tools.definitions(portable=False)` | `name`, `description`, `parameters` (JSON Schema) |
+
+Ogni funzione qui sopra accetta anche due opzioni per nome, entrambe disattivate per
+impostazione predefinita: `compact=True` (schemi più piccoli, vedi
+[Profilo compatto](#profilo-compatto)) e `areas=[...]` (solo alcuni tool, vedi
+[Sottoinsiemi di tool per area](#sottoinsiemi-di-tool-per-area)).
 
 Provider supportati ed esempi completi: [Provider LLM](providers.md).
 
@@ -57,3 +62,71 @@ open-weight) dichiara i decimali come stringhe, trasforma i valori opzionali (`X
 semplici `X` (un campo opzionale è semplicemente non obbligatorio) e rimuove `pattern` e
 `additionalProperties`. Le date sono stringhe ISO 8601 (`"2026-06-30"`) in entrambe le
 varianti.
+
+## Valori enumerati e loro significato
+
+Molti campi accettano uno tra un insieme fisso di valori, ciascuno con un significato: i codici
+civilistici di `statements.reorganise` (`A1`, `B6`, `B7`, ...), `period_0` e `period_1` in
+`series.project`, i tipi di ammortamento di `loans.amortisation_schedule`. Il motore documenta
+ogni valore separatamente; la definizione del tool trasforma l'elenco in un semplice `enum` e
+aggiunge alla descrizione del campo il significato di ogni valore, così nulla va perso:
+
+```text
+`french` (constant instalment), `fixed_amortisation_schedule` (constant principal portion)
+or `bullet` (principal repaid with the last instalment). Values: `french` (Constant
+instalment (French amortisation, "ammortamento alla francese")); `fixed_amortisation_schedule`
+(Constant principal portion ("ammortamento all'italiana")); `bullet` (Interest only; the full
+principal is repaid with the last instalment).
+```
+
+## Esempi
+
+Ogni definizione contiene esempi di input, presi dai golden case del metodo:
+
+- l'esempio minimo: l'input più piccolo che produce un risultato;
+- dove utile, un esempio massimo: un input che mostra la maggior parte dei campi opzionali.
+
+Nelle definizioni predefinite si trovano nella parola chiave `examples` dello JSON Schema dei
+parametri (`[minimo, massimo]`). Nella variante portabile, dove alcuni fornitori rifiutano le
+parole chiave che non conoscono, sono scritti nella descrizione ("Minimal input example:
+{...}"). `fm.tools.examples("dcf.fcff")` li restituisce come dati.
+
+Quale golden case fornisce ogni esempio è stabilito in un'unica tabella, `TABLE` in
+`scripts/tool_examples.py`; `python scripts/tool_examples.py` copia gli input in
+`python/fairmark/tool_examples.json` (generato, mai modificato a mano, parte di
+`just generate`). I test verificano che ogni esempio sia valido rispetto allo schema del metodo
+e che il motore lo esegua senza errori.
+
+## Profilo compatto
+
+`compact=True` produce definizioni più piccole per i client con un contesto limitato. Accetta
+esattamente gli stessi input e conserva il significato di ogni valore enumerato; elimina solo
+le ripetizioni:
+
+- una descrizione di almeno 40 caratteri, o un elenco di valori enumerati, già data prima nello
+  stesso tool compare una sola volta;
+- `"default": null` è rimosso (assente e null hanno lo stesso significato);
+- la regola dei decimali ripetuta su ogni importo (il `pattern`, o l'indicazione della
+  variante portabile) è dichiarata una volta nella descrizione del tool, dove è più breve;
+- i valori di `format` non standard (`uint32`) sono rimossi; `minimum` resta valido;
+- resta solo l'esempio minimo.
+
+Il risparmio è maggiore per i metodi più grandi (circa un quarto per `statements.reorganise`,
+un sesto per `dcf.fcff`); i metodi piccoli cambiano poco. Gran parte di uno schema grande è
+documentazione non ripetuta, e il profilo compatto la conserva.
+
+## Sottoinsiemi di tool per area
+
+Un client che usa solo alcuni metodi può chiedere i tool di alcune aree. L'area è la parte
+dell'identificativo del metodo prima del punto:
+
+```python
+fm.tools.areas()                                   # ["analysis", "coc", "dates", "dcf", ...]
+fm.tools.definitions(areas=["dcf", "tvm"])         # solo i tool dcf.* e tvm.*
+fm.tools.for_provider("ollama", compact=True, areas=["ratios"])
+```
+
+Un'area sconosciuta solleva `ValueError` con l'elenco delle aree note. `dispatch` esegue
+comunque ogni tool: un sottoinsieme riduce ciò che il modello vede, non ciò che Fairmark può
+eseguire.
+
