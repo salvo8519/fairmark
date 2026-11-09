@@ -4,8 +4,9 @@ Codes are stable: once released, a code never changes meaning. Every adapter (Py
 function calling) reports an error as the same report, described below: the code, the message
 and the fields a client needs to correct the input without reading the message. Messages name
 the field to correct by its JSON pointer (RFC 6901), for example `/stages/0/flows/1`, and state
-the fix. For a method evaluated by an analysis, the pointer is relative to `base_input`, like
-the pointers of the analysis itself.
+the fix. For a method evaluated by an analysis, the message keeps the pointer within
+`base_input`, while the `pointer` of the report starts at the root of the analysis input, under
+`/base_input` (for example `/base_input/wacc`).
 
 ## The error report
 
@@ -36,13 +37,13 @@ A refused call returns `{"error": <report>}` (ADR 0014 G5):
 | --- | --- |
 | `code` | The stable code of the table below. |
 | `message` | What is wrong and, where known, how to fix it, in English. The same text as before the report gained the other fields. |
-| `pointer` | JSON pointer of the field to correct, from the root of the input; `null` when no single field is at fault, for example for a text that is not JSON (`reason` `syntax`, the message gives the line and column) or for `FM-E027`. |
+| `pointer` | JSON pointer of the field to correct, always from the root of the input you sent (inside an analysis, under `/base_input`). It is `null` only for a text that is not JSON (`reason` `syntax`, the message gives the line and column), for an error raised during the computation that no single field causes (for example `FM-E005`, `FM-E008`, `FM-E012`), and for `FM-E027`, which names its inputs in `missing_any_of`. |
 | `pointers` | Every field of a relation: both sides of an `FM-E026` reconciliation, both fields of a conflict; empty when the error concerns one field. |
 | `reason` | The sub-kind of the error (values below), which tells apart the conditions that share a code, above all `FM-E001`; `null` when the code has one meaning only. |
-| `expected` | The accepted values (for example the values of an enumeration, or the fields an object accepts after an unknown field), or a short description of the accepted form; empty when not known. |
-| `fix` | One sentence that resolves the error; `null` when the message is the only guidance. |
+| `expected` | A list of strings. With `reason` `enum` or `unknown_field`, the literal accepted values (the values of the enumeration, the fields the object accepts); with any other reason, short descriptions of the accepted form, for example `"an amount greater than 0"`. Empty when not known. |
+| `fix` | One sentence that resolves the error; `null` when the message is the only guidance. Its wording is guidance and may change between releases; rely on `code`, `pointer` and `reason`. |
 | `missing_any_of` | `FM-E027` only: alternative sets of input pointers, any one of which lifts the input above the minimum of the method, for example `[["/closing/cash"], ["/closing/current_assets"]]`. |
-| `errors` | Every error found, at least one; the first is the top-level report itself. The entries have no `errors` of their own. |
+| `errors` | Every error found, at least one (`minItems` 1); the first is the top-level report itself. The entries have no `errors` of their own. |
 
 **Every input error, in one call.** The validation of the input goes on after a refusal and
 reports every error it finds, in the order it checks them, so the first error is the one a
@@ -72,18 +73,19 @@ root by `x-fairmark-error`. The cells of an analysis table keep their own compac
 | `unknown_field` | A field the input does not define; `expected` lists the fields accepted | `FM-E001` |
 | `duplicate` | A field given twice in the same object, or a repeated pointer of an analysis | `FM-E001` |
 | `type` | A value of the wrong type, `null` for a field that refuses it, or a date that is not a calendar date | `FM-E001`, `FM-E009` |
-| `enum` | A value outside a closed list; `expected` lists the values | `FM-E001` |
-| `conflict` | Fields that exclude each other are given together, or contradict each other (terms, bases, dates out of order) | `FM-E001`, `FM-E019`, `FM-E024` |
+| `enum` | A value outside a closed list; `expected` lists the values; an unknown method of an analysis (`/method`) | `FM-E001`, `FM-E007` |
+| `conflict` | Fields that exclude each other are given together, or contradict each other (terms, bases, dates out of order) | `FM-E001`, `FM-E017`, `FM-E019`, `FM-E024` |
 | `requires` | A field is given without the field it needs, or is not used by the choice made | `FM-E001`, `FM-E020`, `FM-E022`, `FM-E025` |
 | `sign` | An amount with the wrong sign for its field | `FM-E001`, `FM-E006` |
 | `blank` | A text that must say something is empty or blank | `FM-E001` |
-| `range` | A number outside the domain of its field | `FM-E001`, `FM-E003`, `FM-E004`, `FM-E009`, `FM-E018`, `FM-E020` to `FM-E023` |
+| `range` | A number outside the domain of its field | `FM-E001`, `FM-E003`, `FM-E004`, `FM-E009`, `FM-E010`, `FM-E018`, `FM-E020` to `FM-E023` |
 | `length` | A list with the wrong number of entries: empty, too long, or not one entry per period or year | `FM-E001`, `FM-E002`, `FM-E025` |
 | `reconcile` | Two sides of a relation that must agree differ | `FM-E026` |
 
-Values are added, never renamed or removed: a client accepts a value it does not know. Codes
-that report no input condition (`FM-E005`, `FM-E007`, `FM-E008`, `FM-E010` to `FM-E017`) have
-`reason` `null`, except where this page says otherwise.
+Values are added, never renamed or removed: a client accepts a value it does not know. The
+codes raised during the computation (`FM-E005`, `FM-E008`, `FM-E011` to `FM-E014`, `FM-E016`)
+and `FM-E015`, which has one meaning, have `reason` `null`; `FM-E015` still names the field
+that holds the analysis pointer (`/variable`, `/output`, `/outputs/k`, an override `pointer`).
 
 ## Codes
 

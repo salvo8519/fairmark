@@ -52,8 +52,13 @@ Every decision taken with the results belongs to the user (see `DISCLAIMER.md`).
 
 ## Errors
 
-Errors come back as `{"error": {"code": "FM-E00x", "message": ...}}`. Read the message, fix the
-input (see `docs/en/reference/errors.md`) and retry. Do not work around an error by computing manually.
+Errors come back as `{"error": {"code": "FM-E00x", "message": ..., "pointer": ..., "reason":
+..., "expected": [...], "fix": ..., "errors": [...]}}` (see `docs/en/reference/errors.md`).
+`pointer` is the JSON pointer of the field to correct, from the root of the input you sent
+(inside an analysis, under `/base_input`); `expected` gives the accepted values or form; `fix`
+says how to correct it. `errors` lists every input error found: correct every entry before you
+retry, not only the first. For `FM-E027`, give every input of one of the sets in
+`missing_any_of`. Do not work around an error by computing manually.
 
 ## Checks before you answer
 

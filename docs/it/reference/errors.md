@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: 6a9fc5ed13bf
+source_hash: 866e6041b59e
 ---
 # Codici di errore
 
@@ -9,8 +9,9 @@ adattatore (Python, CLI, MCP, function calling) riporta un errore con lo stesso 
 descritto sotto: il codice, il messaggio e i campi che servono a un client per correggere
 l'input senza leggere il messaggio. I messaggi sono in inglese. I messaggi indicano il campo
 da correggere con il suo JSON Pointer (RFC 6901), per esempio `/stages/0/flows/1`, e la
-correzione da apportare. Per un metodo valutato da un'analisi, il pointer è relativo a
-`base_input`, come i pointer dell'analisi stessa.
+correzione da apportare. Per un metodo valutato da un'analisi, il messaggio mantiene il
+pointer interno a `base_input`, mentre il `pointer` del report parte dalla radice dell'input
+dell'analisi, sotto `/base_input` (per esempio `/base_input/wacc`).
 
 ## Il report di errore
 
@@ -41,13 +42,13 @@ Una chiamata rifiutata restituisce `{"error": <report>}` (ADR 0014 G5):
 | --- | --- |
 | `code` | Il codice stabile della tabella sotto. |
 | `message` | Che cosa non va e, quando è noto, come correggerlo, in inglese. Lo stesso testo di prima che il report avesse gli altri campi. |
-| `pointer` | JSON Pointer del campo da correggere, dalla radice dell'input; `null` quando nessun singolo campo è in errore, per esempio per un testo che non è JSON (`reason` `syntax`, il messaggio indica riga e colonna) o per `FM-E027`. |
+| `pointer` | JSON Pointer del campo da correggere, sempre dalla radice dell'input inviato (dentro un'analisi, sotto `/base_input`). È `null` solo per un testo che non è JSON (`reason` `syntax`, il messaggio indica riga e colonna), per un errore sollevato durante il calcolo che nessun singolo campo causa (per esempio `FM-E005`, `FM-E008`, `FM-E012`), e per `FM-E027`, che indica i suoi input in `missing_any_of`. |
 | `pointers` | Tutti i campi di una relazione: i due lati di una quadratura `FM-E026`, i due campi di un conflitto; vuoto quando l'errore riguarda un solo campo. |
 | `reason` | Il sottotipo dell'errore (valori sotto), che distingue le condizioni che condividono un codice, soprattutto `FM-E001`; `null` quando il codice ha un solo significato. |
-| `expected` | I valori ammessi (per esempio i valori di un'enumerazione, o i campi che un oggetto accetta dopo un campo sconosciuto), o una breve descrizione della forma ammessa; vuoto quando non sono noti. |
-| `fix` | Una frase che risolve l'errore; `null` quando il messaggio è l'unica indicazione. |
+| `expected` | Una lista di stringhe. Con `reason` `enum` o `unknown_field`, i valori ammessi letterali (i valori dell'enumerazione, i campi che l'oggetto accetta); con ogni altro `reason`, brevi descrizioni della forma ammessa, per esempio `"an amount greater than 0"`. Vuota quando non sono noti. |
+| `fix` | Una frase che risolve l'errore; `null` quando il messaggio è l'unica indicazione. La formulazione è un'indicazione e può cambiare tra un rilascio e l'altro; fai affidamento su `code`, `pointer` e `reason`. |
 | `missing_any_of` | Solo `FM-E027`: insiemi alternativi di pointer dell'input, ciascuno dei quali basta a portare l'input sopra il minimo del metodo, per esempio `[["/closing/cash"], ["/closing/current_assets"]]`. |
-| `errors` | Tutti gli errori trovati, almeno uno; il primo è il report di primo livello stesso. Le voci non hanno un proprio `errors`. |
+| `errors` | Tutti gli errori trovati, almeno uno (`minItems` 1); il primo è il report di primo livello stesso. Le voci non hanno un proprio `errors`. |
 
 **Tutti gli errori dell'input, in una chiamata.** La validazione dell'input prosegue dopo un
 rifiuto e riporta tutti gli errori che trova, nell'ordine in cui li controlla, quindi il primo
@@ -78,19 +79,20 @@ compatto, `{"code", "message"}`, che fa parte dell'output dei metodi di analisi.
 | `unknown_field` | Un campo che l'input non definisce; `expected` elenca i campi ammessi | `FM-E001` |
 | `duplicate` | Un campo indicato due volte nello stesso oggetto, o un pointer ripetuto di un'analisi | `FM-E001` |
 | `type` | Un valore del tipo sbagliato, `null` per un campo che non lo accetta, o una data che non è una data di calendario | `FM-E001`, `FM-E009` |
-| `enum` | Un valore fuori da un elenco chiuso; `expected` elenca i valori | `FM-E001` |
-| `conflict` | Campi che si escludono a vicenda sono indicati insieme, o si contraddicono (termini, basi, date fuori ordine) | `FM-E001`, `FM-E019`, `FM-E024` |
+| `enum` | Un valore fuori da un elenco chiuso; `expected` elenca i valori; un metodo sconosciuto di un'analisi (`/method`) | `FM-E001`, `FM-E007` |
+| `conflict` | Campi che si escludono a vicenda sono indicati insieme, o si contraddicono (termini, basi, date fuori ordine) | `FM-E001`, `FM-E017`, `FM-E019`, `FM-E024` |
 | `requires` | Un campo è indicato senza il campo che gli serve, o non è usato dalla scelta fatta | `FM-E001`, `FM-E020`, `FM-E022`, `FM-E025` |
 | `sign` | Un importo con il segno sbagliato per il suo campo | `FM-E001`, `FM-E006` |
 | `blank` | Un testo che deve dire qualcosa è vuoto o fatto di soli spazi | `FM-E001` |
-| `range` | Un numero fuori dal dominio del suo campo | `FM-E001`, `FM-E003`, `FM-E004`, `FM-E009`, `FM-E018`, da `FM-E020` a `FM-E023` |
+| `range` | Un numero fuori dal dominio del suo campo | `FM-E001`, `FM-E003`, `FM-E004`, `FM-E009`, `FM-E010`, `FM-E018`, da `FM-E020` a `FM-E023` |
 | `length` | Una lista con un numero sbagliato di voci: vuota, troppo lunga, o non una voce per periodo o per esercizio | `FM-E001`, `FM-E002`, `FM-E025` |
 | `reconcile` | I due lati di una relazione che devono coincidere differiscono | `FM-E026` |
 
 I valori si aggiungono, non si rinominano né si rimuovono: un client accetta un valore che non
-conosce. I codici che non riportano una condizione dell'input (`FM-E005`, `FM-E007`,
-`FM-E008`, da `FM-E010` a `FM-E017`) hanno `reason` `null`, salvo dove questa pagina indica
-altrimenti.
+conosce. I codici sollevati durante il calcolo (`FM-E005`, `FM-E008`, da `FM-E011` a
+`FM-E014`, `FM-E016`) e `FM-E015`, che ha un solo significato, hanno `reason` `null`;
+`FM-E015` indica comunque il campo che contiene il pointer dell'analisi (`/variable`,
+`/output`, `/outputs/k`, il `pointer` di una modifica).
 
 ## Codici
 
