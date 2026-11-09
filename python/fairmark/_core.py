@@ -34,13 +34,13 @@ class FairmarkError(ValueError):
     - ``report``: the report as the engine returned it (a dict).
     """
 
-    def __init__(
-        self, code: str, message: str, report: Mapping[str, Any] | None = None
-    ) -> None:
+    def __init__(self, code: str, message: str, report: Mapping[str, Any] | None = None) -> None:
         super().__init__(f"{code}: {message}")
         self.code = code
         self.message = message
-        data = dict(report) if report is not None else {"code": code, "message": message}
+        data: dict[str, Any] = (
+            dict(report) if report is not None else {"code": code, "message": message}
+        )
         for key, default in _REPORT_DEFAULTS.items():
             data.setdefault(key, copy.copy(default))
         if not data.get("errors"):
