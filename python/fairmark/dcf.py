@@ -304,9 +304,9 @@ def fcff(
     equity value from FCFF discounted at the WACC.
 
     Minimal call: ``fcff(flows=[...], wacc="0.09")``, one stage of given flows; the engine
-    applies its documented defaults (nominal terms, end-of-period timing, no terminal value)
-    and lists them in ``result.meta["defaults_applied"]``. Give ``stages`` instead of ``flows``
-    for several stages or generated flows.
+    applies its documented defaults (nominal terms, end-of-period timing, no terminal value,
+    a net financial position of zero) and lists them in ``result.meta["defaults_applied"]``.
+    Give ``stages`` instead of ``flows`` for several stages or generated flows.
 
     Give ``wacc`` (one rate, also used for the terminal value) or ``wacc_per_period`` with
     ``terminal_wacc``. Under ``timing="mid_period"`` give ``terminal_discount_time``.
@@ -326,7 +326,10 @@ def fcff(
     "other_items"}``), ``debt_like_items`` and ``non_controlling_interests`` (each
     built by :func:`bridge_claim`, values zero or more) are subtracted. The measurement basis
     (``book_value``, ``market_value``, ``fair_value``, ``present_value`` or ``other`` with a
-    note) is stated by the analyst and reported, never used in the calculation.
+    note) is stated by the analyst and reported, never used in the calculation. Without
+    ``net_financial_position`` zero is subtracted as a documented default, with a warning in
+    ``result.conventions``: the equity value then equals the enterprise value (less the
+    claims given). A net financial position given as zero carries no default and no warning.
 
     >>> r = fcff(
     ...     [given([100, 110, 120])],

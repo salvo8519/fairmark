@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: 76ea7bfef5f5
+source_hash: 260aac448b80
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
@@ -48,6 +48,7 @@ volta, prima del calcolo:
 | `cash_flow_terms`, `discount_rate_terms` | `nominal` | piani e tassi di attualizzazione sono di solito espressi a prezzi correnti |
 | `timing` | `end_of_period` | ogni flusso alla fine del suo periodo, come in [`tvm.npv`](tvm-npv.md) |
 | `terminal` | `none`: nessun valore terminale | il valore copre soltanto i flussi forniti; fornire un valore terminale per aggiungerlo |
+| `net_financial_position` | zero, con un'avvertenza | la valutazione è sempre calcolata; fornire la posizione finanziaria netta per valutare l'equity |
 
 Ogni valore predefinito applicato è elencato in `meta.defaults_applied` (il JSON pointer del
 campo, il valore assegnato e il motivo) e indicato per primo in `explain.conventions`, con il
@@ -61,9 +62,19 @@ uscita nell'ultimo flusso, fornirne uno come importo (`given`) oppure calcolarlo
 tecnica. Con questi valori predefiniti il value of operations è il valore attuale netto (VAN,
 NPV) dei flussi al WACC, lo stesso di `tvm.npv` con un primo flusso pari a zero in t = 0.
 
+Senza posizione finanziaria netta il motore sottrae zero, elenca il valore predefinito in
+`meta.defaults_applied` (`/net_financial_position`, `"0"`, "net financial position not given")
+e aggiunge un'avvertenza in `explain.conventions`: l'equity value coincide allora con
+l'enterprise value, al netto dei debt-like items e delle partecipazioni di minoranza quando
+sono forniti. Il campo di output `bridge.net_financial_position` resta `null`, perché non è
+stato fornito nulla. Una posizione finanziaria netta fornita con tutti gli importi pari a zero
+è uno zero effettivo: non è elencata come valore predefinito e non comporta avvertenze.
+
 `meta.input_hash` è calcolato sull'input con i valori predefiniti assegnati: l'input minimo e
 lo stesso input con ogni valore predefinito scritto per esteso hanno lo stesso hash e lo stesso
-valore. Quando i termini assumono il valore predefinito e soltanto uno dei due è fornito come
+valore. Il valore predefinito della posizione finanziaria netta è riportato ma non scritto
+nell'input: una posizione finanziaria netta fornita pari a zero, che non comporta avvertenze, ha
+quindi un hash diverso. Quando i termini assumono il valore predefinito e soltanto uno dei due è fornito come
 `real`, l'input è rifiutato con `FM-E024`, il cui messaggio indica quale campo ha assunto il
 valore predefinito.
 
@@ -297,7 +308,10 @@ Il campo facoltativo `basis_note` precisa il criterio, per esempio "net of tax" 
 book value of equity of the subsidiary"; con `other` è obbligatorio. Il criterio e la nota sono
 riportati accanto all'importo in `explain` e non sono mai usati nel calcolo. Una voce già inclusa tra le `other_items` della posizione finanziaria netta (per
 esempio i debiti per leasing) non va ripetuta in `debt_like_items`: il motore non controlla i
-doppi conteggi. Le liste non fornite sono riportate come "none given". Ogni voce è un passo di
+doppi conteggi. Le liste non fornite sono riportate come "none given". Una posizione
+finanziaria netta non fornita è considerata pari a zero, un valore predefinito documentato
+riportato in `meta.defaults_applied` con un'avvertenza (si veda [Input minimo](#input-minimo)).
+Ogni voce è un passo di
 `explain` con la sua descrizione, ogni lista ha un passo con il totale e il passo dell'equity
 value mostra ogni termine sottratto.
 
@@ -450,7 +464,8 @@ print(r.terminal["output"]["implied_growth"])  # 0.10 − 260 / 3075 = 0.01544..
 | Terminal discounting time (momento di attualizzazione del valore terminale) | `horizon`, `mid_period` (solo con la convenzione di metà periodo; il mezzo periodo al tasso terminale) | obbligatorio con un valore terminale e la convenzione di metà periodo |
 | Opzione del valore terminale | `tv.gordon`, `tv.h_model`, `tv.value_driver`, `tv.exit_multiple`, `tv.limited_horizon`, `tv.normalised_income`, `tv.liquidation`, al tasso terminale, con approccio asset side; `given`, un importo in N con approccio asset side; `none` | `none` |
 | Primo flusso terminale (`tv.gordon`, `tv.h_model`) | ultimo flusso fatto crescere; oppure flusso normalizzato in N + 1 (`tv.gordon`), flusso base normalizzato in N (`tv.h_model`) | obbligatorio |
-| Voci del passaggio all'equity value | misurate alla data di valutazione come fornite; nessuna voce significa nessuna | nessuna |
+| Voci del passaggio all'equity value | misurate alla data di valutazione come fornite; una lista non fornita significa nessuna voce | nessuna |
+| Posizione finanziaria netta | come fornita, positiva per un indebitamento netto | zero, elencato in `meta.defaults_applied`, con un'avvertenza |
 | Segni delle voci del passaggio all'equity value | attività non operative aggiunte; posizione finanziaria netta (positiva per un indebitamento netto), debt-like items e partecipazioni di minoranza sottratti | fissi |
 | Criterio di valutazione dei debt-like items e delle partecipazioni di minoranza | `book_value`, `market_value`, `fair_value`, `present_value`, `other` (con `basis_note`); dichiarato dall'analista, riportato, non usato nel calcolo | obbligatorio per ogni voce |
 
@@ -466,7 +481,9 @@ attualizzati in N − 0.5, benché siano o includano un importo riferito a una d
 l'orizzonte finito, il valore residuo; per `given`, il valore terminale dell'analista
 all'orizzonte N); con flussi
 nominali e inflazione attesa, una crescita perpetua inferiore all'inflazione della fase
-terminale (una diminuzione in termini reali); un equity value negativo, riportato come calcolato e mai riportato a zero; l'assenza del valore terminale (`none`), con il
+terminale (una diminuzione in termini reali); una posizione finanziaria netta non fornita,
+per cui l'equity value coincide con l'enterprise value (al netto dei debt-like items e delle
+partecipazioni di minoranza forniti); un equity value negativo, riportato come calcolato e mai riportato a zero; l'assenza del valore terminale (`none`), con il
 valore che copre soltanto i flussi espliciti; un valore terminale negativo fornito
 dall'analista, attualizzato come fornito. Un `terminal_value_weight` elevato segnala che la
 valutazione dipende soprattutto dalle ipotesi di lungo periodo.
@@ -542,3 +559,8 @@ $10^{-20}$.
   fino all'ultima cifra al 9% (`tests/golden/tvm.npv/dcf-flows-only-cross-check.yaml`, da
   `scripts/reference_npv_irr.py`) ed entro $10^{-25}$ in termini relativi agli altri tassi,
   dove ciascun metodo arrotonda le proprie operazioni.
+- Posizione finanziaria netta non fornita (Decision 25): l'equity value coincide con
+  l'enterprise value dell'input minimo e del suo equivalente esplicito, con il valore
+  predefinito elencato in `meta.defaults_applied`; una posizione finanziaria netta fornita pari
+  a zero dà lo stesso valore senza valore predefinito (`net-financial-position-*.yaml`, calcolo
+  manuale sui valori a 50 cifre).

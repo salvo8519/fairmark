@@ -22,7 +22,9 @@ the contract; CI enforces it on every commit.
    the engine fills in is reported in `meta.defaults_applied` and in `explain.conventions`.
 6. **Fingerprinting.** `meta.input_hash` is the SHA-256 of the canonical parsed input, with
    its documented defaults filled in: an input that omits a field and the same input with
-   the default written out have the same hash and the same value.
+   the default written out have the same hash and the same value. One default is reported
+   but not written into the input: the net financial position of `dcf.fcff` (zero, with a
+   warning), because a net financial position given as zero carries no warning.
    `fairmark verify` re-runs a saved result and checks hash and value.
 7. **Numerical versioning.** If any golden case changes result for the same input, the PR
    carries the `numerical-change` label, bumps `method_version` and a commit trailer

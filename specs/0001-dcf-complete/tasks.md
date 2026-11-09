@@ -293,3 +293,26 @@ version 1: required fields become optional; every earlier input gives a byte-ide
   (numerically sound), 2026-11-08; their fixes applied
 - [ ] F10 Follow-up issue: refuse an explicit `null` for the other optional fields of the DCF
   inputs (listed in the pull request)
+
+## Issue #261 — Net financial position default reported, with a warning
+
+Decision 25 (maintainer, 2026-11-09). Additive to `dcf.fcff` version 3: no number changes;
+`meta.defaults_applied` and `explain.conventions` report the default of zero and a warning.
+
+### Tests (write first, they must fail)
+- [x] G1 [P] Unit tests in `fcff.rs` and `crates/fairmark-core/tests/dcf_defaults.rs`: the
+  default entry and its convention, the warning, a given zero without either, the hash
+  unchanged; `python/tests/test_dcf_defaults.py` [R23, R31]
+- [x] G2 [P] Golden cases with `expect_meta`: no net financial position (default and value
+  equal to the existing case), a net financial position of zero given (no default) [R23]
+
+### Implementation
+- [x] G3 `Fcff::apply_defaults` lists the default without rewriting the input; the bridge
+  writes the warning instead of "net financial position: none given"; field description [R23]
+
+### Adapters and docs
+- [x] G4 [P] Methodology page `dcf-fcff` (English and Italian), Python helper docstring,
+  release note `changes/261.fix.md`, roadmap #261 done
+
+### Verification
+- [x] G5 Every golden case unchanged; schema snapshots additive against main

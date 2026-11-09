@@ -1,0 +1,28 @@
+method: dcf.fcff
+description: "No net financial position given: zero is subtracted as a documented default, listed last in meta.defaults_applied; the equity value equals the enterprise value of flows-only-single-wacc (Decision 25, R23)"
+source: >
+  Hand computation from SPEC-0001 Decision 25 (approved 2026-11-09, issue #261): equity value =
+  enterprise value - 0 (default) - 0 (no debt-like items) - 0 (no non-controlling interests).
+  The enterprise value is the expected value of the existing case flows-only-single-wacc.yaml
+  (independent 50-digit reference, scripts/reference_dcf.py), recomputed by hand in Python
+  decimal at 50 digits as the sum of 120, 135, 150, 160, 170 over 1.09^k, k = 1 to 5:
+  563.38243366056148746628356552958... The default entry follows the six entries of Decision 24
+  in input order. The warning in explain.conventions is checked by the unit test
+  net_financial_position_not_given_is_a_reported_default (golden cases assert value and meta).
+input:
+  stages: [{"flows": ["120", "135", "150", "160", "170"]}]
+  wacc: "0.09"
+expect:
+  /value_of_operations: "563.3824336605614874662835655"
+  /enterprise_value: "563.3824336605614874662835655"
+  /equity_value: "563.3824336605614874662835655"
+  /bridge/equity_value: "563.3824336605614874662835655"
+  /bridge/net_financial_position: "null"
+  /bridge/debt_like_items_total: "0"
+  /bridge/non_controlling_interests_total: "0"
+expect_meta:
+  /defaults_applied/5/field: "/terminal"
+  /defaults_applied/6/field: "/net_financial_position"
+  /defaults_applied/6/value: "0"
+  /defaults_applied/6/reason: "net financial position not given"
+tolerance: "0.00000000000000000001"
