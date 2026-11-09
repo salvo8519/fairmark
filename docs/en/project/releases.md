@@ -10,7 +10,8 @@ crates and the Python package. Versions follow Semantic Versioning.
 | `0.1.0-alpha.N`, `-beta.N`, `-rc.N` | Whenever there is something worth trying; open work is reported, not required |
 | `0.1.0` | Milestones M0 to M3 complete: the first public release (gate of M3) |
 | `0.2.0`, `0.3.0` | M4 and M5 complete |
-| `1.0.0` | M6 complete: stable API with a published deprecation policy |
+| `1.0.0` | M6 complete: corporate valuation with a stable API and a published deprecation policy |
+| `2.0.0` | M7 complete: the real estate module, on the same contract |
 | Patch `X.Y.Z+1` | Fixes between minor releases |
 
 Each milestone in `roadmap/roadmap.yaml` names the release that ships it, and the
