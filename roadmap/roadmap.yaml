@@ -161,6 +161,7 @@ milestones:
           - { issue: 36, title: "Several financial years and exact changes in the statements reorganisation", tags: [parallel], spec: "0005", status: open }
           - { issue: 236, title: "Reorganised income statement with IFRS 18 aligned subtotals", spec: "0005", status: open }
           - { issue: 245, title: "Intercompany financial payables in the net financial position", tags: [needs-methodology], spec: "0005", status: open }
+          - { issue: 251, title: "Non-recurring exchange losses in the reorganised income statement", tags: [needs-methodology], spec: "0005", status: open }
       - title: "Free cash flows"
         issue: 37
         labels: ["area:core", "method:dcf"]
