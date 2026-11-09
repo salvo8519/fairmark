@@ -93,11 +93,14 @@
         },
         "other_items": {
           "default": [],
-          "description": "Other items included by the analyst, each added with its sign. Default: none (an empty\nlist), as in version 1.",
+          "description": "Other items included by the analyst, each added with its sign; `[]` means none. Absent\nor null: none, a documented default (SPEC-0007 R13) listed in `meta.defaults_applied`\nwith a warning when the net financial position is computed with it.",
           "items": {
             "$ref": "#/$defs/NfpOtherItem"
           },
-          "type": "array"
+          "type": [
+            "array",
+            "null"
+          ]
         }
       },
       "type": "object"

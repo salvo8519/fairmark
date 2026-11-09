@@ -5,12 +5,12 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    both_positive, defined_amount, given, nfp_totals, over_positive, require_definition, term,
-    union, BalanceBasis, Balances, Given, Missing, NfpComposition, NotComputedList, Ratio,
-    RatioValue, MISSING_CONVENTION, NFP_CONVENTION,
+    both_positive, defined_amount, given, nfp_totals, other_items_defaults, over_positive,
+    require_definition, term, union, warn_defaults, BalanceBasis, Balances, Given, Missing,
+    NfpComposition, NotComputedList, Ratio, RatioValue, MISSING_CONVENTION, NFP_CONVENTION,
 };
 use crate::error::{rate_field, FairmarkError, Result};
-use crate::explain::Explain;
+use crate::explain::{DefaultApplied, Explain};
 use crate::method::Method;
 use crate::not_computed::NotComputedEntry;
 use crate::num;
@@ -141,6 +141,39 @@ pub struct DebtServiceOutput {
 
 pub(crate) const NO_SCHEDULE: &str = "no debt schedule given";
 
+const RATE_POINTER: &str = "/debt_schedule/discount_rate";
+const RESERVE_POINTER: &str = "/debt_schedule/reserve_balance";
+
+/// The documented defaults of an input (R13): `other_items` of each net financial position read,
+/// and `reserve_balance` when the LLCR has every other input (rate, every CFADS, debt
+/// outstanding). The reserve default is reported, not written into the input, so the hash is
+/// unchanged and a reserve given as zero stays distinct (SPEC-0001 Decision 25).
+fn defaults(input: &DebtServiceInput) -> Vec<DefaultApplied> {
+    fn nfp(b: &Option<DebtServiceBalances>) -> Option<&NfpComposition> {
+        b.as_ref().and_then(|b| b.net_financial_position.as_ref())
+    }
+    let opening = match input.balances {
+        Balances::Average => nfp(&input.opening),
+        Balances::Closing => None,
+    };
+    let mut out = other_items_defaults([("closing", nfp(&input.closing)), ("opening", opening)]);
+    if let Some(s) = &input.debt_schedule {
+        if s.reserve_balance.is_none()
+            && s.discount_rate.is_some()
+            && s.debt_outstanding.is_some()
+            && s.periods.iter().all(|p| p.cfads.is_some())
+        {
+            out.push(DefaultApplied::new(
+                RESERVE_POINTER,
+                serde_json::json!("0"),
+                "no reserve balance given: no debt service reserve account, nothing is added to \
+                 the LLCR numerator",
+            ));
+        }
+    }
+    out
+}
+
 pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Explain)> {
     if input
         .debt_schedule
@@ -149,6 +182,12 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
     {
         return Err(FairmarkError::EmptyCashFlows);
     }
+    // A rate given is checked whatever else is given (ADR 0014 G10.3): present and invalid is
+    // an error, also when the present value of CFADS is not computed.
+    if let Some(r) = input.debt_schedule.as_ref().and_then(|s| s.discount_rate) {
+        discount_factor(r, Decimal::ONE).map_err(rate_field(RATE_POINTER, None))?;
+    }
+    let defaults = defaults(input);
     let mut ex = Explain::new(
         DebtService::ID,
         "interest cover = EBIT (or EBITDA) / interest; NFP / EBITDA; DSCR_t = CFADS_t / debt \
@@ -174,6 +213,7 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
         }
     }
     ex.convention(NFP_CONVENTION);
+    warn_defaults(&mut ex, &defaults, "/other_items");
     ex.convention("debt service as given");
     ex.convention("a ratio with a zero denominator is not defined");
     ex.convention(
@@ -240,10 +280,8 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
         ex.convention(format!("DSCR and LLCR not defined: {NO_SCHEDULE}"));
         let no_schedule = Missing::from(["/debt_schedule".to_owned()]);
         nc.push("/pv_cfads", &no_schedule);
-        let llcr = RatioValue {
-            missing: no_schedule,
-            ..RatioValue::undefined(NO_SCHEDULE.to_owned())
-        };
+        nc.observe(&no_schedule);
+        let llcr = RatioValue::block_not_given(NO_SCHEDULE, "/debt_schedule");
         let llcr = nc.ratio("/llcr", llcr);
         return Ok((
             DebtServiceOutput {
@@ -254,7 +292,7 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
                 dscr: Vec::new(),
                 pv_cfads: None,
                 llcr,
-                not_computed: nc.finish(),
+                not_computed: nc.finish(DebtService::ID)?,
             },
             ex,
         ));
@@ -295,6 +333,11 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
         Some(reserve) => ex.convention(format!(
             "reserve balance {reserve} added undiscounted to the LLCR numerator"
         )),
+        None if defaults.iter().any(|d| d.field == RESERVE_POINTER) => ex.convention(format!(
+            "warning: no reserve balance given (`{RESERVE_POINTER}`): nothing is added to the \
+             present value of CFADS, so the LLCR assumes no debt service reserve account; give \
+             the reserve balance, or 0 for none"
+        )),
         None => ex.convention("no reserve balance given: LLCR on CFADS only"),
     }
 
@@ -320,8 +363,8 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
         else {
             continue;
         };
-        let df = discount_factor(r, Decimal::from(t as u64))
-            .map_err(rate_field("/debt_schedule/discount_rate", None))?;
+        let df =
+            discount_factor(r, Decimal::from(t as u64)).map_err(rate_field(RATE_POINTER, None))?;
         let pv_t = num::mul(flow, df)?;
         ex.step(
             format!("Present value of CFADS, period {t}"),
@@ -391,7 +434,7 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
             dscr,
             pv_cfads,
             llcr,
-            not_computed: nc.finish(),
+            not_computed: nc.finish(DebtService::ID)?,
         },
         ex,
     ))
@@ -443,6 +486,10 @@ impl Method for DebtService {
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         debt_service(input)
     }
+
+    fn apply_defaults(input: &mut Self::Input) -> Vec<DefaultApplied> {
+        defaults(input)
+    }
 }
 
 #[cfg(test)]
@@ -467,7 +514,7 @@ mod tests {
                 net_financial_position: Some(NfpComposition {
                     gross_debt: d(2200),
                     cash: d(300),
-                    other_items: vec![],
+                    other_items: Some(vec![]),
                 }),
             }),
             opening: None,

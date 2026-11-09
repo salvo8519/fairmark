@@ -69,7 +69,7 @@ conventions:
   - 'EBITDA as given: reported EBITDA, no adjustments'
   - net financial position = gross debt − cash + other items, positive for net debt
   - CFADS discounted at the end of each period at 0.06 per period, the cost of debt chosen by the analyst
-  - 'no reserve balance given: LLCR on CFADS only'
+  - 'warning: no reserve balance given (`/debt_schedule/reserve_balance`): nothing is added to the present value of CFADS, so the LLCR assumes no debt service reserve account; give the reserve balance, or 0 for none'
   - LLCR over the 2 periods of the schedule, debt outstanding at the start of the first period
   - 'interest as given: gross interest expense'
   - debt service as given

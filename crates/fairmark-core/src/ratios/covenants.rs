@@ -574,16 +574,19 @@ fn not_tested_missing(
     result: CovenantResult,
     missing: &Missing,
 ) -> CovenantResult {
-    let sides: Vec<&str> = missing
-        .iter()
-        .filter_map(|p| p.rsplit('/').nth(1))
-        .collect();
-    let reason = format!("{} amount not given", sides.join(" and "));
+    let side = |s: &str| missing.iter().any(|p| p.ends_with(&format!("/{s}/amount")));
+    let reason = match (side("numerator"), side("denominator")) {
+        (true, true) => "numerator and denominator amounts not given",
+        (true, false) => "numerator amount not given",
+        _ => "denominator amount not given",
+    }
+    .to_owned();
     let result = CovenantResult {
         headroom_relative: RatioValue {
             value: None,
             not_defined: None,
             missing: missing.clone(),
+            lacking: missing.clone(),
         },
         ..result
     };
@@ -932,6 +935,8 @@ pub fn covenants(input: &CovenantsInput) -> Result<(CovenantsOutput, Explain)> {
                 nc.push(format!("/covenants/{i}/{output}"), &missing);
             }
         }
+        // A covenant tested, or decided by its rule, has every input it needs (R12).
+        nc.observe(&missing);
         let count = match r.outcome {
             Outcome::Passed => &mut summary.passed,
             Outcome::Breached => &mut summary.breached,
@@ -957,7 +962,7 @@ pub fn covenants(input: &CovenantsInput) -> Result<(CovenantsOutput, Explain)> {
         CovenantsOutput {
             covenants: results,
             summary,
-            not_computed: nc.finish(),
+            not_computed: nc.finish(Covenants::ID)?,
         },
         ex,
     ))

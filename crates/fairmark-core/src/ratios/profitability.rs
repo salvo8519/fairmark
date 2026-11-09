@@ -4,13 +4,11 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use std::collections::BTreeSet;
-
 use super::{
     composite, defined_amount, given, over_equity, over_positive, quotient, require_definition,
     BalanceBasis, Balances, Given, NotComputedList, Ratio, RatioValue, MISSING_CONVENTION,
 };
-use crate::error::Result;
+use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::not_computed::NotComputedEntry;
@@ -364,7 +362,7 @@ pub fn profitability(input: &ProfitabilityInput) -> Result<(ProfitabilityOutput,
     };
     Ok((
         ProfitabilityOutput {
-            not_computed: nc.finish(),
+            not_computed: nc.finish(Profitability::ID)?,
             ..output
         },
         ex,
@@ -385,10 +383,7 @@ fn leverage_form(
     let Some(lev) = &input.leverage else {
         ex.convention(format!("ROE, leverage form not defined: {NO_LEVERAGE}"));
         // Version 1 reason kept; the block is also listed as missing in `not_computed`.
-        let none = || RatioValue {
-            missing: BTreeSet::from(["/leverage".to_owned()]),
-            ..RatioValue::undefined(NO_LEVERAGE.to_owned())
-        };
+        let none = || RatioValue::block_not_given(NO_LEVERAGE, "/leverage");
         return Ok(RoeLeverage {
             roi: none(),
             cost_of_debt: none(),
@@ -451,7 +446,10 @@ fn leverage_form(
         Ok(effect)
     })?;
     let pre_tax_roe = composite(ex, "Pre-tax ROE, leverage form", &parts, |ex, v| {
-        let effect = leverage_effect.value.unwrap_or_default();
+        // The parts are those of the leverage effect, so it is defined here.
+        let effect = leverage_effect.value.ok_or(FairmarkError::Internal(
+            "leverage effect not defined with its parts",
+        ))?;
         let pre_tax = num::add(v[0], effect)?;
         ex.step(
             "Pre-tax ROE, leverage form",

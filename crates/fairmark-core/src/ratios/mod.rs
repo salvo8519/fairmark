@@ -32,8 +32,8 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{FairmarkError, Result};
-use crate::explain::Explain;
+use crate::error::{FairmarkError, MinimumInput, Result};
+use crate::explain::{DefaultApplied, Explain};
 use crate::not_computed::NotComputedEntry;
 use crate::num;
 
@@ -81,6 +81,11 @@ pub struct RatioValue {
     #[serde(skip)]
     #[schemars(skip)]
     pub(crate) missing: BTreeSet<String>,
+    /// Every input pointer the ratio lacks, also when a given term already makes it not defined
+    /// (R10); empty when the ratio has every input it needs. Used by the floor (R12).
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub(crate) lacking: BTreeSet<String>,
 }
 
 impl RatioValue {
@@ -89,6 +94,7 @@ impl RatioValue {
             value: Some(value),
             not_defined: None,
             missing: BTreeSet::new(),
+            lacking: BTreeSet::new(),
         }
     }
 
@@ -104,6 +110,24 @@ impl RatioValue {
             value: None,
             not_defined: Some(reason),
             missing: BTreeSet::new(),
+            lacking: BTreeSet::new(),
+        }
+    }
+
+    /// Not defined by a given term although `lacking` inputs are also missing (R10): the ratio
+    /// is not listed, but it does not count as complete for the floor (R12).
+    pub(crate) fn lacking(self, lacking: BTreeSet<String>) -> Self {
+        Self { lacking, ..self }
+    }
+
+    /// Not defined because the block `pointer` is not given (the leverage inputs, the debt
+    /// schedule): the version 1 reason, and the block listed in `not_computed` (R7).
+    pub(crate) fn block_not_given(reason: &str, pointer: &str) -> Self {
+        let block = BTreeSet::from([pointer.to_owned()]);
+        Self {
+            missing: block.clone(),
+            lacking: block,
+            ..Self::undefined(reason.to_owned())
         }
     }
 
@@ -111,11 +135,12 @@ impl RatioValue {
     pub(crate) fn not_computed(ex: &mut Explain, label: &str, missing: BTreeSet<String>) -> Self {
         ex.convention(format!(
             "{label} not computed: {} not given",
-            missing.iter().cloned().collect::<Vec<_>>().join(", ")
+            ordered(&missing).join(", ")
         ));
         Self {
             value: None,
             not_defined: None,
+            lacking: missing.clone(),
             missing,
         }
     }
@@ -125,8 +150,27 @@ impl RatioValue {
     }
 }
 
-/// The input pointers an output lacks (R7), sorted and without duplicates.
+/// The input pointers an output lacks (R7), without duplicates.
 pub(crate) type Missing = BTreeSet<String>;
+
+/// Order of JSON pointers in every list of the result: token by token, array indices compared
+/// as numbers and before names (`/periods/2` before `/periods/10`).
+pub(crate) fn pointer_cmp(a: &str, b: &str) -> std::cmp::Ordering {
+    fn key(t: &str) -> (u8, u64, &str) {
+        match t.parse::<u64>() {
+            Ok(n) if !t.is_empty() && t.bytes().all(|c| c.is_ascii_digit()) => (0, n, ""),
+            _ => (1, 0, t),
+        }
+    }
+    a.split('/').map(key).cmp(b.split('/').map(key))
+}
+
+/// The pointers of `set` in the order of [`pointer_cmp`].
+pub(crate) fn ordered(set: &Missing) -> Vec<String> {
+    let mut v: Vec<String> = set.iter().cloned().collect();
+    v.sort_by(|a, b| pointer_cmp(a, b));
+    v
+}
 
 /// A named amount entering a ratio, already resolved under the balance convention.
 #[derive(Debug, Clone, Copy)]
@@ -169,7 +213,10 @@ pub(crate) fn combine<const N: usize>(
     if !missing.is_empty() {
         return Ok(Err(missing));
     }
-    let values = parts.map(|p| p.as_ref().map(|t| t.value).unwrap_or_default());
+    let mut values = [Decimal::ZERO; N];
+    for (slot, part) in values.iter_mut().zip(parts) {
+        *slot = known(part)?.value;
+    }
     Ok(term(name, f(values)?))
 }
 
@@ -207,29 +254,29 @@ pub(crate) trait Ratio {
     /// it so (R3, R10); otherwise not computed when a term is missing (R7).
     fn evaluate(&self, ex: &mut Explain) -> Result<RatioValue> {
         let (n, d) = (self.numerator(), self.denominator());
+        let lacking = union([n, d]);
         if let Ok(d) = d {
             if d.value.is_zero() {
                 let reason = format!("{} is zero", d.name);
-                return Ok(RatioValue::not_defined(ex, self.label(), reason));
+                return Ok(RatioValue::not_defined(ex, self.label(), reason).lacking(lacking));
             }
             if self.needs_positive_denominator() && d.value.is_sign_negative() {
                 let reason = format!("{} is negative ({})", d.name, d.value);
-                return Ok(RatioValue::not_defined(ex, self.label(), reason));
+                return Ok(RatioValue::not_defined(ex, self.label(), reason).lacking(lacking));
             }
         }
         if let (true, Ok(n)) = (self.needs_positive_numerator(), n) {
             if n.value.is_zero() {
                 let reason = format!("{} is zero", n.name);
-                return Ok(RatioValue::not_defined(ex, self.label(), reason));
+                return Ok(RatioValue::not_defined(ex, self.label(), reason).lacking(lacking));
             }
             if n.value.is_sign_negative() {
                 let reason = format!("{} is negative ({})", n.name, n.value);
-                return Ok(RatioValue::not_defined(ex, self.label(), reason));
+                return Ok(RatioValue::not_defined(ex, self.label(), reason).lacking(lacking));
             }
         }
-        let missing = union([n, d]);
-        if !missing.is_empty() {
-            return Ok(RatioValue::not_computed(ex, self.label(), missing));
+        if !lacking.is_empty() {
+            return Ok(RatioValue::not_computed(ex, self.label(), lacking));
         }
         let (n, d) = (known(n)?, known(d)?);
         let (value, substituted) = match self.days() {
@@ -396,14 +443,27 @@ pub(crate) fn composite(
 ) -> Result<RatioValue> {
     Ok(match parts(of) {
         Parts::Values(v) => RatioValue::defined(compute(ex, &v)?),
-        Parts::NotDefined(reason) => RatioValue::not_defined(ex, label, reason),
+        Parts::NotDefined(reason) => RatioValue::not_defined(ex, label, reason).lacking(
+            of.iter()
+                .flat_map(|(_, r)| r.lacking.iter().cloned())
+                .collect(),
+        ),
         Parts::Missing(missing) => RatioValue::not_computed(ex, label, missing),
     })
 }
 
-/// The outputs not computed of one result, in the order of the output fields (R7).
+/// The outputs not computed of one result, in the order of the output fields (R7), and what
+/// every output lacks, for the floor (R12).
 #[derive(Default)]
-pub(crate) struct NotComputedList(Vec<NotComputedEntry>);
+pub(crate) struct NotComputedList {
+    entries: Vec<NotComputedEntry>,
+    /// What each output lacks; an empty set is an output with every input it needs.
+    gaps: Vec<Missing>,
+}
+
+/// Blocks whose absence is reported by their own pointer: a set that names one is not a
+/// complete alternative of the floor (the block also needs its amounts).
+const BLOCKS: [&str; 2] = ["/leverage", "/debt_schedule"];
 
 /// Convention of every `ratios.*` method (R7).
 pub(crate) const MISSING_CONVENTION: &str =
@@ -416,12 +476,17 @@ pub(crate) const MISSING_REASON: &str =
 
 impl NotComputedList {
     pub(crate) fn push(&mut self, output: impl Into<String>, missing: &Missing) {
-        self.0.push(NotComputedEntry {
+        self.entries.push(NotComputedEntry {
             output: output.into(),
-            missing: missing.iter().cloned().collect(),
+            missing: ordered(missing),
             permitted: Vec::new(),
             reason: Some(MISSING_REASON.to_owned()),
         });
+    }
+
+    /// Records what one output lacks for the floor; empty when it has every input it needs.
+    pub(crate) fn observe(&mut self, lacking: &Missing) {
+        self.gaps.push(lacking.clone());
     }
 
     /// Lists `ratio` at `output` when it is not computed; returns it.
@@ -429,22 +494,57 @@ impl NotComputedList {
         if !ratio.missing.is_empty() {
             self.push(output, &ratio.missing);
         }
+        self.observe(&ratio.lacking);
         ratio
     }
 
     /// The amount, or null listed at `output` with the pointers it lacks.
     pub(crate) fn amount(&mut self, output: &str, amount: &Given) -> Option<Decimal> {
         match amount {
-            Ok(t) => Some(t.value),
+            Ok(t) => {
+                self.observe(&Missing::new());
+                Some(t.value)
+            }
             Err(missing) => {
                 self.push(output, missing);
+                self.observe(missing);
                 None
             }
         }
     }
 
-    pub(crate) fn finish(self) -> Vec<NotComputedEntry> {
-        self.0
+    /// The list, or `FM-E027` when no output has every input it needs (R12, ADR 0014 G10.1),
+    /// with the minimal alternative sets of missing inputs, shortest first.
+    pub(crate) fn finish(self, method: &'static str) -> Result<Vec<NotComputedEntry>> {
+        if self.gaps.iter().any(BTreeSet::is_empty) {
+            return Ok(self.entries);
+        }
+        let mut sets: Vec<&Missing> = Vec::new();
+        for gap in &self.gaps {
+            if gap.iter().any(|p| BLOCKS.contains(&p.as_str())) || sets.contains(&gap) {
+                continue;
+            }
+            sets.push(gap);
+        }
+        let minimal: Vec<&Missing> = sets
+            .iter()
+            .filter(|s| !sets.iter().any(|o| o.len() < s.len() && o.is_subset(s)))
+            .copied()
+            .collect();
+        let mut missing_any_of: Vec<Vec<String>> = minimal.into_iter().map(ordered).collect();
+        missing_any_of.sort_by(|a, b| {
+            a.len().cmp(&b.len()).then_with(|| {
+                a.iter()
+                    .zip(b)
+                    .map(|(x, y)| pointer_cmp(x, y))
+                    .find(|o| o.is_ne())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+        });
+        Err(FairmarkError::BelowMinimumInput(Box::new(MinimumInput {
+            method,
+            missing_any_of,
+        })))
     }
 }
 
@@ -584,27 +684,23 @@ pub(crate) const NFP_CONVENTION: &str =
     "net financial position = gross debt − cash + other items, positive for net debt";
 
 impl NetFinancialPosition {
-    /// gross debt − cash + Σ other items, with every component echoed in the audit trail.
+    /// gross debt − cash + Σ other items, with every component echoed in the audit trail: the
+    /// formula and the audit trail of [`NfpComposition::total`], on the same amounts.
     pub(crate) fn total(&self, ex: &mut Explain, when: &str) -> Result<Decimal> {
-        ex.step(format!("Gross debt ({when})"), "as given", self.gross_debt);
-        ex.step(format!("Cash ({when})"), "as given", self.cash);
-        let mut total = num::sub(self.gross_debt, self.cash)?;
-        let mut formula = format!("{} − {}", self.gross_debt, self.cash);
-        for item in &self.other_items {
-            ex.step(
-                format!("Other item: {} ({when})", item.name),
-                "as given",
-                item.amount,
-            );
-            total = num::add(total, item.amount)?;
-            if item.amount.is_sign_negative() && !item.amount.is_zero() {
-                formula.push_str(&format!(" − {}", item.amount.abs()));
-            } else {
-                formula.push_str(&format!(" + {}", item.amount));
-            }
-        }
-        ex.step(format!("Net financial position ({when})"), formula, total);
-        Ok(total)
+        let composition = NfpComposition {
+            gross_debt: Some(self.gross_debt),
+            cash: Some(self.cash),
+            other_items: Some(
+                self.other_items
+                    .iter()
+                    .map(|i| NfpOtherItem {
+                        name: i.name.clone(),
+                        amount: Some(i.amount),
+                    })
+                    .collect(),
+            ),
+        };
+        Ok(known(&composition.total(ex, when, "")?)?.value)
     }
 }
 
@@ -637,10 +733,60 @@ pub struct NfpComposition {
     /// null: not given.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cash: Option<Decimal>,
-    /// Other items included by the analyst, each added with its sign. Default: none (an empty
-    /// list), as in version 1.
-    #[serde(default)]
-    pub other_items: Vec<NfpOtherItem>,
+    /// Other items included by the analyst, each added with its sign; `[]` means none. Absent
+    /// or null: none, a documented default (SPEC-0007 R13) listed in `meta.defaults_applied`
+    /// with a warning when the net financial position is computed with it.
+    #[serde(default, serialize_with = "items_or_none")]
+    pub other_items: Option<Vec<NfpOtherItem>>,
+}
+
+/// The canonical form of `other_items` for `meta.input_hash`: the default filled in, so an
+/// absent list and `[]` hash alike, as in version 1 (SPEC-0001 R31).
+fn items_or_none<S: serde::Serializer>(
+    items: &Option<Vec<NfpOtherItem>>,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error> {
+    serializer.collect_seq(items.iter().flatten())
+}
+
+/// The reason of the `other_items` default (R13).
+pub(crate) const OTHER_ITEMS_REASON: &str =
+    "no other items of the net financial position given: none, the net financial position is \
+     gross debt less cash";
+
+/// The `other_items` defaults of the balance sheets the ratios read (R13): one per sheet whose
+/// net financial position gives gross debt and cash but no `other_items`.
+pub(crate) fn other_items_defaults<'a>(
+    sheets: impl IntoIterator<Item = (&'a str, Option<&'a NfpComposition>)>,
+) -> Vec<DefaultApplied> {
+    sheets
+        .into_iter()
+        .filter_map(|(sheet, nfp)| {
+            let nfp = nfp?;
+            (nfp.gross_debt.is_some() && nfp.cash.is_some() && nfp.other_items.is_none()).then(
+                || {
+                    DefaultApplied::new(
+                        format!("/{sheet}/net_financial_position/other_items"),
+                        serde_json::json!([]),
+                        OTHER_ITEMS_REASON,
+                    )
+                },
+            )
+        })
+        .collect()
+}
+
+/// The warning of every `other_items` default applied (G3, test 4: it determines the net
+/// financial position).
+pub(crate) fn warn_defaults(ex: &mut Explain, defaults: &[DefaultApplied], suffix: &str) {
+    for d in defaults.iter().filter(|d| d.field.ends_with(suffix)) {
+        ex.convention(format!(
+            "warning: no other items of the net financial position given (`{}`): the net \
+             financial position is gross debt less cash; list the other items, or give `[]` \
+             for none",
+            d.field
+        ));
+    }
 }
 
 impl NfpComposition {
@@ -661,7 +807,8 @@ impl NfpComposition {
         if self.cash.is_none() {
             missing.insert(format!("{at}/cash"));
         }
-        for (i, item) in self.other_items.iter().enumerate() {
+        let items = self.other_items.as_deref().unwrap_or(&[]);
+        for (i, item) in items.iter().enumerate() {
             match item.amount {
                 Some(a) => ex.step(format!("Other item: {} ({when})", item.name), "as given", a),
                 None => {
@@ -675,7 +822,7 @@ impl NfpComposition {
         };
         let mut total = num::sub(gross, cash)?;
         let mut formula = format!("{gross} − {cash}");
-        for amount in self.other_items.iter().filter_map(|i| i.amount) {
+        for amount in items.iter().filter_map(|i| i.amount) {
             total = num::add(total, amount)?;
             if amount.is_sign_negative() && !amount.is_zero() {
                 formula.push_str(&format!(" − {}", amount.abs()));
@@ -857,7 +1004,7 @@ mod tests {
         let nfp = NfpComposition {
             gross_debt: Some(Decimal::from(2200)),
             cash: Some(Decimal::from(300)),
-            other_items: vec![
+            other_items: Some(vec![
                 NfpOtherItem {
                     name: "leases".into(),
                     amount: Some(Decimal::from(150)),
@@ -866,7 +1013,7 @@ mod tests {
                     name: "derivative assets".into(),
                     amount: Some(Decimal::from(-50)),
                 },
-            ],
+            ]),
         };
         let mut e = ex();
         let total = nfp
@@ -882,10 +1029,10 @@ mod tests {
         let nfp = NfpComposition {
             gross_debt: Some(Decimal::from(2200)),
             cash: None,
-            other_items: vec![NfpOtherItem {
+            other_items: Some(vec![NfpOtherItem {
                 name: "leases".into(),
                 amount: None,
-            }],
+            }]),
         };
         let missing = nfp.total(&mut ex(), "closing", "/c").unwrap().unwrap_err();
         assert_eq!(

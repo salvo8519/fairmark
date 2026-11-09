@@ -217,7 +217,7 @@
         "2": {
           "file": "ratios.capital_structure/v2.json",
           "introduced_in": "unreleased",
-          "sha256": "ea8425af7055bf71c2959f5b3ae139a3a2d8d9a9e6da3230e5ebb811579239e1"
+          "sha256": "273135992a21cbdd2604917e9c4b6739bc7f92b849718025ba672cad9bab447b"
         }
       }
     },
@@ -247,7 +247,7 @@
         "2": {
           "file": "ratios.debt_service/v2.json",
           "introduced_in": "unreleased",
-          "sha256": "62309cc2d2c9ab3b3282ca2411ad6fa8f3203faf62fd21de96aaa58213f6a758"
+          "sha256": "cc252a4cd59102cbfcb24adb47e2a55addc32b12eaff545a9667e3328a97cc8e"
         }
       }
     },

@@ -5,11 +5,12 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    combine, nfp_totals, over_equity, quotient, BalanceBasis, Balances, NfpComposition,
-    NotComputedList, Ratio, RatioValue, MISSING_CONVENTION, NFP_CONVENTION,
+    combine, nfp_totals, other_items_defaults, over_equity, quotient, warn_defaults, BalanceBasis,
+    Balances, NfpComposition, NotComputedList, Ratio, RatioValue, MISSING_CONVENTION,
+    NFP_CONVENTION,
 };
 use crate::error::Result;
-use crate::explain::Explain;
+use crate::explain::{DefaultApplied, Explain};
 use crate::method::Method;
 use crate::not_computed::NotComputedEntry;
 use crate::num;
@@ -90,6 +91,7 @@ pub fn capital_structure(
     );
     let basis = BalanceBasis::new(input.balances, input.opening.is_some(), &mut ex);
     ex.convention(NFP_CONVENTION);
+    warn_defaults(&mut ex, &defaults(input), "/other_items");
     ex.convention(
         "D/E uses gross debt only: cash and the other items of the net financial position are \
          excluded",
@@ -203,7 +205,7 @@ pub fn capital_structure(
     };
     Ok((
         CapitalStructureOutput {
-            not_computed: nc.finish(),
+            not_computed: nc.finish(CapitalStructure::ID)?,
             ..output
         },
         ex,
@@ -229,6 +231,24 @@ impl Method for CapitalStructure {
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         capital_structure(input)
     }
+
+    /// `other_items` not given: none (R13). Reported, and the canonical input writes the empty
+    /// list, so the hash is that of version 1.
+    fn apply_defaults(input: &mut Self::Input) -> Vec<DefaultApplied> {
+        defaults(input)
+    }
+}
+
+/// The documented defaults of an input (R13): `other_items` of each net financial position read.
+fn defaults(input: &CapitalStructureInput) -> Vec<DefaultApplied> {
+    fn nfp(b: &Option<CapitalStructureBalances>) -> Option<&NfpComposition> {
+        b.as_ref().and_then(|b| b.net_financial_position.as_ref())
+    }
+    let opening = match input.balances {
+        Balances::Average => nfp(&input.opening),
+        Balances::Closing => None,
+    };
+    other_items_defaults([("closing", nfp(&input.closing)), ("opening", opening)])
 }
 
 #[cfg(test)]
@@ -249,10 +269,10 @@ mod tests {
             net_financial_position: Some(NfpComposition {
                 gross_debt: d(2200),
                 cash: d(300),
-                other_items: vec![NfpOtherItem {
+                other_items: Some(vec![NfpOtherItem {
                     name: "lease liabilities".into(),
                     amount: d(150),
-                }],
+                }]),
             }),
         }
     }

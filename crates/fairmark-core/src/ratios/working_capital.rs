@@ -173,7 +173,7 @@ pub fn working_capital(input: &WorkingCapitalInput) -> Result<(WorkingCapitalOut
     };
     Ok((
         WorkingCapitalOutput {
-            not_computed: nc.finish(),
+            not_computed: nc.finish(WorkingCapital::ID)?,
             ..output
         },
         ex,

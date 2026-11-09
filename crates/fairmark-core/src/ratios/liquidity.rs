@@ -150,7 +150,7 @@ pub fn liquidity(input: &LiquidityInput) -> Result<(LiquidityOutput, Explain)> {
     };
     Ok((
         LiquidityOutput {
-            not_computed: nc.finish(),
+            not_computed: nc.finish(Liquidity::ID)?,
             ..output
         },
         ex,
@@ -223,17 +223,12 @@ mod tests {
     }
 
     #[test]
-    fn missing_current_liabilities_leave_every_output_not_computed() {
+    fn missing_current_liabilities_are_below_the_floor() {
+        // Every output needs current liabilities (R12): FM-E027 names them.
         let mut i = input(2000);
         i.closing.as_mut().unwrap().current_liabilities = None;
-        let (out, ex) = liquidity(&i).unwrap();
-        assert_eq!(out.not_computed.len(), 5);
-        assert_eq!(out.net_working_capital, None);
-        assert!(out
-            .not_computed
-            .iter()
-            .all(|e| e.missing == ["/closing/current_liabilities"]));
-        // Quick assets are still computed and shown.
-        assert!(ex.steps.iter().any(|s| s.label == "Quick assets"));
+        let err = liquidity(&i).unwrap_err();
+        assert_eq!(err.code(), "FM-E027");
+        assert!(err.to_string().contains("[`/closing/current_liabilities`]"));
     }
 }

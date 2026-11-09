@@ -269,15 +269,20 @@ fn a_blank_definition_is_refused_and_null_equals_absent() {
 
 #[test]
 fn not_defined_by_a_given_term_wins_over_a_missing_term() {
-    // Revenue zero: the margins are not defined even without EBIT or EBITDA.
+    // Revenue zero: the EBITDA margin is not defined even without EBITDA; ROS has every input
+    // (EBIT given), which keeps the input above the floor (R12).
     let input = json!({
         "balances": "closing", "operating_return_base": "total_assets",
-        "income_statement": {"revenue": "0"}
+        "income_statement": {"revenue": "0", "ebit": "10"}
     });
     let out = run("ratios.profitability", &input);
     assert_eq!(out["value"]["ros"]["not_defined"], "revenue is zero");
+    assert_eq!(
+        out["value"]["ebitda_margin"]["not_defined"],
+        "revenue is zero"
+    );
     let listed = out["value"]["not_computed"].to_string();
-    assert!(!listed.contains("\"/ros\""), "{listed}");
+    assert!(!listed.contains("\"/ebitda_margin\""), "{listed}");
 }
 
 const CAPITAL_STRUCTURE: &[(&str, Kind)] = &[
@@ -445,13 +450,16 @@ fn liquidity_rows() {
                 &["/quick_ratio", "/treasury_margin"],
             ),
             ("/opening/cash", "/opening/cash", &["/cash_ratio"]),
-            (
-                "/closing/current_liabilities",
-                "/closing/current_liabilities",
-                &all,
-            ),
         ],
     );
+    // Every output needs current liabilities: without them the input is below the floor.
+    let err = fairmark_core::run(
+        "ratios.liquidity",
+        &remove(&table.input, "/closing/current_liabilities").to_string(),
+    )
+    .unwrap_err();
+    assert_eq!(err.code(), "FM-E027");
+    assert_eq!(all.len(), LIQUIDITY.len());
 }
 
 const WORKING_CAPITAL: &[(&str, Kind)] = &[
