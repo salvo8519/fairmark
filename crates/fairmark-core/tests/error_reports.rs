@@ -220,10 +220,14 @@ fn unknown_fields_are_found_at_every_depth() {
                 "remove `debt`, or rename it to one of the fields in `expected`"
             ),
             ("/wac", "rename `wac` to `wacc`"),
-            // The method's own check (round 5, audit 1): no rate is given under its name.
-            ("/wacc", "give `/wacc`"),
+            // The method's own check (round 5, audit 1): no rate is given under its name. The
+            // misspelt key stands for it (round 6): the same fix, at both.
+            ("/wacc", "rename `wac` to `wacc`"),
         ]
     );
+    let wacc = &r["errors"][4];
+    assert_eq!(wacc["reason"], "missing");
+    assert_eq!(wacc["pointers"], json!(["/wacc", "/wac"]));
 }
 
 #[test]
