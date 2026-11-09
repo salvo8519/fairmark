@@ -23,6 +23,9 @@ sys.modules["clean_workspace"] = cw  # dataclasses resolve types through sys.mod
 _spec.loader.exec_module(cw)
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git is required")
+needs_proc = pytest.mark.skipif(
+    not Path("/proc/self").is_dir(), reason="real processes are read from /proc (Linux)"
+)
 
 
 def sh(cwd: Path, *args: str) -> str:
@@ -283,12 +286,12 @@ def test_recently_active_worktree_is_kept_until_idle(repo: Repo) -> None:
     assert row(repo.cleaner(idle_hours=12, now=later).run(), wt).action == "remove"
 
 
+@needs_proc
 def test_real_process_in_worktree_is_detected(repo: Repo, sleeper: Any) -> None:
     wt = repo.worktree("live", merge=True)
     proc = sleeper(wt)
     processes = cw.scan_processes()
-    if processes is None:
-        pytest.skip("no /proc on this platform")
+    assert processes is not None
     r = row(repo.cleaner(apply=True, processes=processes).run(), wt)
     assert r.action == "keep" and f"process {proc.pid}" in r.reason and wt.exists()
 
@@ -389,13 +392,13 @@ def test_other_processes_do_not_block_caches(repo: Repo) -> None:
     assert row(rows, wt).reason.startswith("in use")  # the worktree itself stays
 
 
+@needs_proc
 def test_real_cargo_process_protects_caches(repo: Repo, sleeper: Any) -> None:
     wt = repo.worktree("real-cargo")
     caches = make_caches(wt)
     sleeper(wt, "cargo")
     processes = cw.scan_processes()
-    if processes is None:
-        pytest.skip("no /proc on this platform")
+    assert processes is not None
     rows = repo.cleaner(apply=True, caches=True, processes=processes).run()
     assert row(rows, caches[0]).reason.startswith("in use by process")
     assert caches[0].exists()
