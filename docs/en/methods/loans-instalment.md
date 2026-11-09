@@ -119,7 +119,9 @@ that final-period adjustment. `total_paid` here uses the rounded instalment for 
 The instalment uses integer powers, multiplication and division, and holds to the last of the
 engine's 28 significant digits. When the compounding differs from the payment frequency, the
 conversion uses the series functions of the decimal library (relative error near $10^{-27}$).
-The golden cases are checked to $10^{-20}$ against an independent 50-digit reference.
+The golden cases are checked to $10^{-20}$ against an independent 50-digit reference. When
+$(1 + i)^{-n}$ in the annuity factor falls below the decimal precision (about $10^{-28}$), it is
+taken as 0, its limit, and an explain step says so.
 
 ## Verified against
 

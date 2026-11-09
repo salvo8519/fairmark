@@ -528,3 +528,26 @@ fn terms_without_inflation_require_the_inflation() {
         "{r:#}"
     );
 }
+
+#[test]
+fn a_financing_line_on_the_enterprise_basis_names_only_the_field_given() {
+    let mut input = golden_input("dcf.fcff/stage-with-build-up-lines.yaml");
+    input["stages"][0]["lines"][0]["net_borrowing"] = json!("10");
+    let r = report("dcf.fcff", &input);
+    assert_eq!(
+        entries(&r),
+        vec![entry("/stages/0/lines/0/net_borrowing", "requires")],
+        "{r:#}"
+    );
+    assert!(named(&r).is_empty(), "{r:#}");
+    input["stages"][0]["lines"][0]["interest_expense"] = json!("5");
+    let r = report("dcf.fcff", &input);
+    assert_eq!(
+        named(&r),
+        vec![
+            "/stages/0/lines/0/interest_expense",
+            "/stages/0/lines/0/net_borrowing"
+        ],
+        "{r:#}"
+    );
+}

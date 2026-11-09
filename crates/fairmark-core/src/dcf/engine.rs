@@ -1707,21 +1707,43 @@ fn stage_lines(
             any = true;
             let pointer = format!("/stages/{i}/lines");
             if basis == TerminalBasis::Enterprise {
-                if let Some(k) = lines
+                if let Some((k, l)) = lines
                     .iter()
-                    .position(|l| l.interest_expense.is_some() || l.net_borrowing.is_some())
+                    .enumerate()
+                    .find(|(_, l)| l.interest_expense.is_some() || l.net_borrowing.is_some())
                 {
-                    return Err(invalid(format!(
-                        "`{pointer}/{k}/interest_expense` and `{pointer}/{k}/net_borrowing` are \
-                         not used on the enterprise basis: the DCF discounts FCFF, which is \
-                         before financing; remove them"
-                    ))
-                    .at(format!("{pointer}/{k}/interest_expense"), Reason::Requires)
-                    .between([
+                    // Name only the financing fields actually given, each with its pointer.
+                    let given: Vec<String> = [
+                        ("interest_expense", l.interest_expense.is_some()),
+                        ("net_borrowing", l.net_borrowing.is_some()),
+                    ]
+                    .into_iter()
+                    .filter(|(_, present)| *present)
+                    .map(|(field, _)| format!("{pointer}/{k}/{field}"))
+                    .collect();
+                    let quoted: Vec<String> = given.iter().map(|p| format!("`{p}`")).collect();
+                    let (fields, verb, pronoun) = match quoted.as_slice() {
+                        [one] => (one.clone(), "is", "it"),
+                        _ => (quoted.join(" and "), "are", "them"),
+                    };
+                    // Pointers name only the fields given; both are read.
+                    let read = [
                         format!("{pointer}/{k}/interest_expense"),
                         format!("{pointer}/{k}/net_borrowing"),
-                    ])
-                    .fix("remove `interest_expense` and `net_borrowing`"));
+                    ];
+                    let relation = if given.len() > 1 {
+                        given.clone()
+                    } else {
+                        Vec::new()
+                    };
+                    return Err(invalid(format!(
+                        "{fields} {verb} not used on the enterprise basis: the DCF discounts \
+                         FCFF, which is before financing; remove {pronoun}"
+                    ))
+                    .at(given[0].clone(), Reason::Requires)
+                    .between(relation)
+                    .reads(read)
+                    .fix(format!("remove {fields}")));
                 }
             }
             let at = Location {

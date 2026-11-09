@@ -20,6 +20,10 @@
   (2ada2a5, docs a982be5). Run over every golden file with 40 leaves per file: passed.
 
 ## State at the end of the session
+- origin/main (#298, #282) merged into the branch: the enterprise-basis financing error keeps
+  main's message (only the fields given) with pointer, pointers and reads of the report;
+  annuity_factor takes main's underflow rule, the branch keeps its periods and growth
+  helpers. Regression test in tests/error_round6.rs.
 - Round 6 complete except the refusal of decimals with more than 28 places (see below).
 - `uv run just check` passed before the rebase on origin/main.
 
