@@ -283,6 +283,16 @@ version 1, recorded in `schemas/index.json`) and returned for statutory years; t
 maintainer to extend the approval to the 18 golden cases on main that list the default of
 `write_downs_of_receivables` (AGENTS.md); until then the default stays `investing`.
 
+## Decisions of 2026-11-09, second set (golden approval, P1 to P5)
+E3 and F1 are applied under the approval extended to 18 golden files on main (`expect_meta`
+entries of `/treatments/write_downs_of_receivables` only; their own commit, with the trailer
+`Numerical-change: none (...)`). P1 adds the treatment `write_downs_of_fixed_assets` (an
+additive input change of version 1) with the default `operating`: B10 c joins depreciation and
+amortisation below EBITDA; its input default is listed only when a statutory year gives B10 c,
+as F1 does for B10 d. P3 moves restated lease liabilities into gross debt. P4 and P5 are
+documentation. P2 waits for the maintainer on four implementation points
+(`/tmp/pr236-questions-p2.md`, task T27c).
+
 ## Decisions on the plan (maintainer, 2026-11-08)
 1. Mapping defaults of Appendix A are listed in `meta.defaults_applied` with pointer,
    destination and reason, besides `assignments` and conventions (R8 clarified).

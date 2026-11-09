@@ -120,8 +120,10 @@ request where every output they assert exists (`plan.md`, "Test strategy").
   `FM-E026`; pointers of the items read; lease convention when B8 is missing;
   `related_non_operating_asset` reported; sources; reference and golden cases updated
 - [ ] T27b E3 (default `operating` for B10 d) and audit F1 (input default listed only when B10 d
-  is given): wait for the maintainer to extend the approval to the 18 golden cases on main that
-  list the default
+  is given), under the approval of 2026-11-09 for 18 named golden files on main; P1 (B10 c
+  operating by default), P3 (lease liability in gross debt), P4 and P5 (documentation)
+- [ ] T27c P2 (income and costs follow the classification of the related balance sheet item):
+  waits for the maintainer on four implementation points
 
 ### Adapters and docs
 - [x] T28 [P] `python/tests/test_reference_statements.py` extended to income statements

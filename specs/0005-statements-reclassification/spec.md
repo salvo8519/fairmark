@@ -119,6 +119,45 @@ Approved by the maintainer on 2026-11-08.
   - **E7, exchange losses.** A non-recurring exchange loss (C17-bis) cannot be expressed in
     version 1: a documented limitation, followed by issue #251.
 
+- **Approvals and decisions of 2026-11-09, second set (maintainer, after the practice audit of
+  the method).** Approved by the maintainer on 2026-11-09:
+  - **Golden approval, E3 and F1.** The approval is extended to 18 golden files on main
+    (`adjustment-accrued-interest`, `adjustment-debt-like-provision`,
+    `adjustment-dividends-declared`, `adjustment-financial-receivable`,
+    `adjustment-non-current-trade-payables`, `adjustment-non-operating-asset`,
+    `adjustment-operating-cash`, `adjustment-tax-instalments`, `balance-sheet-abridged`,
+    `balance-sheet-ordinary`, `dividends-declared`, `end-of-month-dates`, `leap-year-dates`,
+    `missing-treatment`, `not-checked-funds-invested-equals-sources-statutory`,
+    `override-financial-fixed-assets`, `subscribed-capital-unpaid`,
+    `treatment-once-three-years`), only for their `expect_meta` entries of
+    `/treatments/write_downs_of_receivables` (value changed, or entry removed with the asserted
+    indices renumbered). E3 applies (B10 d `operating` by default) and F1 applies: the input
+    default of `write_downs_of_receivables` is filled in and listed only when a statutory year
+    gives B10 d; otherwise no number depends on it and it is not filled in.
+  - **P1, B10 c.** Write-downs of tangible and intangible fixed assets (B10 c) are operating by
+    default, below EBITDA together with depreciation and amortisation (IFRS 18; OIC 12 paragraph
+    75); a new treatment `write_downs_of_fixed_assets` (`operating` by default, `investing`
+    selectable) chooses; a one-off impairment is isolated with a `non_recurring` adjustment. D18
+    and D19 stay in the investing result. With B10 c operating, a B10 a to c group with or
+    without its B10 c part gives the same operating profit. R16 is amended: `operating_profit`
+    has the content of the IFRS 18 operating subtotal only under the stated conventions (labelled
+    non-recurring items excluded; write-downs as chosen). Decision 17 and R17 are amended
+    accordingly for B10 c.
+  - **P2, consistency rule.** Income and costs follow the classification of the related balance
+    sheet item: income from investments treated as operating (B.III in invested capital) goes to
+    operating profit; the revaluation (interest cost) of the employee severance indemnity treated
+    as debt-like goes to the financing result, not EBITDA; reported in the conventions.
+  - **P3, leases.** A lease restated as debt enters gross debt of the net financial position
+    (ESMA32-382-1138 paragraph 180).
+  - **P4, net financial position and ESMA.** The documentation does not claim to follow the
+    ESMA table where Fairmark differs: non-current financial assets and hedging derivative
+    assets are deducted by Fairmark, not by ESMA; the difference is stated. An ESMA view (rows A
+    to M) is a later, separate issue.
+  - **P5, citations.** Unsupported citations are removed: Borsa Italiana, *Guida alla
+    Valutazione* (2004) does not discuss deferred tax assets or B10 d; Banca d'Italia and the EBA
+    do not define EBITDA (the EBA lists it). The definition of EBITDA is Fairmark's (Decision 8);
+    V23 and V30 support its use only.
+
 ## Analysis
 
 ### What is on main today
@@ -466,7 +505,9 @@ Every golden case compares exactly (tolerance 0).
 - **Input:** `years`: list, oldest first, of `{label?, date?, statutory? | reclassified?,
   treatment_overrides?}`, with `statutory = {layout?, balance_sheet?, income_statement?}`;
   `treatments` (once): one destination per aggregate of R9, and optionally
-  `write_downs_of_receivables` (`investing` by default, or `operating`; R17); `adjustments` (once):
+  `write_downs_of_receivables` (`operating` by default after E3, or `investing`; R17) and
+  `write_downs_of_fixed_assets` (`operating` by default, or `investing`; P1);
+  `adjustments` (once):
   `{kind, label, reason, amounts: [one per year or null], ...}`.
 - **Output:** per year, the blocks of Appendix B, `net_financial_position` with composition and
   current and non-current parts, `non_operating_assets`, `debt_like_items`, `quasi_equity_items`,
@@ -656,7 +697,7 @@ when given and not zero. "NFP": component of the net financial position.
 | B7, B8 | `services`, `use_of_third_party_assets` | external costs | F | `non_recurring`; `lease` (B8) |
 | B9 | `personnel_costs` | below value added | F | `non_recurring` |
 | B10 a, b (and c when grouped) | `depreciation_and_amortisation` | below EBITDA | F | `non_recurring` |
-| B10 c | `write_downs_of_fixed_assets` | investing result | F | `non_recurring` |
+| B10 c | `write_downs_of_fixed_assets` | below EBITDA with depreciation and amortisation (P1 of 2026-11-09); investing result with the treatment `investing` | D | `non_recurring` |
 | B10 d | `write_downs_of_receivables` | investing result; `operating_profit` below EBITDA with the optional treatment `operating` | D | `non_recurring` |
 | B12, B13 | `provisions_for_risks`, `other_provisions` | below EBITDA | F | `non_recurring` |
 | B14 | `other_operating_expenses` | external costs | D | `investing`, `non_recurring` |
