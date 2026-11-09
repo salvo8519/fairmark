@@ -15,13 +15,20 @@ use crate::error::{CustomRefusal, FairmarkError, Reason, Result};
 /// column, because it has no field to name. An input that `serde` reads is still refused when
 /// it repeats a key or gives an object as a positional array: `serde` would read it in another
 /// way than written.
-pub(crate) fn parse<T: serde::de::DeserializeOwned + JsonSchema>(input_json: &str) -> Result<T> {
+///
+/// `analysis`: the input is that of an analysis, whose `base_input` is the input of the method
+/// named by `method`. When the analysis input cannot be read, `base_input` is still checked
+/// by that method, and its input errors are reported under `/base_input` with the others.
+pub(crate) fn parse<T: serde::de::DeserializeOwned + JsonSchema>(
+    input_json: &str,
+    analysis: bool,
+) -> Result<T> {
     let mut de = serde_json::Deserializer::from_str(input_json);
     match serde_path_to_error::deserialize(&mut de) {
         Err(e) => {
             let first = input_error(e);
             Err(
-                match reading_errors(Some(first), &schema_for!(T), input_json) {
+                match reading_errors(Some(first), &schema_for!(T), input_json, analysis) {
                     Err(e) => e,
                     Ok(()) => FairmarkError::Internal("a refused input recorded no error"),
                 },
@@ -30,7 +37,7 @@ pub(crate) fn parse<T: serde::de::DeserializeOwned + JsonSchema>(input_json: &st
         Ok(input) => {
             // `serde_json::from_str` does the same: nothing but whitespace may follow the value.
             de.end().map_err(syntax_error)?;
-            reading_errors(None, &schema_for!(T), input_json)?;
+            reading_errors(None, &schema_for!(T), input_json, false)?;
             Ok(input)
         }
     }
@@ -291,6 +298,7 @@ fn reading_errors(
     first: Option<(FairmarkError, Vec<String>)>,
     schema: &schemars::Schema,
     text: &str,
+    analysis: bool,
 ) -> Result<()> {
     let alone = |first: Option<(FairmarkError, Vec<String>)>| first.map_or(Ok(()), |(e, _)| Err(e));
     let (Ok(value), Ok(schema)) = (
@@ -332,6 +340,9 @@ fn reading_errors(
         });
     }
     extra.extend(duplicates.iter().map(|t| duplicate_error(t)));
+    if analysis {
+        extra.extend(base_input_errors(&value));
+    }
     for error in extra {
         let d = error.details();
         let key = (d.pointer, d.reason);
@@ -341,6 +352,30 @@ fn reading_errors(
         }
     }
     found.finish()
+}
+
+/// The input errors of `base_input` of an analysis input that cannot be read, checked by the
+/// method named in `method` and located under `/base_input`; none when the method is unknown or
+/// is itself an analysis (refused by the analysis). Errors of the computation are left out.
+fn base_input_errors(value: &Value) -> Vec<FairmarkError> {
+    let (Some(id), Some(base)) = (
+        value.get("method").and_then(Value::as_str),
+        value.get("base_input").filter(|b| b.is_object()),
+    ) else {
+        return Vec::new();
+    };
+    if crate::registry::method(id).is_err() || id.starts_with("analysis.") {
+        return Vec::new();
+    }
+    match crate::registry::evaluate(id, base) {
+        Ok(_) => Vec::new(),
+        Err(e) => e
+            .under("/base_input")
+            .into_errors()
+            .into_iter()
+            .filter(FairmarkError::is_input_error)
+            .collect(),
+    }
 }
 
 /// The first error of `serde`, completed with what the JSON and the schema say about it: a

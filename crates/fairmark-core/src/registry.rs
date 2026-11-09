@@ -355,7 +355,7 @@ fn dispatch(id: &str, input_json: &str) -> Result<Value> {
 }
 
 fn execute<M: Method>(input_json: &str) -> Result<Value> {
-    let mut input: M::Input = crate::reading::parse(input_json)?;
+    let mut input: M::Input = crate::reading::parse(input_json, M::ID.starts_with("analysis."))?;
     // SPEC-0001 R31: the defaults are filled in once, in `run_typed`; the hash covers the input
     // with its defaults, so that a minimal input and its explicit equivalent hash identically.
     let (value, explain, defaults) = M::run_typed(&mut input)?;

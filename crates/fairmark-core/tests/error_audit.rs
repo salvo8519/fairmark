@@ -587,3 +587,65 @@ fn rates_and_series_check_both_fields() {
         "{r:#}"
     );
 }
+
+// ------------------------------------------------------------- every method, two errors
+
+/// The pointer of the first object nested in `value` (depth first, in input order), if any.
+fn first_nested_object(value: &Value, at: &str) -> Option<String> {
+    match value {
+        Value::Object(map) => {
+            for (k, v) in map {
+                let p = format!("{at}/{}", k.replace('~', "~0").replace('/', "~1"));
+                if v.is_object() {
+                    return Some(p);
+                }
+                if let Some(found) = first_nested_object(v, &p) {
+                    return Some(found);
+                }
+            }
+            None
+        }
+        Value::Array(items) => items.iter().enumerate().find_map(|(i, v)| match v {
+            Value::Object(_) => Some(format!("{at}/{i}")),
+            other => first_nested_object(other, &format!("{at}/{i}")),
+        }),
+        _ => None,
+    }
+}
+
+/// Review of #279, round 3: for every method, two independent bad fields give two errors. The
+/// property is checked on the first valid golden input of each method, with an unknown key at
+/// the root and another in its first nested object (inside an analysis, under `base_input`).
+#[test]
+fn every_method_reports_two_independent_errors() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
+    let mut checked = 0;
+    for m in fairmark_core::METHODS {
+        let mut files: Vec<_> = std::fs::read_dir(root.join(m.id))
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .collect();
+        files.sort();
+        let input = files.iter().find_map(|f| {
+            let case: Value = serde_norway::from_str(&std::fs::read_to_string(f).unwrap()).unwrap();
+            case.get("expect").map(|_| case["input"].clone())
+        });
+        let Some(mut input) = input else {
+            panic!("{}: no valid golden input", m.id)
+        };
+        let nested = first_nested_object(&input, "");
+        input["zz_first"] = json!(1);
+        let mut want = vec!["/zz_first".to_owned()];
+        if let Some(at) = nested {
+            input.pointer_mut(&at).unwrap()["zz_second"] = json!(2);
+            want.push(format!("{at}/zz_second"));
+        }
+        let r = report(m.id, &input);
+        let got = pointers_of(&r);
+        for w in &want {
+            assert!(got.contains(w), "{}: {w} not in {got:?}", m.id);
+        }
+        checked += 1;
+    }
+    assert_eq!(checked, fairmark_core::METHODS.len());
+}
