@@ -31,7 +31,10 @@ pub struct ReorganiseInput {
     pub years: Vec<Year>,
     /// Treatments stated once for the call, applied to every statutory year (R8, R9, R17).
     /// A treatment is needed only for an aggregate given and not zero. Default: none, except
-    /// `write_downs_of_receivables`, which defaults to `investing`.
+    /// `write_downs_of_receivables` and `write_downs_of_fixed_assets`, which default to
+    /// `operating`, filled in and listed in `meta.defaults_applied` whenever a statutory year
+    /// gives an income statement (A4). Each treatment not given reads as not given; the
+    /// `null` values of the schema default mean "not given", not a choice.
     #[serde(default)]
     pub treatments: Treatments,
     /// Labelled adjustments of Appendix C, stated once for the call, each with one amount per
@@ -251,17 +254,21 @@ pub struct DepreciationAndWriteDowns {
     /// B10 total, in currency units.
     pub total: Option<Decimal>,
     /// B10 a to c as one amount, as grouped by the abridged layout (art. 2435-bis), in
-    /// currency units. Without `write_downs_of_fixed_assets` it is read as depreciation and
-    /// amortisation, reported (R17).
+    /// currency units. With its B10 a, b part and without `write_downs_of_fixed_assets`,
+    /// B10 c is the difference (D1-IS). With neither part, it is all in depreciation and
+    /// amortisation under the treatment `operating`, and read as depreciation and
+    /// amortisation with B10 c none under `investing`, reported (R17).
     pub value_adjustments_of_fixed_assets: Option<Decimal>,
     /// B10 a and b, amortisation of intangible and depreciation of tangible assets, in
     /// currency units.
     pub depreciation_and_amortisation: Option<Decimal>,
-    /// B10 c, other write-downs of fixed assets, in currency units; in the investing result.
+    /// B10 c, other write-downs of fixed assets, in currency units; with depreciation and
+    /// amortisation below EBITDA by default, or in the investing result with
+    /// `treatments.write_downs_of_fixed_assets: investing` (R17, P1).
     pub write_downs_of_fixed_assets: Option<Decimal>,
-    /// B10 d, write-downs of current receivables and cash, in currency units; in the investing
-    /// result, or in `operating_profit` with `treatments.write_downs_of_receivables:
-    /// operating` (R17).
+    /// B10 d, write-downs of current receivables and cash, in currency units; in the other
+    /// charges below EBITDA by default, or in the investing result with
+    /// `treatments.write_downs_of_receivables: investing` (R17, E3).
     pub write_downs_of_receivables: Option<Decimal>,
 }
 
@@ -279,7 +286,9 @@ pub struct StatutoryIncomeStatement {
     pub change_in_product_inventories: Option<Decimal>,
     /// A4 own work capitalised, in currency units.
     pub own_work_capitalised: Option<Decimal>,
-    /// A5 other revenue and income, in currency units.
+    /// A5 other revenue and income, in currency units. Default destination: the value of
+    /// production, core (Decision 7), listed in `meta.defaults_applied`; investing and
+    /// non-recurring parts move only by adjustment.
     pub other_revenue_and_income: Option<Decimal>,
     /// Total B, costs of production, in currency units, signed.
     pub costs_of_production: Option<Decimal>,
@@ -300,7 +309,9 @@ pub struct StatutoryIncomeStatement {
     pub provisions_for_risks: Option<Decimal>,
     /// B13 other provisions, in currency units.
     pub other_provisions: Option<Decimal>,
-    /// B14 other operating expenses, in currency units.
+    /// B14 other operating expenses, in currency units. Default destination: external costs,
+    /// core (Decision 7, E1), listed in `meta.defaults_applied`; investing and non-recurring
+    /// parts move only by adjustment.
     pub other_operating_expenses: Option<Decimal>,
     /// A − B, difference between value and costs of production, in currency units, signed.
     pub difference_between_value_and_costs_of_production: Option<Decimal>,
@@ -424,15 +435,28 @@ pub struct ReclassifiedIncomeStatement {
     pub purchases: Option<Decimal>,
     /// Materials consumed (B6 + B11), in currency units, signed.
     pub materials_consumed: Option<Decimal>,
-    /// Value added, value of production − external costs, in currency units, signed.
+    /// External costs, B6 + B7 + B8 + B11 + B14 net of the parts moved by adjustments (B8 also
+    /// net of lease payments), in currency units, signed (E1 of 2026-11-09).
+    pub external_costs: Option<Decimal>,
+    /// Value added, value of production − external costs, in currency units, signed; derived
+    /// from them when not given and checked against them when given.
     pub value_added: Option<Decimal>,
     /// Personnel costs (B9), in currency units.
     pub personnel_costs: Option<Decimal>,
     /// EBITDA (MOL), value added − personnel costs, in currency units, signed.
     pub ebitda: Option<Decimal>,
-    /// Depreciation and amortisation (B10 a, b), in currency units.
+    /// Depreciation and amortisation: B10 a, b, plus B10 c when it is operating (P1) and lease
+    /// depreciation, in currency units.
     pub depreciation_and_amortisation: Option<Decimal>,
-    /// Operating profit (reddito operativo, MON), in currency units, signed.
+    /// Other charges below EBITDA, B12 + B13 (+ B10 d when it is treated as operating) net of
+    /// moved parts, in currency units, zero or more (E2 of 2026-11-09).
+    pub other_charges_below_ebitda: Option<Decimal>,
+    /// Income from operating investments, C15 of financial fixed assets treated as operating,
+    /// in currency units, zero or more (P2); needed to derive operating profit.
+    pub income_from_operating_investments: Option<Decimal>,
+    /// Operating profit (reddito operativo, MON), EBITDA − depreciation and amortisation −
+    /// other charges below EBITDA + income from operating investments, in currency units,
+    /// signed; derived when not given and checked when given.
     pub operating_profit: Option<Decimal>,
     /// Investing result (accessory area), in currency units, signed.
     pub investing_result: Option<Decimal>,
@@ -485,13 +509,25 @@ pub enum DerivativeLiabilitiesDestination {
     OperatingProvision,
 }
 
-/// Where write-downs of receivables (B10 d) go (R17, Decision 17).
+/// Where write-downs of receivables (B10 d) go (R17, Decision 17 as amended by E3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum WriteDownsOfReceivables {
-    /// Investing (extra-characteristic) result, below operating profit. The default.
+    /// Investing (extra-characteristic) result, below operating profit.
     Investing,
-    /// Operating profit, below EBITDA (IFRS 18 practice for trade receivables).
+    /// Operating profit, below EBITDA, in the other charges below EBITDA (IFRS 18 practice
+    /// for trade receivables). The default (E3 of 2026-11-09).
+    Operating,
+}
+
+/// Where write-downs of tangible and intangible fixed assets (B10 c) go (R17, P1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum WriteDownsOfFixedAssets {
+    /// Investing (extra-characteristic) result, below operating profit.
+    Investing,
+    /// Operating profit, below EBITDA, with depreciation and amortisation (IFRS 18; OIC 12
+    /// paragraph 75). The default (P1 of 2026-11-09).
     Operating,
 }
 
@@ -509,9 +545,17 @@ pub struct Treatments {
     /// `operating_provision`. Needed when the derivative part is given and not zero.
     /// Default: none.
     pub derivative_liabilities: Option<DerivativeLiabilitiesDestination>,
-    /// Write-downs of receivables (B10 d): `investing` or `operating`. Default: `investing`,
-    /// reported in `meta.defaults_applied`.
+    /// Write-downs of receivables (B10 d): `operating` (other charges below EBITDA) or
+    /// `investing`. Default: `operating`, filled in and reported in `meta.defaults_applied`
+    /// whenever a statutory year gives an income statement (E3, A4); `null` or absent means not
+    /// given.
     pub write_downs_of_receivables: Option<WriteDownsOfReceivables>,
+    /// Write-downs of fixed assets (B10 c): `operating` (with depreciation and amortisation) or
+    /// `investing`. Default: `operating`, filled in and reported in `meta.defaults_applied`
+    /// whenever a statutory year gives an income statement (P1, A4); `null` or absent means not
+    /// given. Omitted from the canonical input when not given, an additive field of version 1.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub write_downs_of_fixed_assets: Option<WriteDownsOfFixedAssets>,
 }
 
 /// One part of a split of financial fixed assets for one year.
@@ -739,6 +783,14 @@ adjustment!(
     DebtLikeProvisionAdjustment, Decimal, {
         /// Source aggregate: `provisions` or `employee_severance_indemnity`.
         aggregate: ProvisionSource,
+        /// Optional, only with `aggregate` `employee_severance_indemnity` (P2): one entry per
+        /// year, in the order of `years`, the interest cost (revaluation) of the employee
+        /// severance indemnity included in B9, in currency units, zero or more and at most what
+        /// remains of B9; null where not given, and only where `amounts` has an entry. It leaves
+        /// personnel costs and EBITDA and enters the financing result. Not given: nothing moves
+        /// and a convention says so.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        interest_cost: Option<Vec<Option<Decimal>>>,
     }
 );
 adjustment!(
@@ -874,15 +926,6 @@ impl Adjustment {
         }
     }
 
-    /// Kinds that adjust the income statement, not implemented before the second pull request
-    /// of SPEC-0005 (plan, "Behaviour between pull requests").
-    pub(crate) fn is_income_statement_kind(&self) -> bool {
-        matches!(
-            self,
-            Self::Lease(_) | Self::Investing(_) | Self::NonRecurring(_)
-        )
-    }
-
     fn common(&self) -> (&str, &str) {
         match self {
             Self::NonOperatingAsset(a) => (&a.label, &a.reason),
@@ -934,7 +977,27 @@ impl<'de> Deserialize<'de> for Adjustment {
             "dividends_declared" => read(rest).map(Self::DividendsDeclared),
             "lease" => read(rest).map(Self::Lease),
             "investing" => read(rest).map(Self::Investing),
-            "non_recurring" => read(rest).map(Self::NonRecurring),
+            "non_recurring" => {
+                // R17: D18 and D19 are fixed in the investing result; the refusal names why,
+                // not only the values accepted.
+                if let Some(
+                    fixed
+                    @ ("revaluations_of_financial_assets" | "write_downs_of_financial_assets"),
+                ) = rest.get("aggregate").and_then(Value::as_str)
+                {
+                    let message = format!(
+                        "`{fixed}` cannot be moved by an adjustment: D18 and D19 are fixed in \
+                         the investing result (SPEC-0005 R17, Decision 17); remove the \
+                         adjustment, or name the aggregate of Appendix A.2 the non-recurring \
+                         part belongs to"
+                    );
+                    return Err(D::Error::custom(crate::registry::nested_error_text(
+                        &["aggregate".into()],
+                        &message,
+                    )));
+                }
+                read(rest).map(Self::NonRecurring)
+            }
             other => {
                 let list: Vec<String> = KINDS.iter().map(|k| format!("`{k}`")).collect();
                 let message = format!(
@@ -1048,11 +1111,79 @@ pub(crate) const BALANCE_SHEET_DEFAULTS: &[DefaultDestination] = &[
     },
 ];
 
-/// R17: the default destination of B10 d.
-pub(crate) const WRITE_DOWNS_OF_RECEIVABLES_DEFAULT: &str =
-    "Appendix A.2, B10 d: write-downs are extra-characteristic, in the investing result below \
-     operating profit (Decision 17); the treatment `write_downs_of_receivables: operating` \
-     places them in operating profit, below EBITDA";
+/// An income statement aggregate whose destination is a `default` of Appendix A.2 (choice D).
+pub(crate) struct IncomeStatementDefault {
+    /// Pointer of the aggregate below the income statement.
+    pub key: &'static str,
+    pub destination: Destination,
+    /// The Appendix A.2 row and its decision.
+    pub reason: &'static str,
+    /// The aggregate's amount when it is given.
+    pub given: fn(&StatutoryIncomeStatement) -> Option<Decimal>,
+    /// Whether the analyst stated the treatment that governs this aggregate (B10 c, B10 d): a
+    /// treatment stated is not a default, so the row is not listed.
+    pub stated: fn(&Treatments) -> bool,
+}
+
+/// The `default` destinations of Appendix A.2, read by `apply_defaults` for
+/// `meta.defaults_applied` (R8, R17, R18). Typed rows, as for the balance sheet.
+pub(crate) const INCOME_STATEMENT_DEFAULTS: &[IncomeStatementDefault] = &[
+    IncomeStatementDefault {
+        key: "other_revenue_and_income",
+        destination: Destination::ValueOfProduction,
+        reason: "Appendix A.2, A5: core, in the value of production by default (Decision 7, \
+                 R18); investing or non-recurring parts move only by an `investing` or \
+                 `non_recurring` adjustment",
+        given: |is| is.other_revenue_and_income,
+        stated: |_| false,
+    },
+    IncomeStatementDefault {
+        key: "other_operating_expenses",
+        destination: Destination::ExternalCosts,
+        reason: "Appendix A.2, B14: core, in external costs by default (Decision 7, R18, E1); \
+                 investing or non-recurring parts move only by an `investing` or \
+                 `non_recurring` adjustment",
+        given: |is| is.other_operating_expenses,
+        stated: |_| false,
+    },
+    IncomeStatementDefault {
+        key: "depreciation_and_write_downs/write_downs_of_fixed_assets",
+        destination: Destination::DepreciationAndAmortisation,
+        reason: WRITE_DOWNS_OF_FIXED_ASSETS_DEFAULT,
+        given: |is| {
+            is.depreciation_and_write_downs
+                .as_ref()?
+                .write_downs_of_fixed_assets
+        },
+        stated: |t| t.write_downs_of_fixed_assets.is_some(),
+    },
+    IncomeStatementDefault {
+        key: "depreciation_and_write_downs/write_downs_of_receivables",
+        destination: Destination::OtherChargesBelowEbitda,
+        reason: WRITE_DOWNS_OF_RECEIVABLES_DEFAULT,
+        given: |is| {
+            is.depreciation_and_write_downs
+                .as_ref()?
+                .write_downs_of_receivables
+        },
+        stated: |t| t.write_downs_of_receivables.is_some(),
+    },
+];
+
+/// R17, E3: the default destination of B10 d.
+pub(crate) const WRITE_DOWNS_OF_RECEIVABLES_DEFAULT: &str = concat!(
+    "Appendix A.2, B10 d: operating by default, in the other charges below EBITDA (E3 of ",
+    "2026-11-09; IFRS 18 practice for the impairment of trade receivables); the treatment ",
+    "`write_downs_of_receivables: investing` places them in the investing result"
+);
+
+/// R17, P1: the default destination of B10 c.
+pub(crate) const WRITE_DOWNS_OF_FIXED_ASSETS_DEFAULT: &str = concat!(
+    "Appendix A.2, B10 c: operating by default, below EBITDA with depreciation and ",
+    "amortisation (P1 of 2026-11-09; IFRS 18; OIC 12 paragraph 75); the treatment ",
+    "`write_downs_of_fixed_assets: investing` places them in the investing result; a one-off ",
+    "impairment is isolated with a `non_recurring` adjustment"
+);
 
 /// An item of a statutory balance sheet that the computation takes as zero when it is not
 /// given: item A (D1), an "of which" part (D2, D3), or a separate line presented within another

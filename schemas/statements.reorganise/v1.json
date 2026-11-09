@@ -260,6 +260,21 @@
               },
               "type": "array"
             },
+            "interest_cost": {
+              "description": "Optional, only with `aggregate` `employee_severance_indemnity` (P2): one entry per\nyear, in the order of `years`, the interest cost (revaluation) of the employee\nseverance indemnity included in B9, in currency units, zero or more and at most what\nremains of B9; null where not given, and only where `amounts` has an entry. It leaves\npersonnel costs and EBITDA and enters the financing result. Not given: nothing moves\nand a convention says so.",
+              "items": {
+                "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+                "type": [
+                  "string",
+                  "number",
+                  "null"
+                ]
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
             "kind": {
               "const": "debt_like_provision",
               "type": "string"
@@ -519,7 +534,7 @@
         },
         "value_adjustments_of_fixed_assets": {
           "default": null,
-          "description": "B10 a to c as one amount, as grouped by the abridged layout (art. 2435-bis), in\ncurrency units. Without `write_downs_of_fixed_assets` it is read as depreciation and\namortisation, reported (R17).",
+          "description": "B10 a to c as one amount, as grouped by the abridged layout (art. 2435-bis), in\ncurrency units. With its B10 a, b part and without `write_downs_of_fixed_assets`,\nB10 c is the difference (D1-IS). With neither part, it is all in depreciation and\namortisation under the treatment `operating`, and read as depreciation and\namortisation with B10 c none under `investing`, reported (R17).",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -529,7 +544,7 @@
         },
         "write_downs_of_fixed_assets": {
           "default": null,
-          "description": "B10 c, other write-downs of fixed assets, in currency units; in the investing result.",
+          "description": "B10 c, other write-downs of fixed assets, in currency units; with depreciation and\namortisation below EBITDA by default, or in the investing result with\n`treatments.write_downs_of_fixed_assets: investing` (R17, P1).",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -539,7 +554,7 @@
         },
         "write_downs_of_receivables": {
           "default": null,
-          "description": "B10 d, write-downs of current receivables and cash, in currency units; in the investing\nresult, or in `operating_profit` with `treatments.write_downs_of_receivables:\noperating` (R17).",
+          "description": "B10 d, write-downs of current receivables and cash, in currency units; in the other\ncharges below EBITDA by default, or in the investing result with\n`treatments.write_downs_of_receivables: investing` (R17, E3).",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -1552,7 +1567,7 @@
       "properties": {
         "depreciation_and_amortisation": {
           "default": null,
-          "description": "Depreciation and amortisation (B10 a, b), in currency units.",
+          "description": "Depreciation and amortisation: B10 a, b, plus B10 c when it is operating (P1) and lease\ndepreciation, in currency units.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -1570,9 +1585,29 @@
             "null"
           ]
         },
+        "external_costs": {
+          "default": null,
+          "description": "External costs, B6 + B7 + B8 + B11 + B14 net of the parts moved by adjustments (B8 also\nnet of lease payments), in currency units, signed (E1 of 2026-11-09).",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
         "financing_result": {
           "default": null,
           "description": "Financing result, C17-bis − C17, in currency units, signed.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "income_from_operating_investments": {
+          "default": null,
+          "description": "Income from operating investments, C15 of financial fixed assets treated as operating,\nin currency units, zero or more (P2); needed to derive operating profit.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -1642,7 +1677,17 @@
         },
         "operating_profit": {
           "default": null,
-          "description": "Operating profit (reddito operativo, MON), in currency units, signed.",
+          "description": "Operating profit (reddito operativo, MON), EBITDA − depreciation and amortisation −\nother charges below EBITDA + income from operating investments, in currency units,\nsigned; derived when not given and checked when given.",
+          "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
+          "type": [
+            "string",
+            "number",
+            "null"
+          ]
+        },
+        "other_charges_below_ebitda": {
+          "default": null,
+          "description": "Other charges below EBITDA, B12 + B13 (+ B10 d when it is treated as operating) net of\nmoved parts, in currency units, zero or more (E2 of 2026-11-09).",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -1702,7 +1747,7 @@
         },
         "value_added": {
           "default": null,
-          "description": "Value added, value of production − external costs, in currency units, signed.",
+          "description": "Value added, value of production − external costs, in currency units, signed; derived\nfrom them when not given and checked against them when given.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -2225,7 +2270,7 @@
         },
         "other_operating_expenses": {
           "default": null,
-          "description": "B14 other operating expenses, in currency units.",
+          "description": "B14 other operating expenses, in currency units. Default destination: external costs,\ncore (Decision 7, E1), listed in `meta.defaults_applied`; investing and non-recurring\nparts move only by adjustment.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -2245,7 +2290,7 @@
         },
         "other_revenue_and_income": {
           "default": null,
-          "description": "A5 other revenue and income, in currency units.",
+          "description": "A5 other revenue and income, in currency units. Default destination: the value of\nproduction, core (Decision 7), listed in `meta.defaults_applied`; investing and\nnon-recurring parts move only by adjustment.",
           "pattern": "^-?\\d+(\\.\\d+)?([eE]\\d+)?$",
           "type": [
             "string",
@@ -2457,6 +2502,17 @@
           "default": null,
           "description": "Shareholder loans (D.3): `financial_debt` or `quasi_equity`. Needed when the loans are\ngiven and not zero. Default: none."
         },
+        "write_downs_of_fixed_assets": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WriteDownsOfFixedAssets"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Write-downs of fixed assets (B10 c): `operating` (with depreciation and amortisation) or\n`investing`. Default: `operating`, filled in and reported in `meta.defaults_applied`\nwhenever a statutory year gives an income statement (P1, A4); `null` or absent means not\ngiven. Omitted from the canonical input when not given, an additive field of version 1."
+        },
         "write_downs_of_receivables": {
           "anyOf": [
             {
@@ -2467,7 +2523,7 @@
             }
           ],
           "default": null,
-          "description": "Write-downs of receivables (B10 d): `investing` or `operating`. Default: `investing`,\nreported in `meta.defaults_applied`."
+          "description": "Write-downs of receivables (B10 d): `operating` (other charges below EBITDA) or\n`investing`. Default: `operating`, filled in and reported in `meta.defaults_applied`\nwhenever a statutory year gives an income statement (E3, A4); `null` or absent means not\ngiven."
         }
       },
       "type": "object"
@@ -2499,17 +2555,32 @@
       },
       "type": "object"
     },
-    "WriteDownsOfReceivables": {
-      "description": "Where write-downs of receivables (B10 d) go (R17, Decision 17).",
+    "WriteDownsOfFixedAssets": {
+      "description": "Where write-downs of tangible and intangible fixed assets (B10 c) go (R17, P1).",
       "oneOf": [
         {
           "const": "investing",
-          "description": "Investing (extra-characteristic) result, below operating profit. The default.",
+          "description": "Investing (extra-characteristic) result, below operating profit.",
           "type": "string"
         },
         {
           "const": "operating",
-          "description": "Operating profit, below EBITDA (IFRS 18 practice for trade receivables).",
+          "description": "Operating profit, below EBITDA, with depreciation and amortisation (IFRS 18; OIC 12\nparagraph 75). The default (P1 of 2026-11-09).",
+          "type": "string"
+        }
+      ]
+    },
+    "WriteDownsOfReceivables": {
+      "description": "Where write-downs of receivables (B10 d) go (R17, Decision 17 as amended by E3).",
+      "oneOf": [
+        {
+          "const": "investing",
+          "description": "Investing (extra-characteristic) result, below operating profit.",
+          "type": "string"
+        },
+        {
+          "const": "operating",
+          "description": "Operating profit, below EBITDA, in the other charges below EBITDA (IFRS 18 practice\nfor trade receivables). The default (E3 of 2026-11-09).",
           "type": "string"
         }
       ]
@@ -2599,7 +2670,7 @@
         "shareholder_loans": null,
         "write_downs_of_receivables": null
       },
-      "description": "Treatments stated once for the call, applied to every statutory year (R8, R9, R17).\nA treatment is needed only for an aggregate given and not zero. Default: none, except\n`write_downs_of_receivables`, which defaults to `investing`."
+      "description": "Treatments stated once for the call, applied to every statutory year (R8, R9, R17).\nA treatment is needed only for an aggregate given and not zero. Default: none, except\n`write_downs_of_receivables` and `write_downs_of_fixed_assets`, which default to\n`operating`, filled in and listed in `meta.defaults_applied` whenever a statutory year\ngives an income statement (A4). Each treatment not given reads as not given; the\n`null` values of the schema default mean \"not given\", not a choice."
     },
     "years": {
       "description": "One or more financial years, oldest first (R2), each in the `statutory` or the\n`reclassified` form. When two consecutive entries both have a `date`, the later must be\none financial year after the earlier.",

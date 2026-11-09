@@ -1,0 +1,61 @@
+method: statements.reorganise
+description: 'D2-IS, P2: the treatment of B.III is operating but the year gives no balance sheet: there
+  is no operating investment to follow, income_from_operating_investments is zero and C15 (12000) stays
+  in the investing result, with a convention'
+source: 'scripts/reference_statements.py (Python decimal, 50 digits, local context). Written by the same
+  agent as the engine and after the engine''s income statement code existed: the reference section for
+  D2-IS was changed from the decisions recorded in specs/0005-statements-reclassification/spec.md before
+  the engine change of the same round (test first), not before the engine as a whole.'
+input:
+  years:
+  - label: '2024'
+    date: '2024-12-31'
+    statutory:
+      layout: ordinary
+      income_statement:
+        value_of_production: '5100000'
+        revenue: '5000000'
+        change_in_product_inventories: '40000'
+        own_work_capitalised: '10000'
+        other_revenue_and_income: '50000'
+        costs_of_production: '4834000'
+        purchases: '2200000'
+        services: '1244000'
+        use_of_third_party_assets: '150000'
+        personnel_costs: '1000000'
+        depreciation_and_write_downs:
+          total: '215000'
+          value_adjustments_of_fixed_assets: '200000'
+          depreciation_and_amortisation: '180000'
+          write_downs_of_fixed_assets: '20000'
+          write_downs_of_receivables: '15000'
+        change_in_raw_material_inventories: '-30000'
+        provisions_for_risks: '10000'
+        other_provisions: '5000'
+        other_operating_expenses: '40000'
+        difference_between_value_and_costs_of_production: '266000'
+        financial_income_and_charges: '-46000'
+        income_from_equity_investments: '12000'
+        other_financial_income: '3000'
+        interest_and_other_financial_charges: '60000'
+        exchange_gains_and_losses: '-1000'
+        value_adjustments_of_financial_assets: '-6000'
+        revaluations_of_financial_assets: '2000'
+        write_downs_of_financial_assets: '8000'
+        profit_before_tax: '214000'
+        income_taxes: '64000'
+        profit_or_loss_for_the_year: '150000'
+  treatments:
+    financial_fixed_assets: operating
+expect:
+  /years/0/income_statement/ebitda: '496000'
+  /years/0/income_statement/personnel_costs: '1000000'
+  /years/0/income_statement/income_from_operating_investments: '0'
+  /years/0/income_statement/operating_profit: '266000'
+  /years/0/income_statement/investing_result: '9000'
+  /years/0/income_statement/profit_before_financing_and_taxes: '275000'
+  /years/0/income_statement/financing_result: '-61000'
+  /years/0/income_statement/interest_and_other_financial_charges: '60000'
+  /years/0/income_statement/profit_before_tax: '214000'
+  /years/0/income_statement/net_income: '150000'
+tolerance: '0'

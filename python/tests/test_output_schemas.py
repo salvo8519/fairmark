@@ -21,8 +21,17 @@ VALUE_CASES = [
     if "expect" in yaml.safe_load(p.read_text(encoding="utf-8"))
 ]
 METHODS = [m["id"] for m in fm.methods()]
-# Fields of the golden results whose text looks like a number.
-TEXT_FIELDS = {"technique_version", "method_version", "label", "name", "id", "version"}
+# Fields of the golden results whose text looks like a number. `reference` is a statutory
+# reference of `statements.reorganise` assignments: "20" is item 20 of art. 2425 (income taxes).
+TEXT_FIELDS = {
+    "technique_version",
+    "method_version",
+    "label",
+    "name",
+    "id",
+    "version",
+    "reference",
+}
 NUMERIC = re.compile(r"^-?\d+(\.\d+)?([eE][-+]?\d+)?$")
 
 

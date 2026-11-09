@@ -1,6 +1,6 @@
 ---
 source: methods/index.md
-source_hash: b27785ae0233
+source_hash: 64ae3254fb1b
 ---
 # Metodi
 
@@ -58,7 +58,7 @@ Stato di ogni metodo, come lo riporta il registro del motore a `fm.methods()`, `
 | [`dcf.fcff`](dcf-fcff.md) | Value of operations, enterprise value ed equity value dai flussi di cassa operativi, su stage espliciti e un valore terminale |
 | [`dcf.fcfe`](dcf-fcfe.md) | Equity value direttamente dai flussi di cassa disponibili per gli azionisti al costo del capitale proprio, su stage espliciti e un valore terminale, senza posizione finanziaria netta |
 | [`dcf.free_cash_flows`](dcf-free-cash-flows.md) | FCFF e FCFE per periodo da EBIT, imposte, investimenti in immobilizzazioni e capitale circolante |
-| [`statements.reorganise`](statements-reorganise.md) | Aggregati civilistici o totali riclassificati riorganizzati in capitale investito, attività non operative, patrimonio netto, posizione finanziaria netta e debt-like items, con importi correnti e non correnti; calcolo sui dati disponibili, verifiche esatte |
+| [`statements.reorganise`](statements-reorganise.md) | Aggregati civilistici o totali riclassificati riorganizzati in capitale investito, attività non operative, patrimonio netto, posizione finanziaria netta e debt-like items, con importi correnti e non correnti, e conto economico riclassificato in valore aggiunto, margine operativo lordo (MOL), reddito operativo, investing result e reddito operativo aziendale (subtotali di IFRS 18); calcolo sui dati disponibili, verifiche esatte |
 | [`ratios.profitability`](ratios-profitability.md) | ROE, ROI, ROA, ROS, margini, rotazione del capitale investito e scomposizione del ROE in tre fattori e nella forma con leva finanziaria |
 | [`ratios.capital_structure`](ratios-capital-structure.md) | Rapporto tra debito e capitale proprio, PFN su capitale proprio, indice di indipendenza finanziaria, margini e quozienti di struttura |
 | [`ratios.liquidity`](ratios-liquidity.md) | Indice di disponibilità, indice di liquidità primaria, cash ratio, capitale circolante netto e margine di tesoreria |

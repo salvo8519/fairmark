@@ -1,0 +1,153 @@
+method: statements.reorganise
+description: 'AC1, R4, Decision 8: the company of ordinary-aggregates in the abridged layout (art. 2435-bis):
+  B10 a to c as one amount with its B10 c part, no totals of A, B, C and D; every output equals the ordinary
+  layout'
+source: scripts/reference_statements.py (Python decimal, 50 digits, local context); its income statement
+  section was written from Appendices A.2, B.2 and C of specs/0005-statements-reclassification/spec.md,
+  R16 to R21 and Decision 17 before the engine's income statement code existed. The later decisions (E1
+  to E6, P1, P2, A2 to A4) and corrections (D1-IS to D3-IS) were added to the reference by the same agent,
+  each before the engine change of its round, and the expectations were regenerated from it.
+input:
+  years:
+  - label: '2024'
+    date: '2024-12-31'
+    statutory:
+      layout: abridged
+      balance_sheet:
+        subscribed_capital_unpaid: '0'
+        intangible_assets:
+          total: '120000'
+        tangible_assets:
+          total: '900000'
+        financial_fixed_assets: '150000'
+        inventories: '400000'
+        receivables:
+          total: '980000'
+          beyond_one_year: '50000'
+          trade: '800000'
+          prepayments_and_accrued_income: '30000'
+        current_financial_assets: '60000'
+        cash: '240000'
+        total_assets: '2850000'
+        equity:
+          total: '900000'
+          profit_or_loss_for_the_year: '150000'
+        provisions:
+          total: '70000'
+          of_which_derivative_liabilities: '10000'
+        employee_severance_indemnity:
+          total: '180000'
+        payables:
+          total: '1700000'
+          beyond_one_year: '600000'
+          financial_debt:
+            total: '900000'
+            beyond_one_year: '550000'
+          shareholder_loans:
+            total: '100000'
+            beyond_one_year: '50000'
+          trade: '500000'
+          accruals_and_deferred_income: '50000'
+        total_liabilities_and_equity: '2850000'
+      income_statement:
+        revenue: '5000000'
+        change_in_product_inventories: '40000'
+        own_work_capitalised: '10000'
+        other_revenue_and_income: '50000'
+        purchases: '2200000'
+        services: '1244000'
+        use_of_third_party_assets: '150000'
+        personnel_costs: '1000000'
+        depreciation_and_write_downs:
+          value_adjustments_of_fixed_assets: '200000'
+          write_downs_of_fixed_assets: '20000'
+          write_downs_of_receivables: '15000'
+        change_in_raw_material_inventories: '-30000'
+        provisions_for_risks: '10000'
+        other_provisions: '5000'
+        other_operating_expenses: '40000'
+        income_from_equity_investments: '12000'
+        other_financial_income: '3000'
+        interest_and_other_financial_charges: '60000'
+        exchange_gains_and_losses: '-1000'
+        revaluations_of_financial_assets: '2000'
+        write_downs_of_financial_assets: '8000'
+        income_taxes: '64000'
+        profit_or_loss_for_the_year: '150000'
+  treatments:
+    financial_fixed_assets: non_operating
+    shareholder_loans: financial_debt
+    derivative_liabilities: financial_liability
+expect:
+  /years/0/income_statement/revenue: '5000000'
+  /years/0/income_statement/value_of_production: '5100000'
+  /years/0/income_statement/purchases: '2200000'
+  /years/0/income_statement/materials_consumed: '2170000'
+  /years/0/income_statement/value_added: '1496000'
+  /years/0/income_statement/personnel_costs: '1000000'
+  /years/0/income_statement/external_costs: '3604000'
+  /years/0/income_statement/ebitda: '496000'
+  /years/0/income_statement/depreciation_and_amortisation: '200000'
+  /years/0/income_statement/other_charges_below_ebitda: '30000'
+  /years/0/income_statement/income_from_operating_investments: '0'
+  /years/0/income_statement/operating_profit: '266000'
+  /years/0/income_statement/investing_result: '9000'
+  /years/0/income_statement/profit_before_financing_and_taxes: '275000'
+  /years/0/income_statement/non_recurring_result: '0'
+  /years/0/income_statement/financing_result: '-61000'
+  /years/0/income_statement/interest_and_other_financial_charges: '60000'
+  /years/0/income_statement/profit_before_tax: '214000'
+  /years/0/income_statement/income_taxes: '64000'
+  /years/0/income_statement/net_income: '150000'
+  /years/0/income_statement/reconciliations/operating_profit/start: '266000'
+  /years/0/income_statement/reconciliations/operating_profit/end: '266000'
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/start: '266000'
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/label: C15, income
+    from equity investments (investing result)
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/sources/0: /years/0/statutory/income_statement/income_from_equity_investments
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/amount: '12000'
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/label: C16, other
+    financial income (investing result)
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/sources/0: /years/0/statutory/income_statement/other_financial_income
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/amount: '3000'
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/label: D18 − D19,
+    value adjustments of financial assets (investing result)
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/sources/0: /years/0/statutory/income_statement/revaluations_of_financial_assets
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/sources/1: /years/0/statutory/income_statement/write_downs_of_financial_assets
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/amount: '-6000'
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/end: '275000'
+  /years/0/form: statutory
+  /years/0/balance_sheet/operating/invested_capital: '1460000'
+  /years/0/balance_sheet/sources/net_financial_position/total: '710000'
+  /years/0/balance_sheet/total_funds_invested: '1610000'
+  /years/0/balance_sheet/sources/total_sources: '1610000'
+expect_meta:
+  /defaults_applied/0/field: /years/0/statutory/balance_sheet/intangible_assets
+  /defaults_applied/0/value: operating_fixed_assets
+  /defaults_applied/1/field: /years/0/statutory/balance_sheet/tangible_assets
+  /defaults_applied/1/value: operating_fixed_assets
+  /defaults_applied/2/field: /years/0/statutory/balance_sheet/receivables
+  /defaults_applied/2/value: operating_working_capital
+  /defaults_applied/3/field: /years/0/statutory/balance_sheet/current_financial_assets
+  /defaults_applied/3/value: net_financial_position_other_financial_asset
+  /defaults_applied/4/field: /years/0/statutory/balance_sheet/cash
+  /defaults_applied/4/value: net_financial_position_cash
+  /defaults_applied/5/field: /years/0/statutory/balance_sheet/provisions
+  /defaults_applied/5/value: operating_provisions
+  /defaults_applied/6/field: /years/0/statutory/balance_sheet/employee_severance_indemnity
+  /defaults_applied/6/value: operating_provisions
+  /defaults_applied/7/field: /years/0/statutory/balance_sheet/payables
+  /defaults_applied/7/value: operating_working_capital
+  /defaults_applied/8/field: /years/0/statutory/income_statement/other_revenue_and_income
+  /defaults_applied/8/value: value_of_production
+  /defaults_applied/9/field: /years/0/statutory/income_statement/other_operating_expenses
+  /defaults_applied/9/value: external_costs
+  /defaults_applied/10/field: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_fixed_assets
+  /defaults_applied/10/value: depreciation_and_amortisation
+  /defaults_applied/11/field: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_receivables
+  /defaults_applied/11/value: other_charges_below_ebitda
+  /defaults_applied/12/field: /treatments/write_downs_of_receivables
+  /defaults_applied/12/value: operating
+  /defaults_applied/13/field: /treatments/write_downs_of_fixed_assets
+  /defaults_applied/13/value: operating
+tolerance: '0'

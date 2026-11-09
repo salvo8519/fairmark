@@ -1,21 +1,25 @@
-"""Independent reference for SPEC-0005 (statements.reorganise), first pull request: validation,
-best effort, input checks, the reorganised balance sheet in both forms, the net financial
-position, the bridge items and the current and non-current block.
+"""Independent reference for SPEC-0005 (statements.reorganise), first and second pull requests:
+validation, best effort, input checks, the reorganised balance sheet in both forms, the net
+financial position, the bridge items, the current and non-current block, and the reorganised
+income statement in both forms with its reconciliations and the `lease` double entry.
 
-Written from Appendices A.1, B.1 and C of `specs/0005-statements-reclassification/spec.md`, its
-requirements R2 to R15 and R22, and the design choices recorded in its `plan.md`, with Python's
-`decimal` module at 50 significant digits in a local context (importing this module never
-changes the caller's precision). It shares no code with the Rust engine and is used to produce
-or confirm golden expectations:
+Written from Appendices A, B and C of `specs/0005-statements-reclassification/spec.md`, its
+requirements R2 to R22 and its decisions (Decision 17 on write-downs, D1 to D6, M1, M2), and the
+design choices recorded in its `plan.md`, with Python's `decimal` module at 50 significant
+digits in a local context (importing this module never changes the caller's precision). It
+shares no code with the Rust engine and is used to produce or confirm golden expectations:
 
-    uv run python scripts/reference_statements.py
+    uv run python scripts/reference_statements.py [case.json]
 
 Independence from the engine, by construction:
 - best effort is modelled with Python sets of missing pointers attached to each amount, and
   every output is built by reading the statutory items directly, not through a shared pipeline;
 - the net financial position is summed from its own list of signed components (the engine adds
   the SPEC-0007 object);
-- current and non-current amounts are built from the statutory maturity splits item by item.
+- current and non-current amounts are built from the statutory maturity splits item by item;
+- the income statement keeps one counter per aggregate for what remains after the adjustments
+  and builds each layer of Appendix B.2 from those counters; its reconciliations with A - B are
+  built from the statutory items, and checked against the layers.
 
 The reference returns the outputs as a nested dictionary with the same JSON pointers as the
 engine, so a golden case can be written from `pointers(result)`.
@@ -129,6 +133,7 @@ RECLASSIFIED_SIGNED_BS = {
     ("net_financial_position", "non_current"),
 }
 RECLASSIFIED_SIGNED_IS = {
+    "external_costs",
     "value_of_production",
     "materials_consumed",
     "value_added",
@@ -370,7 +375,52 @@ def dest_sum(shares: list[Share], dest: str) -> Amt:
 
 
 # ---------------------------------------------------------------- validation and defaults
-IS_KINDS = {"lease", "investing", "non_recurring"}
+# Appendix A.2: the aggregates an adjustment may move (Appendix C), with their references.
+# Income aggregates add to profit; the others are charges.
+IS_REFERENCES = {
+    "revenue": "A1",
+    "other_revenue_and_income": "A5",
+    "purchases": "B6",
+    "services": "B7",
+    "use_of_third_party_assets": "B8",
+    "personnel_costs": "B9",
+    "depreciation_and_amortisation": "B10 a, b",
+    "write_downs_of_fixed_assets": "B10 c",
+    "write_downs_of_receivables": "B10 d",
+    "provisions_for_risks": "B12",
+    "other_provisions": "B13",
+    "other_operating_expenses": "B14",
+    "income_from_equity_investments": "C15",
+    "other_financial_income": "C16",
+    "interest_and_other_financial_charges": "C17",
+    "exchange_gains_and_losses": "C17-bis",
+}
+NON_RECURRING_SOURCES = set(IS_REFERENCES)
+INVESTING_SOURCES = {"other_revenue_and_income", "other_operating_expenses"}
+IS_INCOME = {
+    "revenue",
+    "other_revenue_and_income",
+    "income_from_equity_investments",
+    "other_financial_income",
+    "exchange_gains_and_losses",
+}
+# The aggregates of A and B (they enter A - B), for the reconciliations of R19.
+IS_A_AND_B = {
+    k
+    for k in IS_REFERENCES
+    if k
+    not in (
+        "income_from_equity_investments",
+        "other_financial_income",
+        "interest_and_other_financial_charges",
+        "exchange_gains_and_losses",
+    )
+}
+B10_KEYS = {
+    "depreciation_and_amortisation",
+    "write_downs_of_fixed_assets",
+    "write_downs_of_receivables",
+}
 
 DEFAULT_ROWS_BS = [
     ("intangible_assets", "operating_fixed_assets"),
@@ -401,6 +451,8 @@ def defaults_applied(inp: dict[str, Any]) -> list[tuple[str, str]]:
     """(pointer, destination) of every default applied (R8 as clarified; R17), years first."""
     out: list[tuple[str, str]] = []
     wdr_given = get(inp, "treatments", "write_downs_of_receivables") is not None
+    wdfa_given = get(inp, "treatments", "write_downs_of_fixed_assets") is not None
+    is_years = False
     for i, y in enumerate(inp["years"]):
         st = y.get("statutory")
         if st is None:
@@ -410,8 +462,39 @@ def defaults_applied(inp: dict[str, Any]) -> list[tuple[str, str]]:
         for key, dest in DEFAULT_ROWS_BS:
             if aggregate_given(bs, key):
                 out.append((f"{base}/{key}", dest))
-    if not wdr_given:
-        out.append(("/treatments/write_downs_of_receivables", "investing"))
+        # Appendix A.2, choice D: A5 and B14 core (R18); B10 d in the investing result unless
+        # the analyst states the treatment (R17).
+        inc = st.get("income_statement") or {}
+        ibase = f"/years/{i}/statutory/income_statement"
+        if "other_revenue_and_income" in inc:
+            out.append((f"{ibase}/other_revenue_and_income", "value_of_production"))
+        if "other_operating_expenses" in inc:
+            out.append((f"{ibase}/other_operating_expenses", "external_costs"))
+        # P1, E3: B10 c with depreciation and amortisation, B10 d in the other charges below
+        # EBITDA, unless the analyst states the treatment.
+        b10c = get(inc, "depreciation_and_write_downs", "write_downs_of_fixed_assets")
+        b10d = get(inc, "depreciation_and_write_downs", "write_downs_of_receivables")
+        is_years = is_years or st.get("income_statement") is not None
+        if not wdfa_given and b10c is not None:
+            out.append(
+                (
+                    f"{ibase}/depreciation_and_write_downs/write_downs_of_fixed_assets",
+                    "depreciation_and_amortisation",
+                )
+            )
+        if not wdr_given and b10d is not None:
+            out.append(
+                (
+                    f"{ibase}/depreciation_and_write_downs/write_downs_of_receivables",
+                    "other_charges_below_ebitda",
+                )
+            )
+    # A4 (amends F1): the input defaults of the two write-down treatments are listed whenever a
+    # statutory year gives an income statement, because they decide what is computed.
+    if not wdr_given and is_years:
+        out.append(("/treatments/write_downs_of_receivables", "operating"))
+    if not wdfa_given and is_years:
+        out.append(("/treatments/write_downs_of_fixed_assets", "operating"))
     for i, y in enumerate(inp["years"]):
         bs = get(y, "statutory", "balance_sheet")
         if bs is None:
@@ -524,21 +607,47 @@ def validate(inp: dict[str, Any]) -> None:
                         # A quasi-equity part is outside the net financial position: no maturity.
                         raise RefError("FM-E001", "beyond_one_year on a quasi_equity part")
     for k, adj in enumerate(inp.get("adjustments") or []):
-        if adj["kind"] in IS_KINDS:
-            raise RefError("FM-E001", f"/adjustments/{k}/kind not implemented in this build")
+        kind = adj["kind"]
+        # R17: D18 and D19 are fixed in the investing result; no adjustment moves them.
+        if kind == "non_recurring" and adj["aggregate"] not in NON_RECURRING_SOURCES:
+            raise RefError("FM-E001", f"/adjustments/{k}/aggregate")
+        if kind == "investing" and adj["aggregate"] not in INVESTING_SOURCES:
+            raise RefError("FM-E001", f"/adjustments/{k}/aggregate")
         if not str(adj["label"]).strip():
             raise RefError("FM-E001", f"/adjustments/{k}/label")
         if not str(adj["reason"]).strip():
             raise RefError("FM-E001", f"/adjustments/{k}/reason")
+        related = adj.get("related_non_operating_asset")
+        if kind == "investing" and related is not None and not str(related).strip():
+            raise RefError("FM-E001", f"/adjustments/{k}/related_non_operating_asset")
         if len(adj["amounts"]) != len(years):
             raise RefError("FM-E001", f"/adjustments/{k}/amounts length")
         for i, a in enumerate(adj["amounts"]):
             if a is None:
                 continue
-            if dec(a) < 0:
+            values = list(a.values()) if kind == "lease" else [a]
+            if any(dec(v) < 0 for v in values):
                 raise RefError("FM-E001", f"/adjustments/{k}/amounts/{i} negative")
             if "reclassified" in years[i]:
                 raise RefError("FM-E001", f"/adjustments/{k}/amounts/{i} on reclassified")
+            if kind == "lease" and dec(a["liability_current"]) > dec(a["liability"]):
+                # R21: the current part of the lease liability is a part of it.
+                raise e026("lease_liability_current")
+        if "interest_cost" in adj:
+            # P2: the revaluation of the employee severance indemnity, one entry per year,
+            # only on a debt-like employee severance indemnity and only where it applies.
+            costs = adj["interest_cost"]
+            if kind != "debt_like_provision" or adj["aggregate"] != "employee_severance_indemnity":
+                raise RefError("FM-E001", f"/adjustments/{k}/interest_cost")
+            if len(costs) != len(years):
+                raise RefError("FM-E001", f"/adjustments/{k}/interest_cost length")
+            for i, c in enumerate(costs):
+                if c is None:
+                    continue
+                if dec(c) < 0:
+                    raise RefError("FM-E001", f"/adjustments/{k}/interest_cost/{i} negative")
+                if adj["amounts"][i] is None:
+                    raise RefError("FM-E001", f"/adjustments/{k}/interest_cost/{i} without amount")
 
 
 # ---------------------------------------------------------------- input checks (R7)
@@ -708,6 +817,10 @@ def income_statement_checks(inc: dict[str, Any], c: dict[str, str]) -> None:
     dd = opt(b10, "write_downs_of_receivables")
     ac_given = opt(b10, "value_adjustments_of_fixed_assets")
     check(c, "value_adjustments_of_fixed_assets_total", ac_given, plus(ab, cc))
+    # B10 c is a part of the group B10 a to c (review of PR 2, blocking 1); without B10 c, its
+    # B10 a, b part is (D1-IS: B10 c is then the difference, never negative).
+    part = cc if cc.known else ab
+    check_at_most(c, "value_adjustments_of_fixed_assets_of_which", part, ac_given)
     ac = ac_given if ac_given.known else plus(ab, cc)
     check(c, "depreciation_and_write_downs_total", opt(b10, "total"), plus(ac, dd))
     b10_amt = opt(b10, "total") if "total" in b10 else plus(ac, dd)
@@ -914,13 +1027,51 @@ def statutory_balance_sheet(inp: dict[str, Any], i: int) -> dict[str, Any]:
         "provisions": total((1, prov), (-1, dest_sum(dshares, "financial_liability"))),
         "employee_severance_indemnity": tfr,
         "equity": total((1, eq), (-1, a_total)),
+        # Assets D: the separate line (zero when presented within C.II), and the part within C.II.
+        "prepayments": d_sep,
+        "prepayments_within": known(of_which(bs, "receivables", "prepayments_and_accrued_income")),
     }
+
+    def take(src: str, a: D) -> Amt:
+        """Moves `a` out of what remains in `src` (R10): FM-E026 when it is larger."""
+        rem = remaining[src]
+        if not rem.known:
+            return rem
+        if a > rem.value and a != 0:
+            raise e026("adjustment_within_source")
+        remaining[src] = known(rem.value - a)
+        return known(a)
+
     moved: list[Moved] = []
+    leases: list[tuple[int, str, dict[str, D], Amt]] = []
     for k, adj in enumerate(inp.get("adjustments") or []):
         amount = adj["amounts"][i]
         if amount is None:
             continue
         kind = adj["kind"]
+        if kind in ("investing", "non_recurring"):
+            continue  # income statement kinds
+        if kind == "lease":
+            # R21, balance sheet side: the prepayment leaves assets D (the separate line when
+            # given, otherwise the part presented within C.II, which also leaves C.II); the
+            # asset joins operating fixed assets, the liability the net financial position, and
+            # asset - liability - prepayment is the equity effect.
+            la = {key: dec(v) for key, v in amount.items()}
+            prepayment = known(ZERO)
+            if la["prepayment"] != 0:
+                if "prepayments_and_accrued_income" in bs or (
+                    get(bs, "receivables", "prepayments_and_accrued_income") is None
+                ):
+                    prepayment = take("prepayments", la["prepayment"])
+                else:
+                    prepayment = take("prepayments_within", la["prepayment"])
+                    if prepayment.known:
+                        take("receivables", la["prepayment"])
+            effect = total((1, known(la["asset"])), (-1, known(la["liability"])), (-1, prepayment))
+            rem_eq = remaining["equity"]
+            remaining["equity"] = plus(rem_eq, effect)
+            leases.append((k, adj["label"], la, effect))
+            continue
         src = (
             adj["aggregate"]
             if kind in ("non_operating_asset", "debt_like_provision")
@@ -955,12 +1106,15 @@ def statutory_balance_sheet(inp: dict[str, Any], i: int) -> dict[str, Any]:
 
     # Operating block (B.1).
     ofa = plus(
-        remaining["intangible_assets"], remaining["tangible_assets"], dest_sum(ffa, "operating")
+        remaining["intangible_assets"],
+        remaining["tangible_assets"],
+        dest_sum(ffa, "operating"),
+        *(known(la["asset"]) for _, _, la, _ in leases),
     )
     owc = total(
         (1, c1),
         (1, remaining["receivables"]),
-        (1, d_sep),
+        (1, remaining["prepayments"]),
         (1, op_cash),
         (-1, remaining["payables_remainder"]),
         (-1, remaining["accruals"]),
@@ -1079,14 +1233,28 @@ def statutory_balance_sheet(inp: dict[str, Any], i: int) -> dict[str, Any]:
                     s.amount,
                 )
             )
-    for m in moved:
-        if m.kind == "accrued_interest":
-            other.append((m.label, m.amount))
-            comps.append((m.label, f"/adjustments/{m.index}", m.amount, m.amount, known(ZERO)))
-        elif m.kind == "non_current_trade_payables":
-            other.append((m.label, m.amount))
-            comps.append((m.label, f"/adjustments/{m.index}", m.amount, known(ZERO), m.amount))
-    gross = plus(fd, dest_sum(sls, "financial_debt"))
+    entries: list[tuple[int, Any]] = [(m.index, m) for m in moved] + [(lz[0], lz) for lz in leases]
+    for index, e in sorted(entries, key=lambda x: x[0]):
+        if isinstance(e, tuple):
+            # R21, P3: the lease liability, gross debt with its current part.
+            _, label, la, _ = e
+            liab = known(la["liability"])
+            comps.append(
+                (
+                    label,
+                    f"/adjustments/{index}",
+                    liab,
+                    known(la["liability_current"]),
+                    known(la["liability"] - la["liability_current"]),
+                )
+            )
+        elif e.kind == "accrued_interest":
+            other.append((e.label, e.amount))
+            comps.append((e.label, f"/adjustments/{index}", e.amount, e.amount, known(ZERO)))
+        elif e.kind == "non_current_trade_payables":
+            other.append((e.label, e.amount))
+            comps.append((e.label, f"/adjustments/{index}", e.amount, known(ZERO), e.amount))
+    gross = plus(fd, dest_sum(sls, "financial_debt"), *(known(lz[2]["liability"]) for lz in leases))
     nfp_total = plus(*(c[2] for c in comps))
     nfp_cur = plus(*(c[3] for c in comps))
     nfp_ncur = plus(*(c[4] for c in comps))
@@ -1296,6 +1464,591 @@ def finish(
     return {"balance_sheet": bsv, "current_non_current": cncv, "checks": checks, "not_computed": nc}
 
 
+# ---------------------------------------------------------------- statutory income statement
+EBITDA_DEFINITION = (
+    "EBITDA (margine operativo lordo, MOL) = value added \u2212 personnel costs (B9): value of "
+    "production (A1 to A5, core) less raw materials, services, use of third-party assets, change "
+    "in raw material inventories and other operating expenses (B6, B7, B8, B11, B14, core) and "
+    "personnel costs (B9); before depreciation, amortisation and write-downs (B10), provisions "
+    "(B12, B13), the investing and financing results and the non-recurring items (SPEC-0005 "
+    "Appendix B.2)"
+)
+
+
+def obj(items: dict[str, Any] | None, why: Amt) -> Lst:
+    """An object output (a reconciliation): its value, or None with the amount that is missing."""
+    return Lst(items, why)  # type: ignore[arg-type]
+
+
+def b10_reading(inc: dict[str, Any], base: str) -> tuple[Amt, Amt, Amt, bool, list[str], list[str]]:
+    """B10 a and b, B10 c and B10 d as read (Decision 8): B10 a to c given as one group without
+    its B10 c part is depreciation and amortisation, B10 c none; with B10 c given, the group less
+    B10 c is depreciation and amortisation."""
+    node = inc.get("depreciation_and_write_downs")
+    b = f"{base}/depreciation_and_write_downs"
+    if node is None:
+        m = lacking(b)
+        return m, m, m, False, [b], [b]
+    va, ab, c, d = (
+        node.get(k)
+        for k in (
+            "value_adjustments_of_fixed_assets",
+            "depreciation_and_amortisation",
+            "write_downs_of_fixed_assets",
+            "write_downs_of_receivables",
+        )
+    )
+    grouped = ab is None and c is None and va is not None
+    if ab is not None:
+        ab_amt = known(dec(ab))
+    elif va is not None:
+        ab_amt = known(dec(va) - (dec(c) if c is not None else ZERO))
+    else:
+        ab_amt = lacking(f"{b}/depreciation_and_amortisation")
+    if c is not None:
+        c_amt = known(dec(c))
+    elif grouped:
+        c_amt = known(ZERO)
+    elif va is not None and ab is not None:
+        # D1-IS: the group less its B10 a, b part (checked within the group).
+        c_amt = known(dec(va) - dec(ab))
+    else:
+        c_amt = lacking(f"{b}/write_downs_of_fixed_assets")
+    d_amt = known(dec(d)) if d is not None else lacking(f"{b}/write_downs_of_receivables")
+    # The pointers actually read (review of PR 2, blocking 2).
+    va_ptr = f"{b}/value_adjustments_of_fixed_assets"
+    if ab is not None:
+        ab_read = [f"{b}/depreciation_and_amortisation"]
+    elif va is not None:
+        ab_read = [va_ptr] + ([f"{b}/write_downs_of_fixed_assets"] if c is not None else [])
+    else:
+        ab_read = [f"{b}/depreciation_and_amortisation"]
+    if grouped:
+        c_read = [va_ptr]
+    elif c is None and va is not None and ab is not None:
+        c_read = [va_ptr, f"{b}/depreciation_and_amortisation"]
+    else:
+        c_read = [f"{b}/write_downs_of_fixed_assets"]
+    return ab_amt, c_amt, d_amt, grouped, ab_read, c_read
+
+
+def statutory_a_minus_b(inc: dict[str, Any], base: str) -> Amt:
+    """A - B of the statutory statement: given, or from the totals A and B given, or from their
+    items given (the same reading as the checks of R7)."""
+    key = "difference_between_value_and_costs_of_production"
+    if key in inc:
+        return known(dec(inc[key]))
+    a = (
+        leaf(inc, base, "value_of_production")
+        if "value_of_production" in inc
+        else plus(
+            *(
+                leaf(inc, base, k)
+                for k in (
+                    "revenue",
+                    "change_in_product_inventories",
+                    "own_work_capitalised",
+                    "other_revenue_and_income",
+                )
+            )
+        )
+    )
+    if "costs_of_production" in inc:
+        b = leaf(inc, base, "costs_of_production")
+    else:
+        node = inc.get("depreciation_and_write_downs") or {}
+        nb = f"{base}/depreciation_and_write_downs"
+        if "total" in node:
+            b10 = known(dec(node["total"]))
+        else:
+            ac = (
+                leaf(node, nb, "value_adjustments_of_fixed_assets")
+                if "value_adjustments_of_fixed_assets" in node
+                else plus(
+                    leaf(node, nb, "depreciation_and_amortisation"),
+                    leaf(node, nb, "write_downs_of_fixed_assets"),
+                )
+            )
+            b10 = plus(ac, leaf(node, nb, "write_downs_of_receivables"))
+            if "depreciation_and_write_downs" not in inc:
+                b10 = lacking(nb)
+        b = plus(
+            *(
+                leaf(inc, base, k)
+                for k in (
+                    "purchases",
+                    "services",
+                    "use_of_third_party_assets",
+                    "personnel_costs",
+                )
+            ),
+            b10,
+            *(
+                leaf(inc, base, k)
+                for k in (
+                    "change_in_raw_material_inventories",
+                    "provisions_for_risks",
+                    "other_provisions",
+                    "other_operating_expenses",
+                )
+            ),
+        )
+    return total((1, a), (-1, b))
+
+
+@at_50_digits
+def statutory_income_statement(inp: dict[str, Any], i: int) -> tuple[dict[str, Any], dict]:
+    """Appendix A.2 and B.2 for a statutory year (R16 to R21), with the check of the interest
+    cost within B9 (D3-IS)."""
+    y = inp["years"][i]
+    inc = get(y, "statutory", "income_statement") or {}
+    base = f"/years/{i}/statutory/income_statement"
+    wdr = get(inp, "treatments", "write_downs_of_receivables") or "operating"
+    wdfa = get(inp, "treatments", "write_downs_of_fixed_assets") or "operating"
+    ab, c10, d10, grouped, _ab_read, c_read = b10_reading(inc, base)
+    has_income_statement = get(y, "statutory", "income_statement") is not None
+    # P2: C15 follows financial fixed assets (B.III) when the whole aggregate is operating.
+    overrides = y.get("treatment_overrides") or {}
+    if "financial_fixed_assets" in overrides:
+        ffa_t = overrides["financial_fixed_assets"]
+        ffa_tp = f"/years/{i}/treatment_overrides/financial_fixed_assets"
+    else:
+        ffa_t = get(inp, "treatments", "financial_fixed_assets")
+        ffa_tp = "/treatments/financial_fixed_assets"
+    if isinstance(ffa_t, dict):
+        ffa_mode = "split" if "split" in ffa_t else ffa_t["destination"]
+    else:
+        ffa_mode = ffa_t
+    b3 = leaf(get(y, "statutory", "balance_sheet"), "", "financial_fixed_assets")
+    b3_held = b3.known and b3.value != 0
+    c15_given = inc.get("income_from_equity_investments")
+    if not b3_held:
+        # D2-IS: no operating investment to follow without B.III.
+        c15_place = "investing"
+    elif ffa_mode == "operating":
+        c15_place = "operating"
+    elif ffa_mode is not None:
+        c15_place = "investing"
+    elif c15_given is None:
+        c15_place = "unknown"  # C15 missing with its own pointer, wherever it goes
+    elif dec(c15_given) != 0:
+        c15_place = "waits"  # A3: given and not zero, the treatment decides
+    else:
+        c15_place = "investing"
+    ffa_waits = c15_place == "waits"
+
+    def item(key: str) -> Amt:
+        if key == "depreciation_and_amortisation":
+            return ab
+        if key == "write_downs_of_fixed_assets":
+            return c10
+        if key == "write_downs_of_receivables":
+            return d10
+        return leaf(inc, base, key)
+
+    def src_pointer(key: str) -> str:
+        if key in B10_KEYS:
+            return f"{base}/depreciation_and_write_downs/{key}"
+        return f"{base}/{key}"
+
+    # What remains of each aggregate after the adjustments, in the order given (R10).
+    remaining = {k: item(k) for k in IS_REFERENCES}
+
+    def take(key: str, a: D) -> Amt:
+        rem = remaining[key]
+        if not rem.known:
+            return rem
+        if a > rem.value and a != 0:
+            raise e026("adjustment_within_source")
+        remaining[key] = known(rem.value - a)
+        return known(a)
+
+    investing: list[tuple[int, str, str, Amt]] = []
+    non_recurring: list[tuple[int, str, str, Amt]] = []
+    leases: list[tuple[int, str, Amt, D, D]] = []
+    tfr_interest: list[tuple[int, str, Amt]] = []
+    checks: dict[str, str] = {}
+    for k, adj in enumerate(inp.get("adjustments") or []):
+        amount = adj["amounts"][i]
+        if amount is None:
+            continue
+        kind = adj["kind"]
+        if kind == "investing":
+            investing.append(
+                (k, adj["label"], adj["aggregate"], take(adj["aggregate"], dec(amount)))
+            )
+        elif kind == "non_recurring":
+            non_recurring.append(
+                (k, adj["label"], adj["aggregate"], take(adj["aggregate"], dec(amount)))
+            )
+        elif kind == "lease":
+            # R21: the payments leave B8; depreciation and interest are added.
+            paid = take("use_of_third_party_assets", dec(amount["payments"]))
+            leases.append(
+                (k, adj["label"], paid, dec(amount["depreciation"]), dec(amount["interest"]))
+            )
+        elif kind == "debt_like_provision":
+            # P2: the interest cost of a debt-like severance indemnity leaves B9.
+            cost = (adj.get("interest_cost") or [None] * len(inp["years"]))[i]
+            if cost is not None:
+                # D3-IS: the interest cost is known; only its check needs B9.
+                rem = remaining["personnel_costs"]
+                if rem.known:
+                    take("personnel_costs", dec(cost))
+                    checks.setdefault("interest_cost_within_personnel_costs", "reconciled")
+                else:
+                    checks["interest_cost_within_personnel_costs"] = "not_checked"
+                tfr_interest.append((k, adj["label"], known(dec(cost))))
+
+    def moved_from(entries: list[tuple[int, str, str, Amt]], *keys: str) -> Amt:
+        return plus(*(a for _, _, key, a in entries if key in keys))
+
+    core = remaining
+    a_given = "value_of_production" in inc
+    a_whole = (
+        leaf(inc, base, "value_of_production")
+        if a_given
+        else plus(
+            item("revenue"),
+            item("change_in_product_inventories"),
+            item("own_work_capitalised"),
+            item("other_revenue_and_income"),
+        )
+    )
+    # Value of production, core: A less the parts of A1 and A5 moved out (R16, R18).
+    vop = total(
+        (1, a_whole),
+        (-1, moved_from(investing, "other_revenue_and_income")),
+        (-1, moved_from(non_recurring, "revenue", "other_revenue_and_income")),
+    )
+    purchases = core["purchases"]
+    materials = plus(purchases, item("change_in_raw_material_inventories"))
+    external = plus(
+        materials,
+        core["services"],
+        core["use_of_third_party_assets"],
+        core["other_operating_expenses"],
+    )
+    value_added = total((1, vop), (-1, external))  # E1: external costs
+    personnel = core["personnel_costs"]
+    ebitda = total((1, value_added), (-1, personnel))
+    operating_wdr = wdr == "operating"
+    operating_wdfa = wdfa == "operating"
+    # P1: B10 c with depreciation and amortisation when operating.
+    dna = plus(
+        core["depreciation_and_amortisation"],
+        *([core["write_downs_of_fixed_assets"]] if operating_wdfa else []),
+        *(known(dep) for *_, dep, _ in leases),
+    )
+    # E2: provisions, and B10 d when operating, below EBITDA besides depreciation.
+    other_terms = [core["provisions_for_risks"], core["other_provisions"]]
+    if operating_wdr:
+        other_terms.append(core["write_downs_of_receivables"])
+    other_charges = plus(*other_terms)
+    c15 = core["income_from_equity_investments"]
+    if ffa_waits:
+        c15 = plus(c15, lacking(ffa_tp))
+    c15_operating = c15_place == "operating"
+    # Waiting for the treatment, or not given with its place unknown, C15 is missing in both
+    # places it could go (R8).
+    operating_investments = c15 if c15_place in ("operating", "waits", "unknown") else known(ZERO)
+    operating_profit = total(
+        (1, ebitda), (-1, dna), (-1, other_charges), (1, operating_investments)
+    )
+    if "value_adjustments_of_financial_assets" in inc:
+        d_total = leaf(inc, base, "value_adjustments_of_financial_assets")
+    else:
+        d_total = total(
+            (1, leaf(inc, base, "revaluations_of_financial_assets")),
+            (-1, leaf(inc, base, "write_downs_of_financial_assets")),
+        )
+    inv_terms = [
+        (1, moved_from(investing, "other_revenue_and_income")),
+        (-1, moved_from(investing, "other_operating_expenses")),
+        (1, known(ZERO) if c15_operating else c15),
+        (1, core["other_financial_income"]),
+        (1, d_total),
+    ]
+    if not operating_wdfa:
+        inv_terms.append((-1, core["write_downs_of_fixed_assets"]))
+    if not operating_wdr:
+        inv_terms.append((-1, core["write_downs_of_receivables"]))
+    investing_result = total(*inv_terms)
+    pbft = plus(operating_profit, investing_result)
+    nr_income = [a for _, _, key, a in non_recurring if key in IS_INCOME]
+    nr_charges = [a for _, _, key, a in non_recurring if key not in IS_INCOME]
+    nr_result = total(*((1, a) for a in nr_income), *((-1, a) for a in nr_charges))
+    if not has_income_statement:
+        # E6: null when the year gives no income statement.
+        nr_result = plus(nr_result, lacking(f"/years/{i}/statutory/income_statement"))
+    interest = plus(core["interest_and_other_financial_charges"], *(known(it) for *_, it in leases))
+    financing = total(
+        (1, core["exchange_gains_and_losses"]),
+        (-1, interest),
+        *((-1, a) for *_, a in tfr_interest),
+    )
+    pbt = plus(pbft, nr_result, financing)
+    taxes = leaf(inc, base, "income_taxes")
+    net_income = total((1, pbt), (-1, taxes))
+
+    # Reconciliations with A - B (R19): every amount moved, from the statutory items.
+    a_b = statutory_a_minus_b(inc, base)
+    nr_lines = []
+    for k, label, key, a in non_recurring:
+        if key in IS_A_AND_B:
+            sign = -1 if key in IS_INCOME else 1
+            nr_lines.append(
+                (
+                    k,
+                    f"{label} (non-recurring part of {IS_REFERENCES[key]})",
+                    [f"/adjustments/{k}/amounts/{i}"],
+                    total((sign, a)),
+                )
+            )
+    lease_lines = []
+    for k, label, paid, dep, _ in leases:
+        at = f"/adjustments/{k}/amounts/{i}"
+        lease_lines.append(
+            (k, f"{label} (lease payments removed from B8)", [f"{at}/payments"], paid)
+        )
+        lease_lines.append(
+            (k, f"{label} (lease depreciation)", [f"{at}/depreciation"], known(-dep))
+        )
+    for k, label, a in tfr_interest:
+        lease_lines.append(
+            (
+                k,
+                f"{label} (interest cost of the employee severance indemnity removed from B9)",
+                [f"/adjustments/{k}/interest_cost/{i}"],
+                a,
+            )
+        )
+    c_label = "B10 c, write-downs of fixed assets (investing result)"
+    if grouped:
+        c_label += ": read as none, give the B10 c part (Decision 8)"
+    op_lines = []
+    if not operating_wdfa:
+        op_lines.append((-1, c_label, c_read, core["write_downs_of_fixed_assets"]))
+    if not operating_wdr:
+        op_lines.append(
+            (
+                -1,
+                "B10 d, write-downs of receivables (investing result)",
+                [src_pointer("write_downs_of_receivables")],
+                core["write_downs_of_receivables"],
+            )
+        )
+    inv_lines = []
+    for k, label, key, a in investing:
+        sign = -1 if key in IS_INCOME else 1
+        inv_lines.append(
+            (
+                k,
+                f"{label} (investing part of {IS_REFERENCES[key]})",
+                [f"/adjustments/{k}/amounts/{i}"],
+                total((sign, a)),
+            )
+        )
+    if c15_operating:
+        op_lines.append(
+            (
+                -1,
+                "C15, income from equity investments (operating investments, P2)",
+                [f"{base}/income_from_equity_investments"],
+                c15,
+            )
+        )
+    op_lines += sorted(inv_lines + nr_lines + lease_lines, key=lambda x: x[0])
+    d_read = (
+        [f"{base}/value_adjustments_of_financial_assets"]
+        if "value_adjustments_of_financial_assets" in inc
+        else [f"{base}/revaluations_of_financial_assets", f"{base}/write_downs_of_financial_assets"]
+    )
+    pbft_lines = sorted(nr_lines + lease_lines, key=lambda x: x[0])
+    pbft_lines += [
+        (
+            -1,
+            "C15, income from equity investments ("
+            + ("operating investments, P2" if c15_operating else "investing result")
+            + ")",
+            [f"{base}/income_from_equity_investments"],
+            c15,
+        ),
+        (
+            -1,
+            "C16, other financial income (investing result)",
+            [f"{base}/other_financial_income"],
+            core["other_financial_income"],
+        ),
+        (
+            -1,
+            "D18 \u2212 D19, value adjustments of financial assets (investing result)",
+            d_read,
+            d_total,
+        ),
+    ]
+
+    def reconciliation(lines: list[tuple[int, str, list[str], Amt]], end: Amt) -> Lst:
+        amounts = [a for *_, a in lines]
+        summed = plus(a_b, *amounts)
+        if not (summed.known and end.known):
+            return obj(None, plus(a_b, end, *amounts))
+        if summed.value != end.value:
+            raise RefError("FM-E012", "reconciliation")
+        return obj(
+            {
+                "start": a_b.value,
+                "lines": [
+                    {"label": label, "sources": sources, "amount": a.value}
+                    for _, label, sources, a in lines
+                ],
+                "end": end.value,
+            },
+            end,
+        )
+
+    return {
+        "revenue": core["revenue"],
+        "value_of_production": vop,
+        "purchases": purchases,
+        "materials_consumed": materials,
+        "external_costs": external,
+        "value_added": value_added,
+        "personnel_costs": personnel,
+        "ebitda": ebitda,
+        "ebitda_definition": EBITDA_DEFINITION,
+        "depreciation_and_amortisation": dna,
+        "other_charges_below_ebitda": other_charges,
+        "income_from_operating_investments": operating_investments,
+        "operating_profit": operating_profit,
+        "investing_result": investing_result,
+        "profit_before_financing_and_taxes": pbft,
+        "non_recurring_result": nr_result,
+        "financing_result": financing,
+        "interest_and_other_financial_charges": interest,
+        "profit_before_tax": pbt,
+        "income_taxes": taxes,
+        "net_income": net_income,
+        "reconciliations": {
+            "operating_profit": reconciliation(op_lines, operating_profit),
+            "profit_before_financing_and_taxes": reconciliation(pbft_lines, pbft),
+        },
+    }, checks
+
+
+# ---------------------------------------------------------------- reclassified income statement
+@at_50_digits
+def reclassified_income_statement(inp: dict[str, Any], i: int) -> tuple[dict[str, Any], dict]:
+    """Appendix B.2 totals as given (R5): EBITDA, profit before financing and taxes, profit
+    before tax and net income derived when not given, and checked when given."""
+    inc = get(inp["years"][i], "reclassified", "income_statement") or {}
+    base = f"/years/{i}/reclassified/income_statement"
+    c: dict[str, str] = {}
+
+    def f(key: str) -> Amt:
+        return leaf(inc, base, key)
+
+    def given_or_derived(relation: str, key: str, derived: Amt) -> Amt:
+        given = f(key)
+        check(c, relation, given, derived)
+        return given if given.known or not derived.known else derived
+
+    # E1, E2: value added and operating profit derived from the fields of 2026-11-09.
+    value_added = given_or_derived(
+        "value_added_total",
+        "value_added",
+        total((1, f("value_of_production")), (-1, f("external_costs"))),
+    )
+    ebitda = given_or_derived(
+        "ebitda_total", "ebitda", total((1, value_added), (-1, f("personnel_costs")))
+    )
+    operating_profit = given_or_derived(
+        "operating_profit_total",
+        "operating_profit",
+        total(
+            (1, ebitda),
+            (-1, f("depreciation_and_amortisation")),
+            (-1, f("other_charges_below_ebitda")),
+            (1, f("income_from_operating_investments")),
+        ),
+    )
+    pbft = given_or_derived(
+        "profit_before_financing_and_taxes_total",
+        "profit_before_financing_and_taxes",
+        plus(operating_profit, f("investing_result")),
+    )
+    pbt = given_or_derived(
+        "profit_before_tax_total",
+        "profit_before_tax",
+        plus(pbft, f("non_recurring_result"), f("financing_result")),
+    )
+    net = given_or_derived(
+        "net_income_total", "net_income", total((1, pbt), (-1, f("income_taxes")))
+    )
+    statutory = Amt(None, frozenset())
+    return {
+        "revenue": f("revenue"),
+        "value_of_production": f("value_of_production"),
+        "purchases": f("purchases"),
+        "materials_consumed": f("materials_consumed"),
+        "external_costs": f("external_costs"),
+        "value_added": value_added,
+        "personnel_costs": f("personnel_costs"),
+        "ebitda": ebitda,
+        "ebitda_definition": EBITDA_DEFINITION,
+        "depreciation_and_amortisation": f("depreciation_and_amortisation"),
+        "other_charges_below_ebitda": f("other_charges_below_ebitda"),
+        "income_from_operating_investments": f("income_from_operating_investments"),
+        "operating_profit": operating_profit,
+        "investing_result": f("investing_result"),
+        "profit_before_financing_and_taxes": pbft,
+        "non_recurring_result": f("non_recurring_result"),
+        "financing_result": f("financing_result"),
+        "interest_and_other_financial_charges": f("interest_and_other_financial_charges"),
+        "profit_before_tax": pbt,
+        "income_taxes": f("income_taxes"),
+        "net_income": net,
+        "reconciliations": {
+            "operating_profit": obj(None, statutory),
+            "profit_before_financing_and_taxes": obj(None, statutory),
+        },
+    }, c
+
+
+def finish_income_statement(node: dict[str, Any], i: int) -> tuple[dict[str, Any], list]:
+    """Amounts to values; every null output of the income statement listed (R6)."""
+    nc: list[dict[str, Any]] = []
+
+    def note(pointer: str, a: Amt) -> None:
+        entry: dict[str, Any] = {"output": pointer, "missing": sorted(a.missing)}
+        # P2: C15 waits for the treatment of B.III; its permitted destinations (R8).
+        perm = [
+            {"treatment": p, "destinations": FFA_PERMITTED}
+            for p in sorted(a.missing)
+            if p.endswith("/financial_fixed_assets") and "treatment" in p
+        ]
+        if perm:
+            entry["permitted"] = perm
+        nc.append(entry)
+
+    def visit(n: Any, pointer: str) -> Any:
+        if isinstance(n, Amt):
+            if not n.known:
+                note(pointer, n)
+            return n.value
+        if isinstance(n, Lst):
+            if n.items is None:
+                note(pointer, n.amount)
+            return n.items
+        if isinstance(n, dict):
+            return {k: visit(v, f"{pointer}/{k}") for k, v in n.items()}
+        return n
+
+    value = visit(node, f"/years/{i}/income_statement")
+    nc.sort(key=lambda e: e["output"])
+    return value, nc
+
+
 # ---------------------------------------------------------------- reclassified balance sheet
 OWC_PARTS = [
     ("trade_receivables", 1),
@@ -1447,17 +2200,24 @@ def reclassified_balance_sheet(inp: dict[str, Any], i: int) -> dict[str, Any]:
 
 @at_50_digits
 def reorganise(inp: dict[str, Any]) -> dict[str, Any]:
-    """The value of `statements.reorganise` for the parts of the first pull request, with
-    `defaults_applied` of `meta` as (pointer, destination) pairs."""
+    """The value of `statements.reorganise` for the parts of the first and second pull
+    requests, with `defaults_applied` of `meta` as (pointer, destination) pairs."""
     validate(inp)
     years = []
     for i, y in enumerate(inp["years"]):
         if "reclassified" in y:
             body = reclassified_balance_sheet(inp, i)
+            income, is_checks = reclassified_income_statement(inp, i)
+            body["checks"].update(is_checks)
             form = "reclassified"
         else:
             body = statutory_balance_sheet(inp, i)
+            income, is_checks = statutory_income_statement(inp, i)
+            body["checks"].update(is_checks)
             form = "statutory" if "statutory" in y else None
+        value, nc = finish_income_statement(income, i)
+        body["income_statement"] = value
+        body["not_computed"]["income_statement"] = nc
         years.append({"form": form, **body})
     return {"years": years, "defaults_applied": defaults_applied(inp)}
 

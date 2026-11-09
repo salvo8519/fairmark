@@ -7,10 +7,13 @@ Italian Civil Code, ordinary or abridged, art. 2435-bis) or as totals already re
 example by a bank. The result is in the shapes that [`dcf.fcff`](dcf-fcff.md) and the
 `ratios.*` groups take, unchanged.
 
-This build returns the reorganised **balance sheet**: invested capital, non-operating assets,
-equity, quasi-equity, the net financial position with its composition and maturities, debt-like
-items, and current and non-current amounts. The income statement inputs are read, validated and
-checked against their totals; their reorganisation is not returned yet (see the
+This build returns, for each year, the reorganised **balance sheet** (invested capital,
+non-operating assets, equity, quasi-equity, the net financial position with its composition and
+maturities, debt-like items, and current and non-current amounts) and the reorganised **income
+statement** by nature (value of production, value added, EBITDA, operating profit, investing
+result, profit before financing and taxes, non-recurring and financing results, profit before
+tax, income taxes and net income), with the reconciliation of its two IFRS 18 aligned subtotals
+with A − B. The exact changes between consecutive years come with a later build (see the
 [roadmap](../project/roadmap.md)).
 
 ## Best effort
@@ -64,11 +67,21 @@ with, for a statutory year (Appendix B.1 of SPEC-0005):
   D (operating part) − liabilities E (operating part);
 - operating provisions = provisions B and employee severance indemnity C treated as operating;
 - equity = liabilities A − subscribed capital unpaid (zero when not given) − dividends declared;
-- gross debt = financial debt + shareholder loans treated as financial debt; cash = C.IV −
+- gross debt = financial debt + shareholder loans treated as financial debt + lease liabilities
+  restated by a `lease` adjustment (decision P3 of 2026-11-09); cash = C.IV −
   operating cash; other items, each with its sign: C.III, financial receivables, B.III treated
   as a financial asset (negative), derivative liabilities, accrued interest and trade payables
   with extended terms (positive);
 - excess cash = C.IV − operating cash, the cash of the net financial position.
+
+**Against the ESMA table** (ESMA32-382-1138, guideline 39; decision P4 of 2026-11-09). The net
+financial position of Fairmark is the analyst measure of SPEC-0007, not the ESMA "total
+financial indebtedness". It differs where Fairmark deducts what the ESMA table does not:
+non-current financial assets (B.III treated as `financial_asset`, financial receivables due
+beyond one year, the derivative assets within B.III) and the hedging derivative assets within
+C.III, which ESMA leaves out of the other current financial assets. The composition lists each
+of these items, so the ESMA figure can be rebuilt by removing them. For an ESMA view (rows A to
+M) see the [roadmap](../project/roadmap.md).
 
 Derivatives (decision D3): derivative liabilities within provisions B treated as
 `financial_liability` are non-current in the net financial position. Derivative assets are not
@@ -78,6 +91,119 @@ position.
 
 A positive net financial position is net debt. Its total is computed by the function of the
 ratios (SPEC-0007), so it equals the total of the object returned.
+
+### Income statement (Appendix B.2)
+
+$$
+\text{EBITDA} = \text{value added} - \text{personnel costs}
+$$
+
+$$
+\text{profit before financing and taxes} = \text{operating profit} + \text{investing result}
+$$
+
+$$
+\text{profit before tax} = \text{profit before financing and taxes} + \text{non-recurring result} + \text{financing result}
+$$
+
+with, for a statutory year:
+
+- value of production = A1 + A2 and A3 + A4 + A5, core (less the parts moved by `investing`
+  and `non_recurring` adjustments); total A is used when given;
+- external costs = B6 + B7 + B8 + B11 + B14, each core, B8 also net of lease payments (signed;
+  decision E1 of 2026-11-09); value added = value of production − external costs;
+  `materials_consumed` = B6 + B11;
+- EBITDA (margine operativo lordo, MOL) = value added − B9; depreciation, amortisation and
+  write-downs (B10), provisions (B12, B13), the investing and financing results and the
+  non-recurring items are below it. The definition is returned in words as
+  `ebitda_definition`, ready for the `ratios.*` groups;
+- depreciation and amortisation = B10 a and b, + B10 c with the treatment
+  `write_downs_of_fixed_assets: operating` (the default, P1), + lease depreciation;
+- other charges below EBITDA = B12 + B13, + B10 d with the treatment
+  `write_downs_of_receivables: operating` (the default, E3), each core (E2);
+- income from operating investments = C15 when financial fixed assets (B.III) are wholly
+  `operating` for the year, zero otherwise (decision P2 of 2026-11-09);
+- operating profit (reddito operativo della gestione caratteristica, margine operativo netto)
+  = EBITDA − depreciation and amortisation − other charges below EBITDA + income from operating
+  investments;
+- investing result = investing parts of A5 − investing parts of B14 + C15 (unless B.III is
+  operating) + C16 + (D18 − D19), − B10 c and − B10 d only with the treatment `investing`;
+  total D is used when given;
+- profit before financing and taxes (reddito operativo aziendale, EBIT in Italian practice) =
+  operating profit + investing result;
+- non-recurring result = Σ non-recurring income − Σ non-recurring charges, from the
+  `non_recurring` adjustments: zero, with the convention "no item labelled non-recurring", when
+  there are none; null, listed in `not_computed`, when the year gives no income statement (E6);
+- financing result = C17-bis − C17 (C17 plus lease interest, returned as
+  `interest_and_other_financial_charges`) − the interest cost of a debt-like employee severance
+  indemnity, when given (P2). C16, which includes the interest on cash and on the
+  financial receivables of the net financial position, is in the investing result (the IFRS 18
+  investing category), so the financing result is gross of that interest;
+- net income = profit before tax − item 20, taxes as given.
+
+The two subtotals correspond to the subtotals required by IFRS 18, "operating profit or loss"
+and "profit or loss before financing and income taxes", under the conventions of this page
+(decision P1 amends R16): items labelled non-recurring are excluded from `operating_profit`,
+which IFRS 18 would keep in the operating category, and the write-downs follow their
+treatments. IFRS 18 applies to IFRS preparers and art. 2425 to OIC preparers, and the
+reorganisation maps both to the same subtotals. `operating_profit` excludes the investing area
+(income from investments and from cash, D18 and D19) and the non-recurring items.
+
+**Write-downs and revaluations** (Decision 17 of SPEC-0005, as amended by E3 and P1 of
+2026-11-09). D18 and D19 (financial assets) are in the investing result, below operating profit
+and above profit before financing and taxes; no adjustment moves them. B10 c (write-downs of
+tangible and intangible fixed assets) is operating by default, below EBITDA with depreciation
+and amortisation (IFRS 18; OIC 12 paragraph 75); the treatment
+`write_downs_of_fixed_assets: investing` places it in the investing result. B10 d
+(write-downs of current receivables and cash) is operating by default, in the other charges
+below EBITDA, as IFRS 18 practice does for the impairment of trade receivables; the treatment
+`write_downs_of_receivables: investing` places it in the investing result. EBITDA is the same
+with either treatment. A one-off impairment is isolated with a `non_recurring` adjustment. B10 a
+to c given as one amount (abridged layout, art. 2435-bis) with its B10 a, b part and without
+B10 c gives B10 c as the difference, and every layer is computed (correction D1-IS of
+2026-11-09: more input never gives fewer outputs); a step shows B10 a to c − B10 a, b with the
+amounts, a convention states the reading, and the assignment names the group. With B10 c operating, the group gives the
+same outputs with or without its parts; with the treatment `investing`, a group given with
+neither part is read as depreciation and amortisation, and the conventions say so (Decision 8).
+
+**Income and costs follow the related balance sheet item** (decision P2 of 2026-11-09).
+Income from equity investments (C15) follows financial fixed assets (B.III): when B.III is
+wholly `operating` for the year (treatment or override), C15 is
+`income_from_operating_investments`, below EBITDA and in operating profit; EBITDA does not
+change. D18 and D19 stay in the investing result, and so does C16, whose part from B.III is not
+given separately. With B.III not given, zero, or no balance sheet for the year, there is no
+operating investment to follow: `income_from_operating_investments` is zero and C15 stays in the
+investing result, also with the treatment `operating`, and the conventions say so (D2-IS). With
+B.III split between destinations for the year, the income of each part is not given: C15 stays
+in the investing result and the conventions say so. With B.III given and not zero and its
+treatment missing, C15 waits for it only when C15 is given and not zero (A3): income from
+operating investments, operating profit, the investing result and the layers below are not
+computed and are listed in `not_computed` with the treatment pointer and its permitted
+destinations (R8). C15 given as zero waits for nothing; C15 not given is missing with its own
+pointer.
+
+The interest cost (revaluation) of the employee severance indemnity is inside B9. When a
+`debt_like_provision` adjustment treats the indemnity as debt-like, its optional
+`interest_cost` (one entry per year, zero or more, at most what remains of B9) moves that
+amount out of personnel costs and EBITDA into the financing result; it is a line of both
+reconciliations, and profit before tax does not change. Because `interest_and_other_financial_charges`
+stays C17 plus lease interest, the financing result then equals C17-bis −
+`interest_and_other_financial_charges` − the interest cost, and the conventions say so. The
+interest cost moves also when B9 is not given: the financing result is computed, personnel
+costs and EBITDA are not, and the check `interest_cost_within_personnel_costs` is reported as
+not checked (D3-IS). Without it nothing moves and the conventions say so. `interest_cost` is accepted only with `aggregate`
+`employee_severance_indemnity` and only for a year where the adjustment applies (`FM-E001`
+otherwise); above what remains of B9 it is `FM-E026`.
+
+**Reconciliations** (R19). `reconciliations.operating_profit` and
+`reconciliations.profit_before_financing_and_taxes` start from A − B of the statutory
+statement, list every amount moved (write-downs, investing and non-recurring parts, lease
+lines, interest costs of the employee severance indemnity, C15, C16 and D) with the pointers
+actually read (`sources`: both D18 and D19 when both are read; the B10 a to c group, with the
+fix, when B10 c is read as none; for an adjustment, the amount of the year it moves, for
+example `/adjustments/0/amounts/0/payments` or `/adjustments/1/interest_cost/0`), and end at the
+subtotal, exactly. Profit before tax equals A − B ± C ± D and net income equals item 21, except
+for the lease difference, payments − depreciation − interest (E4).
 
 ## Example
 
@@ -130,6 +256,58 @@ nfp = bs["sources"]["net_financial_position"]
 assert nfp["total"] == Decimal("710000")  # 1000000 − 240000 − 60000 + 10000
 assert (nfp["current"], nfp["non_current"]) == (Decimal("100000"), Decimal("610000"))
 assert bs["total_funds_invested"] == bs["sources"]["total_sources"] == Decimal("1610000")
+```
+
+The income statement of the same company (ordinary layout, art. 2425):
+
+```python
+from decimal import Decimal
+
+import fairmark as fm
+
+r = fm.statements.reorganise(
+    [
+        {
+            "label": "2024",
+            "statutory": {
+                "income_statement": {
+                    "revenue": "5000000",
+                    "change_in_product_inventories": "40000",
+                    "own_work_capitalised": "10000",
+                    "other_revenue_and_income": "50000",
+                    "purchases": "2200000",
+                    "services": "1244000",
+                    "use_of_third_party_assets": "150000",
+                    "personnel_costs": "1000000",
+                    "depreciation_and_write_downs": {
+                        "depreciation_and_amortisation": "180000",
+                        "write_downs_of_fixed_assets": "20000",
+                        "write_downs_of_receivables": "15000",
+                    },
+                    "change_in_raw_material_inventories": "-30000",
+                    "provisions_for_risks": "10000",
+                    "other_provisions": "5000",
+                    "other_operating_expenses": "40000",
+                    "income_from_equity_investments": "12000",
+                    "other_financial_income": "3000",
+                    "interest_and_other_financial_charges": "60000",
+                    "exchange_gains_and_losses": "-1000",
+                    "revaluations_of_financial_assets": "2000",
+                    "write_downs_of_financial_assets": "8000",
+                    "income_taxes": "64000",
+                    "profit_or_loss_for_the_year": "150000",
+                }
+            },
+        }
+    ]
+)
+inc = r.years[0]["income_statement"]
+assert inc["ebitda"] == Decimal("496000")  # 5100000 − 3604000 − 1000000
+assert inc["operating_profit"] == Decimal("266000")  # 496000 − (180000 + 20000) − (10000 + 5000 + 15000)
+assert inc["investing_result"] == Decimal("9000")  # 12000 + 3000 + 2000 − 8000
+assert inc["profit_before_financing_and_taxes"] == Decimal("275000")
+assert inc["net_income"] == Decimal("150000")  # item 21
+assert inc["reconciliations"]["operating_profit"]["start"] == Decimal("266000")  # A − B
 ```
 
 ## Inputs
@@ -194,6 +372,53 @@ statutory form: in a reclassified year they are listed in `not_computed` with no
 give, and a convention says so. Inventories are taken from
 `operating_working_capital.inventories`.
 
+### Statutory income statement (Appendix A.2)
+
+| Reference | Field | Layer | Choice |
+| --- | --- | --- | --- |
+| A1 | `revenue` | value of production | fixed |
+| A2, A3 | `change_in_product_inventories` (signed, positive for an increase) | value of production | fixed |
+| A4 | `own_work_capitalised` | value of production | fixed |
+| A5 | `other_revenue_and_income` | value of production, core | default |
+| B6, B11 | `purchases`, `change_in_raw_material_inventories` (signed, positive for a decrease) | value added (`materials_consumed`) | fixed |
+| B7, B8 | `services`, `use_of_third_party_assets` | value added | fixed |
+| B9 | `personnel_costs` | EBITDA | fixed |
+| B10 a, b | `depreciation_and_write_downs.depreciation_and_amortisation` (or `value_adjustments_of_fixed_assets`, B10 a to c, less B10 c) | depreciation and amortisation | fixed |
+| B10 c | `depreciation_and_write_downs.write_downs_of_fixed_assets` | depreciation and amortisation, or investing result with the treatment `investing` | default |
+| B10 d | `depreciation_and_write_downs.write_downs_of_receivables` | other charges below EBITDA, or investing result with the treatment `investing` | default |
+| B12, B13 | `provisions_for_risks`, `other_provisions` | operating profit | fixed |
+| B14 | `other_operating_expenses` | value added, core | default |
+| C15 | `income_from_equity_investments` | investing result; income from operating investments when B.III is wholly `operating` (P2) | follows B.III |
+| C16 | `other_financial_income` | investing result | fixed |
+| C17, C17-bis | `interest_and_other_financial_charges`, `exchange_gains_and_losses` (signed, positive for a net gain) | financing result | fixed |
+| D18, D19 | `revaluations_of_financial_assets`, `write_downs_of_financial_assets` | investing result | fixed |
+| 20, 21 | `income_taxes` (signed), `profit_or_loss_for_the_year` (signed) | taxes as given; check | fixed |
+
+The totals `value_of_production` (A), `costs_of_production` (B), the B10 `total`,
+`difference_between_value_and_costs_of_production` (A − B), `financial_income_and_charges`
+(C), `value_adjustments_of_financial_assets` (D) and `profit_before_tax` are optional, signed
+and checked. Total A stands in for its items in the value of production, and total D for D18
+and D19 in the investing result, when their items are not given.
+
+### Reclassified income statement (Appendix B.2)
+
+`revenue`, `value_of_production`, `purchases`, `materials_consumed`, `value_added`,
+`external_costs`, `personnel_costs`, `ebitda`, `depreciation_and_amortisation`,
+`other_charges_below_ebitda`, `income_from_operating_investments`, `operating_profit`,
+`investing_result`, `profit_before_financing_and_taxes`, `non_recurring_result`,
+`financing_result`, `interest_and_other_financial_charges`, `profit_before_tax`,
+`income_taxes` and `net_income`, all optional. EBITDA (value added − personnel costs), profit
+before financing and taxes (operating profit + investing result), profit before tax and net
+income are derived when not given and checked exactly when given, and so are value added
+(value of production − `external_costs`) and operating profit (EBITDA − depreciation and
+amortisation − `other_charges_below_ebitda` + `income_from_operating_investments`), with
+`external_costs` (signed), `other_charges_below_ebitda` and
+`income_from_operating_investments` (zero or more) defined as in the statutory form (E1, E2,
+P2); to have operating profit derived, give `income_from_operating_investments`, zero when there
+is none. The
+reconciliations with A − B need the statutory form and are listed in `not_computed` with no
+pointer to give.
+
 ## Treatments
 
 Stated once in `treatments` and applied to every statutory year. A treatment is needed only
@@ -206,7 +431,8 @@ destinations.
 | `financial_fixed_assets` | `operating`, `non_operating`, `financial_asset` | none |
 | `shareholder_loans` | `financial_debt`, `quasi_equity` | none |
 | `derivative_liabilities` | `financial_liability`, `operating_provision` | none |
-| `write_downs_of_receivables` | `investing`, `operating` (used by the income statement) | `investing` |
+| `write_downs_of_receivables` | `operating` (B10 d in the other charges below EBITDA), `investing` (B10 d in the investing result) | `operating`, listed whenever a statutory year gives an income statement |
+| `write_downs_of_fixed_assets` | `operating` (B10 c with depreciation and amortisation), `investing` (B10 c in the investing result) | `operating`, listed whenever a statutory year gives an income statement |
 
 `treatment_overrides` of a year accept only `financial_fixed_assets` and `shareholder_loans`,
 as `{"destination": ...}` or `{"split": [{"destination", "amount", "label"}, ...]}` with parts
@@ -232,9 +458,27 @@ larger than what remains in its source is `FM-E026`.
 | `non_current_trade_payables` | payables D (remainder) | net financial position, other financial liability | none |
 | `debt_like_provision` | B or C (operating) | debt-like items | `aggregate` |
 | `dividends_declared` | equity | debt-like items | none |
+| `investing` | A5 or B14 | investing result | `aggregate`; optional `related_non_operating_asset` (reported) |
+| `non_recurring` | any income statement aggregate of A.2 except D18 and D19 | non-recurring result | `aggregate` |
+| `lease` | double entry (below) | operating fixed assets, net financial position, equity; B8, B10, C17 | `amounts`: `asset`, `liability`, `liability_current`, `prepayment`, `payments`, `depreciation`, `interest` |
 
-The kinds `lease`, `investing` and `non_recurring` adjust the income statement; this build
-refuses them with `FM-E001` rather than ignore them.
+A `non_recurring` adjustment labels a part that is exceptional in size or incidence (art. 2427
+n. 13, OIC 12): it leaves its aggregate and the subtotals above, and enters the non-recurring
+result (componenti non ricorrenti). An `investing` adjustment moves income or charges of a
+non-operating asset (rent of an investment property, for example) out of A5 or B14 into the
+investing result.
+
+A `lease` restates a lease by the financial method (OIC 12): the right-of-use asset
+joins operating fixed assets; the liability joins gross debt of the net financial position
+(decision P3; ESMA32-382-1138 paragraph 180), with its `liability_current` part current; the prepayment (maxicanone)
+leaves assets D (the separate line when given, otherwise the part presented within C.II, which
+then leaves C.II); asset − liability − prepayment is the equity effect, added to equity with
+its formula in the explain. In the income statement the payments leave B8, the depreciation is
+added to depreciation and amortisation and the interest to C17. No deferred taxes are computed,
+so profit before tax and net income differ from the statutory amounts by payments −
+depreciation − interest: payments and depreciation are lines of both reconciliations with A − B,
+and interest is in the financing result. Each amount moved is listed in
+`adjustments_applied` with its `line`.
 
 ## Outputs
 
@@ -249,8 +493,9 @@ Per year: `label`, `date`, `form`, `layout`, then:
 | `balance_sheet.sources.net_financial_position` | `position` (SPEC-0007 type), `total`, `current`, `non_current`, `composition` by source |
 | `balance_sheet.excess_cash` | C.IV less operating cash |
 | `current_non_current` | `fixed_assets`, `current_assets`, `inventories`, `cash`, `total_assets` (less item A), `current_liabilities`, `non_current_liabilities`; from total B, total C and total assets when given |
+| `income_statement` | The layers of Appendix B.2 (see [Formula](#income-statement-appendix-b2)), `ebitda_definition` and `reconciliations`; items named after a statutory item (`revenue`, `purchases`, `materials_consumed`, `personnel_costs`, `depreciation_and_amortisation`, `interest_and_other_financial_charges`) are core amounts, after the adjustments |
 | `assignments` | Each aggregate given: reference, pointer, amount, destination, origin (`mapping` or `analyst`) |
-| `adjustments_applied` | Each adjustment: kind, label, amount, reason, source, target |
+| `adjustments_applied` | Each adjustment: kind, label, amount, reason, source, target; for a lease, one entry per amount with its `line` |
 | `checks` | Each relation by id: `reconciled` or `not_checked`, with its pointers |
 | `not_computed` | Per block, each missing output with the pointers of its missing inputs and, for a missing treatment, the permitted destinations; the entry has the same shape as in the `ratios.*` methods (`output`, `missing`, `permitted`) |
 
@@ -261,23 +506,35 @@ Per year: `label`, `date`, `form`, `layout`, then:
 | `debt_like_items` | `debt_like_items` of `dcf.fcff` |
 | `current_non_current` | `ratios.liquidity` and `ratios.capital_structure` |
 | `invested_capital` | `invested_capital` of `ratios.profitability` |
+| `operating_profit` | `ebit` of `dcf.free_cash_flows`; `ebit` of `ratios.profitability` for ROI on invested capital (non-operating assets enter the bridge at their value and are outside invested capital) |
+| `profit_before_financing_and_taxes` | `ebit` of `ratios.debt_service` (interest covers) and of `ratios.profitability` for ROA on total assets |
+| `depreciation_and_amortisation` | `depreciation_and_amortisation` of `dcf.free_cash_flows` |
+| `revenue`, `ebitda` with `ebitda_definition`, `net_income` | `ratios.profitability`; `ebitda` also `ratios.debt_service` |
+| `interest_and_other_financial_charges` | `interest` of `ratios.debt_service` |
+| `purchases` | `purchases` of `ratios.working_capital`; `cost_of_sales` is not returned (Decision 13): an income statement by nature does not contain it |
 
 ## Defaults
 
 Every default is listed in `meta.defaults_applied` and in `explain.conventions`, in this
 order:
 
-1. each statutory aggregate given whose destination is a default of Appendix A (B.I, B.II,
-   C.II, C.III, C.IV, assets D, provisions B, employee severance indemnity C, payables D,
-   liabilities E): `field` is the pointer of the item, `value` the destination, and the
-   convention reads "assigned to". An aggregate counts as given when its amount is: a node
-   holding only a part of it (for example `receivables.trade`) does not;
-2. `treatments.write_downs_of_receivables`, `investing` when not given;
+1. by year, each statutory aggregate given whose destination is a default of Appendix A (B.I,
+   B.II, C.II, C.III, C.IV, assets D, provisions B, employee severance indemnity C, payables D,
+   liabilities E; then A5 to `value_of_production`, B14 to `external_costs`, B10 c to
+   `depreciation_and_amortisation` and B10 d to `other_charges_below_ebitda`, each while its
+   treatment is not given): `field` is
+   the pointer of the item, `value` the destination, and the convention reads "assigned to". An
+   aggregate counts as given when its amount is: a node holding only a part of it (for example
+   `receivables.trade`) does not;
+2. `treatments.write_downs_of_receivables` and `treatments.write_downs_of_fixed_assets`,
+   `operating` when not given, each listed whenever a statutory year gives an income statement,
+   because they decide what is computed (decision A4 of 2026-11-09, amending F1); when such a
+   default places a B10 c or B10 d that is not zero, a convention beginning with "warning: "
+   names the default and the subtotal it moves (ADR 0014, default admission test 4);
 3. each item taken as zero because it is not given ([Best effort](#best-effort)): `value` is
    `"0"` and the convention reads "not given, set to".
 
-Fixed destinations are not defaults and are not listed. The default destinations of the income
-statement (A5, B14, B10 d) are listed from the build that reorganises it.
+Fixed destinations are not defaults and are not listed.
 
 ## Conventions (explicit, reported in `explain.conventions`)
 
@@ -294,6 +551,16 @@ statement (A5, B14, B10 d) are listed from the build that reorganises it.
 | Item A not given | zero, the same amount for equity and total assets | default, listed (D1) |
 | "Of which" parts not given | none within their aggregate, also when the aggregate is not given | default, listed (D2) |
 | Derivatives | liabilities treated as financial: non-current in the net financial position; assets follow B.III (non-current) or C.III (current) | fixed, stated (D3) |
+| A5, B14 | core; investing and non-recurring parts by adjustment | default, listed (Decision 7) |
+| C15 | investing result; income from operating investments when B.III is given, not zero and wholly `operating` for the year; waits for the treatment of B.III when C15 and B.III are given and not zero and the treatment is missing | follows B.III (P2, A3, D2-IS) |
+| C16, D18, D19 | investing result | fixed |
+| C17, C17-bis | financing result | fixed |
+| EBITDA | value added − personnel costs, returned as `ebitda_definition` | fixed (Decision 8) |
+| Write-downs and revaluations | D18, D19 in the investing result; B10 c and B10 d `operating` (below EBITDA) or `investing` | `operating`, listed (Decision 17, E3, P1) |
+| B10 a to c as one amount | with B10 c `investing`: depreciation and amortisation unless its B10 c part is given | fixed, stated (Decision 8) |
+| Interest cost of the employee severance indemnity | in personnel costs (B9); with a debt-like indemnity and its `interest_cost`, in the financing result | in B9, stated when the indemnity is debt-like (P2) |
+| Leases | as reported; financial method by adjustment, no deferred taxes | as reported (Decision 9) |
+| Taxes | item 20 as given; no IRES, IRAP, deferred taxes or NOPAT | fixed |
 
 ## Checks
 
@@ -310,10 +577,17 @@ assets and total liabilities and equity against their items; total assets = tota
 and equity; parts beyond one year and "of which" parts within their aggregate; the profit of
 A.IX = item 21; a split of an override = the year's aggregate; the maturities of a split of
 shareholder loans (see [Treatments](#treatments)); the totals of the income statement (A, B,
-B10, A − B, C, D, profit before tax, item 21). Reclassified form: operating working capital,
-invested capital, total funds invested, the net financial position (against its position and
-its maturities) and total sources against their components, and total funds invested = total
-sources.
+B10 a to c, B10, A − B, C, D, profit before tax, item 21); B10 c, or without it B10 a and b,
+within B10 a to c; the current part of a lease liability within the liability; the interest
+cost of the employee severance indemnity within what remains of B9. Reclassified form: operating working capital, invested capital, total
+funds invested, the net financial position (against its position and its maturities) and total
+sources against their components, and total funds invested = total sources; EBITDA, profit
+before financing and taxes, profit before tax and net income against their derivation by
+Appendix B.2, and value added and operating profit against theirs.
+
+The layers of the statutory income statement are built from the same items as its totals, so
+profit before tax equals A − B ± C ± D and net income equals item 21, apart from the lease
+restatements, and each reconciliation adds up exactly; a difference is a defect (`FM-E012`).
 
 In the statutory form total funds invested equal the sources whenever every item is given,
 because the identity follows from the relations above. When they differ, the items given do not
@@ -331,18 +605,21 @@ that the totals reconcile exactly.
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | Both forms in one entry; dates not one year apart or newest first; a negative amount where the layout has none; an override of another aggregate; `beyond_one_year` on a `quasi_equity` part of a split; an `amounts` list of another length; a blank label or reason; an adjustment on a reclassified entry; an income statement adjustment in this build; an unknown field or value |
+| `FM-E001` | Both forms in one entry; dates not one year apart or newest first; a negative amount where the layout has none (a lease amount included); an override of another aggregate; `beyond_one_year` on a `quasi_equity` part of a split; an `amounts` list of another length; a blank label, reason or `related_non_operating_asset`; an adjustment on a reclassified entry; a `non_recurring` adjustment of D18 or D19; an `investing` adjustment of an aggregate other than A5 or B14; an `interest_cost` on a debt-like provision other than the employee severance indemnity, of another length, or for a year where the adjustment does not apply; an unknown field or value |
 | `FM-E008` | Arithmetic overflow (inputs far outside a realistic range) |
 | `FM-E009` | A date that does not exist or is outside 1900 to 2199 |
-| `FM-E012` | Defect: total funds invested differ from the sources of a statutory year with every item given |
-| `FM-E026` | A relation of the statements does not reconcile; the funds invested of a statutory year differ from its sources once the separate lines taken as zero are counted (named in the message); or an adjustment exceeds its source |
+| `FM-E012` | Defect: total funds invested differ from the sources of a statutory year with every item given; a reconciliation with A − B does not add up; the reorganised profit differs from the statutory one other than by the lease restatements |
+| `FM-E026` | A relation of the statements does not reconcile; the funds invested of a statutory year differ from its sources once the separate lines taken as zero are counted (named in the message); an adjustment, or the interest cost of the employee severance indemnity, exceeds what remains in its source; B10 c, or without it B10 a and b, exceeds the B10 a to c group it belongs to; or the current part of a lease liability exceeds the liability |
 
 ## Limitations and practice notes
 
 - **Deferred tax assets** (C.II 5-ter) stay in receivables, and so in operating working capital.
-  Practitioners often exclude them from working capital (Borsa Italiana, *Guida alla
-  Valutazione*); to do so, move them with a `non_operating_asset` adjustment of `receivables`
-  and state why in its reason.
+  To exclude them from working capital, move them with a `non_operating_asset` adjustment of
+  `receivables` and state why in its reason.
+- **Income of financial fixed assets** (decision P2 of 2026-11-09): only C15 follows B.III
+  treated as `operating`. C16 includes the interest on loans within B.III (B.III.2), which the
+  layout does not give separately, and stays in the investing result; under a split of B.III,
+  C15 stays there too, because the income of each part is not given.
 - **Receivables within financial fixed assets** (B.III.2) follow the treatment of B.III and are
   always non-current in the current and non-current block, also for the part due within one
   year that art. 2424 asks to disclose.
@@ -353,12 +630,18 @@ that the totals reconcile exactly.
   them as A.X, so that the years compare.
 - **Employee severance indemnity** (TFR, liabilities C) is an operating provision by default,
   as are provisions B; when the analyst treats it as debt, a `debt_like_provision` adjustment
-  moves it, with its reason, to the debt-like items for the bridge.
+  moves it, with its reason, to the debt-like items for the bridge, and its optional
+  `interest_cost` moves the revaluation of the year from B9 to the financing result (P2).
 - **Payables to group companies** (D.8 to D.11: to subsidiaries, associates, parents and sister
   companies) stay in the remainder of payables D, in operating working capital: this version
   does not separate their financial part (decision D6 of 2026-11-08; a separate issue). When
   part of them is financing, give it within `payables.financial_debt`, or move it with a
   `non_current_trade_payables` adjustment, and state why.
+- **Exchange differences.** C17-bis is a net amount: a `non_recurring` adjustment of C17-bis
+  moves a part of a net gain; a non-recurring exchange loss cannot be expressed in this version
+  (decision E7; [issue #251](https://github.com/salvo8519/fairmark/issues/251)).
+- **Leases** are restated without deferred taxes (Decision 9): the tax effect of the
+  restatement stays in item 20 as reported.
 
 ## Accuracy
 
@@ -367,26 +650,42 @@ Additions and subtractions of decimals only, exact; no multiplication, division 
 ## Verified against
 
 - Golden cases in `tests/golden/statements.reorganise/` (the ordinary and abridged layouts of
-  one company with identical outputs, a missing treatment, treatments and overrides over several
-  years, one case per balance sheet adjustment kind, subscribed capital unpaid, dividends
-  declared, leap-year and month-end dates, the reclassified form of the same company, one
-  `FM-E026` case per relation with its not-checked twin, and the input errors), whose expected
-  values come from `scripts/reference_statements.py`, an exact decimal reference at 50 digits
-  written from the appendices of SPEC-0005 without reading the engine.
+  one company with identical outputs, for the balance sheet and for both statements, a missing
+  treatment, a few totals only, treatments and overrides over several years, one case per
+  adjustment kind, subscribed capital unpaid, dividends declared, a lease restatement,
+  write-downs with both treatments, a loss-making year, grouped depreciation, leap-year and
+  month-end dates, the reclassified form of the same company, one `FM-E026` case per relation
+  with its not-checked twin, and the input errors), whose expected values come from
+  `scripts/reference_statements.py`, an exact decimal reference at 50 digits written from the
+  appendices of SPEC-0005 without reading the engine; its income statement section was written
+  before the engine's.
 - `python/tests/test_reference_statements.py`: the engine against that reference on 400 seeded
-  random calls in both forms, every output, check, default and `not_computed` entry, including
-  items taken as zero, splits of shareholder loans with maturities and reclassified net
-  financial positions given by their parts.
+  random calls in both forms, every output, reconciliation, check, default and `not_computed`
+  entry, including items taken as zero, splits of shareholder loans with maturities,
+  reclassified net financial positions given by their parts, every adjustment kind and the
+  lease double entry.
+- Rust properties: total funds invested equal the sources; profit before financing and taxes
+  equals operating profit + investing result; profit before tax equals A − B ± C ± D; net
+  income equals item 21; the reconciliations add up; the treatment `operating` changes neither
+  EBITDA nor profit before financing and taxes.
 
 ## Sources
 
-- Civil Code art. 2423-ter, 2424, 2425, 2435-bis and 2435-ter (layouts and comparatives).
-- OIC 12 (presentation of the statements); D.Lgs. 139/2015 (own shares deducted from equity
-  from 2016).
-- Borsa Italiana, *Guida alla Valutazione* (treatment of deferred tax assets in practice).
-- ESMA32-382-1138, guideline 39, and Consob, Richiamo di attenzione n. 5/21 (net financial
-  indebtedness).
+- Civil Code art. 2423-ter, 2424, 2425, 2435-bis and 2435-ter (layouts and comparatives);
+  art. 2427, paragraph 1, n. 13 (items of exceptional size or incidence).
+- IFRS 18 *Presentation and Disclosure in Financial Statements* (effective 2027): the subtotals
+  "operating profit or loss" (paragraph 69(a)) and "profit or loss before financing and income
+  taxes"; equity-accounted investments in the investing category (paragraphs 53(a), 54(a)).
+- Banca d'Italia, financial stability analysis of firms, and EBA/GL/2020/06, Annex 3: they use
+  MOL and EBITDA (the EBA lists EBITDA among the metrics for credit granting) but do not define
+  them; the definition of EBITDA here is SPEC-0005 Decision 8.
+- OIC 12 (presentation of the statements; leases and the financial method); D.Lgs. 139/2015
+  (own shares deducted from equity from 2016).
+- ESMA32-382-1138, guideline 39, paragraphs 175 to 186, and Consob, Richiamo di attenzione n.
+  5/21 (net financial indebtedness; leases in financial debt, paragraph 180); see "Against the
+  ESMA table" for where Fairmark differs.
 - Koller, Goedhart, Wessels, *Valuation*, "Reorganizing the financial statements".
-- SPEC-0005, its decisions 1 to 18 and the maintainer's decisions D1 to D6 of 2026-11-08;
+- SPEC-0005, its decisions 1 to 18, the maintainer's decisions D1 to D6 of 2026-11-08 and E1
+  to E7, P1 to P5 of 2026-11-09;
   SPEC-0007 (net financial position); SPEC-0001 Decision 21 (bridge items and
   `MeasurementBasis`).

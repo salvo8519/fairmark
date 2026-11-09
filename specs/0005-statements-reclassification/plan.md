@@ -172,10 +172,13 @@ Additive: one new method, `statements.reorganise` version 1, preview; snapshot
 4. **Adjustments**, in the order given, per year: amount at most what remains in the source
    (`FM-E026` otherwise); source reduced, target increased, step recorded.
 5. **Balance sheet (B.1)**, then the identity of R12, then `current_non_current`.
-6. **Income statement (B.2)**: value of production, value added, EBITDA, operating profit,
-   investing result, profit before financing and taxes, non-recurring result, financing result,
-   profit before tax, net income; reconciliations with A − B; checks of profit before tax and
-   net income against the statutory amounts.
+6. **Income statement (B.2)**: value of production, external costs, value added, EBITDA, other
+   charges below EBITDA, operating profit, investing result, profit before financing and taxes,
+   non-recurring result, financing result, profit before tax, net income; reconciliations with
+   A − B. The identities of R19 (profit before tax = A − B ± C ± D, net income = item 21, apart
+   from the lease difference of E4) and the reconciliations are internal invariants, `FM-E012`
+   on a difference: they follow from the relations of R7, so they are not new relations in
+   `checks`. B10 c larger than the B10 a to c group it belongs to is `FM-E026`.
 7. **Reclassified form**: every total of Appendix B derivable from what is given; a given total
    that differs from its derived value is `FM-E026`.
 8. **Changes (R23)**: later minus earlier for each pair; missing on either side is not computed.
@@ -272,6 +275,24 @@ on main between merges and never in a release.
 - **Defaults in `apply_defaults`.** Mapping defaults depend on the parsed input; if the
   signature of `Method::apply_defaults` on main cannot express a default that depends on other
   fields, the plan is updated before T9, keeping one constant table for Appendix A.
+
+## Amendments of 2026-11-09 (E1 to E7)
+The fields of E1 and E2 are added to the reclassified income statement (an additive change of
+version 1, recorded in `schemas/index.json`) and returned for statutory years; the relations
+`value_added_total` and `operating_profit_total` join the reclassified checks. E3 waits for the
+maintainer to extend the approval to the 18 golden cases on main that list the default of
+`write_downs_of_receivables` (AGENTS.md); until then the default stays `investing`.
+
+## Decisions of 2026-11-09, second set (golden approval, P1 to P5)
+E3 and F1 are applied under the approval extended to 18 golden files on main (`expect_meta`
+entries of `/treatments/write_downs_of_receivables` only; their own commit, with the trailer
+`Numerical-change: none (...)`). P1 adds the treatment `write_downs_of_fixed_assets` (an
+additive input change of version 1) with the default `operating`: B10 c joins depreciation and
+amortisation below EBITDA; its input default is listed only when a statutory year gives B10 c,
+as F1 does for B10 d. P3 moves restated lease liabilities into gross debt. P4 and P5 are
+documentation. P2, approved on 2026-11-09 as proposed, adds the output
+`income_from_operating_investments` and the optional `interest_cost` of `debt_like_provision`
+(an additive input change of version 1); task T27c.
 
 ## Decisions on the plan (maintainer, 2026-11-08)
 1. Mapping defaults of Appendix A are listed in `meta.defaults_applied` with pointer,

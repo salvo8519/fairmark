@@ -6,13 +6,13 @@
 use rust_decimal::Decimal;
 
 use super::input::{
-    Adjustment, Equity, FinancialFixedAssetsOverride, NetFixedAsset, Payables, Provisions,
-    Receivables, ReclassifiedBalanceSheet, ReclassifiedIncomeStatement, ReorganiseInput,
-    ShareholderLoansDestination, ShareholderLoansOverride, StatutoryBalanceSheet,
-    StatutoryIncomeStatement, WithMaturity,
+    Adjustment, DebtLikeProvisionAdjustment, Equity, FinancialFixedAssetsOverride, LeaseAmounts,
+    NetFixedAsset, Payables, ProvisionSource, Provisions, Receivables, ReclassifiedBalanceSheet,
+    ReclassifiedIncomeStatement, ReorganiseInput, ShareholderLoansDestination,
+    ShareholderLoansOverride, StatutoryBalanceSheet, StatutoryIncomeStatement, WithMaturity,
 };
 use crate::dates::{days_in_month, Date};
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Reconciliation, Result};
 
 fn invalid(message: String) -> FairmarkError {
     FairmarkError::InvalidInput(message)
@@ -415,6 +415,11 @@ fn reclassified_income_statement(is: &ReclassifiedIncomeStatement, at: &str) -> 
             "depreciation_and_amortisation",
             is.depreciation_and_amortisation,
         ),
+        ("other_charges_below_ebitda", is.other_charges_below_ebitda),
+        (
+            "income_from_operating_investments",
+            is.income_from_operating_investments,
+        ),
         (
             "interest_and_other_financial_charges",
             is.interest_and_other_financial_charges,
@@ -425,24 +430,25 @@ fn reclassified_income_statement(is: &ReclassifiedIncomeStatement, at: &str) -> 
     Ok(())
 }
 
-/// R5, R10: the list of amounts, the label and reason, the signs, and no amount for a
-/// reclassified entry.
+/// R5, R10, R21: the list of amounts, the label and reason, the signs, the current part of a
+/// lease liability within the liability, and no amount for a reclassified entry.
 fn adjustment(input: &ReorganiseInput, k: usize, adj: &Adjustment) -> Result<()> {
     let at = format!("/adjustments/{k}");
-    if adj.is_income_statement_kind() {
-        return Err(invalid(format!(
-            "`{at}/kind` is `{}`: the reorganisation of the income statement, and with it the \
-             adjustments of kind `investing`, `non_recurring` and `lease`, is not implemented \
-             in this build; remove the adjustment",
-            adj.kind()
-        )));
-    }
     not_blank(&format!("{at}/label"), adj.label(), "name the adjustment")?;
     not_blank(
         &format!("{at}/reason"),
         adj.reason(),
         "state why the adjustment is made (R10)",
     )?;
+    if let Adjustment::Investing(a) = adj {
+        if let Some(related) = &a.related_non_operating_asset {
+            not_blank(
+                &format!("{at}/related_non_operating_asset"),
+                related,
+                "name the non-operating asset, or remove the field",
+            )?;
+        }
+    }
     let n = input.years.len();
     if adj.len() != n {
         return Err(invalid(format!(
@@ -454,6 +460,13 @@ fn adjustment(input: &ReorganiseInput, k: usize, adj: &Adjustment) -> Result<()>
     for (i, year) in input.years.iter().enumerate() {
         let amount = adj.amounts().and_then(|a| a[i]);
         unsigned(&format!("{at}/amounts/{i}"), amount)?;
+        let lease = match adj {
+            Adjustment::Lease(l) => l.amounts[i].as_ref(),
+            _ => None,
+        };
+        if let Some(la) = lease {
+            lease_signs(la, &format!("{at}/amounts/{i}"))?;
+        }
         if adj.applies_to(i) && year.reclassified.is_some() {
             return Err(invalid(format!(
                 "`{at}/amounts/{i}` is given for a reclassified entry: adjustments apply to \
@@ -461,6 +474,87 @@ fn adjustment(input: &ReorganiseInput, k: usize, adj: &Adjustment) -> Result<()>
                  and null here"
             )));
         }
+        if let Some(la) = lease {
+            lease_current_part(la, &format!("{at}/amounts/{i}"))?;
+        }
+    }
+    if let Adjustment::DebtLikeProvision(a) = adj {
+        if let Some(costs) = &a.interest_cost {
+            interest_cost(a, costs, n, &at)?;
+        }
+    }
+    Ok(())
+}
+
+/// P2: the interest cost of the employee severance indemnity, one entry per year, zero or
+/// more, only with `aggregate` `employee_severance_indemnity` and only where the adjustment
+/// applies; that it fits in B9 is checked when it is moved (R10).
+fn interest_cost(
+    a: &DebtLikeProvisionAdjustment,
+    costs: &[Option<Decimal>],
+    n: usize,
+    at: &str,
+) -> Result<()> {
+    if a.aggregate != ProvisionSource::EmployeeSeveranceIndemnity {
+        return Err(invalid(format!(
+            "`{at}/interest_cost` is given for a debt-like provision of `provisions`: the \
+             interest cost applies only to the employee severance indemnity (P2); remove it"
+        )));
+    }
+    if costs.len() != n {
+        return Err(invalid(format!(
+            "`{at}/interest_cost` has {} entries for {n} years: give one entry per year, in the \
+             order of `years`, with null where it is not given",
+            costs.len()
+        )));
+    }
+    for (i, c) in costs.iter().enumerate() {
+        unsigned(&format!("{at}/interest_cost/{i}"), *c)?;
+        if c.is_some() && a.amounts[i].is_none() {
+            return Err(invalid(format!(
+                "`{at}/interest_cost/{i}` is given for a year where the adjustment does not \
+                 apply (`{at}/amounts/{i}` is null): the interest cost moves only with a \
+                 debt-like severance indemnity; give the amount, or null here"
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// R21: every amount of a lease restatement is zero or more.
+fn lease_signs(la: &LeaseAmounts, at: &str) -> Result<()> {
+    for (k, v) in [
+        ("asset", la.asset),
+        ("liability", la.liability),
+        ("liability_current", la.liability_current),
+        ("prepayment", la.prepayment),
+        ("payments", la.payments),
+        ("depreciation", la.depreciation),
+        ("interest", la.interest),
+    ] {
+        unsigned(&format!("{at}/{k}"), Some(v))?;
+    }
+    Ok(())
+}
+
+/// R21: the current part of the lease liability is a part of it (`FM-E026` otherwise, as for
+/// any part within its whole).
+fn lease_current_part(la: &LeaseAmounts, at: &str) -> Result<()> {
+    if la.liability_current > la.liability {
+        return Err(FairmarkError::StatementsDoNotReconcile(Box::new(
+            Reconciliation {
+                left_name: format!(
+                    "the current part of the lease liability (`{at}/liability_current`)"
+                ),
+                left: la.liability_current,
+                right_name: format!("the lease liability (`{at}/liability`)"),
+                right: la.liability,
+                difference: crate::num::sub(la.liability_current, la.liability)?,
+                fix: "the part due within the next financial year cannot exceed the liability: \
+                      correct one of them (R21)"
+                    .to_owned(),
+            },
+        )));
     }
     Ok(())
 }

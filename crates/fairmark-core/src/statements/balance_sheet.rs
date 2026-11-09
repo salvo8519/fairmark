@@ -222,6 +222,10 @@ enum Source {
     Provisions,
     EmployeeSeveranceIndemnity,
     Equity,
+    /// Assets D as a separate line (zero when presented within C.II).
+    Prepayments,
+    /// Assets D presented within C.II.
+    PrepaymentsWithin,
 }
 
 impl Source {
@@ -237,6 +241,8 @@ impl Source {
             Self::Provisions => "provisions",
             Self::EmployeeSeveranceIndemnity => "employee_severance_indemnity",
             Self::Equity => "equity",
+            Self::Prepayments => "prepayments_and_accrued_income",
+            Self::PrepaymentsWithin => "receivables/prepayments_and_accrued_income",
         }
     }
 }
@@ -248,6 +254,15 @@ struct Moved {
     label: String,
     amount: Partial,
     maturity: Option<Maturity>,
+    /// For a lease liability: its part due within one year.
+    current: Option<Decimal>,
+}
+
+/// The balance sheet side of a `lease` adjustment for one year (R21).
+struct LeaseMove {
+    label: String,
+    asset: Partial,
+    effect: Partial,
 }
 
 /// Reads the statutory amounts with the pointers that name them when they are missing (R6).
@@ -813,20 +828,145 @@ pub(crate) fn statutory(
             Source::Equity,
             Partial::sum(&[(Plus, &eq), (Minus, &a_total)])?,
         ),
+        (Source::Prepayments, d_sep.clone()),
+        (
+            Source::PrepaymentsWithin,
+            Partial::Known(d_within.unwrap_or_default()),
+        ),
     ]);
     let mut moved = Vec::new();
     let mut applied = Vec::new();
+    let mut leases: Vec<LeaseMove> = Vec::new();
     for (k, adj) in input.adjustments.iter().enumerate() {
-        let Some(amount) = adj.amounts().and_then(|a| a.get(i)).copied().flatten() else {
-            if !adj.applies_to(i) {
-                notes.convention(format!(
-                    "adjustment {k} '{}' does not apply to {year} (amount null)",
+        if !adj.applies_to(i) {
+            notes.convention(format!(
+                "adjustment {k} '{}' does not apply to {year} (amount null)",
+                adj.label()
+            ));
+            continue;
+        }
+        if let Adjustment::Lease(l) = adj {
+            let Some(la) = l.amounts.get(i).cloned().flatten() else {
+                continue;
+            };
+            // R21, balance sheet side: the prepayment leaves assets D (the separate line when
+            // given, otherwise the part presented within C.II, which also leaves C.II); the
+            // asset joins operating fixed assets, the liability the net financial position, and
+            // asset − liability − prepayment is the equity effect.
+            let at = format!("/adjustments/{k}/amounts/{i}");
+            let mut take_from = |source: Source| {
+                take(
+                    &mut remaining,
+                    &checks,
+                    source,
+                    la.prepayment,
+                    (k, adj.label(), format!("{at}/prepayment")),
+                    &r,
+                )
+            };
+            let (prepayment, prepayment_source) = if la.prepayment.is_zero() {
+                (Partial::ZERO, None)
+            } else if bs.prepayments_and_accrued_income.is_none() && d_within.is_some() {
+                let p = take_from(Source::PrepaymentsWithin)?;
+                if p.is_known() {
+                    take_from(Source::Receivables)?;
+                }
+                (p, Some(Source::PrepaymentsWithin))
+            } else {
+                (take_from(Source::Prepayments)?, Some(Source::Prepayments))
+            };
+            let asset = Partial::Known(la.asset);
+            let effect = total(
+                ex,
+                &format!(
+                    "Lease equity effect, adjustment {k} '{}' ({year})",
                     adj.label()
+                ),
+                &[
+                    (Plus, "right-of-use asset", &asset),
+                    (Minus, "lease liability", &Partial::Known(la.liability)),
+                    (Minus, "prepayment removed", &prepayment),
+                ],
+            )?;
+            let equity_now = remaining[&Source::Equity].clone();
+            remaining.insert(
+                Source::Equity,
+                Partial::sum(&[(Plus, &equity_now), (Plus, &effect)])?,
+            );
+            let mut line = |line: &'static str, amount: &Partial, source: String, target| {
+                if let Some(v) = amount.value() {
+                    ex.step(
+                        format!(
+                            "Adjustment {k} lease '{}' ({year}): {line} to {}",
+                            adj.label(),
+                            Destination::id(target)
+                        ),
+                        format!("as given; reason: {}", adj.reason()),
+                        v,
+                    );
+                    applied.push(AppliedAdjustment {
+                        index: k,
+                        kind: adj.kind(),
+                        label: adj.label().to_owned(),
+                        amount: v,
+                        reason: adj.reason().to_owned(),
+                        source,
+                        target,
+                        line: Some(line),
+                    });
+                }
+            };
+            line(
+                "asset",
+                &asset,
+                format!("{at}/asset"),
+                Destination::OperatingFixedAssets,
+            );
+            line(
+                "liability",
+                &Partial::Known(la.liability),
+                format!("{at}/liability"),
+                Destination::NetFinancialPositionGrossDebt,
+            );
+            if let Some(source) = prepayment_source {
+                line(
+                    "prepayment",
+                    &prepayment,
+                    r.p(source.key()),
+                    Destination::Equity,
+                );
+            }
+            line("equity_effect", &effect, at.clone(), Destination::Equity);
+            if !prepayment.is_known() {
+                notes.convention(format!(
+                    "adjustment {k} '{}' not applied to {year}: its source `{}` is missing; the \
+                     outputs it reaches are not computed",
+                    adj.label(),
+                    r.p(Source::Prepayments.key())
                 ));
             }
+            moved.push(Moved {
+                index: k,
+                kind: adj.kind(),
+                label: adj.label().to_owned(),
+                amount: Partial::Known(la.liability),
+                maturity: None,
+                current: Some(la.liability_current),
+            });
+            leases.push(LeaseMove {
+                label: adj.label().to_owned(),
+                asset,
+                effect,
+            });
+            continue;
+        }
+        // The income statement kinds are applied with the income statement.
+        let Some((source, target, maturity)) = route(adj) else {
             continue;
         };
-        let (source, target, maturity) = route(adj);
+        let Some(amount) = adj.amounts().and_then(|a| a.get(i)).copied().flatten() else {
+            continue;
+        };
         let rem = remaining
             .get(&source)
             .cloned()
@@ -834,27 +974,15 @@ pub(crate) fn statutory(
                 "statements: unknown adjustment source",
             ))?;
         let took = match rem.value() {
-            Some(left) => {
-                if amount > left && !amount.is_zero() {
-                    return Err(checks.error(
-                        &Side::new(
-                            format!("adjustment {k} '{}'", adj.label()),
-                            vec![format!("/adjustments/{k}/amounts/{i}")],
-                            Some(amount),
-                        ),
-                        amount,
-                        &Side::new(
-                            "what remains in its source".to_owned(),
-                            vec![r.p(source.key())],
-                            Some(left),
-                        ),
-                        left,
-                        "an adjustment moves at most what remains in its source after the \
-                         adjustments listed before it (R10): lower the amount or check the \
-                         source",
-                    )?);
-                }
-                remaining.insert(source, Partial::Known(crate::num::sub(left, amount)?));
+            Some(_) => {
+                take(
+                    &mut remaining,
+                    &checks,
+                    source,
+                    amount,
+                    (k, adj.label(), format!("/adjustments/{k}/amounts/{i}")),
+                    &r,
+                )?;
                 ex.step(
                     format!(
                         "Adjustment {k} {} '{}' ({year}): {} to {}",
@@ -874,6 +1002,7 @@ pub(crate) fn statutory(
                     reason: adj.reason().to_owned(),
                     source: r.p(source.key()),
                     target,
+                    line: None,
                 });
                 Partial::Known(amount)
             }
@@ -893,6 +1022,7 @@ pub(crate) fn statutory(
             label: adj.label().to_owned(),
             amount: took,
             maturity,
+            current: None,
         });
     }
     let rem = |s: Source| remaining[&s].clone();
@@ -901,22 +1031,21 @@ pub(crate) fn statutory(
 
     // Operating block (B.1).
     let ffa_op = dest_sum(&ffa, Destination::OperatingFixedAssets)?;
-    let ofa = total(
-        ex,
-        &format!("Operating fixed assets ({year})"),
-        &[
-            (Plus, "B.I", &rem(Source::IntangibleAssets)),
-            (Plus, "B.II", &rem(Source::TangibleAssets)),
-            (Plus, "B.III operating", &ffa_op),
-        ],
-    )?;
+    let (b1_rem, b2_rem) = (rem(Source::IntangibleAssets), rem(Source::TangibleAssets));
+    let mut ofa_terms: Vec<(Sign, &str, &Partial)> = vec![
+        (Plus, "B.I", &b1_rem),
+        (Plus, "B.II", &b2_rem),
+        (Plus, "B.III operating", &ffa_op),
+    ];
+    ofa_terms.extend(leases.iter().map(|l| (Plus, l.label.as_str(), &l.asset)));
+    let ofa = total(ex, &format!("Operating fixed assets ({year})"), &ofa_terms)?;
     let owc = total(
         ex,
         &format!("Operating working capital ({year})"),
         &[
             (Plus, "C.I", &c1),
             (Plus, "C.II operating", &rem(Source::Receivables)),
-            (Plus, "assets D", &d_sep),
+            (Plus, "assets D", &rem(Source::Prepayments)),
             (Plus, "operating cash", &op_cash),
             (
                 Minus,
@@ -1006,18 +1135,22 @@ pub(crate) fn statutory(
     // Sources.
     let equity = rem(Source::Equity);
     if let Some(v) = equity.value() {
-        ex.step(
-            format!("Equity ({year})"),
-            format!(
-                "liabilities A {} − subscribed capital unpaid {} − dividends declared {}",
-                eq.value().unwrap_or_default(),
-                a_total.value().unwrap_or_default(),
-                Partial::plus_all(of_kind("dividends_declared").iter().map(|m| &m.amount))?
-                    .value()
-                    .unwrap_or_default()
-            ),
-            v,
+        let mut formula = format!(
+            "liabilities A {} − subscribed capital unpaid {} − dividends declared {}",
+            eq.value().unwrap_or_default(),
+            a_total.value().unwrap_or_default(),
+            Partial::plus_all(of_kind("dividends_declared").iter().map(|m| &m.amount))?
+                .value()
+                .unwrap_or_default()
         );
+        for l in &leases {
+            formula.push_str(&format!(
+                " + lease equity effect {} {}",
+                l.label,
+                l.effect.value().unwrap_or_default()
+            ));
+        }
+        ex.step(format!("Equity ({year})"), formula, v);
     }
     let q_lines: Vec<(String, Partial)> = sls
         .iter()
@@ -1154,6 +1287,18 @@ pub(crate) fn statutory(
                 other.push((m.label.clone(), m.amount.clone()));
                 comps.push(Component::non_current(&m.label, at, &m.amount));
             }
+            "lease" => {
+                // R21, P3: the lease liability, gross debt with its current part
+                // (ESMA32-382-1138 paragraph 180).
+                let current = Partial::Known(m.current.unwrap_or_default());
+                comps.push(Component {
+                    label: m.label.clone(),
+                    source: at,
+                    amount: m.amount.clone(),
+                    non_current: Partial::sum(&[(Plus, &m.amount), (Minus, &current)])?,
+                    current,
+                });
+            }
             _ => {}
         }
     }
@@ -1162,6 +1307,12 @@ pub(crate) fn statutory(
         sls.iter()
             .filter(|s| s.destination == Destination::NetFinancialPositionGrossDebt)
             .map(|s| (Plus, s.label.as_str(), &s.amount)),
+    );
+    gross_terms.extend(
+        moved
+            .iter()
+            .filter(|m| m.kind == "lease")
+            .map(|m| (Plus, m.label.as_str(), &m.amount)),
     );
     let gross = total(ex, &format!("Gross debt ({year})"), &gross_terms)?;
     let nfp_total = Partial::plus_all(comps.iter().map(|c| &c.amount))?;
@@ -1537,9 +1688,11 @@ impl Component {
     }
 }
 
-/// Which source an adjustment takes from, where it goes and its maturity.
-fn route(adj: &Adjustment) -> (Source, Destination, Option<Maturity>) {
-    match adj {
+/// Which source a balance sheet adjustment takes from, where it goes and its maturity; `None`
+/// for the kinds applied elsewhere (`lease` above, `investing` and `non_recurring` with the
+/// income statement).
+fn route(adj: &Adjustment) -> Option<(Source, Destination, Option<Maturity>)> {
+    Some(match adj {
         Adjustment::NonOperatingAsset(a) => (
             match a.aggregate {
                 NonOperatingSource::IntangibleAssets => Source::IntangibleAssets,
@@ -1579,10 +1732,53 @@ fn route(adj: &Adjustment) -> (Source, Destination, Option<Maturity>) {
             Destination::DebtLikeItems,
             None,
         ),
-        // Income statement kinds are refused before the computation in this build; dividends
-        // declared, and only they, remain.
-        _ => (Source::Equity, Destination::DebtLikeItems, None),
+        Adjustment::DividendsDeclared(_) => (Source::Equity, Destination::DebtLikeItems, None),
+        Adjustment::Lease(_) | Adjustment::Investing(_) | Adjustment::NonRecurring(_) => {
+            return None
+        }
+    })
+}
+
+/// Moves `amount` out of what remains in `source` (R10): `FM-E026` when it is larger; the
+/// source missing leaves the amount missing with its pointers. `who` is the adjustment's index,
+/// label and the pointer of its amount.
+fn take(
+    remaining: &mut BTreeMap<Source, Partial>,
+    checks: &Checks,
+    source: Source,
+    amount: Decimal,
+    who: (usize, &str, String),
+    r: &Reader,
+) -> Result<Partial> {
+    let rem = remaining
+        .get(&source)
+        .cloned()
+        .ok_or(FairmarkError::Internal(
+            "statements: unknown adjustment source",
+        ))?;
+    let Some(left) = rem.value() else {
+        return Ok(rem);
+    };
+    if amount > left && !amount.is_zero() {
+        return Err(checks.error(
+            &Side::new(
+                format!("adjustment {} '{}'", who.0, who.1),
+                vec![who.2],
+                Some(amount),
+            ),
+            amount,
+            &Side::new(
+                "what remains in its source".to_owned(),
+                vec![r.p(source.key())],
+                Some(left),
+            ),
+            left,
+            "an adjustment moves at most what remains in its source after the adjustments \
+             listed before it (R10): lower the amount or check the source",
+        )?);
     }
+    remaining.insert(source, Partial::Known(crate::num::sub(left, amount)?));
+    Ok(Partial::Known(amount))
 }
 
 fn ffa_destination(d: Ffa) -> Destination {
@@ -1654,6 +1850,7 @@ pub(crate) struct Outputs {
     i: usize,
     permits: BTreeMap<String, Vec<&'static str>>,
     balance_sheet: Vec<super::NotComputedEntry>,
+    income_statement: Vec<super::NotComputedEntry>,
     current_non_current: Vec<super::NotComputedEntry>,
 }
 
@@ -1663,6 +1860,7 @@ impl Outputs {
             i,
             permits,
             balance_sheet: Vec::new(),
+            income_statement: Vec::new(),
             current_non_current: Vec::new(),
         }
     }
@@ -1687,6 +1885,7 @@ impl Outputs {
         };
         match block {
             "current_non_current" => self.current_non_current.push(entry),
+            "income_statement" => self.income_statement.push(entry),
             _ => self.balance_sheet.push(entry),
         }
     }
@@ -1713,10 +1912,13 @@ impl Outputs {
 
     pub(crate) fn finish(mut self) -> super::NotComputed {
         self.balance_sheet.sort_by(|a, b| a.output.cmp(&b.output));
+        self.income_statement
+            .sort_by(|a, b| a.output.cmp(&b.output));
         self.current_non_current
             .sort_by(|a, b| a.output.cmp(&b.output));
         super::NotComputed {
             balance_sheet: self.balance_sheet,
+            income_statement: self.income_statement,
             current_non_current: self.current_non_current,
         }
     }

@@ -1,0 +1,36 @@
+method: statements.reorganise
+description: 'AC4, R5: the inputs of reconcile-reclassified-operating-profit-total with operating profit
+  removed pass: it is derived by Appendix B.2 and its relation is reported as not checked'
+source: 'scripts/reference_statements.py (Python decimal, 50 digits, local context). Written by the same
+  agent as the engine and after the engine''s income statement code existed: the reference section for
+  E2 was changed from the decisions recorded in specs/0005-statements-reclassification/spec.md before
+  the engine change of the same round (test first), not before the engine as a whole. Recomputed independently
+  by the numerical audit of 2026-11-09 (round 2).'
+input:
+  years:
+  - label: '2024'
+    reclassified:
+      income_statement:
+        revenue: '5000000'
+        value_of_production: '5100000'
+        purchases: '2200000'
+        materials_consumed: '2170000'
+        external_costs: '3604000'
+        value_added: '1496000'
+        personnel_costs: '1000000'
+        ebitda: '496000'
+        depreciation_and_amortisation: '180000'
+        other_charges_below_ebitda: '15000'
+        income_from_operating_investments: '0'
+        investing_result: '-26000'
+        profit_before_financing_and_taxes: '275000'
+        non_recurring_result: '0'
+        financing_result: '-61000'
+        interest_and_other_financial_charges: '60000'
+        profit_before_tax: '214000'
+        income_taxes: '64000'
+        net_income: '150000'
+expect:
+  /years/0/checks/operating_profit_total/status: not_checked
+  /years/0/income_statement/operating_profit: '301000'
+tolerance: '0'
