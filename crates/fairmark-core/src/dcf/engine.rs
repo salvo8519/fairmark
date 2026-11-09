@@ -51,7 +51,7 @@ where
     match Option::<T>::deserialize(d)? {
         Some(v) => Ok(Some(v)),
         None => Err(serde::de::Error::custom(
-            crate::registry::CustomRefusal::NullNotAccepted.text(),
+            crate::error::CustomRefusal::NullNotAccepted.text(),
         )),
     }
 }

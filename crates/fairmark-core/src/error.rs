@@ -916,6 +916,54 @@ pub struct CompactErrorReport {
     pub message: String,
 }
 
+/// A refusal raised by one of the engine's own readers as a `serde` custom error. `serde`
+/// carries only text, so the reader recognises the refusal by its fixed text, which the producer
+/// writes through [`CustomRefusal::text`] and the reader finds within the message, and reports its sub-kind and fix. A new
+/// custom refusal gets a variant here, never a text matched elsewhere.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CustomRefusal {
+    /// `null` for a defaulted field of the DCF, which takes its default only when left out.
+    NullNotAccepted,
+    /// A non-recurring adjustment of D18 or D19, which are fixed in the investing result
+    /// (SPEC-0005 R17); the producer writes the aggregate before the text.
+    FixedAggregate,
+}
+
+impl CustomRefusal {
+    /// Every refusal, for the registry's lookup.
+    pub(crate) const ALL: [Self; 2] = [Self::NullNotAccepted, Self::FixedAggregate];
+
+    /// The fixed text of the refusal, written by its producer.
+    pub(crate) const fn text(self) -> &'static str {
+        match self {
+            Self::NullNotAccepted => {
+                "null is not accepted: leave the field out to use the default, or give a value"
+            }
+            Self::FixedAggregate => {
+                "cannot be moved by an adjustment: D18 and D19 are fixed in the investing result \
+                 (SPEC-0005 R17, Decision 17); remove the adjustment, or name the aggregate of \
+                 Appendix A.2 the non-recurring part belongs to"
+            }
+        }
+    }
+
+    pub(crate) const fn reason(self) -> Reason {
+        match self {
+            Self::NullNotAccepted => Reason::Type,
+            Self::FixedAggregate => Reason::Enum,
+        }
+    }
+
+    pub(crate) const fn fix(self) -> &'static str {
+        match self {
+            Self::NullNotAccepted => "leave the field out to use the default, or give a value",
+            Self::FixedAggregate => {
+                "remove the adjustment, or name the aggregate the non-recurring part belongs to"
+            }
+        }
+    }
+}
+
 pub type Result<T> = std::result::Result<T, FairmarkError>;
 
 #[cfg(test)]

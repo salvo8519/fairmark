@@ -987,7 +987,7 @@ impl<'de> Deserialize<'de> for Adjustment {
                 {
                     let message = format!(
                         "`{fixed}` {}",
-                        crate::registry::CustomRefusal::FixedAggregate.text()
+                        crate::error::CustomRefusal::FixedAggregate.text()
                     );
                     return Err(D::Error::custom(crate::registry::nested_error_text(
                         &["aggregate".into()],

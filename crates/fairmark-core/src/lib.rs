@@ -34,6 +34,7 @@ pub mod not_computed;
 mod num;
 pub mod rates;
 pub mod ratios;
+mod reading;
 pub mod registry;
 pub mod series;
 pub mod solver;
