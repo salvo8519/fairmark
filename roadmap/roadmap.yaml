@@ -163,6 +163,7 @@ milestones:
           - { issue: 245, title: "Intercompany financial payables in the net financial position", tags: [needs-methodology], spec: "0005", status: open }
           - { issue: 251, title: "Non-recurring exchange losses in the reorganised income statement", tags: [needs-methodology], spec: "0005", status: open }
           - { issue: 253, title: "OIC 10 cash flow statement from the reorganised statements", tags: [needs-methodology], status: open }
+          - { issue: 267, title: "ESMA view of the net financial position", tags: [needs-methodology], spec: "0005", status: open }
       - title: "Free cash flows"
         issue: 37
         labels: ["area:core", "method:dcf"]
@@ -264,6 +265,19 @@ milestones:
           - { issue: 229, title: "Claude Desktop extension with the local MCP server", status: open }
           - { issue: 230, title: "Fairmark skill and plugin for Claude and Claude Code", status: open }
           - { issue: 231, title: "Quickstart for analysts without code", status: open }
+      - title: "Contract hardening for v0.1"
+        labels: []
+        tasks:
+          - { issue: 257, title: "ADR: contract guidelines for inputs, envelope and errors", status: open }
+          - { issue: 258, title: "Structured error report with pointer, reason, expected and fix", status: open }
+          - { issue: 259, title: "One envelope: diagnostics block and envelope version", status: open }
+          - { issue: 260, title: "Output versioning rule and version pin", status: open }
+          - { issue: 261, title: "DCF: equity value not computed without a net financial position", status: open }
+          - { issue: 262, title: "Ratios computed from partial input", status: open }
+          - { issue: 263, title: "Statements v2 contract: dated years, amounts unit, simpler input", status: open }
+          - { issue: 264, title: "Tool definitions: enum descriptions, examples, compact schemas", status: open }
+          - { issue: 265, title: "Output schemas and schema-driven Python decoding", status: open }
+          - { issue: 266, title: "Null equals absent and one number grammar", status: open }
 
   - title: "M4 · Traditional European methods"
     gate: "Golden cases green for every method."
