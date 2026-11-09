@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: 866e6041b59e
+source_hash: 41cfab7ef4d6
 ---
 # Codici di errore
 
@@ -50,20 +50,26 @@ Una chiamata rifiutata restituisce `{"error": <report>}` (ADR 0014 G5):
 | `missing_any_of` | Solo `FM-E027`: insiemi alternativi di pointer dell'input, ciascuno dei quali basta a portare l'input sopra il minimo del metodo, per esempio `[["/closing/cash"], ["/closing/current_assets"]]`. |
 | `errors` | Tutti gli errori trovati, almeno uno (`minItems` 1); il primo è il report di primo livello stesso. Le voci non hanno un proprio `errors`. |
 
-**Tutti gli errori dell'input, in una chiamata.** La validazione dell'input prosegue dopo un
-rifiuto e riporta tutti gli errori che trova, nell'ordine in cui li controlla, quindi il primo
-errore è quello che darebbe un report singolo. Questo vale per la validazione di
-`statements.reorganise`, `dcf.fcff` e `dcf.fcfe` (le voci del bridge, poi ogni stadio, poi i
-tassi, l'inflazione attesa, il timing e l'opzione terminale), `loans.*`,
-`ratios.debt_service` e `ratios.covenants`. Un controllo che dipende da un input rifiutato
-viene saltato (per esempio il conteggio dei tassi quando uno stadio è rifiutato, o il resto di
-una rettifica i cui importi non sono uno per esercizio). Due casi riportano un solo errore:
+**Tutti gli errori dell'input, in una chiamata.** Ogni metodo valida tutto l'input prima di
+calcolare qualsiasi cosa: la validazione prosegue dopo un rifiuto e riporta tutti gli errori che
+trova, nell'ordine in cui li controlla, quindi il primo errore è quello che darebbe un report
+singolo. Un controllo che dipende da un input rifiutato viene saltato (per esempio il conteggio
+dei tassi quando uno stadio del DCF è rifiutato, il confronto di una crescita con un tasso a sua
+volta rifiutato, o il resto di una rettifica i cui importi non sono uno per esercizio).
 
-- la lettura dell'input (un campo mancante o sconosciuto, un tipo errato, un valore
-  sconosciuto): il lettore si ferma al primo campo che non riesce a leggere (ADR 0013);
-  correggilo e richiama;
-- un errore sollevato durante il calcolo (una quadratura `FM-E026` dei totali, un solver che
-  non converge, un overflow) lo interrompe ed è l'unica voce.
+- **Campi sconosciuti.** La lettura dell'input si ferma al primo campo che non riesce a leggere
+  (ADR 0013). Quando si tratta di un campo sconosciuto, l'input viene poi percorso secondo lo
+  schema del metodo e vengono riportate anche tutte le altre chiavi sconosciute, ciascuna con il
+  suo pointer, `reason` `unknown_field`, i campi che il suo oggetto accetta in `expected` e una
+  `fix` che indica il campo ammesso più vicino quando la chiave sembra un errore di battitura
+  (per esempio "rename `wac` to `wacc`"). Ogni altro errore di lettura (un tipo errato, un campo
+  mancante, un valore sconosciuto, un testo che non è JSON) è riportato da solo: correggilo e
+  richiama.
+- **Errori del calcolo.** Un errore del calcolo (un overflow, un solver che non converge, un
+  difetto) non compare mai accanto agli errori dell'input: quando l'input ha errori, vengono
+  riportati quelli; solo un input senza errori arriva al calcolo, il cui primo errore lo
+  interrompe ed è l'unica voce. Anche una quadratura `FM-E026` dei totali trovata durante la
+  riclassificazione dei bilanci interrompe il calcolo ed è riportata da sola.
 
 Lo schema del report fa parte di ogni schema del risultato (`fairmark schema <method>
 --envelope`, `fairmark.result_schema(method)`): `$defs/FairmarkErrorResponse`, indicato alla

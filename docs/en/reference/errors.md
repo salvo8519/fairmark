@@ -45,19 +45,25 @@ A refused call returns `{"error": <report>}` (ADR 0014 G5):
 | `missing_any_of` | `FM-E027` only: alternative sets of input pointers, any one of which lifts the input above the minimum of the method, for example `[["/closing/cash"], ["/closing/current_assets"]]`. |
 | `errors` | Every error found, at least one (`minItems` 1); the first is the top-level report itself. The entries have no `errors` of their own. |
 
-**Every input error, in one call.** The validation of the input goes on after a refusal and
-reports every error it finds, in the order it checks them, so the first error is the one a
-single report would give. This covers the validation of `statements.reorganise`, `dcf.fcff`
-and `dcf.fcfe` (the bridge lines, then each stage, then the rates, the expected inflation, the
-timing and the terminal option), `loans.*`, `ratios.debt_service` and `ratios.covenants`. A
-check that needs a refused input is skipped (for example the count of the rates when a stage
-is refused, or the rest of an adjustment whose amounts are not one per year). Two cases report
-one error only:
+**Every input error, in one call.** Every method validates its whole input before it computes
+anything: the validation goes on after a refusal and reports every error it finds, in the order
+it checks them, so the first error is the one a single report would give. A check that needs a
+refused input is skipped (for example the count of the rates when a DCF stage is refused, the
+comparison of a growth with a rate that is itself refused, or the rest of an adjustment whose
+amounts are not one per year).
 
-- reading the input (a missing or unknown field, a wrong type, an unknown value): the reader
-  stops at the first field it cannot read (ADR 0013); correct it and call again;
-- an error raised during the computation (a reconciliation `FM-E026` of totals, a solver that
-  does not converge, an overflow) stops it and is the only entry.
+- **Unknown fields.** Reading the input stops at the first field that cannot be read (ADR
+  0013). When that is an unknown field, the input is then walked against the schema of the
+  method and every other unknown key is reported too, each with its pointer, `reason`
+  `unknown_field`, the fields its object accepts in `expected`, and a `fix` that names the
+  closest accepted field when the key looks like a typing error (for example "rename `wac` to
+  `wacc`"). Any other reading error (a wrong type, a missing field, an unknown value, a text
+  that is not JSON) is reported alone: correct it and call again.
+- **Computation errors.** An error of the computation (an overflow, a solver that does not
+  converge, a defect) is never listed next to input errors: when the input has errors, they
+  are reported; only an input without errors reaches the computation, whose first error stops
+  it and is the only entry. A reconciliation `FM-E026` of totals found while the statements are
+  reorganised also stops the computation and is reported alone.
 
 The schema of the report is part of every result schema (`fairmark schema <method>
 --envelope`, `fairmark.result_schema(method)`): `$defs/FairmarkErrorResponse`, named at the
