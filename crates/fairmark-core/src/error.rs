@@ -344,11 +344,23 @@ impl Found {
         }
     }
 
-    /// Records an error; the errors of a nested validation are kept in their order.
+    /// Records an error; the errors of a nested validation are kept in their order. An error
+    /// equal to one already recorded (same code, message and pointer: one condition met again,
+    /// for example a constant growth checked once per period) is recorded once.
     pub(crate) fn push(&mut self, error: FairmarkError) {
         match error {
             FairmarkError::Several(several) => several.0.into_iter().for_each(|e| self.push(e)),
-            e if e.is_input_error() => self.input.push(e),
+            e if e.is_input_error() => {
+                let pointer = e.details().pointer;
+                let message = e.to_string();
+                if !self.input.iter().any(|x| {
+                    x.code() == e.code()
+                        && x.details().pointer == pointer
+                        && x.to_string() == message
+                }) {
+                    self.input.push(e);
+                }
+            }
             e => {
                 self.computation.get_or_insert(e);
             }

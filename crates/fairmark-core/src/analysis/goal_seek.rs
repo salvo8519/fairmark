@@ -81,7 +81,9 @@ pub struct GoalSeekOutput {
     pub inner_value: Value,
 }
 
-pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
+/// Every check of the request and of its base input, before any evaluation (ADR 0014 G5):
+/// the inner method, ready to evaluate, when nothing is refused.
+fn check(input: &GoalSeekInput) -> Result<Inner> {
     // Every input error of the request and of its base input is reported (ADR 0014 G5).
     let mut found = Found::new();
     let inner = found.take(Inner::new(&input.method));
@@ -119,11 +121,8 @@ pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
                 .check_variable(&base, &input.variable)
                 .map_err(|e| e.located("/variable")),
         ),
-        None => found.check(
-            pointer::read_decimal(&base, &input.variable)
-                .map(|_| ())
-                .map_err(|e| e.located("/variable")),
-        ),
+        // A refused method is reported alone: its variables are not checked against it.
+        None => false,
     };
     found.check(pointer::check_syntax(&input.output).map_err(|e| e.located("/output")));
     // The base input as the search first evaluates it: with the variable at the low end.
@@ -134,7 +133,13 @@ pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
         }
     }
     found.finish()?;
-    let mut inner = inner.ok_or(FairmarkError::Internal("inner method not checked"))?;
+    inner.ok_or(FairmarkError::Internal("inner method not checked"))
+}
+
+pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
+    let mut inner = check(input)?;
+    let base = base_value(&input.base_input);
+    let [low, high] = input.bracket;
     // R5: the most evaluations this request can need, checked before the first one.
     inner.reserve(2 + u64::from(input.max_iterations), &base)?;
 
@@ -267,6 +272,10 @@ impl Method for GoalSeek {
     const VERSION: &'static str = "1";
     type Input = GoalSeekInput;
     type Output = GoalSeekOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check(input).map(|_| ())
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         goal_seek(input)

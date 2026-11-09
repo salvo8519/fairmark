@@ -11,6 +11,7 @@ use sha2::{Digest, Sha256};
 use crate::error::{FairmarkError, Result};
 use crate::explain::{Meta, Valuation};
 use crate::method::Method;
+use crate::reading::Source;
 pub(crate) use crate::reading::{nested_error, nested_error_text};
 use crate::{
     analysis, coc, dates, dcf, loans, rates, ratios, series, statements, tv, tvm, ENGINE_VERSION,
@@ -178,9 +179,9 @@ macro_rules! registry {
             None
         }
 
-        fn dispatch_to(id: &str, input_json: &str) -> Option<Result<Value>> {
+        fn dispatch_to(id: &str, input_json: &str, source: Source) -> Option<Result<Value>> {
             $(if id == <$m as Method>::ID {
-                return Some(execute::<$m>(input_json));
+                return Some(execute::<$m>(input_json, source));
             })+
             None
         }
@@ -239,9 +240,10 @@ registry! {
 
 /// Evaluates a method on a JSON value from inside the core: the same path as [`run`] (parsing,
 /// validation, computation, envelope), without a second panic guard, because it is only
-/// called from within a `run` (ADR 0010).
+/// called from within a `run` (ADR 0010). The value is built by the engine from an input the
+/// method already checked ([`validate`]), so `serde` alone reads it (review of #279, S2).
 pub(crate) fn evaluate(id: &str, input: &Value) -> Result<Value> {
-    dispatch(id, &input.to_string())
+    dispatch(id, &input.to_string(), Source::Engine)
 }
 
 /// Every input error of method `id` on `input`, without computing anything (ADR 0014 G5): the
@@ -254,7 +256,7 @@ pub(crate) fn validate(id: &str, input: &Value) -> Result<()> {
 }
 
 fn validate_only<M: Method>(input_json: &str) -> Result<()> {
-    let mut input: M::Input = crate::reading::parse(input_json, M::ID.starts_with("analysis."))?;
+    let mut input: M::Input = crate::reading::parse::<M>(input_json, Source::Caller)?;
     let defaults = M::apply_defaults(&mut input);
     M::validate(&input, &defaults)
 }
@@ -276,9 +278,15 @@ pub fn method(id: &str) -> Result<&'static MethodInfo> {
 /// True when `pointer` names, in the input `input` of method `id`, a field that takes a whole
 /// number (an integer of the schema), not a decimal.
 pub(crate) fn takes_whole_number(id: &str, input: &Value, pointer: &str) -> bool {
-    schema_of(id)
-        .and_then(|s| serde_json::to_value(s).ok())
-        .is_some_and(|s| crate::reading::takes_whole_number(&s, input, pointer))
+    let Ok(info) = method(id) else {
+        return false;
+    };
+    let schema = crate::reading::cached_schema(info.id, || {
+        schema_of(info.id)
+            .and_then(|s| serde_json::to_value(s).ok())
+            .unwrap_or(Value::Null)
+    });
+    crate::reading::takes_whole_number(&schema, input, pointer)
 }
 
 /// JSON Schema (2020-12) of a method's input.
@@ -374,17 +382,18 @@ pub fn run(id: &str, input_json: &str) -> Result<Value> {
     // has no effect where panics abort (for example WebAssembly targets); checked arithmetic
     // and the extreme-input contract cases (`tests/contracts/`) remain the primary defence there. Panic messages in
     // the core never contain input values.
-    std::panic::catch_unwind(|| dispatch(id, input_json)).unwrap_or(Err(FairmarkError::Internal(
-        "unexpected panic in the engine",
-    )))
+    std::panic::catch_unwind(|| dispatch(id, input_json, Source::Caller)).unwrap_or(Err(
+        FairmarkError::Internal("unexpected panic in the engine"),
+    ))
 }
 
-fn dispatch(id: &str, input_json: &str) -> Result<Value> {
-    dispatch_to(id, input_json).unwrap_or_else(|| Err(FairmarkError::UnknownMethod(id.to_owned())))
+fn dispatch(id: &str, input_json: &str, source: Source) -> Result<Value> {
+    dispatch_to(id, input_json, source)
+        .unwrap_or_else(|| Err(FairmarkError::UnknownMethod(id.to_owned())))
 }
 
-fn execute<M: Method>(input_json: &str) -> Result<Value> {
-    let mut input: M::Input = crate::reading::parse(input_json, M::ID.starts_with("analysis."))?;
+fn execute<M: Method>(input_json: &str, source: Source) -> Result<Value> {
+    let mut input: M::Input = crate::reading::parse::<M>(input_json, source)?;
     #[cfg(test)]
     if !M::ID.starts_with("analysis.") {
         COMPUTED.with(|c| c.set(c.get() + 1));
@@ -808,6 +817,54 @@ mod tests {
             "{}\n{}",
             failures.len(),
             failures.join("\n")
+        );
+    }
+
+    /// Review of #279, S2: an evaluation inside an analysis costs one reading with `serde` and
+    /// one computation of the inner method; the input the engine builds from a `base_input`
+    /// already checked is not walked against the schema again, and schemas are built once.
+    #[test]
+    fn an_analysis_evaluation_costs_about_one_computation() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/golden/dcf.fcff/three-stage-given-linear-decline-gordon.yaml");
+        let case: Value = serde_norway::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let base = case["input"].clone();
+        let text = base.to_string();
+        let values: Vec<String> = (0..40).map(|i| format!("0.0{}", 70 + i % 30)).collect();
+        let request = serde_json::json!({
+            "method": "dcf.fcff", "base_input": base, "output": "/value_of_operations",
+            "rows": {"variable": "/wacc", "values": values}
+        })
+        .to_string();
+        let time = |f: &dyn Fn()| {
+            let mut best = std::time::Duration::MAX;
+            for _ in 0..5 {
+                let start = std::time::Instant::now();
+                f();
+                best = best.min(start.elapsed());
+            }
+            best
+        };
+        run("analysis.sensitivity", &request).unwrap();
+        // Deterministic: the request and its base input are walked against their schemas,
+        // the 41 inputs the analysis builds are not.
+        let before = crate::reading::WALKS.with(std::cell::Cell::get);
+        run("analysis.sensitivity", &request).unwrap();
+        let walks = crate::reading::WALKS.with(std::cell::Cell::get) - before;
+        assert!(walks <= 2, "{walks} walks for one analysis");
+        // Timed, as a ratio on the same machine: 41 evaluations inside the analysis cost less
+        // than 41 direct runs, which read and check their input fully.
+        let analysis = time(&|| {
+            run("analysis.sensitivity", &request).unwrap();
+        });
+        let direct = time(&|| {
+            for _ in 0..41 {
+                run("dcf.fcff", &text).unwrap();
+            }
+        });
+        assert!(
+            analysis * 10 <= direct * 9,
+            "analysis {analysis:?} for 41 evaluations, 41 direct runs {direct:?}"
         );
     }
 }

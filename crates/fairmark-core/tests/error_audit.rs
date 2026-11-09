@@ -730,8 +730,8 @@ fn every_reading_error_is_reported_as_serde_reports_it_alone() {
     }
 }
 
-/// Round 4, item 1: a decimal written as a string follows the grammar of the input schema
-/// (`^-?\d+(\.\d+)?([eE]\d+)?$`): no sign `+`, no underscores, no missing digits.
+/// Round 4, item 1: a decimal written as a string follows the number grammar of ADR 0014 G7
+/// (`^-?\d+(\.\d+)?([eE][+-]?\d+)?$`): no sign `+`, no underscores, no missing digits.
 #[test]
 fn decimal_strings_follow_the_schema_grammar() {
     for bad in ["+0.1", "0_1", "1_000", ".1", "1."] {

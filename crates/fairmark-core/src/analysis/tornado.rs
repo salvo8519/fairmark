@@ -73,7 +73,9 @@ pub struct TornadoOutput {
     pub ranking: Vec<TornadoBar>,
 }
 
-pub fn tornado(input: &TornadoInput) -> Result<(TornadoOutput, Explain)> {
+/// Every check of the request and of its base input, before any evaluation (ADR 0014 G5):
+/// the inner method, ready to evaluate, when nothing is refused.
+fn check(input: &TornadoInput) -> Result<Inner> {
     // Every input error of the request and of its base input is reported (ADR 0014 G5).
     let mut found = Found::new();
     let inner = found.take(Inner::new(&input.method));
@@ -93,11 +95,8 @@ pub fn tornado(input: &TornadoInput) -> Result<(TornadoOutput, Explain)> {
         let at = |e: FairmarkError| e.located(format!("/variables/{k}/variable"));
         match &inner {
             Some(inner) => found.check(inner.check_variable(&base, &v.variable).map_err(at)),
-            None => found.check(
-                pointer::read_decimal(&base, &v.variable)
-                    .map(|_| ())
-                    .map_err(at),
-            ),
+            // A refused method is reported alone: its variables are not checked against it.
+            None => false,
         };
         if v.low >= v.high {
             found.push(
@@ -118,7 +117,12 @@ pub fn tornado(input: &TornadoInput) -> Result<(TornadoOutput, Explain)> {
         inner.check_input(&base, 2 * input.variables.len() as u64 + 1, &mut found);
     }
     found.finish()?;
-    let mut inner = inner.ok_or(FairmarkError::Internal("inner method not checked"))?;
+    inner.ok_or(FairmarkError::Internal("inner method not checked"))
+}
+
+pub fn tornado(input: &TornadoInput) -> Result<(TornadoOutput, Explain)> {
+    let mut inner = check(input)?;
+    let base = base_value(&input.base_input);
     inner.reserve(2 * input.variables.len() as u64 + 1, &base)?;
 
     let base_output = base_case(&mut inner, &base, &[input.output.as_str()], |_| {
@@ -232,6 +236,10 @@ impl Method for Tornado {
     const VERSION: &'static str = "1";
     type Input = TornadoInput;
     type Output = TornadoOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check(input).map(|_| ())
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         tornado(input)

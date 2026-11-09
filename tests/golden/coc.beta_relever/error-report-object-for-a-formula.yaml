@@ -1,0 +1,20 @@
+method: coc.beta_relever
+description: 'ADR 0014 G5 (review of #279, round 5, audit 6): an object given for the formula, a value of
+  a closed list, is one enum error at the field with the formulas accepted'
+source: 'SPEC-0003 (formula is hamada or harris_pringle) and ADR 0014 G5 (reason enum with the literal
+  values in expected; unknown_field only for a key of an object). Written from the spec and the ADR, not
+  from the engine''s output.'
+input:
+  beta: '0.8'
+  direction: relever
+  debt_to_equity: '0.5'
+  tax_rate: '0.24'
+  formula: {a: 1}
+expect_error: FM-E001
+expect_error_report:
+  /pointer: /formula
+  /reason: enum
+  /expected/0: hamada
+  /expected/1: harris_pringle
+expect_length:
+  /errors: '1'

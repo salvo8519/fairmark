@@ -9,38 +9,57 @@ use serde_json::Value;
 use crate::dates;
 use crate::error::{CustomRefusal, FairmarkError, Reason, Result};
 
-/// Reads a method input. Every failure names the field by its JSON pointer (issue #174,
-/// SPEC-0001 R27, ADR 0014 G5): `FM-E001`, or `FM-E009` for an invalid date. Only a text that
-/// is not JSON (a syntax error, a truncated input, trailing characters) keeps serde's line and
-/// column, because it has no field to name. An input that `serde` reads is still refused when
-/// it repeats a key or gives an object as a positional array: `serde` would read it in another
-/// way than written.
+/// Where an input comes from: a caller, whose text is read and checked in full, or the engine,
+/// which builds the input of an analysis evaluation from a `base_input` already checked by the
+/// method (only decimals written by the engine change), so that only `serde` reads it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Source {
+    Caller,
+    Engine,
+}
+
+/// Reads the input of method `M`. Every failure names the field by its JSON pointer (issue
+/// #174, SPEC-0001 R27, ADR 0014 G5): `FM-E001`, or `FM-E009` for an invalid date. Only a text
+/// that is not JSON (a syntax error, a truncated input, trailing characters) keeps serde's line
+/// and column, because it has no field to name. An input that `serde` reads is still refused
+/// when it repeats a key, gives an object as a positional array or writes a decimal outside the
+/// number grammar: `serde` would read it in another way than written.
 ///
-/// `analysis`: the input is that of an analysis, whose `base_input` is the input of the method
-/// named by `method`. When the analysis input cannot be read, `base_input` is still checked
-/// by that method, and its input errors are reported under `/base_input` with the others.
-pub(crate) fn parse<T: serde::de::DeserializeOwned + JsonSchema>(
+/// When the input is refused, the checks of the method also run, on the input with every
+/// refused value replaced by one the schema accepts, and their errors on the fields that were
+/// read are reported with the reading errors (ADR 0014 G5).
+pub(crate) fn parse<M: crate::method::Method>(
     input_json: &str,
-    analysis: bool,
-) -> Result<T> {
+    source: Source,
+) -> Result<M::Input> {
     let mut de = serde_json::Deserializer::from_str(input_json);
     // The next error `serde` raises on a text, for the reading of every error.
     let reread = |text: &str| {
         let mut de = serde_json::Deserializer::from_str(text);
-        serde_path_to_error::deserialize::<_, T>(&mut de)
+        serde_path_to_error::deserialize::<_, M::Input>(&mut de)
             .err()
             .map(input_error)
+    };
+    // The input errors the method's own checks find on a value that `serde` reads.
+    let check = |value: &Value| -> Option<Vec<FairmarkError>> {
+        let mut input: M::Input = serde_json::from_str(&value.to_string()).ok()?;
+        let defaults = M::apply_defaults(&mut input);
+        Some(match M::validate(&input, &defaults) {
+            Ok(()) => Vec::new(),
+            Err(e) => e.into_errors(),
+        })
     };
     match serde_path_to_error::deserialize(&mut de) {
         Err(e) => {
             let first = input_error(e);
+            let schema = schema_value::<M::Input>(M::ID);
             let reading = Reading {
-                schema: &schema_for!(T),
+                schema: &schema,
                 text: input_json,
-                analysis,
                 reread: &reread,
+                check: &check,
             };
-            Err(match reading.errors(Some(first)) {
+            Err(match reading_errors(Some(first), &reading) {
                 Err(e) => e,
                 Ok(()) => FairmarkError::Internal("a refused input recorded no error"),
             })
@@ -48,35 +67,72 @@ pub(crate) fn parse<T: serde::de::DeserializeOwned + JsonSchema>(
         Ok(input) => {
             // `serde_json::from_str` does the same: nothing but whitespace may follow the value.
             de.end().map_err(syntax_error)?;
-            let reading = Reading {
-                schema: &schema_for!(T),
-                text: input_json,
-                analysis: false,
-                reread: &reread,
-            };
-            reading.errors(None)?;
+            if source == Source::Caller {
+                let schema = schema_value::<M::Input>(M::ID);
+                let reading = Reading {
+                    schema: &schema,
+                    text: input_json,
+                    reread: &reread,
+                    check: &check,
+                };
+                reading_errors(None, &reading)?;
+            }
             Ok(input)
         }
     }
 }
 
-/// What the reading of every error needs: the schema of the input type, the text, whether it
-/// is the input of an analysis, and `serde`'s reader for that type.
+/// The JSON Schema of the input type `T` of method `id` as a JSON value, built once per method
+/// (review of #279, S2: building it is far slower than reading an input).
+fn schema_value<T: JsonSchema>(id: &'static str) -> std::sync::Arc<Value> {
+    cached_schema(id, || {
+        serde_json::to_value(schema_for!(T)).unwrap_or(Value::Null)
+    })
+}
+
+/// The input schema of method `id`, from `build` the first time it is asked for.
+pub(crate) fn cached_schema(
+    id: &'static str,
+    build: impl FnOnce() -> Value,
+) -> std::sync::Arc<Value> {
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex, OnceLock};
+    static CACHE: OnceLock<Mutex<HashMap<&'static str, Arc<Value>>>> = OnceLock::new();
+    let cache = CACHE.get_or_init(Default::default);
+    if let Some(schema) = cache.lock().ok().and_then(|c| c.get(id).cloned()) {
+        return schema;
+    }
+    let schema = Arc::new(build());
+    if let Ok(mut c) = cache.lock() {
+        c.insert(id, Arc::clone(&schema));
+    }
+    schema
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Inputs walked against their schema on this thread, for the test that checks that an
+    /// analysis does not walk the inputs it builds itself.
+    pub(crate) static WALKS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// What the reading of every error needs: the schema of the input type, the text, `serde`'s
+/// reader for that type and the method's own checks.
 struct Reading<'a> {
-    schema: &'a schemars::Schema,
+    schema: &'a Value,
     text: &'a str,
-    analysis: bool,
     reread: &'a Reread,
+    check: &'a Check,
 }
 
 /// `serde`'s reader of the input type: the first error it raises on a text, with its tokens.
 type Reread = dyn Fn(&str) -> Option<(FairmarkError, Vec<String>)>;
 
-impl Reading<'_> {
-    fn errors(&self, first: Option<(FairmarkError, Vec<String>)>) -> Result<()> {
-        reading_errors(first, self)
-    }
-}
+/// The repairs made while reading every error: where, and the reason of the error repaired.
+type Repairs = Vec<(Vec<String>, Option<Reason>)>;
+
+/// The method's checks on a value `serde` reads: its input errors; `None` when it does not read.
+type Check = dyn Fn(&Value) -> Option<Vec<FairmarkError>>;
 
 /// The most reading errors reported for one input: the reading is repeated once per error.
 const MAX_READING_ERRORS: usize = 200;
@@ -325,119 +381,281 @@ fn expected_names(msg: &str) -> Vec<String> {
 }
 
 /// Every input error the reading finds (ADR 0014 G5). `first` is the error `serde` raised, if
-/// it raised one; the input is then read again as JSON and walked against the schema of its
-/// type, to report every unknown key, every repeated key and every object given as a
-/// positional array, each like the first. The first error stays first. A choice (`oneOf`,
-/// `anyOf`) is followed only where the branch is certain, as `serde` chooses it (the only
-/// object branch, its `const` tag, the only branch the object fits, or the single key of an
-/// externally tagged choice); elsewhere the walk stops, so it never reports a key that `serde`
-/// would accept. A text that is not JSON is reported alone, as a syntax error.
+/// it raised one; every other error `serde` raises is then found by repairing the value at each
+/// error and reading again. The input is also read as JSON and walked against the schema of its
+/// type, to report every unknown key, every repeated key, every object given as a positional
+/// array and every decimal outside the number grammar. The first error stays first. A choice
+/// (`oneOf`, `anyOf`) is followed only where the branch is certain, as `serde` chooses it (the
+/// only object branch, its `const` tag, the only branch the object fits, or the single key of
+/// an externally tagged choice); elsewhere the walk stops, so it never reports a key that
+/// `serde` would accept. Then the method's own checks run on the repaired input, and their
+/// errors on the fields that were read are added.
 fn reading_errors(
     first: Option<(FairmarkError, Vec<String>)>,
     reading: &Reading<'_>,
 ) -> Result<()> {
-    let (schema, text, analysis) = (reading.schema, reading.text, reading.analysis);
-    let alone = |first: Option<(FairmarkError, Vec<String>)>| first.map_or(Ok(()), |(e, _)| Err(e));
-    let (Ok(value), Ok(schema)) = (
-        serde_json::from_str::<Value>(text),
-        serde_json::to_value(schema),
-    ) else {
-        return alone(first);
+    let (schema, text) = (reading.schema, reading.text);
+    let Ok(value) = serde_json::from_str::<Value>(text) else {
+        return first.map_or(Ok(()), |(e, _)| Err(e));
     };
     // A positional input: nothing else can be located in it.
     if value.is_array() {
         return Err(positional_error(&[]));
     }
     let mut walk = UnknownKeys {
-        root: &schema,
+        root: schema,
         found: Vec::new(),
     };
-    walk.node(&schema, &value, &mut Vec::new());
-    let duplicates = duplicate_keys(text);
-    let mut found = crate::error::Found::new();
-    let mut reported: Vec<(Option<String>, Option<Reason>)> = Vec::new();
-    let mut extra = Vec::new();
+    #[cfg(test)]
+    WALKS.with(|w| w.set(w.get() + 1));
+    walk.node(schema, &value, &mut Vec::new());
+    let findings = std::mem::take(&mut walk.found);
+    let mut scope = Scope {
+        positional: findings
+            .iter()
+            .filter_map(|f| match f {
+                Finding::Positional { tokens } => Some(tokens.clone()),
+                _ => None,
+            })
+            .collect(),
+        poisoned: Vec::new(),
+        duplicates: duplicate_keys(text),
+    };
+    let mut errors = Vec::new();
+    let mut repairs: Repairs = Vec::new();
+    let mut reads = true;
     if let Some((error, tokens)) = first {
-        let reason = error.details().reason;
-        let error = refine(error, &tokens, &value, &walk, &duplicates);
-        let d = error.details();
-        reported.push((d.pointer, d.reason));
-        found.push(error);
+        let (error, tokens, reason) = scope.locate(error, tokens, &value, &walk);
+        errors.push(error);
         // Every other error `serde` raises, each as it raises it when it is the first: the
         // value at the error is repaired (the key removed, or a value the schema accepts put
         // in its place) and the input read again, until it reads (ADR 0014 G5).
-        if reason != Some(Reason::Syntax) || serde_json::from_str::<Value>(text).is_ok() {
-            extra.extend(every_reading_error(&value, &tokens, reason, &walk, reading));
-        }
+        let (more, done, read) =
+            every_reading_error(&value, tokens, reason, &walk, reading, &mut scope);
+        errors.extend(more);
+        repairs = done;
+        reads = read;
     }
-    for finding in std::mem::take(&mut walk.found) {
-        extra.push(match finding {
+    // Values `serde` reads but the reading refuses: put back in the method's checks as values
+    // the schema accepts, like the values `serde` refuses.
+    let mut replaced: Vec<Vec<String>> = Vec::new();
+    for finding in findings {
+        let error = match finding {
             Finding::Unknown {
                 tokens,
                 allowed,
                 listed,
             } => {
+                if scope.hides(&tokens, Some(Reason::UnknownField), &value, &walk) {
+                    continue;
+                }
                 let key = tokens.last().cloned().unwrap_or_default();
                 unknown_field_error(pointer(&tokens).unwrap_or_default(), &key, allowed, &listed)
             }
             Finding::Positional { tokens } => positional_error(&tokens),
-            Finding::Grammar { tokens, text } => grammar_error(&tokens, &text),
-        });
+            Finding::Grammar { tokens, text } => {
+                replaced.push(tokens.clone());
+                grammar_error(&tokens, &text)
+            }
+        };
+        errors.push(error);
     }
-    extra.extend(duplicates.iter().map(|t| duplicate_error(t)));
-    if analysis {
-        extra.extend(base_input_errors(&value));
+    for t in &scope.duplicates {
+        replaced.push(t.clone());
+        errors.push(duplicate_error(t));
     }
-    for error in extra {
+    let mut found = crate::error::Found::new();
+    let mut reported: Vec<(Option<String>, Option<Reason>)> = Vec::new();
+    let mut refused: Vec<String> = scope.poisoned.iter().filter_map(|t| pointer(t)).collect();
+    for error in errors {
         let d = error.details();
-        let key = (d.pointer, d.reason);
-        if !reported.contains(&key) {
-            reported.push(key);
+        let key = (d.pointer.clone(), d.reason);
+        if reported.contains(&key) {
+            continue;
+        }
+        reported.push(key);
+        refused.extend(d.pointer.clone());
+        refused.extend(d.pointers.iter().cloned());
+        found.push(error);
+    }
+    if found.is_empty() {
+        return Ok(());
+    }
+    if reads {
+        for error in method_errors(&value, &repairs, &replaced, &refused, &walk, reading) {
             found.push(error);
         }
     }
     found.finish()
 }
 
-/// The errors `serde` raises after the first, each as it raises it alone: after each one the
-/// value at its location is repaired and the input is read again. The repair never reports
-/// anything itself; it only lets the reader go past the error.
-fn every_reading_error(
+/// The method's own checks on the input as read, with every refused value replaced by one the
+/// schema accepts: only the errors that do not come from a replaced value. An error is kept
+/// when it names no refused field (by its pointer or the fields of its relation, at, above or
+/// below it) and when the same error is found with two different sets of replacing values, so
+/// that a value put in place of a refused one never raises an error itself.
+fn method_errors(
     value: &Value,
-    first: &[String],
-    reason: Option<Reason>,
+    repairs: &[(Vec<String>, Option<Reason>)],
+    replaced: &[Vec<String>],
+    refused: &[String],
     walk: &UnknownKeys<'_>,
     reading: &Reading<'_>,
 ) -> Vec<FairmarkError> {
+    let variant = |alternate: bool| -> Option<Vec<FairmarkError>> {
+        let mut v = value.clone();
+        for (tokens, reason) in repairs {
+            if !repair(&mut v, tokens, *reason, walk, alternate) {
+                return None;
+            }
+        }
+        for tokens in replaced {
+            if !repair(&mut v, tokens, Some(Reason::Type), walk, alternate) {
+                return None;
+            }
+        }
+        (reading.check)(&v)
+    };
+    let (Some(first), Some(second)) = (variant(false), variant(true)) else {
+        return Vec::new();
+    };
+    let same = |a: &FairmarkError, b: &FairmarkError| {
+        a.code() == b.code()
+            && a.details().pointer == b.details().pointer
+            && a.to_string() == b.to_string()
+    };
+    first
+        .into_iter()
+        .filter(|e| second.iter().any(|b| same(e, b)))
+        .filter(|e| {
+            let d = e.details();
+            let named: Vec<&String> = d.pointer.iter().chain(d.pointers.iter()).collect();
+            !named.is_empty() && !named.iter().any(|p| refused.iter().any(|r| related(p, r)))
+        })
+        .collect()
+}
+
+/// True when one pointer names the other or a value within it.
+fn related(a: &str, b: &str) -> bool {
+    let within = |inner: &str, outer: &str| {
+        inner == outer
+            || inner
+                .strip_prefix(outer)
+                .is_some_and(|r| r.starts_with('/'))
+    };
+    within(a, b) || within(b, a)
+}
+
+/// What the reading knows while it goes on: the objects given as positional arrays, the
+/// objects whose tag is refused, and the repeated keys.
+struct Scope {
+    positional: Vec<Vec<String>>,
+    poisoned: Vec<Vec<String>>,
+    duplicates: Vec<Vec<String>>,
+}
+
+impl Scope {
+    /// A `serde` error completed and located: within an object given as an array it is that
+    /// object's error (one entry, at the object); a refused tag marks its object, whose other
+    /// fields cannot be read without it.
+    fn locate(
+        &mut self,
+        error: FairmarkError,
+        tokens: Vec<String>,
+        value: &Value,
+        walk: &UnknownKeys<'_>,
+    ) -> (FairmarkError, Vec<String>, Option<Reason>) {
+        if let Some(p) = self.positional.iter().find(|p| tokens.starts_with(p)) {
+            return (positional_error(p), p.clone(), Some(Reason::Type));
+        }
+        let error = refine(error, &tokens, value, walk, &self.duplicates);
+        let reason = error.details().reason;
+        if matches!(reason, Some(Reason::Missing | Reason::Enum)) && walk.is_tag(&tokens, value) {
+            if let Some((_, parent)) = tokens.split_last() {
+                self.poisoned.push(parent.to_vec());
+            }
+        }
+        (error, tokens, reason)
+    }
+
+    /// True when an error at `tokens` comes only from the guess of a refused tag: within an
+    /// object whose tag is refused, every error but the tag's own and a key that no kind of
+    /// the object accepts.
+    fn hides(
+        &self,
+        tokens: &[String],
+        reason: Option<Reason>,
+        value: &Value,
+        walk: &UnknownKeys<'_>,
+    ) -> bool {
+        let Some(parent) = self
+            .poisoned
+            .iter()
+            .find(|p| tokens.starts_with(p) && tokens.len() > p.len())
+        else {
+            return false;
+        };
+        if tokens.len() == parent.len() + 1 && walk.is_tag(tokens, value) {
+            return false;
+        }
+        if reason == Some(Reason::UnknownField) && tokens.len() == parent.len() + 1 {
+            let key = &tokens[parent.len()];
+            return walk
+                .every_field(parent, value)
+                .is_some_and(|fields| fields.contains(key));
+        }
+        true
+    }
+}
+
+/// The errors `serde` raises after the first, each as it raises it alone: after each one the
+/// value at its location is repaired and the input is read again. The repair never reports
+/// anything itself; it only lets the reader go past the error. Returns the errors, the repairs
+/// made (to make them again with other values) and whether the repaired input reads.
+fn every_reading_error(
+    value: &Value,
+    first: Vec<String>,
+    reason: Option<Reason>,
+    walk: &UnknownKeys<'_>,
+    reading: &Reading<'_>,
+    scope: &mut Scope,
+) -> (Vec<FairmarkError>, Repairs, bool) {
     let mut value = value.clone();
     let mut errors = Vec::new();
-    let mut at = first.to_vec();
+    let mut repairs = Vec::new();
+    let mut at = first;
     let mut reason = reason;
     for _ in 0..MAX_READING_ERRORS {
-        if !repair(&mut value, &at, reason, walk) {
-            break;
+        if !repair(&mut value, &at, reason, walk, false) {
+            return (errors, repairs, false);
         }
+        repairs.push((at.clone(), reason));
         let Some((error, tokens)) = (reading.reread)(&value.to_string()) else {
-            break;
+            return (errors, repairs, true);
         };
+        let (error, tokens, next) = scope.locate(error, tokens, &value, walk);
         if tokens == at {
             // The repair did not let the reader go past this location: stop.
-            break;
+            return (errors, repairs, false);
         }
-        reason = error.details().reason;
-        errors.push(refine(error, &tokens, &value, walk, &[]));
+        if !scope.hides(&tokens, next, &value, walk) {
+            errors.push(error);
+        }
+        reason = next;
         at = tokens;
     }
-    errors
+    (errors, repairs, false)
 }
 
 /// Lets the reader go past an error at `tokens`: an unknown key is removed, a missing field is
-/// added, any other value is replaced by one its schema accepts. False when it cannot.
+/// added, any other value is replaced by one its schema accepts (the second of two sets of
+/// values when `alternate`). False when it cannot.
 fn repair(
     value: &mut Value,
     tokens: &[String],
     reason: Option<Reason>,
     walk: &UnknownKeys<'_>,
+    alternate: bool,
 ) -> bool {
     let Some((key, parent)) = tokens.split_last() else {
         return false;
@@ -453,11 +671,12 @@ fn repair(
                 walk.property_schema(parent, key, value)
             } else {
                 walk.schema_at(tokens, value)
+                    .or_else(|| walk.property_schema(parent, key, value))
             };
             let Some(schema) = schema else {
                 return false;
             };
-            let filler = walk.placeholder(&schema, 0);
+            let filler = walk.placeholder(&schema, 0, alternate);
             match value.pointer_mut(&parent_at) {
                 Some(Value::Object(map)) => {
                     map.insert(key.clone(), filler);
@@ -476,11 +695,13 @@ fn repair(
     }
 }
 
-/// The pattern of a decimal of an input schema, the grammar a decimal written as a string
-/// follows (`rust_decimal` alone would also read `+0.1`, `.1` or `1_000`).
-const DECIMAL_PATTERN: &str = r"^-?\d+(\.\d+)?([eE]\d+)?$";
+/// The pattern the input schemas give a decimal today, by which the walk recognises one.
+const SCHEMA_DECIMAL_PATTERN: &str = r"^-?\d+(\.\d+)?([eE]\d+)?$";
 
-/// True when `text` matches [`DECIMAL_PATTERN`].
+/// True when `text` follows the grammar of a decimal written as a string, ADR 0014 G7:
+/// `^-?\d+(\.\d+)?([eE][+-]?\d+)?$` (`rust_decimal` alone would also read `+0.1`, `.1` or
+/// `1_000`). The exponent may carry a sign, as G7 states; the pattern of the input schemas
+/// gains the sign with issue #266.
 pub(crate) fn is_decimal_text(text: &str) -> bool {
     fn digits(s: &str) -> Option<&str> {
         let end = s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
@@ -497,6 +718,7 @@ pub(crate) fn is_decimal_text(text: &str) -> bool {
         rest = after;
     }
     if let Some(exponent) = rest.strip_prefix(['e', 'E']) {
+        let exponent = exponent.strip_prefix(['+', '-']).unwrap_or(exponent);
         let Some(after) = digits(exponent) else {
             return false;
         };
@@ -515,25 +737,6 @@ fn grammar_error(tokens: &[String], text: &str) -> FairmarkError {
     .because(Reason::Type)
     .expected([DECIMAL_EXPECTED])
     .fix(format!("give {DECIMAL_EXPECTED}"))
-}
-
-/// The input errors of `base_input` of an analysis input that cannot be read, checked by the
-/// method named in `method` and located under `/base_input`; none when the method is unknown or
-/// is itself an analysis (refused by the analysis). Only the method's validation runs.
-fn base_input_errors(value: &Value) -> Vec<FairmarkError> {
-    let (Some(id), Some(base)) = (
-        value.get("method").and_then(Value::as_str),
-        value.get("base_input").filter(|b| b.is_object()),
-    ) else {
-        return Vec::new();
-    };
-    if crate::registry::method(id).is_err() || id.starts_with("analysis.") {
-        return Vec::new();
-    }
-    match crate::registry::validate(id, base) {
-        Ok(()) => Vec::new(),
-        Err(e) => e.under("/base_input").into_errors(),
-    }
 }
 
 /// The first error of `serde`, completed with what the JSON and the schema say about it: a
@@ -560,14 +763,30 @@ fn refine(
     let at_tokens = tokens_of(&at);
     let node = value.pointer(&at);
     let message = error.to_string();
+    // A value read from a buffer (a technique of `tv.compare`, an adjustment of the statements)
+    // is refused by `serde` in other words than the same value read from the text: the error
+    // is given as the text reader gives it, so that a field has the same reason wherever it is.
+    if message.ends_with("expected string or map") {
+        return retype(&at_tokens, value, walk);
+    }
+    if message.ends_with(": invalid number") {
+        if let Some(e) = node.and_then(|n| number_error(&at_tokens, n, walk, value)) {
+            return e;
+        }
+    }
     match d.reason {
         // A key of a single-key choice that is not one of its keys is an unknown field at the
         // key, like any other unknown key (audit 9).
         Some(Reason::Enum) => {
             if let Some(variant) = quoted_field_in(&message, "unknown variant `") {
                 let parent = at_tokens.split_last().map(|(_, p)| p).unwrap_or(&[]);
+                // Only a choice written as an object with one key names its keys; an object
+                // for a value of a closed list is a wrong value at the field (audit 6).
+                let keyed = walk
+                    .schema_at(&at_tokens, value)
+                    .is_some_and(|s| walk.branches(&s).iter().any(|b| walk.object_like(b)));
                 let key_at = match node {
-                    Some(Value::Object(map)) if map.contains_key(variant) => {
+                    Some(Value::Object(map)) if keyed && map.contains_key(variant) => {
                         Some(join(&at_tokens, variant))
                     }
                     _ if at_tokens.last().map(String::as_str) == Some(variant)
@@ -601,9 +820,27 @@ fn refine(
             }
             error
         }
-        // Two keys or more where one is expected: the extra key is named.
+        // Two keys or more where one is expected: the extra key is named; a key that is not
+        // one of the choices is an unknown field, like any other (audit 8b).
         Some(Reason::Length) => match node {
             Some(Value::Object(map)) if map.len() >= 2 => {
+                let choices = walk
+                    .schema_at(&at_tokens, value)
+                    .and_then(|s| walk.choice_values(&s))
+                    .unwrap_or_default();
+                if let Some(key) = map
+                    .keys()
+                    .find(|k| !choices.is_empty() && !choices.contains(k))
+                {
+                    let fix = unknown_field_fix(key, &choices);
+                    return error
+                        .at(
+                            pointer(&join(&at_tokens, key)).unwrap_or_default(),
+                            Reason::UnknownField,
+                        )
+                        .expected(choices)
+                        .fix(fix);
+                }
                 let second = map.keys().nth(1).cloned().unwrap_or_default();
                 error.at(
                     pointer(&join(&at_tokens, &second)).unwrap_or_default(),
@@ -624,16 +861,60 @@ fn refine(
         Some(Reason::UnknownField) => {
             let key = at_tokens.last().cloned().unwrap_or_default();
             let parent = &at_tokens[..at_tokens.len().saturating_sub(1)];
-            match walk.object_fields(parent, value) {
-                Some((allowed, _)) if !allowed.is_empty() => {
+            // An object whose kind is not known yet accepts the fields of every kind.
+            let allowed = walk
+                .object_fields(parent, value)
+                .map(|(allowed, _)| allowed)
+                .filter(|a| !a.is_empty())
+                .or_else(|| walk.every_field(parent, value));
+            match allowed {
+                Some(allowed) => {
                     let fix = unknown_field_fix(&key, &allowed);
                     error.expected(allowed).fix(fix)
                 }
-                _ => error,
+                None => error,
             }
         }
         _ => error,
     }
+}
+
+/// A number refused by a reader of buffered values with its bare "invalid number": the error
+/// the text reader gives for the same number at a whole-number field of the schema.
+fn number_error(
+    tokens: &[String],
+    node: &Value,
+    walk: &UnknownKeys<'_>,
+    value: &Value,
+) -> Option<FairmarkError> {
+    let schema = walk.schema_at(tokens, value)?;
+    let format = schema.get("format").and_then(Value::as_str)?;
+    let rust = match format {
+        "uint8" | "uint16" | "uint32" | "uint64" => format.replacen("uint", "u", 1),
+        "int8" | "int16" | "int32" | "int64" => format.replacen("int", "i", 1),
+        _ => return None,
+    };
+    let Value::Number(n) = node else {
+        return None;
+    };
+    let detail = if n.is_i64() || n.is_u64() {
+        format!("invalid value: integer `{n}`, expected {rust}")
+    } else {
+        format!("invalid type: floating point `{n}`, expected {rust}")
+    };
+    let detail = without_type_names(&detail);
+    let (reason, expected, fix) = classify(&detail);
+    let mut error = at_error(tokens, detail);
+    if let Some(reason) = reason {
+        error = error.because(reason);
+    }
+    if !expected.is_empty() {
+        error = error.expected(expected);
+    }
+    if let Some(fix) = fix {
+        error = error.fix(fix);
+    }
+    Some(error)
 }
 
 /// A value of the wrong kind where the reader expected a choice, which `serde_json` reports as
@@ -1226,7 +1507,7 @@ impl UnknownKeys<'_> {
     /// True for the schema of a decimal (or of an optional decimal) of an input.
     fn is_decimal(&self, schema: &Value) -> bool {
         let schema = self.resolve(schema);
-        if schema.get("pattern").and_then(Value::as_str) == Some(DECIMAL_PATTERN) {
+        if schema.get("pattern").and_then(Value::as_str) == Some(SCHEMA_DECIMAL_PATTERN) {
             return true;
         }
         let branches = self.branches(&schema);
@@ -1252,8 +1533,11 @@ impl UnknownKeys<'_> {
 
     /// A value the schema accepts when read, to stand in for a refused value while the reading
     /// goes on: the first constant or enumeration value, the first branch of a choice, an object
-    /// with its required fields, an empty list, `"0"` for a decimal, a date for a date.
-    fn placeholder(&self, schema: &Value, depth: usize) -> Value {
+    /// with its required fields, a list of its required length, `"0"` for a decimal, a date for
+    /// a date. With `alternate`, another value of the same shape where there is one (the last
+    /// enumeration value, `"1"`, a larger count, another date), so that an error that comes from
+    /// the value put in place shows as a difference between the two.
+    fn placeholder(&self, schema: &Value, depth: usize, alternate: bool) -> Value {
         let schema = self.resolve(schema);
         if depth > 32 {
             return Value::Null;
@@ -1261,15 +1545,18 @@ impl UnknownKeys<'_> {
         if let Some(c) = schema.get("const") {
             return c.clone();
         }
-        if let Some(first) = schema
-            .get("enum")
-            .and_then(Value::as_array)
-            .and_then(|e| e.first())
-        {
-            return first.clone();
+        if let Some(values) = schema.get("enum").and_then(Value::as_array) {
+            let pick = if alternate {
+                values.last()
+            } else {
+                values.first()
+            };
+            if let Some(v) = pick {
+                return v.clone();
+            }
         }
         if self.is_decimal(&schema) {
-            return Value::from("0");
+            return Value::from(if alternate { "1" } else { "0" });
         }
         let branches = self.branches(&schema);
         if schema.get("properties").is_none() && !branches.is_empty() {
@@ -1277,7 +1564,7 @@ impl UnknownKeys<'_> {
                 .iter()
                 .find(|b| !(has_type(b, "null") && b.get("type").is_some_and(Value::is_string)))
                 .unwrap_or(&branches[0]);
-            return self.placeholder(branch, depth + 1);
+            return self.placeholder(branch, depth + 1, alternate);
         }
         if schema.get("properties").is_some() || has_type(&schema, "object") {
             let shape = self.shape(&schema);
@@ -1315,31 +1602,93 @@ impl UnknownKeys<'_> {
                         .first()
                         .and_then(|b| self.shape(b).properties.get(&r).cloned())
                 });
-                let filler = sub.map_or(Value::Null, |s| self.placeholder(&s, depth + 1));
+                let filler =
+                    sub.map_or(Value::Null, |s| self.placeholder(&s, depth + 1, alternate));
                 map.insert(r, filler);
             }
             return Value::Object(map);
         }
         if has_type(&schema, "array") {
-            return Value::Array(Vec::new());
+            if let Some(prefix) = schema.get("prefixItems").and_then(Value::as_array) {
+                return Value::Array(
+                    prefix
+                        .iter()
+                        .map(|p| self.placeholder(p, depth + 1, alternate))
+                        .collect(),
+                );
+            }
+            let length = schema.get("minItems").and_then(Value::as_u64).unwrap_or(0);
+            let item = schema.get("items").cloned().unwrap_or(Value::Null);
+            return Value::Array(
+                (0..length)
+                    .map(|_| self.placeholder(&item, depth + 1, alternate))
+                    .collect(),
+            );
         }
         if has_type(&schema, "string") {
             if schema.get("format").and_then(Value::as_str) == Some("date") {
-                return Value::from("2000-01-01");
+                return Value::from(if alternate {
+                    "2001-06-30"
+                } else {
+                    "2000-01-01"
+                });
             }
-            return Value::from("x");
+            return Value::from(if alternate { "y" } else { "x" });
         }
         if has_type(&schema, "integer") {
-            let min = schema.get("minimum").and_then(Value::as_u64).unwrap_or(1);
-            return Value::from(min.max(1));
+            let min = schema
+                .get("minimum")
+                .and_then(Value::as_u64)
+                .unwrap_or(1)
+                .max(1);
+            let max = schema
+                .get("maximum")
+                .and_then(Value::as_u64)
+                .unwrap_or(u64::MAX);
+            let n = if alternate { (min + 1).min(max) } else { min };
+            return Value::from(n);
         }
         if has_type(&schema, "number") {
-            return Value::from(0);
+            return Value::from(u8::from(alternate));
         }
         if has_type(&schema, "boolean") {
-            return Value::Bool(false);
+            return Value::Bool(alternate);
         }
         Value::Null
+    }
+
+    /// True when `tokens` names the tag of an internally tagged choice: every object branch of
+    /// the object that holds it fixes the key to a constant.
+    fn is_tag(&self, tokens: &[String], value: &Value) -> bool {
+        let Some((key, parent)) = tokens.split_last() else {
+            return false;
+        };
+        let Some(schema) = self.schema_at(parent, value) else {
+            return false;
+        };
+        let branches = self.branches(&schema);
+        !branches.is_empty()
+            && branches.iter().all(|b| {
+                self.shape(b)
+                    .properties
+                    .get(key)
+                    .is_some_and(|p| self.resolve(p).get("const").is_some())
+            })
+    }
+
+    /// Every field the object at `tokens` accepts, whichever branch of a choice it is: the
+    /// fields of the object and of every branch, in order, once each.
+    fn every_field(&self, tokens: &[String], value: &Value) -> Option<Vec<String>> {
+        let schema = self.schema_at(tokens, value)?;
+        let mut names: Vec<String> = self.shape(&schema).properties.keys().cloned().collect();
+        for b in self.branches(&schema) {
+            for k in self.shape(&b).properties.keys() {
+                if !names.contains(k) {
+                    names.push(k.clone());
+                }
+            }
+        }
+        (!names.is_empty()).then_some(names)
     }
 
     /// Every field the object at `tokens` accepts, and the fields `serde` lists for it.
@@ -1585,17 +1934,24 @@ mod tests {
                 serde_norway::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
             let id = case["method"].as_str().unwrap();
             let input = &case["input"];
-            if let Err(e) = crate::registry::run(id, &input.to_string()) {
-                if e.details().reason == Some(Reason::UnknownField) {
-                    continue;
-                }
-            }
+            // Every finding of the walk is an error the reading reports: none on an input that
+            // is read, and only the reported keys, arrays and decimals on one that is refused.
+            let reported: Vec<String> = match crate::registry::run(id, &input.to_string()) {
+                Ok(_) => Vec::new(),
+                Err(e) => e
+                    .into_errors()
+                    .iter()
+                    .filter_map(|e| e.details().pointer)
+                    .collect(),
+            };
             let schema = crate::registry::input_schema(id).unwrap();
+            let found = unknown_keys(&schema, input);
             assert!(
-                unknown_keys(&schema, input).is_empty(),
-                "{}: {:?}",
-                file.display(),
-                unknown_keys(&schema, input)
+                found
+                    .iter()
+                    .all(|(t, _)| reported.contains(&pointer(t).unwrap_or_default())),
+                "{}: {found:?} not in {reported:?}",
+                file.display()
             );
             let mut extra = input.clone();
             if let Some(map) = extra.as_object_mut() {
@@ -1604,7 +1960,9 @@ mod tests {
                     .into_iter()
                     .map(|(k, _)| k)
                     .collect();
-                assert_eq!(keys, [vec!["zz_unknown".to_owned()]], "{}", file.display());
+                let mut expected: Vec<Vec<String>> = found.iter().map(|(k, _)| k.clone()).collect();
+                expected.push(vec!["zz_unknown".to_owned()]);
+                assert_eq!(keys, expected, "{}", file.display());
             }
             checked += 1;
         }

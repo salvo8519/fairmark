@@ -696,7 +696,8 @@ pub(crate) fn choose(t: &Terminal) -> Result<TerminalChoice<'_>> {
              for example {\"tv.gordon\": {\"growth\": 0.02, \"first_flow\": \"last_flow_grown\"}}"
                 .to_owned(),
         )
-        .at("/terminal", Reason::Missing)),
+        // No key where exactly one is expected: `length`, like any single-key choice.
+        .at("/terminal", Reason::Length)),
         [one] => Ok(*one),
         many => {
             let ids: Vec<&str> = many.iter().map(|t| t.id()).collect();
