@@ -1,7 +1,9 @@
 method: ratios.profitability
-description: The leverage form without D in the balance sheet is refused
-source: Constructed. Leverage inputs are given but the closing balance sheet has no `debt`, the D
-  of the chosen basis (FM-E001).
+description: 'R7: the leverage form without D: the ratios on D not computed, ROI and the tax rate computed'
+source: 'scripts/reference_ratios_partial.py (Python decimal, 50 digits, local context), written from
+  the formulas and the computability tables of specs/0007-ratios-covenants/spec.md (amendment of 2026-11-09).
+  Leverage inputs are given but the closing balance sheet has no `debt`; version 1 refused the input (FM-E001),
+  replaced under the maintainer approval of 2026-11-09 (issue #262).'
 input:
   balances: closing
   operating_return_base: invested_capital
@@ -20,4 +22,33 @@ input:
     financial_charges: '100'
     taxes: '140'
     pre_tax_income: '400'
-expect_error: FM-E001
+expect:
+  /roe/value: '0.13'
+  /roi/value: '0.125'
+  /roa/value: '0.083333333333333333333333333333333333333333333333333'
+  /ros/value: '0.1'
+  /ebitda_margin/value: '0.16'
+  /ebit_margin/value: '0.1'
+  /capital_turnover/value: '1.25'
+  /roe_three_factor/net_margin/value: '0.052'
+  /roe_three_factor/asset_turnover/value: '0.83333333333333333333333333333333333333333333333333'
+  /roe_three_factor/equity_multiplier/value: '3'
+  /roe_three_factor/roe/value: '0.13000000000000000000000000000000000000000000000000'
+  /roe_leverage/roi/value: '0.125'
+  /roe_leverage/cost_of_debt/value: 'null'
+  /roe_leverage/debt_to_equity/value: 'null'
+  /roe_leverage/leverage_effect/value: 'null'
+  /roe_leverage/pre_tax_roe/value: 'null'
+  /roe_leverage/tax_rate/value: '0.35'
+  /roe_leverage/roe/value: 'null'
+  /not_computed/0/output: '/roe_leverage/cost_of_debt'
+  /not_computed/0/missing/0: '/closing/debt'
+  /not_computed/1/output: '/roe_leverage/debt_to_equity'
+  /not_computed/1/missing/0: '/closing/debt'
+  /not_computed/2/output: '/roe_leverage/leverage_effect'
+  /not_computed/2/missing/0: '/closing/debt'
+  /not_computed/3/output: '/roe_leverage/pre_tax_roe'
+  /not_computed/3/missing/0: '/closing/debt'
+  /not_computed/4/output: '/roe_leverage/roe'
+  /not_computed/4/missing/0: '/closing/debt'
+tolerance: '0.00000000000000000001'

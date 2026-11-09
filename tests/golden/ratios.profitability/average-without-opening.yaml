@@ -1,7 +1,10 @@
 method: ratios.profitability
-description: 'R2: average balances without the opening balance sheet are refused'
-source: Constructed. Average balances need opening and closing balances; the opening block is
-  missing, so the input is incomplete (FM-E001).
+description: 'R2, R7: average balances without the opening balance sheet: balance-sheet ratios not computed,
+  flow ratios computed'
+source: 'scripts/reference_ratios_partial.py (Python decimal, 50 digits, local context), written from
+  the formulas and the computability tables of specs/0007-ratios-covenants/spec.md (amendment of 2026-11-09).
+  Average balances need opening and closing amounts; the opening block is missing; version 1 refused the
+  input (FM-E001), replaced under the maintainer approval of 2026-11-09 (issue #262).'
 input:
   balances: average
   operating_return_base: total_assets
@@ -14,4 +17,53 @@ input:
   closing:
     equity: '2000'
     total_assets: '6000'
-expect_error: FM-E001
+expect:
+  /roe/value: 'null'
+  /roi/value: 'null'
+  /roa/value: 'null'
+  /ros/value: '0.1'
+  /ebitda_margin/value: '0.16'
+  /ebit_margin/value: '0.1'
+  /capital_turnover/value: 'null'
+  /roe_three_factor/net_margin/value: '0.052'
+  /roe_three_factor/asset_turnover/value: 'null'
+  /roe_three_factor/equity_multiplier/value: 'null'
+  /roe_three_factor/roe/value: 'null'
+  /roe_leverage/roi/value: 'null'
+  /roe_leverage/cost_of_debt/value: 'null'
+  /roe_leverage/debt_to_equity/value: 'null'
+  /roe_leverage/leverage_effect/value: 'null'
+  /roe_leverage/pre_tax_roe/value: 'null'
+  /roe_leverage/tax_rate/value: 'null'
+  /roe_leverage/roe/value: 'null'
+  /not_computed/0/output: '/roe'
+  /not_computed/0/missing/0: '/opening/equity'
+  /not_computed/1/output: '/roi'
+  /not_computed/1/missing/0: '/opening/total_assets'
+  /not_computed/2/output: '/roa'
+  /not_computed/2/missing/0: '/opening/total_assets'
+  /not_computed/3/output: '/capital_turnover'
+  /not_computed/3/missing/0: '/opening/total_assets'
+  /not_computed/4/output: '/roe_three_factor/asset_turnover'
+  /not_computed/4/missing/0: '/opening/total_assets'
+  /not_computed/5/output: '/roe_three_factor/equity_multiplier'
+  /not_computed/5/missing/0: '/opening/equity'
+  /not_computed/5/missing/1: '/opening/total_assets'
+  /not_computed/6/output: '/roe_three_factor/roe'
+  /not_computed/6/missing/0: '/opening/equity'
+  /not_computed/6/missing/1: '/opening/total_assets'
+  /not_computed/7/output: '/roe_leverage/roi'
+  /not_computed/7/missing/0: '/leverage'
+  /not_computed/8/output: '/roe_leverage/cost_of_debt'
+  /not_computed/8/missing/0: '/leverage'
+  /not_computed/9/output: '/roe_leverage/debt_to_equity'
+  /not_computed/9/missing/0: '/leverage'
+  /not_computed/10/output: '/roe_leverage/leverage_effect'
+  /not_computed/10/missing/0: '/leverage'
+  /not_computed/11/output: '/roe_leverage/pre_tax_roe'
+  /not_computed/11/missing/0: '/leverage'
+  /not_computed/12/output: '/roe_leverage/tax_rate'
+  /not_computed/12/missing/0: '/leverage'
+  /not_computed/13/output: '/roe_leverage/roe'
+  /not_computed/13/missing/0: '/leverage'
+tolerance: '0.00000000000000000001'
