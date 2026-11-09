@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 
 import pytest
 
@@ -92,3 +93,30 @@ def test_result_schema_validates_the_error_document() -> None:
     )
     errors = [e.message for e in validator.iter_errors(out)]
     assert not errors, errors
+
+
+@pytest.mark.parametrize("text", ["1E-7", "1e-07", "1E+3", "-0E-8", "0.10", "2", "5e2"])
+def test_decimal_strings_with_a_signed_exponent_are_read(text: str) -> None:
+    # ADR 0014 G7: an exponent may carry a sign, as main read it before the grammar check.
+    result = fm.run("tvm.npv", {"rate": text, "cash_flows": ["-100", "60", "60"]})
+    assert result.value["npv"]
+
+
+@pytest.mark.parametrize("text", ["+0.1", ".1", "1.", "1_000", "1e", "1E-"])
+def test_decimal_strings_outside_the_grammar_are_refused(text: str) -> None:
+    with pytest.raises(fm.FairmarkError) as caught:
+        fm.run("tvm.npv", {"rate": text, "cash_flows": ["-100", "60", "60"]})
+    assert caught.value.pointer == "/rate"
+    assert caught.value.reason == "type"
+
+
+@pytest.mark.parametrize(
+    "value", [Decimal("1E-7"), Decimal("1E+3"), Decimal("-0E-8"), Decimal("1.2345E+2")]
+)
+def test_decimals_with_an_exponent_reach_the_engine_exactly(value: Decimal) -> None:
+    result = fm.run("tvm.npv", {"rate": value, "cash_flows": ["-100", "60", "60"]})
+    assert Decimal(result.value["npv"]) == Decimal(
+        fm.run("tvm.npv", {"rate": format(value, "f"), "cash_flows": ["-100", "60", "60"]}).value[
+            "npv"
+        ]
+    )

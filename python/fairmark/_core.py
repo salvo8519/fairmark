@@ -71,7 +71,9 @@ _REPORT_DEFAULTS: dict[str, Any] = {
 
 def _encode(obj: Any) -> Any:
     if isinstance(obj, Decimal):
-        return str(obj)
+        # Fixed-point notation, exact: Decimal("1E-7") -> "0.0000001". The engine also reads
+        # an exponent with a sign (ADR 0014 G7), but plain digits are what an analyst reads.
+        return format(obj, "f")
     if isinstance(obj, datetime):
         raise TypeError("pass a datetime.date (calendar date), not a datetime: dates carry no time")
     if isinstance(obj, date):
