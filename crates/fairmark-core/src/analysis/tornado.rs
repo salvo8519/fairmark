@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     base_case, base_value, output, pointer, unique, with_values, BaseInput, Inner, InnerMethod,
 };
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Found, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num::sub;
@@ -74,33 +74,51 @@ pub struct TornadoOutput {
 }
 
 pub fn tornado(input: &TornadoInput) -> Result<(TornadoOutput, Explain)> {
-    let mut inner = Inner::new(&input.method)?;
+    // Every input error of the request and of its base input is reported (ADR 0014 G5).
+    let mut found = Found::new();
+    let inner = found.take(Inner::new(&input.method));
     let base = base_value(&input.base_input);
     if input.variables.is_empty() {
-        return Err(FairmarkError::InvalidInput("variables is empty".to_owned())
-            .at("/variables", crate::error::Reason::Length));
+        found.push(
+            FairmarkError::InvalidInput("variables is empty".to_owned())
+                .at("/variables", crate::error::Reason::Length),
+        );
     }
-    unique(
+    found.check(unique(
         "variable",
         input.variables.iter().map(|v| v.variable.as_str()),
         |k| format!("/variables/{k}/variable"),
-    )?;
+    ));
     for (k, v) in input.variables.iter().enumerate() {
-        pointer::read_decimal(&base, &v.variable)
-            .map_err(|e| e.located(format!("/variables/{k}/variable")))?;
+        let at = |e: FairmarkError| e.located(format!("/variables/{k}/variable"));
+        match &inner {
+            Some(inner) => found.check(inner.check_variable(&base, &v.variable).map_err(at)),
+            None => found.check(
+                pointer::read_decimal(&base, &v.variable)
+                    .map(|_| ())
+                    .map_err(at),
+            ),
+        };
         if v.low >= v.high {
-            return Err(FairmarkError::InvalidInput(format!(
-                "{}: low ({}) must be lower than high ({})",
-                v.variable, v.low, v.high
-            ))
-            .at(format!("/variables/{k}/low"), crate::error::Reason::Range)
-            .between([
-                format!("/variables/{k}/low"),
-                format!("/variables/{k}/high"),
-            ]));
+            found.push(
+                FairmarkError::InvalidInput(format!(
+                    "{}: low ({}) must be lower than high ({})",
+                    v.variable, v.low, v.high
+                ))
+                .at(format!("/variables/{k}/low"), crate::error::Reason::Range)
+                .between([
+                    format!("/variables/{k}/low"),
+                    format!("/variables/{k}/high"),
+                ]),
+            );
         }
     }
-    pointer::check_syntax(&input.output).map_err(|e| e.located("/output"))?;
+    found.check(pointer::check_syntax(&input.output).map_err(|e| e.located("/output")));
+    if let Some(inner) = &inner {
+        inner.check_input(&base, 2 * input.variables.len() as u64 + 1, &mut found);
+    }
+    found.finish()?;
+    let mut inner = inner.ok_or(FairmarkError::Internal("inner method not checked"))?;
     inner.reserve(2 * input.variables.len() as u64 + 1, &base)?;
 
     let base_output = base_case(&mut inner, &base, &[input.output.as_str()], |_| {

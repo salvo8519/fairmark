@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{base_value, output, pointer, sorted, BaseInput, Inner, InnerMethod};
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Found, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num::sub;
@@ -82,31 +82,59 @@ pub struct GoalSeekOutput {
 }
 
 pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
-    let mut inner = Inner::new(&input.method)?;
+    // Every input error of the request and of its base input is reported (ADR 0014 G5).
+    let mut found = Found::new();
+    let inner = found.take(Inner::new(&input.method));
     let [low, high] = input.bracket;
     if low >= high {
-        return Err(FairmarkError::InvalidInput(format!(
-            "bracket low ({low}) must be lower than high ({high})"
-        ))
-        .at("/bracket", crate::error::Reason::Range));
+        found.push(
+            FairmarkError::InvalidInput(format!(
+                "bracket low ({low}) must be lower than high ({high})"
+            ))
+            .at("/bracket", crate::error::Reason::Range),
+        );
     }
     if input.tolerance <= Decimal::ZERO {
-        return Err(FairmarkError::InvalidInput(format!(
-            "tolerance must be greater than 0 (got {})",
-            input.tolerance
-        ))
-        .at("/tolerance", crate::error::Reason::Range));
+        found.push(
+            FairmarkError::InvalidInput(format!(
+                "tolerance must be greater than 0 (got {})",
+                input.tolerance
+            ))
+            .at("/tolerance", crate::error::Reason::Range),
+        );
     }
     if !(1..=MAX_ITERATIONS_LIMIT).contains(&input.max_iterations) {
-        return Err(FairmarkError::InvalidInput(format!(
-            "max_iterations must be between 1 and {MAX_ITERATIONS_LIMIT} (got {})",
-            input.max_iterations
-        ))
-        .at("/max_iterations", crate::error::Reason::Range));
+        found.push(
+            FairmarkError::InvalidInput(format!(
+                "max_iterations must be between 1 and {MAX_ITERATIONS_LIMIT} (got {})",
+                input.max_iterations
+            ))
+            .at("/max_iterations", crate::error::Reason::Range),
+        );
     }
     let base = base_value(&input.base_input);
-    pointer::read_decimal(&base, &input.variable).map_err(|e| e.located("/variable"))?;
-    pointer::check_syntax(&input.output).map_err(|e| e.located("/output"))?;
+    let variable_valid = match &inner {
+        Some(inner) => found.check(
+            inner
+                .check_variable(&base, &input.variable)
+                .map_err(|e| e.located("/variable")),
+        ),
+        None => found.check(
+            pointer::read_decimal(&base, &input.variable)
+                .map(|_| ())
+                .map_err(|e| e.located("/variable")),
+        ),
+    };
+    found.check(pointer::check_syntax(&input.output).map_err(|e| e.located("/output")));
+    // The base input as the search first evaluates it: with the variable at the low end.
+    if let (Some(inner), true) = (&inner, variable_valid) {
+        let mut first = base.clone();
+        if pointer::write_decimal(&mut first, &input.variable, low).is_ok() {
+            inner.check_input(&first, 2 + u64::from(input.max_iterations), &mut found);
+        }
+    }
+    found.finish()?;
+    let mut inner = inner.ok_or(FairmarkError::Internal("inner method not checked"))?;
     // R5: the most evaluations this request can need, checked before the first one.
     inner.reserve(2 + u64::from(input.max_iterations), &base)?;
 

@@ -244,6 +244,14 @@ pub fn method(id: &str) -> Result<&'static MethodInfo> {
         .ok_or_else(|| FairmarkError::UnknownMethod(id.to_owned()))
 }
 
+/// True when `pointer` names, in the input `input` of method `id`, a field that takes a whole
+/// number (an integer of the schema), not a decimal.
+pub(crate) fn takes_whole_number(id: &str, input: &Value, pointer: &str) -> bool {
+    schema_of(id)
+        .and_then(|s| serde_json::to_value(s).ok())
+        .is_some_and(|s| crate::reading::takes_whole_number(&s, input, pointer))
+}
+
 /// JSON Schema (2020-12) of a method's input.
 pub fn input_schema(id: &str) -> Result<Value> {
     let schema = schema_of(id).ok_or_else(|| FairmarkError::UnknownMethod(id.to_owned()))?;

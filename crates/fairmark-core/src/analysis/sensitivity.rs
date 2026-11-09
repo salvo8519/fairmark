@@ -9,7 +9,7 @@ use super::{
     base_case, base_value, output, pointer, recorded, with_values, BaseInput, Inner, InnerMethod,
     Outcome,
 };
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Found, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 
@@ -64,34 +64,61 @@ pub struct SensitivityOutput {
     pub failed_cells: u64,
 }
 
-fn check_axis(name: &str, axis: &Axis, base: &serde_json::Value) -> Result<()> {
-    pointer::read_decimal(base, &axis.variable)
-        .map_err(|e| e.located(format!("/{name}/variable")))?;
+fn check_axis(
+    name: &str,
+    axis: &Axis,
+    base: &serde_json::Value,
+    inner: Option<&Inner>,
+    found: &mut Found,
+) {
+    let at = |e: FairmarkError| e.located(format!("/{name}/variable"));
+    match inner {
+        Some(inner) => found.check(inner.check_variable(base, &axis.variable).map_err(at)),
+        None => found.check(
+            pointer::read_decimal(base, &axis.variable)
+                .map(|_| ())
+                .map_err(at),
+        ),
+    };
     if axis.values.is_empty() {
-        return Err(
+        found.push(
             FairmarkError::InvalidInput(format!("{name}.values is empty"))
                 .at(format!("/{name}/values"), crate::error::Reason::Length),
         );
     }
-    Ok(())
 }
 
 pub fn sensitivity(input: &SensitivityInput) -> Result<(SensitivityOutput, Explain)> {
-    let mut inner = Inner::new(&input.method)?;
+    // Every input error of the request and of its base input is reported (ADR 0014 G5).
+    let mut found = Found::new();
+    let inner = found.take(Inner::new(&input.method));
     let base = base_value(&input.base_input);
-    check_axis("rows", &input.rows, &base)?;
+    check_axis("rows", &input.rows, &base, inner.as_ref(), &mut found);
     if let Some(columns) = &input.columns {
-        check_axis("columns", columns, &base)?;
+        check_axis("columns", columns, &base, inner.as_ref(), &mut found);
         if columns.variable == input.rows.variable {
-            return Err(FairmarkError::InvalidInput(format!(
-                "rows and columns use the same variable {}",
-                columns.variable
-            ))
-            .at("/columns/variable", crate::error::Reason::Conflict)
-            .between(["/columns/variable", "/rows/variable"]));
+            found.push(
+                FairmarkError::InvalidInput(format!(
+                    "rows and columns use the same variable {}",
+                    columns.variable
+                ))
+                .at("/columns/variable", crate::error::Reason::Conflict)
+                .between(["/columns/variable", "/rows/variable"]),
+            );
         }
     }
-    pointer::check_syntax(&input.output).map_err(|e| e.located("/output"))?;
+    found.check(pointer::check_syntax(&input.output).map_err(|e| e.located("/output")));
+    if let Some(inner) = &inner {
+        let n_rows = input.rows.values.len() as u64;
+        let n_cols = input.columns.as_ref().map_or(1, |c| c.values.len() as u64);
+        inner.check_input(
+            &base,
+            n_rows.saturating_mul(n_cols).saturating_add(1),
+            &mut found,
+        );
+    }
+    found.finish()?;
+    let mut inner = inner.ok_or(FairmarkError::Internal("inner method not checked"))?;
     let n_rows = input.rows.values.len() as u64;
     let n_cols = input.columns.as_ref().map_or(1, |c| c.values.len() as u64);
     // R5: the base case plus one evaluation per cell, refused before the first evaluation.

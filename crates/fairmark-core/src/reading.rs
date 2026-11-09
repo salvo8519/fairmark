@@ -712,6 +712,26 @@ fn unknown_field_fix(key: &str, allowed: &[String]) -> String {
     }
 }
 
+/// True when the field at `pointer` of `value` takes a whole number under `schema` (its type,
+/// or the type of every branch but `null`, is `integer`).
+pub(crate) fn takes_whole_number(schema: &Value, value: &Value, pointer: &str) -> bool {
+    let walk = UnknownKeys {
+        root: schema,
+        found: Vec::new(),
+    };
+    let Some(field) = walk.schema_at(&tokens_of(pointer), value) else {
+        return false;
+    };
+    if has_type(&field, "integer") {
+        return true;
+    }
+    let branches = walk.branches(&field);
+    branches.iter().any(|b| has_type(b, "integer"))
+        && branches
+            .iter()
+            .all(|b| has_type(b, "integer") || has_type(b, "null"))
+}
+
 /// True when `key` is a likely typing error for `field`: within the distance of a suggestion.
 pub(crate) fn is_likely_typo(key: &str, field: &str) -> bool {
     let d = distance(key, field);

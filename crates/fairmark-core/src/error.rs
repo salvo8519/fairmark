@@ -519,8 +519,9 @@ impl FairmarkError {
     }
 
     /// True for an error of the input; false for an error of the computation (a solver that
-    /// does not converge or cannot isolate a rate, an overflow, a defect, an evaluation limit),
-    /// which never sits in `errors` next to input errors.
+    /// does not converge or cannot isolate a rate, an overflow, a defect), which never sits in
+    /// `errors` next to input errors. The size of an analysis request (`FM-E016`) is a
+    /// condition of the input, checked before any evaluation.
     pub fn is_input_error(&self) -> bool {
         !matches!(
             self.kind(),
@@ -530,7 +531,6 @@ impl FairmarkError {
                 | Self::Internal(_)
                 | Self::TargetNotBracketed(_)
                 | Self::GoalSeekNoConvergence { .. }
-                | Self::EvaluationLimit(_)
         )
     }
 

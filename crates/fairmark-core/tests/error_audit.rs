@@ -440,6 +440,8 @@ fn analysis_checks_and_base_input_are_reported_together() {
             "/tolerance",
             "/max_iterations",
             "/base_input/payment",
+            "/base_input/bogus",
+            "/base_input/timng",
         ],
         "{r:#}"
     );

@@ -16,7 +16,7 @@ use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value};
 
-use crate::error::{CompactErrorReport, FairmarkError, Reason, Result};
+use crate::error::{CompactErrorReport, FairmarkError, Found, Reason, Result};
 use crate::registry;
 
 /// Most inner evaluations one analysis request may perform (ADR 0010).
@@ -154,6 +154,13 @@ impl Inner {
     /// Fails with `FM-E016` before any evaluation when the request needs more than
     /// `EVALUATION_LIMIT` evaluations, or more than `WORK_LIMIT` evaluations × input values.
     pub(crate) fn reserve(&mut self, needed: u64, base: &Value) -> Result<()> {
+        Self::check_limit(needed, base)?;
+        self.reserved = needed;
+        Ok(())
+    }
+
+    /// `FM-E016` when `needed` evaluations of `base` exceed the limits (R5).
+    fn check_limit(needed: u64, base: &Value) -> Result<()> {
         if needed > EVALUATION_LIMIT {
             return Err(FairmarkError::EvaluationLimit(format!(
                 "the request needs {needed} evaluations, more than {EVALUATION_LIMIT}"
@@ -167,7 +174,6 @@ impl Inner {
                 more than {WORK_LIMIT}; use fewer evaluations or a shorter input"
             )));
         }
-        self.reserved = needed;
         Ok(())
     }
 
@@ -188,6 +194,41 @@ impl Inner {
 
     pub(crate) fn evaluations(&self) -> u64 {
         self.evaluations
+    }
+
+    /// The input errors of the method on `input` (the base input, or the first input the
+    /// analysis evaluates), located under `/base_input`, so that they are reported with the
+    /// analysis's own errors in one pass (ADR 0014 G5). An error of the computation is left to
+    /// the evaluations, which report it. Not counted as an evaluation.
+    ///
+    /// The request's size is checked first (`needed` evaluations, `FM-E016`): a request over the
+    /// limits is refused without evaluating anything.
+    pub(crate) fn check_input(&self, input: &Value, needed: u64, found: &mut Found) {
+        if !found.check(Self::check_limit(needed, input)) {
+            return;
+        }
+        if let Err(e) = registry::evaluate(self.id, input) {
+            for e in e.under("/base_input").into_errors() {
+                if e.is_input_error() {
+                    found.push(e);
+                }
+            }
+        }
+    }
+
+    /// `FM-E015` unless `pointer` names a decimal input of the method in `base`: a field that
+    /// takes a whole number (a count of periods) cannot take the decimals an analysis writes.
+    pub(crate) fn check_variable(&self, base: &Value, pointer: &str) -> Result<()> {
+        pointer::read_decimal(base, pointer)?;
+        if registry::takes_whole_number(self.id, base, pointer) {
+            return Err(FairmarkError::InvalidPointer {
+                pointer: pointer.to_owned(),
+                reason: "the field takes a whole number, not a decimal; give the pointer of a \
+                         decimal input"
+                    .to_owned(),
+            });
+        }
+        Ok(())
     }
 }
 
