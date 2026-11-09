@@ -278,6 +278,7 @@ milestones:
           - { issue: 264, title: "Tool definitions: enum descriptions, examples, compact schemas", status: open }
           - { issue: 265, title: "Output schemas and schema-driven Python decoding", status: open }
           - { issue: 266, title: "Null equals absent and one number grammar", status: open }
+          - { issue: 271, title: "ADR 0014: default admission tests and the floor of best effort", status: done }
 
   - title: "M4 · Traditional European methods"
     gate: "Golden cases green for every method."

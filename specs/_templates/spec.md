@@ -35,7 +35,7 @@ arithmetic, are where review rounds are spent.
 
 | Output | Inputs it needs | When an input is missing | Checks it takes part in |
 | --- | --- | --- | --- |
-| `<field>` | `<pointers>` | not computed (listed in `not_computed`) / documented default (listed in `meta.defaults_applied` and `explain.conventions`) / error `FM-E0xx` | `<relation>`: a documented default exempts it / does not exempt it |
+| `<field>` | `<pointers>` | not computed (listed in `not_computed`) / documented default (cite the practice source; listed in `meta.defaults_applied`; warning if headline) / error `FM-E0xx` | `<relation>`: a documented default exempts it / does not exempt it |
 
 Rules: never zero for a missing input unless the row says it is a documented default; an item
 the user gave in another position counts as given; an error raised on a missing input names
@@ -49,7 +49,8 @@ only pointers the user can act on, and the fix it states resolves the error.
   for every documented default, one case that shows it in `meta.defaults_applied`.
 
 ## Interfaces
-- Contract: follows ADR 0014 (`docs/en/project/adr/0014-contract-guidelines-for-inputs-envelope-and-errors.md`), guidelines G1 to G9; state any departure and its reason.
+- Contract: follows ADR 0014 (`docs/en/project/adr/0014-contract-guidelines-for-inputs-envelope-and-errors.md`), guidelines G1 to G10; state any departure and its reason.
+- Minimum input (floor, ADR 0014 G10): the smallest input that produces the headline output, and the alternative minimum sets listed in the error below it.
 - Method id(s): `area.name`
 - Input schema changes: additive / breaking (explain)
 - Output fields: …

@@ -42,7 +42,7 @@ deprecation. Three options were considered:
    have to learn two contracts, and the `dcf.fcff` default would stay unreported.
 
 ## Decision
-The guidelines G1 to G9 below are the contract of every method. Every new spec applies them;
+The guidelines G1 to G10 below are the contract of every method. Every new spec applies them;
 `specs/_templates/spec.md` points to this ADR. A spec that departs from one states the
 departure and the reason in its Interfaces section, for the maintainer's approval. No
 principle of the constitution changes: G2 and G3 make principles II and III operational,
@@ -91,6 +91,22 @@ the field description and the schema `default` keyword state it (the keyword is 
 default or is absent), and every default applied is listed in `meta.defaults_applied` as
 `{pointer, value, reason}`, which replaces the current `field` key. An absent input enters a
 total as zero only as such a documented and reported default.
+
+A default is admitted only when it passes all four tests, recorded in the spec's computability
+table:
+
+1. **Practice.** An accounting rule or a published practice source supports it, and the spec
+   cites it.
+2. **Acceptance.** A credit analyst or a valuer would accept it without discussion. A default
+   that is merely convenient fails this test.
+3. **Reported.** It is stated in the schema and listed in `meta.defaults_applied` every time it
+   is applied.
+4. **Warned.** When it determines a headline result (an enterprise or equity value, a net
+   financial position, a subtotal of the income statement, a ratio), `diagnostics.warnings`
+   says so in one line.
+
+A default that fails any test is not introduced: the output is not computed and names the
+missing input.
 
 ### G4. One envelope
 Every method returns:
@@ -161,6 +177,32 @@ apply to both. The MCP `_meta` of each tool reports the method version beside it
 When a method produces what another consumes, the producing spec names the consuming field,
 the type is reused rather than copied, and a golden case chains the two methods.
 
+### G10. The floor: what is never accepted
+Best effort has a floor. Below it the method refuses with an error instead of returning a
+result that looks complete and is not.
+
+1. **Minimum input.** Each spec states the minimum input of the method's headline output (for
+   example: `dcf.fcff`, the flows and a discount rate; `statements.reorganise`, one year with
+   at least one amount of the balance sheet or the income statement; a `ratios.*` method, its
+   method choices and the terms of at least one ratio). An input below that minimum is refused
+   with a dedicated stable error code (the next free one) that lists the alternative minimum
+   sets (`missing_any_of`) and states the fix. A result made only of `null` values is never
+   returned.
+2. **No headline from defaults alone.** A headline result that no value given by the user
+   influences is refused in the same way: defaults complete an input, they never replace it.
+3. **Present and invalid is an error, never a repair.** A value outside the domain of its
+   formula (a rate at or below −100%, a growth rate at or above the discount rate in a
+   perpetuity, a negative amount where the field is unsigned), totals that contradict their
+   parts, an unknown field, an Italian thousands separator or a binary float in a money field:
+   each is refused with its code, its pointer and the fix. The engine never clamps, rounds
+   away or reinterprets such a value.
+4. **Order and units are never guessed.** Several years without their closing dates, and
+   amounts whose unit (units, thousands, millions) is ambiguous, are refused rather than
+   ordered or scaled by assumption.
+5. **Plausible but unusual is a warning, not a refusal.** A value inside the domain of the
+   formula but outside common practice (for example a discount rate above 50%, a terminal
+   value above 90% of the enterprise value) is accepted with a warning: the analyst decides.
+
 ### Not decided here
 A version pin supplied by the client (`expect_version`, with a new error code), the handling
 of a Python `float` by the SDK, and a default for `balances` in the ratios are left to the
@@ -171,6 +213,8 @@ follow-up specs and to the maintainer.
   defaults were applied, and which field to correct, without parsing English.
 + No hidden assumption: an equity value computed without a net financial position says so in
   `meta.defaults_applied` and in a warning.
++ A floor that every method shares: an input too thin to support the headline result is
+  refused with the minimum set and the fix, never answered with a plausible-looking number.
 + Statements copied from a filing in its printed order are valued correctly.
 + The breaking changes cost nothing to users, because no contract has been released.
 − Five or more method versions and their schemas are added in one batch, and every adapter
