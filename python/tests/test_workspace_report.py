@@ -431,7 +431,8 @@ def test_render_prints_unknown_for_missing_values() -> None:
     text = wr.render([r], [], [(Path("/w"), None, None, None)], 0.0)
     for line in ("Branch               unknown", "HEAD                 unknown",
                  "Merged into main     unknown", "Uncommitted          unknown",
-                 "Last activity        unknown", "total size unknown", "/w: unknown"):  # fmt: skip
+                 "Last activity        unknown", "total size unknown",
+                 f"{Path('/w')}: unknown"):  # fmt: skip
         assert line in text
 
 
