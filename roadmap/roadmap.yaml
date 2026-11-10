@@ -218,6 +218,8 @@ milestones:
         tasks:
           - { issue: 47, title: "PyO3 bindings, Pythonic API, Result object", status: done }
           - { issue: 48, title: "Typed input models generated from JSON Schema", tags: [parallel], status: open }
+          - { issue: 306, title: "Results and inputs as tables for notebooks, JSON unchanged", status: open }
+          - { issue: 307, title: "Cookbook for notebooks, scripts and agent loops", status: open }
       - title: "CLI"
         issue: 49
         labels: ["area:cli"]
