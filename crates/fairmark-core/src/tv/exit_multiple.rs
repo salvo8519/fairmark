@@ -152,10 +152,16 @@ pub(crate) fn check(input: &ExitMultipleInput) -> Checked {
         ));
     }
     if input.rate.is_some() != input.next_flow.is_some() {
-        errors.push(on("next_flow")(
+        // Located at the field given, which requires the other (final review of #279).
+        let (given, other) = if input.rate.is_some() {
+            ("rate", "next_flow")
+        } else {
+            ("next_flow", "rate")
+        };
+        errors.push(on(given)(
             invalid("give both rate and next_flow, or neither")
                 .because(crate::error::Reason::Requires)
-                .between(["/next_flow", "/rate"]),
+                .between([format!("/{given}"), format!("/{other}")]),
         ));
     }
     if input.next_flow.is_none() && input.growth_cap.is_some() {

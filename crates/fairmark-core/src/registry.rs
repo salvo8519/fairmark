@@ -188,6 +188,21 @@ macro_rules! registry {
             false
         }
 
+        /// The pointers of the fields method `id` fills in with their defaults on `input_json`.
+        #[cfg(test)]
+        fn defaulted(id: &str, input_json: &str) -> Vec<String> {
+            $(if id == <$m as Method>::ID {
+                return match serde_json::from_str::<<$m as Method>::Input>(input_json) {
+                    Ok(mut input) => <$m as Method>::apply_defaults(&mut input)
+                        .into_iter()
+                        .map(|d| d.field)
+                        .collect(),
+                    Err(_) => Vec::new(),
+                };
+            })+
+            Vec::new()
+        }
+
         fn dispatch_to(id: &str, input_json: &str, source: Source) -> Option<Result<Value>> {
             $(if id == <$m as Method>::ID {
                 return Some(execute::<$m>(input_json, source));
@@ -460,11 +475,17 @@ fn rounded_on_reading(id: &str, input_json: &str) -> Vec<String> {
     if id.starts_with("analysis.") {
         if let (Some(inner), Some(base)) = (input["method"].as_str(), input.get("base_input")) {
             if let Some(schema) = schema_of_method(inner) {
-                found.extend(crate::reading::rounded_on_reading(
-                    &schema,
-                    base,
-                    "/base_input",
-                ));
+                // Goal seek replaces the value of its variable in `base_input`: that value is
+                // never used, so its rounding is not reported (final review of #279).
+                let replaced = (id == "analysis.goal_seek")
+                    .then(|| input["variable"].as_str())
+                    .flatten()
+                    .map(|v| format!("warning: `/base_input{v}` "));
+                found.extend(
+                    crate::reading::rounded_on_reading(&schema, base, "/base_input")
+                        .into_iter()
+                        .filter(|w| replaced.as_ref().is_none_or(|r| !w.starts_with(r.as_str()))),
+                );
             }
         }
     }
@@ -1186,8 +1207,8 @@ mod tests {
     /// Review round 6: every field an error names is one the user can act on. Its pointer and
     /// pointers are declared reads of the error (so the reading can skip it beside a refused
     /// field), and each of them either exists in the input the user sent or is a field the
-    /// user must give: an entry whose reason is `missing` or `requires`, or an item a
-    /// reconciliation took as zero (`reconcile`, `FM-E026`; the alternatives of
+    /// user must give: an entry whose reason is `missing` or `requires`, defined by the input
+    /// schema, a `requires` entry located at a field given (the alternatives of
     /// `FM-E027`, in `missing_any_of`, are fields to give by definition). No error names a field that
     /// only a value put in place of a refused one, or a default, brought into the input.
     ///
@@ -1257,11 +1278,26 @@ mod tests {
                     }
                     // Actionable: each named field exists or is one the user must give.
                     let report = serde_json::to_value(e.to_report()).unwrap();
+                    let defaults = defaulted(id, &x.to_string());
+                    let inner_schema = |p: &str| {
+                        // A pointer under `/base_input` is defined by the method it names.
+                        match (p.strip_prefix("/base_input"), x["method"].as_str()) {
+                            (Some(rest), Some(m)) if id.starts_with("analysis.") => input_schema(m)
+                                .ok()
+                                .map(|s| (s, x["base_input"].clone(), rest.to_owned())),
+                            _ => Some((schema.clone(), x.clone(), p.to_owned())),
+                        }
+                    };
                     for entry in report["errors"].as_array().unwrap() {
+                        // Final review of #279, finding 2: every `FM-E001` has a reason.
+                        if entry["code"] == "FM-E001" && entry["reason"].is_null() {
+                            failures.push(format!(
+                                "{name} {id}: FM-E001 without reason: {}",
+                                entry["message"]
+                            ));
+                        }
                         let reason = entry["reason"].as_str().unwrap_or("");
-                        // A reconciliation also names an item it took as zero, which the
-                        // user gives when it is not zero (`FM-E026`).
-                        let to_give = matches!(reason, "missing" | "requires" | "reconcile");
+                        let to_give = matches!(reason, "missing" | "requires");
                         let named = entry["pointer"].as_str().into_iter().chain(
                             entry["pointers"]
                                 .as_array()
@@ -1269,10 +1305,29 @@ mod tests {
                                 .iter()
                                 .filter_map(Value::as_str),
                         );
+                        let top = entry["pointer"].as_str();
                         for p in named {
-                            if x.pointer(p).is_none() && !to_give {
+                            if x.pointer(p).is_some() {
+                                continue;
+                            }
+                            // Finding 3: a field left to its default is never named.
+                            if defaults.iter().any(|d| d == p) {
                                 failures.push(format!(
-                                    "{name} {id}: {} {reason} names {p}, absent from the input",
+                                    "{name} {id}: {} {reason} names {p}, left to its default",
+                                    entry["code"]
+                                ));
+                                continue;
+                            }
+                            // Finding 4: an absent field is one the schema defines, and a
+                            // `requires` entry is located at a field the input holds.
+                            let defined = inner_schema(p)
+                                .is_some_and(|(s, v, rest)| crate::reading::defines(&s, &v, &rest));
+                            let located =
+                                reason != "requires" || top.is_some_and(|t| x.pointer(t).is_some());
+                            if !to_give || !defined || !located {
+                                failures.push(format!(
+                                    "{name} {id}: {} {reason} names {p}, absent from the input \
+                                     (defined by the schema: {defined}, located: {located})",
                                     entry["code"]
                                 ));
                             }
@@ -1290,5 +1345,218 @@ mod tests {
             failures.len(),
             failures.join("\n")
         );
+    }
+
+    /// Golden inputs of every method other than the analyses, with the seeds of the final
+    /// review of #279: a `dcf.fcff` input with two stages built up from lines.
+    fn property_inputs(per_method: usize) -> Vec<(String, String, Value)> {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
+        let mut out = Vec::new();
+        let mut dirs: Vec<_> = std::fs::read_dir(&root)
+            .unwrap()
+            .map(|d| d.unwrap().path())
+            .collect();
+        dirs.sort();
+        for dir in dirs {
+            let mut files: Vec<_> = std::fs::read_dir(&dir)
+                .unwrap()
+                .map(|f| f.unwrap().path())
+                .collect();
+            files.sort();
+            let seed = files
+                .iter()
+                .position(|f| f.ends_with("stage-with-build-up-lines.yaml"));
+            for (position, file) in files.into_iter().enumerate() {
+                if position >= per_method && Some(position) != seed {
+                    continue;
+                }
+                let case: Value =
+                    serde_norway::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+                let (Some(id), Some(input)) = (case["method"].as_str(), case.get("input")) else {
+                    continue;
+                };
+                if id.starts_with("analysis.") || method(id).is_err() {
+                    continue;
+                }
+                let name = file.file_name().unwrap().to_string_lossy().into_owned();
+                if Some(position) == seed {
+                    let line = serde_json::json!({"ebit": "1200",
+                        "depreciation_and_amortisation": "350", "capital_expenditure": "420",
+                        "change_in_net_working_capital": "65"});
+                    let mut two = input.clone();
+                    two["stages"] = serde_json::json!([
+                        {"periods": 2, "projection": "given", "lines": [line.clone(), line.clone()]},
+                        {"periods": 2, "projection": "given", "lines": [line.clone(), line]}
+                    ]);
+                    out.push(("seed: two line stages".to_owned(), id.to_owned(), two));
+                }
+                out.push((name, id.to_owned(), input.clone()));
+            }
+        }
+        out
+    }
+
+    /// Final review of #279, finding 5: refusals do not hide one another. For two fields `a`
+    /// and `b`, each given a value that raises an error alone, the errors of the input with
+    /// both values contain every error raised by `a` alone that does not declare `b`, and every
+    /// error raised by `b` alone that does not declare `a`. `FAIRMARK_PAIRWISE_FILES` (golden
+    /// files per method, default 2) and `FAIRMARK_PAIRWISE_SINGLES` (fields per input, default
+    /// 8; every value of a line field of the seed is tried) widen the search.
+    #[test]
+    fn no_refusal_hides_an_independent_one() {
+        let setting = |name: &str, default: usize| -> usize {
+            std::env::var(name)
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(default)
+        };
+        let per_method = setting("FAIRMARK_PAIRWISE_FILES", 2);
+        let singles_per_input = setting("FAIRMARK_PAIRWISE_SINGLES", 8);
+        let key = |e: &FairmarkError| (e.code(), e.details().pointer, e.to_string());
+        let mut failures: Vec<String> = Vec::new();
+        let mut compared = 0u32;
+        for (name, id, input) in property_inputs(per_method) {
+            let mut closed = Vec::new();
+            closed_values(&input_schema(&id).unwrap(), &mut closed);
+            let mut all = Vec::new();
+            leaves(&input, String::new(), &mut all);
+            // The financing fields of a line are absent from the seed: add them as leaves.
+            if name.starts_with("seed:") {
+                for i in 0..2 {
+                    all.push((
+                        format!("/stages/{i}/lines/0/net_borrowing"),
+                        Value::from("10"),
+                    ));
+                }
+            }
+            let mut singles: Vec<(String, Option<Value>)> = Vec::new();
+            let stride = if name.starts_with("seed:") {
+                1
+            } else {
+                (all.len() / singles_per_input.max(1)).max(1)
+            };
+            for (f, fv) in all.iter().step_by(stride) {
+                let mut values = candidates(fv, &closed);
+                values.push(Some(fv.clone()));
+                for c in values {
+                    let x = set(&input, f, &c);
+                    if errors_of(&id, &x).is_some_and(|e| !e.is_empty()) {
+                        singles.push((f.clone(), c));
+                        break;
+                    }
+                }
+            }
+            for (i, (a, va)) in singles.iter().enumerate() {
+                for (b, vb) in &singles[i + 1..] {
+                    if related(a, b) {
+                        continue;
+                    }
+                    let xa = set(&input, a, va);
+                    let xb = set(&input, b, vb);
+                    let xab = set(&xa, b, vb);
+                    let (Some(ea), Some(eb), Some(eab)) = (
+                        errors_of(&id, &xa),
+                        errors_of(&id, &xb),
+                        errors_of(&id, &xab),
+                    ) else {
+                        continue;
+                    };
+                    compared += 1;
+                    let both: Vec<_> = eab.iter().map(key).collect();
+                    let kept = |errors: &[FairmarkError], other: &str| -> Vec<String> {
+                        errors
+                            .iter()
+                            .filter(|e| !declared(e).iter().any(|p| related(p, other)))
+                            .filter(|e| !both.contains(&key(e)))
+                            .map(|e| format!("{} {}", e.code(), e))
+                            .collect()
+                    };
+                    for lost in kept(&ea, b).into_iter().chain(kept(&eb, a)) {
+                        failures.push(format!("{name} {id} [{a} + {b}]: lost {lost}"));
+                    }
+                }
+            }
+        }
+        failures.sort();
+        failures.dedup();
+        assert!(compared > 300, "{compared}");
+        assert!(
+            failures.is_empty(),
+            "{}\n{}",
+            failures.len(),
+            failures.join("\n")
+        );
+    }
+
+    /// `base` with the leaf at `at` set to `v`, or added when absent, or removed for `None`.
+    fn set(base: &Value, at: &str, v: &Option<Value>) -> Value {
+        let mut x = base.clone();
+        let (parent, key) = at.rsplit_once('/').unwrap();
+        let key = key.replace("~1", "/").replace("~0", "~");
+        match (x.pointer_mut(parent), v) {
+            (Some(Value::Object(m)), Some(v)) => {
+                m.insert(key, v.clone());
+            }
+            (Some(Value::Object(m)), None) => {
+                m.shift_remove(&key);
+            }
+            (Some(Value::Array(a)), Some(v)) => {
+                if let Some(slot) = key.parse::<usize>().ok().and_then(|i| a.get_mut(i)) {
+                    *slot = v.clone();
+                }
+            }
+            _ => return base.clone(),
+        }
+        x
+    }
+
+    /// Final review of #279, finding 2: whatever form a number takes in a decimal field (an
+    /// exponent, a value too large, too many digits), no `FM-E001` is without a reason.
+    #[test]
+    fn no_number_form_gives_an_error_without_reason() {
+        let forms = [
+            "1e30",
+            "\"1e30\"",
+            "1E-30",
+            "\"1e-30\"",
+            "1e999999",
+            "\"-1E+999999\"",
+            "123456789012345678901234567890",
+            "\"0.0000000000000000000000000000000001\"",
+        ];
+        let mut failures = Vec::new();
+        let mut checked = 0u32;
+        for (name, id, input) in property_inputs(2) {
+            let mut all = Vec::new();
+            leaves(&input, String::new(), &mut all);
+            let decimal: Vec<String> = all
+                .into_iter()
+                .filter(|(_, v)| match v {
+                    Value::String(s) => crate::reading::is_decimal_text(s),
+                    Value::Number(n) => !n.is_u64() && !n.is_i64() || n.to_string().contains('.'),
+                    _ => false,
+                })
+                .map(|(p, _)| p)
+                .take(6)
+                .collect();
+            for at in decimal {
+                for form in forms {
+                    let x = set(&input, &at, &Some(serde_json::from_str(form).unwrap()));
+                    let Err(e) = run(&id, &x.to_string()) else {
+                        continue;
+                    };
+                    checked += 1;
+                    let report = serde_json::to_value(e.to_report()).unwrap();
+                    for entry in report["errors"].as_array().unwrap() {
+                        if entry["code"] == "FM-E001" && entry["reason"].is_null() {
+                            failures
+                                .push(format!("{name} {id} {at} = {form}: {}", entry["message"]));
+                        }
+                    }
+                }
+            }
+        }
+        assert!(checked > 100, "{checked}");
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
     }
 }

@@ -212,6 +212,7 @@ fn numbers_the_engine_outputs_are_read_back_unchanged() {
         ),
     ];
     let mut long = 0;
+    let mut read_back = 0;
     for (id, input) in sources {
         let result = run(id, &input.to_string()).unwrap();
         let mut found = Vec::new();
@@ -229,6 +230,7 @@ fn numbers_the_engine_outputs_are_read_back_unchanged() {
                 let npv = json!({"rate": rate, "cash_flows": [-1, text.as_str(), 2]});
                 let r = run("tvm.npv", &npv.to_string());
                 let Ok(r) = r else { continue }; // a rate out of range: not this test
+                read_back += 1;
                 assert!(
                     warnings(&r).is_empty(),
                     "{id} {at} = {text}: {:?}",
@@ -240,4 +242,135 @@ fn numbers_the_engine_outputs_are_read_back_unchanged() {
         }
     }
     assert!(long >= 3, "results with long decimals: {long}");
+    // Final review of #279, finding 8: the numbers were read back, not all skipped.
+    assert!(read_back > 0, "no number of a result was read back");
+}
+
+// ------------------------------------------------- final review, finding 2: exponent forms
+
+fn npv_with(flow: &str) -> Result<Value, fairmark_core::FairmarkError> {
+    run(
+        "tvm.npv",
+        &format!(r#"{{"rate": "0.07", "cash_flows": [-1, {flow}, 2]}}"#),
+    )
+}
+
+/// Every exponent form is read as its plain digits: `1e-30` is rounded and reported as
+/// `0.000000000000000000000000000001` is, as a JSON number and as a string, with `e` or `E`
+/// and a signed or unsigned exponent.
+#[test]
+fn an_exponent_is_read_as_its_plain_digits() {
+    let plain = npv_with("\"0.000000000000000000000000000001\"").unwrap();
+    let w = warnings(&plain);
+    assert_eq!(w.len(), 1, "{w:?}");
+    assert!(
+        w[0].contains("used 0.0000000000000000000000000000"),
+        "{}",
+        w[0]
+    );
+    for form in [
+        "1e-30",
+        "1E-30",
+        "\"1e-30\"",
+        "\"1E-30\"",
+        "0.1e-29",
+        "\"10E-31\"",
+    ] {
+        let r = npv_with(form).unwrap_or_else(|e| panic!("{form}: {e}"));
+        assert_eq!(r["value"], plain["value"], "{form}");
+        let w = warnings(&r);
+        assert_eq!(w.len(), 1, "{form}: {w:?}");
+        // A JSON number is quoted as `serde_json` keeps it (its exponent letter in lower case).
+        let given = form.trim_matches('"');
+        assert!(
+            w[0].to_lowercase()
+                .contains(&format!("given {}, used ", given.to_lowercase())),
+            "{}",
+            w[0]
+        );
+    }
+}
+
+/// A value that fits only once written in plain digits: `5e28` has scale −28 in scientific
+/// form, which the parser of scientific notation refuses alone.
+#[test]
+fn a_value_that_fits_only_in_plain_digits_is_read() {
+    for form in ["1.5E+28", "\"1.5e28\"", "\"15e-28\"", "1.5E-27"] {
+        let r = npv_with(form).unwrap_or_else(|e| panic!("{form}: {e}"));
+        assert!(warnings(&r).is_empty(), "{form}: {:?}", warnings(&r));
+    }
+    let a = npv_with("\"1.5E-27\"").unwrap();
+    let b = npv_with("\"0.0000000000000000000000000015\"").unwrap();
+    assert_eq!(a["value"], b["value"]);
+    assert_eq!(a["meta"]["input_hash"], b["meta"]["input_hash"]);
+}
+
+/// A value too large for a decimal, in any form, is `type` at its field: no `FM-E001` without
+/// a reason.
+#[test]
+fn a_value_too_large_is_type_in_every_form() {
+    for form in [
+        "1e30",
+        "\"1e30\"",
+        "1E+40",
+        "123456789012345678901234567890",
+        "1e999999",
+    ] {
+        let err = npv_with(form).expect_err(form);
+        let r = serde_json::to_value(err.to_report()).unwrap();
+        assert_eq!(r["code"], "FM-E001", "{form}: {r:#}");
+        assert_eq!(r["reason"], "type", "{form}: {r:#}");
+        assert_eq!(r["pointer"], "/cash_flows/1", "{form}: {r:#}");
+    }
+}
+
+/// A label that looks like an exponent is text, never rewritten.
+#[test]
+fn a_label_that_looks_like_an_exponent_is_kept() {
+    let input = json!({"rate": "0.07", "cash_flows": [-1, 1, 2]});
+    let r = run("tvm.npv", &input.to_string()).unwrap();
+    assert!(warnings(&r).is_empty());
+    let mut input = golden_fcff_with_label("1e5");
+    let r = run("dcf.fcff", &input.to_string()).unwrap();
+    let explained = r["explain"].to_string();
+    assert!(explained.contains("1e5"), "{explained}");
+    input["stages"][0]["lines"][0]["other_adjustments"][0]["label"] = json!("2E+3");
+    let r = run("dcf.fcff", &input.to_string()).unwrap();
+    assert!(r["explain"].to_string().contains("2E+3"));
+}
+
+fn golden_fcff_with_label(label: &str) -> Value {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/golden/dcf.fcff/stage-with-build-up-lines.yaml");
+    let case: Value = serde_norway::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let mut input = case["input"].clone();
+    input["stages"][0]["lines"][0]["other_adjustments"] = json!([{"label": label, "value": "1"}]);
+    input
+}
+
+/// Final review of #279, finding 10: goal seek replaces the value of its variable, so a long
+/// decimal there is never used and carries no warning; another long decimal of `base_input`
+/// still does.
+#[test]
+fn goal_seek_does_not_warn_for_the_value_its_variable_replaces() {
+    let input = json!({
+        "method": "tvm.future_value",
+        "base_input": {"payment": "2000", "rate": LONG, "periods": 35, "timing": "due"},
+        "variable": "/rate",
+        "output": "/future_value",
+        "target": "80000",
+        "bracket": ["0.001", "0.05"]
+    });
+    let result = run("analysis.goal_seek", &input.to_string()).unwrap();
+    assert!(warnings(&result).is_empty(), "{:?}", warnings(&result));
+    let mut input = input;
+    input["base_input"]["payment"] = json!("2000.000000000000000000000000001");
+    let result = run("analysis.goal_seek", &input.to_string()).unwrap();
+    let w = warnings(&result);
+    assert_eq!(w.len(), 1, "{w:?}");
+    assert!(
+        w[0].starts_with("warning: `/base_input/payment` "),
+        "{}",
+        w[0]
+    );
 }

@@ -280,10 +280,12 @@ fn resolve_basis(
         ));
     }
     let Some(basis) = basis else {
+        // Not given: a missing field, not a field given without another (final review).
         return Err(at(format!(
             "required: the timeline has {p}-month periods, so the growth rates must be read \
              either per period or as annual rates; {BASIS_FIX}"
-        )));
+        ))
+        .because(Reason::Missing));
     };
     if basis == GrowthBasis::PerPeriod {
         return Ok((

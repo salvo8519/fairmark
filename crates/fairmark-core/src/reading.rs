@@ -32,6 +32,13 @@ pub(crate) fn parse<M: crate::method::Method>(
     input_json: &str,
     source: Source,
 ) -> Result<M::Input> {
+    // Every decimal written with an exponent is read as its plain digits (ADR 0014 G7), so
+    // that `1e-30` is rounded and reported as `0.000…1` is, never refused for its form.
+    let normalised = match source {
+        Source::Caller => plain_exponents(&schema_value::<M::Input>(M::ID), input_json),
+        Source::Engine => None,
+    };
+    let input_json = normalised.as_deref().unwrap_or(input_json);
     let mut de = serde_json::Deserializer::from_str(input_json);
     // The next error `serde` raises on a text, for the reading of every error.
     let reread = |text: &str| {
@@ -172,9 +179,235 @@ impl UnknownKeys<'_> {
 /// deserializer): plain notation first, then scientific.
 fn read_as_serde_does(text: &str) -> Option<rust_decimal::Decimal> {
     use std::str::FromStr;
+    let plain = plain_digits(text);
+    let text = plain.as_deref().unwrap_or(text);
     rust_decimal::Decimal::from_str(text)
         .or_else(|_| rust_decimal::Decimal::from_scientific(text))
         .ok()
+}
+
+/// The longest plain-digit form an exponent is expanded to: beyond it the value cannot fit a
+/// decimal (28 decimal places, 29 digits) and is refused as written.
+const PLAIN_DIGITS_MAX: usize = 120;
+
+/// `text`, a decimal of the grammar of G7 with an exponent, in plain digits with the same
+/// value and the same scale as `rust_decimal` gives it (`1.50E+1` is `15.0`, `1e-3` is
+/// `0.001`); `None` without an exponent, or when the plain form would exceed
+/// [`PLAIN_DIGITS_MAX`] characters.
+pub(crate) fn plain_digits(text: &str) -> Option<String> {
+    if !is_decimal_text(text) {
+        return None;
+    }
+    let (mantissa, exponent) = text.split_once(['e', 'E'])?;
+    let exponent: i64 = exponent.parse().ok()?;
+    let (negative, mantissa) = match mantissa.strip_prefix('-') {
+        Some(m) => (true, m),
+        None => (false, mantissa),
+    };
+    let (whole, fraction) = mantissa.split_once('.').unwrap_or((mantissa, ""));
+    let digits = format!("{whole}{fraction}");
+    let scale = i64::try_from(fraction.len()).ok()? - exponent;
+    let width = i64::try_from(digits.len()).ok()?;
+    // Beyond 29 digits before the point no decimal holds the value: it is refused as written,
+    // so that the message quotes it as given.
+    if scale.abs() + width > PLAIN_DIGITS_MAX as i64 || width - scale > 29 {
+        return None;
+    }
+    let body = if scale <= 0 {
+        format!("{digits}{}", "0".repeat(scale.unsigned_abs() as usize))
+    } else {
+        let scale = scale as usize;
+        let padded = if digits.len() <= scale {
+            format!("{}{digits}", "0".repeat(scale - digits.len() + 1))
+        } else {
+            digits
+        };
+        let (int, frac) = padded.split_at(padded.len() - scale);
+        format!("{int}.{frac}")
+    };
+    // Leading zeros of the whole part are not part of the grammar: keep one digit.
+    let (int, rest) = body
+        .split_once('.')
+        .map_or((body.as_str(), None), |(i, f)| (i, Some(f)));
+    let int = int.trim_start_matches('0');
+    let int = if int.is_empty() { "0" } else { int };
+    let plain = match rest {
+        Some(f) => format!("{int}.{f}"),
+        None => int.to_owned(),
+    };
+    Some(if negative { format!("-{plain}") } else { plain })
+}
+
+/// `text` with every decimal of the input written with an exponent rewritten in plain
+/// digits, strings as strings and JSON numbers as numbers, nothing else changed; `None` when
+/// no decimal has an exponent or the text is not JSON. A decimal is recognised by the
+/// method's `schema`, so a label such as `"1e5"` is never touched.
+pub(crate) fn plain_exponents(schema: &Value, text: &str) -> Option<String> {
+    if !text.bytes().any(|b| b == b'e' || b == b'E') {
+        return None;
+    }
+    let value: Value = serde_json::from_str(text).ok()?;
+    let walk = UnknownKeys {
+        root: schema,
+        found: Vec::new(),
+    };
+    let mut out = String::with_capacity(text.len());
+    let mut scan = Scan {
+        text,
+        at: 0,
+        out: &mut out,
+        changed: false,
+    };
+    let mut path = Vec::new();
+    scan.value(&mut path, &mut |tokens, raw| {
+        let plain = plain_digits(raw)?;
+        walk.schema_at(tokens, &value)
+            .is_some_and(|field| walk.is_decimal(&field))
+            .then_some(plain)
+    })?;
+    let end = text.len();
+    scan.copy_to(end);
+    let changed = scan.changed;
+    changed.then_some(out)
+}
+
+/// A scan of a JSON text that copies it, replacing the decimals the callback rewrites.
+struct Scan<'a, 'o> {
+    text: &'a str,
+    at: usize,
+    out: &'o mut String,
+    changed: bool,
+}
+
+type Rewrite<'f> = dyn FnMut(&[String], &str) -> Option<String> + 'f;
+
+impl Scan<'_, '_> {
+    fn bytes(&self) -> &[u8] {
+        self.text.as_bytes()
+    }
+
+    fn copy_to(&mut self, end: usize) {
+        self.out.push_str(&self.text[self.at..end]);
+        self.at = end;
+    }
+
+    fn skip_space(&mut self) {
+        let mut end = self.at;
+        while end < self.text.len() && self.bytes()[end].is_ascii_whitespace() {
+            end += 1;
+        }
+        self.copy_to(end);
+    }
+
+    /// The end of the string that starts at `self.at` (after its closing quote).
+    fn string_end(&self) -> Option<usize> {
+        let bytes = self.bytes();
+        let mut i = self.at + 1;
+        while i < bytes.len() {
+            match bytes[i] {
+                b'\\' => i += 2,
+                b'"' => return Some(i + 1),
+                _ => i += 1,
+            }
+        }
+        None
+    }
+
+    fn value(&mut self, path: &mut Vec<String>, rewrite: &mut Rewrite<'_>) -> Option<()> {
+        self.skip_space();
+        match *self.bytes().get(self.at)? {
+            b'{' => {
+                self.copy_to(self.at + 1);
+                loop {
+                    self.skip_space();
+                    if self.bytes().get(self.at) == Some(&b'}') {
+                        self.copy_to(self.at + 1);
+                        return Some(());
+                    }
+                    let end = self.string_end()?;
+                    let key: String = serde_json::from_str(&self.text[self.at..end]).ok()?;
+                    self.copy_to(end);
+                    self.skip_space();
+                    self.copy_to(self.at + 1); // ':'
+                    path.push(key);
+                    self.value(path, rewrite)?;
+                    path.pop();
+                    self.skip_space();
+                    match *self.bytes().get(self.at)? {
+                        b',' => self.copy_to(self.at + 1),
+                        b'}' => {
+                            self.copy_to(self.at + 1);
+                            return Some(());
+                        }
+                        _ => return None,
+                    }
+                }
+            }
+            b'[' => {
+                self.copy_to(self.at + 1);
+                let mut index = 0usize;
+                loop {
+                    self.skip_space();
+                    if self.bytes().get(self.at) == Some(&b']') {
+                        self.copy_to(self.at + 1);
+                        return Some(());
+                    }
+                    path.push(index.to_string());
+                    self.value(path, rewrite)?;
+                    path.pop();
+                    index += 1;
+                    self.skip_space();
+                    match *self.bytes().get(self.at)? {
+                        b',' => self.copy_to(self.at + 1),
+                        b']' => {
+                            self.copy_to(self.at + 1);
+                            return Some(());
+                        }
+                        _ => return None,
+                    }
+                }
+            }
+            b'"' => {
+                let end = self.string_end()?;
+                let raw = &self.text[self.at + 1..end - 1];
+                // A decimal has no escapes: only a plain string can be one.
+                match (!raw.contains('\\')).then(|| rewrite(path, raw)).flatten() {
+                    Some(plain) => {
+                        self.out.push('"');
+                        self.out.push_str(&plain);
+                        self.out.push('"');
+                        self.at = end;
+                        self.changed = true;
+                    }
+                    None => self.copy_to(end),
+                }
+                Some(())
+            }
+            _ => {
+                // A number or a literal: up to the next delimiter.
+                let bytes = self.bytes();
+                let mut end = self.at;
+                while end < bytes.len()
+                    && !matches!(
+                        bytes[end],
+                        b',' | b']' | b'}' | b' ' | b'\n' | b'\r' | b'\t'
+                    )
+                {
+                    end += 1;
+                }
+                let raw = &self.text[self.at..end];
+                match rewrite(path, raw) {
+                    Some(plain) => {
+                        self.out.push_str(&plain);
+                        self.at = end;
+                        self.changed = true;
+                    }
+                    None => self.copy_to(end),
+                }
+                Some(())
+            }
+        }
+    }
 }
 
 /// True when two decimal texts in the grammar of G7 have the same value: same sign, same
@@ -383,6 +616,15 @@ fn input_error(e: serde_path_to_error::Error<serde_json::Error>) -> (FairmarkErr
     } else {
         let detail = without_type_names(&msg.replace(RUST_DECIMAL_EXPECTED, DECIMAL_EXPECTED));
         let (reason, expected, fix) = classify(&detail);
+        // The parser's own text says nothing of the field: say what does not fit.
+        let detail = if RUST_DECIMAL_REFUSALS.iter().any(|r| detail.starts_with(r)) {
+            format!(
+                "invalid value: a number too large for a decimal, expected {DECIMAL_EXPECTED} \
+                 with at most 28 to 29 digits before the decimal point"
+            )
+        } else {
+            detail
+        };
         (detail, reason, expected, fix)
     };
     let error = match pointer(&tokens) {
@@ -429,6 +671,15 @@ fn classify(detail: &str) -> (Option<Reason>, Vec<String>, Option<String>) {
             Some(refusal.fix().to_owned()),
         );
     }
+    // A JSON number `rust_decimal` cannot hold (too many digits before the point): the error
+    // of its reader, the same refusal as for a string, `type` (ADR 0014 G7).
+    if RUST_DECIMAL_REFUSALS.iter().any(|r| detail.starts_with(r)) {
+        return (
+            Some(Reason::Type),
+            vec![DECIMAL_EXPECTED.to_owned()],
+            Some(format!("give {DECIMAL_EXPECTED}")),
+        );
+    }
     let typed = ["invalid type: ", "invalid value: ", "invalid length "]
         .iter()
         .any(|p| detail.starts_with(p));
@@ -458,6 +709,16 @@ fn classify(detail: &str) -> (Option<Reason>, Vec<String>, Option<String>) {
         None => (Some(reason), Vec::new(), None),
     }
 }
+
+/// The texts of the errors of `rust_decimal`'s parser, raised for a JSON number it cannot hold.
+const RUST_DECIMAL_REFUSALS: [&str; 6] = [
+    "Failed to parse",
+    "Invalid decimal",
+    "Scale exceeds",
+    "Number exceeds",
+    "Number less than",
+    "Number has a high precision",
+];
 
 /// What a count of the input accepts, in the words of an analyst.
 const UNSIGNED: &str = "a whole number of 0 or more";
@@ -1398,6 +1659,20 @@ pub(crate) fn takes_whole_number(schema: &Value, value: &Value, pointer: &str) -
             .all(|b| has_type(b, "integer") || has_type(b, "null"))
 }
 
+/// True when the input schema defines the field at `pointer` of `value`, given or not.
+#[cfg(test)]
+pub(crate) fn defines(schema: &Value, value: &Value, pointer: &str) -> bool {
+    let walk = UnknownKeys {
+        root: schema,
+        found: Vec::new(),
+    };
+    let tokens = tokens_of(pointer);
+    let Some((key, parent)) = tokens.split_last() else {
+        return true;
+    };
+    walk.schema_at(&tokens, value).is_some() || walk.property_schema(parent, key, value).is_some()
+}
+
 /// True when `key` is a likely typing error for `field`: within the distance of a suggestion.
 pub(crate) fn is_likely_typo(key: &str, field: &str) -> bool {
     let d = distance(key, field);
@@ -1519,12 +1794,25 @@ impl UnknownKeys<'_> {
 
     /// The branches of `oneOf` and `anyOf`, resolved.
     fn branches(&self, schema: &Value) -> Vec<Value> {
-        ["oneOf", "anyOf"]
+        let mut out = Vec::new();
+        for b in ["oneOf", "anyOf"]
             .iter()
             .filter_map(|k| schema.get(*k).and_then(Value::as_array))
             .flatten()
-            .map(|b| self.resolve(b))
-            .collect()
+        {
+            let b = self.resolve(b);
+            // A branch that is itself only a choice (an optional `oneOf`, `anyOf` of a `$ref`
+            // to a `oneOf` and `null`) stands for its own branches.
+            let nested = b.get("type").is_none()
+                && b.get("properties").is_none()
+                && (b.get("oneOf").is_some() || b.get("anyOf").is_some());
+            if nested {
+                out.extend(self.branches(&b));
+            } else {
+                out.push(b);
+            }
+        }
+        out
     }
 
     /// The shape of an object schema, with its `allOf` members merged.

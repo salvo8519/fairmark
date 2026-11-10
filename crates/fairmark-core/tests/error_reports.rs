@@ -846,7 +846,16 @@ fn every_golden_error_names_its_pointer_in_the_report() {
         let analysis = method.starts_with("analysis.");
         // `FM-E027` names its inputs in `missing_any_of`, not in `pointer`.
         let below_minimum = r["code"] == "FM-E027";
-        if names_a_pointer && !below_minimum && r["pointer"].is_null() {
+        // An `FM-E026` whose message names only items taken as zero by default has no field
+        // to name: a default is never named (final review of #279).
+        let only_defaults = r["code"] == "FM-E026"
+            && message
+                .split('`')
+                .skip(1)
+                .step_by(2)
+                .filter(|p| p.starts_with('/'))
+                .all(|p| case["input"].pointer(p).is_none());
+        if names_a_pointer && !below_minimum && !only_defaults && r["pointer"].is_null() {
             failures.push(format!("{}: no pointer for: {message}", file.display()));
         }
         if let Some(p) = r["pointer"].as_str() {

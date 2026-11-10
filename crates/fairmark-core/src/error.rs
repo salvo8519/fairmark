@@ -646,6 +646,51 @@ impl FairmarkError {
     }
 
     /// Applies `f` to the details of this error, which becomes `Detailed` if it was not.
+    /// This error, and every error of `Several`, without the fields in `defaulted` among the
+    /// fields it names: a field left to its default is read, never named (ADR 0014 G5, final
+    /// review of #279). When the field to correct is one of them, the first field named that
+    /// was given takes its place.
+    pub(crate) fn without_defaulted(self, defaulted: &[String]) -> Self {
+        if defaulted.is_empty() {
+            return self;
+        }
+        if let Self::Several(several) = self {
+            return Self::Several(Box::new(Several(
+                several
+                    .0
+                    .into_iter()
+                    .map(|e| e.without_defaulted(defaulted))
+                    .collect(),
+            )));
+        }
+        let details = self.details();
+        let named = details.pointer.iter().chain(&details.pointers);
+        if !named.into_iter().any(|p| defaulted.contains(p)) {
+            return self;
+        }
+        self.with(|d| {
+            let dropped: Vec<String> = d
+                .pointer
+                .iter()
+                .chain(&d.pointers)
+                .filter(|p| defaulted.contains(p))
+                .cloned()
+                .collect();
+            d.pointers.retain(|p| !defaulted.contains(p));
+            if d.pointer.as_ref().is_some_and(|p| defaulted.contains(p)) {
+                d.pointer = d.pointers.first().cloned();
+            }
+            if d.pointers.len() == 1 {
+                d.pointers.clear();
+            }
+            for p in dropped {
+                if !d.reads.contains(&p) {
+                    d.reads.push(p);
+                }
+            }
+        })
+    }
+
     fn with(self, f: impl FnOnce(&mut Details)) -> Self {
         match self {
             Self::Detailed(mut d) => {

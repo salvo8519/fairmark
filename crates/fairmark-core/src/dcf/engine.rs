@@ -454,6 +454,9 @@ pub(crate) struct Defaulted {
     pub cash_flow_terms: bool,
     pub discount_rate_terms: bool,
     pub timing: bool,
+    pub terminal: bool,
+    /// The projection of the first stage (`given`, from its flows or lines).
+    pub first_projection: bool,
 }
 
 impl Defaulted {
@@ -463,6 +466,8 @@ impl Defaulted {
             cash_flow_terms: has(DefaultedField::CashFlowTerms),
             discount_rate_terms: has(DefaultedField::DiscountRateTerms),
             timing: has(DefaultedField::Timing),
+            terminal: has(DefaultedField::Terminal),
+            first_projection: defaults.iter().any(|d| d.field == "/stages/0/projection"),
         }
     }
 }
@@ -693,6 +698,7 @@ struct ResolvedStage<'a> {
 fn check_stages(
     stages: &[Stage],
     base_flow: Option<Decimal>,
+    projection_defaulted: bool,
 ) -> Result<(Vec<ResolvedStage<'_>>, usize)> {
     if stages.is_empty() || stages.len() > MAX_STAGES {
         return Err(invalid(format!(
@@ -717,7 +723,7 @@ fn check_stages(
         }
     }
     found.finish()?;
-    finish_stages(resolved, horizon, base_flow)
+    finish_stages(resolved, horizon, base_flow, projection_defaulted)
 }
 
 /// The checks of stage `i` (R7 to R9, Decision 24), in a fixed order.
@@ -916,6 +922,7 @@ fn finish_stages(
     resolved: Vec<ResolvedStage<'_>>,
     horizon: u64,
     base_flow: Option<Decimal>,
+    projection_defaulted: bool,
 ) -> Result<(Vec<ResolvedStage<'_>>, usize)> {
     if horizon > MAX_PERIODS {
         return Err(invalid(format!(
@@ -941,7 +948,13 @@ fn finish_stages(
                 .to_owned(),
         )
         .at("/base_flow", Reason::Requires)
-        .between(["/base_flow", "/stages/0/projection"])),
+        // A projection left to its default (`given`, from the flows) is read, never named.
+        .between(
+            ["/base_flow", "/stages/0/projection"]
+                .into_iter()
+                .filter(|p| !(projection_defaulted && *p == "/stages/0/projection")),
+        )
+        .reads(["/stages/0/projection"])),
         _ => Ok((resolved, horizon as usize)),
     }
 }
@@ -1306,9 +1319,27 @@ fn terms_mismatch(input: &EngineInput<'_>) -> FairmarkError {
         flows.label()
     ))
     // Terms that differ are given without the inflation they need: `requires`, and
-    // `/inflation`, absent by definition, is the field to give (review round 6).
-    .at("/cash_flow_terms", Reason::Requires)
-    .between(["/cash_flow_terms", "/discount_rate_terms", "/inflation"])
+    // `/inflation`, absent by definition, is the field to give (review round 6). A terms field
+    // left to its default is read, never named (final review of #279, finding 3).
+    .at(
+        if d.cash_flow_terms {
+            "/discount_rate_terms"
+        } else {
+            "/cash_flow_terms"
+        },
+        Reason::Requires,
+    )
+    .between(
+        [
+            ("/cash_flow_terms", d.cash_flow_terms),
+            ("/discount_rate_terms", d.discount_rate_terms),
+            ("/inflation", false),
+        ]
+        .into_iter()
+        .filter(|(_, defaulted)| !defaulted)
+        .map(|(field, _)| field),
+    )
+    .reads(["/cash_flow_terms", "/discount_rate_terms"])
     // No inflation in any form: the per-period form is read too.
     .reads(["/inflation_per_period", "/terminal_inflation"])
 }
@@ -1518,6 +1549,7 @@ fn check_timing(
     time: Option<TerminalDiscountTime>,
     no_terminal_value: bool,
     timing_defaulted: bool,
+    terminal_defaulted: bool,
 ) -> Result<()> {
     match (timing, time) {
         // Decision 24: say so when the timing was not given.
@@ -1527,8 +1559,9 @@ fn check_timing(
              or remove `/terminal_discount_time`"
                 .to_owned(),
         )
+        // The timing left to its default is read, never named (final review, finding 3).
         .at("/terminal_discount_time", Reason::Requires)
-        .between(["/terminal_discount_time", "/timing"])),
+        .reads(["/timing"])),
         (Timing::EndOfPeriod, Some(_)) => Err(invalid(
             "`/terminal_discount_time` is not accepted with `/timing` = end_of_period: the \
              terminal value is then discounted at the horizon N; remove it"
@@ -1543,8 +1576,12 @@ fn check_timing(
                 .to_owned(),
         )
         .at("/terminal_discount_time", Reason::Requires)
-        .between(["/terminal_discount_time", "/terminal"])
-        .reads(["/timing"])),
+        .between(if terminal_defaulted {
+            Vec::new()
+        } else {
+            vec!["/terminal_discount_time", "/terminal"]
+        })
+        .reads(["/timing", "/terminal"])),
         (Timing::MidPeriod, None) if !no_terminal_value => Err(invalid(
             "`/terminal_discount_time` is required with `/timing` = mid_period: give `horizon` \
              (t = N) or `mid_period` (t = N - 0.5)"
@@ -1676,20 +1713,152 @@ fn project(
     Ok(out)
 }
 
+/// R7: on the enterprise basis the DCF discounts FCFF, before financing: the first line of
+/// each stage that gives `interest_expense` or `net_borrowing` is refused. Checked on the
+/// stages as given, so that no other refusal of a stage (its periods, the count of its lines)
+/// hides it, and it hides none.
+fn financing_on_enterprise_basis(stages: &[Stage], basis: TerminalBasis) -> Vec<FairmarkError> {
+    if basis != TerminalBasis::Enterprise {
+        return Vec::new();
+    }
+    let mut errors = Vec::new();
+    for (i, stage) in stages.iter().enumerate() {
+        let Some(lines) = stage.lines.as_deref() else {
+            continue;
+        };
+        let Some((k, l)) = lines
+            .iter()
+            .enumerate()
+            .find(|(_, l)| l.interest_expense.is_some() || l.net_borrowing.is_some())
+        else {
+            continue;
+        };
+        let pointer = format!("/stages/{i}/lines");
+        // Name only the financing fields actually given, each with its pointer.
+        let given: Vec<String> = [
+            ("interest_expense", l.interest_expense.is_some()),
+            ("net_borrowing", l.net_borrowing.is_some()),
+        ]
+        .into_iter()
+        .filter(|(_, present)| *present)
+        .map(|(field, _)| format!("{pointer}/{k}/{field}"))
+        .collect();
+        let quoted: Vec<String> = given.iter().map(|p| format!("`{p}`")).collect();
+        let (fields, verb, pronoun) = match quoted.as_slice() {
+            [one] => (one.clone(), "is", "it"),
+            _ => (quoted.join(" and "), "are", "them"),
+        };
+        // Pointers name only the fields given; the lines are read (the first line with
+        // financing is the one named).
+        let read = [pointer.clone()];
+        let relation = if given.len() > 1 {
+            given.clone()
+        } else {
+            Vec::new()
+        };
+        errors.push(
+            invalid(format!(
+                "{fields} {verb} not used on the enterprise basis: the DCF discounts FCFF, \
+                 which is before financing; remove {pronoun}"
+            ))
+            .at(given[0].clone(), Reason::Requires)
+            .between(relation)
+            .reads(read)
+            .fix(format!("remove {fields}")),
+        );
+    }
+    errors
+}
+
 /// R7: the flows of the `given` stages with `lines`, built up as in `dcf.free_cash_flows`
 /// (FCFF on the enterprise basis, FCFE on the equity basis), with every step in the explain and
 /// the conventions of the build-up reported once. The tax fields are refused when no stage has
 /// lines.
 fn build_up_stages(
+    raw: &[Stage],
     stages: &mut [ResolvedStage<'_>],
     basis: TerminalBasis,
     taxes: &TaxChoice,
     ex: &mut Explain,
     pass: Pass,
 ) -> Result<()> {
-    // Which stages have lines decides every check here: each error reads the projections and
-    // the lines of the stages.
-    stage_lines(stages, basis, taxes, ex, pass).map_err(|e| e.reads(["/stages"]))
+    let (_, positions) = stage_positions(raw);
+    lines_of_stages(stages, basis, taxes, ex, pass, Some(&positions), true)
+}
+
+/// The checks of the lines of the stages before the first refused stage, when the stages are
+/// refused (ADR 0014 G5): their numbering is known, so their errors are found as when no stage
+/// is refused. The fields of the taxes are not checked against the lines: a refused stage may
+/// hold lines.
+fn check_lines_before_refusal(input: &EngineInput<'_>) -> Result<()> {
+    if input.stages.len() > MAX_STAGES {
+        return Ok(());
+    }
+    let (mut known, positions) = stage_positions(input.stages);
+    let mut scratch = Explain::new("dcf", "");
+    lines_of_stages(
+        &mut known,
+        input.basis,
+        &input.taxes,
+        &mut scratch,
+        Pass::Validate,
+        Some(&positions),
+        false,
+    )
+}
+
+/// The stages that resolve, each with its [`Position`], as far as the first periods are
+/// known: the periods of a refused stage are known when given, or counted from its only list.
+fn stage_positions(stages: &[Stage]) -> (Vec<ResolvedStage<'_>>, Vec<Position>) {
+    let mut known = Vec::new();
+    let mut positions: Vec<Position> = Vec::new();
+    let mut first = 1u32;
+    let mut earlier: Vec<String> = Vec::new();
+    for (i, s) in stages.iter().enumerate() {
+        let counted = match (&s.flows, &s.lines) {
+            (Some(f), None) => u32::try_from(f.len()).ok(),
+            (None, Some(l)) => u32::try_from(l.len()).ok(),
+            _ => None,
+        };
+        let resolved = check_stage(i, s).ok();
+        let periods = match (&resolved, s.periods) {
+            (Some(stage), _) => Some(stage.periods),
+            (None, Some(p)) if p > 0 => Some(p),
+            (None, None) => counted.filter(|c| *c > 0),
+            _ => None,
+        };
+        if let Some(stage) = resolved {
+            known.push(stage);
+            positions.push((i, first, earlier.clone()));
+        }
+        let Some(periods) = periods else { break };
+        first = first.saturating_add(periods);
+        // The fields that decide the periods of this stage, read by every later stage.
+        earlier.push(format!("/stages/{i}/periods"));
+        if s.periods.is_none() {
+            earlier.push(format!("/stages/{i}/flows"));
+            earlier.push(format!("/stages/{i}/lines"));
+        }
+    }
+    (known, positions)
+}
+
+/// The index of a stage, its first period and the fields that decide its first period.
+type Position = (usize, u32, Vec<String>);
+
+fn lines_of_stages(
+    stages: &mut [ResolvedStage<'_>],
+    basis: TerminalBasis,
+    taxes: &TaxChoice,
+    ex: &mut Explain,
+    pass: Pass,
+    positions: Option<&[Position]>,
+    every_stage: bool,
+) -> Result<()> {
+    // Each error declares what it read: the errors of a stage its stage and the periods of the
+    // stages before it (which number its periods); the tax fields given without lines every
+    // stage (which stages have lines).
+    stage_lines(stages, basis, taxes, ex, pass, positions, every_stage)
 }
 
 fn stage_lines(
@@ -1698,53 +1867,34 @@ fn stage_lines(
     taxes: &TaxChoice,
     ex: &mut Explain,
     pass: Pass,
+    positions: Option<&[Position]>,
+    every_stage: bool,
 ) -> Result<()> {
-    let mut first = 1u32;
+    let mut running = 1u32;
     let mut any = false;
     let mut conventions: Vec<String> = Vec::new();
-    for (i, s) in stages.iter_mut().enumerate() {
+    let mut found = Found::new();
+    for (n, s) in stages.iter_mut().enumerate() {
+        let (i, first, earlier) = match positions {
+            Some(p) => p[n].clone(),
+            None => (
+                n,
+                running,
+                (0..n).map(|j| format!("/stages/{j}/periods")).collect(),
+            ),
+        };
         if let StageKind::Lines(lines) = s.kind {
             any = true;
             let pointer = format!("/stages/{i}/lines");
-            if basis == TerminalBasis::Enterprise {
-                if let Some((k, l)) = lines
+            // Lines with financing on the enterprise basis are refused by
+            // [`financing_on_enterprise_basis`], with the other stages: not built up here.
+            if basis == TerminalBasis::Enterprise
+                && lines
                     .iter()
-                    .enumerate()
-                    .find(|(_, l)| l.interest_expense.is_some() || l.net_borrowing.is_some())
-                {
-                    // Name only the financing fields actually given, each with its pointer.
-                    let given: Vec<String> = [
-                        ("interest_expense", l.interest_expense.is_some()),
-                        ("net_borrowing", l.net_borrowing.is_some()),
-                    ]
-                    .into_iter()
-                    .filter(|(_, present)| *present)
-                    .map(|(field, _)| format!("{pointer}/{k}/{field}"))
-                    .collect();
-                    let quoted: Vec<String> = given.iter().map(|p| format!("`{p}`")).collect();
-                    let (fields, verb, pronoun) = match quoted.as_slice() {
-                        [one] => (one.clone(), "is", "it"),
-                        _ => (quoted.join(" and "), "are", "them"),
-                    };
-                    // Pointers name only the fields given; both are read.
-                    let read = [
-                        format!("{pointer}/{k}/interest_expense"),
-                        format!("{pointer}/{k}/net_borrowing"),
-                    ];
-                    let relation = if given.len() > 1 {
-                        given.clone()
-                    } else {
-                        Vec::new()
-                    };
-                    return Err(invalid(format!(
-                        "{fields} {verb} not used on the enterprise basis: the DCF discounts \
-                         FCFF, which is before financing; remove {pronoun}"
-                    ))
-                    .at(given[0].clone(), Reason::Requires)
-                    .between(relation)
-                    .reads(read)
-                    .fix(format!("remove {fields}")));
-                }
+                    .any(|l| l.interest_expense.is_some() || l.net_borrowing.is_some())
+            {
+                running = running.saturating_add(s.periods);
+                continue;
             }
             let at = Location {
                 pointer_prefix: &pointer,
@@ -1768,14 +1918,20 @@ fn stage_lines(
                 && lines
                     .iter()
                     .all(|l| l.interest_expense.is_none() && l.net_borrowing.is_none());
-            if pass == Pass::Validate || no_financing {
-                let mut found = Found::new();
-                found.check(check_lines(lines, taxes, &at).map(|_| ()));
+            // Every stage is checked: a refused stage does not hide the others (ADR 0014 G5).
+            if pass == Pass::Validate || no_financing || !found.is_empty() {
+                let read: Vec<String> = std::iter::once(format!("/stages/{i}"))
+                    .chain(earlier)
+                    .collect();
+                found.check(
+                    check_lines(lines, taxes, &at)
+                        .map(|_| ())
+                        .map_err(|e| e.reads(read.clone())),
+                );
                 if no_financing {
-                    found.push(missing_financing().reads([pointer.clone()]));
+                    found.push(missing_financing().reads(read));
                 }
-                found.finish()?;
-                first += s.periods;
+                running = running.saturating_add(s.periods);
                 continue;
             }
             let mut own = Explain::new(FreeCashFlows::ID, FORMULA_FCFF);
@@ -1803,7 +1959,10 @@ fn stage_lines(
             s.kind = StageKind::Given(Cow::Owned(flows));
             s.built_up = Some(name);
         }
-        first += s.periods;
+        running = running.saturating_add(s.periods);
+    }
+    if !found.is_empty() {
+        return found.finish();
     }
     if any {
         let source = format!("{} v{}", FreeCashFlows::ID, FreeCashFlows::VERSION);
@@ -1821,8 +1980,10 @@ fn stage_lines(
         }
         return Ok(());
     }
+    if !every_stage {
+        return Ok(());
+    }
     // Every field of the taxes given without lines is reported: none hides another.
-    let mut found = Found::new();
     for (field, given) in [
         ("notional_tax_rate", taxes.notional_tax_rate.is_some()),
         ("negative_ebit", taxes.negative_ebit.is_some()),
@@ -1837,7 +1998,8 @@ fn stage_lines(
                 .at(format!("/{field}"), Reason::Requires)
                 .fix(format!(
                     "remove `/{field}`, or give the line items of a stage in `lines`"
-                )),
+                ))
+                .reads(["/stages"]),
             );
         }
     }
@@ -1880,9 +2042,30 @@ fn run_pass(
 ) -> Result<Option<EngineOutput>> {
     // Refused stages leave the horizon unknown: the checks that need it are skipped, every other
     // check is made (ADR 0014 G5), and nothing is computed.
-    let mut stages = found.take(check_stages(input.stages, input.base_flow));
-    if let Some((stages, _)) = stages.as_mut() {
-        found.check(build_up_stages(stages, input.basis, &input.taxes, ex, pass));
+    let mut stages = found.take(check_stages(
+        input.stages,
+        input.base_flow,
+        input.defaulted.first_projection,
+    ));
+    for e in financing_on_enterprise_basis(input.stages, input.basis) {
+        found.push(e);
+    }
+    match stages.as_mut() {
+        Some((stages, _)) => {
+            found.check(build_up_stages(
+                input.stages,
+                stages,
+                input.basis,
+                &input.taxes,
+                ex,
+                pass,
+            ));
+        }
+        // A refused stage, or stages refused together, do not hide the lines of the stages
+        // before the first refused one: they are checked, nothing is built up.
+        None => {
+            found.check(check_lines_before_refusal(input));
+        }
     }
     let n = stages.as_ref().map(|(_, n)| *n);
     // The terminal option is read first, because it decides whether a terminal rate is used
@@ -1918,6 +2101,7 @@ fn run_pass(
         input.terminal_discount_time,
         no_terminal_value,
         input.defaulted.timing,
+        input.defaulted.terminal,
     ));
     // The terms of the terminal technique are checked with the rest of the input: with the
     // terminal rate when it is known, otherwise every term that does not depend on it.

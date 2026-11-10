@@ -551,3 +551,147 @@ fn a_financing_line_on_the_enterprise_basis_names_only_the_field_given() {
         "{r:#}"
     );
 }
+
+// ------------------------------------------------- final review, finding 1: two line stages
+
+/// A `dcf.fcff` input with two `given` stages with lines, the first edited by `first`, the
+/// second by `second`.
+fn two_line_stages(first: impl FnOnce(&mut Value), second: impl FnOnce(&mut Value)) -> Value {
+    let line = json!({"ebit": "1200", "depreciation_and_amortisation": "350",
+                      "capital_expenditure": "420", "change_in_net_working_capital": "65"});
+    let mut input = golden_input("dcf.fcff/stage-with-build-up-lines.yaml");
+    input["stages"] = json!([
+        {"periods": 2, "projection": "given", "lines": [line.clone(), line.clone()]},
+        {"periods": 2, "projection": "given", "lines": [line.clone(), line]}
+    ]);
+    first(&mut input["stages"][0]);
+    second(&mut input["stages"][1]);
+    input
+}
+
+fn financing(stage: &mut Value) {
+    stage["lines"][0]["net_borrowing"] = json!("10");
+}
+
+#[test]
+fn a_financing_refusal_keeps_a_blank_label_of_another_stage() {
+    let input = two_line_stages(financing, |s| {
+        s["lines"][1]["other_adjustments"] = json!([{"label": " ", "value": "5"}]);
+    });
+    let r = report("dcf.fcff", &input);
+    assert!(
+        has(&r, "/stages/0/lines/0/net_borrowing", "requires"),
+        "{r:#}"
+    );
+    assert!(
+        has(&r, "/stages/1/lines/1/other_adjustments/0/label", "blank"),
+        "{r:#}"
+    );
+}
+
+#[test]
+fn a_financing_refusal_in_each_stage_is_reported() {
+    let input = two_line_stages(financing, financing);
+    let r = report("dcf.fcff", &input);
+    assert!(
+        has(&r, "/stages/0/lines/0/net_borrowing", "requires"),
+        "{r:#}"
+    );
+    assert!(
+        has(&r, "/stages/1/lines/0/net_borrowing", "requires"),
+        "{r:#}"
+    );
+}
+
+#[test]
+fn a_line_count_error_keeps_the_financing_refusal_of_another_stage() {
+    let input = two_line_stages(financing, |s| {
+        s["lines"].as_array_mut().unwrap().pop();
+    });
+    let r = report("dcf.fcff", &input);
+    assert!(
+        has(&r, "/stages/0/lines/0/net_borrowing", "requires"),
+        "{r:#}"
+    );
+    assert!(
+        entries(&r).iter().any(|(p, _)| p.starts_with("/stages/1")),
+        "{r:#}"
+    );
+}
+
+// ------------------------------------------------- final review, finding 3: defaults
+
+#[test]
+fn terms_left_to_their_default_are_never_named() {
+    // `cash_flow_terms` is not given (nominal by default): the field given is the pointer.
+    let mut input = golden_input("dcf.fcff/error-nominal-flows-real-rates.yaml");
+    input.as_object_mut().unwrap().remove("cash_flow_terms");
+    let r = report("dcf.fcff", &input);
+    assert_eq!(r["code"], "FM-E024", "{r:#}");
+    assert_eq!(r["pointer"], "/discount_rate_terms", "{r:#}");
+    assert_eq!(
+        named(&r),
+        vec!["/discount_rate_terms", "/inflation"],
+        "{r:#}"
+    );
+    // The message still says which default was used.
+    assert!(
+        r["message"]
+            .as_str()
+            .unwrap()
+            .contains("defaults to nominal"),
+        "{r:#}"
+    );
+    // `discount_rate_terms` left to its default, `cash_flow_terms` real.
+    input["cash_flow_terms"] = json!("real");
+    input.as_object_mut().unwrap().remove("discount_rate_terms");
+    let r = report("dcf.fcff", &input);
+    assert_eq!(r["pointer"], "/cash_flow_terms", "{r:#}");
+    assert_eq!(named(&r), vec!["/cash_flow_terms", "/inflation"], "{r:#}");
+}
+
+#[test]
+fn a_timing_left_to_its_default_is_never_named() {
+    let input = golden_input("dcf.fcff/error-terminal-discount-time-without-timing.yaml");
+    assert!(input.get("timing").is_none());
+    let r = report("dcf.fcff", &input);
+    assert_eq!(r["pointer"], "/terminal_discount_time", "{r:#}");
+    assert!(named(&r).is_empty(), "{r:#}");
+    assert!(
+        r["message"]
+            .as_str()
+            .unwrap()
+            .contains("defaults to end_of_period"),
+        "{r:#}"
+    );
+}
+
+// ------------------------------------------------- final review, finding 4: located entries
+
+#[test]
+fn a_rate_without_its_next_flow_is_located_at_the_rate() {
+    let r = report(
+        "tv.exit_multiple",
+        &json!({"multiple": "8", "metric": "ebitda", "metric_value": "125", "rate": "0.10"}),
+    );
+    assert_eq!(entries(&r), vec![entry("/rate", "requires")], "{r:#}");
+    assert_eq!(named(&r), vec!["/rate", "/next_flow"], "{r:#}");
+    let r = report(
+        "tv.exit_multiple",
+        &json!({"multiple": "8", "metric": "ebitda", "metric_value": "125", "next_flow": "60"}),
+    );
+    assert_eq!(entries(&r), vec![entry("/next_flow", "requires")], "{r:#}");
+    assert_eq!(named(&r), vec!["/next_flow", "/rate"], "{r:#}");
+}
+
+#[test]
+fn a_growth_basis_not_given_is_missing() {
+    let mut input = golden_input("series.project/monthly-annual-compound.yaml");
+    input.as_object_mut().unwrap().remove("growth_basis");
+    let r = report("series.project", &input);
+    assert_eq!(
+        entries(&r),
+        vec![entry("/growth_basis", "missing")],
+        "{r:#}"
+    );
+}
