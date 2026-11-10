@@ -181,6 +181,27 @@ def _portable(node: Any) -> Any:
     return out
 
 
+DECIMAL_PATTERN = r"^-?\d+(\.\d+)?([eE][+-]?\d+)?$"
+"""The number grammar of ADR 0014 G7, which every decimal of a tool schema declares."""
+
+
+def _decimals_as_strings(node: Any) -> Any:
+    """Every decimal (a JSON number or a string in the input schema) declared as a string with
+    the number grammar of G7. A JSON number in tool arguments is read by most client libraries,
+    and by the MCP library, as a binary float, which keeps about 17 significant digits; a
+    string reaches the engine exactly. The engine still accepts JSON numbers."""
+    if isinstance(node, list):
+        return [_decimals_as_strings(v) for v in node]
+    if not isinstance(node, dict):
+        return node
+    out = {k: _decimals_as_strings(v) for k, v in node.items()}
+    kind = node.get("type")
+    if isinstance(kind, list) and "string" in kind and "number" in kind:
+        out["type"] = ["string", "null"] if "null" in kind else "string"
+        out["pattern"] = DECIMAL_PATTERN
+    return out
+
+
 # Formats defined by JSON Schema 2020-12; others (schemars' `uint32`) are dropped when compact.
 _STANDARD_FORMATS = frozenset(
     {
@@ -289,7 +310,9 @@ def _strings_for_decimals(value: Any, schema: Any) -> Any:
             items = next((v["items"] for v in variants if "items" in v), None)
         return [_strings_for_decimals(v, items) for v in value]
     if isinstance(value, (int, float)) and not isinstance(value, bool):
-        kinds = {schema.get("type")} | {v.get("type") for v in variants}
+        kinds: set[Any] = set()
+        for kind in [schema.get("type")] + [v.get("type") for v in variants]:
+            kinds |= set(kind) if isinstance(kind, list) else {kind}
         if "string" in kinds and not kinds & {"number", "integer"}:
             return str(value)
     return value
@@ -350,16 +373,16 @@ def definitions(
         if wanted is not None and m["id"].split(".")[0] not in wanted:
             continue
         schema = _inline(input_schema(m["id"]))
-        if portable:
-            schema = _portable(schema)
+        schema = _portable(schema) if portable else _decimals_as_strings(schema)
         decimals = False
         if compact:
             schema, decimals = _compact(schema)
         schema = _finish(schema)
         samples = examples(m["id"])[:1] if compact else examples(m["id"])
         sample_text = ""
+        # The examples as the schema asks for them: decimals as strings.
+        samples = [_strings_for_decimals(sample, schema) for sample in samples]
         if portable:
-            samples = [_strings_for_decimals(sample, schema) for sample in samples]
             labels = ("Minimal input example", "Complete input example")
             sample_text = "".join(
                 f" {label}: {_compact_json(s)}." for label, s in zip(labels, samples, strict=False)

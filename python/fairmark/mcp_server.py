@@ -80,6 +80,16 @@ def call_tool(name: str, arguments: Any) -> Any:
 
     started = time.perf_counter()
     out = tools.dispatch(name, arguments)
+    # A JSON number reaches this server already read by the MCP library as a binary float:
+    # its digits beyond about 17 are lost before Fairmark sees it. Said, never silent.
+    if "error" not in out and isinstance(arguments, dict):
+        conventions = out.setdefault("explain", {}).setdefault("conventions", [])
+        for pointer, value in _floats(arguments, ""):
+            conventions.append(
+                f"warning: `{pointer}` arrived as a binary floating-point number ({value!r}): "
+                "a JSON number may have lost digits before Fairmark read it; send decimals as "
+                'strings, for example "0.095", to keep every digit'
+            )
     log_event(
         logger,
         "tool_call",
@@ -93,6 +103,21 @@ def call_tool(name: str, arguments: Any) -> Any:
         structured_content=out,
         is_error="error" in out,
     )
+
+
+def _floats(value: Any, at: str) -> list[tuple[str, float]]:
+    """The JSON pointer and value of every Python float in tool arguments."""
+    if isinstance(value, float):
+        return [(at, value)]
+    if isinstance(value, dict):
+        return [
+            found
+            for k, v in value.items()
+            for found in _floats(v, f"{at}/{str(k).replace('~', '~0').replace('/', '~1')}")
+        ]
+    if isinstance(value, list):
+        return [found for i, v in enumerate(value) for found in _floats(v, f"{at}/{i}")]
+    return []
 
 
 def _build_server(areas: Iterable[str] | None = None, compact: bool = False) -> Any:

@@ -7,6 +7,7 @@ and the MCP server return the same warning and the same value as the CLI and the
 
 from __future__ import annotations
 
+import json
 from decimal import Decimal
 
 import pytest
@@ -56,3 +57,64 @@ def test_a_json_number_in_tool_arguments_is_read_exactly() -> None:
     out = tools.dispatch(name, text)
     assert _warnings(out["explain"]["conventions"]) == [WARNING]
     assert out["value"]["future_value"] == FUTURE_VALUE
+
+
+# Final review of #279, finding 6: tool schemas declare decimals as strings (ADR 0014 G7).
+G7_PATTERN = r"^-?\d+(\.\d+)?([eE][+-]?\d+)?$"
+
+
+def _decimal_nodes(node: object, out: list[dict[str, object]]) -> None:
+    if isinstance(node, dict):
+        if node.get("pattern") == G7_PATTERN or (
+            isinstance(node.get("type"), list) and "number" in node["type"]
+        ):
+            out.append(node)
+        for value in node.values():
+            _decimal_nodes(value, out)
+    elif isinstance(node, list):
+        for value in node:
+            _decimal_nodes(value, out)
+
+
+@pytest.mark.parametrize("compact", [False, True])
+def test_tool_schemas_declare_decimals_as_strings(compact: bool) -> None:
+    for d in tools.definitions(compact=compact):
+        nodes: list[dict[str, object]] = []
+        _decimal_nodes(d["parameters"], nodes)
+        for node in nodes:
+            kinds = node["type"] if isinstance(node["type"], list) else [node["type"]]
+            assert "number" not in kinds, (d["name"], node)
+            assert "string" in kinds and node["pattern"] == G7_PATTERN, (d["name"], node)
+    rate = next(d for d in tools.definitions(compact=compact) if d["name"] == "fairmark_tvm_npv")[
+        "parameters"
+    ]["properties"]["rate"]
+    assert rate["type"] == "string" and rate["pattern"] == G7_PATTERN
+
+
+def test_mcp_list_tools_declares_decimals_as_strings() -> None:
+    import asyncio
+
+    listed = asyncio.run(mcp_server.list_tools())
+    npv = next(t for t in listed if t.name == "fairmark_tvm_npv")
+    assert npv.input_schema["properties"]["rate"]["type"] == "string"
+    assert npv.input_schema["properties"]["rate"]["pattern"] == G7_PATTERN
+
+
+def test_tool_examples_follow_the_string_schema() -> None:
+    for d in tools.definitions():
+        for sample in d["parameters"].get("examples", []):
+            assert '"rate": 0' not in json.dumps(sample), d["name"]
+
+
+# Finding 9: a float argument reaching the MCP server is reported (finding 6 (c)).
+def test_mcp_reports_a_float_argument() -> None:
+    name = tools.tool_name("tvm.future_value")
+    arguments = {"payment": "2000", "rate": float(LONG), "periods": 35, "timing": "due"}
+    result = mcp_server.call_tool(name, arguments)
+    assert not result.is_error
+    warnings = _warnings(result.structured_content["explain"]["conventions"])
+    assert warnings == [
+        "warning: `/rate` arrived as a binary floating-point number (0.009166666666666667): a "
+        "JSON number may have lost digits before Fairmark read it; send decimals as strings, "
+        'for example "0.095", to keep every digit'
+    ]
