@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{base_value, output, pointer, sorted, BaseInput, Inner, InnerMethod};
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Found, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num::sub;
@@ -81,29 +81,71 @@ pub struct GoalSeekOutput {
     pub inner_value: Value,
 }
 
-pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
-    let mut inner = Inner::new(&input.method)?;
+/// Every check of the request and of its base input, before any evaluation (ADR 0014 G5):
+/// the inner method, ready to evaluate, when nothing is refused.
+fn check(input: &GoalSeekInput) -> Result<Inner> {
+    // Every input error of the request and of its base input is reported (ADR 0014 G5).
+    let mut found = Found::new();
+    let inner = found.take(Inner::new(&input.method));
     let [low, high] = input.bracket;
     if low >= high {
-        return Err(FairmarkError::InvalidInput(format!(
-            "bracket low ({low}) must be lower than high ({high})"
-        )));
+        found.push(
+            FairmarkError::InvalidInput(format!(
+                "bracket low ({low}) must be lower than high ({high})"
+            ))
+            .at("/bracket", crate::error::Reason::Range),
+        );
     }
     if input.tolerance <= Decimal::ZERO {
-        return Err(FairmarkError::InvalidInput(format!(
-            "tolerance must be greater than 0 (got {})",
-            input.tolerance
-        )));
+        found.push(
+            FairmarkError::InvalidInput(format!(
+                "tolerance must be greater than 0 (got {})",
+                input.tolerance
+            ))
+            .at("/tolerance", crate::error::Reason::Range),
+        );
     }
     if !(1..=MAX_ITERATIONS_LIMIT).contains(&input.max_iterations) {
-        return Err(FairmarkError::InvalidInput(format!(
-            "max_iterations must be between 1 and {MAX_ITERATIONS_LIMIT} (got {})",
-            input.max_iterations
-        )));
+        found.push(
+            FairmarkError::InvalidInput(format!(
+                "max_iterations must be between 1 and {MAX_ITERATIONS_LIMIT} (got {})",
+                input.max_iterations
+            ))
+            .at("/max_iterations", crate::error::Reason::Range),
+        );
     }
     let base = base_value(&input.base_input);
-    pointer::read_decimal(&base, &input.variable)?;
-    pointer::check_syntax(&input.output)?;
+    let variable = match &inner {
+        Some(inner) => found.take(
+            inner
+                .check_variable(&base, &input.variable)
+                .map_err(|e| e.located("/variable")),
+        ),
+        // A refused method is reported alone: its variables are not checked against it.
+        None => None,
+    };
+    found.check(pointer::check_syntax(&input.output).map_err(|e| e.located("/output")));
+    let needed = 2 + u64::from(input.max_iterations);
+    match (&inner, variable) {
+        // The base input as the search first evaluates it: with the variable at the low end.
+        (Some(inner), Some(true)) => {
+            let mut first = base.clone();
+            if pointer::write_decimal(&mut first, &input.variable, low).is_ok() {
+                inner.check_input(&first, needed, &mut found);
+            }
+        }
+        // The base input refuses the value the variable names: it is reported as given.
+        (Some(inner), Some(false)) => inner.check_input(&base, needed, &mut found),
+        _ => {}
+    }
+    found.finish()?;
+    inner.ok_or(FairmarkError::Internal("inner method not checked"))
+}
+
+pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
+    let mut inner = check(input)?;
+    let base = base_value(&input.base_input);
+    let [low, high] = input.bracket;
     // R5: the most evaluations this request can need, checked before the first one.
     inner.reserve(2 + u64::from(input.max_iterations), &base)?;
 
@@ -112,9 +154,10 @@ pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
     let root = brent(
         |x| {
             let mut candidate = base.clone();
-            pointer::write_decimal(&mut candidate, &input.variable, x)?;
+            pointer::write_decimal(&mut candidate, &input.variable, x)
+                .map_err(|e| e.located("/variable"))?;
             let value = inner.evaluate(&candidate)?;
-            let y = output(&value, &input.output)?;
+            let y = output(&value, &input.output).map_err(|e| e.located("/output"))?;
             values.push((y, value));
             sub(y, input.target)
         },
@@ -130,7 +173,8 @@ pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
         ));
     }
     let mut solved_input = base.clone();
-    pointer::write_decimal(&mut solved_input, &input.variable, root.x)?;
+    pointer::write_decimal(&mut solved_input, &input.variable, root.x)
+        .map_err(|e| e.located("/variable"))?;
     // Keys sorted, so the result does not depend on the order in which the caller wrote them.
     let solved_input = sorted(&solved_input);
     let outputs: Vec<Decimal> = values.iter().map(|(y, _)| *y).collect();
@@ -234,6 +278,10 @@ impl Method for GoalSeek {
     const VERSION: &'static str = "1";
     type Input = GoalSeekInput;
     type Output = GoalSeekOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check(input).map(|_| ())
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         goal_seek(input)

@@ -953,6 +953,17 @@ impl<'de> Deserialize<'de> for Adjustment {
 
         let mut map = serde_json::Map::<String, Value>::deserialize(deserializer)?;
         let Some(kind) = map.remove("kind") else {
+            // A misspelt tag is an unknown field at its key, with the rename (ADR 0014 G5).
+            if let Some(key) = map
+                .keys()
+                .find(|k| crate::reading::is_likely_typo(k, "kind"))
+            {
+                let message = format!("unknown field `{key}`, expected `kind`");
+                return Err(D::Error::custom(crate::registry::nested_error_text(
+                    std::slice::from_ref(key),
+                    &message,
+                )));
+            }
             return Err(D::Error::missing_field("kind"));
         };
         let relative = |e: serde_path_to_error::Error<serde_json::Error>, at: Vec<String>| {
@@ -986,10 +997,8 @@ impl<'de> Deserialize<'de> for Adjustment {
                 ) = rest.get("aggregate").and_then(Value::as_str)
                 {
                     let message = format!(
-                        "`{fixed}` cannot be moved by an adjustment: D18 and D19 are fixed in \
-                         the investing result (SPEC-0005 R17, Decision 17); remove the \
-                         adjustment, or name the aggregate of Appendix A.2 the non-recurring \
-                         part belongs to"
+                        "`{fixed}` {}",
+                        crate::error::CustomRefusal::FixedAggregate.text()
                     );
                     return Err(D::Error::custom(crate::registry::nested_error_text(
                         &["aggregate".into()],

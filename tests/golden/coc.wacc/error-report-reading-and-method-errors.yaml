@@ -1,0 +1,21 @@
+method: coc.wacc
+description: 'ADR 0014 G5 (review of #279, round 5, audit 1): two decimal strings outside the number grammar
+  and a tax rate out of range are reported together; the reading errors do not hide the check of the method'
+source: 'ADR 0014 G7 (a decimal string matches ^-?\d+(\.\d+)?([eE][+-]?\d+)?$, so "+0.1" and ".1" are
+  refused as type), the methodology page of coc.wacc (the tax rate is a decimal fraction from 0 to below 1, FM-E001 otherwise) and ADR 0014 G5 (every input error in
+  errors, serde''s first error first). Written from the ADR and the methodology page, not from the engine''s output.'
+input:
+  cost_of_equity: '0.10'
+  pre_tax_cost_of_debt: '+0.1'
+  tax_rate: '-1'
+  debt_to_equity: '.1'
+expect_error: FM-E001
+expect_error_report:
+  /pointer: /pre_tax_cost_of_debt
+  /reason: type
+  /errors/1/pointer: /debt_to_equity
+  /errors/1/reason: type
+  /errors/2/pointer: /tax_rate
+  /errors/2/reason: range
+expect_length:
+  /errors: '3'

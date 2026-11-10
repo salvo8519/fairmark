@@ -5,7 +5,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    check_growth_cap, domain, invalid, on, Checked, GrowthCapCheck, TerminalBasis, NOT_DISCOUNTED,
+    check_growth_cap, checked, domain, invalid, on, Checked, GrowthCapCheck, TerminalBasis,
+    NOT_DISCOUNTED,
 };
 use crate::error::Result;
 use crate::explain::Explain;
@@ -134,33 +135,50 @@ pub struct ExitMultipleOutput {
 /// Validates the input; each error names its field.
 pub(crate) fn check(input: &ExitMultipleInput) -> Checked {
     let (m, x, metric) = (input.multiple, input.metric_value, input.metric);
+    let mut errors = Vec::new();
     if m <= Decimal::ZERO {
-        return Err(on("multiple")(domain(format!(
+        errors.push(on("multiple")(domain(format!(
             "the multiple must be greater than 0 (got {m})"
         ))));
     }
     if x <= Decimal::ZERO {
-        return Err(on("metric_value")(domain(format!(
-            "the metric {} must be greater than 0 to carry a multiple (got {x})",
-            metric.name()
-        ))));
+        // The message names the metric: its field is a side of the error.
+        errors.push(on("metric_value")(
+            domain(format!(
+                "the metric {} must be greater than 0 to carry a multiple (got {x})",
+                metric.name()
+            ))
+            .between(["/metric_value", "/metric"]),
+        ));
     }
     if input.rate.is_some() != input.next_flow.is_some() {
-        return Err(on("next_flow")(invalid(
-            "give both rate and next_flow, or neither",
-        )));
+        // Located at the field given, which requires the other (final review of #279).
+        let (given, other) = if input.rate.is_some() {
+            ("rate", "next_flow")
+        } else {
+            ("next_flow", "rate")
+        };
+        errors.push(on(given)(
+            invalid("give both rate and next_flow, or neither")
+                .because(crate::error::Reason::Requires)
+                .between([format!("/{given}"), format!("/{other}")]),
+        ));
     }
     if input.next_flow.is_none() && input.growth_cap.is_some() {
-        return Err(on("growth_cap")(invalid(
-            "growth_cap needs rate and next_flow: the cap is checked on the implied growth",
-        )));
+        errors.push(on("growth_cap")(
+            invalid(
+                "growth_cap needs rate and next_flow: the cap is checked on the implied growth",
+            )
+            .because(crate::error::Reason::Requires)
+            .between(["/growth_cap", "/next_flow"]),
+        ));
     }
-    Ok(())
+    checked(errors)
 }
 
 /// TV_N = multiple × metric_N; implied growth g = r − CF_{N+1} / TV_N.
 pub fn exit_multiple(input: &ExitMultipleInput) -> Result<(ExitMultipleOutput, Explain)> {
-    check(input).map_err(super::FieldError::into_error)?;
+    check(input).map_err(super::into_error)?;
     let (m, x, metric) = (input.multiple, input.metric_value, input.metric);
     let pair = input.rate.zip(input.next_flow);
     let basis = metric.basis();
@@ -251,6 +269,10 @@ impl Method for ExitMultiple {
     const VERSION: &'static str = "1";
     type Input = ExitMultipleInput;
     type Output = ExitMultipleOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check(input).map_err(super::into_error)
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         exit_multiple(input)

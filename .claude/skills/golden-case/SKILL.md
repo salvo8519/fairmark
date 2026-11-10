@@ -23,6 +23,12 @@ description: Author a golden test case for a Fairmark method with expected value
    for example `/defaults_applied/0/field`; it is compared like `expect` and protected like it.
    To assert that a list has no entry beyond those asserted, add `expect_length` with JSON
    Pointers into `value` and the expected count, for example `/not_computed: "3"`.
+   An error case (`expect_error`) may add `expect_error_report` with JSON Pointers into the
+   error report (ADR 0014 G5), for example `/pointer`, `/reason`, `/pointers/1` or
+   `/errors/2/pointer`; values are compared exactly (`null` for a null field) and protected
+   like `expect`. In an error case, `expect_length` counts arrays of the error report, for
+   example `/errors: "3"`, so that no error beyond those asserted is reported. Do not assert
+   `/fix`: its wording is not part of the contract.
 3. Use only anonymised or synthetic data.
 4. Run `cargo test -p fairmark-core --test golden` and `uv run pytest python/tests/test_golden.py`.
 5. Existing golden files are protected by a hook: never edit them; propose a

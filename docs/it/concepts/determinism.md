@@ -1,6 +1,6 @@
 ---
 source: concepts/determinism.md
-source_hash: 561d58b0c31a
+source_hash: 71ae46acb5fb
 ---
 # Il contratto di determinismo
 
@@ -15,7 +15,10 @@ metodo. Questo documento è il contratto; la CI lo verifica a ogni commit.
 2. **Lettura esatta.** I numeri JSON sono convertiti direttamente in decimali
    (`arbitrary_precision`), mai tramite la virgola mobile binaria. Gli output serializzano i
    decimali come stringhe, così nessun consumatore (JavaScript, fogli di calcolo) perde
-   precisione senza accorgersene.
+   precisione senza accorgersene. Un valore con più cifre di quante un decimale ne contenga
+   (più di 28 cifre decimali) è arrotondato alla lettura (le metà si arrotondano allontanandosi dallo zero), e il risultato
+   lo dichiara in una convenzione `warning: ` con il valore dato e il valore usato (vedi il
+   riferimento degli errori, grammatica dei numeri).
 3. **Le potenze intere sono esatte.** I fattori di sconto con esponente intero usano la
    moltiplicazione ripetuta. Gli esponenti frazionari (convenzione di metà periodo) usano
    `powd` decimale, la cui precisione è verificata nei casi di riferimento contro

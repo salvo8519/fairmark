@@ -9,7 +9,7 @@ use super::{
     base_case, base_value, output, pointer, recorded, unique, with_values, BaseInput, Inner,
     InnerMethod, Outcome,
 };
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Found, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num::{div, sub};
@@ -96,39 +96,81 @@ pub struct ScenariosOutput {
     pub failed_scenarios: u64,
 }
 
-pub fn scenarios(input: &ScenariosInput) -> Result<(ScenariosOutput, Explain)> {
-    let mut inner = Inner::new(&input.method)?;
+/// Every check of the request and of its base input, before any evaluation (ADR 0014 G5):
+/// the inner method, ready to evaluate, when nothing is refused.
+fn check(input: &ScenariosInput) -> Result<Inner> {
+    // Every input error of the request and of its base input is reported (ADR 0014 G5).
+    let mut found = Found::new();
+    let inner = found.take(Inner::new(&input.method));
     let base = base_value(&input.base_input);
     if input.outputs.is_empty() {
-        return Err(FairmarkError::InvalidInput("outputs is empty".to_owned()));
+        found.push(
+            FairmarkError::InvalidInput("outputs is empty".to_owned())
+                .at("/outputs", crate::error::Reason::Length),
+        );
     }
     if input.scenarios.is_empty() {
-        return Err(FairmarkError::InvalidInput("scenarios is empty".to_owned()));
+        found.push(
+            FairmarkError::InvalidInput("scenarios is empty".to_owned())
+                .at("/scenarios", crate::error::Reason::Length),
+        );
     }
-    unique("output", input.outputs.iter().map(String::as_str))?;
-    for o in &input.outputs {
-        pointer::check_syntax(o)?;
+    found.check(unique(
+        "output",
+        input.outputs.iter().map(String::as_str),
+        |k| format!("/outputs/{k}"),
+    ));
+    for (k, o) in input.outputs.iter().enumerate() {
+        found.check(pointer::check_syntax(o).map_err(|e| e.located(format!("/outputs/{k}"))));
     }
-    for s in &input.scenarios {
+    for (i, s) in input.scenarios.iter().enumerate() {
         if s.name.trim().is_empty() || s.name.trim() != s.name {
-            return Err(FairmarkError::InvalidInput(format!(
-                "scenario name '{}' is empty or has leading or trailing spaces",
-                s.name
-            )));
+            found.push(
+                FairmarkError::InvalidInput(format!(
+                    "scenario name '{}' is empty or has leading or trailing spaces",
+                    s.name
+                ))
+                .at(format!("/scenarios/{i}/name"), crate::error::Reason::Blank),
+            );
         }
-        unique(
+        found.check(unique(
             &format!("in scenario '{}' the pointer", s.name),
             s.overrides.iter().map(|o| o.pointer.as_str()),
-        )?;
-        for o in &s.overrides {
-            pointer::read_decimal(&base, &o.pointer)?;
+            |k| format!("/scenarios/{i}/overrides/{k}/pointer"),
+        ));
+        for (k, o) in s.overrides.iter().enumerate() {
+            let at = |e: FairmarkError| e.located(format!("/scenarios/{i}/overrides/{k}/pointer"));
+            match &inner {
+                Some(inner) => found.check(
+                    inner
+                        .check_variable(&base, &o.pointer)
+                        .map(|_| ())
+                        .map_err(at),
+                ),
+                // A refused method is reported alone: its variables are not checked against it.
+                None => false,
+            };
         }
     }
-    unique("scenario", input.scenarios.iter().map(|s| s.name.as_str()))?;
+    found.check(unique(
+        "scenario",
+        input.scenarios.iter().map(|s| s.name.as_str()),
+        |k| format!("/scenarios/{k}/name"),
+    ));
+    if let Some(inner) = &inner {
+        inner.check_input(&base, input.scenarios.len() as u64 + 1, &mut found);
+    }
+    found.finish()?;
+    inner.ok_or(FairmarkError::Internal("inner method not checked"))
+}
+
+pub fn scenarios(input: &ScenariosInput) -> Result<(ScenariosOutput, Explain)> {
+    let mut inner = check(input)?;
+    let base = base_value(&input.base_input);
     inner.reserve(input.scenarios.len() as u64 + 1, &base)?;
 
     let pointers: Vec<&str> = input.outputs.iter().map(String::as_str).collect();
-    let base_outputs = base_case(&mut inner, &base, &pointers)?;
+    let base_outputs = base_case(&mut inner, &base, &pointers, |k| format!("/outputs/{k}"))?;
     let mut ex = Explain::new(
         Scenarios::ID,
         "delta = output(scenario) − output(base); relative delta = delta / output(base)",
@@ -158,7 +200,8 @@ pub fn scenarios(input: &ScenariosInput) -> Result<(ScenariosOutput, Explain)> {
                 let values = input
                     .outputs
                     .iter()
-                    .map(|o| output(&value, o))
+                    .enumerate()
+                    .map(|(k, o)| output(&value, o).map_err(|e| e.located(format!("/outputs/{k}"))))
                     .collect::<Result<Vec<_>>>()?;
                 let compared = input
                     .outputs
@@ -267,6 +310,10 @@ impl Method for Scenarios {
     const VERSION: &'static str = "1";
     type Input = ScenariosInput;
     type Output = ScenariosOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check(input).map(|_| ())
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         scenarios(input)

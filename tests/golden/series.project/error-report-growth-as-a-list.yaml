@@ -1,0 +1,17 @@
+method: series.project
+description: 'ADR 0014 G5 (review of #279, round 5, audit 2): the growth rule given as a list of its
+  values is one type error at the object, with no error for its elements'
+source: 'ADR 0014 G5 and G6 (an object given as a positional array is refused at the array, reason type;
+  no positional alignment) and SPEC-0010 (growth is an object naming one rule). Written from the ADR and
+  the spec, not from the engine''s output.'
+input:
+  base_value: '1000'
+  base_period: period_0
+  growth: [{growth: '0.12'}]
+  timeline: {periods: {number_of_periods: 2, frequency: annual}}
+expect_error: FM-E001
+expect_error_report:
+  /pointer: /growth
+  /reason: type
+expect_length:
+  /errors: '1'

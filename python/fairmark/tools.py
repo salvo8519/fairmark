@@ -22,12 +22,17 @@ examples taken from golden cases (``tool_examples.json``).
 
 The LLM extracts parameters; Fairmark computes; the LLM writes the report citing
 ``explain``. The model never does the arithmetic.
+
+A refused call returns ``{"error": <report>}`` (see ``dispatch``): the model corrects the
+argument named by ``pointer`` as ``fix`` says, and every other entry of ``errors``, without
+parsing the message.
 """
 
 from __future__ import annotations
 
 import json
 from collections.abc import Iterable, Mapping
+from decimal import Decimal
 from functools import cache
 from importlib import resources
 from typing import Any
@@ -56,13 +61,21 @@ def tool_name(method_id: str) -> str:
 
 def method_id(name: str) -> str:
     """`fairmark_dcf_fcff` -> `dcf.fcff`."""
-    if not name.startswith(PREFIX):
-        raise FairmarkError("FM-E007", f"not a fairmark tool: {name}")
     by_name = {tool_name(m["id"]): m["id"] for m in methods()}
-    try:
-        return by_name[name]
-    except KeyError:
-        raise FairmarkError("FM-E007", f"unknown tool: {name}") from None
+    message = (
+        f"not a fairmark tool: {name}" if not name.startswith(PREFIX) else f"unknown tool: {name}"
+    )
+    if name not in by_name:
+        # The tool names are the accepted values (ADR 0014 G5); the name is not an argument,
+        # so there is no pointer.
+        report = {
+            "code": "FM-E007",
+            "message": message,
+            "reason": "enum",
+            "expected": sorted(by_name),
+        }
+        raise FairmarkError("FM-E007", message, report)
+    return by_name[name]
 
 
 # Private key carrying the sentence that lists the documented values of an enum while the
@@ -165,6 +178,27 @@ def _portable(node: Any) -> Any:
     items = node.get("items")
     if kind == "array" and isinstance(items, dict) and isinstance(items.get("type"), list):
         out["description"] = str(out.get("description", "")) + " Each item:" + _DECIMAL_HINT
+    return out
+
+
+DECIMAL_PATTERN = r"^-?\d+(\.\d+)?([eE][+-]?\d+)?$"
+"""The number grammar of ADR 0014 G7, which every decimal of a tool schema declares."""
+
+
+def _decimals_as_strings(node: Any) -> Any:
+    """Every decimal (a JSON number or a string in the input schema) declared as a string with
+    the number grammar of G7. A JSON number in tool arguments is read by most client libraries,
+    and by the MCP library, as a binary float, which keeps about 17 significant digits; a
+    string reaches the engine exactly. The engine still accepts JSON numbers."""
+    if isinstance(node, list):
+        return [_decimals_as_strings(v) for v in node]
+    if not isinstance(node, dict):
+        return node
+    out = {k: _decimals_as_strings(v) for k, v in node.items()}
+    kind = node.get("type")
+    if isinstance(kind, list) and "string" in kind and "number" in kind:
+        out["type"] = ["string", "null"] if "null" in kind else "string"
+        out["pattern"] = DECIMAL_PATTERN
     return out
 
 
@@ -276,7 +310,9 @@ def _strings_for_decimals(value: Any, schema: Any) -> Any:
             items = next((v["items"] for v in variants if "items" in v), None)
         return [_strings_for_decimals(v, items) for v in value]
     if isinstance(value, (int, float)) and not isinstance(value, bool):
-        kinds = {schema.get("type")} | {v.get("type") for v in variants}
+        kinds: set[Any] = set()
+        for kind in [schema.get("type")] + [v.get("type") for v in variants]:
+            kinds |= set(kind) if isinstance(kind, list) else {kind}
         if "string" in kinds and not kinds & {"number", "integer"}:
             return str(value)
     return value
@@ -337,16 +373,16 @@ def definitions(
         if wanted is not None and m["id"].split(".")[0] not in wanted:
             continue
         schema = _inline(input_schema(m["id"]))
-        if portable:
-            schema = _portable(schema)
+        schema = _portable(schema) if portable else _decimals_as_strings(schema)
         decimals = False
         if compact:
             schema, decimals = _compact(schema)
         schema = _finish(schema)
         samples = examples(m["id"])[:1] if compact else examples(m["id"])
         sample_text = ""
+        # The examples as the schema asks for them: decimals as strings.
+        samples = [_strings_for_decimals(sample, schema) for sample in samples]
         if portable:
-            samples = [_strings_for_decimals(sample, schema) for sample in samples]
             labels = ("Minimal input example", "Complete input example")
             sample_text = "".join(
                 f" {label}: {_compact_json(s)}." for label, s in zip(labels, samples, strict=False)
@@ -485,13 +521,35 @@ def langchain(*, compact: bool = False, areas: Iterable[str] | str | None = None
 def dispatch(name: str, arguments: Mapping[str, Any] | str) -> dict[str, Any]:
     """Execute a tool call coming from an LLM.
 
-    Never raises on bad input: returns ``{"error": {"code", "message"}}`` so the
-    model can read the error and correct its parameters.
+    Never raises on bad input: returns ``{"error": <report>}`` so the model can read the error
+    and correct its parameters. The report (ADR 0014 G5) carries ``code`` (stable),
+    ``message``, ``pointer`` (JSON pointer of the argument to correct, or null), ``pointers``
+    (every argument of a relation), ``reason`` (the sub-kind, for example ``missing``,
+    ``unknown_field``, ``enum``, ``sign``), ``expected`` (the accepted values), ``fix`` (one
+    sentence), ``missing_any_of`` (``FM-E027`` only: alternative sets of arguments, any one of
+    which is enough) and ``errors`` (every input error found, the first equal to the top level).
+    Correct every entry of ``errors`` before calling again.
     """
     try:
-        args = json.loads(arguments) if isinstance(arguments, str) else dict(arguments)
+        # A JSON number in text arguments is read exactly (ADR 0014 G7), never as a binary float.
+        args = (
+            json.loads(arguments, parse_float=Decimal)
+            if isinstance(arguments, str)
+            else dict(arguments)
+        )
         return run_json(method_id(name), args)
     except FairmarkError as err:
-        return {"error": {"code": err.code, "message": err.message}}
+        return {"error": err.report}
     except json.JSONDecodeError as err:
-        return {"error": {"code": "FM-E001", "message": f"arguments are not valid JSON: {err}"}}
+        return {
+            "error": FairmarkError(
+                "FM-E001",
+                f"arguments are not valid JSON: {err}",
+                {
+                    "code": "FM-E001",
+                    "message": f"arguments are not valid JSON: {err}",
+                    "reason": "syntax",
+                    "fix": "send the arguments as one well-formed JSON object",
+                },
+            ).report
+        }

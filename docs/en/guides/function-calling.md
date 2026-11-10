@@ -24,8 +24,23 @@ Supported providers and complete examples: [LLM providers](providers.md).
 result = fm.tools.dispatch(name, arguments)   # arguments: dict or JSON string
 ```
 
-`dispatch` never raises on bad input. It returns `{"error": {"code", "message"}}`, which you
-send back to the model as the tool result so it can fix its parameters.
+`dispatch` never raises on bad input. It returns `{"error": <report>}`, which you send back
+to the model as the tool result so it can fix its parameters. The report
+([error codes](../reference/errors.md#the-error-report)) names the argument to correct by its
+JSON pointer (`pointer`), the sub-kind (`reason`, for example `missing`, `unknown_field`,
+`enum` or `sign`), the accepted values (`expected`) and the fix (`fix`), and lists every
+input error found in `errors`, so the model corrects them all in one round:
+
+```python
+out = fm.tools.dispatch("fairmark_loans_instalment",
+                        {"principal": "0", "number_of_instalments": 0,
+                         "timing": "ordinary", "periodic_rate": "0.01"})
+[e["pointer"] for e in out["error"]["errors"]]   # ['/principal', '/number_of_instalments']
+```
+
+In Python, `fm.FairmarkError` carries the same fields as attributes: `err.pointer`,
+`err.pointers`, `err.reason`, `err.expected`, `err.fix`, `err.missing_any_of` and
+`err.errors`.
 
 ## Preview methods
 
@@ -45,13 +60,22 @@ Method `dcf.fcff` becomes tool `fairmark_dcf_fcff`. Use `fm.tools.method_id(name
 
 ## Schemas the model sees
 
-Schemas are inlined (no `$ref`) for compatibility across providers. Decimal fields accept
-numbers or strings; descriptions state units explicitly ("decimal fraction, 0.09 = 9%"),
+Schemas are inlined (no `$ref`) for compatibility across providers. Decimal fields are
+declared as strings with the number grammar of ADR 0014 G7 (`pattern`
+`^-?\d+(\.\d+)?([eE][+-]?\d+)?$`), and the examples write them as strings; descriptions state
+units explicitly ("decimal fraction, 0.09 = 9%"),
 which is what makes models extract rates correctly. The portable variant (`portable=True`,
 used for Gemini and local open-weight runtimes) declares decimals as strings, turns optional
 values (`X or null`) into plain `X` (an optional field is simply not required), and removes
 `pattern` and `additionalProperties`. Dates are ISO 8601 strings (`"2026-06-30"`) in both
 variants.
+
+Send decimals as strings. The engine also accepts JSON numbers, but most client libraries read
+a JSON number in tool arguments as a binary float, which keeps about 17 significant digits:
+the digits beyond are lost before Fairmark sees the value, and no warning can recover them.
+`fm.tools.dispatch` reads arguments given as JSON text exactly. A string with more digits than
+a decimal holds is rounded and reported (see the
+[errors reference](../reference/errors.md), number grammar).
 
 ## Enum values and their meaning
 

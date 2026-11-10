@@ -141,7 +141,7 @@ milestones:
           - { issue: 30, title: "Schema versioning and changelog of schema changes", status: done }
           - { issue: 103, title: "Method trait per theme, single registry list, versioned input schemas", status: done }
           - { issue: 174, title: "Every error names the input field by its JSON pointer", status: done }
-          - { issue: 201, title: "Pointers for tv.gordon FM-E004 and refusal of positional arrays", status: open }
+          - { issue: 201, title: "Pointers for tv.gordon FM-E004 and refusal of positional arrays", status: done }
       - title: "Test harness"
         issue: 31
         labels: ["area:core"]
@@ -273,7 +273,7 @@ milestones:
         labels: []
         tasks:
           - { issue: 257, title: "ADR: contract guidelines for inputs, envelope and errors", status: done }
-          - { issue: 258, title: "Structured error report with pointer, reason, expected and fix", status: open }
+          - { issue: 258, title: "Structured error report with pointer, reason, expected and fix", status: done }
           - { issue: 259, title: "One envelope: diagnostics block and envelope version", status: open }
           - { issue: 260, title: "Output versioning rule and version pin", status: open }
           - { issue: 261, title: "DCF: report the net financial position default and warn", status: done }

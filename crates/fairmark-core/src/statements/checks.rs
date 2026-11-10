@@ -144,6 +144,12 @@ impl Checks {
                 right: r,
                 difference: num::sub(l, r)?,
                 fix: fix.to_owned(),
+                pointers: left
+                    .pointers
+                    .iter()
+                    .chain(&right.pointers)
+                    .cloned()
+                    .collect(),
             },
         )))
     }

@@ -37,7 +37,9 @@ INSTRUCTIONS = (
     "recommendation: decisions belong to the user, who verifies the results before relying "
     "on them (https://salvo8519.github.io/fairmark/disclaimer/). A Fairmark tool whose "
     "description says 'Status: preview' has not completed independent verification: tell "
-    "the user when a result comes from it."
+    "the user when a result comes from it. A refused call returns error.pointer (the "
+    "argument to correct), error.reason, error.expected and error.fix: correct every entry of "
+    "error.errors before calling again."
 )
 
 logger = logging.getLogger("fairmark.mcp")
@@ -70,6 +72,54 @@ async def list_tools(*, areas: Iterable[str] | None = None, compact: bool = Fals
     ]
 
 
+def call_tool(name: str, arguments: Any) -> Any:
+    """One tool call: the result envelope, or ``{"error": <report>}`` with the whole error
+    report (ADR 0014 G5: pointer, pointers, reason, expected, fix, missing_any_of, errors), as
+    text and as structured content; ``isError`` is set for an error."""
+    from mcp import types
+
+    started = time.perf_counter()
+    out = tools.dispatch(name, arguments)
+    # A JSON number reaches this server already read by the MCP library as a binary float:
+    # its digits beyond about 17 are lost before Fairmark sees it. Said, never silent.
+    if "error" not in out and isinstance(arguments, dict):
+        conventions = out.setdefault("explain", {}).setdefault("conventions", [])
+        for pointer, value in _floats(arguments, ""):
+            conventions.append(
+                f"warning: `{pointer}` arrived as a binary floating-point number ({value!r}): "
+                "a JSON number may have lost digits before Fairmark read it; send decimals as "
+                'strings, for example "0.095", to keep every digit'
+            )
+    log_event(
+        logger,
+        "tool_call",
+        tool=name,
+        outcome=out["error"]["code"] if "error" in out else "ok",
+        duration_ms=round((time.perf_counter() - started) * 1000, 3),
+        input_hash=out.get("meta", {}).get("input_hash"),
+    )
+    return types.CallToolResult(
+        content=[types.TextContent(text=json.dumps(out, ensure_ascii=False))],
+        structured_content=out,
+        is_error="error" in out,
+    )
+
+
+def _floats(value: Any, at: str) -> list[tuple[str, float]]:
+    """The JSON pointer and value of every Python float in tool arguments."""
+    if isinstance(value, float):
+        return [(at, value)]
+    if isinstance(value, dict):
+        return [
+            found
+            for k, v in value.items()
+            for found in _floats(v, f"{at}/{str(k).replace('~', '~0').replace('/', '~1')}")
+        ]
+    if isinstance(value, list):
+        return [found for i, v in enumerate(value) for found in _floats(v, f"{at}/{i}")]
+    return []
+
+
 def _build_server(areas: Iterable[str] | None = None, compact: bool = False) -> Any:
     try:
         from mcp import types
@@ -81,21 +131,7 @@ def _build_server(areas: Iterable[str] | None = None, compact: bool = False) -> 
         return types.ListToolsResult(tools=await list_tools(areas=areas, compact=compact))
 
     async def on_call_tool(ctx: Any, params: Any) -> Any:
-        started = time.perf_counter()
-        out = tools.dispatch(params.name, params.arguments or {})
-        log_event(
-            logger,
-            "tool_call",
-            tool=params.name,
-            outcome=out["error"]["code"] if "error" in out else "ok",
-            duration_ms=round((time.perf_counter() - started) * 1000, 3),
-            input_hash=out.get("meta", {}).get("input_hash"),
-        )
-        return types.CallToolResult(
-            content=[types.TextContent(text=json.dumps(out, ensure_ascii=False))],
-            structured_content=out,
-            is_error="error" in out,
-        )
+        return call_tool(params.name, params.arguments or {})
 
     return Server(
         "fairmark",

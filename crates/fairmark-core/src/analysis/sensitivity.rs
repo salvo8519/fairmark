@@ -9,7 +9,7 @@ use super::{
     base_case, base_value, output, pointer, recorded, with_values, BaseInput, Inner, InnerMethod,
     Outcome,
 };
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Found, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 
@@ -64,36 +64,78 @@ pub struct SensitivityOutput {
     pub failed_cells: u64,
 }
 
-fn check_axis(name: &str, axis: &Axis, base: &serde_json::Value) -> Result<()> {
-    pointer::read_decimal(base, &axis.variable)?;
+fn check_axis(
+    name: &str,
+    axis: &Axis,
+    base: &serde_json::Value,
+    inner: Option<&Inner>,
+    found: &mut Found,
+) {
+    let at = |e: FairmarkError| e.located(format!("/{name}/variable"));
+    match inner {
+        Some(inner) => found.check(
+            inner
+                .check_variable(base, &axis.variable)
+                .map(|_| ())
+                .map_err(at),
+        ),
+        // A refused method is reported alone: its variables are not checked against it.
+        None => false,
+    };
     if axis.values.is_empty() {
-        return Err(FairmarkError::InvalidInput(format!(
-            "{name}.values is empty"
-        )));
+        found.push(
+            FairmarkError::InvalidInput(format!("{name}.values is empty"))
+                .at(format!("/{name}/values"), crate::error::Reason::Length),
+        );
     }
-    Ok(())
+}
+
+/// Every check of the request and of its base input, before any evaluation (ADR 0014 G5):
+/// the inner method, ready to evaluate, when nothing is refused.
+fn check(input: &SensitivityInput) -> Result<Inner> {
+    // Every input error of the request and of its base input is reported (ADR 0014 G5).
+    let mut found = Found::new();
+    let inner = found.take(Inner::new(&input.method));
+    let base = base_value(&input.base_input);
+    check_axis("rows", &input.rows, &base, inner.as_ref(), &mut found);
+    if let Some(columns) = &input.columns {
+        check_axis("columns", columns, &base, inner.as_ref(), &mut found);
+        if columns.variable == input.rows.variable {
+            found.push(
+                FairmarkError::InvalidInput(format!(
+                    "rows and columns use the same variable {}",
+                    columns.variable
+                ))
+                .at("/columns/variable", crate::error::Reason::Conflict)
+                .between(["/columns/variable", "/rows/variable"]),
+            );
+        }
+    }
+    found.check(pointer::check_syntax(&input.output).map_err(|e| e.located("/output")));
+    if let Some(inner) = &inner {
+        let n_rows = input.rows.values.len() as u64;
+        let n_cols = input.columns.as_ref().map_or(1, |c| c.values.len() as u64);
+        inner.check_input(
+            &base,
+            n_rows.saturating_mul(n_cols).saturating_add(1),
+            &mut found,
+        );
+    }
+    found.finish()?;
+    inner.ok_or(FairmarkError::Internal("inner method not checked"))
 }
 
 pub fn sensitivity(input: &SensitivityInput) -> Result<(SensitivityOutput, Explain)> {
-    let mut inner = Inner::new(&input.method)?;
+    let mut inner = check(input)?;
     let base = base_value(&input.base_input);
-    check_axis("rows", &input.rows, &base)?;
-    if let Some(columns) = &input.columns {
-        check_axis("columns", columns, &base)?;
-        if columns.variable == input.rows.variable {
-            return Err(FairmarkError::InvalidInput(format!(
-                "rows and columns use the same variable {}",
-                columns.variable
-            )));
-        }
-    }
-    pointer::check_syntax(&input.output)?;
     let n_rows = input.rows.values.len() as u64;
     let n_cols = input.columns.as_ref().map_or(1, |c| c.values.len() as u64);
     // R5: the base case plus one evaluation per cell, refused before the first evaluation.
     inner.reserve(n_rows.saturating_mul(n_cols).saturating_add(1), &base)?;
 
-    let base_output = base_case(&mut inner, &base, &[input.output.as_str()])?[0];
+    let base_output = base_case(&mut inner, &base, &[input.output.as_str()], |_| {
+        "/output".to_owned()
+    })?[0];
     let mut ex = Explain::new(
         Sensitivity::ID,
         if input.columns.is_some() {
@@ -123,7 +165,7 @@ pub fn sensitivity(input: &SensitivityInput) -> Result<(SensitivityOutput, Expla
             // resolve is a wrong request, not a refused combination, so it ends it (R3).
             let cell = match recorded(inner.evaluate(&candidate))? {
                 Outcome::Value { value } => Outcome::Value {
-                    value: output(&value, &input.output)?,
+                    value: output(&value, &input.output).map_err(|e| e.located("/output"))?,
                 },
                 Outcome::Error { error } => Outcome::Error { error },
             };
@@ -196,6 +238,10 @@ impl Method for Sensitivity {
     const VERSION: &'static str = "1";
     type Input = SensitivityInput;
     type Output = SensitivityOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check(input).map(|_| ())
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         sensitivity(input)

@@ -34,7 +34,9 @@ roadmap/            roadmap.yaml → GitHub milestones, epics and tasks
    struct (serde + `JsonSchema`, `deny_unknown_fields`, doc comment with units on every field),
    an `Output` struct (`Serialize` + `JsonSchema`, doc comment with units on the type and on
    every field) and a unit type that implements the `Method` trait (id, version, title,
-   description, `compute`) (ADR 0009).
+   description, `compute`, and `validate` when the method checks its input: every input check,
+   every error reported, nothing computed; `compute` calls the same checks first) (ADR 0009,
+   ADR 0014 G5).
 2. Add one line to the list in `registry.rs`; `uv run just generate` writes its input and
    output schemas to `schemas/<method>/v1.json` and `schemas/<method>/v1.output.json` and
    updates `schemas/index.json`.

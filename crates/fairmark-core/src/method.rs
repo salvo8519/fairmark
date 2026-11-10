@@ -45,6 +45,17 @@ pub trait Method {
         Vec::new()
     }
 
+    /// Every input check of the method, on an input whose defaults were filled in, without
+    /// computing anything (ADR 0014 G5): the checks [`Method::compute`] makes before it
+    /// computes, collected in one pass. The registry calls it to check an input that it does
+    /// not evaluate (the `base_input` of an analysis). A condition that only the computation can
+    /// find (totals that do not reconcile, an output set below the minimum, an instalment that
+    /// never repays the loan) is reported when the method runs. The default checks nothing
+    /// beyond the reading of the input, for a method without checks of its own.
+    fn validate(_input: &Self::Input, _defaults: &[DefaultApplied]) -> Result<()> {
+        Ok(())
+    }
+
     /// [`Method::compute`] on an input whose defaults were filled in by
     /// [`Method::apply_defaults`], with the list of those defaults, for a method whose messages
     /// say when a value came from a default (SPEC-0001 Decision 24). The registry calls this

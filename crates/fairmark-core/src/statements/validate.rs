@@ -12,53 +12,78 @@ use super::input::{
     ShareholderLoansOverride, StatutoryBalanceSheet, StatutoryIncomeStatement, WithMaturity,
 };
 use crate::dates::{days_in_month, Date};
-use crate::error::{FairmarkError, Reconciliation, Result};
+use crate::error::{FairmarkError, Found, Reason, Reconciliation, Result};
 
 fn invalid(message: String) -> FairmarkError {
     FairmarkError::InvalidInput(message)
 }
 
-/// Every check of this module, in a fixed order, so that the first refusal is deterministic.
+/// Every check of this module, in a fixed order: every refusal is collected (ADR 0014 G5), and
+/// the first is the one a single refusal would be.
 pub(crate) fn validate(input: &ReorganiseInput) -> Result<()> {
+    let mut f = Found::new();
     if input.years.is_empty() {
         return Err(invalid(
             "`/years` is empty: give at least one financial year, oldest first".into(),
-        ));
+        )
+        .at("/years", Reason::Length)
+        .fix("give at least one financial year"));
     }
     for (i, y) in input.years.iter().enumerate() {
         if y.statutory.is_some() && y.reclassified.is_some() {
-            return Err(invalid(format!(
-                "`/years/{i}` has both `statutory` and `reclassified`: give one form per year; \
-                 to compare the two forms of the same year, make two calls"
-            )));
+            f.push(
+                invalid(format!(
+                    "`/years/{i}` has both `statutory` and `reclassified`: give one form per \
+                     year; to compare the two forms of the same year, make two calls"
+                ))
+                .at(format!("/years/{i}"), Reason::Conflict)
+                .between([
+                    format!("/years/{i}/statutory"),
+                    format!("/years/{i}/reclassified"),
+                ])
+                .fix("give one form per year, and make two calls to compare the two forms"),
+            );
         }
     }
-    dates(input)?;
+    dates(input, &mut f);
     for (i, y) in input.years.iter().enumerate() {
         if let Some(st) = &y.statutory {
             if let Some(bs) = &st.balance_sheet {
-                statutory_balance_sheet(bs, &format!("/years/{i}/statutory/balance_sheet"))?;
+                statutory_balance_sheet(bs, &format!("/years/{i}/statutory/balance_sheet"), &mut f);
             }
             if let Some(is) = &st.income_statement {
-                statutory_income_statement(is, &format!("/years/{i}/statutory/income_statement"))?;
+                statutory_income_statement(
+                    is,
+                    &format!("/years/{i}/statutory/income_statement"),
+                    &mut f,
+                );
             }
         }
         if let Some(rc) = &y.reclassified {
             if let Some(bs) = &rc.balance_sheet {
-                reclassified_balance_sheet(bs, &format!("/years/{i}/reclassified/balance_sheet"))?;
+                reclassified_balance_sheet(
+                    bs,
+                    &format!("/years/{i}/reclassified/balance_sheet"),
+                    &mut f,
+                );
             }
             if let Some(is) = &rc.income_statement {
                 reclassified_income_statement(
                     is,
                     &format!("/years/{i}/reclassified/income_statement"),
-                )?;
+                    &mut f,
+                );
             }
             if y.treatment_overrides.is_some() {
-                return Err(invalid(format!(
-                    "`/years/{i}/treatment_overrides` is given for a reclassified entry: \
-                     treatments apply to statutory entries only (R5); give the totals already \
-                     reclassified, or remove the overrides"
-                )));
+                f.push(
+                    invalid(format!(
+                        "`/years/{i}/treatment_overrides` is given for a reclassified entry: \
+                         treatments apply to statutory entries only (R5); give the totals \
+                         already reclassified, or remove the overrides"
+                    ))
+                    .at(format!("/years/{i}/treatment_overrides"), Reason::Requires)
+                    .fix("remove the overrides, and give the totals already reclassified"),
+                );
             }
         }
         if let Some(o) = &y.treatment_overrides {
@@ -66,38 +91,46 @@ pub(crate) fn validate(input: &ReorganiseInput) -> Result<()> {
             if let Some(FinancialFixedAssetsOverride::Split(parts)) = &o.financial_fixed_assets {
                 for (j, p) in parts.iter().enumerate() {
                     let pp = format!("{at}/financial_fixed_assets/split/{j}");
-                    unsigned(&format!("{pp}/amount"), Some(p.amount))?;
-                    not_blank(&format!("{pp}/label"), &p.label, "name the part")?;
+                    unsigned(&format!("{pp}/amount"), Some(p.amount), &mut f);
+                    not_blank(&format!("{pp}/label"), &p.label, "name the part", &mut f);
                 }
             }
             if let Some(ShareholderLoansOverride::Split(parts)) = &o.shareholder_loans {
                 for (j, p) in parts.iter().enumerate() {
                     let pp = format!("{at}/shareholder_loans/split/{j}");
-                    unsigned(&format!("{pp}/amount"), Some(p.amount))?;
-                    unsigned(&format!("{pp}/beyond_one_year"), p.beyond_one_year)?;
+                    unsigned(&format!("{pp}/amount"), Some(p.amount), &mut f);
+                    unsigned(&format!("{pp}/beyond_one_year"), p.beyond_one_year, &mut f);
                     if p.beyond_one_year.is_some()
                         && p.destination == ShareholderLoansDestination::QuasiEquity
                     {
-                        return Err(invalid(format!(
-                            "`{pp}/beyond_one_year` is given for a `quasi_equity` part: a \
-                             quasi-equity part is not in the net financial position and has no \
-                             maturity there; remove the field, or give the part the destination \
-                             `financial_debt`"
-                        )));
+                        f.push(
+                            invalid(format!(
+                                "`{pp}/beyond_one_year` is given for a `quasi_equity` part: a \
+                                 quasi-equity part is not in the net financial position and has \
+                                 no maturity there; remove the field, or give the part the \
+                                 destination `financial_debt`"
+                            ))
+                            .at(format!("{pp}/beyond_one_year"), Reason::Requires)
+                            .between([format!("{pp}/beyond_one_year"), format!("{pp}/destination")])
+                            .fix(
+                                "remove `beyond_one_year`, or give the part the destination \
+                                 `financial_debt`",
+                            ),
+                        );
                     }
-                    not_blank(&format!("{pp}/label"), &p.label, "name the part")?;
+                    not_blank(&format!("{pp}/label"), &p.label, "name the part", &mut f);
                 }
             }
         }
     }
     for (k, adj) in input.adjustments.iter().enumerate() {
-        adjustment(input, k, adj)?;
+        adjustment(input, k, adj, &mut f);
     }
-    Ok(())
+    f.finish()
 }
 
 /// R2: oldest first, one financial year apart when consecutive entries both have a date.
-fn dates(input: &ReorganiseInput) -> Result<()> {
+fn dates(input: &ReorganiseInput, f: &mut Found) {
     for i in 1..input.years.len() {
         let (Some(a), Some(b)) = (input.years[i - 1].date, input.years[i].date) else {
             continue;
@@ -108,16 +141,23 @@ fn dates(input: &ReorganiseInput) -> Result<()> {
             } else {
                 "they are not one financial year apart"
             };
-            return Err(invalid(format!(
-                "`/years/{i}/date` is {b} and `/years/{}/date` is {a}: {order}; list the years \
-                 oldest first, one financial year apart (same month and day one calendar year \
-                 later, or both the last day of their month); reorganise a year of a different \
-                 length in a separate call",
-                i - 1
-            )));
+            f.push(
+                invalid(format!(
+                    "`/years/{i}/date` is {b} and `/years/{}/date` is {a}: {order}; list the \
+                     years oldest first, one financial year apart (same month and day one \
+                     calendar year later, or both the last day of their month); reorganise a \
+                     year of a different length in a separate call",
+                    i - 1
+                ))
+                .at(format!("/years/{i}/date"), Reason::Conflict)
+                .between([format!("/years/{i}/date"), format!("/years/{}/date", i - 1)])
+                .fix(
+                    "list the years oldest first, one financial year apart, or reorganise a \
+                     year of a different length in a separate call",
+                ),
+            );
         }
     }
-    Ok(())
 }
 
 /// `b` is one financial year after `a`: the same month one calendar year later, and the same
@@ -138,50 +178,54 @@ pub(crate) fn consecutive(a: Date, b: Date) -> bool {
 const SIGN_FIX: &str = "amounts are entered as presented in the statutory layouts, zero or more \
     for this item (R3); give the amount without sign";
 
-fn unsigned(at: &str, value: Option<Decimal>) -> Result<()> {
-    match value {
-        Some(v) if v.is_sign_negative() && !v.is_zero() => {
-            Err(invalid(format!("`{at}` is {v}: {SIGN_FIX}")))
-        }
-        _ => Ok(()),
+fn unsigned(at: &str, value: Option<Decimal>, f: &mut Found) {
+    if let Some(v) = value.filter(|v| v.is_sign_negative() && !v.is_zero()) {
+        f.push(
+            invalid(format!("`{at}` is {v}: {SIGN_FIX}"))
+                .at(at, Reason::Sign)
+                .expected(["zero or more"])
+                .fix("give the amount without sign"),
+        );
     }
 }
 
-fn not_blank(at: &str, text: &str, fix: &str) -> Result<()> {
+fn not_blank(at: &str, text: &str, fix: &str, f: &mut Found) {
     if text.trim().is_empty() {
-        return Err(invalid(format!("`{at}` is blank: {fix}")));
+        f.push(
+            invalid(format!("`{at}` is blank: {fix}"))
+                .at(at, Reason::Blank)
+                .fix(fix),
+        );
     }
-    Ok(())
 }
 
-fn net(node: &Option<NetFixedAsset>, at: &str) -> Result<()> {
+fn net(node: &Option<NetFixedAsset>, at: &str, f: &mut Found) {
     if let Some(n) = node {
-        unsigned(&format!("{at}/total"), n.total)?;
-        unsigned(&format!("{at}/gross"), n.gross)?;
-        unsigned(&format!("{at}/accumulated"), n.accumulated)?;
+        unsigned(&format!("{at}/total"), n.total, f);
+        unsigned(&format!("{at}/gross"), n.gross, f);
+        unsigned(&format!("{at}/accumulated"), n.accumulated, f);
     }
-    Ok(())
 }
 
-fn maturity(node: &Option<WithMaturity>, at: &str) -> Result<()> {
+fn maturity(node: &Option<WithMaturity>, at: &str, f: &mut Found) {
     if let Some(n) = node {
-        unsigned(&format!("{at}/total"), n.total)?;
-        unsigned(&format!("{at}/beyond_one_year"), n.beyond_one_year)?;
+        unsigned(&format!("{at}/total"), n.total, f);
+        unsigned(&format!("{at}/beyond_one_year"), n.beyond_one_year, f);
     }
-    Ok(())
 }
 
-fn statutory_balance_sheet(bs: &StatutoryBalanceSheet, at: &str) -> Result<()> {
+fn statutory_balance_sheet(bs: &StatutoryBalanceSheet, at: &str, f: &mut Found) {
     let p = |k: &str| format!("{at}/{k}");
     unsigned(
         &p("subscribed_capital_unpaid"),
         bs.subscribed_capital_unpaid,
-    )?;
-    net(&bs.intangible_assets, &p("intangible_assets"))?;
-    net(&bs.tangible_assets, &p("tangible_assets"))?;
-    unsigned(&p("financial_fixed_assets"), bs.financial_fixed_assets)?;
-    unsigned(&p("fixed_assets"), bs.fixed_assets)?;
-    unsigned(&p("inventories"), bs.inventories)?;
+        f,
+    );
+    net(&bs.intangible_assets, &p("intangible_assets"), f);
+    net(&bs.tangible_assets, &p("tangible_assets"), f);
+    unsigned(&p("financial_fixed_assets"), bs.financial_fixed_assets, f);
+    unsigned(&p("fixed_assets"), bs.fixed_assets, f);
+    unsigned(&p("inventories"), bs.inventories, f);
     if let Some(Receivables {
         total,
         beyond_one_year,
@@ -200,17 +244,22 @@ fn statutory_balance_sheet(bs: &StatutoryBalanceSheet, at: &str) -> Result<()> {
                 prepayments_and_accrued_income,
             ),
         ] {
-            unsigned(&p(&format!("receivables/{k}")), *v)?;
+            unsigned(&p(&format!("receivables/{k}")), *v, f);
         }
     }
-    unsigned(&p("current_financial_assets"), bs.current_financial_assets)?;
-    unsigned(&p("cash"), bs.cash)?;
-    unsigned(&p("current_assets"), bs.current_assets)?;
+    unsigned(
+        &p("current_financial_assets"),
+        bs.current_financial_assets,
+        f,
+    );
+    unsigned(&p("cash"), bs.cash, f);
+    unsigned(&p("current_assets"), bs.current_assets, f);
     maturity(
         &bs.prepayments_and_accrued_income,
         &p("prepayments_and_accrued_income"),
-    )?;
-    unsigned(&p("total_assets"), bs.total_assets)?;
+        f,
+    );
+    unsigned(&p("total_assets"), bs.total_assets, f);
     if let Some(Equity {
         share_capital,
         share_premium,
@@ -228,16 +277,21 @@ fn statutory_balance_sheet(bs: &StatutoryBalanceSheet, at: &str) -> Result<()> {
             ("legal_reserve", legal_reserve),
             ("statutory_reserves", statutory_reserves),
         ] {
-            unsigned(&p(&format!("equity/{k}")), *v)?;
+            unsigned(&p(&format!("equity/{k}")), *v, f);
         }
         if let Some(v) = negative_reserve_for_own_shares {
             if v.is_sign_positive() && !v.is_zero() {
-                return Err(invalid(format!(
-                    "`{}` is {v}: the negative reserve for own shares (A.X) is zero or \
-                     negative, as presented in the statutory layout (R3); give it with its \
-                     minus sign",
-                    p("equity/negative_reserve_for_own_shares")
-                )));
+                let at = p("equity/negative_reserve_for_own_shares");
+                f.push(
+                    invalid(format!(
+                        "`{at}` is {v}: the negative reserve for own shares (A.X) is zero or \
+                         negative, as presented in the statutory layout (R3); give it with its \
+                         minus sign"
+                    ))
+                    .at(at, Reason::Sign)
+                    .expected(["zero or less"])
+                    .fix("give the amount with its minus sign"),
+                );
             }
         }
     }
@@ -247,17 +301,19 @@ fn statutory_balance_sheet(bs: &StatutoryBalanceSheet, at: &str) -> Result<()> {
         of_which_derivative_liabilities,
     }) = &bs.provisions
     {
-        unsigned(&p("provisions/total"), *total)?;
-        unsigned(&p("provisions/beyond_one_year"), *beyond_one_year)?;
+        unsigned(&p("provisions/total"), *total, f);
+        unsigned(&p("provisions/beyond_one_year"), *beyond_one_year, f);
         unsigned(
             &p("provisions/of_which_derivative_liabilities"),
             *of_which_derivative_liabilities,
-        )?;
+            f,
+        );
     }
     maturity(
         &bs.employee_severance_indemnity,
         &p("employee_severance_indemnity"),
-    )?;
+        f,
+    );
     if let Some(Payables {
         total,
         beyond_one_year,
@@ -267,27 +323,30 @@ fn statutory_balance_sheet(bs: &StatutoryBalanceSheet, at: &str) -> Result<()> {
         accruals_and_deferred_income,
     }) = &bs.payables
     {
-        unsigned(&p("payables/total"), *total)?;
-        unsigned(&p("payables/beyond_one_year"), *beyond_one_year)?;
-        maturity(financial_debt, &p("payables/financial_debt"))?;
-        maturity(shareholder_loans, &p("payables/shareholder_loans"))?;
-        unsigned(&p("payables/trade"), *trade)?;
+        unsigned(&p("payables/total"), *total, f);
+        unsigned(&p("payables/beyond_one_year"), *beyond_one_year, f);
+        maturity(financial_debt, &p("payables/financial_debt"), f);
+        maturity(shareholder_loans, &p("payables/shareholder_loans"), f);
+        unsigned(&p("payables/trade"), *trade, f);
         unsigned(
             &p("payables/accruals_and_deferred_income"),
             *accruals_and_deferred_income,
-        )?;
+            f,
+        );
     }
     maturity(
         &bs.accruals_and_deferred_income,
         &p("accruals_and_deferred_income"),
-    )?;
+        f,
+    );
     unsigned(
         &p("total_liabilities_and_equity"),
         bs.total_liabilities_and_equity,
-    )
+        f,
+    );
 }
 
-fn statutory_income_statement(is: &StatutoryIncomeStatement, at: &str) -> Result<()> {
+fn statutory_income_statement(is: &StatutoryIncomeStatement, at: &str, f: &mut Found) {
     let p = |k: &str| format!("{at}/{k}");
     for (k, v) in [
         ("revenue", is.revenue),
@@ -318,7 +377,7 @@ fn statutory_income_statement(is: &StatutoryIncomeStatement, at: &str) -> Result
             is.write_downs_of_financial_assets,
         ),
     ] {
-        unsigned(&p(k), v)?;
+        unsigned(&p(k), v, f);
     }
     if let Some(b10) = &is.depreciation_and_write_downs {
         for (k, v) in [
@@ -337,16 +396,15 @@ fn statutory_income_statement(is: &StatutoryIncomeStatement, at: &str) -> Result
             ),
             ("write_downs_of_receivables", b10.write_downs_of_receivables),
         ] {
-            unsigned(&p(&format!("depreciation_and_write_downs/{k}")), v)?;
+            unsigned(&p(&format!("depreciation_and_write_downs/{k}")), v, f);
         }
     }
-    Ok(())
 }
 
-fn reclassified_balance_sheet(bs: &ReclassifiedBalanceSheet, at: &str) -> Result<()> {
+fn reclassified_balance_sheet(bs: &ReclassifiedBalanceSheet, at: &str, f: &mut Found) {
     let p = |k: &str| format!("{at}/{k}");
-    unsigned(&p("operating_fixed_assets"), bs.operating_fixed_assets)?;
-    unsigned(&p("operating_provisions"), bs.operating_provisions)?;
+    unsigned(&p("operating_fixed_assets"), bs.operating_fixed_assets, f);
+    unsigned(&p("operating_provisions"), bs.operating_provisions, f);
     if let Some(owc) = &bs.operating_working_capital {
         for (k, v) in [
             ("trade_receivables", owc.trade_receivables),
@@ -358,7 +416,7 @@ fn reclassified_balance_sheet(bs: &ReclassifiedBalanceSheet, at: &str) -> Result
                 owc.other_operating_liabilities,
             ),
         ] {
-            unsigned(&p(&format!("operating_working_capital/{k}")), v)?;
+            unsigned(&p(&format!("operating_working_capital/{k}")), v, f);
         }
     }
     for (key, lines) in [
@@ -366,29 +424,42 @@ fn reclassified_balance_sheet(bs: &ReclassifiedBalanceSheet, at: &str) -> Result
         ("quasi_equity_items", &bs.quasi_equity_items),
     ] {
         for (j, line) in lines.iter().flatten().enumerate() {
-            unsigned(&p(&format!("{key}/{j}/value")), Some(line.value))?;
+            unsigned(&p(&format!("{key}/{j}/value")), Some(line.value), f);
             not_blank(
                 &p(&format!("{key}/{j}/label")),
                 &line.label,
                 "name the item",
-            )?;
+                f,
+            );
         }
     }
     for (j, c) in bs.debt_like_items.iter().flatten().enumerate() {
         let item = p(&format!("debt_like_items/{j}"));
-        unsigned(&format!("{item}/value"), Some(c.value))?;
-        not_blank(&format!("{item}/label"), &c.label, "name the item")?;
+        unsigned(&format!("{item}/value"), Some(c.value), f);
+        not_blank(&format!("{item}/label"), &c.label, "name the item", f);
         match (&c.basis_note, c.measurement_basis) {
             (Some(n), _) if n.trim().is_empty() => {
-                return Err(invalid(format!(
-                    "`{item}/basis_note` is blank: write the note or remove the field"
-                )));
+                f.push(
+                    invalid(format!(
+                        "`{item}/basis_note` is blank: write the note or remove the field"
+                    ))
+                    .at(format!("{item}/basis_note"), Reason::Blank)
+                    .fix("write the note, or remove the field"),
+                );
             }
             (None, crate::dcf::MeasurementBasis::Other) => {
-                return Err(invalid(format!(
-                    "`{item}/basis_note` is missing: with `measurement_basis` `other`, describe \
-                     how the amount was measured in `basis_note`"
-                )));
+                f.push(
+                    invalid(format!(
+                        "`{item}/basis_note` is missing: with `measurement_basis` `other`, \
+                         describe how the amount was measured in `basis_note`"
+                    ))
+                    .at(format!("{item}/basis_note"), Reason::Missing)
+                    .between([
+                        format!("{item}/basis_note"),
+                        format!("{item}/measurement_basis"),
+                    ])
+                    .fix("describe in `basis_note` how the amount was measured"),
+                );
             }
             _ => {}
         }
@@ -398,14 +469,18 @@ fn reclassified_balance_sheet(bs: &ReclassifiedBalanceSheet, at: &str) -> Result
             unsigned(
                 &p("net_financial_position/position/gross_debt"),
                 Some(pos.gross_debt),
-            )?;
-            unsigned(&p("net_financial_position/position/cash"), Some(pos.cash))?;
+                f,
+            );
+            unsigned(
+                &p("net_financial_position/position/cash"),
+                Some(pos.cash),
+                f,
+            );
         }
     }
-    Ok(())
 }
 
-fn reclassified_income_statement(is: &ReclassifiedIncomeStatement, at: &str) -> Result<()> {
+fn reclassified_income_statement(is: &ReclassifiedIncomeStatement, at: &str, f: &mut Found) {
     let p = |k: &str| format!("{at}/{k}");
     for (k, v) in [
         ("revenue", is.revenue),
@@ -425,65 +500,85 @@ fn reclassified_income_statement(is: &ReclassifiedIncomeStatement, at: &str) -> 
             is.interest_and_other_financial_charges,
         ),
     ] {
-        unsigned(&p(k), v)?;
+        unsigned(&p(k), v, f);
     }
-    Ok(())
 }
 
 /// R5, R10, R21: the list of amounts, the label and reason, the signs, the current part of a
 /// lease liability within the liability, and no amount for a reclassified entry.
-fn adjustment(input: &ReorganiseInput, k: usize, adj: &Adjustment) -> Result<()> {
+fn adjustment(input: &ReorganiseInput, k: usize, adj: &Adjustment, f: &mut Found) {
     let at = format!("/adjustments/{k}");
-    not_blank(&format!("{at}/label"), adj.label(), "name the adjustment")?;
+    not_blank(
+        &format!("{at}/label"),
+        adj.label(),
+        "name the adjustment",
+        f,
+    );
     not_blank(
         &format!("{at}/reason"),
         adj.reason(),
         "state why the adjustment is made (R10)",
-    )?;
+        f,
+    );
     if let Adjustment::Investing(a) = adj {
         if let Some(related) = &a.related_non_operating_asset {
             not_blank(
                 &format!("{at}/related_non_operating_asset"),
                 related,
                 "name the non-operating asset, or remove the field",
-            )?;
+                f,
+            );
         }
     }
     let n = input.years.len();
     if adj.len() != n {
-        return Err(invalid(format!(
-            "`{at}/amounts` has {} entries for {n} years: give one entry per year, in the order \
-             of `years`, with null where the adjustment does not apply",
-            adj.len()
-        )));
+        // The amounts cannot be read year by year: the rest of this adjustment is not checked.
+        f.push(
+            invalid(format!(
+                "`{at}/amounts` has {} entries for {n} years: give one entry per year, in the \
+                 order of `years`, with null where the adjustment does not apply",
+                adj.len()
+            ))
+            .at(format!("{at}/amounts"), Reason::Length)
+            .expected([format!("{n} entries, one per year")])
+            .fix("give one entry per year, with null where the adjustment does not apply"),
+        );
+        return;
     }
     for (i, year) in input.years.iter().enumerate() {
         let amount = adj.amounts().and_then(|a| a[i]);
-        unsigned(&format!("{at}/amounts/{i}"), amount)?;
+        unsigned(&format!("{at}/amounts/{i}"), amount, f);
         let lease = match adj {
             Adjustment::Lease(l) => l.amounts[i].as_ref(),
             _ => None,
         };
         if let Some(la) = lease {
-            lease_signs(la, &format!("{at}/amounts/{i}"))?;
+            lease_signs(la, &format!("{at}/amounts/{i}"), f);
         }
         if adj.applies_to(i) && year.reclassified.is_some() {
-            return Err(invalid(format!(
-                "`{at}/amounts/{i}` is given for a reclassified entry: adjustments apply to \
-                 statutory entries only (R5); give the reclassified totals already adjusted, \
-                 and null here"
-            )));
+            f.push(
+                invalid(format!(
+                    "`{at}/amounts/{i}` is given for a reclassified entry: adjustments apply to \
+                     statutory entries only (R5); give the reclassified totals already \
+                     adjusted, and null here"
+                ))
+                .at(format!("{at}/amounts/{i}"), Reason::Requires)
+                .between([
+                    format!("{at}/amounts/{i}"),
+                    format!("/years/{i}/reclassified"),
+                ])
+                .fix("give null here, and the reclassified totals already adjusted"),
+            );
         }
         if let Some(la) = lease {
-            lease_current_part(la, &format!("{at}/amounts/{i}"))?;
+            f.check(lease_current_part(la, &format!("{at}/amounts/{i}")));
         }
     }
     if let Adjustment::DebtLikeProvision(a) = adj {
         if let Some(costs) = &a.interest_cost {
-            interest_cost(a, costs, n, &at)?;
+            interest_cost(a, costs, n, &at, f);
         }
     }
-    Ok(())
 }
 
 /// P2: the interest cost of the employee severance indemnity, one entry per year, zero or
@@ -494,35 +589,55 @@ fn interest_cost(
     costs: &[Option<Decimal>],
     n: usize,
     at: &str,
-) -> Result<()> {
+    f: &mut Found,
+) {
     if a.aggregate != ProvisionSource::EmployeeSeveranceIndemnity {
-        return Err(invalid(format!(
-            "`{at}/interest_cost` is given for a debt-like provision of `provisions`: the \
-             interest cost applies only to the employee severance indemnity (P2); remove it"
-        )));
+        f.push(
+            invalid(format!(
+                "`{at}/interest_cost` is given for a debt-like provision of `provisions`: the \
+                 interest cost applies only to the employee severance indemnity (P2); remove it"
+            ))
+            .at(format!("{at}/interest_cost"), Reason::Requires)
+            .between([format!("{at}/interest_cost"), format!("{at}/aggregate")])
+            .fix("remove `interest_cost`"),
+        );
+        return;
     }
     if costs.len() != n {
-        return Err(invalid(format!(
-            "`{at}/interest_cost` has {} entries for {n} years: give one entry per year, in the \
-             order of `years`, with null where it is not given",
-            costs.len()
-        )));
+        f.push(
+            invalid(format!(
+                "`{at}/interest_cost` has {} entries for {n} years: give one entry per year, in \
+                 the order of `years`, with null where it is not given",
+                costs.len()
+            ))
+            .at(format!("{at}/interest_cost"), Reason::Length)
+            .expected([format!("{n} entries, one per year")])
+            .fix("give one entry per year, with null where it is not given"),
+        );
+        return;
     }
     for (i, c) in costs.iter().enumerate() {
-        unsigned(&format!("{at}/interest_cost/{i}"), *c)?;
+        unsigned(&format!("{at}/interest_cost/{i}"), *c, f);
         if c.is_some() && a.amounts[i].is_none() {
-            return Err(invalid(format!(
-                "`{at}/interest_cost/{i}` is given for a year where the adjustment does not \
-                 apply (`{at}/amounts/{i}` is null): the interest cost moves only with a \
-                 debt-like severance indemnity; give the amount, or null here"
-            )));
+            f.push(
+                invalid(format!(
+                    "`{at}/interest_cost/{i}` is given for a year where the adjustment does \
+                     not apply (`{at}/amounts/{i}` is null): the interest cost moves only with \
+                     a debt-like severance indemnity; give the amount, or null here"
+                ))
+                .at(format!("{at}/interest_cost/{i}"), Reason::Requires)
+                .between([
+                    format!("{at}/interest_cost/{i}"),
+                    format!("{at}/amounts/{i}"),
+                ])
+                .fix("give the amount of the adjustment for that year, or null here"),
+            );
         }
     }
-    Ok(())
 }
 
 /// R21: every amount of a lease restatement is zero or more.
-fn lease_signs(la: &LeaseAmounts, at: &str) -> Result<()> {
+fn lease_signs(la: &LeaseAmounts, at: &str, f: &mut Found) {
     for (k, v) in [
         ("asset", la.asset),
         ("liability", la.liability),
@@ -532,9 +647,8 @@ fn lease_signs(la: &LeaseAmounts, at: &str) -> Result<()> {
         ("depreciation", la.depreciation),
         ("interest", la.interest),
     ] {
-        unsigned(&format!("{at}/{k}"), Some(v))?;
+        unsigned(&format!("{at}/{k}"), Some(v), f);
     }
-    Ok(())
 }
 
 /// R21: the current part of the lease liability is a part of it (`FM-E026` otherwise, as for
@@ -553,6 +667,7 @@ fn lease_current_part(la: &LeaseAmounts, at: &str) -> Result<()> {
                 fix: "the part due within the next financial year cannot exceed the liability: \
                       correct one of them (R21)"
                     .to_owned(),
+                pointers: vec![format!("{at}/liability_current"), format!("{at}/liability")],
             },
         )));
     }

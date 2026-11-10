@@ -1,6 +1,6 @@
 ---
 source: guides/function-calling.md
-source_hash: b5514c691ef0
+source_hash: 980882304f29
 ---
 # Function calling
 
@@ -29,9 +29,24 @@ Provider supportati ed esempi completi: [Provider LLM](providers.md).
 result = fm.tools.dispatch(name, arguments)   # arguments: dict o stringa JSON
 ```
 
-`dispatch` non solleva eccezioni su input non validi. Restituisce
-`{"error": {"code", "message"}}`, da rimandare al modello come risultato del tool perché
-corregga i parametri.
+`dispatch` non solleva eccezioni su input non validi. Restituisce `{"error": <report>}`, da
+rimandare al modello come risultato del tool perché corregga i parametri. Il report
+([codici di errore](../reference/errors.md#il-report-di-errore)) indica l'argomento da
+correggere con il suo JSON Pointer (`pointer`), il sottotipo (`reason`, per esempio `missing`,
+`unknown_field`, `enum` o `sign`), i valori ammessi (`expected`) e la correzione (`fix`), ed
+elenca in `errors` tutti gli errori dell'input trovati, così il modello li corregge tutti in
+un solo passaggio:
+
+```python
+out = fm.tools.dispatch("fairmark_loans_instalment",
+                        {"principal": "0", "number_of_instalments": 0,
+                         "timing": "ordinary", "periodic_rate": "0.01"})
+[e["pointer"] for e in out["error"]["errors"]]   # ['/principal', '/number_of_instalments']
+```
+
+In Python, `fm.FairmarkError` ha gli stessi campi come attributi: `err.pointer`,
+`err.pointers`, `err.reason`, `err.expected`, `err.fix`, `err.missing_any_of` e
+`err.errors`.
 
 ## Metodi in anteprima
 
@@ -55,13 +70,23 @@ la conversione inversa.
 ## Gli schemi visti dal modello
 
 Gli schemi sono espansi (senza `$ref`) per la compatibilità tra fornitori. I campi decimali
-accettano numeri o stringhe; le descrizioni dichiarano le unità in modo esplicito ("decimal
-fraction, 0.09 = 9%"), ed è questo che porta i modelli a estrarre i tassi correttamente. La
+sono dichiarati come stringhe con la grammatica dei numeri dell'ADR 0014 G7 (`pattern`
+`^-?\d+(\.\d+)?([eE][+-]?\d+)?$`), e gli esempi li scrivono come stringhe; le descrizioni
+dichiarano le unità in modo esplicito ("decimal fraction, 0.09 = 9%"), ed è questo che porta i
+modelli a estrarre i tassi correttamente. La
 variante portabile (`portable=True`, usata per Gemini e per i runtime locali di modelli
 open-weight) dichiara i decimali come stringhe, trasforma i valori opzionali (`X or null`) in
 semplici `X` (un campo opzionale è semplicemente non obbligatorio) e rimuove `pattern` e
 `additionalProperties`. Le date sono stringhe ISO 8601 (`"2026-06-30"`) in entrambe le
 varianti.
+
+Invia i decimali come stringhe. Il motore accetta anche i numeri JSON, ma la maggior parte
+delle librerie client legge un numero JSON negli argomenti di un tool come un numero in
+virgola mobile binaria, che conserva circa 17 cifre significative: le cifre oltre si perdono
+prima che Fairmark veda il valore, e nessun avviso può recuperarle. `fm.tools.dispatch` legge
+in modo esatto gli argomenti dati come testo JSON. Una stringa con più cifre di quante un
+decimale ne contenga è arrotondata e segnalata (vedi il
+[riferimento degli errori](../reference/errors.md), grammatica dei numeri).
 
 ## Valori enumerati e loro significato
 

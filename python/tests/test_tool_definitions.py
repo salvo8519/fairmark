@@ -148,9 +148,12 @@ def test_definitions_carry_the_examples(options: dict[str, Any]) -> None:
     defs = by_method(**options)
     for method in METHODS:
         examples = defs[method]["parameters"]["examples"]
-        assert examples[0] == EXAMPLES[method]["minimal"]["input"]
+        # The examples as the schema asks for them: decimals as strings (ADR 0014 G7).
+        schema = defs[method]["parameters"]
+        as_strings = tools._strings_for_decimals
+        assert examples[0] == as_strings(EXAMPLES[method]["minimal"]["input"], schema)
         if "maximal" in EXAMPLES[method] and not options.get("compact"):
-            assert examples[1] == EXAMPLES[method]["maximal"]["input"]
+            assert examples[1] == as_strings(EXAMPLES[method]["maximal"]["input"], schema)
         else:
             assert len(examples) == 1
         for example in examples:

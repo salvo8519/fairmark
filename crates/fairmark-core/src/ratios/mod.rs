@@ -630,6 +630,10 @@ pub(crate) fn require_definition(field: &str, text: Option<&str>) -> Result<()> 
     if text.is_some_and(|t| t.trim().is_empty()) {
         return Err(FairmarkError::InvalidInput(format!(
             "`{field}` must state the definition used; it is empty"
+        ))
+        .at(format!("/{field}"), crate::error::Reason::Blank)
+        .fix(format!(
+            "state the definition used in `{field}`, or leave it out"
         )));
     }
     Ok(())
