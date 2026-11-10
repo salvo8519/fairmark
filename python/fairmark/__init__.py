@@ -10,7 +10,7 @@
         net_financial_position={"gross_debt": 200, "cash": 0},
     )
     r.equity_value          # Decimal, exact
-    r.explain_markdown()    # methodology note for the report
+    r.steps                 # every calculation step, numbers substituted
 
 Agents: see ``fairmark.tools`` (function calling) and ``fairmark-mcp`` (MCP server).
 """

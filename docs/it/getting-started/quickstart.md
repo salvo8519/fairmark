@@ -1,6 +1,6 @@
 ---
 source: getting-started/quickstart.md
-source_hash: dddd00a55c25
+source_hash: e6a8b30fd4a6
 ---
 # Guida rapida
 
@@ -40,8 +40,8 @@ for step in r.steps:
 print(r.conventions)
 ```
 
-`r.explain_markdown()` restituisce le stesse informazioni come tabella da incollare in una
-relazione.
+`r.to_json()` restituisce l'intero envelope in JSON. Per presentare i passaggi come tabella o in
+Markdown, usa i tuoi strumenti (per esempio pandas).
 
 ## Riprodurre un risultato in seguito
 

@@ -327,20 +327,6 @@ class Result:
         """The exact JSON envelope returned by the engine (decimals as strings)."""
         return json.dumps(self.raw, ensure_ascii=False)
 
-    def explain_markdown(self) -> str:
-        """A methodology note ready to paste into a report."""
-        lines = [f"### {self.method}", "", f"Formula: `{self.formula}`", ""]
-        if self.conventions:
-            lines += ["Conventions:", *[f"- {c}" for c in self.conventions], ""]
-        lines += ["| Step | Calculation | Value |", "| --- | --- | ---: |"]
-        lines += [f"| {s.label} | `{s.formula}` | {s.value} |" for s in self.steps]
-        lines += [
-            "",
-            f"Engine {self.meta['engine_version']}, method v{self.meta['method_version']}, "
-            f"input hash `{self.meta['input_hash'][:16]}…`",
-        ]
-        return "\n".join(lines)
-
 
 def _raise(err: Exception) -> None:
     try:

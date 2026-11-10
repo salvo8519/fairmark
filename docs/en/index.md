@@ -35,7 +35,7 @@ r = fm.dcf.fcff(
     net_financial_position={"gross_debt": 200, "cash": 0},
 )
 r.equity_value        # Decimal('1221.4876033057851239669421487') — exact, reproducible
-r.explain_markdown()  # every step, ready for your valuation report
+r.steps               # every step with the numbers substituted, for your valuation report
 ```
 
 <div class="grid cards fm-features" markdown>
