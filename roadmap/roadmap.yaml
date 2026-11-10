@@ -218,14 +218,14 @@ milestones:
         tasks:
           - { issue: 47, title: "PyO3 bindings, Pythonic API, Result object", status: done }
           - { issue: 48, title: "Typed input models generated from JSON Schema", tags: [parallel], status: open }
-          - { issue: 306, title: "Results and inputs as tables for notebooks, JSON unchanged", status: open }
+          - { issue: 306, title: "Results and inputs as tables for notebooks, JSON unchanged", status: dropped }
           - { issue: 307, title: "Cookbook for notebooks, scripts and agent loops", status: open }
       - title: "CLI"
         issue: 49
         labels: ["area:cli"]
         tasks:
           - { issue: 50, title: "methods / schema / run / verify", status: done }
-          - { issue: 51, title: "Markdown output and batch mode", tags: [parallel], status: open }
+          - { issue: 51, title: "Markdown output and batch mode", tags: [parallel], status: dropped }
           - { issue: 191, title: "CLI exits cleanly when the output pipe is closed", status: done }
       - title: "MCP and function calling"
         issue: 52
