@@ -34,20 +34,24 @@
   a field to give, as the message and fix already say (agent).
 
 ## Open questions for the maintainer
-- Resolved 2026-11-10: more than 28 decimal places are accepted, rounded half away from zero
-  as read and reported with a `warning: ` convention (registry.rs `rounded_on_reading`,
-  tests/decimal_precision.rs). No golden case changes in a compared field.
-- The MCP library hands tool arguments to Python already parsed, so a JSON number with more
-  than 17 digits reaches Fairmark as a float: precision is lost before the engine (no
-  warning). Text arguments to tools.dispatch are now read exactly.
-- Refusing a decimal with more than 28 places would refuse the input of the protected golden
-  case tests/golden/tvm.future_value/ecma-376-monthly-rate-due.yaml (rate with 30 places, 28
-  significant digits; the only such input among the golden cases). Either approve a change
-  that names this case, or choose another rule (for example refusing only digits beyond what a
-  Decimal holds, 28 significant digits).
+- None open. Decided on 2026-11-10 (maintainer): a decimal with more than 28 decimal places is
+  accepted, rounded half away from zero at the first digit that does not fit (the parser's
+  rule), and reported with a `warning: ` convention naming the pointer, the value given and
+  the value used; `meta.input_hash` stays on the value used; a value too large for a decimal
+  stays a `type` error; every exponent form is read as its plain digits. No golden case
+  changes in a compared field (tvm.future_value/ecma-376-monthly-rate-due gains the warning
+  convention only).
+- Known limit, documented in the MCP and function-calling guides: the MCP library reads a
+  JSON number as a binary float before Fairmark; tool schemas now declare decimals as strings
+  and the MCP server reports every argument that arrived as a float.
 
 ## Next steps
-1. Maintainer answer on the 28 decimal places; then implement it test-first with a structured
-   `type` or `range` error at the field.
-2. Code review and numerical audit of round 6 on #279. Keep a non-merge commit with the
-   `Docs-impact: none` trailer last: docs_sync impact reads the latest non-merge commit.
+1. Mutation testing of the changed lines cannot finish in CI for this pull request: the diff
+   has 1263 mutants, the job has room for about 150 and was cancelled at 60 minutes. The two
+   mutants it reported missed (coc.rs check_tax_rate and the country exposure bound of
+   check_cost_of_equity) are killed by tests/mutants_errors.rs (checked locally with
+   cargo-mutants 27.1.0). The maintainer decides how the rest is run (for example the
+   scheduled mutants workflow on the branch, by module).
+2. Maintainer review of #279 after the final code review (2026-11-10), every finding fixed.
+   Keep a non-merge commit with the `Docs-impact: none` trailer last: docs_sync impact reads
+   the latest non-merge commit.

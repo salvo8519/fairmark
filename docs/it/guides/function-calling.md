@@ -1,6 +1,6 @@
 ---
 source: guides/function-calling.md
-source_hash: c70c8add8d89
+source_hash: 980882304f29
 ---
 # Function calling
 
@@ -70,13 +70,23 @@ la conversione inversa.
 ## Gli schemi visti dal modello
 
 Gli schemi sono espansi (senza `$ref`) per la compatibilità tra fornitori. I campi decimali
-accettano numeri o stringhe; le descrizioni dichiarano le unità in modo esplicito ("decimal
-fraction, 0.09 = 9%"), ed è questo che porta i modelli a estrarre i tassi correttamente. La
+sono dichiarati come stringhe con la grammatica dei numeri dell'ADR 0014 G7 (`pattern`
+`^-?\d+(\.\d+)?([eE][+-]?\d+)?$`), e gli esempi li scrivono come stringhe; le descrizioni
+dichiarano le unità in modo esplicito ("decimal fraction, 0.09 = 9%"), ed è questo che porta i
+modelli a estrarre i tassi correttamente. La
 variante portabile (`portable=True`, usata per Gemini e per i runtime locali di modelli
 open-weight) dichiara i decimali come stringhe, trasforma i valori opzionali (`X or null`) in
 semplici `X` (un campo opzionale è semplicemente non obbligatorio) e rimuove `pattern` e
 `additionalProperties`. Le date sono stringhe ISO 8601 (`"2026-06-30"`) in entrambe le
 varianti.
+
+Invia i decimali come stringhe. Il motore accetta anche i numeri JSON, ma la maggior parte
+delle librerie client legge un numero JSON negli argomenti di un tool come un numero in
+virgola mobile binaria, che conserva circa 17 cifre significative: le cifre oltre si perdono
+prima che Fairmark veda il valore, e nessun avviso può recuperarle. `fm.tools.dispatch` legge
+in modo esatto gli argomenti dati come testo JSON. Una stringa con più cifre di quante un
+decimale ne contenga è arrotondata e segnalata (vedi il
+[riferimento degli errori](../reference/errors.md), grammatica dei numeri).
 
 ## Valori enumerati e loro significato
 

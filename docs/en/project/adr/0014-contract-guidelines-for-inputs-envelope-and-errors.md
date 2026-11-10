@@ -155,8 +155,11 @@ with `missing_any_of` for `FM-E027` and `errors` at the top level:
   basis of the comparison, the value of an exit multiple's metric and the metric); empty when
   the error concerns one field. Every field `pointer` and `pointers` name is one the client can
   act on: it is in the input sent, or it is a field to give (`reason` `missing` or `requires`,
-  such as the expected inflation of `FM-E024`, or an item a reconciliation took as zero). A field left to its default is read, never
-  named (a compounding not given), and a conflict names only the fields given. A property test
+  such as the expected inflation of `FM-E024`), defined by the input schema, and a `requires`
+  entry is located at a field given. A field left to its default is read, never named (a
+  compounding, timing, terminal or terms field not given, an item of the statements taken as
+  zero), though the message may say which default was used, and a conflict names only the
+  fields given. A property test
   checks this on golden inputs with every field changed or left out in turn.
 - `reason` is a sub-kind: `syntax`, `missing`, `unknown_field`, `duplicate`, `type`, `enum`,
   `conflict`, `requires`, `sign`, `blank`, `range`, `length` (a list with the wrong number of

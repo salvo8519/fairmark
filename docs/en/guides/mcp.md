@@ -80,3 +80,9 @@ financial values.
   stable code, the argument to correct (`pointer`), the sub-kind (`reason`), the accepted
   values (`expected`), the fix and every input error found (`errors`), so the model can
   correct its call in one round (see [the error report](../reference/errors.md#the-error-report)).
+- Decimals declared as strings in every tool schema (see
+  [function calling](function-calling.md#schemas-the-model-sees)). A client that sends a JSON
+  number with more than 17 significant digits loses digits in the MCP library, which reads it
+  as a binary float before Fairmark sees it. The result then carries a convention
+  ``warning: `/rate` arrived as a binary floating-point number (…)`` for every argument that
+  arrived as a float, naming its pointer.

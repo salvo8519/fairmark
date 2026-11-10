@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-goal-seek.md
-source_hash: 219b49c85e4e
+source_hash: b08389fc0121
 ---
 # Ricerca obiettivo (`analysis.goal_seek`)
 
@@ -202,7 +202,10 @@ L'ultima convenzione riportata è il numero di valutazioni del metodo interno.
 è verificato prima di qualsiasi valutazione, con la variabile all'estremo inferiore
 dell'intervallo, dalla sola validazione del metodo interno (ogni controllo del suo input,
 nessun calcolo); i suoi errori di input sono riportati sotto `/base_input` con gli altri
-errori della richiesta. Un errore del
+errori della richiesta. Il valore della variabile in `base_input` è sostituito e mai usato: un
+decimale con più cifre di quante un decimale ne contenga non dà lì nessun avviso di
+arrotondamento, mentre ogni altro campo di `base_input` lo dà (vedi il riferimento degli
+errori, grammatica dei numeri). Un errore del
 metodo interno in qualsiasi valutazione è restituito invariato, con il proprio codice: ad
 esempio `FM-E004` quando un tasso di attualizzazione nell'intervallo di ricerca è pari o
 inferiore al tasso di crescita di lungo periodo di `dcf.fcff`. La ricerca di una radice su una

@@ -1,6 +1,6 @@
 ---
 source: guides/mcp.md
-source_hash: d319aa27aabc
+source_hash: 63967b884bac
 ---
 # Server MCP
 
@@ -91,3 +91,9 @@ finanziari.
   (`reason`), i valori ammessi (`expected`), la correzione e tutti gli errori dell'input
   trovati (`errors`), così il modello può correggere la chiamata in un solo passaggio (vedi
   [il report di errore](../reference/errors.md#il-report-di-errore)).
+- Decimali dichiarati come stringhe in ogni schema dei tool (vedi
+  [function calling](function-calling.md#gli-schemi-visti-dal-modello)). Un client che invia
+  un numero JSON con più di 17 cifre significative perde cifre nella libreria MCP, che lo legge
+  come numero in virgola mobile binaria prima che Fairmark lo veda. Il risultato riporta allora
+  una convenzione ``warning: `/rate` arrived as a binary floating-point number (…)`` per ogni
+  argomento arrivato in virgola mobile, con il suo puntatore.

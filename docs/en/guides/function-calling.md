@@ -60,13 +60,22 @@ Method `dcf.fcff` becomes tool `fairmark_dcf_fcff`. Use `fm.tools.method_id(name
 
 ## Schemas the model sees
 
-Schemas are inlined (no `$ref`) for compatibility across providers. Decimal fields accept
-numbers or strings; descriptions state units explicitly ("decimal fraction, 0.09 = 9%"),
+Schemas are inlined (no `$ref`) for compatibility across providers. Decimal fields are
+declared as strings with the number grammar of ADR 0014 G7 (`pattern`
+`^-?\d+(\.\d+)?([eE][+-]?\d+)?$`), and the examples write them as strings; descriptions state
+units explicitly ("decimal fraction, 0.09 = 9%"),
 which is what makes models extract rates correctly. The portable variant (`portable=True`,
 used for Gemini and local open-weight runtimes) declares decimals as strings, turns optional
 values (`X or null`) into plain `X` (an optional field is simply not required), and removes
 `pattern` and `additionalProperties`. Dates are ISO 8601 strings (`"2026-06-30"`) in both
 variants.
+
+Send decimals as strings. The engine also accepts JSON numbers, but most client libraries read
+a JSON number in tool arguments as a binary float, which keeps about 17 significant digits:
+the digits beyond are lost before Fairmark sees the value, and no warning can recover them.
+`fm.tools.dispatch` reads arguments given as JSON text exactly. A string with more digits than
+a decimal holds is rounded and reported (see the
+[errors reference](../reference/errors.md), number grammar).
 
 ## Enum values and their meaning
 
