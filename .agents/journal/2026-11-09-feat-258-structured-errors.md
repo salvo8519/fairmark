@@ -34,6 +34,12 @@
   a field to give, as the message and fix already say (agent).
 
 ## Open questions for the maintainer
+- Resolved 2026-11-10: more than 28 decimal places are accepted, rounded half away from zero
+  as read and reported with a `warning: ` convention (registry.rs `rounded_on_reading`,
+  tests/decimal_precision.rs). No golden case changes in a compared field.
+- The MCP library hands tool arguments to Python already parsed, so a JSON number with more
+  than 17 digits reaches Fairmark as a float: precision is lost before the engine (no
+  warning). Text arguments to tools.dispatch are now read exactly.
 - Refusing a decimal with more than 28 places would refuse the input of the protected golden
   case tests/golden/tvm.future_value/ecma-376-monthly-rate-due.yaml (rate with 30 places, 28
   significant digits; the only such input among the golden cases). Either approve a change

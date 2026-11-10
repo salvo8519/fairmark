@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: 48bd385ce5a4
+source_hash: 6c961e27a205
 ---
 # Codici di errore
 
@@ -105,6 +105,18 @@ terminale rifiutata, un `principal` rifiutato non nasconde un tasso fuori interv
   sul suo campo, in tutti i metodi. Il motore accetta già un esponente con segno; il pattern
   pubblicato negli schemi di input riporta ancora `[eE]\d+` e acquisisce il segno con la issue
   #266.
+- **Cifre oltre quelle che un decimale contiene.** Un decimale contiene 28 cifre decimali e da
+  28 a 29 cifre significative. Un valore con più cifre, come stringa o come numero JSON, è
+  accettato e arrotondato alla lettura dell'input: si tengono le cifre che entrano e decide la
+  prima cifra scartata, da 5 in su si arrotonda allontanandosi dallo zero (half up: le metà si
+  arrotondano allontanandosi dallo zero, la regola del parser di `rust_decimal`). L'arrotondamento non è mai
+  silenzioso: una convenzione del risultato indica il campo, il valore dato e il valore usato,
+  per esempio ``warning: `/rate` has more digits than a decimal holds: given
+  0.009166666666666666666666666667, used 0.0091666666666666666666666667, ...``; per un'analisi
+  il campo è sotto `/base_input`. `meta.input_hash` è calcolato sul valore usato. Un numero
+  prodotto da Fairmark entra sempre, quindi un risultato usato di nuovo come input è letto
+  invariato. Un valore troppo grande per un decimale (più di 28-29 cifre prima del punto) non è
+  arrotondato: è rifiutato come `type` sul suo campo.
 - **Il JSON ambiguo viene rifiutato.** Una chiave indicata due volte nello stesso oggetto
   (`duplicate`, sulla chiave) e un oggetto scritto come array dei suoi valori (`type`,
   sull'array; `""` per un input che è un array) sono rifiutati in tutti i metodi: verrebbero

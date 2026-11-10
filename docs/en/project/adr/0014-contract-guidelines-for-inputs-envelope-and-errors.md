@@ -229,7 +229,14 @@ Every description states the unit: currency amounts with their sign rule, rates 
 fractions per period with an example (0.09 = 9%), counts with their range. A decimal is a
 JSON number or a string matching `^-?\d+(\.\d+)?([eE][+-]?\d+)?$`, in the schema, the core
 and every adapter alike: decimal point, no thousands separators, no currency symbols.
-Decimals are returned as strings.
+Decimals are returned as strings. A decimal with more digits than the engine's decimal holds
+(more than 28 decimal places, or 28 to 29 significant digits) is accepted and rounded as it is
+read, half away from zero at the first digit that does not fit (the rule of the parser), once
+for every method and adapter, and reported as a warning naming the field, the value given and
+the value used (maintainer decision of 2026-11-10, #279). Until the envelope gains
+`diagnostics.warnings` (#259), the warning is a `warning: ` convention, as every other warning.
+A value too large for a decimal is refused. A number the engine outputs always fits, so a
+result fed back as an input is read unchanged.
 
 ### G8. Versioning of inputs and outputs
 The method version is bumped on a numerical change, on a breaking input change, and on an
@@ -262,7 +269,8 @@ result that looks complete and is not.
    perpetuity, a negative amount where the field is unsigned), totals that contradict their
    parts, an unknown field, an Italian thousands separator or a binary float in a money field:
    each is refused with its code, its pointer and the fix. The engine never clamps, rounds
-   away or reinterprets such a value.
+   away or reinterprets such a value. Digits beyond the precision of a decimal (G7) are not
+   such a value: the number is inside its domain, and its rounding is reported, never silent.
 4. **Order and units are never guessed.** Several years without their closing dates, and
    amounts whose unit (units, thousands, millions) is ambiguous, are refused rather than
    ordered or scaled by assumption.

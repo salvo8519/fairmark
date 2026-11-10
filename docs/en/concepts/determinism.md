@@ -10,7 +10,10 @@ the contract; CI enforces it on every commit.
    significant digits). No `f32`/`f64` appears in any calculation path.
 2. **Exact parsing.** JSON numbers are parsed directly into decimals (`arbitrary_precision`),
    never through binary floating point. Outputs serialize decimals as strings so that no
-   consumer (JavaScript, spreadsheets) silently loses precision.
+   consumer (JavaScript, spreadsheets) silently loses precision. A value with more digits than
+   a decimal holds (more than 28 decimal places) is rounded half away from zero as it is read,
+   and the result says so in a `warning: ` convention with the value given and the value used
+   (see the errors reference, number grammar).
 3. **Integer powers are exact.** Discount factors with integer exponents use repeated
    multiplication. Fractional exponents (mid-period convention) use decimal `powd`, whose
    precision is verified against an independent 50-digit reference in the golden tests.

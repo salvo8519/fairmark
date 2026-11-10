@@ -93,6 +93,17 @@ hide a refused terminal growth, a refused `principal` does not hide a rate out o
   `".1"`, `"1."`, `"1_000"`, `"1,000"`) is `type` at its field, in every method. The engine
   accepts a signed exponent now; the pattern published in the input schemas still reads
   `[eE]\d+` and gains the sign with issue #266.
+- **Digits beyond what a decimal holds.** A decimal holds 28 decimal places and 28 to 29
+  significant digits. A value with more digits, as a string or as a JSON number, is accepted
+  and rounded as the input is read: the digits that fit are kept and the first digit dropped
+  decides, 5 or more rounding away from zero (round half away from zero, the rule of the
+  `rust_decimal` parser). The rounding is never silent: a convention of the result names the
+  field, the value given and the value used, for example ``warning: `/rate` has more digits
+  than a decimal holds: given 0.009166666666666666666666666667, used
+  0.0091666666666666666666666667, ...``; for an analysis the field is under `/base_input`.
+  `meta.input_hash` is computed on the value used. A number Fairmark outputs always fits, so a
+  result fed back as an input is read unchanged. A value too large for a decimal (more than 28
+  to 29 digits before the point) is not rounded: it is refused as `type` at its field.
 - **Ambiguous JSON is refused.** A key given twice in one object (`duplicate`, at the key) and
   an object given as an array of its values (`type`, at the array; `""` for an input that is an
   array) are refused in every method: they would be read with the last value or by position.
