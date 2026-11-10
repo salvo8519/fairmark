@@ -409,7 +409,15 @@ fn execute<M: Method>(input_json: &str, source: Source) -> Result<Value> {
     }
     // SPEC-0001 R31: the defaults are filled in once, in `run_typed`; the hash covers the input
     // with its defaults, so that a minimal input and its explicit equivalent hash identically.
-    let (value, explain, defaults) = M::run_typed(&mut input)?;
+    let (value, mut explain, defaults) = M::run_typed(&mut input)?;
+    // A decimal with more digits than a `Decimal` holds is rounded as it is read; the caller is
+    // told, once, here for every method and adapter (ADR 0014 G7). Values an analysis builds
+    // (`Source::Engine`) come from an input already reported.
+    if source == Source::Caller {
+        for warning in rounded_on_reading(M::ID, input_json) {
+            explain.convention(warning);
+        }
+    }
     let canonical =
         serde_json::to_string(&input).map_err(|e| FairmarkError::InvalidInput(e.to_string()))?;
     let envelope = Valuation {
@@ -427,6 +435,40 @@ fn execute<M: Method>(input_json: &str, source: Source) -> Result<Value> {
         },
     };
     serde_json::to_value(envelope).map_err(|e| FairmarkError::InvalidInput(e.to_string()))
+}
+
+/// The `warning: ` conventions of the decimals of `input_json` that reading rounds, for method
+/// `id`; for an analysis, also those of its `base_input`, read by the method it names and
+/// named under `/base_input`.
+fn rounded_on_reading(id: &str, input_json: &str) -> Vec<String> {
+    let Ok(input) = serde_json::from_str::<Value>(input_json) else {
+        return Vec::new();
+    };
+    let schema_of_method = |id: &str| {
+        method(id).ok().map(|info| {
+            crate::reading::cached_schema(info.id, || {
+                schema_of(info.id)
+                    .and_then(|s| serde_json::to_value(s).ok())
+                    .unwrap_or(Value::Null)
+            })
+        })
+    };
+    let mut found = Vec::new();
+    if let Some(schema) = schema_of_method(id) {
+        found.extend(crate::reading::rounded_on_reading(&schema, &input, ""));
+    }
+    if id.starts_with("analysis.") {
+        if let (Some(inner), Some(base)) = (input["method"].as_str(), input.get("base_input")) {
+            if let Some(schema) = schema_of_method(inner) {
+                found.extend(crate::reading::rounded_on_reading(
+                    &schema,
+                    base,
+                    "/base_input",
+                ));
+            }
+        }
+    }
+    found
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {

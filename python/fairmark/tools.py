@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable, Mapping
+from decimal import Decimal
 from functools import cache
 from importlib import resources
 from typing import Any
@@ -507,7 +508,12 @@ def dispatch(name: str, arguments: Mapping[str, Any] | str) -> dict[str, Any]:
     Correct every entry of ``errors`` before calling again.
     """
     try:
-        args = json.loads(arguments) if isinstance(arguments, str) else dict(arguments)
+        # A JSON number in text arguments is read exactly (ADR 0014 G7), never as a binary float.
+        args = (
+            json.loads(arguments, parse_float=Decimal)
+            if isinstance(arguments, str)
+            else dict(arguments)
+        )
         return run_json(method_id(name), args)
     except FairmarkError as err:
         return {"error": err.report}

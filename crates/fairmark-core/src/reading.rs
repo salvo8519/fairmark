@@ -82,6 +82,130 @@ pub(crate) fn parse<M: crate::method::Method>(
     }
 }
 
+/// The rule by which a decimal with more digits than a `Decimal` holds is rounded as the input
+/// is read (`rust_decimal`'s parser, the same for a string and a JSON number): the digits kept
+/// are those that fit (28 decimal places, or fewer when the 96-bit mantissa, 28 to 29
+/// significant digits, is full), and the first digit dropped decides, 5 or more rounding away
+/// from zero (ADR 0014 G7).
+pub(crate) const ROUNDING_ON_READING: &str = "rounded half away from zero at the first digit \
+     that does not fit (28 decimal places, or 28 to 29 significant digits)";
+
+/// One `warning: ` convention for every decimal of `input` that reading rounds, the value
+/// given and the value used, each named by its JSON pointer under `prefix` (maintainer
+/// decision of 2026-11-10 on #279: such a value is accepted and rounded, never silently).
+/// `schema` is the input schema of the method, by which a decimal field is recognised.
+pub(crate) fn rounded_on_reading(schema: &Value, input: &Value, prefix: &str) -> Vec<String> {
+    let walk = UnknownKeys {
+        root: schema,
+        found: Vec::new(),
+    };
+    let mut found = Vec::new();
+    let mut tokens = Vec::new();
+    walk.rounded(input, input, &mut tokens, prefix, &mut found);
+    found
+}
+
+impl UnknownKeys<'_> {
+    fn rounded(
+        &self,
+        root: &Value,
+        node: &Value,
+        at: &mut Vec<String>,
+        prefix: &str,
+        found: &mut Vec<String>,
+    ) {
+        match node {
+            Value::Object(map) => {
+                for (k, v) in map {
+                    at.push(k.clone());
+                    self.rounded(root, v, at, prefix, found);
+                    at.pop();
+                }
+            }
+            Value::Array(items) => {
+                for (i, v) in items.iter().enumerate() {
+                    at.push(i.to_string());
+                    self.rounded(root, v, at, prefix, found);
+                    at.pop();
+                }
+            }
+            Value::String(text) => self.rounded_leaf(root, text, at, prefix, found),
+            Value::Number(n) => self.rounded_leaf(root, &n.to_string(), at, prefix, found),
+            _ => {}
+        }
+    }
+
+    fn rounded_leaf(
+        &self,
+        root: &Value,
+        text: &str,
+        at: &[String],
+        prefix: &str,
+        found: &mut Vec<String>,
+    ) {
+        // A text with at most 28 digits and no exponent always fits: no schema lookup.
+        let digits = text.bytes().filter(u8::is_ascii_digit).count();
+        if (digits <= 28 && !text.contains(['e', 'E'])) || !is_decimal_text(text) {
+            return;
+        }
+        let Some(used) = read_as_serde_does(text) else {
+            return;
+        };
+        if same_value(text, &used.to_string()) {
+            return;
+        }
+        if !self
+            .schema_at(at, root)
+            .is_some_and(|field| self.is_decimal(&field))
+        {
+            return;
+        }
+        let field = format!("{prefix}{}", pointer(at).unwrap_or_default());
+        found.push(format!(
+            "warning: `{field}` has more digits than a decimal holds: given {text}, used {used}, \
+             {ROUNDING_ON_READING}, as the input is read"
+        ));
+    }
+}
+
+/// The decimal `serde` reads from `text`, string or JSON number (`rust_decimal`'s
+/// deserializer): plain notation first, then scientific.
+fn read_as_serde_does(text: &str) -> Option<rust_decimal::Decimal> {
+    use std::str::FromStr;
+    rust_decimal::Decimal::from_str(text)
+        .or_else(|_| rust_decimal::Decimal::from_scientific(text))
+        .ok()
+}
+
+/// True when two decimal texts in the grammar of G7 have the same value: same sign, same
+/// significant digits and same exponent, whatever the notation and the zeros around them.
+fn same_value(a: &str, b: &str) -> bool {
+    canonical(a) == canonical(b)
+}
+
+/// `(negative, significant digits, exponent of the last digit)`; zero is `(false, "", 0)`.
+fn canonical(text: &str) -> (bool, String, i64) {
+    let (negative, rest) = match text.strip_prefix('-') {
+        Some(r) => (true, r),
+        None => (false, text),
+    };
+    let (mantissa, exponent) = match rest.split_once(['e', 'E']) {
+        Some((m, e)) => (m, e.parse::<i64>().unwrap_or(0)),
+        None => (rest, 0),
+    };
+    let (whole, fraction) = mantissa.split_once('.').unwrap_or((mantissa, ""));
+    let mut digits: String = format!("{whole}{fraction}");
+    let mut exponent = exponent - fraction.len() as i64;
+    let trimmed = digits.trim_end_matches('0').len();
+    exponent += (digits.len() - trimmed) as i64;
+    digits.truncate(trimmed);
+    let digits = digits.trim_start_matches('0').to_owned();
+    if digits.is_empty() {
+        return (false, digits, 0);
+    }
+    (negative, digits, exponent)
+}
+
 /// The JSON Schema of the input type `T` of method `id` as a JSON value, built once per method
 /// (review of #279, S2: building it is far slower than reading an input).
 fn schema_value<T: JsonSchema>(id: &'static str) -> std::sync::Arc<Value> {
