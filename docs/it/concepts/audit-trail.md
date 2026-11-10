@@ -1,6 +1,6 @@
 ---
 source: concepts/audit-trail.md
-source_hash: 5dd0774d492a
+source_hash: d07297ba2f86
 ---
 # La tracciabilità del calcolo (audit trail)
 
@@ -51,4 +51,4 @@ Ogni risultato è una busta in quattro parti:
   [`statements.reorganise`](../methods/statements-reorganise.md#valori-predefiniti)).
 
 Le etichette dei passaggi sono in inglese, perché fanno parte dell'output del motore. In
-Python, `result.explain_markdown()` produce una nota metodologica per la relazione.
+Python, `result.steps`, `result.conventions` e `result.meta` contengono la stessa traccia come dati.

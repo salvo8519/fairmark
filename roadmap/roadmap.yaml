@@ -220,6 +220,7 @@ milestones:
           - { issue: 48, title: "Typed input models generated from JSON Schema", tags: [parallel], status: open }
           - { issue: 306, title: "Results and inputs as tables for notebooks, JSON unchanged", status: dropped }
           - { issue: 307, title: "Cookbook for notebooks, scripts and agent loops", status: open }
+          - { issue: 310, title: "Remove explain_markdown: the JSON envelope is the only output", status: done }
       - title: "CLI"
         issue: 49
         labels: ["area:cli"]

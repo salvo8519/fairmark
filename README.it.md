@@ -1,4 +1,4 @@
-<!-- i18n source: README.md source_hash: 93772a09f7a8 -->
+<!-- i18n source: README.md source_hash: d1dba12954c6 -->
 <div align="center">
 
 <a href="https://salvo8519.github.io/fairmark/it/">
@@ -94,18 +94,18 @@ r = fm.dcf.fcff(
 r.value_of_operations    # Decimal('1421.4876033057851239669421487')
 r.equity_value           # Decimal('1221.4876033057851239669421487')
 r.terminal_value_weight  # Decimal('0.8086680761099365750528541226')
-print(r.explain_markdown())
+for s in r.steps:                # ogni passaggio, con i numeri sostituiti
+    print(s.label, s.formula, s.value)
 ```
 
 ```text
-| Step                                | Calculation                  | Value        |
-| ----------------------------------- | ---------------------------- | -----------: |
-| Period 1: discount factor           | 1 / (1 + 0.10)               | 0.909090...  |
-| Period 1: present value             | 100 × 0.909090...            | 90.909090... |
-| Terminal value: Terminal value at N | 122.40 / (0.10 − 0.02)       | 1530         |
-| Value of operations                 | 271.9759... + 1149.5116...   | 1421.4876... |
-| Equity value                        | 1421.4876... − 200           | 1221.4876... |
+Period 1: discount factor            1 / (1 + 0.10)                0.9090909090909090909090909091
+Period 1: present value              100 × 0.9090909090909090...   90.909090909090909090909090910
+Terminal value: Terminal value at N  122.40 / (0.10 − 0.02)        1530
+Value of operations                  271.9759... + 1149.5116...    1421.4876033057851239669421487
+Equity value                         1421.4876... − 200            1221.4876033057851239669421487
 ```
+(estratto)
 
 > **Suggerimento.** Passa importi e tassi come stringhe o `Decimal` per mantenerli esatti. I
 > float sono accettati e convertiti tramite la rappresentazione più breve (`0.1` → `"0.1"`).

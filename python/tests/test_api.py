@@ -1,3 +1,4 @@
+import json
 from datetime import date
 from decimal import Decimal
 
@@ -47,10 +48,11 @@ def test_unknown_method() -> None:
     assert info.value.code == "FM-E007"
 
 
-def test_explain_markdown_is_report_ready() -> None:
-    md = dcf([100, 110, 120], "0.10", "0.02").explain_markdown()
-    assert "| Step | Calculation | Value |" in md
-    assert "Terminal value" in md
+def test_json_is_the_only_output_format() -> None:
+    r = dcf([100, 110, 120], "0.10", "0.02")
+    assert not hasattr(type(r), "explain_markdown")
+    assert any(s.label.startswith("Terminal value") for s in r.steps)
+    assert json.loads(r.to_json())["method"] == r.method
 
 
 def test_tool_definitions_are_provider_compatible() -> None:

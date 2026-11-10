@@ -3,7 +3,7 @@ hide:
 - navigation
 - toc
 source: index.md
-source_hash: 3379c0108446
+source_hash: f8846ff69ddb
 ---
 <div class="fm-hero" markdown>
 
@@ -37,7 +37,7 @@ r = fm.dcf.fcff(
     net_financial_position={"gross_debt": 200, "cash": 0},
 )
 r.equity_value        # Decimal('1221.4876033057851239669421487') — esatto, riproducibile
-r.explain_markdown()  # ogni passaggio, pronto per la relazione di valutazione
+r.steps               # ogni passaggio con i numeri sostituiti, per la relazione di valutazione
 ```
 
 <div class="grid cards fm-features" markdown>
