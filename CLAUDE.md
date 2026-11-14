@@ -56,6 +56,11 @@ nothing is merged without the maintainer.
 A Stop hook runs `scripts/docs_sync.py impact`: if code changed without its documentation,
 you are sent back to fix it (delegate to `docs-writer`).
 
+Keep the generated site and the repository-level entry points aligned. Automated checks such as
+OpenSSF Best Practices do not always detect generated documentation alone; keep a minimal
+repository entry point such as `docs/README.md` and `docs/getting-started.md` so the project
+remains discoverable without duplicating the full generated documentation set.
+
 To change an agent or a skill, edit `.agents/` and run `uv run just generate`; never edit
 `.claude/agents` or `.claude/skills` directly.
 
