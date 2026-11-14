@@ -73,6 +73,9 @@ milestones:
           - { issue: 319, title: "Generated artifacts and worktree policy for long-running sprints", tags: [parallel], status: done }
           - { issue: 320, title: "Sprint burn-down, loop metrics and pull request queue automation", tags: [parallel], status: open }
           - { issue: 323, title: "Session journal for 2026-11-14 (agent loop roadmap)", status: done }
+          - { issue: 327, title: "Journal index and search of the agent session memory", tags: [parallel], status: open }
+          - { issue: 328, title: "Generated mirrors of .agents/ for other agent systems", tags: [parallel], status: open }
+          - { issue: 329, title: "Agent loop planning update of 2026-11-14: ADR 0015", status: done }
       - title: "CI/CD"
         issue: 10
         labels: ["area:infra"]

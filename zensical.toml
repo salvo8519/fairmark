@@ -123,6 +123,7 @@ nav = [
       "project/adr/0012-method-status-in-the-registry.md",
       "project/adr/0013-json-pointer-of-input-errors.md",
       "project/adr/0014-contract-guidelines-for-inputs-envelope-and-errors.md",
+      "project/adr/0015-agent-memory-one-source-tiered-mirrors.md",
     ] },
   ] },
 ]
