@@ -297,6 +297,11 @@ terms:
   available (method status): disponibile
   preview (method status): anteprima
   promotion rule (method status): regola di promozione
+  # Reviews of the repository (AGENTS.md, review standards): performed by the agent roles
+  # code-reviewer (.agents/agents/code-reviewer.md) and numerical-auditor
+  # (.agents/agents/numerical-auditor.md); used in the releases page and the release notes.
+  code review: revisione del codice
+  numerical audit: verifica numerica
 keep_in_english:
   - Fairmark
   # SPEC-0001: Italian equivalent "to verify" (no verified source); kept in English

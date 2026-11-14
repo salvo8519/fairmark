@@ -96,7 +96,7 @@ milestones:
         labels: []
         tasks:
           - { issue: 185, title: "README explains method status and shows Italian method titles", status: done }
-          - { issue: 209, title: "Glossary entries for numerical audit and code review", status: open }
+          - { issue: 209, title: "Glossary entries for numerical audit and code review", status: done }
 
   - title: "M1 · Numerical core"
     gate: "Golden harness green; NPV and IRR validated; property tests running."
