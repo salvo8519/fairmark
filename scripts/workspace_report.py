@@ -7,6 +7,10 @@ For each worktree the report shows its path, its branch (or detached HEAD), its 
 of the rebuildable caches inside it (``target/``, ``.venv/``, ``__pycache__/``,
 ``.pytest_cache/``, ``mutants.out*``), whether its branch is merged into ``main``, the number
 of uncommitted, untracked and ignored non-cache paths, and its last activity. It then lists the
+retirement candidates: each worktree whose branch is merged into ``main`` (squash merges
+included) or whose last activity is older than ``STALE_DAYS`` days, one line per worktree with
+the reasons. The main checkout is never a candidate. The list is a proposal for the maintainer:
+deletion stays manual and needs their explicit approval. The report ends with the
 cargo-mutants and pytest directories of the temporary directory and the usage of every file
 system involved.
 
@@ -61,6 +65,9 @@ UNSAFE_GIT_ENV = frozenset(
 )
 BASE_BRANCH = "main"
 BASE_REF = "origin/main"
+# A worktree inactive for more than this many days is a retirement candidate even when its
+# branch is not merged: sprints run in two-week cycles (sprints/README.md).
+STALE_DAYS = 14
 GH_TIMEOUT_S = 20
 UNKNOWN = "unknown"
 
@@ -535,6 +542,25 @@ def fmt_time(ts: float | None, now: float) -> str:
     return f"{stamp} ({ago})"
 
 
+def retirement(r: Report, now: float) -> list[str] | None:
+    """Reasons that make a worktree a candidate for removal, or None when none.
+
+    A worktree is a retirement candidate when its branch is merged into ``main`` (squash
+    merges included) or when it has been inactive for more than ``STALE_DAYS`` days. The
+    main checkout is never a candidate: the sessions share it, it is not created to be
+    removed. ``now`` is the epoch time of the report.
+    """
+    if r.tree.main or r.verified is not None:
+        return None
+    reasons: list[str] = []
+    if r.merged.state == "yes":
+        reasons.append("branch merged into main")
+    if r.last_activity is not None and now - r.last_activity > STALE_DAYS * 86400:
+        days = round((now - r.last_activity) / 86400)
+        reasons.append(f"inactive {days} days (threshold {STALE_DAYS} days)")
+    return reasons or None
+
+
 def render(
     reports: list[Report], tmp: list[tuple[Path, int]], disks: list[Disk], now: float
 ) -> str:
@@ -569,6 +595,22 @@ def render(
         lines.append(f"  Ignored, not cache   {ignored}")
         lines.append(f"  Last activity        {fmt_time(r.last_activity, now)}")
         lines.append("")
+    lines.append("Retirement candidates")
+    candidates = [(r, rs) for r in reports if (rs := retirement(r, now)) is not None]
+    if not candidates:
+        lines.append("  none")
+    else:
+        for r, rs in candidates:
+            who = r.tree.branch or ("detached HEAD" if r.tree.detached else UNKNOWN)
+            line = f"  {r.tree.path}  branch {who}: {'; '.join(rs)}"
+            s = r.status
+            if s.uncommitted or s.untracked:
+                line += (
+                    f" — uncommitted {fmt_count(s.uncommitted)},"
+                    f" untracked {fmt_count(s.untracked)}: review before removal"
+                )
+            lines.append(line)
+    lines.append("")
     if tmp:
         lines.append("Temporary directory caches (cache rebuildable)")
         lines += [f"  {human(size):>10}  {path}" for path, size in tmp]

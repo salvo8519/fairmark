@@ -445,6 +445,90 @@ def test_filesystem_usage_once_per_device(tmp_path: Path) -> None:
 
 
 # ------------------------------------------------------------------------------------------
+# Retirement candidates (sprints/README.md, issue #319)
+
+
+def test_retirement_none_when_active_and_unmerged() -> None:
+    tree = wr.Worktree(Path("/w"), "abc", "docs/42-x", False, False, False, False)
+    r = wr.Report(tree, None, 100, merged=wr.Merged("no", "stub"), last_activity=0.0)
+    assert wr.retirement(r, now=3600.0) is None
+
+
+def test_retirement_proposes_a_merged_branch() -> None:
+    tree = wr.Worktree(Path("/w"), "abc", "docs/42-x", False, False, False, False)
+    r = wr.Report(tree, None, 100, merged=wr.Merged("yes", "reachable from origin/main"))
+    reasons = wr.retirement(r, now=3600.0)
+    assert reasons == ["branch merged into main"]
+
+
+def test_retirement_proposes_inactivity_beyond_the_threshold() -> None:
+    tree = wr.Worktree(Path("/w"), "abc", "docs/42-x", False, False, False, False)
+    r = wr.Report(tree, None, 100, merged=wr.Merged("no", "stub"), last_activity=0.0)
+    now = (wr.STALE_DAYS + 2) * 86400.0  # two days past the sprint-cycle threshold
+    reasons = wr.retirement(r, now=now)
+    assert reasons == [f"inactive {wr.STALE_DAYS + 2} days (threshold {wr.STALE_DAYS} days)"]
+
+
+def test_retirement_never_proposes_the_main_checkout() -> None:
+    tree = wr.Worktree(Path("/main"), "abc", "main", False, False, False, True)
+    r = wr.Report(
+        tree,
+        None,
+        100,
+        merged=wr.Merged("yes", "reachable from origin/main"),
+        last_activity=0.0,
+    )
+    assert wr.retirement(r, now=(wr.STALE_DAYS + 30) * 86400.0) is None
+
+
+def test_retirement_skips_directories_it_cannot_verify() -> None:
+    tree = wr.Worktree(Path("/gone"), None, None, False, False, False, False)
+    r = wr.Report(tree, "directory missing", None, last_activity=0.0)
+    assert wr.retirement(r, now=(wr.STALE_DAYS + 30) * 86400.0) is None
+
+
+def test_render_lists_retirement_candidates() -> None:
+    path = Path("/merged-wt")
+    tree = wr.Worktree(path, "abc", "docs/42-x", False, False, False, False)
+    r = wr.Report(tree, None, 100, merged=wr.Merged("yes", "reachable from origin/main"))
+    text = wr.render([r], [], [(Path("/w"), None, None, None)], 0.0)
+    assert "Retirement candidates" in text
+    assert f"{path}  branch docs/42-x: branch merged into main" in text
+
+
+def test_render_flags_uncommitted_work_of_a_candidate() -> None:
+    path = Path("/dirty-wt")
+    tree = wr.Worktree(path, "abc", "docs/42-x", False, False, False, False)
+    r = wr.Report(
+        tree,
+        None,
+        100,
+        merged=wr.Merged("yes", "reachable from origin/main"),
+        status=wr.Status(uncommitted=12, untracked=1),
+    )
+    text = wr.render([r], [], [(Path("/w"), None, None, None)], 0.0)
+    assert f"{path}  branch docs/42-x: branch merged into main" in text
+    assert "uncommitted 12, untracked 1: review before removal" in text
+
+
+def test_render_says_none_when_no_candidate() -> None:
+    tree = wr.Worktree(Path("/w"), "abc", "docs/42-x", False, False, False, False)
+    r = wr.Report(tree, None, 100, merged=wr.Merged("no", "stub"), last_activity=3600.0)
+    text = wr.render([r], [], [(Path("/w"), None, None, None)], 7200.0)
+    assert "Retirement candidates\n  none" in text
+
+
+def test_command_line_report_proposes_a_merged_worktree(
+    repo: Repo, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo.worktree("retired", merge=True)
+    assert wr.main(["--repo", str(repo.main), "--no-tmp", "--tmp-root", str(repo.tmp)]) == 0
+    out = capsys.readouterr().out
+    assert any(line == "Retirement candidates" for line in out.splitlines())
+    assert any("branch merged into main" in line for line in out.splitlines())
+
+
+# ------------------------------------------------------------------------------------------
 # Command line
 
 

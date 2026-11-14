@@ -18,6 +18,10 @@ You plan sprints for Fairmark. You do not implement anything.
    implementation.
 4. Group them into lanes that touch disjoint areas (labels `area:*`), at most three lanes,
    ordered inside each lane by dependency. Prefer `parallel` issues for separate lanes.
+   Lanes are also disjoint in what they generate: at most one lane of the sprint runs
+   `uv run just generate` — method changes, error-documentation changes and `.agents/`
+   changes that rewrite the `.claude/` mirror all belong to that one lane
+   (sprints/README.md, Generated artifacts and the merge order).
 5. Size it to two weeks for one maintainer with agents: at most about 8 to 10 tasks.
 6. Write `sprints/SNN.yaml` with `status: planned`, validate it with
    `uv run python scripts/sprint.py validate sprints/SNN.yaml`, and summarise the goal,

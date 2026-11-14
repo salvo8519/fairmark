@@ -39,5 +39,10 @@ file in this skill: it only reads and proposes.
      (for example `feat/42-dcf-mid-year`);
    - label the issue `in-progress` and assign it:
      `gh api -X POST repos/{owner}/{repo}/issues/<n>/labels -f "labels[]=in-progress"`;
-   - for parallel work, suggest one git worktree per issue
-     (`git worktree add ../fairmark-<n> -b <branch> origin/main`) or `/run-sprint`.
+   - for parallel work, use one git worktree per issue
+     (`git worktree add ../fairmark-<n> -b <branch> origin/main`), or `/run-sprint`; no two
+     sessions ever share a checkout (AGENTS.md, hard rule);
+   - report the **Retirement candidates** of `uv run just workspace-report`: worktrees whose
+     branch is merged into `main` or inactive for more than 14 days are proposed for removal
+     to the maintainer; delete nothing without their explicit approval of the named paths
+     (sprints/README.md).

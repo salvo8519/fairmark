@@ -27,7 +27,12 @@ lane after the other. For each issue of the lane, in order:
 6. `uv run just check` green, docs in sync (the Stop hook enforces it).
 7. Push and open the PR: `gh pr create --title "<type>(<scope>): ... [SPEC-NNNN]" --body
    "Closes #N ..."`. Never merge.
-Keep a running table: issue, branch, PR, status, blockers.
+Keep a running table: issue, branch, PR, status, blockers. Each lane works in its own
+worktree (one worktree per session, AGENTS.md):
+
+- a lane other than the generate lane never runs `uv run just generate`;
+- when a lane needs generated artifacts, it becomes the generate lane of the sprint, the
+  only one (sprints/README.md).
 
 ## Remote mode (Claude in GitHub Actions)
 For each issue: `gh issue comment N --body "@claude Implement this issue following
@@ -36,5 +41,10 @@ and open a pull request that closes this issue."` Issues of different lanes run 
 on separate runners. Then track the resulting PRs with `scripts/sprint.py status`.
 
 ## End of run
-Report per lane: PRs opened, issues blocked and why, what the maintainer must review or
-decide. Do not change `status` to `done`: that is the maintainer's call.
+Propose the merge order to the maintainer (sprints/README.md, Generated artifacts and the merge
+order): pull requests carrying regenerated artifacts merge strictly one at a time; after each
+of them merges, rebase the next on `main` and run `uv run just generate` in it again. Report
+per lane: PRs opened, issues blocked and why, what the maintainer must review or decide.
+Do not change `status` to `done`: that is the maintainer's call. Propose the removal of the
+worktree of every merged pull request: the Retirement candidates of
+`uv run just workspace-report`, never deleted without the maintainer's approval.
