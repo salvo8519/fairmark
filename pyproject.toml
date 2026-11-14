@@ -7,7 +7,7 @@ name = "fairmark"
 description = "Deterministic valuation engine for analysts and AI agents — fair value, hallmarked."
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [{ name = "The Fairmark Authors" }]
 keywords = ["valuation", "dcf", "corporate-finance", "real-estate", "ai-agents", "mcp", "function-calling", "decimal"]
 classifiers = [
@@ -15,6 +15,10 @@ classifiers = [
     "Intended Audience :: Financial and Insurance Industry",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Rust",
     "Topic :: Office/Business :: Financial",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
@@ -39,16 +43,18 @@ dev = [
   "maturin>=1.9,<2",
   "rust-just>=1.40",
   "typos>=1.30",
-  # pre-commit only on Python 3.11 or later: on 3.10 it resolves filelock 4.1.0, which has open
-  # security advisories with no fix for 3.10 (#292). Contributors use 3.11 or later for hooks.
-  "pre-commit>=4; python_version >= '3.11'",
+  "pre-commit>=4",
   "git-cliff>=2.6",
   "tomli-w>=1.0",
   "towncrier>=24.8",
 ]
 # Independent oracles for cross-checking results in tests only (never shipped to users).
 oracles = [
-  "pyxirr>=0.10",
+  # pyxirr publishes no Windows wheel for Python 3.15 and cannot be built there from source
+  # (PyO3 0.25 stops at 3.14, and its code is not abi3-compatible). Until it does, the
+  # Windows 3.15 job runs without it; test_cross_check.py is skipped there and runs on every
+  # other platform and version (#295).
+  "pyxirr>=0.10; sys_platform != 'win32' or python_version < '3.15'",
   "numpy-financial>=1.0",
   # Schedule oracles of SPEC-0010. QuantLib is pinned exactly: its end-of-month behaviour has
   # changed across releases, and the golden files record the version they were checked with.
@@ -57,8 +63,8 @@ oracles = [
   "python-dateutil>=3.0",
 ]
 docs = [
-  "zensical>=0.1; python_version >= '3.11'",
-  "mkdocstrings-python>=1.18; python_version >= '3.11'",
+  "zensical>=0.1",
+  "mkdocstrings-python>=1.18",
 ]
 
 [project.scripts]
@@ -85,7 +91,7 @@ testpaths = ["python/tests"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "UP", "B", "SIM", "RUF", "PLW1514"]
@@ -96,6 +102,7 @@ explicit-preview-rules = true
 
 [tool.mypy]
 strict = true
+python_version = "3.12"
 packages = ["fairmark"]
 mypy_path = "python"
 

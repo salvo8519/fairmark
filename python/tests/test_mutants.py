@@ -10,8 +10,6 @@ from typing import Any
 
 import pytest
 
-pytest.importorskip("tomllib")  # the script runs on Python 3.11 or later (CI uses 3.13)
-
 ROOT = Path(__file__).resolve().parents[2]
 _spec = importlib.util.spec_from_file_location("mutants", ROOT / "scripts/mutants.py")
 assert _spec and _spec.loader

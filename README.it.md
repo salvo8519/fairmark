@@ -1,4 +1,4 @@
-<!-- i18n source: README.md source_hash: d1dba12954c6 -->
+<!-- i18n source: README.md source_hash: 0b30aa90d35c -->
 <div align="center">
 
 <a href="https://salvo8519.github.io/fairmark/it/">
@@ -74,7 +74,7 @@ uv add "fairmark[mcp]"       # più il server MCP
 ```
 
 Wheel precompilate per Linux (x86_64 e arm64, glibc e musl), macOS (Intel e Apple silicon)
-e Windows (x86_64): non serve un compilatore.
+e Windows (x86_64): non serve un compilatore. Richiede Python 3.12 o successivo.
 
 ## Guida rapida
 

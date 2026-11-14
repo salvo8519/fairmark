@@ -17,11 +17,11 @@ import re
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any
 
 import tomli_w
-import tomllib
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]

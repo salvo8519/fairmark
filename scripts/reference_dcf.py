@@ -40,16 +40,14 @@ from decimal import Context, localcontext
 from decimal import Decimal as D
 from functools import wraps
 from pathlib import Path
-from typing import Any, TypeVar
-
-T = TypeVar("T", bound=Callable[..., Any])
+from typing import Any
 
 CONTEXT = Context(prec=50)
 # Golden cases whose expected values come from this script start their `source` with this.
 REFERENCE = "Independent 50-digit reference, scripts/reference_dcf.py"
 
 
-def at_50_digits(func: T) -> T:
+def at_50_digits[T: Callable[..., Any]](func: T) -> T:
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         with localcontext(CONTEXT):

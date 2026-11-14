@@ -9,10 +9,6 @@ from pathlib import Path
 
 import pytest
 
-# scripts/docs.py runs with the documentation toolchain (Python 3.11 or later, tomllib);
-# the package itself supports 3.10.
-pytest.importorskip("tomllib")
-
 ROOT = Path(__file__).resolve().parents[2]
 _spec = importlib.util.spec_from_file_location("docs_site", ROOT / "scripts/docs.py")
 assert _spec and _spec.loader

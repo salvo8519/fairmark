@@ -26,13 +26,12 @@ from decimal import Context, localcontext
 from decimal import Decimal as D
 from functools import wraps
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any
 
-T = TypeVar("T", bound=Callable[..., Any])
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def at_50_digits(fn: T) -> T:
+def at_50_digits[T: Callable[..., Any]](fn: T) -> T:
     @wraps(fn)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         with localcontext(Context(prec=50)):

@@ -190,8 +190,8 @@ before approving each environment.
 
 ### What is built
 
-The Python package is an `abi3` wheel: one wheel per platform serves Python 3.10 and every
-later version. Each wheel is built on a runner of its own architecture.
+The Python package is an `abi3` wheel: one wheel per platform serves Python 3.12 and every
+later version (tag `cp312-abi3`). Each wheel is built on a runner of its own architecture.
 
 | Platform | Wheel tag | Runner |
 | --- | --- | --- |
@@ -219,7 +219,7 @@ fails when the line is not pinned by digest. Dependabot updates the digests week
 | `quay.io/pypa/manylinux2014_aarch64:latest` | Build, Linux arm64 glibc | Manifest of `linux/arm64` |
 | `ghcr.io/rust-cross/rust-musl-cross:x86_64-musl` | Build, Linux x86_64 musl | Multi-platform index |
 | `ghcr.io/rust-cross/rust-musl-cross:aarch64-musl` | Build, Linux arm64 musl | Multi-platform index, includes `linux/arm64` |
-| `python:3.10-alpine`, `python:3.13-alpine` | Smoke test of the musllinux wheels | Multi-platform index |
+| `python:3.12-alpine`, `python:3.15-alpine` | Smoke test of the musllinux wheels | Multi-platform index |
 
 On crates.io the workflow publishes `fairmark-core` (the engine) and `fairmark-cli` (the
 `fairmark` binary), in that order, with `cargo publish --workspace`. `fairmark-py` has
@@ -229,7 +229,7 @@ On crates.io the workflow publishes `fairmark-core` (the engine) and `fairmark-c
 
 - **Smoke test of every wheel.** Each wheel is uploaded as soon as it is built, before any
   test code runs. Then, on its own runner, it is installed in a new environment with Python
-  3.10 and Python 3.13, the oldest and newest versions that CI tests, and
+  3.12 and Python 3.15, the oldest and newest versions that CI tests, and
   `scripts/smoke_wheel.py` runs every golden case through it. The script also checks that the
   package is imported from the environment, not from the checkout, and that its version is the
   one in `Cargo.toml`. musllinux wheels are tested on Alpine Linux in a container that sees the

@@ -73,7 +73,7 @@ uv add "fairmark[mcp]"       # + MCP server
 ```
 
 Prebuilt wheels for Linux (x86_64 and arm64, glibc and musl), macOS (Intel and Apple silicon)
-and Windows (x86_64): no compiler needed.
+and Windows (x86_64): no compiler needed. Requires Python 3.12 or newer.
 
 ## Quickstart
 
