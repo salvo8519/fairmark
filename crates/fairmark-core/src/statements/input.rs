@@ -760,11 +760,15 @@ adjustment!(
 adjustment!(
     /// Moves operating cash out of the net financial position into operating working capital
     /// (Decision 11).
-    OperatingCashAdjustment, Decimal, {}
+    OperatingCashAdjustment,
+    Decimal,
+    {}
 );
 adjustment!(
     /// Moves accrued interest out of E into the net financial position (current).
-    AccruedInterestAdjustment, Decimal, {}
+    AccruedInterestAdjustment,
+    Decimal,
+    {}
 );
 adjustment!(
     /// Moves tax payables settled by instalments out of payables D into debt-like items.
@@ -776,7 +780,9 @@ adjustment!(
 adjustment!(
     /// Moves trade payables with extended terms out of payables D into the net financial
     /// position (non-current).
-    NonCurrentTradePayablesAdjustment, Decimal, {}
+    NonCurrentTradePayablesAdjustment,
+    Decimal,
+    {}
 );
 adjustment!(
     /// Moves a provision B or the employee severance indemnity C into debt-like items.
@@ -795,12 +801,16 @@ adjustment!(
 );
 adjustment!(
     /// Moves dividends declared from equity to debt-like items (Decision 14).
-    DividendsDeclaredAdjustment, Decimal, {}
+    DividendsDeclaredAdjustment,
+    Decimal,
+    {}
 );
 adjustment!(
     /// Restates a lease by the financial method (R21, Decision 9): asset, liability, equity
     /// effect, and the income statement lines; no deferred taxes.
-    LeaseAdjustment, LeaseAmounts, {}
+    LeaseAdjustment,
+    LeaseAmounts,
+    {}
 );
 adjustment!(
     /// Moves a labelled part of A5 or B14 to the investing result (Decision 7).
