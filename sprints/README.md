@@ -22,7 +22,66 @@ lanes:                     # lanes run in parallel; issues within a lane run in 
 ```
 
 Lanes must touch disjoint areas of the code (for example `core` and `docs`), so that parallel
-agents never edit the same files.
+agents never edit the same files. They must also stay disjoint in what they generate: at most
+one lane may run `uv run just generate` in a sprint (see the next two sections).
+
+## One worktree per session
+
+A git checkout gives one working tree one branch, one HEAD and one index: two agent sessions
+that work in the same directory overwrite each other's branch, and one session's
+`git add` commits the other's uncommitted files. Parallel work of any kind — two sessions on
+two issues, or a sprint lane while the orchestrator uses the main checkout — runs in one git
+worktree per session, created from an up-to-date `main`:
+
+```bash
+git fetch origin
+git worktree add ../fairmark-<n> -b <type>/<n>-<slug> origin/main
+```
+
+The session lives in that directory for the whole issue; its checkout, its uncommitted files
+and its build caches are its own. A pull request is opened from it and pushed from it.
+
+### Retirement of stale worktrees
+
+Long sprints accumulate worktrees whose branch is already merged or that nobody touched for
+weeks. At the start of a session, run `git fetch origin` and then:
+
+```bash
+uv run just workspace-report
+```
+
+Its **Retirement candidates** section lists every worktree whose branch is merged into
+`main` (squash merges included) or whose last activity is older than 14 days, one line each
+with the reasons. The list is a proposal: propose its entries to the maintainer and remove
+only the paths the maintainer explicitly approves, with `git worktree remove <path>`
+(without `--force`; git refuses a worktree with changes). Nothing is ever deleted without
+that approval, which is also the rule of the report script itself
+(docs/en/project/workspace-report.md). After a merge, the session that created a worktree
+removes it in the same way, once its pull request is pushed.
+
+## Generated artifacts and the merge order
+
+`uv run just generate` writes files that belong to no single lane: the schema snapshots in
+`schemas/` with `schemas/index.json`, `docs/en/reference/methods.md`, the tool examples, the
+Python docstrings and the `.claude/` mirror of `.agents/`. Two lanes that both add or change
+methods regenerate them independently and collide when their pull requests merge.
+
+The policy of this repository is the merge order:
+
+1. A sprint plans at most one lane whose pull requests run `uv run just generate`: method
+   changes, error-documentation changes and `.agents/` changes that rewrite the mirror all
+   belong to that one lane.
+2. Pull requests that carry regenerated artifacts merge strictly one at a time.
+3. After one of them merges, the next one in the order is rebased on `main`, and
+   `uv run just generate` is run again in it, so its artifacts supersede those of the pull
+   request merged before it. CI (generated files current, docs coverage, tool examples)
+   verifies every push.
+4. Pull requests with no regenerated artifacts merge in any order.
+
+The alternative policy — a generate step run on `main` after each method pull request is
+merged — would remove the ordering from the lanes, but it writes to `main` from a workflow
+and needs its own issue, its own approval and a change to the branch protections before it
+can be planned.
 
 ## Workflow
 1. **Plan** — `/plan-sprint`: the `sprint-planner` agent proposes `sprints/SNN.yaml` from the

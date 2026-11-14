@@ -47,6 +47,10 @@ changing anything: its principles override convenience.
 - `rust_decimal::Decimal` for every value. **Never** `f32`/`f64` in a calculation path; in
   Python never `float` for money or rates (use `Decimal` or strings).
 - Financial logic only in `fairmark-core`. Adapters translate, they never compute.
+- One agent session works in one git worktree, never in a checkout shared with another
+  session: one working tree has one HEAD and one index, and two sessions in it commit each
+  other's files. Create it from an up-to-date `main`, work there for the whole issue, remove
+  it after the merge (sprints/README.md).
 - New input types: `Serialize + Deserialize + JsonSchema`, `#[serde(deny_unknown_fields)]`,
   a doc comment on every field stating units (rates are decimal fractions).
 - Every calculation step that produces a number the user sees goes into `Explain`; every
@@ -159,7 +163,7 @@ Install [`uv`](https://docs.astral.sh/uv/) and Rust stable. `just` is installed 
 | Outdated dependencies / advisories | `uv run just deps-outdated` / `uv run just deps-audit` |
 | Version check / preview of release notes | `uv run just version` / `uv run just release-notes` |
 | Build both documentation sites | `uv run just docs` |
-| Disk usage of worktrees and caches (read-only; nothing is deleted without the maintainer's explicit approval) | `uv run just workspace-report` |
+| Disk usage of worktrees, caches and retirement candidates (read-only; nothing is deleted without the maintainer's explicit approval) | `uv run just workspace-report` |
 | Docs preview (English or Italian) | `uv run just docs-serve` / `uv run just docs-serve it` |
 
 ## Adding a method (checklist)

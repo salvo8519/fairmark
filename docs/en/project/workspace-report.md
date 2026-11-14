@@ -49,9 +49,16 @@ For each worktree of the repository the report shows:
 | Ignored, not cache | Ignored paths that are not rebuildable caches (for example a local `.env` or a built extension), with the first names |
 | Last activity | Most recent change in the git metadata, the top level and the build output |
 
-It then lists the `cargo-mutants-*.tmp` and `pytest-of-*` directories of the current user in
-the temporary directory, the total size of the worktrees and caches, and the size, use and free
-space of every file system involved.
+It then lists the **Retirement candidates**: every worktree other than the main checkout
+whose branch is merged into `main` (squash merges included) or whose last activity is older
+than 14 days, one line each with the reasons, and — when the worktree has uncommitted or
+untracked paths — their counts, so a proposal is never read without its caveat. The list is a
+proposal for the maintainer, run at the start of a session as part of the worktree lifecycle
+of `sprints/README.md`; deletion stays manual (below).
+
+After that it lists the `cargo-mutants-*.tmp` and `pytest-of-*` directories of the current user
+in the temporary directory, the total size of the worktrees and caches, and the size, use and
+free space of every file system involved.
 
 ### Merged into main
 
@@ -72,8 +79,9 @@ that `origin/main` knows about recent merges.
 ## Deleting worktrees and caches
 
 Deletion is manual. The maintainer decides, or an agent deletes on the maintainer's explicit
-request for named paths. Agents run the report, for example at the end of a session, and report
-the figures; they delete nothing on their own.
+request for named paths. Agents run the report, for example at the start of a session (the
+**Retirement candidates** section proposes the stale worktrees) and at the end of a session,
+and report the figures; they delete nothing on their own.
 
 Before deleting a worktree, check in the report that it is merged (`yes`), has no uncommitted,
 untracked or ignored non-cache paths, and is not in use by a running agent. Then use
