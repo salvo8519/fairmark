@@ -125,6 +125,13 @@ Signed-off-by: Name Surname <email>
 - **Labels**: area labels are applied automatically from the changed paths; the author adds
   `numerical-change`, `breaking-change`, `no-release-note` or `translation-pending` when they
   apply.
+- **Failures of external analyses**: CodeQL and the other external analyses are re-run
+  first; merge waits until the failure is understood. When the failure is demonstrably on
+  the side of GitHub or the analysis vendor — a download outage, a 5xx, a "configuration
+  not found" comparison made while the analysis was still running — and every required
+  check is green, the triage review comment records what failed, the re-run and why the
+  failure is external, and the merge proceeds. An analysis that is not a required check
+  never blocks a merge on its own; CodeQL is not a required check today.
 
 ## Authorship
 
