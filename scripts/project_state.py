@@ -20,6 +20,29 @@ from typing import Any
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _state_line(path: Path) -> str:
+    """One line of per-issue sprint state for the briefing (sprints/SNN/state/*.yaml)."""
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        return ""
+    bits = [f"#{data.get('issue', path.stem)}"]
+    if data.get("branch"):
+        bits.append(f"branch {data['branch']}")
+    if data.get("step"):
+        bits.append(f"step {data['step']}")
+    if data.get("pull_request"):
+        bits.append(f"PR #{data['pull_request']}")
+    blockers = data.get("blockers") or []
+    bits.append(f"{len(blockers)} blocker" if len(blockers) == 1 else f"{len(blockers)} blockers")
+    if data.get("agent_steps"):
+        bits.append(f"{data['agent_steps']} agent steps")
+    if data.get("updated"):
+        bits.append(f"updated {str(data['updated'])[:16]}")
+    return ", ".join(bits)
+
+
 JOURNAL = ROOT / ".agents" / "journal"
 
 
@@ -105,6 +128,13 @@ def collect() -> dict[str, Any]:
                 "end": str(data["end"]),
                 "issues": [n for lane in data["lanes"] for n in lane.get("issues", [])],
             }
+            sprint["state"] = [
+                line
+                for line in (
+                    _state_line(p) for p in sorted((f.with_suffix("") / "state").glob("*.yaml"))
+                )
+                if line
+            ]
     state["active_sprint"] = sprint
     open_numbers = {i["number"] for i in issues}
     if sprint:
@@ -163,6 +193,12 @@ def render(s: dict[str, Any]) -> str:
         out.append(
             f"{sp['file']}: {sp['goal']} (ends {sp['end']}); "
             f"{len(s['sprint_done'])}/{len(sp['issues'])} issues closed."
+        )
+        out += *(
+            ["Per-issue state (sprints state files, local recovery):"]
+            + [f"- {line}" for line in sp.get("state") or []]
+            if sp.get("state")
+            else []
         )
     else:
         out.append(f"No active sprint. Current milestone: {s.get('current_milestone')}.")

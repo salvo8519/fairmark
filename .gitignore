@@ -28,3 +28,6 @@ CLAUDE.local.md
 
 # cargo-mutants output (local runs write to target/mutants*)
 mutants.out*/
+
+# Sprint state of a run: runtime files of the orchestrator (sprints/README.md)
+/sprints/*/state/

@@ -69,7 +69,7 @@ milestones:
           - { issue: 211, title: "Unique task ids in tasks.md files, checked in CI", status: done }
           - { issue: 249, title: "Computability table in specs and partial-input audits", status: done }
           - { issue: 297, title: "Smaller debug builds and a read-only workspace report", status: done }
-          - { issue: 318, title: "Persistent sprint state and per-task checkpoints", tags: [parallel], status: open }
+          - { issue: 318, title: "Persistent sprint state and per-task checkpoints", tags: [parallel], status: done }
           - { issue: 319, title: "Generated artifacts and worktree policy for long-running sprints", tags: [parallel], status: done }
           - { issue: 320, title: "Sprint burn-down, loop metrics and pull request queue automation", tags: [parallel], status: open }
           - { issue: 323, title: "Session journal for 2026-11-14 (agent loop roadmap)", status: done }
