@@ -69,6 +69,9 @@ milestones:
           - { issue: 211, title: "Unique task ids in tasks.md files, checked in CI", status: done }
           - { issue: 249, title: "Computability table in specs and partial-input audits", status: done }
           - { issue: 297, title: "Smaller debug builds and a read-only workspace report", status: done }
+          - { issue: 318, title: "Persistent sprint state and per-task checkpoints", tags: [parallel], status: open }
+          - { issue: 319, title: "Generated artifacts and worktree policy for long-running sprints", tags: [parallel], status: open }
+          - { issue: 320, title: "Sprint burn-down, loop metrics and pull request queue automation", tags: [parallel], status: open }
       - title: "CI/CD"
         issue: 10
         labels: ["area:infra"]
@@ -284,7 +287,7 @@ milestones:
           - { issue: 266, title: "Null equals absent and one number grammar", status: open }
           - { issue: 271, title: "ADR 0014: default admission tests and the floor of best effort", status: done }
           - { issue: 280, title: "Fix every review finding before v0.1", status: open }
-          - { issue: 282, title: "Mutation testing of the core with cargo-mutants", status: open }
+          - { issue: 282, title: "Mutation testing of the core with cargo-mutants", status: done }
       - title: "Release readiness for v0.1"
         labels: []
         tasks:
