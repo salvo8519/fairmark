@@ -83,6 +83,34 @@ merged — would remove the ordering from the lanes, but it writes to `main` fro
 and needs its own issue, its own approval and a change to the branch protections before it
 can be planned.
 
+## Sprint state: resume mid-issue
+
+The orchestrator of a sprint run writes its running table on disk as it goes, one file per
+issue: `sprints/SNN/state/<issue>.yaml`. Runtime state, git-ignored, owned by the checkout
+of the orchestrator, one write per step of the local mode:
+
+```bash
+uv run python scripts/sprint.py state sprints/S01.yaml 42 \
+    --branch feat/42-mid-year --step tests \
+    [--pr 33] [--blocker "waiting for the reviewer"] [--clear-blockers]
+```
+
+The step is the current step of the lane loop: `spec`, `tests`, `implementation`, `review`,
+`pr` or `done`. The file holds the issue, its lane, branch, pull request, current step,
+blockers, `started` and `updated` (UTC, ISO 8601) and `agent_steps`, counted one per write:
+the agent cost of the issue.
+
+`uv run python scripts/sprint.py status sprints/S01.yaml` prints the state next to the
+GitHub state of its issue, and marks the state file of a closed issue as stale: remove it,
+and the worktree of its branch, once the issue closes. At every task switch the orchestrator
+also appends one line to the work-in-progress note
+`.agents/journal/<date>-sprint-SNN-wip.md`: issue, step, pull request, blockers, last commit
+of the lane. A context reset or a crash then costs minutes: a new session reads the same
+files in the briefing of `uv run python scripts/project_state.py`, reopens the worktree of
+the branch the state names (it is still there, see the sections above) and continues from
+the recorded step. The state directory and the work-in-progress note are local recovery
+state; the committed record stays the journal entry and the pull request of the issue.
+
 ## Workflow
 1. **Plan** — `/plan-sprint`: the `sprint-planner` agent proposes `sprints/SNN.yaml` from the
    open issues of the current milestone. The maintainer edits and approves it.

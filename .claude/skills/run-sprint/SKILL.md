@@ -29,6 +29,13 @@ lane after the other. For each issue of the lane, in order:
 6. `uv run just check` green, docs in sync (the Stop hook enforces it).
 7. Push and open the PR: `gh pr create --title "<type>(<scope>): ... [SPEC-NNNN]" --body
    "Closes #N ..."`. Never merge.
+Checkpoint state at every step: after each numbered step of this loop, run
+`uv run python scripts/sprint.py state sprints/SNN.yaml N --step <step> [--pr <n> |
+--blocker "<why>" | --clear-blockers]` (the running table persisted, sprints/README.md,
+Sprint state). At every task switch append one line to
+`.agents/journal/<date>-sprint-SNN-wip.md`: issue, step, pull request, blockers, last commit
+of the lane. Both are local recovery state, git-ignored: a crash costs minutes, not a
+session of context.
 Keep a running table: issue, branch, PR, status, blockers. Each lane works in its own
 worktree (one worktree per session, AGENTS.md):
 

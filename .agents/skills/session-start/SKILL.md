@@ -40,6 +40,11 @@ file in this skill: it only reads and proposes.
    - for parallel work, use one git worktree per issue
      (`git worktree add ../fairmark-<n> -b <branch> origin/main`), or `/run-sprint`; no two
      sessions ever share a checkout (AGENTS.md, hard rule);
+   - the briefing also prints the per-issue state of an active sprint
+     (`sprints/SNN/state/`, one file per issue, git-ignored). To resume an issue mid-flight,
+     read its state file, reopen the worktree of the branch it names (`git worktree list`
+     finds it; it survives context resets, sprints/README.md) and continue from the recorded
+     step; a stale state file belongs to a closed issue: remove it with the worktree;
    - report the **Retirement candidates** of `uv run just workspace-report`: worktrees whose
      branch is merged into `main` or inactive for more than 14 days are proposed for removal
      to the maintainer; delete nothing without their explicit approval of the named paths
