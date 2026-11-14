@@ -72,6 +72,7 @@ milestones:
           - { issue: 318, title: "Persistent sprint state and per-task checkpoints", tags: [parallel], status: open }
           - { issue: 319, title: "Generated artifacts and worktree policy for long-running sprints", tags: [parallel], status: open }
           - { issue: 320, title: "Sprint burn-down, loop metrics and pull request queue automation", tags: [parallel], status: open }
+          - { issue: 323, title: "Session journal for 2026-11-14 (agent loop roadmap)", status: done }
       - title: "CI/CD"
         issue: 10
         labels: ["area:infra"]
