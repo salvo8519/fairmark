@@ -1,0 +1,82 @@
+method: statements.reorganise
+description: 'ADR 0014 G5 (issue #258): three sign errors in one balance sheet (inventories -5, cash -1,
+  negative reserve for own shares 3) are all reported in `errors`, in the order of the statutory layout'
+source: Input of error-negative-unsigned-amount.yaml with two more sign errors; SPEC-0005 R3 (signs as
+  presented in the statutory layouts) and ADR 0014 G5 (every input error in `errors`). The order is that
+  of the layout (C.I before C.IV, assets before equity). Written from the spec and the ADR, not from the
+  engine's output.
+input:
+  years:
+  - label: '2024'
+    date: '2024-12-31'
+    statutory:
+      layout: ordinary
+      balance_sheet:
+        subscribed_capital_unpaid: '0'
+        intangible_assets:
+          total: '120000'
+          gross: '200000'
+          accumulated: '80000'
+        tangible_assets:
+          total: '900000'
+          gross: '1500000'
+          accumulated: '600000'
+        financial_fixed_assets: '150000'
+        fixed_assets: '1170000'
+        inventories: '-5'
+        receivables:
+          total: '950000'
+          beyond_one_year: '50000'
+          trade: '800000'
+        current_financial_assets: '60000'
+        cash: '-1'
+        current_assets: '1650000'
+        prepayments_and_accrued_income:
+          total: '30000'
+        total_assets: '2850000'
+        equity:
+          total: '900000'
+          share_capital: '100000'
+          share_premium: '0'
+          revaluation_reserves: '0'
+          legal_reserve: '20000'
+          statutory_reserves: '0'
+          other_reserves: '380000'
+          cash_flow_hedge_reserve: '0'
+          retained_earnings: '250000'
+          profit_or_loss_for_the_year: '150000'
+          negative_reserve_for_own_shares: '3'
+        provisions:
+          total: '70000'
+          of_which_derivative_liabilities: '10000'
+        employee_severance_indemnity:
+          total: '180000'
+        payables:
+          total: '1650000'
+          beyond_one_year: '600000'
+          financial_debt:
+            total: '900000'
+            beyond_one_year: '550000'
+          shareholder_loans:
+            total: '100000'
+            beyond_one_year: '50000'
+          trade: '500000'
+        accruals_and_deferred_income:
+          total: '50000'
+        total_liabilities_and_equity: '2850000'
+      income_statement:
+        profit_or_loss_for_the_year: '150000'
+  treatments:
+    financial_fixed_assets: non_operating
+    shareholder_loans: financial_debt
+    derivative_liabilities: financial_liability
+expect_error: FM-E001
+expect_error_report:
+  /pointer: /years/0/statutory/balance_sheet/inventories
+  /reason: sign
+  /errors/0/pointer: /years/0/statutory/balance_sheet/inventories
+  /errors/1/pointer: /years/0/statutory/balance_sheet/cash
+  /errors/2/pointer: /years/0/statutory/balance_sheet/equity/negative_reserve_for_own_shares
+  /errors/2/expected/0: zero or less
+expect_length:
+  /errors: '3'

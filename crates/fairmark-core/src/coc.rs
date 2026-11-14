@@ -9,7 +9,7 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Found, Reason, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num::{add, div, mul, sub};
@@ -20,18 +20,28 @@ fn invalid(msg: impl Into<String>) -> FairmarkError {
     FairmarkError::InvalidInput(msg.into())
 }
 
+/// The JSON pointer of a field named as in the messages: `peers[0].tax_rate` is
+/// `/peers/0/tax_rate`.
+fn pointer(field: &str) -> String {
+    format!("/{}", field.replace("].", "/").replace(['[', '.'], "/"))
+}
+
 fn check_tax_rate(t: Decimal, field: &str) -> Result<()> {
     if t < Decimal::ZERO || t >= Decimal::ONE {
-        return Err(invalid(format!(
-            "{field} must be at least 0 and below 1 (got {t})"
-        )));
+        return Err(
+            invalid(format!("{field} must be at least 0 and below 1 (got {t})"))
+                .at(pointer(field), Reason::Range)
+                .expected(["a decimal fraction at least 0 and below 1"]),
+        );
     }
     Ok(())
 }
 
 fn check_leverage(de: Decimal, field: &str) -> Result<()> {
     if de < Decimal::ZERO {
-        return Err(invalid(format!("{field} cannot be negative (got {de})")));
+        return Err(invalid(format!("{field} cannot be negative (got {de})"))
+            .at(pointer(field), Reason::Sign)
+            .expected(["zero or more"]));
     }
     Ok(())
 }
@@ -182,9 +192,17 @@ fn debt_beta_convention(ex: &mut Explain, bd: Option<Decimal>) -> Decimal {
     }
 }
 
+/// Every input error of `beta_relever`, without computing (ADR 0014 G5).
+fn check_beta_relever(input: &BetaReleverInput) -> Result<()> {
+    // Every input error is reported (ADR 0014 G5), in the order of the checks.
+    let mut found = Found::new();
+    found.check(check_leverage(input.debt_to_equity, "debt_to_equity"));
+    found.check(check_tax_rate(input.tax_rate, "tax_rate"));
+    found.finish()
+}
+
 pub fn beta_relever(input: &BetaReleverInput) -> Result<(BetaReleverOutput, Explain)> {
-    check_leverage(input.debt_to_equity, "debt_to_equity")?;
-    check_tax_rate(input.tax_rate, "tax_rate")?;
+    check_beta_relever(input)?;
     let headline = match input.direction {
         BetaDirection::Relever => "β_L = β_U + (β_U − β_D) × k",
         BetaDirection::Unlever => "β_U = (β_L + β_D × k) / (1 + k)",
@@ -270,12 +288,37 @@ pub struct BetaPeersOutput {
     pub relevered_beta: Decimal,
 }
 
+/// Every input error of `beta_peers`, without computing (ADR 0014 G5).
+fn check_beta_peers(input: &BetaPeersInput) -> Result<()> {
+    if input.peers.is_empty() {
+        return Err(
+            invalid("peers must contain at least one comparable").at("/peers", Reason::Length)
+        );
+    }
+    // Every input error is reported (ADR 0014 G5): the target, then each comparable.
+    let mut found = Found::new();
+    found.check(check_leverage(
+        input.target_debt_to_equity,
+        "target_debt_to_equity",
+    ));
+    found.check(check_tax_rate(input.target_tax_rate, "target_tax_rate"));
+    for (i, p) in input.peers.iter().enumerate() {
+        found.check(check_leverage(
+            p.debt_to_equity,
+            &format!("peers[{i}].debt_to_equity"),
+        ));
+        found.check(check_tax_rate(p.tax_rate, &format!("peers[{i}].tax_rate")));
+    }
+    found.finish()
+}
+
 pub fn beta_peers(input: &BetaPeersInput) -> Result<(BetaPeersOutput, Explain)> {
     if input.peers.is_empty() {
-        return Err(invalid("peers must contain at least one comparable"));
+        return Err(
+            invalid("peers must contain at least one comparable").at("/peers", Reason::Length)
+        );
     }
-    check_leverage(input.target_debt_to_equity, "target_debt_to_equity")?;
-    check_tax_rate(input.target_tax_rate, "target_tax_rate")?;
+    check_beta_peers(input)?;
     let mut ex = Explain::new(
         "coc.beta_peers",
         "β_U,i = (β_L,i + β_D × k_i) / (1 + k_i); statistic of β_U,i; β_L = β_U + (β_U − β_D) × k_target",
@@ -443,7 +486,73 @@ fn premium(ex: &mut Explain, value: Option<Decimal>, name: &str) -> Decimal {
     }
 }
 
+/// `FM-E001`: not exactly one of `levered_beta` and `relever`.
+fn beta_form_error(levered_beta_given: bool) -> FairmarkError {
+    invalid("give exactly one of `levered_beta` and `relever`")
+        .at(
+            "/levered_beta",
+            if levered_beta_given {
+                Reason::Conflict
+            } else {
+                Reason::Missing
+            },
+        )
+        .between(["/levered_beta", "/relever"])
+}
+
+fn country_risk_premium_error(crp: Decimal) -> FairmarkError {
+    invalid(format!(
+        "country_risk_premium cannot be negative (got {crp})"
+    ))
+    .at("/country_risk_premium", Reason::Sign)
+}
+
+fn country_exposure_error(lambda: Decimal) -> FairmarkError {
+    invalid(format!(
+        "country_exposure cannot be negative (got {lambda})"
+    ))
+    .at("/country_exposure", Reason::Sign)
+}
+
+fn justification_error() -> FairmarkError {
+    invalid("a non-zero specific_risk_premium requires specific_risk_justification")
+        .at("/specific_risk_justification", Reason::Missing)
+        .between(["/specific_risk_justification", "/specific_risk_premium"])
+}
+
+/// Every input error of `coc.cost_of_equity` (ADR 0014 G5), in the order of the checks of the
+/// calculation, which repeats them.
+fn check_cost_of_equity(input: &CostOfEquityInput) -> Result<()> {
+    let mut found = Found::new();
+    // The form first; then the terms of `relever`, when given, whatever the form.
+    if input.levered_beta.is_some() == input.relever.is_some() {
+        found.push(beta_form_error(input.levered_beta.is_some()));
+    }
+    if let Some(r) = &input.relever {
+        found.check(check_leverage(r.debt_to_equity, "relever.debt_to_equity"));
+        found.check(check_tax_rate(r.tax_rate, "relever.tax_rate"));
+    }
+    let crp = input.country_risk_premium.unwrap_or_default();
+    if crp < Decimal::ZERO {
+        found.push(country_risk_premium_error(crp));
+    }
+    let lambda = input.country_exposure.unwrap_or(Decimal::ONE);
+    if lambda < Decimal::ZERO {
+        found.push(country_exposure_error(lambda));
+    }
+    let specific = input.specific_risk_premium.unwrap_or_default();
+    let justified = input
+        .specific_risk_justification
+        .as_deref()
+        .is_some_and(|j| !j.trim().is_empty());
+    if !specific.is_zero() && !justified {
+        found.push(justification_error());
+    }
+    found.finish()
+}
+
 pub fn cost_of_equity(input: &CostOfEquityInput) -> Result<(CostOfEquityOutput, Explain)> {
+    check_cost_of_equity(input)?;
     let mut ex = Explain::new(
         "coc.cost_of_equity",
         "ke = rf + β_L × ERP + CRP × λ + size premium + specific premium",
@@ -475,13 +584,11 @@ pub fn cost_of_equity(input: &CostOfEquityInput) -> Result<(CostOfEquityOutput, 
             );
             b
         }
-        _ => return Err(invalid("give exactly one of `levered_beta` and `relever`")),
+        _ => return Err(beta_form_error(input.levered_beta.is_some())),
     };
     let crp = premium(&mut ex, input.country_risk_premium, "country risk premium");
     if crp < Decimal::ZERO {
-        return Err(invalid(format!(
-            "country_risk_premium cannot be negative (got {crp})"
-        )));
+        return Err(country_risk_premium_error(crp));
     }
     let lambda = match input.country_exposure {
         Some(l) => {
@@ -494,9 +601,7 @@ pub fn cost_of_equity(input: &CostOfEquityInput) -> Result<(CostOfEquityOutput, 
         }
     };
     if lambda < Decimal::ZERO {
-        return Err(invalid(format!(
-            "country_exposure cannot be negative (got {lambda})"
-        )));
+        return Err(country_exposure_error(lambda));
     }
     let size = premium(&mut ex, input.size_premium, "size premium");
     let specific = premium(
@@ -511,11 +616,7 @@ pub fn cost_of_equity(input: &CostOfEquityInput) -> Result<(CostOfEquityOutput, 
         .filter(|j| !j.is_empty());
     match (specific.is_zero(), justification) {
         (false, Some(j)) => ex.convention(format!("specific risk premium justification: {j}")),
-        (false, None) => {
-            return Err(invalid(
-                "a non-zero specific_risk_premium requires specific_risk_justification",
-            ))
-        }
+        (false, None) => return Err(justification_error()),
         (true, Some(j)) => ex.convention(format!(
             "specific risk justification given with a zero premium (recorded, not used): {j}"
         )),
@@ -575,30 +676,76 @@ pub struct CostOfDebtOutput {
     pub after_tax_cost_of_debt: Decimal,
 }
 
-pub fn cost_of_debt(input: &CostOfDebtInput) -> Result<(CostOfDebtOutput, Explain)> {
-    check_tax_rate(input.tax_rate, "tax_rate")?;
-    let mut ex = Explain::new("coc.cost_of_debt", "kd_after_tax = kd × (1 − t)");
-    ex.convention(ANNUAL);
-    let kd =
-        match (
+/// `FM-E001`: neither or both forms of the pre-tax cost of debt.
+fn debt_form_error(input: &CostOfDebtInput) -> FairmarkError {
+    invalid("give either `pre_tax_cost_of_debt`, or both `risk_free_rate` and `credit_spread`")
+        .at(
+            "/pre_tax_cost_of_debt",
+            if input.pre_tax_cost_of_debt.is_some() {
+                Reason::Conflict
+            } else {
+                Reason::Missing
+            },
+        )
+        .between(debt_form_fields(input))
+        // Whether the error is raised depends on all three, named or not.
+        .reads(["/pre_tax_cost_of_debt", "/risk_free_rate", "/credit_spread"])
+}
+
+/// The fields a debt form error names: every field of the two forms when the pre-tax cost of
+/// debt is missing (any of them is to be given), only the fields given when they conflict.
+fn debt_form_fields(input: &CostOfDebtInput) -> Vec<&'static str> {
+    let mut fields = vec!["/pre_tax_cost_of_debt"];
+    let missing = input.pre_tax_cost_of_debt.is_none();
+    if missing || input.risk_free_rate.is_some() {
+        fields.push("/risk_free_rate");
+    }
+    if missing || input.credit_spread.is_some() {
+        fields.push("/credit_spread");
+    }
+    fields
+}
+
+/// Every input error of `cost_of_debt`, without computing (ADR 0014 G5).
+fn check_cost_of_debt(input: &CostOfDebtInput) -> Result<()> {
+    // Every input error is reported (ADR 0014 G5): the tax rate, then the form of the rate.
+    let mut found = Found::new();
+    found.check(check_tax_rate(input.tax_rate, "tax_rate"));
+    let one_form = matches!(
+        (
             input.pre_tax_cost_of_debt,
             input.risk_free_rate,
-            input.credit_spread,
-        ) {
-            (Some(k), None, None) => {
-                ex.convention("pre-tax cost of debt given");
-                k
-            }
-            (None, Some(rf), Some(s)) => {
-                ex.convention("pre-tax cost of debt = risk-free rate + credit spread");
-                let k = add(rf, s)?;
-                ex.step("Pre-tax cost of debt", format!("{rf} + {s}"), k);
-                k
-            }
-            _ => return Err(invalid(
-                "give either `pre_tax_cost_of_debt`, or both `risk_free_rate` and `credit_spread`",
-            )),
-        };
+            input.credit_spread
+        ),
+        (Some(_), None, None) | (None, Some(_), Some(_))
+    );
+    if !one_form {
+        found.push(debt_form_error(input));
+    }
+    found.finish()
+}
+
+pub fn cost_of_debt(input: &CostOfDebtInput) -> Result<(CostOfDebtOutput, Explain)> {
+    check_cost_of_debt(input)?;
+    let mut ex = Explain::new("coc.cost_of_debt", "kd_after_tax = kd × (1 − t)");
+    ex.convention(ANNUAL);
+    let kd = match (
+        input.pre_tax_cost_of_debt,
+        input.risk_free_rate,
+        input.credit_spread,
+    ) {
+        (Some(k), None, None) => {
+            ex.convention("pre-tax cost of debt given");
+            k
+        }
+        (None, Some(rf), Some(s)) => {
+            ex.convention("pre-tax cost of debt = risk-free rate + credit spread");
+            let k = add(rf, s)?;
+            ex.step("Pre-tax cost of debt", format!("{rf} + {s}"), k);
+            k
+        }
+        _ => return Err(debt_form_error(input)),
+    };
     let t = input.tax_rate;
     ex.convention(format!("tax rate of the tax shield {t}"));
     let after = mul(kd, sub(Decimal::ONE, t)?)?;
@@ -649,8 +796,52 @@ pub struct WaccOutput {
     pub after_tax_cost_of_debt: Decimal,
 }
 
+/// `FM-E001`: a debt weight outside [0, 1).
+fn debt_weight_error(w: Decimal) -> FairmarkError {
+    invalid(format!(
+        "debt_weight must be at least 0 and below 1 (got {w})"
+    ))
+    .at("/debt_weight", Reason::Range)
+    .expected(["a decimal fraction at least 0 and below 1"])
+}
+
+/// `FM-E001`: not exactly one of `debt_to_equity` and `debt_weight`.
+fn weights_form_error(input: &WaccInput) -> FairmarkError {
+    invalid("give exactly one of `debt_to_equity` and `debt_weight`")
+        .at(
+            "/debt_to_equity",
+            if input.debt_to_equity.is_some() {
+                Reason::Conflict
+            } else {
+                Reason::Missing
+            },
+        )
+        .between(["/debt_to_equity", "/debt_weight"])
+}
+
+/// Every input error of `wacc`, without computing (ADR 0014 G5).
+fn check_wacc(input: &WaccInput) -> Result<()> {
+    // Every input error is reported (ADR 0014 G5): the tax rate, then the weights.
+    let mut found = Found::new();
+    found.check(check_tax_rate(input.tax_rate, "tax_rate"));
+    // The form first; then each weight given is checked on its own, whatever the other.
+    if input.debt_to_equity.is_some() == input.debt_weight.is_some() {
+        found.push(weights_form_error(input));
+    }
+    if let Some(de) = input.debt_to_equity {
+        found.check(check_leverage(de, "debt_to_equity"));
+    }
+    if let Some(w) = input
+        .debt_weight
+        .filter(|w| *w < Decimal::ZERO || *w >= Decimal::ONE)
+    {
+        found.push(debt_weight_error(w));
+    }
+    found.finish()
+}
+
 pub fn wacc(input: &WaccInput) -> Result<(WaccOutput, Explain)> {
-    check_tax_rate(input.tax_rate, "tax_rate")?;
+    check_wacc(input)?;
     let mut ex = Explain::new("coc.wacc", "WACC = E/V × ke + D/V × kd × (1 − t)");
     ex.convention(ANNUAL);
     ex.convention(format!("tax rate of the tax shield {}", input.tax_rate));
@@ -663,7 +854,8 @@ pub fn wacc(input: &WaccInput) -> Result<(WaccOutput, Explain)> {
             if we.is_zero() {
                 return Err(invalid(format!(
                     "debt_to_equity {de} is too large: the equity weight rounds to zero"
-                )));
+                ))
+                .at("/debt_to_equity", Reason::Range));
             }
             ex.step("Equity weight", format!("1 / (1 + {de})"), we);
             let wd = sub(Decimal::ONE, we)?;
@@ -672,9 +864,7 @@ pub fn wacc(input: &WaccInput) -> Result<(WaccOutput, Explain)> {
         }
         (None, Some(w)) => {
             if w < Decimal::ZERO || w >= Decimal::ONE {
-                return Err(invalid(format!(
-                    "debt_weight must be at least 0 and below 1 (got {w})"
-                )));
+                return Err(debt_weight_error(w));
             }
             ex.convention(format!("target weights from D/(D + E) {w}"));
             ex.step("Debt weight", "given", w);
@@ -682,11 +872,7 @@ pub fn wacc(input: &WaccInput) -> Result<(WaccOutput, Explain)> {
             ex.step("Equity weight", format!("1 − {w}"), we);
             (we, w)
         }
-        _ => {
-            return Err(invalid(
-                "give exactly one of `debt_to_equity` and `debt_weight`",
-            ))
-        }
+        _ => return Err(weights_form_error(input)),
     };
     let de = div(wd, we)?;
     ex.step("Implied debt-to-equity ratio", format!("{wd} / {we}"), de);
@@ -730,6 +916,10 @@ impl Method for CostOfEquity {
     type Input = CostOfEquityInput;
     type Output = CostOfEquityOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_cost_of_equity(input)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         cost_of_equity(input)
     }
@@ -747,6 +937,10 @@ impl Method for BetaRelever {
     const VERSION: &'static str = "1";
     type Input = BetaReleverInput;
     type Output = BetaReleverOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_beta_relever(input)
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         beta_relever(input)
@@ -766,6 +960,10 @@ impl Method for BetaPeers {
     type Input = BetaPeersInput;
     type Output = BetaPeersOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_beta_peers(input)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         beta_peers(input)
     }
@@ -784,6 +982,10 @@ impl Method for CostOfDebt {
     type Input = CostOfDebtInput;
     type Output = CostOfDebtOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_cost_of_debt(input)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         cost_of_debt(input)
     }
@@ -800,6 +1002,10 @@ impl Method for Wacc {
     const VERSION: &'static str = "1";
     type Input = WaccInput;
     type Output = WaccOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_wacc(input)
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         wacc(input)

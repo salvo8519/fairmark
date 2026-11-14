@@ -93,18 +93,18 @@ r = fm.dcf.fcff(
 r.value_of_operations    # Decimal('1421.4876033057851239669421487')
 r.equity_value           # Decimal('1221.4876033057851239669421487')
 r.terminal_value_weight  # Decimal('0.8086680761099365750528541226')
-print(r.explain_markdown())
+for s in r.steps:                # every step, with the numbers substituted
+    print(s.label, s.formula, s.value)
 ```
 
 ```text
-| Step                                | Calculation                  | Value        |
-| ----------------------------------- | ---------------------------- | -----------: |
-| Period 1: discount factor           | 1 / (1 + 0.10)               | 0.909090...  |
-| Period 1: present value             | 100 × 0.909090...            | 90.909090... |
-| Terminal value: Terminal value at N | 122.40 / (0.10 − 0.02)       | 1530         |
-| Value of operations                 | 271.9759... + 1149.5116...   | 1421.4876... |
-| Equity value                        | 1421.4876... − 200           | 1221.4876... |
+Period 1: discount factor            1 / (1 + 0.10)                0.9090909090909090909090909091
+Period 1: present value              100 × 0.9090909090909090...   90.909090909090909090909090910
+Terminal value: Terminal value at N  122.40 / (0.10 − 0.02)        1530
+Value of operations                  271.9759... + 1149.5116...    1421.4876033057851239669421487
+Equity value                         1421.4876... − 200            1221.4876033057851239669421487
 ```
+(excerpt)
 
 > **Tip.** Pass amounts and rates as strings or `Decimal` for exactness. Floats are accepted and
 > converted through their shortest representation (`0.1` → `"0.1"`).

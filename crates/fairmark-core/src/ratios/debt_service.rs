@@ -9,7 +9,7 @@ use super::{
     require_definition, term, union, warn_defaults, BalanceBasis, Balances, Given, Missing,
     NfpComposition, NotComputedList, Ratio, RatioValue, MISSING_CONVENTION, NFP_CONVENTION,
 };
-use crate::error::{rate_field, FairmarkError, Result};
+use crate::error::{rate_field, FairmarkError, Found, Reason, Result};
 use crate::explain::{DefaultApplied, Explain};
 use crate::method::Method;
 use crate::not_computed::NotComputedEntry;
@@ -174,19 +174,43 @@ fn defaults(input: &DebtServiceInput) -> Vec<DefaultApplied> {
     out
 }
 
-pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Explain)> {
+/// Every input check of `ratios.debt_service`, before any ratio is computed.
+fn check_debt_service(input: &DebtServiceInput) -> Result<()> {
+    // Every input error is reported (ADR 0014 G5), in the order of the checks.
+    let mut found = Found::new();
     if input
         .debt_schedule
         .as_ref()
         .is_some_and(|s| s.periods.is_empty())
     {
-        return Err(FairmarkError::EmptyCashFlows);
+        found.push(
+            FairmarkError::EmptyCashFlows
+                .at("/debt_schedule/periods", Reason::Length)
+                .fix("give at least one period, or leave out `debt_schedule`"),
+        );
     }
     // A rate given is checked whatever else is given (ADR 0014 G10.3): present and invalid is
     // an error, also when the present value of CFADS is not computed.
     if let Some(r) = input.debt_schedule.as_ref().and_then(|s| s.discount_rate) {
-        discount_factor(r, Decimal::ONE).map_err(rate_field(RATE_POINTER, None))?;
+        found.check(
+            discount_factor(r, Decimal::ONE)
+                .map(|_| ())
+                .map_err(rate_field(RATE_POINTER, None)),
+        );
     }
+    found.check(require_definition(
+        "ebitda_definition",
+        input.ebitda_definition.as_deref(),
+    ));
+    found.check(require_definition(
+        "interest_definition",
+        input.interest_definition.as_deref(),
+    ));
+    found.finish()
+}
+
+pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Explain)> {
+    check_debt_service(input)?;
     let defaults = defaults(input);
     let mut ex = Explain::new(
         DebtService::ID,
@@ -195,8 +219,6 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
     );
     let ebitda_definition = input.ebitda_definition.as_deref();
     let interest_definition = input.interest_definition.as_deref();
-    require_definition("ebitda_definition", ebitda_definition)?;
-    require_definition("interest_definition", interest_definition)?;
     let basis = BalanceBasis::new(input.balances, input.opening.is_some(), &mut ex);
     let is = input.income_statement.clone().unwrap_or_default();
     for (what, definition, amount) in [
@@ -482,6 +504,10 @@ impl Method for DebtService {
     const VERSION: &'static str = "2";
     type Input = DebtServiceInput;
     type Output = DebtServiceOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_debt_service(input)
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         debt_service(input)

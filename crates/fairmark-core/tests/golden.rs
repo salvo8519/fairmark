@@ -25,11 +25,17 @@ struct Case {
     #[serde(default)]
     expect_meta: std::collections::BTreeMap<String, String>,
     /// Expected lengths of arrays of `value` (keys are JSON Pointers, values counts), so that a
-    /// list such as `/not_computed` has no entry beyond those asserted; optional.
+    /// list such as `/not_computed` has no entry beyond those asserted; optional. In an error
+    /// case, the pointers are into the error report, for example `/errors`.
     #[serde(default)]
     expect_length: std::collections::BTreeMap<String, String>,
     #[serde(default)]
     expect_error: Option<String>,
+    /// Expected fields of the error report, with `expect_error` only (keys are JSON Pointers
+    /// into the report, for example `/pointer` or `/errors/1/reason`; values compared exactly,
+    /// `null` for a null field); optional, for cases added with issue #258.
+    #[serde(default)]
+    expect_error_report: std::collections::BTreeMap<String, String>,
     #[serde(default)]
     tolerance: Option<String>,
 }
@@ -62,7 +68,37 @@ fn golden_cases() {
         let result = fairmark_core::run(&case.method, &case.input.to_string());
         if let Some(code) = &case.expect_error {
             match result {
-                Err(e) if e.code() == code => {}
+                Err(e) if e.code() == code => {
+                    let report = serde_json::to_value(e.to_report()).unwrap();
+                    for (field, count) in &case.expect_length {
+                        let got = report
+                            .pointer(field)
+                            .and_then(|v| v.as_array())
+                            .map(Vec::len);
+                        if got.map(|n| n.to_string()).as_deref() != Some(count.as_str()) {
+                            failures.push(format!(
+                                "{} [{}] error report {field}: length {got:?}, want {count}",
+                                file.display(),
+                                case.description
+                            ));
+                        }
+                    }
+                    for (field, expected) in &case.expect_error_report {
+                        let got = report.pointer(field);
+                        let matches = match got {
+                            Some(v) if expected == "null" => v.is_null(),
+                            Some(v) => v.as_str() == Some(expected.as_str()),
+                            None => false,
+                        };
+                        if !matches {
+                            failures.push(format!(
+                                "{} [{}] error report {field}: got {got:?}, want {expected}",
+                                file.display(),
+                                case.description
+                            ));
+                        }
+                    }
+                }
                 Err(e) => failures.push(format!(
                     "{}: got {} ({e}), want {code}",
                     file.display(),

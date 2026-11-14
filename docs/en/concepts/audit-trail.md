@@ -43,4 +43,4 @@ Every result is an envelope with four parts:
   "assigned to" instead of "not given, set to" (SPEC-0005 R8, see
   [`statements.reorganise`](../methods/statements-reorganise.md#defaults)).
 
-In Python, `result.explain_markdown()` renders a methodology note for reports.
+In Python, `result.steps`, `result.conventions` and `result.meta` hold the same trail as data.

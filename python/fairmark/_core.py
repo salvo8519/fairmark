@@ -16,17 +16,64 @@ from . import _engine
 
 
 class FairmarkError(ValueError):
-    """Raised when the engine rejects an input. `code` is stable, e.g. ``FM-E004``."""
+    """Raised when the engine rejects an input. `code` is stable, e.g. ``FM-E004``.
 
-    def __init__(self, code: str, message: str) -> None:
+    The error report of the engine (ADR 0014 G5) is available as attributes, so that a caller
+    corrects the input without reading the message:
+
+    - ``pointer``: JSON pointer of the field to correct, or ``None`` (malformed JSON);
+    - ``pointers``: every field of a relation (both sides of an ``FM-E026``, both fields of a
+      conflict), empty when the error concerns one field;
+    - ``reason``: the sub-kind, for example ``missing``, ``unknown_field``, ``enum``, ``sign``
+      or ``reconcile``, or ``None``;
+    - ``expected``: the accepted values, or a short description of the accepted form;
+    - ``fix``: one sentence that resolves the error, or ``None``;
+    - ``missing_any_of``: for ``FM-E027``, the alternative sets of input pointers;
+    - ``errors``: every error the validation found, the first equal to this one, each a
+      ``FairmarkError``;
+    - ``report``: the report as the engine returned it (a dict).
+    """
+
+    def __init__(self, code: str, message: str, report: Mapping[str, Any] | None = None) -> None:
         super().__init__(f"{code}: {message}")
         self.code = code
         self.message = message
+        data: dict[str, Any] = (
+            dict(report) if report is not None else {"code": code, "message": message}
+        )
+        for key, default in _REPORT_DEFAULTS.items():
+            data.setdefault(key, copy.copy(default))
+        if not data.get("errors"):
+            data["errors"] = [{k: v for k, v in data.items() if k != "errors"}]
+        self.report: dict[str, Any] = data
+        self.pointer: str | None = data.get("pointer")
+        self.pointers: list[str] = list(data.get("pointers") or [])
+        self.reason: str | None = data.get("reason")
+        self.expected: list[str] = list(data.get("expected") or [])
+        self.fix: str | None = data.get("fix")
+        self.missing_any_of: list[list[str]] = [list(s) for s in data.get("missing_any_of") or []]
+        self.errors: list[FairmarkError] = [self]
+        self.errors += [
+            FairmarkError(str(e["code"]), str(e["message"]), e) for e in data["errors"][1:]
+        ]
+
+
+# The fields of an error report that the engine always writes (ADR 0014 G5), for an error
+# raised by the Python layer itself (an unknown tool, a result that does not fit its schema).
+_REPORT_DEFAULTS: dict[str, Any] = {
+    "pointer": None,
+    "pointers": [],
+    "reason": None,
+    "expected": [],
+    "fix": None,
+}
 
 
 def _encode(obj: Any) -> Any:
     if isinstance(obj, Decimal):
-        return str(obj)
+        # Fixed-point notation, exact: Decimal("1E-7") -> "0.0000001". The engine also reads
+        # an exponent with a sign (ADR 0014 G7), but plain digits are what an analyst reads.
+        return format(obj, "f")
     if isinstance(obj, datetime):
         raise TypeError("pass a datetime.date (calendar date), not a datetime: dates carry no time")
     if isinstance(obj, date):
@@ -327,28 +374,14 @@ class Result:
         """The exact JSON envelope returned by the engine (decimals as strings)."""
         return json.dumps(self.raw, ensure_ascii=False)
 
-    def explain_markdown(self) -> str:
-        """A methodology note ready to paste into a report."""
-        lines = [f"### {self.method}", "", f"Formula: `{self.formula}`", ""]
-        if self.conventions:
-            lines += ["Conventions:", *[f"- {c}" for c in self.conventions], ""]
-        lines += ["| Step | Calculation | Value |", "| --- | --- | ---: |"]
-        lines += [f"| {s.label} | `{s.formula}` | {s.value} |" for s in self.steps]
-        lines += [
-            "",
-            f"Engine {self.meta['engine_version']}, method v{self.meta['method_version']}, "
-            f"input hash `{self.meta['input_hash'][:16]}…`",
-        ]
-        return "\n".join(lines)
-
 
 def _raise(err: Exception) -> None:
     try:
         report = json.loads(str(err))
         code, message = str(report["code"]), str(report["message"])
     except (ValueError, KeyError, TypeError):
-        code, message = "FM-E001", str(err)
-    raise FairmarkError(code, message) from None
+        raise FairmarkError("FM-E001", str(err)) from None
+    raise FairmarkError(code, message, report) from None
 
 
 def _run_text(method: str, inputs: Mapping[str, Any] | str) -> str:

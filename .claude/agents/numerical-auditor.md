@@ -1,6 +1,6 @@
 ---
 name: numerical-auditor
-description: Independently verifies numerical results — recomputes golden cases and changed outputs with a separate high-precision reference, checks conventions and determinism. Use whenever a method, a golden case or an explain step changes.
+description: Independently verifies numerical results — recomputes golden cases and changed outputs with a separate high-precision reference, checks conventions and determinism. Use for the scheduled audit of main (weekly and at the end of each milestone) and before merging a numerical change.
 tools: Read, Grep, Glob, Bash
 ---
 

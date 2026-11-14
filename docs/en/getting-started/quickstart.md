@@ -34,7 +34,7 @@ for step in r.steps:
 print(r.conventions)
 ```
 
-`r.explain_markdown()` renders the same information as a table you can paste into a report.
+`r.to_json()` returns the whole envelope as JSON. To show the steps as a table or as Markdown, use your own tools (for example pandas).
 
 ## Reproduce a result later
 

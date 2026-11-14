@@ -8,8 +8,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    check_below_rate, check_growth, check_growth_cap, domain, on, rate_convention, Checked,
-    GrowthCapCheck, NOT_DISCOUNTED,
+    check_below_rate, check_growth, check_growth_cap, checked, domain, on, rate_convention,
+    Checked, GrowthCapCheck, NOT_DISCOUNTED,
 };
 use crate::error::Result;
 use crate::explain::Explain;
@@ -87,20 +87,33 @@ pub(crate) fn check(input: &HModelInput) -> Checked {
         input.long_term_growth,
         input.half_life,
     );
-    check_growth(gs, "short_term_growth").map_err(on("short_term_growth"))?;
-    check_growth(gl, "long_term_growth").map_err(on("long_term_growth"))?;
+    let mut errors = Vec::new();
+    if let Err(e) = check_growth(gs, "short_term_growth") {
+        errors.push(on("short_term_growth")(e));
+    }
+    let long_valid = match check_growth(gl, "long_term_growth") {
+        Err(e) => {
+            errors.push(on("long_term_growth")(e));
+            false
+        }
+        Ok(()) => true,
+    };
     if h < Decimal::ZERO {
-        return Err(on("half_life")(domain(format!(
+        errors.push(on("half_life")(domain(format!(
             "the half-life must be zero or positive (got {h})"
         ))));
     }
-    check_below_rate(gl, input.rate).map_err(on("long_term_growth"))?;
-    Ok(())
+    if long_valid {
+        if let Err(e) = check_below_rate(gl, input.rate, "long_term_growth", "rate") {
+            errors.push(on("long_term_growth")(e));
+        }
+    }
+    checked(errors)
 }
 
 /// TV_N = CF_N × [(1 + g_l) + H × (g_s − g_l)] / (r − g_l).
 pub fn h_model(input: &HModelInput) -> Result<(HModelOutput, Explain)> {
-    check(input).map_err(super::FieldError::into_error)?;
+    check(input).map_err(super::into_error)?;
     let (cf, gs, gl, h, r) = (
         input.last_flow,
         input.short_term_growth,
@@ -158,6 +171,10 @@ impl Method for HModel {
     const VERSION: &'static str = "1";
     type Input = HModelInput;
     type Output = HModelOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check(input).map_err(super::into_error)
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         h_model(input)

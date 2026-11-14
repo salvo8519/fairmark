@@ -26,7 +26,7 @@ use super::{
     Liquidation, LiquidationInput, LiquidationOutput, NormalisedIncome, TerminalBasis, ValueDriver,
     ValueDriverOutput, NOT_DISCOUNTED,
 };
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Reason, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 
@@ -47,8 +47,18 @@ impl Serialize for TechniqueEntry {
 }
 
 /// What a technique entry is, for the messages of the entry.
-const ONE_KEY: &str = "each technique is an object with exactly one key, the method id, for \
-                       example {\"tv.gordon\": {...}}";
+const ONE_KEY: &str = crate::error::CustomRefusal::TechniqueKeys.text();
+
+/// The method ids a technique entry accepts, in the order of [`Technique`].
+pub(crate) const TECHNIQUE_IDS: [&str; 7] = [
+    Gordon::ID,
+    ValueDriver::ID,
+    HModel::ID,
+    ExitMultiple::ID,
+    LimitedHorizon::ID,
+    NormalisedIncome::ID,
+    Liquidation::ID,
+];
 
 impl<'de> Deserialize<'de> for TechniqueEntry {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Self, D::Error> {
@@ -76,7 +86,10 @@ impl<'de> serde::de::Visitor<'de> for EntryVisitor {
         while let Some(key) = map.next_key::<String>()? {
             let value = map.next_value()?;
             if entries.iter().any(|(k, _)| *k == key) {
-                return Err(A::Error::custom(format!("duplicate key `{key}`; keep one")));
+                return Err(A::Error::custom(format!(
+                    "{} `{key}`; keep one",
+                    crate::error::CustomRefusal::DuplicateKey.text()
+                )));
             }
             entries.push((key, value));
         }
@@ -189,6 +202,143 @@ pub struct CompareOutput {
     pub results: Vec<ComparedTechnique>,
 }
 
+/// The method id of a technique, its key in `techniques`.
+fn technique_id(t: &Technique) -> &'static str {
+    match t {
+        Technique::Gordon(_) => Gordon::ID,
+        Technique::ValueDriver(_) => ValueDriver::ID,
+        Technique::HModel(_) => HModel::ID,
+        Technique::ExitMultiple(_) => ExitMultiple::ID,
+        Technique::LimitedHorizon(_) => LimitedHorizon::ID,
+        Technique::NormalisedIncome(_) => NormalisedIncome::ID,
+        Technique::Liquidation(_) => Liquidation::ID,
+    }
+}
+
+/// An error of technique `k`, located in the input of the comparison: a field of the
+/// technique under `/techniques/k/<id>`; the shared `rate` and `growth_cap` stay at the root;
+/// an error without a field is located at the technique.
+fn in_technique(e: FairmarkError, k: usize, t: &Technique) -> FairmarkError {
+    if matches!(e, FairmarkError::Several(_)) {
+        let mut found = crate::error::Found::new();
+        for one in e.into_errors() {
+            found.push(in_technique(one, k, t));
+        }
+        return found.into_error();
+    }
+    let at = format!("/techniques/{k}/{}", technique_id(t));
+    match e.details().pointer.as_deref() {
+        None => e.located(at),
+        Some(p) if p.starts_with("/techniques/") => e,
+        // The shared fields stay at the root; the technique's own move under its entry.
+        Some(_) => e.map_pointers(&|p: &str| match p {
+            "/rate" | "/growth_cap" => p.to_owned(),
+            p if p.starts_with("/techniques/") => p.to_owned(),
+            p => format!("{at}{p}"),
+        }),
+    }
+}
+
+/// The refusal of a technique of another basis than the comparison (decision 2), if any.
+fn basis_error(t: &Technique, basis: TerminalBasis, position: usize) -> Option<FairmarkError> {
+    match t {
+        Technique::ExitMultiple(terms) if terms.metric.basis() != basis => Some(
+            FairmarkError::MixedBasis(format!(
+                "technique [{position}] tv.exit_multiple uses {} ({}, {} basis) in a \
+                    comparison declared on the {} basis",
+                terms.metric.name(),
+                terms.metric.multiple_name(),
+                terms.metric.basis().name(),
+                basis.name()
+            ))
+            .at(
+                format!("/techniques/{}/tv.exit_multiple/metric", position - 1),
+                Reason::Conflict,
+            )
+            .between([
+                format!("/techniques/{}/tv.exit_multiple/metric", position - 1),
+                "/basis".to_owned(),
+            ]),
+        ),
+        Technique::NormalisedIncome(terms) if terms.basis != basis => Some(
+            FairmarkError::MixedBasis(format!(
+                "technique [{position}] tv.normalised_income is declared on the {} basis in \
+                    a comparison declared on the {} basis",
+                terms.basis.name(),
+                basis.name()
+            ))
+            .at(
+                format!("/techniques/{}/tv.normalised_income/basis", position - 1),
+                Reason::Conflict,
+            )
+            .between([
+                format!("/techniques/{}/tv.normalised_income/basis", position - 1),
+                "/basis".to_owned(),
+            ]),
+        ),
+        Technique::Liquidation(input) if input.basis != basis => Some(
+            FairmarkError::MixedBasis(format!(
+                "technique [{position}] tv.liquidation is declared on the {} basis in a \
+                    comparison declared on the {} basis",
+                input.basis.name(),
+                basis.name()
+            ))
+            .at(
+                format!("/techniques/{}/tv.liquidation/basis", position - 1),
+                Reason::Conflict,
+            )
+            .between([
+                format!("/techniques/{}/tv.liquidation/basis", position - 1),
+                "/basis".to_owned(),
+            ]),
+        ),
+        _ => None,
+    }
+}
+
+/// The checks of technique `t` with the shared inputs, without computing it: its basis, then
+/// the checks of its own method (ADR 0014 G5).
+fn check_technique(
+    t: &Technique,
+    rate: Decimal,
+    cap: Option<Decimal>,
+    basis: TerminalBasis,
+    position: usize,
+) -> Result<()> {
+    // The basis and the technique's own terms are checked apart: neither hides the other.
+    let mut found = crate::error::Found::new();
+    if let Some(e) = basis_error(t, basis, position) {
+        found.push(e);
+    }
+    let checked = match t {
+        Technique::Gordon(terms) => super::gordon::check(&terms.with(rate, cap)),
+        Technique::ValueDriver(terms) => super::value_driver::check(&terms.with(rate, cap)),
+        Technique::HModel(terms) => super::h_model::check(&terms.with(rate, cap)),
+        Technique::ExitMultiple(terms) => super::exit_multiple::check(&terms.with(rate, cap)),
+        Technique::LimitedHorizon(terms) => super::limited_horizon::check(&terms.with(rate, cap)),
+        Technique::NormalisedIncome(terms) => super::normalised_income::check(&terms.with(cap)),
+        Technique::Liquidation(input) => super::liquidation::check(input),
+    };
+    found.check(checked.map_err(super::into_error));
+    found.finish()
+}
+
+/// Every input error of a comparison, without computing any technique.
+fn check_compare(input: &CompareInput) -> Result<()> {
+    if input.techniques.is_empty() {
+        return Err(invalid("give at least one technique to compare")
+            .at("/techniques", crate::error::Reason::Length));
+    }
+    let mut found = crate::error::Found::new();
+    for (k, t) in input.techniques.iter().enumerate() {
+        found.check(
+            check_technique(&t.0, input.rate, input.growth_cap, input.basis, k + 1)
+                .map_err(|e| in_technique(e, k, &t.0)),
+        );
+    }
+    found.finish()
+}
+
 /// Runs one technique with the shared inputs; returns its id, value, output and explain.
 fn run_one(
     t: &Technique,
@@ -203,6 +353,13 @@ fn run_one(
     TechniqueOutput,
     Explain,
 )> {
+    if basis_error(t, basis, position).is_some() {
+        // A technique of another basis is not computed; its own terms are reported with the
+        // basis, as the validation reports them.
+        return Err(check_technique(t, rate, cap, basis, position)
+            .err()
+            .unwrap_or(FairmarkError::Internal("basis refusal recorded no error")));
+    }
     Ok(match t {
         Technique::Gordon(terms) => {
             let (o, ex) = gordon(&terms.with(rate, cap))?;
@@ -236,16 +393,6 @@ fn run_one(
             )
         }
         Technique::ExitMultiple(terms) => {
-            if terms.metric.basis() != basis {
-                return Err(FairmarkError::MixedBasis(format!(
-                    "technique [{position}] tv.exit_multiple uses {} ({}, {} basis) in a \
-                    comparison declared on the {} basis",
-                    terms.metric.name(),
-                    terms.metric.multiple_name(),
-                    terms.metric.basis().name(),
-                    basis.name()
-                )));
-            }
             let (o, ex) = exit_multiple(&terms.with(rate, cap))?;
             let tv = o.terminal_value;
             (
@@ -268,14 +415,6 @@ fn run_one(
             )
         }
         Technique::NormalisedIncome(terms) => {
-            if terms.basis != basis {
-                return Err(FairmarkError::MixedBasis(format!(
-                    "technique [{position}] tv.normalised_income is declared on the {} basis in \
-                    a comparison declared on the {} basis",
-                    terms.basis.name(),
-                    basis.name()
-                )));
-            }
             let (o, ex) = normalised_income(&terms.with(cap))?;
             let tv = o.terminal_value;
             (
@@ -287,14 +426,6 @@ fn run_one(
             )
         }
         Technique::Liquidation(input) => {
-            if input.basis != basis {
-                return Err(FairmarkError::MixedBasis(format!(
-                    "technique [{position}] tv.liquidation is declared on the {} basis in a \
-                    comparison declared on the {} basis",
-                    input.basis.name(),
-                    basis.name()
-                )));
-            }
             let (o, ex) = liquidation(input)?;
             let tv = o.terminal_value;
             (
@@ -311,7 +442,8 @@ fn run_one(
 /// Runs every technique on the shared inputs and returns the terminal values side by side.
 pub fn compare(input: &CompareInput) -> Result<(CompareOutput, Explain)> {
     if input.techniques.is_empty() {
-        return Err(invalid("give at least one technique to compare"));
+        return Err(invalid("give at least one technique to compare")
+            .at("/techniques", crate::error::Reason::Length));
     }
     let (r, cap, basis) = (input.rate, input.growth_cap, input.basis);
     let mut ex = Explain::new(
@@ -339,10 +471,18 @@ pub fn compare(input: &CompareInput) -> Result<(CompareOutput, Explain)> {
             growth cap",
         );
     }
-    let mut results = Vec::with_capacity(input.techniques.len());
+    // Every technique is run before any is reported: the errors of all of them are reported
+    // together (ADR 0014 G5), each located at its technique.
+    let mut found = crate::error::Found::new();
+    let mut runs = Vec::with_capacity(input.techniques.len());
     for (k, t) in input.techniques.iter().enumerate() {
+        let run = run_one(&t.0, r, cap, basis, k + 1).map_err(|e| in_technique(e, k, &t.0));
+        runs.extend(found.take(run));
+    }
+    found.finish()?;
+    let mut results = Vec::with_capacity(input.techniques.len());
+    for (k, (id, version, tv, output, inner)) in runs.into_iter().enumerate() {
         let position = k + 1;
-        let (id, version, tv, output, inner) = run_one(&t.0, r, cap, basis, position)?;
         for c in inner.conventions {
             if c != NOT_DISCOUNTED {
                 ex.convention(format!("[{position}] {id}: {c}"));
@@ -379,6 +519,10 @@ impl Method for Compare {
     const VERSION: &'static str = "2";
     type Input = CompareInput;
     type Output = CompareOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_compare(input)
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         compare(input)

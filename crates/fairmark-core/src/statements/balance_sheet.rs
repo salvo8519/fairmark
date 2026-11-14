@@ -1609,11 +1609,12 @@ fn identity_error(
     uses: Decimal,
     sources: Decimal,
 ) -> Result<FairmarkError> {
-    let zero: Vec<String> = TAKEN_AS_ZERO
+    let pointers: Vec<String> = TAKEN_AS_ZERO
         .iter()
         .filter(|row| row.separate_line && (row.applies)(bs))
-        .map(|row| format!("`{base}/{}`", row.key))
+        .map(|row| format!("{base}/{}", row.key))
         .collect();
+    let zero: Vec<String> = pointers.iter().map(|p| format!("`{p}`")).collect();
     if zero.is_empty() {
         return Ok(FairmarkError::Internal(
             "statements: total funds invested differ from the sources",
@@ -1635,6 +1636,7 @@ fn identity_error(
                  is not zero: correct the amount or give the item (R12, M1)",
                 zero.join(", ")
             ),
+            pointers,
         },
     )))
 }

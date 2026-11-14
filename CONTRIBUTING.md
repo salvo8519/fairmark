@@ -38,6 +38,11 @@ recorded as equivalent after review; see
 The Rust extension is rebuilt automatically by `uv run` / `uv sync` when Rust sources change.
 `uv.lock` is committed: dependency updates go through PRs.
 
+Builds and worktrees take disk space. `uv run just workspace-report` shows, for every worktree,
+its size, its rebuildable caches and whether its branch is merged; it is read-only. Deleting a
+worktree or a cache is a manual step. See
+[Disk use and the workspace report](docs/en/project/workspace-report.md).
+
 Documentation (Zensical):
 
 ```bash

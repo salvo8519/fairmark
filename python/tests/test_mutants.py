@@ -90,6 +90,29 @@ def test_entry_outside_the_core_is_rejected(
     assert any("under crates/fairmark-core/src/" in p for p in problems)
 
 
+@pytest.mark.parametrize(
+    ("reviewer", "valid"),
+    [
+        ("salvo8519", True),
+        ("a-b-1", True),
+        ("coordinator review pending", False),
+        ("pending: maintainer", False),
+        ("@salvo8519", False),
+    ],
+)
+def test_reviewer_must_be_a_github_login(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reviewer: str, valid: bool
+) -> None:
+    exclusions(
+        tmp_path,
+        monkeypatch,
+        f'[[equivalent]]\nfile = "{RATES}"\nfunction = "f"\n'
+        f'mutation = "replace + with - in f"\nline = 1\nreason = "r"\nreviewer = "{reviewer}"\n',
+    )
+    _, problems = mt.load_exclusions()
+    assert any("reviewer must be the GitHub login" in p for p in problems) is not valid
+
+
 def test_gate_fails_on_missed_and_passes_when_recorded_as_equivalent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

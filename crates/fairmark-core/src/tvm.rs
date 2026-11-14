@@ -12,7 +12,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::dates::{Date, DayCount};
-use crate::error::{rate_field, FairmarkError, Result};
+use crate::error::{rate_field, FairmarkError, Found, Reason, Result};
 use crate::explain::{Explain, Step};
 use crate::method::Method;
 use crate::num;
@@ -25,7 +25,9 @@ pub const IRR_MAX_ITERATIONS: u32 = 200;
 
 /// `1 / (1 + rate)^t`. Integer `t` uses exact repeated multiplication, fractional `t`
 /// (mid-period) decimal `powd`; rates below zero raise the reciprocal of the base so that no
-/// precision is lost, and very long horizons underflow to zero instead of overflowing.
+/// precision is lost, and very long horizons underflow to zero instead of overflowing. A
+/// negative `t` (before the valuation date) gives the compounding factor (1 + rate)^|t|, or
+/// `FM-E008` beyond the decimal range.
 pub fn discount_factor(rate: Decimal, t: Decimal) -> Result<Decimal> {
     if rate <= -Decimal::ONE {
         return Err(FairmarkError::RateOutOfRange(rate));
@@ -94,10 +96,23 @@ pub struct NpvOutput {
     pub present_values: Vec<Decimal>,
 }
 
-pub fn npv(input: &NpvInput) -> Result<(NpvOutput, Explain)> {
+/// Every input error of `npv`, without computing (ADR 0014 G5).
+fn check_npv(input: &NpvInput) -> Result<()> {
+    // Every input error is reported (ADR 0014 G5), in the order of the checks.
+    let mut found = Found::new();
     if input.cash_flows.is_empty() {
-        return Err(FairmarkError::EmptyCashFlows);
+        found.push(FairmarkError::EmptyCashFlows);
     }
+    found.check(
+        discount_factor(input.rate, Decimal::ZERO)
+            .map(|_| ())
+            .map_err(rate_field("/rate", None)),
+    );
+    found.finish()
+}
+
+pub fn npv(input: &NpvInput) -> Result<(NpvOutput, Explain)> {
+    check_npv(input)?;
     let mut ex = Explain::new("tvm.npv", "NPV = Σ CF_t / (1 + r)^t");
     ex.convention("cash_flows[0] occurs at t = 0 and is not discounted");
 
@@ -158,12 +173,24 @@ pub struct IrrOutput {
     pub tolerance: Decimal,
 }
 
+/// Every input error of `irr`, without computing (ADR 0014 G5).
+fn check_irr(input: &IrrInput) -> Result<()> {
+    let cfs = &input.cash_flows;
+    // Every input error is reported (ADR 0014 G5), in the order of the checks.
+    let mut found = Found::new();
+    if cfs.is_empty() {
+        found.push(FairmarkError::EmptyCashFlows);
+    } else {
+        found.check(require_sign_change(cfs.iter(), false));
+    }
+    let start = input.guess.unwrap_or(Decimal::new(10, 2));
+    found.check(check_guess(start, Some(1)));
+    found.finish()
+}
+
 pub fn irr(input: &IrrInput) -> Result<(IrrOutput, Explain)> {
     let cfs = &input.cash_flows;
-    if cfs.is_empty() {
-        return Err(FairmarkError::EmptyCashFlows);
-    }
-    require_sign_change(cfs.iter(), false)?;
+    check_irr(input)?;
 
     let mut ex = Explain::new("tvm.irr", "find r such that Σ CF_t / (1 + r)^t = 0");
     ex.convention("cash_flows[0] occurs at t = 0");
@@ -222,7 +249,7 @@ pub(crate) fn solver_conventions(ex: &mut Explain, rates_scanned: &str) {
     ));
     ex.convention("Newton's method from the guess inside the root interval; bisection as fallback");
     ex.convention(format!(
-        "stopping rule: step on the rate below {IRR_TOLERANCE}, at most {IRR_MAX_ITERATIONS} \
+        "stopping rule: step on the rate at most {IRR_TOLERANCE}, at most {IRR_MAX_ITERATIONS} \
          iterations (a step, not an error bound: accuracy is lower near a double root)"
     ));
 }
@@ -612,7 +639,8 @@ pub fn period_discount_factors(rates: &[Decimal], timing: PeriodTiming) -> Resul
     Ok(out)
 }
 
-pub fn present_value(input: &PresentValueInput) -> Result<(PresentValueOutput, Explain)> {
+/// Every input error of `present_value`, without computing (ADR 0014 G5).
+fn check_present_value(input: &PresentValueInput) -> Result<()> {
     let n = input.cash_flows.len();
     if n == 0 {
         return Err(FairmarkError::EmptyCashFlows);
@@ -624,12 +652,71 @@ pub fn present_value(input: &PresentValueInput) -> Result<(PresentValueOutput, E
             return Err(FairmarkError::InvalidInput(format!(
                 "period_rates has {} rates for {n} cash flows; give exactly one rate per period",
                 curve.len()
-            )))
+            ))
+            .at("/period_rates", Reason::Length)
+            .expected([format!("{n} rates, one per cash flow")]))
         }
         _ => {
             return Err(FairmarkError::InvalidInput(
                 "give exactly one of `rate` and `period_rates`".to_owned(),
+            )
+            .at(
+                "/rate",
+                if input.rate.is_some() {
+                    Reason::Conflict
+                } else {
+                    Reason::Missing
+                },
+            )
+            .between(["/rate", "/period_rates"]))
+        }
+    };
+    // Every rate out of range is reported (ADR 0014 G5); one rate given is checked once.
+    let mut found = Found::new();
+    for (k, r) in rates.iter().enumerate() {
+        match input.rate {
+            Some(_) if k > 0 => {}
+            Some(_) => {
+                found.check(check_rate("/rate", *r));
+            }
+            None => {
+                found.check(check_rate(format!("/period_rates/{k}"), *r));
+            }
+        }
+    }
+    found.finish()
+}
+
+pub fn present_value(input: &PresentValueInput) -> Result<(PresentValueOutput, Explain)> {
+    check_present_value(input)?;
+    let n = input.cash_flows.len();
+    if n == 0 {
+        return Err(FairmarkError::EmptyCashFlows);
+    }
+    let rates: Vec<Decimal> = match (&input.rate, &input.period_rates) {
+        (Some(r), None) => vec![*r; n],
+        (None, Some(curve)) if curve.len() == n => curve.clone(),
+        (None, Some(curve)) => {
+            return Err(FairmarkError::InvalidInput(format!(
+                "period_rates has {} rates for {n} cash flows; give exactly one rate per period",
+                curve.len()
             ))
+            .at("/period_rates", Reason::Length)
+            .expected([format!("{n} rates, one per cash flow")]))
+        }
+        _ => {
+            return Err(FairmarkError::InvalidInput(
+                "give exactly one of `rate` and `period_rates`".to_owned(),
+            )
+            .at(
+                "/rate",
+                if input.rate.is_some() {
+                    Reason::Conflict
+                } else {
+                    Reason::Missing
+                },
+            )
+            .between(["/rate", "/period_rates"]))
         }
     };
     let mut ex = Explain::new(
@@ -642,12 +729,6 @@ pub fn present_value(input: &PresentValueInput) -> Result<(PresentValueOutput, E
     } else {
         "one rate per period (forward period rates)"
     });
-    for (k, r) in rates.iter().enumerate() {
-        match input.rate {
-            Some(_) => check_rate("/rate", *r)?,
-            None => check_rate(format!("/period_rates/{k}"), *r)?,
-        }
-    }
     let dfs = period_discount_factors(&rates, input.timing)?;
     let ends = period_discount_factors(&rates, PeriodTiming::EndOfPeriod)?;
     let mut pvs = Vec::with_capacity(n);
@@ -765,17 +846,26 @@ pub(crate) fn time_axis(
     let v = valuation_date.unwrap_or(earliest);
     let mut times = Vec::with_capacity(flows.len());
     let mut formulas = Vec::with_capacity(flows.len());
-    for f in flows {
+    // Every flow dated before the valuation date is reported (ADR 0014 G5).
+    let mut found = Found::new();
+    for (i, f) in flows.iter().enumerate() {
         if f.date < v {
-            return Err(FairmarkError::FlowBeforeValuationDate {
-                date: f.date.to_string(),
-                valuation_date: v.to_string(),
-            });
+            let at = format!("/cash_flows/{i}/date");
+            found.push(
+                FairmarkError::FlowBeforeValuationDate {
+                    date: f.date.to_string(),
+                    valuation_date: v.to_string(),
+                }
+                .at(at.clone(), Reason::Range)
+                .between([at, "/valuation_date".to_owned()]),
+            );
+            continue;
         }
         let (t, formula) = day_count.year_fraction(v, f.date)?;
         times.push(t);
         formulas.push(formula);
     }
+    found.finish()?;
     Ok(TimeAxis {
         valuation_date: v,
         times,
@@ -872,13 +962,47 @@ fn dated_conventions(
     (day_count, compounding)
 }
 
+/// An error on `field` whose domain depends on the compounding: a given compounding is the
+/// other side of the rule (`pointers`); the default (annual) is read, never named, since the
+/// input holds no such field (ADR 0014 G5, review round 6).
+fn with_compounding(e: FairmarkError, field: &str, given: Option<Compounding>) -> FairmarkError {
+    match given {
+        Some(_) => e.between([field, "/compounding"]),
+        None => e.reads(["/compounding"]),
+    }
+}
+
+/// Every input error of `xnpv`, without computing (ADR 0014 G5): the dates, then the rate.
+fn check_xnpv(input: &XnpvInput) -> Result<()> {
+    let mut ex = Explain::new("tvm.xnpv", "");
+    let (dc, c) = dated_conventions(&mut ex, input.day_count, input.compounding);
+    let mut found = Found::new();
+    found.check(time_axis(&input.cash_flows, input.valuation_date, dc).map(|_| ()));
+    found.check(
+        rates::discount_factor(input.rate, c, Decimal::ZERO)
+            .map(|_| ())
+            .map_err(|e| {
+                // The domain of the rate depends on its compounding (a continuous rate may be
+                // -2), given or annual by default; a default is read, never named.
+                with_compounding(
+                    rate_field("/rate", c.per_year())(e),
+                    "/rate",
+                    input.compounding,
+                )
+            }),
+    );
+    found.finish()
+}
+
 pub fn xnpv(input: &XnpvInput) -> Result<(XnpvOutput, Explain)> {
     let mut ex = Explain::new(
         "tvm.xnpv",
         "XNPV = Σ CF_j × DF(r, t_j), t_j = year fraction(valuation date, d_j)",
     );
     let (dc, c) = dated_conventions(&mut ex, input.day_count, input.compounding);
-    let axis = time_axis(&input.cash_flows, input.valuation_date, dc)?;
+    check_xnpv(input)?;
+    let axis = Some(time_axis(&input.cash_flows, input.valuation_date, dc)?);
+    let axis = axis.ok_or(FairmarkError::Internal("time axis not checked"))?;
     let (v, ts) = (axis.valuation_date, &axis.times);
     ex.convention(match input.valuation_date {
         Some(_) => format!("valuation date {v} (given)"),
@@ -962,6 +1086,37 @@ pub struct XirrOutput {
     pub tolerance: Decimal,
 }
 
+/// Every input error of `xirr`, without computing the rate (ADR 0014 G5): the dates, the
+/// signs (as given and after netting the flows of one date), then the guess.
+fn check_xirr(input: &XirrInput) -> Result<()> {
+    let flows = &input.cash_flows;
+    if flows.is_empty() {
+        return Err(FairmarkError::EmptyCashFlows);
+    }
+    let mut ex = Explain::new("tvm.xirr", "");
+    let (dc, c) = dated_conventions(&mut ex, input.day_count, input.compounding);
+    let axis = time_axis(flows, None, dc)?;
+    let netted = net_by_time(flows, &axis.times)?;
+    let mut found = Found::new();
+    if require_sign_change(netted.iter(), true).is_err() {
+        // Say whether the flows lacked a sign change as given or only after netting.
+        let as_given = require_sign_change(flows.iter().map(|f| &f.amount), false);
+        if found.check(as_given) {
+            // Netting puts together the flows at the same time, which the day count decides.
+            found.check(
+                require_sign_change(netted.iter(), true).map_err(|e| e.reads(["/day_count"])),
+            );
+        }
+    }
+    let start = input.guess.unwrap_or(Decimal::new(10, 2));
+    // The domain of the guess depends on the compounding of the result.
+    found.check(
+        check_guess(start, c.per_year())
+            .map_err(|e| with_compounding(e, "/guess", input.compounding)),
+    );
+    found.finish()
+}
+
 pub fn xirr(input: &XirrInput) -> Result<(XirrOutput, Explain)> {
     let flows = &input.cash_flows;
     if flows.is_empty() {
@@ -972,11 +1127,7 @@ pub fn xirr(input: &XirrInput) -> Result<(XirrOutput, Explain)> {
     let axis = time_axis(flows, None, dc)?;
     let (v, ts) = (axis.valuation_date, axis.times.clone());
     let netted = net_by_time(flows, &ts)?;
-    if require_sign_change(netted.iter(), true).is_err() {
-        // Say whether the flows lacked a sign change as given or only after netting.
-        require_sign_change(flows.iter().map(|f| &f.amount), false)?;
-        require_sign_change(netted.iter(), true)?;
-    }
+    check_xirr(input)?;
     for ((f, t), formula) in flows.iter().zip(&ts).zip(&axis.formulas) {
         ex.step(format!("Year fraction, {}", f.date), formula.clone(), *t);
     }
@@ -1043,16 +1194,28 @@ pub struct MirrOutput {
     pub fv_positive_flows: Decimal,
 }
 
+/// Every input error of `mirr`, without computing (ADR 0014 G5).
+fn check_mirr(input: &MirrInput) -> Result<()> {
+    let cfs = &input.cash_flows;
+    // Every input error is reported (ADR 0014 G5); the signs are checked on two flows or more.
+    let mut found = Found::new();
+    if cfs.len() < 2 {
+        found.push(
+            FairmarkError::InvalidInput("MIRR needs at least two cash flows".to_owned())
+                .at("/cash_flows", Reason::Length)
+                .expected(["at least two cash flows"]),
+        );
+    } else {
+        found.check(require_sign_change(cfs.iter(), false));
+    }
+    found.check(check_rate("/finance_rate", input.finance_rate));
+    found.check(check_rate("/reinvest_rate", input.reinvest_rate));
+    found.finish()
+}
+
 pub fn mirr(input: &MirrInput) -> Result<(MirrOutput, Explain)> {
     let cfs = &input.cash_flows;
-    if cfs.len() < 2 {
-        return Err(FairmarkError::InvalidInput(
-            "MIRR needs at least two cash flows".to_owned(),
-        ));
-    }
-    require_sign_change(cfs.iter(), false)?;
-    check_rate("/finance_rate", input.finance_rate)?;
-    check_rate("/reinvest_rate", input.reinvest_rate)?;
+    check_mirr(input)?;
     let n = (cfs.len() - 1) as i64;
     let mut ex = Explain::new(
         "tvm.mirr",
@@ -1191,6 +1354,22 @@ pub struct AnnuityOutput {
     pub factor: Decimal,
 }
 
+/// `FM-E001` for a number of periods outside 1 to `MAX_PERIODS`, named `/periods`.
+fn periods_error(n: u32) -> FairmarkError {
+    FairmarkError::InvalidInput(format!(
+        "`/periods` must be between 1 and {MAX_PERIODS} (got {n})"
+    ))
+    .at("/periods", Reason::Range)
+    .expected([format!("a whole number from 1 to {MAX_PERIODS}")])
+}
+
+/// `FM-E001` for a growth of −100% or lower, named `/growth`.
+fn growth_error(g: Decimal) -> FairmarkError {
+    FairmarkError::InvalidInput(format!("`/growth` must be greater than -1 (got {g})"))
+        .at("/growth", Reason::Range)
+        .expected(["a growth greater than -1 (-100%)"])
+}
+
 /// Present value at t = 0 of a first payment of 1 growing at `g` for `n` periods at rate `r`
 /// (the annuity factor), with the explain steps that compute it. Validates `n` (1 to
 /// [`MAX_PERIODS`], `FM-E001`), `r` (`FM-E003`) and `g` (`FM-E001`). Shared by `tvm.annuity`
@@ -1198,38 +1377,23 @@ pub struct AnnuityOutput {
 /// growth factor (1 + r)^n.
 ///
 /// For a long horizon ((1 + g)/(1 + r))^n can fall below the decimal precision (about
-/// 10^−28); the power then underflows, and the factor takes it as 0, its correct limit, with an
-/// explain step that says so. The result is the perpetuity factor to within that precision.
+/// 10^−28); the integer power then rounds to 0, its correct limit, and the factor reports it
+/// with an explain step that says so. The result is the perpetuity factor to within that
+/// precision. A ratio above 1 that leaves the decimal range is `FM-E008`.
 pub(crate) fn annuity_factor(
     r: Decimal,
     g: Decimal,
     n: u32,
     timing: AnnuityTiming,
 ) -> Result<(Decimal, Vec<Step>)> {
-    factor_with(r, g, n, timing, true)
-}
-
-/// `underflow_to_zero: false` keeps the behaviour of `tvm.annuity` version 1 unchanged: an
-/// underflowing power is `FM-E008` there.
-fn factor_with(
-    r: Decimal,
-    g: Decimal,
-    n: u32,
-    timing: AnnuityTiming,
-    underflow_to_zero: bool,
-) -> Result<(Decimal, Vec<Step>)> {
     if n == 0 || n > MAX_PERIODS {
-        return Err(FairmarkError::InvalidInput(format!(
-            "`/periods` must be between 1 and {MAX_PERIODS} (got {n})"
-        )));
+        return Err(periods_error(n));
     }
     if r <= -Decimal::ONE {
         return Err(FairmarkError::RateOutOfRange(r));
     }
     if g <= -Decimal::ONE {
-        return Err(FairmarkError::InvalidInput(format!(
-            "`/growth` must be greater than -1 (got {g})"
-        )));
+        return Err(growth_error(g));
     }
     let one = Decimal::ONE;
     let periods = Decimal::from(n);
@@ -1269,18 +1433,13 @@ fn factor_with(
         let ratio = one_g
             .checked_div(one_r)
             .ok_or(FairmarkError::Overflow("annuity factor"))?;
-        let q = match rates::pow(ratio, periods) {
-            // Only a ratio below 1 can underflow; its power is then below 10^−28.
-            Err(FairmarkError::Overflow(_)) if underflow_to_zero && ratio < one => {
-                ex.step(
-                    "Growth-to-discount ratio to the power n (below the decimal precision, taken as 0)",
-                    format!("((1 + {g}) / (1 + {r}))^{n}"),
-                    Decimal::ZERO,
-                );
-                Decimal::ZERO
-            }
-            other => other?,
-        };
+        // The integer power of a ratio below 1 never overflows: below the decimal precision
+        // (about 10^−28) it rounds to 0, its limit, which the explain reports (issue #282). A
+        // ratio above 1 that leaves the decimal range is an overflow, `FM-E008`.
+        let q = rates::pow(ratio, periods)?;
+        if q.is_zero() {
+            ex.step(UNDERFLOW_STEP, format!("((1 + {g}) / (1 + {r}))^{n}"), q);
+        }
         let f = num::sub(one, q)?
             .checked_div(diff)
             .ok_or(FairmarkError::Overflow("annuity factor"))?;
@@ -1308,10 +1467,28 @@ fn factor_with(
     Ok((factor, ex.steps))
 }
 
+/// Every input error of `annuity`, without computing (ADR 0014 G5).
+fn check_annuity(input: &AnnuityInput) -> Result<()> {
+    let (r, g, n) = (input.rate, input.growth.unwrap_or_default(), input.periods);
+    // Every input error is reported (ADR 0014 G5), in the order of the checks.
+    let mut found = Found::new();
+    if n == 0 || n > MAX_PERIODS {
+        found.push(periods_error(n));
+    }
+    if r <= -Decimal::ONE {
+        found.push(rate_field("/rate", None)(FairmarkError::RateOutOfRange(r)));
+    }
+    if g <= -Decimal::ONE {
+        found.push(growth_error(g));
+    }
+    found.finish()
+}
+
 pub fn annuity(input: &AnnuityInput) -> Result<(AnnuityOutput, Explain)> {
     let (r, g, n) = (input.rate, input.growth.unwrap_or_default(), input.periods);
+    check_annuity(input)?;
     let (factor, steps) =
-        factor_with(r, g, n, input.timing, false).map_err(rate_field("/rate", None))?;
+        annuity_factor(r, g, n, input.timing).map_err(rate_field("/rate", None))?;
     let periods = Decimal::from(n);
     let one_r = num::one_plus(r)?;
     let mut ex = Explain::new(
@@ -1367,25 +1544,44 @@ pub struct PerpetuityOutput {
     pub present_value: Decimal,
 }
 
-pub fn perpetuity(input: &PerpetuityInput) -> Result<(PerpetuityOutput, Explain)> {
+/// Every input error of `perpetuity`, without computing (ADR 0014 G5).
+fn check_perpetuity(input: &PerpetuityInput) -> Result<()> {
     let (r, g) = (input.rate, input.growth.unwrap_or_default());
-    check_rate("/rate", r)?;
+    // Every input error is reported (ADR 0014 G5); the growth is compared with the rate only
+    // when both are valid.
+    let mut found = Found::new();
+    found.check(check_rate("/rate", r));
     if g <= -Decimal::ONE {
         // With g ≤ -1 the payments alternate or vanish and the series diverges or is
         // meaningless (audit D6); aligned with `tvm.annuity`.
-        return Err(FairmarkError::InvalidInput(format!(
-            "`/growth` must be greater than -1 (got {g})"
-        )));
+        found.push(growth_error(g));
     }
+    found.finish()?;
     if g >= r {
-        return Err(FairmarkError::GrowthNotBelowTerminalRate {
+        let error = FairmarkError::GrowthNotBelowTerminalRate {
             growth_field: "/growth".to_owned(),
             growth: g,
             rate_field: "/rate".to_owned(),
             rate: r,
             converted_with: None,
+        };
+        // A growth left out is the default 0: the rate given is the field to correct.
+        return Err(match input.growth {
+            Some(_) => error,
+            None => error
+                .reads(["/growth"])
+                .at("/rate", Reason::Range)
+                .between(["/rate"])
+                .expected(["a rate greater than the growth, 0 by default"])
+                .fix("raise `rate` above 0, or give the `growth` of the payments"),
         });
     }
+    Ok(())
+}
+
+pub fn perpetuity(input: &PerpetuityInput) -> Result<(PerpetuityOutput, Explain)> {
+    let (r, g) = (input.rate, input.growth.unwrap_or_default());
+    check_perpetuity(input)?;
     let mut ex = Explain::new("tvm.perpetuity", "PV = P / (r − g); × (1 + r) if due");
     ex.convention(match input.timing {
         AnnuityTiming::Ordinary => "first payment at the end of the first period",
@@ -1413,6 +1609,10 @@ pub fn perpetuity(input: &PerpetuityInput) -> Result<(PerpetuityOutput, Explain)
 
 // ---------------------------------------------------------------- future value
 
+/// Label of the step that reports ((1 + g)/(1 + r))^n below the decimal precision, taken as 0.
+const UNDERFLOW_STEP: &str =
+    "Growth-to-discount ratio to the power n (below the decimal precision, taken as 0)";
+
 /// The steps of [`annuity_factor`] for level payments (growth 0), relabelled with the level
 /// formulas: same values, no `(1 + 0)` in the text. Used by `tvm.future_value` and the loan
 /// methods; `tvm.annuity` keeps its own labels.
@@ -1429,9 +1629,10 @@ pub(crate) fn level_factor_steps(steps: Vec<Step>, r: Decimal, n: u32) -> Vec<St
                     "Annuity factor (level payments, rate close to 0, direct sum)".to_owned(),
                     format!("Σ_(k=1..{n}) (1 + {r})^−k"),
                 ),
-                "Annuity factor (r = g)" => (
-                    "Annuity factor (level payments, rate 0)".to_owned(),
-                    format!("{n} / (1 + {r})"),
+                UNDERFLOW_STEP => (
+                    "Discount factor of period n (below the decimal precision, taken as 0)"
+                        .to_owned(),
+                    format!("(1 + {r})^−{n}"),
                 ),
                 _ => (step.label, step.formula),
             };
@@ -1473,19 +1674,37 @@ pub struct FutureValueOutput {
     pub future_value: Decimal,
 }
 
-pub fn future_value(input: &FutureValueInput) -> Result<(FutureValueOutput, Explain)> {
+/// Every input error of `future_value`, without computing (ADR 0014 G5).
+fn check_future_value(input: &FutureValueInput) -> Result<()> {
     let (r, n) = (input.rate, input.periods);
+    // Every input error is reported (ADR 0014 G5), in the order of the checks.
+    let mut found = Found::new();
     if input.present_value.is_none() && input.payment.is_none() {
-        return Err(FairmarkError::InvalidInput(
-            "give `present_value`, `payment` or both (each defaults to 0, but not both)".to_owned(),
-        ));
+        found.push(
+            FairmarkError::InvalidInput(
+                "give `present_value`, `payment` or both (each defaults to 0, but not both)"
+                    .to_owned(),
+            )
+            .at("/present_value", Reason::Missing)
+            .between(["/present_value", "/payment"]),
+        );
     }
     if n == 0 || n > MAX_PERIODS {
-        return Err(FairmarkError::InvalidInput(format!(
-            "`periods` must be between 1 and {MAX_PERIODS} (got {n})"
-        )));
+        found.push(
+            FairmarkError::InvalidInput(format!(
+                "`periods` must be between 1 and {MAX_PERIODS} (got {n})"
+            ))
+            .at("/periods", Reason::Range)
+            .expected([format!("a whole number from 1 to {MAX_PERIODS}")]),
+        );
     }
-    check_rate("/rate", r)?;
+    found.check(check_rate("/rate", r));
+    found.finish()
+}
+
+pub fn future_value(input: &FutureValueInput) -> Result<(FutureValueOutput, Explain)> {
+    let (r, n) = (input.rate, input.periods);
+    check_future_value(input)?;
     let pv = input.present_value.unwrap_or_default();
     let pmt = input.payment.unwrap_or_default();
     let mut ex = Explain::new(
@@ -1563,6 +1782,10 @@ impl Method for Npv {
     type Input = NpvInput;
     type Output = NpvOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_npv(input)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         npv(input)
     }
@@ -1583,6 +1806,10 @@ impl Method for Irr {
     type Input = IrrInput;
     type Output = IrrOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_irr(input)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         irr(input)
     }
@@ -1601,6 +1828,10 @@ impl Method for PresentValue {
     type Input = PresentValueInput;
     type Output = PresentValueOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_present_value(input)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         present_value(input)
     }
@@ -1618,6 +1849,10 @@ impl Method for Xnpv {
     const VERSION: &'static str = "1";
     type Input = XnpvInput;
     type Output = XnpvOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_xnpv(input)
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         xnpv(input)
@@ -1639,6 +1874,10 @@ impl Method for Xirr {
     type Input = XirrInput;
     type Output = XirrOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_xirr(input)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         xirr(input)
     }
@@ -1657,6 +1896,10 @@ impl Method for Mirr {
     type Input = MirrInput;
     type Output = MirrOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_mirr(input)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         mirr(input)
     }
@@ -1673,6 +1916,10 @@ impl Method for Annuity {
     const VERSION: &'static str = "1";
     type Input = AnnuityInput;
     type Output = AnnuityOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_annuity(input)
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         annuity(input)
@@ -1692,6 +1939,10 @@ impl Method for FutureValue {
     type Input = FutureValueInput;
     type Output = FutureValueOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_future_value(input)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         future_value(input)
     }
@@ -1708,6 +1959,10 @@ impl Method for Perpetuity {
     const VERSION: &'static str = "1";
     type Input = PerpetuityInput;
     type Output = PerpetuityOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_perpetuity(input)
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         perpetuity(input)

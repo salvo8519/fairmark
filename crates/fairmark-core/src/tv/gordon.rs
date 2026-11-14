@@ -5,10 +5,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    check_below_rate, check_growth, check_growth_cap, invalid, on, rate_convention, Checked,
-    GrowthCapCheck, NOT_DISCOUNTED,
+    check_below_rate, check_growth, check_growth_cap, checked, invalid, on, rate_convention,
+    Checked, GrowthCapCheck, NOT_DISCOUNTED,
 };
-use crate::error::Result;
+use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num::{div, mul, one_plus, sub};
@@ -90,19 +90,36 @@ pub struct GordonOutput {
 /// Validates the input; each error names its field.
 pub(crate) fn check(input: &GordonInput) -> Checked {
     let (r, g) = (input.rate, input.growth);
-    check_growth(g, "growth").map_err(on("growth"))?;
-    check_below_rate(g, r).map_err(on("growth"))?;
-    if input.next_flow.is_some() == input.last_flow.is_some() {
-        return Err(on("next_flow")(invalid(
-            "give exactly one of next_flow (CF_{N+1}) and last_flow (CF_N)",
-        )));
+    let mut errors = Vec::new();
+    match check_growth(g, "growth") {
+        Err(e) => errors.push(on("growth")(e)),
+        Ok(()) => {
+            if let Err(e) = check_below_rate(g, r, "growth", "rate") {
+                errors.push(on("growth")(e));
+            }
+        }
     }
-    Ok(())
+    if input.next_flow.is_some() == input.last_flow.is_some() {
+        errors.push(on("next_flow")(flow_form_error(input.next_flow.is_some())));
+    }
+    checked(errors)
+}
+
+/// `FM-E001`: not exactly one of `next_flow` and `last_flow`; both given is a conflict, neither
+/// a missing field (one of the two is to be given).
+fn flow_form_error(both_given: bool) -> FairmarkError {
+    invalid("give exactly one of next_flow (CF_{N+1}) and last_flow (CF_N)")
+        .because(if both_given {
+            crate::error::Reason::Conflict
+        } else {
+            crate::error::Reason::Missing
+        })
+        .between(["/next_flow", "/last_flow"])
 }
 
 /// TV_N = CF_{N+1} / (r − g).
 pub fn gordon(input: &GordonInput) -> Result<(GordonOutput, Explain)> {
-    check(input).map_err(super::FieldError::into_error)?;
+    check(input).map_err(super::into_error)?;
     let (r, g) = (input.rate, input.growth);
     let mut ex = Explain::new("tv.gordon", "TV_N = CF_{N+1} / (r − g)");
     ex.convention(NOT_DISCOUNTED);
@@ -117,11 +134,7 @@ pub fn gordon(input: &GordonInput) -> Result<(GordonOutput, Explain)> {
             ex.step("Flow at N + 1", format!("{last} × (1 + {g})"), next);
             (next, FlowBasis::LastFlowGrown)
         }
-        _ => {
-            return Err(invalid(
-                "give exactly one of next_flow (CF_{N+1}) and last_flow (CF_N)",
-            ))
-        }
+        (next, _) => return Err(flow_form_error(next.is_some())),
     };
     rate_convention(&mut ex, r);
     let tv = div(next, sub(r, g)?)?;
@@ -150,6 +163,10 @@ impl Method for Gordon {
     const VERSION: &'static str = "1";
     type Input = GordonInput;
     type Output = GordonOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check(input).map_err(super::into_error)
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         gordon(input)

@@ -12,7 +12,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Reason, Result};
 
 /// Largest number of periods of a schedule, a series or an annuity (bounds every loop over
 /// periods). Defined here, with the frequencies, so that the time model does not depend on a
@@ -28,7 +28,9 @@ pub(crate) fn check_number_of_periods(n: u32, pointer: &str, purpose: &str) -> R
             detail: format!(
                 "must be between 1 and {MAX_PERIODS} (got {n}); give the number of {purpose}"
             ),
-        });
+        }
+        .because(Reason::Range)
+        .expected([format!("a whole number from 1 to {MAX_PERIODS}")]));
     }
     Ok(())
 }
@@ -167,27 +169,54 @@ pub(crate) fn period_length(
     prefix: &str,
     required: bool,
 ) -> Result<Option<PeriodLength>> {
+    // The form first; then a number of months given is checked whatever the form.
+    let mut found = crate::error::Found::new();
     match (frequency, period_months) {
-        (Some(_), Some(_)) => Err(FairmarkError::InvalidInput(format!(
-            "`{prefix}/frequency` and `{prefix}/period_months` are both given; give exactly one: \
-             a named frequency, or the number of months per period (for example `quarterly` or \
-             3), and remove the other"
-        ))),
-        (None, None) if required => Err(FairmarkError::InvalidInput(format!(
-            "no period length: give exactly one of `{prefix}/frequency` (`monthly`, \
-             `bimonthly`, `quarterly`, `four_monthly`, `semi_annual` or `annual`) and \
-             `{prefix}/period_months` (a positive whole number of months per period)"
-        ))),
-        (None, None) => Ok(None),
-        (Some(f), None) => Ok(Some(PeriodLength::Named(f))),
-        (None, Some(0)) => Err(FairmarkError::InvalidInputAt {
-            pointer: format!("{prefix}/period_months"),
-            detail: "must be a positive whole number of months per period (got 0); give for \
-                     example 3 for quarterly periods or 18 for periods of eighteen months"
-                .to_owned(),
-        }),
-        (None, Some(m)) => Ok(Some(PeriodLength::Months(m))),
+        (Some(_), Some(_)) => found.push(
+            FairmarkError::InvalidInput(format!(
+                "`{prefix}/frequency` and `{prefix}/period_months` are both given; give exactly \
+                 one: a named frequency, or the number of months per period (for example \
+                 `quarterly` or 3), and remove the other"
+            ))
+            .at(format!("{prefix}/frequency"), Reason::Conflict)
+            .between([
+                format!("{prefix}/frequency"),
+                format!("{prefix}/period_months"),
+            ]),
+        ),
+        (None, None) if required => found.push(
+            FairmarkError::InvalidInput(format!(
+                "no period length: give exactly one of `{prefix}/frequency` (`monthly`, \
+                 `bimonthly`, `quarterly`, `four_monthly`, `semi_annual` or `annual`) and \
+                 `{prefix}/period_months` (a positive whole number of months per period)"
+            ))
+            .at(format!("{prefix}/frequency"), Reason::Missing)
+            .between([
+                format!("{prefix}/frequency"),
+                format!("{prefix}/period_months"),
+            ]),
+        ),
+        _ => {}
     }
+    if period_months == Some(0) {
+        found.push(
+            FairmarkError::InvalidInputAt {
+                pointer: format!("{prefix}/period_months"),
+                detail: "must be a positive whole number of months per period (got 0); give \
+                         for example 3 for quarterly periods or 18 for periods of eighteen \
+                         months"
+                    .to_owned(),
+            }
+            .because(Reason::Range)
+            .expected(["a whole number of months, 1 or more"]),
+        );
+    }
+    found.finish()?;
+    Ok(match (frequency, period_months) {
+        (Some(f), None) => Some(PeriodLength::Named(f)),
+        (None, Some(m)) => Some(PeriodLength::Months(m)),
+        _ => None,
+    })
 }
 
 #[cfg(test)]

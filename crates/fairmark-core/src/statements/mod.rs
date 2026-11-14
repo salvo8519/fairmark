@@ -492,6 +492,16 @@ fn year_name(input: &ReorganiseInput, i: usize) -> String {
     }
 }
 
+/// The fields filled in with a value because they were not given: a destination given to an
+/// item the user gave is not one of them.
+fn taken_by_default(defaults: &[DefaultApplied]) -> Vec<String> {
+    defaults
+        .iter()
+        .filter(|d| d.is_field())
+        .map(|d| d.field.clone())
+        .collect()
+}
+
 /// `statements.reorganise` through a typed call (ADR 0009): the documented defaults are filled
 /// in and reported first in the conventions, as through the registry.
 pub fn reorganise(input: &ReorganiseInput) -> Result<(ReorganiseOutput, Explain)> {
@@ -709,6 +719,10 @@ impl Method for Reorganise {
     type Input = ReorganiseInput;
     type Output = ReorganiseOutput;
 
+    fn validate(input: &Self::Input, defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        validate::validate(input).map_err(|e| e.without_defaulted(&taken_by_default(defaults)))
+    }
+
     fn compute(input: &ReorganiseInput) -> Result<(ReorganiseOutput, Explain)> {
         compute(
             input,
@@ -735,6 +749,8 @@ impl Method for Reorganise {
                     && !filled("/treatments/write_downs_of_fixed_assets"),
             },
         )
+        // An item taken as zero by default is read, never named (final review of #279).
+        .map_err(|e| e.without_defaulted(&taken_by_default(defaults)))
     }
 
     /// R8 as clarified on 2026-11-08, R17, R18, D1, D2, E3, F1, P1: by year, the `default`

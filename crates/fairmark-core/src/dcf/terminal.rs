@@ -11,7 +11,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::engine::TerminalDiscountTime;
-use crate::error::{FairmarkError, Result};
+use crate::error::{FairmarkError, Reason, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num::{div, mul, one_plus, sub};
@@ -219,6 +219,19 @@ pub struct GivenTerminal {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NoTerminal {}
+
+/// The keys of [`Terminal`], in the order of its fields: the `expected` of an empty choice.
+const TERMINAL_OPTIONS: [&str; 9] = [
+    "tv.gordon",
+    "tv.h_model",
+    "tv.value_driver",
+    "tv.exit_multiple",
+    "tv.limited_horizon",
+    "tv.normalised_income",
+    "tv.liquidation",
+    "given",
+    "none",
+];
 
 /// The terminal option, written as an object with exactly one key: a `tv.*` method id, as in
 /// `tv.compare` (`{"tv.gordon": {...}}`), `given` (`{"given": {"value": ...}}`, an amount at N
@@ -517,7 +530,8 @@ fn check_basis(
         "`{at}/{field}` is {what}, on the {} basis, but this DCF values on the {} basis; {fix}",
         found.name(),
         dcf.name()
-    )))
+    ))
+    .at(format!("{at}/{field}"), Reason::Conflict))
 }
 
 /// The input of the technique's own method, built from its terms inside the DCF.
@@ -599,7 +613,7 @@ fn tv_input(technique: Technique<'_>, rate: Decimal, last_flow: Decimal) -> TvIn
 }
 
 /// The checks of the technique's own method (SPEC-0006), each naming its field.
-fn tv_check(input: &TvInput) -> std::result::Result<(), FieldError> {
+fn tv_check(input: &TvInput) -> std::result::Result<(), Vec<FieldError>> {
     match input {
         TvInput::Gordon(i) => tv::gordon::check(i),
         TvInput::HModel(i) => tv::h_model::check(i),
@@ -621,6 +635,30 @@ fn at_pointer(
     rate_field: &str,
     converted_with: Option<&str>,
 ) -> FairmarkError {
+    // Every field the technique's check read, at its place in the DCF input (review round 6).
+    let at = format!("/terminal/{}", technique.id());
+    let place = |p: &str| match (technique, p) {
+        (_, "/rate" | "/capitalisation_rate") => rate_field.to_owned(),
+        (Technique::Gordon(_), "/next_flow") => format!("{at}/normalised_next_flow"),
+        (_, p) => format!("{at}{p}"),
+    };
+    let read: Vec<String> = e
+        .error
+        .details()
+        .declared()
+        .iter()
+        .filter(|p| p.starts_with('/'))
+        .map(|p| place(p))
+        .collect();
+    terminal_error(e, technique, rate_field, converted_with).reads(read)
+}
+
+fn terminal_error(
+    e: FieldError,
+    technique: Technique<'_>,
+    rate_field: &str,
+    converted_with: Option<&str>,
+) -> FairmarkError {
     let at = format!("/terminal/{}", technique.id());
     let (pointer, note) = match (technique, e.field.as_str()) {
         (_, "rate" | "capitalisation_rate") => (
@@ -630,12 +668,15 @@ fn at_pointer(
         (Technique::Gordon(_), "next_flow") => (format!("{at}/normalised_next_flow"), ""),
         (_, field) => (format!("{at}/{field}"), ""),
     };
-    match e.error {
+    // The sub-kind given by the technique's check, if any; its pointer is the technique's own.
+    let reason = e.error.details().reason.unwrap_or(Reason::Range);
+    match e.error.plain() {
         FairmarkError::InvalidInput(m) => {
-            FairmarkError::InvalidInput(format!("`{pointer}`: {m}{note}"))
+            FairmarkError::InvalidInput(format!("`{pointer}`: {m}{note}")).at(pointer, reason)
         }
         FairmarkError::TerminalValueDomain(m) => {
             FairmarkError::TerminalValueDomain(format!("`{pointer}`: {m}{note}"))
+                .at(pointer, Reason::Range)
         }
         FairmarkError::GrowthNotBelowRate { growth, rate } => {
             FairmarkError::GrowthNotBelowTerminalRate {
@@ -691,7 +732,11 @@ pub(crate) fn choose(t: &Terminal) -> Result<TerminalChoice<'_>> {
             "`/terminal` names no technique: give exactly one, written with its method id, \
              for example {\"tv.gordon\": {\"growth\": 0.02, \"first_flow\": \"last_flow_grown\"}}"
                 .to_owned(),
-        )),
+        )
+        // No key where exactly one is expected: `length`, like any single-key choice; the
+        // keys it accepts are listed.
+        .at("/terminal", Reason::Length)
+        .expected(TERMINAL_OPTIONS)),
         [one] => Ok(*one),
         many => {
             let ids: Vec<&str> = many.iter().map(|t| t.id()).collect();
@@ -703,15 +748,44 @@ pub(crate) fn choose(t: &Terminal) -> Result<TerminalChoice<'_>> {
                      option: a `tv.*` technique, `given` (a terminal value at N) or `none`",
                     ids.len(),
                     ids.join(", ")
-                )));
+                ))
+                .at("/terminal", Reason::Conflict));
             }
             Err(invalid(format!(
                 "`/terminal` names {} techniques ({}); give exactly one terminal technique",
                 ids.len(),
                 ids.join(", ")
-            )))
+            ))
+            .at("/terminal", Reason::Conflict))
         }
     }
+}
+
+/// The checks of [`check`] that do not depend on the terminal rate, for an input whose rates
+/// are refused: the first terminal flow, the basis and the technique's own terms, without the
+/// comparisons with the rate.
+pub(crate) fn check_terms(choice: TerminalChoice<'_>, basis: TerminalBasis) -> Vec<FairmarkError> {
+    match check(choice, Some(Decimal::MAX), "", None, basis) {
+        Ok(_) => Vec::new(),
+        Err(e) => e
+            .into_errors()
+            .into_iter()
+            .filter(|e| !compares_with_rate(e))
+            .collect(),
+    }
+}
+
+/// True for an error of a technique's check that compares a term with the terminal rate, or
+/// checks the rate itself: it depends on every field that decides that rate.
+pub(crate) fn compares_with_rate(e: &FairmarkError) -> bool {
+    matches!(
+        e.kind(),
+        FairmarkError::GrowthNotBelowRate { .. }
+            | FairmarkError::GrowthNotBelowTerminalRate { .. }
+            | FairmarkError::RateOutOfRange(_)
+            | FairmarkError::DiscountRateOutOfRange { .. }
+            | FairmarkError::CompoundedRateOutOfRange { .. }
+    )
 }
 
 /// R19, R20: a technique on the basis of the DCF, with the first terminal flow stated; the
@@ -730,21 +804,55 @@ pub(crate) fn check<'a>(
     let rate = rate.ok_or(FairmarkError::Internal("technique without a terminal rate"))?;
     let at = format!("/terminal/{}", technique.id());
     let at = at.as_str();
-    // What only the DCF knows: the first terminal flow (R20) and the basis (R19).
+    // What only the DCF knows and the technique's own terms are checked apart: neither hides
+    // the other (ADR 0014 G5, review round 6).
+    let mut found = crate::error::Found::new();
+    let dcf_only = dcf_checks(technique, at, basis);
+    let refused: Option<String> = dcf_only.as_ref().err().and_then(|e| e.details().pointer);
+    found.check(dcf_only);
+    // The terms, by the technique's own checks. CF_N is not known yet and no technique checks
+    // its value: zero stands in for it.
+    if let Err(errors) = tv_check(&tv_input(technique, rate, Decimal::ZERO)) {
+        for e in errors {
+            let e = at_pointer(e, technique, rate_field, converted_with);
+            // A first flow the DCF already refused is one condition, reported once.
+            if refused.is_some() && e.details().pointer == refused {
+                continue;
+            }
+            found.push(e);
+        }
+    }
+    found.finish()?;
+    Ok(choice)
+}
+
+/// What only the DCF knows about its terminal technique: the first terminal flow (R20) and the
+/// basis (R19).
+fn dcf_checks(technique: Technique<'_>, at: &str, basis: TerminalBasis) -> Result<()> {
     match technique {
         Technique::Gordon(g) => match (g.first_flow, g.normalised_next_flow) {
             (FirstTerminalFlow::NormalisedNextFlow, None) => {
                 return Err(invalid(format!(
                     "`{at}/normalised_next_flow` is required with `{at}/first_flow` = \
                      normalised_next_flow: give the flow at N + 1"
-                )))
+                ))
+                .at(format!("{at}/normalised_next_flow"), Reason::Missing)
+                .between([
+                    format!("{at}/normalised_next_flow"),
+                    format!("{at}/first_flow"),
+                ]))
             }
             (FirstTerminalFlow::LastFlowGrown, Some(_)) => {
                 return Err(invalid(format!(
                     "`{at}/normalised_next_flow` is not used with `{at}/first_flow` = \
                      last_flow_grown; remove it, or set `{at}/first_flow` to \
                      normalised_next_flow"
-                )))
+                ))
+                .at(format!("{at}/normalised_next_flow"), Reason::Requires)
+                .between([
+                    format!("{at}/normalised_next_flow"),
+                    format!("{at}/first_flow"),
+                ]))
             }
             _ => {}
         },
@@ -753,14 +861,24 @@ pub(crate) fn check<'a>(
                 return Err(invalid(format!(
                     "`{at}/normalised_base_flow` is required with `{at}/first_flow` = \
                      normalised_base_flow: give the normalised flow CF_N at the horizon N"
-                )))
+                ))
+                .at(format!("{at}/normalised_base_flow"), Reason::Missing)
+                .between([
+                    format!("{at}/normalised_base_flow"),
+                    format!("{at}/first_flow"),
+                ]))
             }
             (HModelFirstFlow::LastFlowGrown, Some(_)) => {
                 return Err(invalid(format!(
                     "`{at}/normalised_base_flow` is not used with `{at}/first_flow` = \
                      last_flow_grown; remove it, or set `{at}/first_flow` to \
                      normalised_base_flow"
-                )))
+                ))
+                .at(format!("{at}/normalised_base_flow"), Reason::Requires)
+                .between([
+                    format!("{at}/normalised_base_flow"),
+                    format!("{at}/first_flow"),
+                ]))
             }
             _ => {}
         },
@@ -793,15 +911,12 @@ pub(crate) fn check<'a>(
                  of the enterprise basis, but this DCF values on the equity basis; its equity \
                  form is not available: use tv.gordon with `first_flow` = \
                  normalised_next_flow, or tv.exit_multiple on earnings or book_value"
-            )))
+            ))
+            .at(at, Reason::Conflict))
         }
         Technique::ValueDriver(_) | Technique::LimitedHorizon(_) => {}
     }
-    // The terms, by the technique's own checks. CF_N is not known yet and no technique checks
-    // its value: zero stands in for it.
-    tv_check(&tv_input(technique, rate, Decimal::ZERO))
-        .map_err(|e| at_pointer(e, technique, rate_field, converted_with))?;
-    Ok(choice)
+    Ok(())
 }
 
 // ---------------------------------------------------------------- calculation
@@ -1194,6 +1309,19 @@ mod tests {
     use rust_decimal::MathematicalOps;
 
     use crate::registry::run;
+
+    /// The options an empty terminal lists are the keys of `Terminal`, in its order.
+    #[test]
+    fn terminal_options_are_the_keys_of_terminal() {
+        let schema = serde_json::to_value(schemars::schema_for!(super::Terminal)).unwrap();
+        let keys: Vec<&str> = schema["properties"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(keys, super::TERMINAL_OPTIONS);
+    }
 
     fn with_terminal(terminal: Value, timing: Option<&str>) -> Value {
         let mut v = json!({

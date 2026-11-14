@@ -46,4 +46,7 @@ to GitHub is in English, without icons. Never merge: merging is the maintainer's
 9. **Labels and board.** Add labels that the labeler cannot infer (`numerical-change`,
    `breaking-change`, `no-release-note`). Remove `in-progress` from the issue only when the
    pull request is ready for review.
-10. **Report** to the maintainer: pull request link, check status, what remains, next step.
+10. **Disk.** Check disk usage with `uv run just workspace-report` (read-only) and include
+    the figures in the report to the maintainer. Nothing is deleted without the maintainer's
+    explicit approval.
+11. **Report** to the maintainer: pull request link, check status, what remains, next step.

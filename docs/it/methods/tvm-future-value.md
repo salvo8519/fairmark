@@ -1,6 +1,6 @@
 ---
 source: methods/tvm-future-value.md
-source_hash: 62391b501339
+source_hash: 78a0e4f0bfda
 ---
 # Valore futuro (`tvm.future_value`)
 
@@ -92,7 +92,9 @@ print(overdrawn.conventions[1])  # sign convention: amounts of the same sign acc
 Solo potenze intere, moltiplicazioni e divisioni; il fattore di rendita divide per $1 + r$,
 quindi i valori che sono decimali finiti risultano esatti fino all'ultima delle 28 cifre
 significative del motore, non esattamente. I casi di riferimento sono verificati a $10^{-20}$
-rispetto a un riferimento indipendente a 50 cifre.
+rispetto a un riferimento indipendente a 50 cifre. Quando $(1 + r)^{-n}$ nel fattore di rendita
+scende sotto la precisione dei decimali (circa $10^{-28}$), è considerato pari a 0, il suo
+limite, e un passaggio di explain lo dichiara.
 
 ## Verificato con
 

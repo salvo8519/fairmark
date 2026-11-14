@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import tomllib
 from collections import Counter
@@ -43,6 +44,9 @@ SUMMARY_TO_OUTCOME = {
     "Failure": "failure",
 }
 REQUIRED_KEYS = ("file", "function", "mutation", "line", "reason", "reviewer")
+# The reviewer is the GitHub login of the maintainer who approved the entry, nothing else: a
+# placeholder such as "pending review" is rejected, so an entry cannot pass unapproved.
+GITHUB_LOGIN = re.compile(r"^[A-Za-z0-9-]+$")
 ALLOWED_KEYS = set(REQUIRED_KEYS)
 
 
@@ -137,6 +141,11 @@ def load_exclusions(path: Path | None = None) -> tuple[list[Equivalent], list[st
             problems.append(f"{where}: mutation must be the text cargo-mutants prints")
         if not belongs_to(mutation, function):
             problems.append(f"{where}: mutation does not belong to function {function}")
+        if not GITHUB_LOGIN.match(str(raw["reviewer"]).strip()):
+            problems.append(
+                f"{where}: reviewer must be the GitHub login of the maintainer who approved the "
+                "entry (letters, digits and hyphens)"
+            )
         line = raw["line"]
         if not isinstance(line, int) or isinstance(line, bool) or line < 1:
             problems.append(f"{where}: line must be a positive integer")

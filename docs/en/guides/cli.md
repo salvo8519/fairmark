@@ -8,7 +8,7 @@ Exit codes:
 | Code | Meaning |
 | --- | --- |
 | `0` | Success: the result was written to stdout, or the reader closed the pipe early |
-| `1` | Error: the JSON report on stderr gives the code and the message; `verify` also exits with `1` when the result does not match |
+| `1` | Error: the JSON report on stderr gives the code, the message, the pointer of the field to correct, the sub-kind, the fix and every input error found (see [the error report](../reference/errors.md#the-error-report)); `verify` also exits with `1` when the result does not match |
 | `2` | Invalid command line (unknown subcommand or option); the message comes from the argument parser |
 
 When the program reading the output stops early, as in `fairmark methods | head -1`,
@@ -20,7 +20,8 @@ C tools such as `cat`, which are ended by the `SIGPIPE` signal and report `141` 
 fairmark methods                                   # list methods, with version and status
 fairmark schema dcf.fcff                           # JSON Schema of the inputs
 fairmark schema dcf.fcff --output                  # JSON Schema of the result value
-fairmark schema dcf.fcff --envelope                # JSON Schema of the whole result
+fairmark schema dcf.fcff --envelope                # JSON Schema of the whole result,
+                                                   # with the error report ($defs)
 fairmark run dcf.fcff --input company.json         # full result: value, explain, meta
 fairmark run dcf.fcff --input company.json --value-only
 cat company.json | fairmark run dcf.fcff           # stdin works too

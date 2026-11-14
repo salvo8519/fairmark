@@ -131,12 +131,33 @@ impl FieldError {
     /// The error a standalone method, or `tv.compare` with its shared rate, reports: an
     /// `FM-E003` names the rate field (issue #174), every other error is unchanged.
     pub(crate) fn into_error(self) -> FairmarkError {
-        crate::error::rate_field(&format!("/{}", self.field), None)(self.error)
+        let pointer = format!("/{}", self.field);
+        let error = crate::error::rate_field(&pointer, None)(self.error);
+        error.located(pointer)
     }
 }
 
-/// Validation result of a `tv.*` input.
-pub(crate) type Checked = std::result::Result<(), FieldError>;
+/// Validation result of a `tv.*` input: every input error found, in the order of the checks
+/// (ADR 0014 G5).
+pub(crate) type Checked = std::result::Result<(), Vec<FieldError>>;
+
+/// `Ok` when no error was found.
+pub(crate) fn checked(errors: Vec<FieldError>) -> Checked {
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
+}
+
+/// The error a standalone method reports: every error found, each named by its field.
+pub(crate) fn into_error(errors: Vec<FieldError>) -> FairmarkError {
+    let mut found = crate::error::Found::new();
+    for e in errors {
+        found.push(e.into_error());
+    }
+    found.into_error()
+}
 
 /// Attaches the field to an error.
 pub(crate) fn on(field: impl Into<String>) -> impl FnOnce(FairmarkError) -> FieldError {
@@ -157,17 +178,20 @@ pub(crate) fn domain(msg: impl Into<String>) -> FairmarkError {
 /// `tvm.perpetuity` (`FM-E001`).
 pub(crate) fn check_growth(g: Decimal, field: &str) -> Result<()> {
     if g <= -Decimal::ONE {
-        return Err(invalid(format!(
-            "{field} must be greater than -1 (got {g})"
-        )));
+        return Err(
+            invalid(format!("{field} must be greater than -1 (got {g})"))
+                .because(crate::error::Reason::Range)
+                .expected(["a growth greater than -1 (-100%)"]),
+        );
     }
     Ok(())
 }
 
 /// `FM-E004` when the perpetual growth is not below the rate (R10).
-pub(crate) fn check_below_rate(g: Decimal, r: Decimal) -> Result<()> {
+pub(crate) fn check_below_rate(g: Decimal, r: Decimal, growth: &str, rate: &str) -> Result<()> {
     if g >= r {
-        return Err(FairmarkError::GrowthNotBelowRate { growth: g, rate: r });
+        return Err(FairmarkError::GrowthNotBelowRate { growth: g, rate: r }
+            .between([format!("/{growth}"), format!("/{rate}")]));
     }
     Ok(())
 }

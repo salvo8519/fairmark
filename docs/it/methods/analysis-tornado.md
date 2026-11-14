@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-tornado.md
-source_hash: a54e4db3e760
+source_hash: e57262df337f
 ---
 # Tornado (`analysis.tornado`)
 
@@ -156,8 +156,9 @@ più il caso base.
 | `FM-E016` | Due valutazioni per variabile più il caso base superano 10.000 oppure valutazioni × valori in `base_input` superano 1.000.000; restituito prima della prima valutazione |
 | `FM-E017` | `method` indica un metodo di analisi |
 
-I puntatori delle variabili, i valori basso e alto e la sintassi di `output` sono verificati
-prima di qualsiasi valutazione; `output` è risolto sul caso base. A differenza delle tabelle di
+I puntatori delle variabili, i valori basso e alto, la sintassi di `output` e `base_input` sono
+verificati prima di qualsiasi valutazione, `base_input` con la sola validazione del metodo interno (ogni controllo del suo input,
+nessun calcolo, i suoi errori di input riportati sotto `/base_input`); `output` è risolto sul caso base. A differenza delle tabelle di
 sensitività e dell'analisi di scenario, un errore del metodo interno in qualsiasi valutazione,
 compreso il caso base, interrompe la richiesta ed è restituito invariato con il proprio codice:
 un ordinamento con una barra mancante non è definito. Ad esempio, un valore alto del tasso di

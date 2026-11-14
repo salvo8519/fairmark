@@ -121,11 +121,25 @@ pub fn growth_factor(rate: Decimal, compounding: Compounding, t: Decimal) -> Res
 
 /// `base^-e` with full relative precision (audit D1, D2).
 ///
-/// When `base >= 1` the growth `base^e` is computed and inverted; if it overflows, the
-/// reciprocal is raised instead and may underflow towards zero, which is the correct limit.
-/// When `base < 1` the reciprocal (greater than one) is raised directly, so the result keeps
-/// all significant digits instead of inverting a tiny growth factor.
+/// A negative `e` (a time before the valuation date) gives `base^|e|` (issue #282): computed
+/// directly when `base >= 1`, `FM-E008` beyond the decimal range; when `base < 1` it is below
+/// one and is computed as `1 / (1/base)^|e|`, the same way as a positive `e` with `base >= 1`,
+/// so both directions keep the same precision and a value below the decimal precision is 0,
+/// its limit, for integer and fractional times alike. When `base >= 1` the growth `base^e` is computed
+/// and inverted; if it overflows, the reciprocal is raised instead and may underflow towards
+/// zero, which is the correct limit. When `base < 1` the reciprocal (greater than one) is
+/// raised directly, so the result keeps all significant digits instead of inverting a tiny
+/// growth factor.
 pub(crate) fn inverse_pow(base: Decimal, e: Decimal) -> Result<Decimal> {
+    if e.is_sign_negative() {
+        if base >= Decimal::ONE {
+            return pow(base, -e);
+        }
+        let inv = Decimal::ONE
+            .checked_div(base)
+            .ok_or(FairmarkError::Overflow("discount factor"))?;
+        return inverse_pow(inv, -e);
+    }
     let reciprocal = || -> Result<Decimal> {
         let inv = Decimal::ONE
             .checked_div(base)
@@ -134,12 +148,13 @@ pub(crate) fn inverse_pow(base: Decimal, e: Decimal) -> Result<Decimal> {
     };
     if base >= Decimal::ONE {
         match pow(base, e) {
-            Ok(g) if !g.is_zero() => Decimal::ONE
+            // A base of at least 1 to a non-negative power is at least 1, never 0.
+            Ok(g) => Decimal::ONE
                 .checked_div(g)
                 .ok_or(FairmarkError::Overflow("discount factor")),
             // Growth overflowed: the reciprocal underflows towards zero, the correct limit.
             _ => match reciprocal() {
-                Err(FairmarkError::Overflow(_)) => Ok(Decimal::ZERO),
+                Err(e) if matches!(e.kind(), FairmarkError::Overflow(_)) => Ok(Decimal::ZERO),
                 other => other,
             },
         }
@@ -224,6 +239,17 @@ pub struct ConvertOutput {
     pub annual_growth_factor: Decimal,
 }
 
+/// The input check of `convert`, without computing: the rate within the domain of its
+/// compounding (the growth over no time, which raises the same error as over one year).
+fn check_convert(input: &ConvertInput) -> Result<()> {
+    growth_factor(input.rate, input.from, Decimal::ZERO)
+        .map(|_| ())
+        .map_err(|e| {
+            // The domain of the rate depends on its compounding (a continuous rate may be -2).
+            rate_field("/rate", input.from.per_year())(e).between(["/rate", "/from"])
+        })
+}
+
 pub fn convert(input: &ConvertInput) -> Result<(ConvertOutput, Explain)> {
     let mut ex = Explain::new(
         "rates.convert",
@@ -231,6 +257,8 @@ pub fn convert(input: &ConvertInput) -> Result<(ConvertOutput, Explain)> {
     );
     ex.convention(format!("from: {}", input.from.label()));
     ex.convention(format!("to: {}", input.to.label()));
+    // The domain of the rate, reported as the validation reports it (with `/from`).
+    check_convert(input)?;
     let g = growth_factor(input.rate, input.from, Decimal::ONE)
         .map_err(rate_field("/rate", input.from.per_year()))?;
     ex.step(
@@ -296,17 +324,25 @@ pub struct RealNominalOutput {
     pub rate: Decimal,
 }
 
-pub fn real_nominal(input: &RealNominalInput) -> Result<(RealNominalOutput, Explain)> {
-    let one = Decimal::ONE;
+/// Every input error of `real_nominal`, without computing: both fields are checked, and both
+/// errors reported (ADR 0014 G5).
+fn check_real_nominal(input: &RealNominalInput) -> Result<()> {
+    let mut found = crate::error::Found::new();
     for (field, value) in [("/inflation", input.inflation), ("/rate", input.rate)] {
-        if value <= -one {
-            return Err(FairmarkError::DiscountRateOutOfRange {
+        if value <= -Decimal::ONE {
+            found.push(FairmarkError::DiscountRateOutOfRange {
                 field: field.to_owned(),
                 rate: value,
                 converted_with: None,
             });
         }
     }
+    found.finish()
+}
+
+pub fn real_nominal(input: &RealNominalInput) -> Result<(RealNominalOutput, Explain)> {
+    let one = Decimal::ONE;
+    check_real_nominal(input)?;
     let mut ex = Explain::new(
         "rates.real_nominal",
         "(1 + nominal) = (1 + real) × (1 + inflation)",
@@ -351,6 +387,10 @@ impl Method for Convert {
     type Input = ConvertInput;
     type Output = ConvertOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_convert(input)
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         convert(input)
     }
@@ -367,6 +407,10 @@ impl Method for RealNominal {
     const VERSION: &'static str = "1";
     type Input = RealNominalInput;
     type Output = RealNominalOutput;
+
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        check_real_nominal(input)
+    }
 
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         real_nominal(input)

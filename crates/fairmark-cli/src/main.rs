@@ -90,7 +90,24 @@ fn report(err: &serde_json::Value) {
 /// JSON error report of an I/O failure, in the shape the CLI already uses for
 /// unreadable input files.
 fn io_error(e: std::io::Error) -> serde_json::Value {
-    json!({ "error": { "code": "FM-E001", "message": e.to_string() } })
+    cli_error(e.to_string(), None)
+}
+
+/// An error of the CLI itself (a file it cannot read, a saved result that is not JSON), with
+/// the fields of every error report (ADR 0014 G5), so that a client reads one shape.
+fn cli_error(message: String, reason: Option<&str>) -> serde_json::Value {
+    let entry = json!({
+        "code": "FM-E001",
+        "message": message,
+        "pointer": null,
+        "pointers": [],
+        "reason": reason,
+        "expected": [],
+        "fix": null,
+    });
+    let mut report = entry.clone();
+    report["errors"] = json!([entry]);
+    json!({ "error": report })
 }
 
 fn dispatch(cmd: Command) -> Result<serde_json::Value, serde_json::Value> {
@@ -126,9 +143,7 @@ fn dispatch(cmd: Command) -> Result<serde_json::Value, serde_json::Value> {
         Command::Verify { result, input } => {
             let saved: serde_json::Value =
                 serde_json::from_str(&std::fs::read_to_string(&result).map_err(io_error)?)
-                    .map_err(
-                        |e| json!({ "error": { "code": "FM-E001", "message": e.to_string() } }),
-                    )?;
+                    .map_err(|e| cli_error(e.to_string(), Some("syntax")))?;
             let method = saved["method"].as_str().unwrap_or_default().to_owned();
             let fresh = fairmark_core::run(&method, &read_input(Some(&input)).map_err(io_error)?)
                 .map_err(core)?;

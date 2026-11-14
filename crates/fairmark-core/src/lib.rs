@@ -34,6 +34,7 @@ pub mod not_computed;
 mod num;
 pub mod rates;
 pub mod ratios;
+mod reading;
 pub mod registry;
 pub mod series;
 pub mod solver;
@@ -45,7 +46,8 @@ pub mod types;
 pub use error::{FairmarkError, Result};
 pub use method::Method;
 pub use registry::{
-    input_schema, method, output_schema, result_schema, run, MethodInfo, Status, METHODS,
+    error_schema, input_schema, method, output_schema, result_schema, run, MethodInfo, Status,
+    METHODS,
 };
 
 /// Version of the engine, stamped into every result.

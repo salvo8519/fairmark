@@ -21,9 +21,11 @@ lane after the other. For each issue of the lane, in order:
    the maintainer to approve.
 3. `test-engineer` writes failing tests for the issue's acceptance criteria.
 4. `core-engineer` (Rust core) or `docs-writer` (documentation-only issues) implements.
-5. `code-reviewer`; add `numerical-auditor` if numbers changed and `security-reviewer` if
-   dependencies or workflows changed. Fix blocking findings, at most two review rounds; then
-   escalate to the maintainer.
+5. Review by tier ("Effort proportional to risk" in AGENTS.md): none for small pull requests,
+   one `code-reviewer` pass for substantial ones, plus `numerical-auditor` for numerical
+   changes and `security-reviewer` when dependencies or workflows changed. Fix every finding;
+   a second pass only for a blocking logic defect, then escalate to the maintainer. Run at
+   most three lanes at a time.
 6. `uv run just check` green, docs in sync (the Stop hook enforces it).
 7. Push and open the PR: `gh pr create --title "<type>(<scope>): ... [SPEC-NNNN]" --body
    "Closes #N ..."`. Never merge.

@@ -1,6 +1,6 @@
 ---
 source: guides/cli.md
-source_hash: bf614970d43a
+source_hash: ecb8521bba07
 ---
 # Riga di comando
 
@@ -12,7 +12,7 @@ Codici di uscita:
 | Codice | Significato |
 | --- | --- |
 | `0` | Successo: il risultato è stato scritto su stdout, oppure il lettore ha chiuso la pipe in anticipo |
-| `1` | Errore: il report JSON su stderr riporta il codice e il messaggio; `verify` esce con `1` anche quando il risultato non coincide |
+| `1` | Errore: il report JSON su stderr riporta il codice, il messaggio, il pointer del campo da correggere, il sottotipo, la correzione e tutti gli errori dell'input trovati (vedi [il report di errore](../reference/errors.md#il-report-di-errore)); `verify` esce con `1` anche quando il risultato non coincide |
 | `2` | Riga di comando non valida (sottocomando od opzione sconosciuti); il messaggio è quello del parser degli argomenti |
 
 Quando il programma che legge l'output si ferma prima, come in `fairmark methods | head -1`,
@@ -25,7 +25,8 @@ terminati dal segnale `SIGPIPE` e nella shell riportano `141`.
 fairmark methods                                   # elenca i metodi, con versione e stato
 fairmark schema dcf.fcff                           # JSON Schema degli input
 fairmark schema dcf.fcff --output                  # JSON Schema del valore del risultato
-fairmark schema dcf.fcff --envelope                # JSON Schema del risultato completo
+fairmark schema dcf.fcff --envelope                # JSON Schema del risultato completo,
+                                                   # con il report di errore ($defs)
 fairmark run dcf.fcff --input company.json         # risultato completo: value, explain, meta
 fairmark run dcf.fcff --input company.json --value-only
 cat company.json | fairmark run dcf.fcff           # funziona anche da stdin

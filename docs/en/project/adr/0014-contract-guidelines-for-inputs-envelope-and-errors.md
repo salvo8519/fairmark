@@ -139,17 +139,85 @@ Every method returns:
   `explain` or `diagnostics` follows G8 against the envelope version, not the method version.
 
 ### G5. Errors
-Every refusal is reported as `{code, message, pointer, pointers, reason, expected, fix}`:
-`pointer` is the field to correct (`null` only for malformed JSON, where the message keeps
-the line and column); `pointers` lists every field of a relation (both sides of an `FM-E026`
-reconciliation, both fields of a conflict); `reason` is a sub-kind (`missing`,
-`unknown_field`, `duplicate`, `type`, `enum`, `conflict`, `requires`, `sign`, `blank`,
-`range`, `reconcile`); `expected` lists the accepted values where they are known; `fix` is
-one sentence that resolves the error. `reason` separates the meanings now grouped under
-`FM-E001` without new codes. Validation of the input reports every error it finds in
-`errors[]`, with the first also at the top level; an error raised during the computation
-stops it and is reported alone. A new meaning gets a new code; a new location keeps the code
-of its condition (ADR 0013). Python, the CLI, MCP and function calling pass the whole report.
+Every refusal is reported as `{code, message, pointer, pointers, reason, expected, fix}`,
+with `missing_any_of` for `FM-E027` and `errors` at the top level:
+
+- `pointer` is the field to correct, always from the root of the input the client sent: an
+  error of the method evaluated by an analysis is located under `/base_input`, while its
+  message keeps the pointer within `base_input`. The input as a whole is the empty pointer
+  `""`. `pointer` is `null` only for a text that is not JSON (`reason` `syntax`, the message
+  keeps the line and column), for an error raised during the computation that no single field
+  causes, for `FM-E027`, whose inputs are in `missing_any_of`, and for `FM-E007` when the
+  method id is an argument rather than part of the input.
+- `pointers` lists every field of a relation (both sides of an `FM-E026` reconciliation, both
+  fields of a conflict, a growth and the rate it must stay below, a value and the field its
+  domain depends on: a nominal rate and its compounding, a technique of another basis and the
+  basis of the comparison, the value of an exit multiple's metric and the metric); empty when
+  the error concerns one field. Every field `pointer` and `pointers` name is one the client can
+  act on: it is in the input sent, or it is a field to give (`reason` `missing` or `requires`,
+  such as the expected inflation of `FM-E024`), defined by the input schema, and a `requires`
+  entry is located at a field given. A field left to its default is read, never named (a
+  compounding, timing, terminal or terms field not given, an item of the statements taken as
+  zero), though the message may say which default was used, and a conflict names only the
+  fields given. A property test
+  checks this on golden inputs with every field changed or left out in turn.
+- `reason` is a sub-kind: `syntax`, `missing`, `unknown_field`, `duplicate`, `type`, `enum`,
+  `conflict`, `requires`, `sign`, `blank`, `range`, `length` (a list with the wrong number of
+  entries, or a choice written as an object with no key or two), `reconcile`. Values are
+  added, never renamed or removed; clients accept a value they do not know. `reason` separates
+  the meanings now grouped under `FM-E001` without new codes; `syntax` is used only for a text
+  that is not JSON.
+- `expected` is a list of strings: the literal accepted values when they form a closed list
+  (the values of an enumeration, the method ids of `FM-E007`, the fields an object accepts,
+  the keys of a single-key choice), short descriptions of the accepted form in plain words
+  otherwise (for example "an amount greater than 0", "a whole number of 0 or more", never a
+  Rust type name); empty when not known. When a message also quotes accepted values,
+  `expected`, not the message, is the complete list.
+- `fix` is one sentence that resolves the error, or `null`; its wording is guidance, not part
+  of the contract. For an unknown key it names the closest accepted field (an edit distance of
+  at most 2, ignoring case).
+- `errors` lists every error found, at least one, the first equal to the top level. Every
+  method validates its whole input before computing and reports every error it finds, in the
+  order of its checks; a check is skipped only when it needs an input already refused. An
+  analysis checks its own fields and its `base_input` in the same pass; `base_input` is
+  checked by the validation alone of the method it names (the `validate` of the `Method`
+  trait: every input check, nothing computed), so checking it adds no evaluation. Reading the
+  input reports the first field `serde` cannot read as `serde` reports it (ADR 0013), then
+  every other wrong type, missing field and unknown enumeration value, each as `serde` would
+  report it alone; a decimal string outside the number grammar of G7 is a wrong type. The
+  input is also walked against the method's schema, and every unknown key, every key repeated
+  in an object and every object given as a positional array is reported. The method's own
+  checks still run on the fields that were read. Each refused value is replaced by a value its
+  schema accepts, only so that the input can be read, and no such value ever decides an error
+  that is reported: every error declares the fields it depends on (its `pointer`, its
+  `pointers`, and the fields it otherwise read, such as the projection that decides which
+  fields a stage takes; these are not part of the report), and an error is reported only when
+  none of them is a refused field, a field within one or a field that holds one (an error that
+  declares no field is not reported beside reading errors). A key with a
+  rename suggestion stands for the field it names: that field counts as refused, and its own
+  missing entry has `pointers` `[field, key]` and the rename as its fix. The declarations are
+  complete, which a property test checks on golden inputs: an error that does not declare a
+  field is the same whatever value that field has, refused by the method or not, or whether it
+  is left out. A check therefore never stops at a refusal before an independent check: the
+  form of a group of fields and the range of each field given are checked apart. An analysis
+  does not check a variable or override pointer (`FM-E015`) against a value of `base_input`
+  that reading refuses, at the pointer or above it; that refusal is reported under
+  `/base_input`. A misspelt key that is the only key of a single-key choice is one entry,
+  `unknown_field` at the key, without a `length` entry for the choice it leaves empty.
+  One condition is one entry: an object given as an array is one error at the object, a
+  condition met again is not repeated, and a refused tag is the only entry of its object. A
+  repeated key and a positional array are refused in every method, never read with the last
+  value or by position. An error of the computation (an overflow, a solver that does not
+  converge, a defect) never sits in `errors` next to input errors: it is reached only by an
+  input without errors, and it stops the computation and is reported alone. When an input
+  error and a computation error met earlier coexist, the input error is reported, so the
+  top-level error of such an input differs from the one reported before this rule.
+  The few input conditions that only the computation can find (listed in the error reference)
+  are reported alone, like a computation error.
+
+A new meaning gets a new code; a new location keeps the code of its condition (ADR 0013).
+Python, the CLI, MCP and function calling pass the whole report. The cells of an analysis table
+keep their compact `{code, message}`, which is part of the output of the analysis methods.
 
 ### G6. Shapes that language models fill well
 Flat objects, at most four levels below the root. A choice among options is an enum field
@@ -164,7 +232,14 @@ Every description states the unit: currency amounts with their sign rule, rates 
 fractions per period with an example (0.09 = 9%), counts with their range. A decimal is a
 JSON number or a string matching `^-?\d+(\.\d+)?([eE][+-]?\d+)?$`, in the schema, the core
 and every adapter alike: decimal point, no thousands separators, no currency symbols.
-Decimals are returned as strings.
+Decimals are returned as strings. A decimal with more digits than the engine's decimal holds
+(more than 28 decimal places, or 28 to 29 significant digits) is accepted and rounded as it is
+read, half away from zero at the first digit that does not fit (the rule of the parser), once
+for every method and adapter, and reported as a warning naming the field, the value given and
+the value used (maintainer decision of 2026-11-10, #279). Until the envelope gains
+`diagnostics.warnings` (#259), the warning is a `warning: ` convention, as every other warning.
+A value too large for a decimal is refused. A number the engine outputs always fits, so a
+result fed back as an input is read unchanged.
 
 ### G8. Versioning of inputs and outputs
 The method version is bumped on a numerical change, on a breaking input change, and on an
@@ -197,7 +272,8 @@ result that looks complete and is not.
    perpetuity, a negative amount where the field is unsigned), totals that contradict their
    parts, an unknown field, an Italian thousands separator or a binary float in a money field:
    each is refused with its code, its pointer and the fix. The engine never clamps, rounds
-   away or reinterprets such a value.
+   away or reinterprets such a value. Digits beyond the precision of a decimal (G7) are not
+   such a value: the number is inside its domain, and its rounding is reported, never silent.
 4. **Order and units are never guessed.** Several years without their closing dates, and
    amounts whose unit (units, thousands, millions) is ambiguous, are refused rather than
    ordered or scaled by assumption.

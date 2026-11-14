@@ -504,6 +504,10 @@ impl Method for Profitability {
     type Input = ProfitabilityInput;
     type Output = ProfitabilityOutput;
 
+    fn validate(input: &Self::Input, _defaults: &[crate::explain::DefaultApplied]) -> Result<()> {
+        crate::ratios::require_definition("ebitda_definition", input.ebitda_definition.as_deref())
+    }
+
     fn compute(input: &Self::Input) -> Result<(Self::Output, Explain)> {
         profitability(input)
     }

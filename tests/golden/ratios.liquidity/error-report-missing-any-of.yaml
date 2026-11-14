@@ -1,0 +1,15 @@
+method: ratios.liquidity
+description: 'ADR 0014 G10.1 (issue #258): FM-E027 lists the alternative minimum sets in `missing_any_of`
+  of the error report'
+source: Input of below-minimum.yaml; the sets [['/closing/cash'], ['/closing/current_assets']] come from
+  scripts/reference_ratios_partial.py, as noted in that case.
+input:
+  balances: closing
+  closing:
+    current_liabilities: '0'
+expect_error: FM-E027
+expect_error_report:
+  /reason: missing
+  /pointer: 'null'
+  /missing_any_of/0/0: /closing/cash
+  /missing_any_of/1/0: /closing/current_assets

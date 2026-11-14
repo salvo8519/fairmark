@@ -92,6 +92,12 @@ impl DefaultApplied {
         }
     }
 
+    /// True for a field filled in because it was not given; false for the default destination
+    /// of an item that was given.
+    pub fn is_field(&self) -> bool {
+        self.kind == DefaultKind::Field
+    }
+
     /// The default destination of an input item that was given, named by its pointer
     /// (SPEC-0005 R8, as clarified on 2026-11-08): `value` is the destination.
     pub fn destination(field: impl Into<String>, destination: &str, reason: &str) -> Self {

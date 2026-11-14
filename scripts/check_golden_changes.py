@@ -51,6 +51,7 @@ def main() -> None:
             "expect_meta",
             "expect_length",
             "expect_error",
+            "expect_error_report",
             "tolerance",
         ):
             if before.get(key) != after.get(key):
