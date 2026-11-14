@@ -1,4 +1,4 @@
-<!-- i18n source: README.md source_hash: 0b30aa90d35c -->
+<!-- i18n source: README.md source_hash: 4510cbec69c4 -->
 <div align="center">
 
 <a href="https://salvo8519.github.io/fairmark/it/">
