@@ -182,6 +182,7 @@ jobs:
       - run: uv run mypy
       - run: uv run typos
       - run: uv run python scripts/check_style.py
+      - run: uv run python scripts/check_task_ids.py
       - run: uv run just check-generated
       - run: uv run python scripts/docs_sync.py coverage
       - run: uv run python scripts/docs_sync.py claims
