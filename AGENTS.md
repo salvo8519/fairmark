@@ -126,6 +126,10 @@ Edit them in `.agents/` only; `uv run just generate` mirrors them to `.claude/`.
   `Docs-impact: none`.
 - Numerical changes carry the commit trailer `Numerical-change: <method> v<N> -> v<N+1>`; the
   CHANGELOG lists them first.
+- Keep the generated docs site and repository-level entry points aligned. Automated badge checks
+  such as OpenSSF Best Practices do not always detect generated content alone; maintain a minimal
+  repository entry point such as `docs/README.md` and `docs/getting-started.md` so the project
+  remains discoverable without duplicating the full generated documentation set.
 
 ## Versions, releases and project memory
 - **Releases**: each milestone names the release that ships it (`roadmap/roadmap.yaml`);

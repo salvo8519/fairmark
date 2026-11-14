@@ -19,6 +19,7 @@ exactly, reproducibly, with every step on the record.
 [![PyPI](https://img.shields.io/pypi/v/fairmark?color=0B1F3A&label=PyPI)](https://pypi.org/project/fairmark/)
 [![Python](https://img.shields.io/pypi/pyversions/fairmark?color=12325C)](https://pypi.org/project/fairmark/)
 [![Crates.io](https://img.shields.io/crates/v/fairmark-core?color=0B1F3A)](https://crates.io/crates/fairmark-core)
+[![OpenSSF Best Practices](https://img.shields.io/badge/OpenSSF%20Best%20Practices-pending-6C757D)](https://www.bestpractices.dev/en/projects?search=fairmark)
 [![License](https://img.shields.io/badge/license-Apache--2.0-C8A24A)](LICENSE)
 
 [![MCP ready](https://img.shields.io/badge/MCP-ready-0B1F3A)](https://salvo8519.github.io/fairmark/guides/mcp/)
