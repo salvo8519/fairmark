@@ -26,6 +26,7 @@ lint:
     python scripts/roadmap.py check
     python scripts/required_checks.py check
     python scripts/check_yaml.py
+    python scripts/check_task_ids.py
     python scripts/pin_actions.py --check
     python scripts/mutants.py check-exclusions
     for f in sprints/S*.yaml; do [ -e "$f" ] && python scripts/sprint.py validate "$f"; done; true
