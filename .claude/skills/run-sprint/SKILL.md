@@ -34,8 +34,9 @@ Checkpoint state at every step: after each numbered step of this loop, run
 --blocker "<why>" | --clear-blockers]` (the running table persisted, sprints/README.md,
 Sprint state). At every task switch append one line to
 `.agents/journal/<date>-sprint-SNN-wip.md`: issue, step, pull request, blockers, last commit
-of the lane. Both are local recovery state, git-ignored: a crash costs minutes, not a
-session of context.
+of the lane. Both are local recovery state, never committed: a crash costs minutes, not a
+session of context. The state files live in the git directory shared by every worktree, so a
+checkpoint written from a lane worktree is the same file the orchestrator reads.
 Keep a running table: issue, branch, PR, status, blockers. Each lane works in its own
 worktree (one worktree per session, AGENTS.md):
 

@@ -76,7 +76,7 @@ milestones:
           - { issue: 327, title: "Journal index and search of the agent session memory", tags: [parallel], status: open }
           - { issue: 328, title: "Generated mirrors of .agents/ for other agent systems", tags: [parallel], status: open }
           - { issue: 329, title: "Agent loop planning update of 2026-11-14: ADR 0015", status: done }
-          - { issue: 333, title: "Sprint runtime state shared by every worktree of the repository", status: open }
+          - { issue: 333, title: "Sprint runtime state shared by every worktree of the repository", status: done }
           - { issue: 334, title: "Sprint lanes declare their paths; overlaps fail validation and CI", status: open }
           - { issue: 335, title: "Per-method schema manifests instead of one shared index rewritten by every lane", tags: [maintainer], status: open }
       - title: "CI/CD"

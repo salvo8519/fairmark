@@ -10,7 +10,9 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -20,9 +22,13 @@ import yaml
 
 REQUIRED = {"id", "goal", "start", "end", "milestone", "status", "lanes"}
 STATUSES = {"planned", "active", "done"}
-# The per-issue state files (sprints/SNN/state/<issue>.yaml) are runtime state: they are
-# git-ignored, owned by the checkout of the orchestrator, and never committed (sprints/README).
+# The per-issue state files are runtime state, never committed (sprints/README.md). They live
+# in the git directory shared by every worktree of the repository (issue #333), so the
+# orchestrator and every lane read and write the same files. Earlier versions wrote them next
+# to the sprint file of the current checkout: that location stays git-ignored, and files found
+# there are moved to the shared directory the first time they are read.
 STATE_FILE_GITIGNORE = "/sprints/*/state/"
+SHARED_STATE = Path("fairmark") / "sprints"
 
 
 def _now() -> dt.datetime:
@@ -80,17 +86,90 @@ def lane_of(sprint: dict[str, Any], issue: int) -> str:
     )
 
 
+def git_common_dir(directory: Path) -> Path | None:
+    """The git directory shared by every worktree of the repository, or None outside git."""
+    out = subprocess.run(
+        ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        cwd=directory,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    return Path(out.stdout.strip()) if out.returncode == 0 and out.stdout.strip() else None
+
+
+def legacy_state_dir(sprint_file: Path) -> Path:
+    """sprints/S01.yaml -> sprints/S01/state/, the location of the checkout (before #333)."""
+    return sprint_file.with_suffix("") / "state"
+
+
+def state_dir(sprint_file: Path) -> Path:
+    """The runtime state directory of a sprint, the same for every worktree.
+
+    Inside a git repository: <git common dir>/fairmark/sprints/<sprint id>/state/, outside the
+    working tree, so it is never committed. Outside git (for example a test directory) the
+    directory next to the sprint file is used.
+    """
+    common = git_common_dir(sprint_file.resolve().parent)
+    if common is None:
+        return legacy_state_dir(sprint_file)
+    return common / SHARED_STATE / sprint_file.stem / "state"
+
+
+def _updated(path: Path) -> str:
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return str(data.get("updated", "")) if isinstance(data, dict) else ""
+
+
+def migrate_legacy_state(sprint_file: Path) -> list[Path]:
+    """Move state files of the checkout location to the shared directory; returns them.
+
+    When the shared directory already holds a file for the same issue, the more recent one
+    (by its `updated` field) is kept. Nothing happens outside git, where both are the same.
+    """
+    legacy, shared = legacy_state_dir(sprint_file), state_dir(sprint_file)
+    if legacy.resolve() == shared.resolve() or not legacy.is_dir():
+        return []
+    moved = []
+    for old in sorted(legacy.glob("*.yaml")):
+        new = shared / old.name
+        if new.exists() and _updated(new) >= _updated(old):
+            old.unlink()
+            continue
+        new.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(old, new)  # a worktree may sit on another file system
+        moved.append(new)
+    return moved
+
+
 def state_path(sprint_file: Path, issue: int) -> Path:
-    """sprints/S01.yaml -> sprints/S01/state/42.yaml, next to the plan it belongs to."""
-    return sprint_file.with_suffix("") / "state" / f"{issue}.yaml"
+    """The state file of one issue: <state directory>/42.yaml."""
+    return state_dir(sprint_file) / f"{issue}.yaml"
+
+
+def state_files(sprint_file: Path) -> list[Path]:
+    """Every per-issue state file of a sprint, after moving any legacy file."""
+    migrate_legacy_state(sprint_file)
+    directory = state_dir(sprint_file)
+    return sorted(directory.glob("*.yaml"), key=lambda p: (len(p.stem), p.stem))
 
 
 def read_state(sprint_file: Path, issue: int) -> dict[str, Any] | None:
+    migrate_legacy_state(sprint_file)
     path = state_path(sprint_file, issue)
     if not path.exists():
         return None
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     return data if isinstance(data, dict) else None
+
+
+def write_atomic(path: Path, text: str) -> None:
+    """Write a file so that a reader never sees it half written: temporary file, then rename."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def write_state(
@@ -107,9 +186,9 @@ def write_state(
 
     Every call is one orchestrator step on the issue: `agent_steps` counts them (the agent
     cost of the issue), `updated` moves with each call, `started` is kept from the first one,
-    and the fields that no argument names are preserved. The file lives in the checkout of
-    the orchestrator and is git-ignored: it survives context resets and crashes, not git
-    history (sprints/README.md).
+    and the fields that no argument names are preserved. The file lives in the state
+    directory shared by every worktree and is never committed: it survives context resets
+    and crashes, not git history (sprints/README.md).
     """
     sprint = load(sprint_file)
     if validate(sprint):
@@ -138,9 +217,7 @@ def write_state(
         state["blockers"] = list(state.get("blockers") or []) + blocker
     if clear_blockers:
         state["blockers"] = []
-    path = state_path(sprint_file, issue)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(yaml.safe_dump(state, sort_keys=False), encoding="utf-8")
+    write_atomic(state_path(sprint_file, issue), yaml.safe_dump(state, sort_keys=False))
     return state
 
 
@@ -156,7 +233,7 @@ def state_summary(state: dict[str, Any], *, closed: bool) -> str:
     parts.append(f"{state.get('agent_steps', 0)} agent steps")
     line = " — " + ", ".join(parts)
     if closed:
-        line += " (stale state file: remove it: it is git-ignored runtime state)"
+        line += " (stale state file: remove it: it is runtime state, never committed)"
     return line
 
 
@@ -178,7 +255,7 @@ def state_command(args: argparse.Namespace) -> int:
 def status(sprint: dict[str, Any], repo: str | None, sprint_file: Path) -> None:
     repo = repo or origin_repo()
     print(f"{sprint['id']} — {sprint['goal']} ({sprint['start']} to {sprint['end']})")
-    print(f"  State: {state_path(sprint_file, 0).parent}/ (runtime, git-ignored)")
+    print(f"  State: {state_dir(sprint_file)}/ (runtime, shared by every worktree)")
     total = done = 0
     for lane in sprint["lanes"]:
         print(f"\n  Lane {lane['name']}")

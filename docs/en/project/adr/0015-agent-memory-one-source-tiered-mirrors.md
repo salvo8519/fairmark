@@ -38,11 +38,13 @@ is already the shared contract of every harness.
    and `uv run just generate` keeps every mirror current or fails. Adding a harness is a
    generator change, never a copy by hand.
 2. **Memory is tiered, each tier with the store that fits it.**
-   - *Runtime* (seconds to hours): the per-issue state `sprints/SNN/state/<issue>.yaml` of
-     #318, the work-in-progress note, and a new append-only event ledger of the sprint loop
-     (one JSONL line per checkpoint: issue, step, blockers, agent steps) from which the
-     burn-down and the loop metrics of #320 derive. Local, git-ignored, never committed;
-     readable by every agent on the machine. A low-resolution metrics rollup of the ledger
+   - *Runtime* (seconds to hours): the per-issue state files of #318, stored since #333 in
+     the git directory shared by every worktree
+     (`<git common dir>/fairmark/sprints/SNN/state/`), the work-in-progress note, and a new
+     append-only event ledger of the sprint loop (one JSONL line per checkpoint: issue, step,
+     blockers, agent steps) beside the state files, from which the burn-down and the loop
+     metrics of #320 derive. Local and never committed; readable by every agent and every
+     worktree on the machine. A low-resolution metrics rollup of the ledger
      may be committed at the end of a sprint when #320 needs it.
    - *Handover* (days): `.agents/journal/`, committed with the pull request of the session,
      per the session protocol; a work-in-progress note may stay local while the work is

@@ -86,8 +86,15 @@ can be planned.
 ## Sprint state: resume mid-issue
 
 The orchestrator of a sprint run writes its running table on disk as it goes, one file per
-issue: `sprints/SNN/state/<issue>.yaml`. Runtime state, git-ignored, owned by the checkout
-of the orchestrator, one write per step of the local mode:
+issue, one write per step of the local mode. The files are runtime state, never committed,
+and live in the git directory that every worktree of the repository shares:
+`<git common dir>/fairmark/sprints/SNN/state/<issue>.yaml` (`.git/fairmark/...` in the main
+checkout). The orchestrator in the main checkout, every lane worktree and
+`scripts/project_state.py` therefore read and write the same files; `scripts/sprint.py` is the
+only code that builds the path. A file is replaced atomically at each write, so a reader never
+sees it half written. State files of an earlier layout, next to the sprint file in a checkout
+(`sprints/SNN/state/`, still git-ignored), are moved to the shared directory the first time
+they are read; when both exist, the more recent `updated` wins.
 
 ```bash
 uv run python scripts/sprint.py state sprints/S01.yaml 42 \
@@ -100,7 +107,8 @@ The step is the current step of the lane loop: `spec`, `tests`, `implementation`
 blockers, `started` and `updated` (UTC, ISO 8601) and `agent_steps`, counted one per write:
 the agent cost of the issue.
 
-`uv run python scripts/sprint.py status sprints/S01.yaml` prints the state next to the
+`uv run python scripts/sprint.py status sprints/S01.yaml` prints the state directory and, for
+each issue, the state next to the
 GitHub state of its issue, and marks the state file of a closed issue as stale: remove it,
 and the worktree of its branch, once the issue closes. At every task switch the orchestrator
 also appends one line to the work-in-progress note
