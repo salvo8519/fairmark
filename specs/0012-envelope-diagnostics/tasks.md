@@ -12,7 +12,7 @@ migrate the golden keys of their own changes, and T16 adds new cases.
   with the spec inventory; any difference added to `spec.md` [R5 to R8, R10, R12, R18]
 - [x] T2 [P] Golden runners (Rust `crates/fairmark-core/tests/golden.rs`, Python runner) accept
   `expect_diagnostics` and `expect_diagnostics_length`, tested on a temporary case [AC16]
-- [ ] T3 [P] `scripts/golden_envelope_migration.py` with `list`, `apply` and `verify`; `list`
+- [x] T3 [P] `scripts/golden_envelope_migration.py` with `list`, `apply` and `verify`; `list`
   output attached to issue #259 for the maintainer's named approval [R18; AC16]
 - [ ] T4 [P] ADR 0014 G4 amendment: `*_pointer` admitted, maintainer decision of 2026-11-16
   [R12, R20]
