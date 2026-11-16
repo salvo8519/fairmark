@@ -1,6 +1,6 @@
 # ADR 0014 — Contract guidelines for inputs, the result envelope and errors
 
-Status: proposed · 2026-11-09 (#257; maintainer decisions of 2026-11-09 recorded below)
+Status: accepted · 2026-11-16 (proposed 2026-11-09, #257; accepted by the maintainer on 2026-11-16; maintainer decisions of 2026-11-09 recorded below)
 
 ## Context
 Fairmark is used mainly by AI agents, which fill an input from a document, read the result
