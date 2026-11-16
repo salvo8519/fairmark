@@ -101,7 +101,7 @@ result.
 | FM-W010 | `dcf/terminal.rs` `discount` | Under mid-period timing a perpetuity-growth terminal value is discounted at N | `dcf.fcff`, `dcf.fcfe` | `/terminal_discount_time` (input) | `under mid-period timing a perpetuity-growth terminal value is commonly discounted at N − 0.5, ...; it is discounted at the horizon N as chosen` |
 | FM-W011 | `dcf/bridge.rs` `warn_if_negative` | The equity value is negative | `dcf.fcff`, `dcf.fcfe` | `/value/equity_value` (envelope) | `the equity value is negative ({v}): {reason}; it is reported as computed, not floored at zero` |
 | FM-W012 | `dcf/fcff.rs` `bridge` | No net financial position given: zero is subtracted (maintainer decision 2 of 2026-11-09) | `dcf.fcff` | `/net_financial_position` (input) | `no net financial position given (...): zero is subtracted, so the equity value equals the enterprise value{rest}; ...` |
-| FM-W013 | `ratios/mod.rs` `warn_defaults` | `other_items` of a net financial position not given: the default `[]` decides the net financial position (SPEC-0007 R13) | `ratios.debt_service` and every `ratios.*` method that calls `warn_defaults` (T1 lists them) | `/{closing,opening}/net_financial_position/other_items` (input) | `no other items of the net financial position given (...): the net financial position is gross debt less cash; ...` |
+| FM-W013 | `ratios/mod.rs` `warn_defaults` | `other_items` of a net financial position not given: the default `[]` decides the net financial position (SPEC-0007 R13) | `ratios.capital_structure`, `ratios.debt_service` (the two callers of `warn_defaults`, T1) | `/{closing,opening}/net_financial_position/other_items` (input) | `no other items of the net financial position given (...): the net financial position is gross debt less cash; ...` |
 | FM-W014 | `ratios/debt_service.rs` | `reserve_balance` not given: the LLCR assumes no reserve account | `ratios.debt_service` | `/debt_schedule/reserve_balance` (input) | `no reserve balance given (...): nothing is added to the present value of CFADS, ...` |
 | FM-W015 | `statements/income_statement.rs` `write_down_warnings` | A non-zero B10 c or B10 d is placed below EBITDA by the default treatment `operating` (G3 test 4) | `statements.reorganise` | `/treatments/write_downs_of_fixed_assets` or `/treatments/write_downs_of_receivables` (input) | `year {name}: {item} ({v}) is in {line}, below EBITDA, by the default ...: it lowers operating_profit; ...` |
 | FM-W016 | the analyses (convention "Evaluated method ... is preview", ADR 0012) | The method an analysis evaluates is `preview` | `analysis.*` | `/method` (input) | `Evaluated method {id} is preview: ...` (text of today) |
@@ -131,6 +131,34 @@ Fields inside `value` that hold pointers and are not named per G4 (statements on
 `Assignment.aggregate`, `AppliedAdjustment.source`, `NfpComponent.source`,
 `ReconciliationLine.sources`. The schema test of AC10 finds any other in the bumped methods.
 
+### Inventory script (T1)
+`scripts/envelope_inventory.py` re-ran the inventory on 2026-11-17 (head `a3c8c70`). It confirms:
+fifteen `warning: ` emission sites and the preview convention, one site per code FM-W001 to
+FM-W016 (the literal in `registry.rs` `rounded_on_reading` is the goal-seek filter, not an
+emission); thirteen production calls of `DefaultApplied::new` or `destination`, those of the
+defaults table below; `not_computed`, `checks` or `not_defined` in the current output schema of
+exactly the seven methods of R18 and of no other method (`analysis.goal_seek` included), so no
+other method needs a version bump; the four statements pointer fields of R12. Differences, now
+written into the tables of this section:
+
+- FM-W013 is emitted by `ratios.capital_structure` and `ratios.debt_service` only, the two
+  callers of `warn_defaults`.
+- Relation ids not named above, seen in the golden results: statutory form
+  `intangible_assets_net`, `tangible_assets_net`, `financial_fixed_assets_split`,
+  `shareholder_loans_split`, `shareholder_loans_split_beyond_one_year`,
+  `shareholder_loans_split_parts_beyond_one_year` (`balance_sheet.rs`) and
+  `profit_before_tax_total`; reclassified form `operating_working_capital_total`,
+  `invested_capital_total`, `total_funds_invested_total`, `net_financial_position_total`,
+  `net_financial_position_maturity`, `total_sources_total`, `funds_invested_equals_sources`
+  (`reclassified.rs`) and `value_added_total`, `ebitda_total`, `operating_profit_total`,
+  `profit_before_financing_and_taxes_total`, `profit_before_tax_total`, `net_income_total`
+  (`income_statement.rs`).
+- Output fields of methods not bumped that hold pointers and are not named per G4:
+  `analysis.scenarios` `BaseOutput.output` and `ScenarioOutput.output`, `analysis.sensitivity`
+  `output` and `Axis.variable` (their descriptions say pointer), and `analysis.tornado` `output`
+  and `TornadoBar.variable` (pointers whose descriptions do not say so). R12 does not reach them
+  (no bump), but the schema test of AC10 runs over every result schema: see "Open questions".
+
 ### Defaults applied (`meta.defaults_applied`, key `field` today)
 | Method | Pointer | Value | Warned today |
 | --- | --- | --- | --- |
@@ -144,7 +172,7 @@ Fields inside `value` that hold pointers and are not named per G4 (statements on
 | `statements.reorganise` | `/years/{i}/statutory/income_statement/{key}` (A5, B14, B10 c, B10 d while their treatment is not given) | a destination id | FM-W015 for B10 c and B10 d |
 | `statements.reorganise` | `/treatments/write_downs_of_receivables`, `/treatments/write_downs_of_fixed_assets` | `"operating"` | FM-W015 |
 | `statements.reorganise` | `/years/{i}/statutory/balance_sheet/{key}` (item taken as zero, D1, D2) | `"0"` | no |
-| `ratios.*` reading a net financial position | `/{closing,opening}/net_financial_position/other_items` | `[]` | FM-W013 |
+| `ratios.capital_structure`, `ratios.debt_service` (the methods reading a net financial position, T1) | `/{closing,opening}/net_financial_position/other_items` | `[]` | FM-W013 |
 | `ratios.debt_service` | `/debt_schedule/reserve_balance` | `"0"` | FM-W014 |
 
 Every other method keeps the default `apply_defaults` of the `Method` trait.
@@ -382,3 +410,11 @@ the keys is tooling, moving expectations into them is the golden change that nee
 
 ## Open questions
 None: the questions of the draft were settled by the maintainer decisions of 2026-11-16.
+
+Raised by T1 (2026-11-17), for the maintainer before T8:
+
+- **Q1. Analysis pointer fields and AC10.** The schema test of AC10 ("every result schema")
+  fails on the analysis fields listed in "Inventory script (T1)", which R12 and R18 leave
+  unchanged. Either the AC10 schema test covers the envelope and the methods bumped here only,
+  with the analysis fields left to a later spec of the analyses, or those fields are renamed
+  (`output_pointer`, `variable_pointer`) with a version bump of the analyses, against R18.

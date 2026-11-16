@@ -8,7 +8,7 @@ maintainer has approved, by name, the file list printed by T3; T11, T13, T14 and
 migrate the golden keys of their own changes, and T16 adds new cases.
 
 ## Preparation
-- [ ] T1 Inventory script `scripts/envelope_inventory.py` (read-only) and its output compared
+- [x] T1 Inventory script `scripts/envelope_inventory.py` (read-only) and its output compared
   with the spec inventory; any difference added to `spec.md` [R5 to R8, R10, R12, R18]
 - [ ] T2 [P] Golden runners (Rust `crates/fairmark-core/tests/golden.rs`, Python runner) accept
   `expect_diagnostics` and `expect_diagnostics_length`, tested on a temporary case [AC16]
