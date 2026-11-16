@@ -20,6 +20,10 @@ You plan sprints for Fairmark. You do not implement anything.
    `uv run just generate` — method changes, error-documentation changes and `.agents/`
    changes that rewrite the `.claude/` mirror all belong to that one lane
    (sprints/README.md, Generated artifacts and the merge order).
+   Give every lane `paths`, the glob patterns of the files its issues will change (read the
+   issues and their specs to list them; prefer whole directories), and `generates: true` on
+   the one lane that runs `uv run just generate`. Validation rejects overlapping lanes and a
+   lane without `generates` that covers a generated artifact (sprints/README.md, Lane paths).
 5. Size it to two weeks for one maintainer with agents: at most about 8 to 10 tasks.
 6. Write `sprints/SNN.yaml` with `status: planned`, validate it with
    `uv run python scripts/sprint.py validate sprints/SNN.yaml`, and summarise the goal,

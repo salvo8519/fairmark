@@ -29,7 +29,7 @@ lint:
     python scripts/check_task_ids.py
     python scripts/pin_actions.py --check
     python scripts/mutants.py check-exclusions
-    for f in sprints/S*.yaml; do [ -e "$f" ] && python scripts/sprint.py validate "$f"; done; true
+    for f in sprints/S*.yaml; do [ ! -e "$f" ] || python scripts/sprint.py validate "$f" || exit 1; done
 
 # Run all tests (Rust incl. golden, Python incl. golden and docs snippets)
 test:

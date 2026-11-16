@@ -199,7 +199,16 @@ jobs:
           else
             uv run python scripts/roadmap.py check
           fi
-      - run: for f in sprints/S*.yaml; do [ -e "$f" ] && uv run python scripts/sprint.py validate "$f"; done; true
+      - name: Sprint files valid, lanes disjoint
+        run: for f in sprints/S*.yaml; do [ ! -e "$f" ] || uv run python scripts/sprint.py validate "$f" || exit 1; done
+      - name: Sprint pull request changes only the files of its lane
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'sprint/')
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          uv run python scripts/sprint.py check-diff --branch "$HEAD_REF" --base "$BASE_SHA"
 
   mutants-diff:
     name: Mutation testing · changed lines of the core
