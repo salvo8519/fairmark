@@ -19,3 +19,4 @@ Build (strict) and check generated reference
 Title, branch and linked issue
 Area labels
 Dependency review
+MCP · protocol check with the Inspector
