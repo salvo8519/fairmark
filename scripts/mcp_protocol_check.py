@@ -6,8 +6,8 @@ it. This script does the same with the MCP Inspector in CLI mode (the reference 
 Model Context Protocol, pinned below) and checks that:
 
 1. `tools/list` lists one tool per method of the registry, each with an input schema with
-   examples, and the Inspector finds no error-severity portability problem in the schemas
-   (`--strict`; warnings are counted and printed, not fatal);
+   examples, and the Inspector finds no portability problem in the schemas (`--strict`):
+   neither an error nor a warning;
 2. the `--areas` and `--compact` options of the server reach the protocol;
 3. `tools/call` on golden cases returns, over the protocol, exactly the structured content of
    the in-process call (canonical JSON), and that content meets the golden expectations;
@@ -136,6 +136,13 @@ def check_list(inspector: Inspector, report: list[str]) -> None:
         raise Failure(f"tools/list --strict: error-severity schema problems\n{stderr[-3000:]}")
     if code != 0:
         raise Failure(f"tools/list failed with exit code {code}\n{stderr[-2000:]}")
+    problems = [line for line in stderr.splitlines() if line.startswith(("Warning", "Error"))]
+    if (summary and int(summary.group(1)) + int(summary.group(2)) > 0) or problems:
+        found = summary.group(0) if summary else f"{len(problems)} problems"
+        raise Failure(
+            f"tools/list --strict: {found}: the tool schemas must be portable to every client "
+            f"(python/fairmark/tools.py)\n{stderr[-3000:]}"
+        )
     tools = first_json(stdout)["tools"]
     expected = sorted(fm.tools.tool_name(m["id"]) for m in fm.methods())
     names = sorted(t["name"] for t in tools)
@@ -145,8 +152,7 @@ def check_list(inspector: Inspector, report: list[str]) -> None:
     no_examples = [t["name"] for t in tools if "examples" not in t.get("inputSchema", {})]
     if no_examples:
         raise Failure(f"tools/list: input schema without examples: {no_examples}")
-    portability = f"{summary.group(1)} errors, {summary.group(2)} warnings" if summary else "none"
-    report.append(f"tools/list: {len(tools)} tools; schema portability: {portability}")
+    report.append(f"tools/list: {len(tools)} tools; schema portability: no problem found")
 
 
 def check_options(inspector: Inspector, report: list[str]) -> None:

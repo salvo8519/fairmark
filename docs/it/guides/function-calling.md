@@ -1,6 +1,6 @@
 ---
 source: guides/function-calling.md
-source_hash: 980882304f29
+source_hash: aaec633f127f
 ---
 # Function calling
 
@@ -79,6 +79,15 @@ open-weight) dichiara i decimali come stringhe, trasforma i valori opzionali (`X
 semplici `X` (un campo opzionale è semplicemente non obbligatorio) e rimuove `pattern` e
 `additionalProperties`. Le date sono stringhe ISO 8601 (`"2026-06-30"`) in entrambe le
 varianti.
+
+Ogni parola chiave `type` indica un solo tipo, in entrambe le varianti e nel server MCP. Un
+valore che può essere nullo è scritto `{"anyOf": [{"type": "string", ...}, {"type": "null"}]}`,
+non `{"type": ["string", "null"]}`: entrambe le forme sono JSON Schema valido e accettano gli
+stessi input, ma i client che traducono gli schemi degli strumenti in un dialetto a tipo unico
+possono rifiutare una lista di tipi o perderne i vincoli. Gli schemi del registro in `schemas/`
+mantengono la forma generata dal motore; vengono riscritte solo le definizioni degli strumenti
+costruite a partire da essi. La CI verifica il server MCP con l'MCP Inspector, che non segnala
+alcun problema di portabilità.
 
 Invia i decimali come stringhe. Il motore accetta anche i numeri JSON, ma la maggior parte
 delle librerie client legge un numero JSON negli argomenti di un tool come un numero in

@@ -350,3 +350,121 @@ def test_a_property_named_title_is_kept() -> None:
     out = tools._inline(schema)
     assert "title" not in out
     assert out["properties"]["title"] == {"type": "string"}
+
+
+# ------------------------------------------------------------------------------------------
+# One type per `type` keyword (portability reported by the MCP Inspector)
+
+PROVIDERS = sorted(fm.tools.PROVIDERS)
+
+
+def type_lists(node: Any, path: str = "") -> list[str]:
+    """Paths of every `type` keyword written as a list."""
+    if isinstance(node, list):
+        return [p for i, v in enumerate(node) for p in type_lists(v, f"{path}/{i}")]
+    if not isinstance(node, dict):
+        return []
+    found = [path] if isinstance(node.get("type"), list) else []
+    return found + [p for k, v in node.items() for p in type_lists(v, f"{path}/{k}")]
+
+
+@pytest.mark.parametrize("compact", [False, True])
+@pytest.mark.parametrize("portable", [False, True])
+def test_no_type_keyword_is_a_list(portable: bool, compact: bool) -> None:
+    for d in fm.tools.definitions(portable, compact=compact):
+        assert type_lists(d["parameters"]) == [], d["name"]
+
+
+@pytest.mark.parametrize("provider", PROVIDERS)
+def test_no_provider_format_has_a_type_list(provider: str) -> None:
+    assert type_lists(fm.tools.for_provider(provider)) == []
+
+
+def test_a_nullable_value_becomes_two_branches_with_its_rules_inside() -> None:
+    node = {
+        "description": "Rate.",
+        "default": None,
+        "type": ["string", "null"],
+        "pattern": "^x$",
+        "format": "uint32",
+    }
+    assert fm.tools._single_types(node) == {
+        "description": "Rate.",
+        "default": None,
+        "anyOf": [{"type": "string", "pattern": "^x$", "format": "uint32"}, {"type": "null"}],
+    }
+
+
+def test_null_leaves_an_enum_for_its_own_branch() -> None:
+    node = {"type": ["string", "null"], "enum": ["a", "b", None]}
+    assert fm.tools._single_types(node) == {
+        "anyOf": [
+            {"type": "string", "enum": ["a", "b"]},
+            {"type": "null", "enum": ["a", "b", None]},
+        ]
+    }
+
+
+@pytest.mark.parametrize(
+    "node",
+    [
+        {"type": ["string", "null"], "enum": ["a"]},
+        {"type": ["string", "null"], "enum": ["a", None]},
+        {"type": ["string", "null"], "const": "x"},
+        {"type": ["string", "null"], "anyOf": [{"minLength": 1}, {"type": "string"}]},
+        {"type": ["string", "null"], "not": {"type": "null"}},
+        {"type": ["integer", "string", "null"], "minimum": 2, "pattern": "^a"},
+    ],
+)
+def test_rewrite_accepts_exactly_the_same_values(node: dict[str, Any]) -> None:
+    before = jsonschema.Draft202012Validator(node)
+    after = jsonschema.Draft202012Validator(fm.tools._single_types(node))
+    for value in (None, "a", "b", "x", "", "abc", 1, 2, 3, 1.5, [], {}, True):
+        assert before.is_valid(value) == after.is_valid(value), (node, value)
+
+
+def test_nested_and_single_entry_type_lists() -> None:
+    node = {"properties": {"x": {"type": ["integer"]}, "y": {"items": {"type": ["array", "null"]}}}}
+    out = fm.tools._single_types(node)
+    assert out["properties"]["x"] == {"type": "integer"}
+    assert out["properties"]["y"]["items"] == {"anyOf": [{"type": "array"}, {"type": "null"}]}
+
+
+BAD_LEAVES: tuple[Any, ...] = ("1,000", "5%", "x", -1, 0, True, {"unknown": 1})
+"""Values that break a rule somewhere: a decimal grammar (`pattern`), a `minimum`, a type, an
+unknown field. Put in place of a field or appended to an array, they make a rule lost by the
+rewrite visible: the two schemas would then disagree."""
+
+
+def samples(value: Any) -> list[Any]:
+    """The value, then one copy per field or item replaced by null or by a bad leaf, and one copy
+    per array with a bad leaf appended."""
+    out = [value]
+    if isinstance(value, dict):
+        for key, inner in value.items():
+            out += [{**value, key: bad} for bad in (None, *BAD_LEAVES)]
+            out += [{**value, key: v} for v in samples(inner)[1:]]
+    elif isinstance(value, list):
+        out += [[*value, bad] for bad in (None, *BAD_LEAVES)]
+        for i, inner in enumerate(value):
+            out += [[*value[:i], v, *value[i + 1 :]] for v in samples(inner)[1:]]
+    return out
+
+
+@pytest.mark.parametrize("compact", [False, True])
+@pytest.mark.parametrize("method", [m["id"] for m in fm.methods()])
+def test_tool_schema_accepts_exactly_what_the_registry_schema_accepts(
+    method: str, compact: bool
+) -> None:
+    """The rewrite changes the spelling, never the inputs: the registry schema (with decimals as
+    strings, as the tools ask for them) and the tool schema agree on every example and on every
+    copy of it with one field or item set to null or to a value that breaks a rule."""
+    registry = jsonschema.Draft202012Validator(
+        fm.tools._decimals_as_strings(fm.tools._inline(fm.tools.input_schema(method)))
+    )
+    defs = {d["name"]: d for d in fm.tools.definitions(compact=compact)}
+    tool = jsonschema.Draft202012Validator(defs[fm.tools.tool_name(method)]["parameters"])
+    for example in fm.tools.examples(method):
+        example = fm.tools._strings_for_decimals(example, registry.schema)
+        for sample in samples(example):
+            assert registry.is_valid(sample) == tool.is_valid(sample), sample

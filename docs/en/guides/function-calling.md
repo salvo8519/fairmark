@@ -70,6 +70,14 @@ values (`X or null`) into plain `X` (an optional field is simply not required), 
 `pattern` and `additionalProperties`. Dates are ISO 8601 strings (`"2026-06-30"`) in both
 variants.
 
+Every `type` keyword names one type, in both variants and in the MCP server. A value that may
+be null is written `{"anyOf": [{"type": "string", ...}, {"type": "null"}]}`, not
+`{"type": ["string", "null"]}`: both are valid JSON Schema and accept the same inputs, but
+clients that map tool schemas onto a single-type dialect may reject a list of types or drop
+its constraints. The registry schemas in `schemas/` keep the spelling the engine generates;
+only the tool definitions built from them are rewritten. CI checks the MCP server with the MCP
+Inspector, which reports no portability problem.
+
 Send decimals as strings. The engine also accepts JSON numbers, but most client libraries read
 a JSON number in tool arguments as a binary float, which keeps about 17 significant digits:
 the digits beyond are lost before Fairmark sees the value, and no warning can recover them.
