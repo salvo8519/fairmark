@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -29,8 +30,11 @@ status: active
 lanes:
   - name: core
     issues: [12, 13]
+    paths: ["crates/", "python/tests/test_core_*.py"]
+    generates: true
   - name: docs
     issues: [40]
+    paths: ["docs/en/guides/", "docs/it/guides/"]
 """,
         encoding="utf-8",
     )
@@ -247,3 +251,157 @@ def test_state_files_are_ordered_by_issue_number(
     for issue in (40, 12, 13):
         sp.write_state(f, issue, step="spec")
     assert [p.stem for p in sp.state_files(f)] == ["12", "13", "40"]
+
+
+# ------------------------------------------------------------------------------------------
+# Lane paths (issue #334)
+
+
+def lanes(*specs: tuple[str, list[str], bool]) -> list[dict[str, object]]:
+    return [
+        {"name": n, "issues": [i + 1], "paths": paths, "generates": gen}
+        for i, (n, paths, gen) in enumerate(specs)
+    ]
+
+
+@pytest.mark.parametrize(
+    ("path", "pattern", "expected"),
+    [
+        ("scripts/sprint.py", "scripts/", True),
+        ("scripts/sub/x.py", "scripts/*.py", False),
+        ("scripts/sub/x.py", "scripts/**/*.py", True),
+        ("scripts/x.py", "scripts/**/*.py", True),
+        ("docs/it/reference/methods.md", "docs/*/reference/methods.md", True),
+        ("README.md", "**/*.md", True),
+        ("python/tests/test_sprint.py", "python/tests/test_s?rint.py", True),
+        ("scripts", "scripts/", False),
+    ],
+)
+def test_pattern_grammar(path: str, pattern: str, expected: bool) -> None:
+    assert sp.matches(path, pattern) is expected
+
+
+@pytest.mark.parametrize(
+    ("a", "b"),
+    [
+        ("docs/", "docs/*/reference/methods.md"),
+        ("scripts/sprint.py", "scripts/*.py"),
+        ("python/tests/test_s*.py", "python/tests/test_*.py"),
+        (".agents/", "**/*.md"),
+        ("schemas/**", "schemas/"),
+        ("**", "x/y"),
+    ],
+)
+def test_overlap_example_is_matched_by_both_patterns(a: str, b: str) -> None:
+    example = sp.overlap_example(a, b)
+    assert example is not None
+    assert sp.matches(example, a) and sp.matches(example, b)
+
+
+@pytest.mark.parametrize(
+    ("a", "b"),
+    [
+        ("docs/en/guides/**", "docs/*/reference/methods.md"),
+        ("scripts/*.md", "scripts/sprint.py"),
+        ("crates/", "python/"),
+        ("a/*.py", "a/*.md"),
+        ("scripts/*.py", "scripts/sub/x.py"),
+    ],
+)
+def test_disjoint_patterns_have_no_overlap(a: str, b: str) -> None:
+    assert sp.overlap_example(a, b) is None
+
+
+def test_disjoint_lanes_are_valid() -> None:
+    plan = lanes(("process", ["scripts/sprint.py", "sprints/"], False), ("core", ["crates/"], True))
+    assert sp.validate_paths(plan) == []
+
+
+def test_a_lane_without_paths_is_rejected() -> None:
+    plan = [{"name": "core", "issues": [1]}]
+    assert sp.validate_paths(plan) == [
+        "lane core: 'paths' must be a non-empty list of glob patterns"
+    ]
+
+
+def test_overlapping_lanes_are_rejected_with_an_example() -> None:
+    plan = lanes(("a", ["scripts/"], False), ("b", ["scripts/*.py"], False))
+    [error] = sp.validate_paths(plan)
+    assert error.startswith("lanes a and b overlap: 'scripts/' and 'scripts/*.py' both cover")
+
+
+def test_two_generating_lanes_are_rejected() -> None:
+    plan = lanes(("a", ["crates/"], True), ("b", ["python/fairmark/"], True))
+    assert "only one lane may generate artifacts" in sp.validate_paths(plan)[0]
+
+
+def test_a_lane_that_does_not_generate_cannot_cover_generated_artifacts() -> None:
+    plan = lanes(("docs", ["docs/"], False))
+    errors = sp.validate_paths(plan)
+    assert any("generated artifact 'docs/x/reference/methods.md'" in e for e in errors)
+    assert sp.validate_paths(lanes(("docs", ["docs/"], True))) == []
+
+
+def test_the_sprint_template_is_valid() -> None:
+    template = ROOT / "sprints" / "_template.yaml"
+    assert sp.validate_paths(sp.load(template)["lanes"]) == []
+
+
+@pytest.fixture
+def sprint_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A repository on a sprint branch of issue 40 (lane docs of S01)."""
+    repo = tmp_path / "repo"
+    (repo / "sprints").mkdir(parents=True)
+    _git(repo, "init", "-q", "-b", "main")
+    sprint_file(repo / "sprints")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-q", "-m", "plan")
+    _git(repo, "switch", "-q", "-c", "sprint/S01/40-guide")
+    monkeypatch.chdir(repo)
+    return repo
+
+
+def commit_files(repo: Path, *paths: str) -> None:
+    for path in paths:
+        (repo / path).parent.mkdir(parents=True, exist_ok=True)
+        (repo / path).write_text("x\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-q", "-m", "work")
+
+
+def check_diff(repo: Path, branch: str = "sprint/S01/40-guide") -> int:
+    return sp.main(
+        ["check-diff", "--branch", branch, "--base", "main", "--sprints", str(repo / "sprints")]
+    )
+
+
+def test_check_diff_accepts_files_inside_the_lane(sprint_repo: Path) -> None:
+    commit_files(sprint_repo, "docs/en/guides/start.md", ".agents/journal/2026-11-16-x.md")
+    assert check_diff(sprint_repo) == 0
+
+
+def test_check_diff_rejects_files_outside_the_lane(sprint_repo: Path) -> None:
+    commit_files(sprint_repo, "docs/en/guides/start.md", "scripts/sprint.py")
+    with pytest.raises(SystemExit, match=re.escape("Files outside the lane:\n  scripts/sprint.py")):
+        check_diff(sprint_repo)
+
+
+def test_check_diff_rejects_generated_files_in_a_lane_that_does_not_generate(
+    sprint_repo: Path,
+) -> None:
+    commit_files(sprint_repo, "schemas/index.json")
+    with pytest.raises(SystemExit, match=re.escape("schemas/index.json")):
+        check_diff(sprint_repo)
+
+
+def test_check_diff_allows_generated_files_in_the_generating_lane(sprint_repo: Path) -> None:
+    _git(sprint_repo, "switch", "-q", "-c", "sprint/S01/12-core")
+    commit_files(sprint_repo, "crates/fairmark-core/src/x.rs", "schemas/index.json")
+    assert check_diff(sprint_repo, "sprint/S01/12-core") == 0
+
+
+def test_check_diff_ignores_branches_outside_a_sprint(
+    sprint_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert check_diff(sprint_repo, "fix/334-lane-paths") == 0
+    assert "not a sprint branch" in capsys.readouterr().out

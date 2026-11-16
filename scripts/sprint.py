@@ -3,12 +3,15 @@
 uv run python scripts/sprint.py validate sprints/S01.yaml
 uv run python scripts/sprint.py status sprints/S01.yaml [--repo owner/name]
 uv run python scripts/sprint.py state sprints/S01.yaml 42 [--step tests --pr 33 ...]
+uv run python scripts/sprint.py check-diff --branch sprint/S01/42-slug --base origin/main
 """
 
 from __future__ import annotations
 
 import argparse
 import datetime as dt
+import fnmatch
+import functools
 import json
 import os
 import re
@@ -29,6 +32,24 @@ STATUSES = {"planned", "active", "done"}
 # there are moved to the shared directory the first time they are read.
 STATE_FILE_GITIGNORE = "/sprints/*/state/"
 SHARED_STATE = Path("fairmark") / "sprints"
+
+# Files written by `uv run just generate` (sprints/README.md, Generated artifacts and the merge
+# order). They belong to no single lane: only the lane with `generates: true` may change them.
+# README.md, README.it.md and the methods indexes are listed whole because their generated
+# block cannot be separated from the rest of the file in a diff.
+GENERATED = (
+    "schemas/**",
+    "docs/*/reference/methods.md",
+    "docs/*/methods/index.md",
+    "README.md",
+    "README.it.md",
+    "python/fairmark/tool_examples.json",
+    ".claude/**",
+)
+# Files every pull request of a sprint may change, whatever its lane: the roadmap line of the
+# issue it closes, the session journal and the release note fragment.
+ALWAYS_ALLOWED = ("roadmap/roadmap.yaml", ".agents/journal/**", "changes/**")
+SPRINT_BRANCH = re.compile(r"^sprint/(?P<sprint>S\d+)/(?P<issue>\d+)-")
 
 
 def _now() -> dt.datetime:
@@ -58,7 +79,209 @@ def validate(sprint: dict[str, Any]) -> list[str]:
                 errors.append(f"issue #{issue} is in lanes {seen[issue]} and {lane['name']}")
             else:
                 seen[issue] = lane["name"]
+    errors += validate_paths(sprint["lanes"])
     return errors
+
+
+# ------------------------------------------------------------------------------------------
+# Lane paths (issue #334): each lane declares the files it may change, as glob patterns.
+#
+# Pattern grammar, relative to the repository root, `/` as separator: `*` matches within one
+# path segment, `**` matches any number of segments, `?` one character; a pattern that ends
+# with `/` stands for the directory and everything below it.
+
+
+def normalise_pattern(pattern: str) -> str:
+    pattern = pattern.strip().removeprefix("./")
+    return pattern + "**" if pattern.endswith("/") else pattern
+
+
+def pattern_regex(pattern: str) -> re.Pattern[str]:
+    out, i, p = [], 0, normalise_pattern(pattern)
+    while i < len(p):
+        if p.startswith("**/", i):
+            out.append("(?:.*/)?")
+            i += 3
+        elif p.startswith("**", i):
+            out.append(".*")
+            i += 2
+        elif p[i] == "*":
+            out.append("[^/]*")
+            i += 1
+        elif p[i] == "?":
+            out.append("[^/]")
+            i += 1
+        else:
+            out.append(re.escape(p[i]))
+            i += 1
+    return re.compile("".join(out) + r"\Z")
+
+
+def matches(path: str, pattern: str) -> bool:
+    return pattern_regex(pattern).match(path) is not None
+
+
+def _has_wildcard(segment: str) -> bool:
+    return "*" in segment or "?" in segment
+
+
+def _segment_witness(a: str, b: str) -> str | None:
+    """A file or directory name matched by both segment patterns, or None."""
+    if not _has_wildcard(a):
+        return a if fnmatch.fnmatchcase(a, b) else None
+    if not _has_wildcard(b):
+        return b if fnmatch.fnmatchcase(b, a) else None
+    head_a, tail_a = re.split(r"[*?]", a)[0], re.split(r"[*?]", a)[-1]
+    head_b, tail_b = re.split(r"[*?]", b)[0], re.split(r"[*?]", b)[-1]
+    if not (head_a.startswith(head_b) or head_b.startswith(head_a)):
+        return None
+    if not (tail_a.endswith(tail_b) or tail_b.endswith(tail_a)):
+        return None
+    head = max(head_a, head_b, key=len)
+    tail = max(tail_a, tail_b, key=len)
+    return f"{head}x{tail}"
+
+
+def overlap_example(a: str, b: str) -> str | None:
+    """A path that both patterns match, or None when no path can match both.
+
+    The patterns are compared segment by segment; `**` stands for any number of segments.
+    Between two wildcards in the same segment the check keeps only their fixed beginning and
+    end, which is exact for the patterns lanes use (`*.md`, `test_*.py`).
+    """
+    sa = normalise_pattern(a).split("/")
+    sb = normalise_pattern(b).split("/")
+
+    @functools.cache
+    def walk(i: int, j: int) -> tuple[str, ...] | None:
+        if i == len(sa) and j == len(sb):
+            return ()
+        if i < len(sa) and sa[i] == "**":
+            rest = walk(i + 1, j)
+            if rest is not None:
+                return rest
+            if j < len(sb):
+                tail = walk(i, j + 1)
+                if tail is not None:
+                    return ("x" if sb[j] == "**" else _segment_witness(sb[j], "*") or "x", *tail)
+            return None
+        if j < len(sb) and sb[j] == "**":
+            rest = walk(i, j + 1)
+            if rest is not None:
+                return rest
+            if i < len(sa):
+                tail = walk(i + 1, j)
+                if tail is not None:
+                    return (_segment_witness(sa[i], "*") or "x", *tail)
+            return None
+        if i == len(sa) or j == len(sb):
+            return None
+        segment = _segment_witness(sa[i], sb[j])
+        if segment is None:
+            return None
+        tail = walk(i + 1, j + 1)
+        return None if tail is None else (segment, *tail)
+
+    found = walk(0, 0)
+    if found is None:
+        return None
+    witness = "/".join(found)
+    # `dir/**` needs at least one name below the directory to match a file.
+    for candidate in (witness, f"{witness}/x" if witness else "x"):
+        if matches(candidate, a) and matches(candidate, b):
+            return candidate
+    return witness
+
+
+def validate_paths(lanes: list[dict[str, Any]]) -> list[str]:
+    errors: list[str] = []
+    generating = [lane.get("name") for lane in lanes if lane.get("generates") is True]
+    if len(generating) > 1:
+        errors.append(f"only one lane may generate artifacts; generating lanes: {generating}")
+    for lane in lanes:
+        name, paths = lane.get("name"), lane.get("paths")
+        if not isinstance(paths, list) or not paths or not all(isinstance(p, str) for p in paths):
+            errors.append(f"lane {name}: 'paths' must be a non-empty list of glob patterns")
+            continue
+        if not isinstance(lane.get("generates", False), bool):
+            errors.append(f"lane {name}: 'generates' must be true or false")
+        if lane.get("generates") is True:
+            continue
+        for path in paths:
+            for generated in GENERATED:
+                example = overlap_example(path, generated)
+                if example:
+                    errors.append(
+                        f"lane {name}: '{path}' covers the generated artifact '{example}'; "
+                        "only the lane with 'generates: true' may change it"
+                    )
+    valid = [lane for lane in lanes if isinstance(lane.get("paths"), list)]
+    for i, first in enumerate(valid):
+        for second in valid[i + 1 :]:
+            for a in first["paths"]:
+                for b in second["paths"]:
+                    example = overlap_example(str(a), str(b))
+                    if example:
+                        errors.append(
+                            f"lanes {first.get('name')} and {second.get('name')} overlap: "
+                            f"'{a}' and '{b}' both cover '{example}'"
+                        )
+    return errors
+
+
+def allowed_patterns(lane: dict[str, Any]) -> list[str]:
+    patterns = [*lane["paths"], *ALWAYS_ALLOWED]
+    return patterns + list(GENERATED) if lane.get("generates") is True else patterns
+
+
+def files_outside_lane(lane: dict[str, Any], changed: list[str]) -> list[str]:
+    patterns = allowed_patterns(lane)
+    return [f for f in changed if not any(matches(f, p) for p in patterns)]
+
+
+def changed_files(base: str) -> list[str]:
+    out = subprocess.run(
+        ["git", "diff", "--name-only", "--no-renames", f"{base}...HEAD"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    if out.returncode != 0:
+        out = subprocess.run(
+            ["git", "diff", "--name-only", "--no-renames", base, "HEAD"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=True,
+        )
+    return [line for line in out.stdout.splitlines() if line]
+
+
+def check_diff_command(args: argparse.Namespace) -> int:
+    m = SPRINT_BRANCH.match(args.branch)
+    if m is None:
+        print(f"{args.branch} is not a sprint branch (sprint/SNN/<issue>-<slug>): nothing to check")
+        return 0
+    sprint_file = Path(args.sprints) / f"{m['sprint']}.yaml"
+    if not sprint_file.exists():
+        sys.exit(f"{args.branch}: {sprint_file} does not exist")
+    sprint = load(sprint_file)
+    errors = validate(sprint)
+    if errors:
+        sys.exit(f"Invalid sprint file {sprint_file}:\n  " + "\n  ".join(errors))
+    issue = int(m["issue"])
+    lane = next((x for x in sprint["lanes"] if issue in x.get("issues", [])), None)
+    if lane is None:
+        sys.exit(f"#{issue} is not in the lanes of {sprint['id']}")
+    outside = files_outside_lane(lane, changed_files(args.base))
+    if outside:
+        sys.exit(
+            f"#{issue} belongs to lane {lane['name']} of {sprint['id']}, which may change "
+            f"{allowed_patterns(lane)}.\nFiles outside the lane:\n  " + "\n  ".join(outside)
+        )
+    print(f"#{issue}: every changed file is inside lane {lane['name']} of {sprint['id']}.")
+    return 0
 
 
 def origin_repo() -> str:
@@ -295,7 +518,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     st.add_argument("--blocker", action="append", help="a blocker, repeatable")
     st.add_argument("--clear-blockers", action="store_true", help="empty the blocker list")
+    cd = sub.add_parser(
+        "check-diff", help="fail when a sprint branch changes files outside its lane"
+    )
+    cd.add_argument("--branch", required=True, help="head branch, for example sprint/S01/42-slug")
+    cd.add_argument("--base", required=True, help="base revision, for example origin/main")
+    cd.add_argument("--sprints", default="sprints", help="directory of the sprint files")
     args = parser.parse_args(argv)
+    if args.command == "check-diff":
+        return check_diff_command(args)
     sprint = load(args.file)
     errors = validate(sprint)
     if errors:

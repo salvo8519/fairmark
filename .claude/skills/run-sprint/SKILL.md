@@ -17,6 +17,9 @@ delegate and keep the overview. Ask the maintainer which mode to use if not stat
 For each lane, in parallel where the agents tool supports isolated worktrees, otherwise one
 lane after the other. For each issue of the lane, in order:
 1. Read the issue (`gh issue view N`) and its spec. Create branch `sprint/SNN/N-<slug>`.
+   Change only the files of the lane's `paths`; before pushing, run
+   `uv run python scripts/sprint.py check-diff --branch sprint/SNN/N-<slug> --base origin/main`
+   (CI runs the same check on the pull request).
 2. No approved spec for method work: delegate to `spec-writer`, then stop this lane and ask
    the maintainer to approve.
 3. `test-engineer` writes failing tests for the issue's acceptance criteria.
