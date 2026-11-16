@@ -2,6 +2,106 @@
  "format": 1,
  "spec": "SPEC-0012",
  "files": {
+  "tests/golden/analysis.goal_seek/dcf-implied-discount-rate.yaml": {
+   "sha256": "8988e1eb655a022e44ad22adb7c243a60debd308b76dba4eae5a01d5d1c8c20e",
+   "changes": [
+    {"kind": "rename", "section": "input", "key": "/output", "value": "/enterprise_value", "new_section": "input", "new_key": "/output_pointer", "new_value": "/enterprise_value", "note": ""},
+    {"kind": "rename", "section": "input", "key": "/variable", "value": "/wacc", "new_section": "input", "new_key": "/variable_pointer", "new_value": "/wacc", "note": ""}
+   ]
+  },
+  "tests/golden/analysis.goal_seek/error-report-inner-pointer.yaml": {
+   "sha256": "371ea386de84815bc272f54803b80154571e155a522c2df0435b60b1c46e2f05",
+   "changes": [
+    {"kind": "rename", "section": "input", "key": "/output", "value": "/npv", "new_section": "input", "new_key": "/output_pointer", "new_value": "/npv", "note": ""},
+    {"kind": "rename", "section": "input", "key": "/variable", "value": "/rate", "new_section": "input", "new_key": "/variable_pointer", "new_value": "/rate", "note": ""}
+   ]
+  },
+  "tests/golden/analysis.goal_seek/irr-via-npv.yaml": {
+   "sha256": "749279fefb8eefca4b7d9df4966af10b3ee9f3ba642dcee154c9cce8300bb0b2",
+   "changes": [
+    {"kind": "rename", "section": "input", "key": "/output", "value": "/npv", "new_section": "input", "new_key": "/output_pointer", "new_value": "/npv", "note": ""},
+    {"kind": "rename", "section": "input", "key": "/variable", "value": "/rate", "new_section": "input", "new_key": "/variable_pointer", "new_value": "/rate", "note": ""}
+   ]
+  },
+  "tests/golden/analysis.goal_seek/nested-analysis.yaml": {
+   "sha256": "345e7659966c400293f5f3af20bce7ebca0298730456a2db7bd6cebd4291959d",
+   "changes": [
+    {"kind": "rename", "section": "input", "key": "/output", "value": "/solution", "new_section": "input", "new_key": "/output_pointer", "new_value": "/solution", "note": ""},
+    {"kind": "rename", "section": "input", "key": "/variable", "value": "/target", "new_section": "input", "new_key": "/variable_pointer", "new_value": "/target", "note": ""}
+   ]
+  },
+  "tests/golden/analysis.goal_seek/no-convergence.yaml": {
+   "sha256": "1a6a67c94716cd6e812bd33334efee918a4ef70eb9491b6a5605cd753bb0b0bb",
+   "changes": [
+    {"kind": "rename", "section": "input", "key": "/output", "value": "/enterprise_value", "new_section": "input", "new_key": "/output_pointer", "new_value": "/enterprise_value", "note": ""},
+    {"kind": "rename", "section": "input", "key": "/variable", "value": "/wacc", "new_section": "input", "new_key": "/variable_pointer", "new_value": "/wacc", "note": ""}
+   ]
+  },
+  "tests/golden/analysis.goal_seek/target-not-bracketed.yaml": {
+   "sha256": "155f2baf80ac8c38d12a692cad3ef16938d2d69caad9ff9da127e954c1051afa",
+   "changes": [
+    {"kind": "rename", "section": "input", "key": "/output", "value": "/enterprise_value", "new_section": "input", "new_key": "/output_pointer", "new_value": "/enterprise_value", "note": ""},
+    {"kind": "rename", "section": "input", "key": "/variable", "value": "/wacc", "new_section": "input", "new_key": "/variable_pointer", "new_value": "/wacc", "note": ""}
+   ]
+  },
+  "tests/golden/analysis.goal_seek/variable-not-a-decimal.yaml": {
+   "sha256": "018e0c6c19dd8baca7bc7e61ca52c5c3c3957552d223db6f5bffd17a4728680f",
+   "changes": [
+    {"kind": "rename", "section": "input", "key": "/output", "value": "/npv", "new_section": "input", "new_key": "/output_pointer", "new_value": "/npv", "note": ""},
+    {"kind": "rename", "section": "input", "key": "/variable", "value": "/cash_flows", "new_section": "input", "new_key": "/variable_pointer", "new_value": "/cash_flows", "note": ""}
+   ]
+  },
+  "tests/golden/analysis.scenarios/dcf-three-cases.yaml": {
+   "sha256": "f7ae1d5513a7f0af47568a038d671e2214b1765a0edd8c9f35976659b5acc094",
+   "changes": [
+    {"kind": "rename", "section": "input", "key": "/outputs", "value": ["/enterprise_value", "/equity_value"], "new_section": "input", "new_key": "/output_pointers", "new_value": ["/enterprise_value", "/equity_value"], "note": ""}
+   ]
+  },
+  "tests/golden/analysis.scenarios/zero-base.yaml": {
+   "sha256": "a91fdf258db69f271f6c5480b3940364043fbd54b3990e39931b8caa8eda96b4",
+   "changes": [
+    {"kind": "rename", "section": "input", "key": "/outputs", "value": ["/npv"], "new_section": "input", "new_key": "/output_pointers", "new_value": ["/npv"], "note": ""}
+   ]
+  },
+  "tests/golden/analysis.sensitivity/wacc-g-5x5.yaml": {
+   "sha256": "1680bfdc5211ff34d45675276b86da43932c7720153bd921e7fd8584847b2d69",
+   "changes": [
+    {"kind": "rename", "section": "input", "key": "/output", "value": "/enterprise_value", "new_section": "input", "new_key": "/output_pointer", "new_value": "/enterprise_value", "note": ""},
+    {"kind": "rename", "section": "input", "key": "/rows/variable", "value": "/wacc", "new_section": "input", "new_key": "/rows/variable_pointer", "new_value": "/wacc", "note": ""},
+    {"kind": "rename", "section": "input", "key": "/columns/variable", "value": "/terminal/tv.gordon/growth", "new_section": "input", "new_key": "/columns/variable_pointer", "new_value": "/terminal/tv.gordon/growth", "note": ""}
+   ]
+  },
+  "tests/golden/analysis.sensitivity/wacc-one-way.yaml": {
+   "sha256": "f68c0296dc136300ad3c8344e60eb056c1f71ea6e6be3d25b7e5f9008c4de53d",
+   "changes": [
+    {"kind": "rename", "section": "input", "key": "/output", "value": "/enterprise_value", "new_section": "input", "new_key": "/output_pointer", "new_value": "/enterprise_value", "note": ""},
+    {"kind": "rename", "section": "input", "key": "/rows/variable", "value": "/wacc", "new_section": "input", "new_key": "/rows/variable_pointer", "new_value": "/wacc", "note": ""}
+   ]
+  },
+  "tests/golden/analysis.tornado/dcf-four-drivers.yaml": {
+   "sha256": "c82166203289c8b4f4ce27ca464e8089ece744933883fa75eedfe0cb96eafcb1",
+   "changes": [
+    {"kind": "rename", "section": "input", "key": "/output", "value": "/equity_value", "new_section": "input", "new_key": "/output_pointer", "new_value": "/equity_value", "note": ""},
+    {"kind": "rename", "section": "input", "key": "/variables/0/variable", "value": "/net_financial_position/gross_debt", "new_section": "input", "new_key": "/variables/0/variable_pointer", "new_value": "/net_financial_position/gross_debt", "note": ""},
+    {"kind": "rename", "section": "input", "key": "/variables/1/variable", "value": "/stages/0/flows/0", "new_section": "input", "new_key": "/variables/1/variable_pointer", "new_value": "/stages/0/flows/0", "note": ""},
+    {"kind": "rename", "section": "input", "key": "/variables/2/variable", "value": "/terminal/tv.gordon/growth", "new_section": "input", "new_key": "/variables/2/variable_pointer", "new_value": "/terminal/tv.gordon/growth", "note": ""},
+    {"kind": "rename", "section": "input", "key": "/variables/3/variable", "value": "/wacc", "new_section": "input", "new_key": "/variables/3/variable_pointer", "new_value": "/wacc", "note": ""},
+    {"kind": "rename", "section": "expect", "key": "/ranking/0/variable", "value": "/wacc", "new_section": "expect", "new_key": "/ranking/0/variable_pointer", "new_value": "/wacc", "note": ""},
+    {"kind": "rename", "section": "expect", "key": "/ranking/1/variable", "value": "/terminal/tv.gordon/growth", "new_section": "expect", "new_key": "/ranking/1/variable_pointer", "new_value": "/terminal/tv.gordon/growth", "note": ""},
+    {"kind": "rename", "section": "expect", "key": "/ranking/2/variable", "value": "/net_financial_position/gross_debt", "new_section": "expect", "new_key": "/ranking/2/variable_pointer", "new_value": "/net_financial_position/gross_debt", "note": ""},
+    {"kind": "rename", "section": "expect", "key": "/ranking/3/variable", "value": "/stages/0/flows/0", "new_section": "expect", "new_key": "/ranking/3/variable_pointer", "new_value": "/stages/0/flows/0", "note": ""}
+   ]
+  },
+  "tests/golden/analysis.tornado/npv-tie.yaml": {
+   "sha256": "7001245f1d1029188f9d242824cc61fe62d577a43c6c4abb8b164dbb3042e6cb",
+   "changes": [
+    {"kind": "rename", "section": "input", "key": "/output", "value": "/npv", "new_section": "input", "new_key": "/output_pointer", "new_value": "/npv", "note": ""},
+    {"kind": "rename", "section": "input", "key": "/variables/0/variable", "value": "/cash_flows/2", "new_section": "input", "new_key": "/variables/0/variable_pointer", "new_value": "/cash_flows/2", "note": ""},
+    {"kind": "rename", "section": "input", "key": "/variables/1/variable", "value": "/cash_flows/1", "new_section": "input", "new_key": "/variables/1/variable_pointer", "new_value": "/cash_flows/1", "note": ""},
+    {"kind": "rename", "section": "expect", "key": "/ranking/0/variable", "value": "/cash_flows/2", "new_section": "expect", "new_key": "/ranking/0/variable_pointer", "new_value": "/cash_flows/2", "note": ""},
+    {"kind": "rename", "section": "expect", "key": "/ranking/1/variable", "value": "/cash_flows/1", "new_section": "expect", "new_key": "/ranking/1/variable_pointer", "new_value": "/cash_flows/1", "note": ""}
+   ]
+  },
   "tests/golden/dcf.fcff/net-financial-position-default-explicit.yaml": {
    "sha256": "f3e63b28daa4494eb07b94a9b47869cba379a30fc9e5eb1747eae18616516faa",
    "changes": [
@@ -171,7 +271,7 @@
   "tests/golden/ratios.debt_service/no-debt-schedule.yaml": {
    "sha256": "9f901175023f6bdcdf7fd54b088ad4fbabee42946525e90c27c7835038cd9605",
    "changes": [
-    {"kind": "unmapped", "section": "expect", "key": "/llcr/not_defined", "value": "no debt schedule given", "new_section": "", "new_key": "", "new_value": null, "note": "the output is also listed as not computed for a missing input: one entry with reason_code missing_input and the reason of that list (R5); the spec does not say where this text goes"}
+    {"kind": "drop", "section": "expect", "key": "/llcr/not_defined", "value": "no debt schedule given", "new_section": "", "new_key": "", "new_value": null, "note": "the output is also missing an input: its one entry is missing_input and the not_defined text is dropped (R5, decision 14 of 2026-11-17)"}
    ]
   },
   "tests/golden/ratios.debt_service/non-positive-ebitda.yaml": {
@@ -406,8 +506,8 @@
     {"kind": "move", "section": "expect", "key": "/roi/not_defined", "value": "invested capital is negative (-500)", "new_section": "expect_diagnostics", "new_key": "/not_computed/7/reason", "new_value": "invested capital is negative (-500)", "note": ""},
     {"kind": "add", "section": "", "key": "", "value": null, "new_section": "expect_diagnostics", "new_key": "/not_computed/7/pointer", "new_value": "/value/roi", "note": "carried by the old key: the ratio and that it is not defined"},
     {"kind": "add", "section": "", "key": "", "value": null, "new_section": "expect_diagnostics", "new_key": "/not_computed/7/reason_code", "new_value": "not_defined", "note": "carried by the old key: the ratio and that it is not defined"},
-    {"kind": "unmapped", "section": "expect", "key": "/roe_leverage/roe/not_defined", "value": "leverage inputs not given", "new_section": "", "new_key": "", "new_value": null, "note": "the output is also listed as not computed for a missing input: one entry with reason_code missing_input and the reason of that list (R5); the spec does not say where this text goes"},
-    {"kind": "unmapped", "section": "expect", "key": "/roe_leverage/cost_of_debt/not_defined", "value": "leverage inputs not given", "new_section": "", "new_key": "", "new_value": null, "note": "the output is also listed as not computed for a missing input: one entry with reason_code missing_input and the reason of that list (R5); the spec does not say where this text goes"}
+    {"kind": "drop", "section": "expect", "key": "/roe_leverage/roe/not_defined", "value": "leverage inputs not given", "new_section": "", "new_key": "", "new_value": null, "note": "the output is also missing an input: its one entry is missing_input and the not_defined text is dropped (R5, decision 14 of 2026-11-17)"},
+    {"kind": "drop", "section": "expect", "key": "/roe_leverage/cost_of_debt/not_defined", "value": "leverage inputs not given", "new_section": "", "new_key": "", "new_value": null, "note": "the output is also missing an input: its one entry is missing_input and the not_defined text is dropped (R5, decision 14 of 2026-11-17)"}
    ]
   },
   "tests/golden/ratios.profitability/roe-only.yaml": {

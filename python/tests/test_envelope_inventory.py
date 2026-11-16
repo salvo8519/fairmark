@@ -58,13 +58,26 @@ def make_tree(tmp: Path, rust: str = RUST) -> Path:
         "$defs": {
             "Line": {
                 "properties": {
-                    "source": {"description": "JSON pointer of the input read."},
-                    "source_pointer": {"description": "JSON pointer of the input read."},
+                    "source": {"type": "string", "description": "JSON pointer of the input."},
+                    "source_pointer": {"type": "string", "description": "JSON pointer of it."},
+                    "lines": {
+                        "type": "array",
+                        "items": {"$ref": "#/$defs/Line"},
+                        "description": "Lines, each with the pointer of its input.",
+                    },
                 }
             }
         },
     }
     out_b = {"type": "object", "properties": {"total": {"type": "string"}}}
+    in_b = {
+        "type": "object",
+        "properties": {
+            "output": {"type": "string", "description": "RFC 6901 JSON Pointer to the output."},
+            "output_pointer": {"type": "string", "description": "JSON Pointer to the output."},
+        },
+    }
+    (schemas / "b.method/v3.json").write_text(json.dumps(in_b), encoding="utf-8")
     (schemas / "a.method/v1.output.json").write_text(json.dumps(out_a), encoding="utf-8")
     (schemas / "b.method/v3.output.json").write_text(json.dumps(out_b), encoding="utf-8")
     index = {
@@ -76,7 +89,9 @@ def make_tree(tmp: Path, rust: str = RUST) -> Path:
             },
             "b.method": {
                 "current": "3",
-                "versions": {"3": {"output_file": "b.method/v3.output.json"}},
+                "versions": {
+                    "3": {"file": "b.method/v3.json", "output_file": "b.method/v3.output.json"}
+                },
             },
         },
     }
@@ -123,12 +138,15 @@ def test_differences_name_unmatched_sites_missing_codes_and_schema_moves(tmp_pat
     assert "warning literal not in the catalogue: series.rs:" in diffs
     assert "catalogue code without an emission site: FM-W001" in diffs
     assert "without an emission site: FM-W002" not in diffs
-    assert "output changes but no version bump in the spec: a.method" in diffs
-    assert "version bump in the spec but no field moves: statements.reorganise" in diffs
+    assert "output moves a list but the spec does not say so: a.method" in diffs
+    assert "the spec moves a list but no field moves: statements.reorganise" in diffs
+    assert "the spec renames pointer fields but none is misnamed: analysis.tornado" in diffs
+    assert "in a method not bumped: b.method input /output" in diffs
     a = result["schemas"]["a.method"]
     assert a["moves"] == ["/not_computed"]
     assert a["misnamed"] == ["$defs/Line/source"]
-    assert "b.method" not in result["schemas"]
+    b = result["schemas"]["b.method"]
+    assert (b["moves"], b["misnamed"], b["misnamed_input"]) == ([], [], ["/output"])
 
 
 def test_main_prints_markdown_and_check_fails_on_differences(

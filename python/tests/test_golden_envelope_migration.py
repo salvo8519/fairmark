@@ -111,6 +111,9 @@ tolerance: '0'
 """
 
 
+Runner = gm.Runner
+
+
 def fake_run(method: str, data: Any) -> dict[str, Any]:
     return RATIOS_RESULT if method.startswith("ratios.") else STATEMENTS_RESULT
 
@@ -255,9 +258,8 @@ def test_verify_accepts_the_plan_and_rejects_a_changed_value(tmp_path: Path) -> 
     assert gm.main(verify) == 1
 
 
-def test_list_stops_on_keys_without_a_rule_and_apply_refuses_them(tmp_path: Path) -> None:
-    root = make_root(tmp_path)
-    # A ratio also listed as missing an input, with a not_defined text: no rule in the spec.
+def missing_and_not_defined(root: Path) -> Runner:
+    """A ratio listed as missing an input that also carries a `not_defined` text today."""
     case = RATIOS_CASE.replace(
         "  /roi/not_defined: 'null'\n", "  /ros/not_defined: needs net income\n"
     )
@@ -268,10 +270,109 @@ def test_list_stops_on_keys_without_a_rule_and_apply_refuses_them(tmp_path: Path
     def run(method: str, data: Any) -> dict[str, Any]:
         return result if method.startswith("ratios.") else STATEMENTS_RESULT
 
+    return run
+
+
+def test_missing_input_takes_precedence_over_not_defined(tmp_path: Path) -> None:
+    # Decision 14 of 2026-11-17: one entry per output, missing_input, the text is dropped.
+    root = make_root(tmp_path)
+    run = missing_and_not_defined(root)
     md = root / "list.md"
-    assert gm.main(["--root", str(root), "list", "--markdown", str(md)], run=run) == 1
-    assert "/ros/not_defined" in md.read_text(encoding="utf-8").split("decision needed")[1]
+    assert gm.main(["--root", str(root), "list", "--markdown", str(md)], run=run) == 0
+    plan = json.loads((root / gm.PLAN).read_text(encoding="utf-8"))
+    c = changes_of(plan, RATIOS)
+    assert c["/ros/not_defined"]["kind"] == "drop"
+    assert "decision 14" in c["/ros/not_defined"]["note"]
+    # /value/ros keeps one entry: the list has roe (not defined), ros, turnover.
+    assert c["/not_computed/0/output"]["new_key"] == "/not_computed/1/pointer"
+    assert c["/not_computed"]["new_value"] == "3"
+    assert not any(v["kind"] == "unmapped" for v in c.values())
+    assert gm.main(["--root", str(root), "apply", RATIOS]) == 0
+    migrated = yaml.safe_load((root / RATIOS).read_text(encoding="utf-8"))
+    assert "/ros/not_defined" not in migrated["expect"]
+
+
+def test_list_stops_on_keys_without_a_rule_and_apply_refuses_them(tmp_path: Path) -> None:
+    root = make_root(tmp_path)
+    # `not_defined: null` without the ratio's value asserted: nothing implies it.
+    case = RATIOS_CASE.replace("  /roi/value: '0.1'\n", "")
+    (root / RATIOS).write_text(case, encoding="utf-8")
+    md = root / "list.md"
+    assert gm.main(["--root", str(root), "list", "--markdown", str(md)], run=fake_run) == 1
+    assert "/roi/not_defined" in md.read_text(encoding="utf-8").split("decision needed")[1]
     assert gm.main(["--root", str(root), "apply", RATIOS]) == 1
+
+
+ANALYSIS_CASE = """method: analysis.tornado
+description: temporary tornado case
+source: written for the test
+input:
+  method: tvm.npv
+  base_input:
+    rate: '0.1'
+    output: kept, a field of the inner input
+  output: /npv
+  variables:
+  - {variable: /cash_flows/2, low: "59", high: "61"}
+  - variable: /rate
+    low: '0.05'
+    high: '0.15'
+expect:
+  /ranking/0/variable: "/cash_flows/2"
+  /ranking/0/swing: "2"
+  /output: /npv
+tolerance: '0'
+"""
+TORNADO_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "output": {"type": "string"},
+        "ranking": {"type": "array", "items": {"$ref": "#/$defs/TornadoBar"}},
+    },
+    "$defs": {
+        "TornadoBar": {
+            "type": "object",
+            "properties": {"variable": {"type": "string"}, "swing": {"type": "string"}},
+        }
+    },
+}
+TORNADO = "tests/golden/analysis.tornado/case.yaml"
+
+
+def test_analysis_pointer_fields_are_renamed_on_both_sides(tmp_path: Path) -> None:
+    # Decision 13 of 2026-11-17: input and output renamed, values unchanged.
+    root = make_root(tmp_path)
+    (root / "tests/golden/analysis.tornado").mkdir(parents=True)
+    (root / TORNADO).write_text(ANALYSIS_CASE, encoding="utf-8")
+    schema = root / "schemas/analysis.tornado/v1.output.json"
+    schema.parent.mkdir(parents=True)
+    schema.write_text(json.dumps(TORNADO_SCHEMA), encoding="utf-8")
+    plan = list_plan(root)
+    c = changes_of(plan, TORNADO)
+    assert {k: v["new_key"] for k, v in c.items()} == {
+        "/output": "/output_pointer",
+        "/variables/0/variable": "/variables/0/variable_pointer",
+        "/variables/1/variable": "/variables/1/variable_pointer",
+        "/ranking/0/variable": "/ranking/0/variable_pointer",
+    }
+    assert all(v["value"] == v["new_value"] for v in c.values())
+    sections = {k: v["section"] for k, v in c.items()}
+    assert sections["/variables/1/variable"] == "input"
+    assert gm.main(["--root", str(root), "apply", TORNADO]) == 0
+    after = (root / TORNADO).read_text(encoding="utf-8")
+    case = yaml.safe_load(after)
+    assert case["input"]["output_pointer"] == "/npv"
+    assert case["input"]["variables"][0] == {
+        "variable_pointer": "/cash_flows/2",
+        "low": "59",
+        "high": "61",
+    }
+    assert case["input"]["variables"][1]["variable_pointer"] == "/rate"
+    # The inner method's own input is not an analysis input: its fields keep their names.
+    assert case["input"]["base_input"]["output"] == "kept, a field of the inner input"
+    assert case["expect"]["/ranking/0/variable_pointer"] == "/cash_flows/2"
+    assert case["expect"]["/output_pointer"] == "/npv"
+    assert case["expect"]["/ranking/0/swing"] == "2"
 
 
 def test_list_refuses_an_engine_that_writes_diagnostics(tmp_path: Path) -> None:

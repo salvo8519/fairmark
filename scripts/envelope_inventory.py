@@ -10,14 +10,16 @@ Reports, from the sources and the schema snapshots of the repository:
 2. the callers of `ratios::warn_defaults` (FM-W013);
 3. every `DefaultApplied::new` and `DefaultApplied::destination` call in production code;
 4. in the current output schema of every method: the fields named `not_computed`, `checks` and
-   `not_defined` (they move to the diagnostics, so their method changes version), and every
-   field whose description mentions a pointer but whose name does not follow ADR 0014 G4 as
-   amended (`pointer`, `pointers`, `*_pointer`, `*_pointers`, `missing_any_of`);
+   `not_defined` (they move to the diagnostics, so their method changes version); in its input
+   and output schemas, every string or list-of-strings field whose description mentions a
+   pointer but whose name does not follow ADR 0014 G4 as amended (`pointer`, `pointers`,
+   `*_pointer`, `*_pointers`, `missing_any_of`);
 5. with the engine importable (and without `--no-engine`), the relation ids of the checks of
    `statements.reorganise` seen in its golden results, by form.
 
-It ends with the comparison against the spec: the sixteen codes and the seven methods whose
-output changes. `--check` exits with status 1 when they differ. Nothing is written.
+It ends with the comparison against the spec: the sixteen codes, the seven methods that move
+lists and the methods that rename pointer fields (decision 13 of 2026-11-17). `--check` exits
+with status 1 when they differ. Nothing is written.
 """
 
 from __future__ import annotations
@@ -61,8 +63,8 @@ NOT_EMISSIONS: list[tuple[str, str, str]] = [
         "goal seek: filters the rounding warnings of its own variable out of the inner result",
     ),
 ]
-# Methods whose output schema changes shape (R18 of the spec).
-SPEC_BUMPED = {
+# Methods whose output moves lists to the diagnostics (R18 of the spec).
+SPEC_MOVES = {
     "statements.reorganise",
     "ratios.profitability",
     "ratios.capital_structure",
@@ -71,6 +73,15 @@ SPEC_BUMPED = {
     "ratios.debt_service",
     "ratios.covenants",
 }
+# Methods that rename pointer fields to the G4 grammar (R12; decision 13 of 2026-11-17).
+SPEC_RENAMES = {
+    "statements.reorganise",
+    "analysis.goal_seek",
+    "analysis.scenarios",
+    "analysis.sensitivity",
+    "analysis.tornado",
+}
+SPEC_BUMPED = SPEC_MOVES | SPEC_RENAMES
 FORBIDDEN_FIELDS = ("not_computed", "checks", "not_defined")
 POINTER_NAME = re.compile(r"^(pointer|pointers|[a-z0-9_]+_pointers?|missing_any_of)$")
 
@@ -266,26 +277,50 @@ def calls(root: Path, pattern: str) -> list[dict[str, Any]]:
 # ------------------------------------------------------------------------------ schemas
 
 
-def output_schemas(root: Path) -> dict[str, tuple[str, dict[str, Any]]]:
-    """Current version and output schema of every method in `schemas/index.json`."""
+def current_schemas(root: Path) -> dict[str, tuple[str, dict[str, Any], dict[str, Any]]]:
+    """Current version, output schema and input schema (`{}` when absent) of every method in
+    `schemas/index.json`."""
     index = json.loads((root / "schemas/index.json").read_text(encoding="utf-8"))
     out = {}
     for method, entry in sorted(index["methods"].items()):
         version = entry["current"]
-        file = entry["versions"][version].get("output_file")
-        if file:
-            schema = json.loads((root / "schemas" / file).read_text(encoding="utf-8"))
-            out[method] = (version, schema)
+        files = entry["versions"][version]
+        loaded = []
+        for key in ("output_file", "file"):
+            file = files.get(key)
+            path = root / "schemas" / file if file else None
+            loaded.append(
+                json.loads(path.read_text(encoding="utf-8")) if path and path.exists() else {}
+            )
+        out[method] = (version, loaded[0], loaded[1])
     return out
 
 
+def holds_text(sub: Any) -> bool:
+    """Whether a property schema is a string or a list of strings (`null` allowed): the shapes
+    a pointer field can have. A list of objects carrying pointers is not a pointer field."""
+    if not isinstance(sub, dict):
+        return False
+    types = sub.get("type")
+    types = types if isinstance(types, list) else [types]
+    if "string" in types:
+        return True
+    if "array" in types:
+        items = sub.get("items") or {}
+        item_types = items.get("type") if isinstance(items, dict) else None
+        item_types = item_types if isinstance(item_types, list) else [item_types]
+        return "string" in item_types
+    return False
+
+
 def schema_fields(schema: Any, at: str = "") -> list[tuple[str, str, str]]:
-    """(location, property name, description) of every property of `schema`, `$defs` included."""
+    """(location, property name, description) of every property of `schema`, `$defs` included;
+    the description is blanked for a property that cannot hold pointers (see `holds_text`)."""
     found: list[tuple[str, str, str]] = []
     if isinstance(schema, dict):
         for name, sub in (schema.get("properties") or {}).items():
             desc = sub.get("description", "") if isinstance(sub, dict) else ""
-            found.append((f"{at}/{name}", name, desc))
+            found.append((f"{at}/{name}", name, desc if holds_text(sub) else ""))
         for key, sub in schema.items():
             if key == "properties" and isinstance(sub, dict):
                 for name, prop in sub.items():
@@ -303,18 +338,28 @@ def schema_fields(schema: Any, at: str = "") -> list[tuple[str, str, str]]:
 
 def schema_findings(root: Path) -> dict[str, dict[str, Any]]:
     findings: dict[str, dict[str, Any]] = {}
-    for method, (version, schema) in output_schemas(root).items():
-        fields = sorted(set(schema_fields(schema)))
-        forbidden = sorted({loc for loc, name, _ in fields if name in FORBIDDEN_FIELDS})
-        misnamed = sorted(
+
+    def misnamed(fields: list[tuple[str, str, str]]) -> list[str]:
+        return sorted(
             {
                 loc
                 for loc, name, desc in fields
                 if "pointer" in desc.lower() and not POINTER_NAME.match(name)
             }
         )
-        if forbidden or misnamed:
-            findings[method] = {"version": version, "moves": forbidden, "misnamed": misnamed}
+
+    for method, (version, output, input_schema) in current_schemas(root).items():
+        fields = sorted(set(schema_fields(output)))
+        forbidden = sorted({loc for loc, name, _ in fields if name in FORBIDDEN_FIELDS})
+        out_misnamed = misnamed(fields)
+        in_misnamed = misnamed(sorted(set(schema_fields(input_schema))))
+        if forbidden or out_misnamed or in_misnamed:
+            findings[method] = {
+                "version": version,
+                "moves": forbidden,
+                "misnamed": out_misnamed,
+                "misnamed_input": in_misnamed,
+            }
     return findings
 
 
@@ -361,15 +406,18 @@ def inventory(root: Path, engine: bool) -> dict[str, Any]:
         count = sum(1 for s in sites if s["code"] == code)
         if count > 1:
             differences.append(f"{code} has {count} emission sites")
-    for method in sorted(bumped - SPEC_BUMPED):
-        differences.append(f"output changes but no version bump in the spec: {method}")
-    for method in sorted(SPEC_BUMPED - bumped):
-        differences.append(f"version bump in the spec but no field moves: {method}")
+    renamed = {m for m, f in schemas.items() if f["misnamed"] or f["misnamed_input"]}
+    for method in sorted(bumped - SPEC_MOVES):
+        differences.append(f"output moves a list but the spec does not say so: {method}")
+    for method in sorted(SPEC_MOVES - bumped):
+        differences.append(f"the spec moves a list but no field moves: {method}")
+    for method in sorted(SPEC_RENAMES - renamed):
+        differences.append(f"the spec renames pointer fields but none is misnamed: {method}")
     for method, f in sorted(schemas.items()):
-        if f["misnamed"] and method not in SPEC_BUMPED:
+        if (f["misnamed"] or f["misnamed_input"]) and method not in SPEC_BUMPED:
             differences.append(
                 f"pointer fields not named per G4 in a method not bumped: {method} "
-                + ", ".join(f["misnamed"])
+                + ", ".join(f["misnamed"] + [f"input {loc}" for loc in f["misnamed_input"]])
             )
     return {
         "warnings": sites,
@@ -394,13 +442,17 @@ def render(inv: dict[str, Any]) -> str:
     out += [
         f"- {c['file']}:{c['line']} `{c['function']}`: {c['text']}" for c in inv["defaults_applied"]
     ]
-    out += ["", "## Output schemas (current versions)"]
+    out += ["", "## Schemas (current versions)"]
     for method, f in inv["schemas"].items():
         out.append(f"- {method} v{f['version']}")
         if f["moves"]:
             out.append(f"  - moves to the diagnostics: {', '.join(f['moves'])}")
         if f["misnamed"]:
             out.append(f"  - pointer fields not named per G4: {', '.join(f['misnamed'])}")
+        if f["misnamed_input"]:
+            out.append(
+                f"  - input pointer fields not named per G4: {', '.join(f['misnamed_input'])}"
+            )
     out += ["", "## Check relation ids of statements.reorganise seen in the golden results"]
     if inv["check_ids"] is None:
         out.append("- not collected (engine not importable or --no-engine)")

@@ -58,13 +58,44 @@ RATIOS = {
     "ratios.covenants",
 }
 STATEMENTS = "statements.reorganise"
-# R12: pointer fields of statements.reorganise v1 renamed in v2, by the type that holds them.
-RENAMED_FIELDS = {
-    ("Assignment", "aggregate"): "aggregate_pointer",
-    ("AppliedAdjustment", "source"): "source_pointer",
-    ("NfpComponent", "source"): "source_pointer",
-    ("ReconciliationLine", "sources"): "source_pointers",
+ROOT_TYPE = "<root>"
+# R12 and decision 13: output pointer fields renamed, per method, by the `$defs` type that holds
+# them (`<root>` for a field of `value` itself). Read from `schemas/<method>/v1.output.json`.
+RENAMED_FIELDS: dict[str, dict[tuple[str, str], str]] = {
+    STATEMENTS: {
+        ("Assignment", "aggregate"): "aggregate_pointer",
+        ("AppliedAdjustment", "source"): "source_pointer",
+        ("NfpComponent", "source"): "source_pointer",
+        ("ReconciliationLine", "sources"): "source_pointers",
+    },
+    "analysis.scenarios": {
+        ("BaseOutput", "output"): "output_pointer",
+        ("ScenarioOutput", "output"): "output_pointer",
+    },
+    "analysis.sensitivity": {
+        (ROOT_TYPE, "output"): "output_pointer",
+        ("Axis", "variable"): "variable_pointer",
+    },
+    "analysis.tornado": {
+        (ROOT_TYPE, "output"): "output_pointer",
+        ("TornadoBar", "variable"): "variable_pointer",
+    },
 }
+# Decision 13: input pointer fields of the analyses renamed, by path (`*`: any array index).
+RENAMED_INPUT: dict[str, dict[tuple[str, ...], str]] = {
+    "analysis.goal_seek": {("output",): "output_pointer", ("variable",): "variable_pointer"},
+    "analysis.scenarios": {("outputs",): "output_pointers"},
+    "analysis.sensitivity": {
+        ("output",): "output_pointer",
+        ("rows", "variable"): "variable_pointer",
+        ("columns", "variable"): "variable_pointer",
+    },
+    "analysis.tornado": {
+        ("output",): "output_pointer",
+        ("variables", "*", "variable"): "variable_pointer",
+    },
+}
+RENAMED_INPUT_NAMES = {path[-1] for paths in RENAMED_INPUT.values() for path in paths}
 DEFAULTS_FIELD = re.compile(r"^/defaults_applied/(\d+)/field$")
 
 Runner = Callable[[str, Any], dict[str, Any]]
@@ -146,13 +177,15 @@ def def_at(schema: dict[str, Any], parts: list[str]) -> str | None:
     return step(schema, None, parts)
 
 
-def renamed_key(schema: dict[str, Any], key: str) -> str | None:
-    """`key` with the pointer fields of R12 renamed, or None when nothing is renamed."""
+def renamed_key(
+    schema: dict[str, Any], key: str, renames: dict[tuple[str, str], str]
+) -> str | None:
+    """`key` with the pointer fields of `renames` renamed, or None when nothing is renamed."""
     parts = tokens(key)
     changed = False
-    for i in range(1, len(parts)):
-        holder = def_at(schema, parts[:i])
-        new = RENAMED_FIELDS.get((holder or "", parts[i]))
+    for i in range(len(parts)):
+        holder = ROOT_TYPE if i == 0 else def_at(schema, parts[:i])
+        new = renames.get((holder or "", parts[i]))
         if new:
             parts[i] = new
             changed = True
@@ -214,6 +247,80 @@ def old_engine_result(run: Runner, method: str, data: Any) -> dict[str, Any]:
     return result
 
 
+# ---------------------------------------------------------------------------- input renames
+
+
+def input_renames(method: str, data: Any) -> list[tuple[list[str | int], str]]:
+    """(path in the input, new name) of every field of `data` renamed by decision 13, for an
+    analysis and, through `base_input`, for an analysis nested in it."""
+    found: list[tuple[list[str | int], str]] = []
+
+    def matches(node: Any, rest: tuple[str, ...], at: list[str | int], new: str) -> None:
+        if not rest:
+            return
+        head, tail = rest[0], rest[1:]
+        if head == "*":
+            if isinstance(node, list):
+                for i, item in enumerate(node):
+                    matches(item, tail, [*at, i], new)
+        elif isinstance(node, dict) and head in node:
+            if tail:
+                matches(node[head], tail, [*at, head], new)
+            else:
+                found.append(([*at, head], new))
+
+    def visit(method: str, node: Any, at: list[str | int]) -> None:
+        for path, new in RENAMED_INPUT.get(method, {}).items():
+            matches(node, path, at, new)
+        if isinstance(node, dict) and str(node.get("method", "")).startswith("analysis."):
+            visit(str(node["method"]), node.get("base_input"), [*at, "base_input"])
+
+    visit(method, data, [])
+    return found
+
+
+def rename_at(data: Any, path: list[Any], new: str) -> Any:
+    """A copy of `data` with the key at `path` renamed to `new`, keeping the key order."""
+    if not path:
+        return data
+    if len(path) == 1:
+        return {(new if k == path[0] else k): v for k, v in data.items()}
+    head = path[0]
+    if isinstance(data, list):
+        return [rename_at(v, path[1:], new) if i == head else v for i, v in enumerate(data)]
+    return {k: (rename_at(v, path[1:], new) if k == head else v) for k, v in data.items()}
+
+
+def _at(data: Any, path: list[Any]) -> Any:
+    for token in path:
+        data = data[token]
+    return data
+
+
+def rename_input_lines(lines: list[str]) -> list[str]:
+    """The lines of an `input` block with the keys of decision 13 renamed outside `base_input`.
+
+    A key is renamed where it starts a line (`  output:`, `- variable:`) or follows `{` or `,`
+    in a flow mapping. `apply` checks the result against the renamed parsed input.
+    """
+    names = "|".join(sorted(RENAMED_INPUT_NAMES))
+    key = re.compile(rf"(^\s*(?:- )?|[{{,]\s*)({names}):")
+    out = []
+    in_base = False
+    for line in lines:
+        indent = len(line) - len(line.lstrip(" "))
+        if indent <= 2 and line.strip():
+            in_base = line.strip().startswith("base_input:")
+        if in_base or not line.strip():
+            out.append(line)
+            continue
+        out.append(key.sub(lambda m: m.group(1) + RENAME_TARGET[m.group(2)] + ":", line))
+    return out
+
+
+RENAME_TARGET = {path[-1]: new for paths in RENAMED_INPUT.values() for path, new in paths.items()}
+
+
 # ---------------------------------------------------------------------------- the plan
 
 
@@ -238,7 +345,9 @@ def entry_field(rest: str) -> str | None:
     return None
 
 
-def plan_case(case: dict[str, Any], run: Runner, statements_schema: dict[str, Any]) -> list[Change]:
+def plan_case(
+    case: dict[str, Any], run: Runner, schemas: dict[str, dict[str, Any]]
+) -> list[Change]:
     """The changes of one golden case (empty when nothing moves)."""
     method = case["method"]
     changes: list[Change] = []
@@ -247,19 +356,46 @@ def plan_case(case: dict[str, Any], run: Runner, statements_schema: dict[str, An
         if m:
             new = f"/defaults_applied/{m.group(1)}/pointer"
             changes.append(Change("rename", "expect_meta", key, value, "expect_meta", new, value))
+    renamed_paths = []
+    for path, new in input_renames(method, case.get("input")):
+        renamed_paths.append(path)
+        old_key, new_key = pointer_of(path), pointer_of([*path[:-1], new])
+        value = _at(case["input"], path)
+        changes.append(Change("rename", "input", old_key, value, "input", new_key, value))
+    # A value that is a pointer into a renamed input field would change: no rule.
+    for section in ("expect", "expect_error_report"):
+        for key, val in (case.get(section) or {}).items():
+            if isinstance(val, str) and any(
+                tokens(val)[: len(p)] == [str(t) for t in p]
+                for p in renamed_paths
+                if val[:1] == "/"
+            ):
+                changes.append(
+                    Change(
+                        "unmapped", section, key, val, "", "", None,
+                        "the value points into a renamed input field",
+                    )
+                )  # fmt: skip
     if "expect_error" in case:
         return changes
     if method.startswith("analysis."):
-        for section in SECTIONS:
-            for key in case.get(section) or {}:
+        renames = RENAMED_FIELDS.get(method, {})
+        for section in ("expect", "expect_length"):
+            for key, val in (case.get(section) or {}).items():
                 if re.search(r"/(not_computed|not_defined|checks)(/|$)", key):
-                    changes.append(Change("unmapped", section, key, None, "", "", None))
+                    changes.append(Change("unmapped", section, key, val, "", "", None))
+                    continue
+                new = renamed_key(schemas[method], key, renames) if renames else None
+                if new:
+                    changes.append(Change("rename", section, key, val, section, new, val))
         return changes
     if method not in RATIOS and method != STATEMENTS:
         return changes
     concerned = any(
         re.search(r"/(not_computed|not_defined|checks)(/|$)", k)
-        or (method == STATEMENTS and renamed_key(statements_schema, k))
+        or (
+            method == STATEMENTS and renamed_key(schemas[STATEMENTS], k, RENAMED_FIELDS[STATEMENTS])
+        )
         for section in ("expect", "expect_length")
         for k in case.get(section) or {}
     )
@@ -269,7 +405,7 @@ def plan_case(case: dict[str, Any], run: Runner, statements_schema: dict[str, An
     if method in RATIOS:
         changes += plan_ratios(case, value)
     else:
-        changes += plan_statements(case, value, statements_schema)
+        changes += plan_statements(case, value, schemas[STATEMENTS])
     return changes
 
 
@@ -330,10 +466,9 @@ def plan_ratios(case: dict[str, Any], value: dict[str, Any]) -> list[Change]:
             if "/value" + m.group(1) in listed:
                 changes.append(
                     Change(
-                        "unmapped", "expect", key, val, "", "", None,
-                        "the output is also listed as not computed for a missing input: one "
-                        "entry with reason_code missing_input and the reason of that list "
-                        "(R5); the spec does not say where this text goes",
+                        "drop", "expect", key, val, "", "", None,
+                        "the output is also missing an input: its one entry is missing_input "
+                        "and the not_defined text is dropped (R5, decision 14 of 2026-11-17)",
                     )
                 )  # fmt: skip
                 continue
@@ -426,7 +561,7 @@ def plan_statements(
         if re.search(r"/(not_computed|checks)(/|$)", key):
             changes.append(Change("unmapped", "expect", key, val, "", "", None))
             continue
-        new = renamed_key(schema, key)
+        new = renamed_key(schema, key, RENAMED_FIELDS[STATEMENTS])
         if new:
             changes.append(Change("rename", "expect", key, val, "expect", new, val))
     for n in sorted(nc_touched):
@@ -438,7 +573,7 @@ def plan_statements(
         if re.search(r"/(not_computed|checks)(/|$)", key):
             changes.append(Change("unmapped", "expect_length", key, val, "", "", None))
         else:
-            new = renamed_key(schema, key)
+            new = renamed_key(schema, key, RENAMED_FIELDS[STATEMENTS])
             if new:
                 changes.append(
                     Change("rename", "expect_length", key, val, "expect_length", new, val)
@@ -451,13 +586,16 @@ def sha(text: str) -> str:
 
 
 def build_plan(root: Path, run: Runner) -> dict[str, Any]:
-    schema_file = root / f"schemas/{STATEMENTS}/v1.output.json"
-    statements_schema = json.loads(schema_file.read_text(encoding="utf-8"))
+    schemas = {
+        method: json.loads((root / f"schemas/{method}/v1.output.json").read_text(encoding="utf-8"))
+        for method in RENAMED_FIELDS
+        if (root / f"schemas/{method}/v1.output.json").exists()
+    }
     files = {}
     for path in sorted((root / GOLDEN).rglob("*.yaml")):
         text = path.read_text(encoding="utf-8")
         case = yaml.safe_load(text)
-        changes = plan_case(case, run, statements_schema)
+        changes = plan_case(case, run, schemas)
         if changes:
             rel = path.relative_to(root).as_posix()
             files[rel] = {"sha256": sha(text), "changes": [asdict(c) for c in changes]}
@@ -474,6 +612,10 @@ def transform(case: dict[str, Any], changes: list[dict[str, Any]]) -> dict[str, 
     for c in changes:
         if c["kind"] == "unmapped":
             raise ValueError(f"unmapped key {c['section']} {c['key']}")
+        if c["section"] == "input":
+            path: list[Any] = [int(t) if t.isdigit() else t for t in tokens(c["key"])]
+            out["input"] = rename_at(out["input"], path, tokens(c["new_key"])[-1])
+            continue
         if c["section"]:
             del out[c["section"]][c["key"]]
         if c["kind"] == "drop":
@@ -543,7 +685,11 @@ def apply_text(text: str, changes: list[dict[str, Any]]) -> str:
     by_old = {(c["section"], c["key"]): c for c in changes if c["section"]}
     added: dict[str, list[list[str]]] = {NEW_LENGTH: [], NEW_EXPECT: []}
     out: list[tuple[str, list[str]]] = []
+    renames_input = any(c["section"] == "input" for c in changes)
     for name, lines in _blocks(text):
+        if name == "input" and renames_input:
+            out.append((name, [lines[0], *rename_input_lines(lines[1:])]))
+            continue
         if name not in SECTIONS:
             out.append((name, lines))
             continue
@@ -581,7 +727,10 @@ def apply_text(text: str, changes: list[dict[str, Any]]) -> str:
                 if added[section]:
                     result.append(f"{section}:\n")
                     result += [line for e in added[section] for line in e]
-    return "".join(result)
+    migrated = "".join(result)
+    if yaml.safe_load(migrated) != transform(yaml.safe_load(text), changes):
+        raise ValueError("the rewritten text does not parse to the plan applied to the case")
+    return migrated
 
 
 # ---------------------------------------------------------------------------- commands
@@ -655,15 +804,19 @@ def render(plan: dict[str, Any]) -> str:
         "",
         "## Expected values that change",
         "",
-        "No number changes. These expected values change form, as the spec requires:",
+        "No number changes. These expected values change form, as the spec requires: a",
+        "result pointer is written from the envelope root (G4, R11), and a list length counts",
+        "the ratios not defined that join `diagnostics.not_computed` (R5, R6):",
         "",
         *(flagged or ["- none"]),
         "",
         "## Expectations removed",
         "",
-        "A ratio asserted as defined (`not_defined: null`) has no entry in the diagnostics, so",
-        "no key holds the assertion. Each is removed only where the same case asserts the",
-        "ratio's value as a number, which implies it (R6).",
+        "Two cases. A ratio asserted as defined (`not_defined: null`) has no entry in the",
+        "diagnostics, so no key holds the assertion; it is removed only where the same case",
+        "asserts the ratio's value as a number, which implies it (R6). An output both not",
+        "defined and missing an input has one entry, `missing_input`, and its `not_defined` text",
+        "is dropped (R5, decision 14); the entry itself stays asserted at its new key.",
         "",
         *(dropped or ["- none"]),
         "",
@@ -688,7 +841,7 @@ def _kind_label(c: dict[str, Any]) -> str:
         old, new = next((a, b) for a, b in pairs if a != b)
         return f"rename `{old}` -> `{new}` in `{c['section']}`"
     if c["kind"] == "drop":
-        return f"removed from `{c['section']}` (implied by an expectation kept)"
+        return f"removed from `{c['section']}` (see Expectations removed)"
     if c["kind"] == "add":
         return f"added in `{c['new_section']}` (identity carried by the old key or index)"
     if c["kind"] == "unmapped":
@@ -786,9 +939,19 @@ def verify_file(old_text: str, new_text: str, entry: dict[str, Any]) -> list[str
     if sha(old_text) != entry["sha256"]:
         problems.append("the base file is not the file the plan was computed from")
     old, new = yaml.safe_load(old_text), yaml.safe_load(new_text)
+
+    def read(case: dict[str, Any], section: str, key: str) -> Any:
+        if section != "input":
+            return (case.get(section) or {}).get(key, "<absent>")
+        try:
+            path = [int(t) if t.isdigit() else t for t in tokens(key)]
+            return _at(case["input"], path)
+        except (KeyError, IndexError, TypeError):
+            return "<absent>"
+
     for c in entry["changes"]:
         if c["section"]:
-            got = (old.get(c["section"]) or {}).get(c["key"], "<absent>")
+            got = read(old, c["section"], c["key"])
             if got != c["value"]:
                 problems.append(f"{c['section']} {c['key']}: base has {got!r}, plan {c['value']!r}")
         if c["kind"] in ("rename", "move") and c["new_value"] != c["value"]:
@@ -797,16 +960,17 @@ def verify_file(old_text: str, new_text: str, entry: dict[str, Any]) -> list[str
             if c["key"] in (new.get(c["section"]) or {}):
                 problems.append(f"{c['section']} {c['key']}: dropped by the plan, still present")
             continue
-        got = (new.get(c["new_section"]) or {}).get(c["new_key"], "<absent>")
+        got = read(new, c["new_section"], c["new_key"])
         if got != c["new_value"]:
             problems.append(f"{c['new_section']} {c['new_key']}: {got!r}, want {c['new_value']!r}")
     try:
         want = transform(old, entry["changes"])
+        applied = apply_text(old_text, entry["changes"])
     except ValueError as err:
         return [*problems, str(err)]
     if new != want:
         problems.append("the file differs from the plan applied to the base")
-    if new_text != apply_text(old_text, entry["changes"]):
+    if new_text != applied:
         problems.append("the text differs from `apply` (lines that do not move must be kept)")
     return problems
 

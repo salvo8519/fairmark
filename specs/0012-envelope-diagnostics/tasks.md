@@ -21,10 +21,12 @@ migrate the golden keys of their own changes, and T16 adds new cases.
 - [ ] T5 Envelope tests in `registry.rs`: key order, `envelope_version`, no `explain.method`,
   empty arrays present and required in every result schema [R1 to R4; AC1 to AC3]
 - [ ] T6 Warning tests, one per code FM-W001 to FM-W016, and the echo test [R8, R9; AC7]
-- [ ] T7 Not computed and checks tests for the ratios and the statements, defaults key test
-  [R5 to R7, R10, R12; AC4 to AC6, AC8, AC9]
-- [ ] T8 Pointer and determinism tests: naming walk over every result schema, pointer
-  resolution and byte-identical diagnostics over golden inputs [R11 to R13; AC10, AC11]
+- [ ] T7 Not computed and checks tests for the ratios and the statements, defaults key test,
+  and the precedence test of decision 14 (missing input before not defined: one entry per
+  output) [R5 to R7, R10, R12; AC4 to AC6, AC8, AC9, AC17]
+- [ ] T8 Pointer and determinism tests: naming walk over every input and result schema, no
+  exemption, pointer resolution and byte-identical diagnostics over golden inputs [R11 to R13;
+  AC10, AC11]
 - [ ] T9 [P] Catalogue test: every emitted code documented, every documented code emitted, no
   `warning` literal outside the warning API [R16; AC14]
 - [ ] T10 [P] Analysis diagnostics tests (sensitivity once under `/base_input`, goal seek under
@@ -47,7 +49,9 @@ its approved files and `verify` in the same commit, so every commit passes `just
   renamed, `VERSION` = "2", `uv run just generate` (snapshots, index), golden migration of
   `tests/golden/statements.reorganise` [R5, R7, R12, R18; AC6, AC15, AC16]
 - [ ] T15 Analyses report nested diagnostics once; goal seek rebases the solved evaluation;
-  golden migration of the `analysis.*` cases on the list [R14; AC12, AC16]
+  pointer fields renamed on the input and the output side (decision 13), the four `VERSION` =
+  "2", `uv run just generate`; golden migration of the `analysis.*` cases on the list [R12,
+  R14, R18; AC10, AC12, AC15, AC16]
 - [ ] T16 Golden case for the envelope: one new case per bumped method family with
   `expect_diagnostics`, source noted [R5 to R7; AC4 to AC6]
 - [ ] T17 Envelope snapshot `schemas/envelope/v1.json`, `envelope` entry in

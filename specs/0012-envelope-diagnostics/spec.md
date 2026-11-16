@@ -28,6 +28,9 @@ when no contract has reached a user.
   the six `ratios.*` methods), and the reason of a ratio that is not defined into
   `diagnostics.not_computed` with `reason_code` `not_defined`, with a version bump of each of
   these seven methods in the same change.
+- The pointer fields of the analyses renamed to the G4 grammar on the input and the output
+  side, with a version bump of `analysis.goal_seek`, `analysis.scenarios`,
+  `analysis.sensitivity` and `analysis.tornado` (decision 13 of 2026-11-17).
 - Every `warning: ` convention, the rounding warning of #279 included, becomes a coded entry of
   `diagnostics.warnings`; the analysis preview convention gets a code too. Catalogue page
   `docs/en/reference/warnings.md` (and its Italian edition) and a test that every emitted warning
@@ -76,6 +79,28 @@ Recorded from the maintainer's review of the draft (22:29 and 23:51 Europe/Rome)
     where they change a contract; extra pre-release versions are accepted because nothing is
     released.
 
+## Decisions of 2026-11-17
+Taken by the orchestrator under the maintainer's mandate of 2026-11-17 ("one rule, no
+exceptions; no number changes"), on the questions raised by T1 and T3.
+
+13. **Analysis pointer fields follow G4, on every side.** AC10 has no exemption. The fields of
+    the analyses that hold pointers are renamed on the input and the output side alike:
+    `analysis.goal_seek` input `output` → `output_pointer`, `variable` → `variable_pointer`;
+    `analysis.scenarios` input `outputs` → `output_pointers`, output `BaseOutput.output` and
+    `ScenarioOutput.output` → `output_pointer`; `analysis.sensitivity` input and output
+    `output` → `output_pointer`, `Axis.variable` → `variable_pointer` (the axis is echoed in
+    the output); `analysis.tornado` input `output` → `output_pointer`,
+    `TornadoVariable.variable` → `variable_pointer`, output `output` → `output_pointer`,
+    `TornadoBar.variable` → `variable_pointer`. Each of the four methods goes from v1 to v2 in
+    this change (breaking input and output changes; extra pre-release versions are accepted,
+    decision 12). `analysis.goal_seek` and the input `outputs` of `analysis.scenarios` were not
+    named in the decision: they follow from its rule (AC10 on every input schema).
+14. **Missing input before not defined.** A diagnostics entry is one per output (R5). When an
+    output is both not defined and missing an input, its single entry has `reason_code`
+    `missing_input`, with the missing pointers of today in `missing_any_of`: the missing input
+    is the actionable cause, and an output not computed for lack of input has no defined or
+    undefined status. The `not_defined` text of that output is dropped.
+
 ## Inventory of the current code (main at the start of #259)
 Read from `crates/fairmark-core/src`. Task T1 of `tasks.md` re-runs the inventory with a script
 and adds any site missed here before the code changes.
@@ -121,15 +146,17 @@ adds those of the reclassified form. The outcome fields of `ratios.covenants`
 (`not_tested_code`, `not_tested_reason`) are results of the test, not diagnostics, and stay in
 `value`.
 
-No other method's output changes. The `value` of `analysis.goal_seek` (`inner_value`,
+No other method's output moves a list. The `value` of `analysis.goal_seek` (`inner_value`,
 `solved_input`) follows the schema of the inner method through `x-fairmark-output-of` and
-`x-fairmark-input-of`, so its own schema does not change; the removal of `explain.method` and the
+`x-fairmark-input-of`, so it moves nothing itself; the removal of `explain.method` and the
 other envelope changes are covered by `envelope_version` (decision 2). T1 confirms this with a
-scan of every output schema for `not_computed`, `checks` and `not_defined`.
+scan of every output schema for `not_computed`, `checks` and `not_defined`. The analyses change
+version for the renames of decision 13 only.
 
 Fields inside `value` that hold pointers and are not named per G4 (statements only, verified):
 `Assignment.aggregate`, `AppliedAdjustment.source`, `NfpComponent.source`,
-`ReconciliationLine.sources`. The schema test of AC10 finds any other in the bumped methods.
+`ReconciliationLine.sources`. The fields of the analyses that hold pointers are renamed by
+decision 13. The schema test of AC10 finds any other, in every input and result schema.
 
 ### Inventory script (T1)
 `scripts/envelope_inventory.py` re-ran the inventory on 2026-11-17 (head `a3c8c70`). It confirms:
@@ -137,8 +164,8 @@ fifteen `warning: ` emission sites and the preview convention, one site per code
 FM-W016 (the literal in `registry.rs` `rounded_on_reading` is the goal-seek filter, not an
 emission); thirteen production calls of `DefaultApplied::new` or `destination`, those of the
 defaults table below; `not_computed`, `checks` or `not_defined` in the current output schema of
-exactly the seven methods of R18 and of no other method (`analysis.goal_seek` included), so no
-other method needs a version bump; the four statements pointer fields of R12. Differences, now
+exactly the seven methods that move lists and of no other method (`analysis.goal_seek`
+included); the four statements pointer fields of R12. Differences, now
 written into the tables of this section:
 
 - FM-W013 is emitted by `ratios.capital_structure` and `ratios.debt_service` only, the two
@@ -156,8 +183,11 @@ written into the tables of this section:
 - Output fields of methods not bumped that hold pointers and are not named per G4:
   `analysis.scenarios` `BaseOutput.output` and `ScenarioOutput.output`, `analysis.sensitivity`
   `output` and `Axis.variable` (their descriptions say pointer), and `analysis.tornado` `output`
-  and `TornadoBar.variable` (pointers whose descriptions do not say so). R12 does not reach them
-  (no bump), but the schema test of AC10 runs over every result schema: see "Open questions".
+  and `TornadoBar.variable` (pointers whose descriptions do not say so); on the input side
+  `analysis.goal_seek` `output` and `variable`, `analysis.scenarios` `outputs`,
+  `analysis.sensitivity` `output` and `Axis.variable`, `analysis.tornado` `output` and
+  `TornadoVariable.variable`. Settled by decision 13: all renamed, the four analyses bumped.
+  No input schema of any other method has a pointer field outside the G4 grammar.
 
 ### Defaults applied (`meta.defaults_applied`, key `field` today)
 | Method | Pointer | Value | Warned today |
@@ -227,7 +257,10 @@ Keys are serialised in this order (`meta.evaluated_method_status`, analyses only
   `{treatment, destinations}` becomes `{pointer, values}`, and the choice is also in
   `missing_any_of`), `not_applicable` when no input could supply it in the form given (today a
   missing set that is empty, for example a statutory output of a reclassified entry), and
-  `not_defined` for a ratio that a given term makes not defined. `reason` SHALL never be null.
+  `not_defined` for a ratio that a given term makes not defined. `reason` SHALL never be null. An
+  output SHALL have one entry: WHEN an output is both not defined and missing an input, its
+  entry SHALL have `reason_code` `missing_input`, and its `not_defined` text SHALL be dropped
+  (decision 14).
 - **R6** — THE ENGINE SHALL no longer write `not_computed` inside `value`
   (`statements.reorganise`, the six `ratios.*` methods), nor `not_defined` inside a ratio: a
   ratio is the object `{value}`, `value` null when not defined or not computed, and its reason
@@ -250,12 +283,13 @@ Keys are serialised in this order (`meta.evaluated_method_status`, analyses only
   `~1` for `/`): a pointer into the result from the envelope root (`/value/...`, `/meta/...`);
   a pointer into the input from the root of the input the client sent (inside an analysis, under
   `/base_input`); the root of each warning pointer as its catalogue entry states.
-- **R12** — THE ENGINE SHALL name every envelope field and every output field of a method
-  version bumped here that holds pointers `pointer` or `pointers`, or with a name ending in
+- **R12** — THE ENGINE SHALL name every envelope field, and every input and output field of
+  every method, that holds pointers `pointer` or `pointers`, or with a name ending in
   `_pointer` (one pointer) or `_pointers` (a list), except `missing_any_of` (G4 as amended,
   decision 7). In `statements.reorganise` v2: `Assignment.aggregate` → `aggregate_pointer`,
   `AppliedAdjustment.source` → `source_pointer`, `NfpComponent.source` → `source_pointer`,
-  `ReconciliationLine.sources` → `source_pointers`.
+  `ReconciliationLine.sources` → `source_pointers`. In the analyses v2, the renames of
+  decision 13, on the input and the output side.
 - **R13** — THE ENGINE SHALL order every diagnostics array deterministically: `not_computed` by
   `pointer` in the order of `ratios::pointer_cmp` (array indices as numbers); `warnings` in the
   order of their echo in `explain.conventions`; `checks` per R7. The same input and versions
@@ -278,14 +312,15 @@ Keys are serialised in this order (`meta.evaluated_method_status`, analyses only
 - **R17** — THE PROJECT SHALL snapshot the envelope as `schemas/envelope/v1.json` with an
   `envelope` entry in `schemas/index.json`, immutable like the method snapshots (decision 10).
 - **R18** — THE PROJECT SHALL, in the same change that moves the lists out of `value`, bump the
-  version of every method whose output changes shape: `statements.reorganise` v1 → v2 and
+  version of every method whose input or output changes shape: `statements.reorganise` v1 → v2;
   `ratios.profitability`, `ratios.capital_structure`, `ratios.liquidity`,
-  `ratios.working_capital`, `ratios.debt_service` and `ratios.covenants` v2 → v3, each with
-  `schemas/<method>/v<N>.json` and `v<N>.output.json` and its entry in `schemas/index.json`.
-  No list is written both in `value` and in `diagnostics` at any commit on main. Earlier
-  snapshots are never edited. #263 and #266 bump these methods again when they change their
-  contracts (decision 12). No other method changes version: the envelope changes are covered by
-  `envelope_version`.
+  `ratios.working_capital`, `ratios.debt_service` and `ratios.covenants` v2 → v3; and, for the
+  renames of decision 13, `analysis.goal_seek`, `analysis.scenarios`, `analysis.sensitivity`
+  and `analysis.tornado` v1 → v2; each with `schemas/<method>/v<N>.json` and
+  `v<N>.output.json` and its entry in `schemas/index.json`. No list is written both in `value`
+  and in `diagnostics` at any commit on main. Earlier snapshots are never edited. #263 and #266
+  bump these methods again when they change their contracts (decision 12). No other method
+  changes version: the envelope changes are covered by `envelope_version`.
 - **R19** — THE ENGINE SHALL keep the floor of G10 and the error report of G5 unchanged: a
   diagnostic is never an error, an error is never a diagnostic, and no computed number changes.
 - **R20** — THE PROJECT SHALL record decision 7 as an amendment of ADR 0014 G4 (maintainer
@@ -349,10 +384,13 @@ Minimum input (G10): unchanged for every method; this spec adds no field to any 
   `diagnostics.warnings` contains FM-W012 at `/net_financial_position`; with
   `{"gross_debt": 0, "cash": 0}` neither appears (maintainer decision 2 of 2026-11-09).
 - **AC9** (R10) — No `meta.defaults_applied` entry of any golden result has a key `field`.
-- **AC10** (R11, R12, R20) — Schema test over every result schema: every property whose
-  description says it holds a JSON pointer is named `pointer`, `pointers`, `*_pointer`,
-  `*_pointers` or `missing_any_of`; property test over golden results: every envelope pointer
-  resolves in the result (`/value/...`) or in the input sent, as its field states.
+- **AC10** (R11, R12, R20) — Schema test over every input schema and every result schema of
+  every method, with no exemption (decision 13): every property that holds a JSON pointer (a
+  string, or a list of strings, whose description says it is a JSON pointer) is named
+  `pointer`, `pointers`, `*_pointer`, `*_pointers` or `missing_any_of`; a property that holds
+  objects carrying pointers (for example `Scenario.overrides`) is not itself a pointer field.
+  Property test over golden results: every envelope pointer resolves in the result
+  (`/value/...`) or in the input sent, as its field states.
 - **AC11** (R13) — Two runs of every golden input give byte-identical `diagnostics`; reversing
   the order of the keys of the input changes nothing.
 - **AC12** (R14) — `analysis.sensitivity` of a `dcf.fcff` without a net financial position:
@@ -365,12 +403,18 @@ Minimum input (G10): unchanged for every method; this spec adds no field to any 
 - **AC14** (R16) — The catalogue test of R16 passes, and fails on a planted undocumented code and
   on a planted `warning:` literal outside the warning API.
 - **AC15** (R17, R18) — The schema check passes: `schemas/envelope/v1.json` exists and is
-  listed; `statements.reorganise` v2 and the six `ratios.*` v3 have input and output snapshots
-  and index entries; no current output schema has `not_computed`, `checks` or `not_defined`; the
+  listed; `statements.reorganise` v2, the six `ratios.*` v3 and the four `analysis.*` v2 have
+  input and output snapshots and index entries; no current output schema has `not_computed`, `checks` or `not_defined`; the
   snapshots of earlier versions are byte-identical to `origin/main`.
 - **AC16** (R19) — Every `expect` value of every golden case, read at its new location, equals
   the value on `origin/main` (no numerical change); every `expect_error` case keeps its code and
   report.
+- **AC17** (R5, decision 14) — Unit test: `ratios.debt_service` without a debt schedule, and
+  `ratios.profitability` with negative invested capital and no leverage inputs (the inputs of
+  the golden cases `no-debt-schedule` and `negative-invested-capital`): `/value/llcr`,
+  `/value/roe_leverage/roe` and `/value/roe_leverage/cost_of_debt` each have exactly one entry in
+  `diagnostics.not_computed`, with `reason_code` `missing_input` and the missing pointers of
+  today in `missing_any_of`; no entry with `reason_code` `not_defined` has their pointer.
 
 ## Golden cases
 No expected number changes. Expected names change, so every case touched needs the maintainer's
@@ -387,6 +431,9 @@ categories are:
   `/not_computed` and every `/.../not_defined` key move to the diagnostics.
 - Every case with an `expect_meta` key `/defaults_applied/{k}/field`.
 - `analysis.*` cases whose `expect` reads `not_computed` or `not_defined` inside an inner value.
+- `tests/golden/analysis.*/*` (decision 13): the input keys renamed (`output`, `variable`,
+  `outputs` and the `variable` of an axis or of a tornado variable) and the `expect` keys of
+  the renamed output fields (for example `/ranking/{i}/variable`); values unchanged.
 
 The runners (Rust `crates/fairmark-core/tests/golden.rs` and Python) gain the optional keys
 `expect_diagnostics` and `expect_diagnostics_length`, with pointers into `diagnostics`; adding
@@ -397,11 +444,13 @@ the keys is tooling, moving expectations into them is the golden change that nee
   `meta.evaluated_method_status` stays an optional field beside the G4 list (ADR 0012), and
   `diagnostics.checks[]` carries `pointer` (decision 4).
 - Minimum input (floor, ADR 0014 G10): unchanged for every method; no new error code.
-- Method ids: none added. Versions: `statements.reorganise` v2, the six `ratios.*` v3; no other
-  method changes version.
-- Input schema changes: none (the new versions copy their inputs unchanged).
+- Method ids: none added. Versions: `statements.reorganise` v2, the six `ratios.*` v3, and
+  `analysis.goal_seek`, `analysis.scenarios`, `analysis.sensitivity`, `analysis.tornado` v2; no
+  other method changes version.
+- Input schema changes: the analysis pointer fields renamed (decision 13, breaking); the other
+  new versions copy their inputs unchanged.
 - Output changes: breaking for the bumped methods (fields removed from `value`, `not_defined`
-  removed, pointer fields renamed); envelope version 1: `diagnostics` and
+  removed, pointer fields renamed, the analyses' pointer fields renamed); envelope version 1: `diagnostics` and
   `meta.envelope_version` added, `explain.method` removed, `meta.defaults_applied[].field`
   renamed `pointer` and always present.
 - Documentation: `docs/en/reference/warnings.md` (new) and its Italian edition, the envelope
@@ -411,10 +460,6 @@ the keys is tooling, moving expectations into them is the golden change that nee
 ## Open questions
 None: the questions of the draft were settled by the maintainer decisions of 2026-11-16.
 
-Raised by T1 (2026-11-17), for the maintainer before T8:
-
-- **Q1. Analysis pointer fields and AC10.** The schema test of AC10 ("every result schema")
-  fails on the analysis fields listed in "Inventory script (T1)", which R12 and R18 leave
-  unchanged. Either the AC10 schema test covers the envelope and the methods bumped here only,
-  with the analysis fields left to a later spec of the analyses, or those fields are renamed
-  (`output_pointer`, `variable_pointer`) with a version bump of the analyses, against R18.
+Raised by T1 and T3 (2026-11-17) and settled by decisions 13 and 14 of 2026-11-17: the
+analysis pointer fields and AC10 (decision 13); the three golden keys of an output both not
+defined and missing an input (decision 14).

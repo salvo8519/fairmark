@@ -29,7 +29,8 @@ gate (method versions are bumped and golden keys move), although no computed num
 - **`not_computed.rs`.** `NotComputedEntry` and its `Permitted` are replaced by the types above;
   the module keeps a converter from the method-internal form (`output`, `missing`,
   `permitted`, `reason`) to `NotComputed`, so `NotComputedList` (ratios) and `Outputs`
-  (statements) change only their final step.
+  (statements) change only their final step. A ratio listed by `NotComputedList` keeps that entry
+  (`missing_input`) and its `not_defined` text is dropped (decision 14).
 - **`explain.rs`.** `Explain` loses `method` (R2) and gains the private diagnostics collector.
   `DefaultApplied.field` is renamed `pointer` (R10); `Meta` gains `envelope_version: u32`
   (constant `ENVELOPE_VERSION = 1`) and serialises `defaults_applied` always (R3, R4).
@@ -52,7 +53,9 @@ gate (method versions are bumped and golden keys move), although no computed num
 - **Analyses (scope `analysis`).** `registry::evaluate` returns the inner envelope; the
   analyses read its `diagnostics`: warnings of the base evaluation once, input pointers prefixed
   `/base_input`; `analysis.goal_seek` adds the inner `not_computed` and `checks`, result pointers
-  rebased from `/value/...` to `/value/inner_value/...` (R14).
+  rebased from `/value/...` to `/value/inner_value/...` (R14). The pointer fields of decision 13
+  are renamed in the input and output types (serde names), the four `VERSION` constants become
+  "2" (R12, R18).
 
 ### Building blocks reused
 `registry::execute` stays the one place that builds the envelope; `ratios::pointer_cmp` orders
@@ -73,12 +76,14 @@ instead of text; the schema walk of `reading.rs` is reused by the pointer-naming
   method with its `value` replaced by `{"type": "object"}`; `schemas/index.json` gains an
   `envelope` entry with the same fields as a method entry. `scripts` schema immutability check
   extended to it.
-- **Methods (breaking output changes, R18):** `statements.reorganise` v2, `ratios.*` v3 (six).
-  Input schemas copied unchanged into `v<N>.json`; output schemas `v<N>.output.json` without
+- **Methods (breaking output changes, R18):** `statements.reorganise` v2, `ratios.*` v3 (six);
+  `analysis.goal_seek`, `analysis.scenarios`, `analysis.sensitivity`, `analysis.tornado` v2
+  (breaking input and output renames of decision 13, inputs no longer copied unchanged).
+  Other input schemas copied unchanged into `v<N>.json`; output schemas `v<N>.output.json` without
   `not_computed`, `checks`, `not_defined`, with the renamed pointer fields. Commit trailers
   `Numerical-change:` are not used (no number changes); the commit bodies state
   `Breaking-change: <method> v<N> -> v<N+1>` per the release notes rules.
-- **No input change, no new error code.**
+- **No input change outside the analyses (decision 13), no new error code.**
 
 ## Numerical approach
 None: no formula changes. Every value in `value` keeps its digits; AC16 proves it.
@@ -98,7 +103,11 @@ None: no formula changes. Every value in `value` keeps its digits; AC16 proves i
   commit passes `just check`.
 - **Unit and property tests** (Rust, in the modules they test): AC1 to AC3, AC7 to AC11, AC14 in
   `registry.rs`, `diagnostics.rs` and the method modules; AC4 to AC6 in `ratios/*.rs` and
-  `statements/*.rs`; AC12 in `analysis/*.rs`.
+  `statements/*.rs`; AC12 in `analysis/*.rs`. AC17 (decision 14): a unit test in
+  `ratios/debt_service.rs` (no debt schedule: `/value/llcr` once, `missing_input`) and one in
+  `ratios/profitability.rs` (negative invested capital without leverage inputs:
+  `/value/roe_leverage/roe` and `/value/roe_leverage/cost_of_debt` once each, `missing_input`,
+  no `not_defined` entry with their pointer).
 - **Schema tests:** AC10 (pointer naming), AC15 (snapshots, no forbidden fields in current
   output schemas) in `registry.rs` and `scripts/schemas` checks.
 - **Adapters:** AC13 in `python/tests/test_envelope.py` (Python, tools, MCP) and a CLI test in

@@ -5,10 +5,14 @@ SPEC-0012 (task T3). Machine-readable plan: `golden-migration.json` in this fold
 `apply` reads it, `verify` checks every migrated file against it (AC16). No golden file
 is changed before the maintainer approves this list by name.
 
-Files that change: 118.
+Files that change: 131.
 
 | Folder | Files |
 | --- | --- |
+| `analysis.goal_seek` | 7 |
+| `analysis.scenarios` | 2 |
+| `analysis.sensitivity` | 2 |
+| `analysis.tornado` | 2 |
 | `dcf.fcff` | 2 |
 | `ratios.capital_structure` | 3 |
 | `ratios.covenants` | 6 |
@@ -25,12 +29,15 @@ Files that change: 118.
 | moved `expect_length` -> `expect_diagnostics_length` (value changes form) | 1 |
 | moved `expect` -> `expect_diagnostics` | 326 |
 | moved `expect` -> `expect_diagnostics` (value changes form) | 115 |
-| removed from `expect` (implied by an expectation kept) | 3 |
+| removed from `expect` (see Expectations removed) | 6 |
 | rename `aggregate` -> `aggregate_pointer` in `expect` | 2 |
 | rename `field` -> `pointer` in `expect_meta` | 304 |
+| rename `output` -> `output_pointer` in `input` | 11 |
+| rename `outputs` -> `output_pointers` in `input` | 2 |
 | rename `source` -> `source_pointer` in `expect` | 23 |
 | rename `sources` -> `source_pointers` in `expect` | 54 |
-| unmapped | 3 |
+| rename `variable` -> `variable_pointer` in `expect` | 6 |
+| rename `variable` -> `variable_pointer` in `input` | 16 |
 
 Renamed keys stay in their section. Moved keys go to `expect_diagnostics` or
 `expect_diagnostics_length`, at the index of R7 (checks by year, then relation id) or
@@ -40,7 +47,9 @@ defined, `reason_code` `not_defined`.
 
 ## Expected values that change
 
-No number changes. These expected values change form, as the spec requires:
+No number changes. These expected values change form, as the spec requires: a
+result pointer is written from the envelope root (G4, R11), and a list length counts
+the ratios not defined that join `diagnostics.not_computed` (R5, R6):
 
 - `tests/golden/ratios.capital_structure/equity-ratio-only.yaml`: `expect` `/not_computed/0/output`: '/net_financial_position' -> '/value/net_financial_position' (a result pointer is written from the envelope root)
 - `tests/golden/ratios.capital_structure/equity-ratio-only.yaml`: `expect` `/not_computed/1/output`: '/debt_to_equity' -> '/value/debt_to_equity' (a result pointer is written from the envelope root)
@@ -161,23 +170,100 @@ No number changes. These expected values change form, as the spec requires:
 
 ## Expectations removed
 
-A ratio asserted as defined (`not_defined: null`) has no entry in the diagnostics, so
-no key holds the assertion. Each is removed only where the same case asserts the
-ratio's value as a number, which implies it (R6).
+Two cases. A ratio asserted as defined (`not_defined: null`) has no entry in the
+diagnostics, so no key holds the assertion; it is removed only where the same case
+asserts the ratio's value as a number, which implies it (R6). An output both not
+defined and missing an input has one entry, `missing_input`, and its `not_defined` text
+is dropped (R5, decision 14); the entry itself stays asserted at its new key.
 
 - `tests/golden/ratios.covenants/one-breach.yaml`: `expect` `/covenants/0/headroom_relative/not_defined`: 'null' (the ratio is defined: `/covenants/0/headroom_relative/value` is asserted as '0.095238095238095238095238095238095238095238095238094')
+- `tests/golden/ratios.debt_service/no-debt-schedule.yaml`: `expect` `/llcr/not_defined`: 'no debt schedule given' (the output is also missing an input: its one entry is missing_input and the not_defined text is dropped (R5, decision 14 of 2026-11-17))
 - `tests/golden/ratios.debt_service/zero-denominators.yaml`: `expect` `/dscr/1/not_defined`: 'null' (the ratio is defined: `/dscr/1/value` is asserted as '1.5')
 - `tests/golden/ratios.profitability/negative-equity.yaml`: `expect` `/roi/not_defined`: 'null' (the ratio is defined: `/roi/value` is asserted as '0.083333333333333333333333333333333333333333333333333')
+- `tests/golden/ratios.profitability/negative-invested-capital.yaml`: `expect` `/roe_leverage/roe/not_defined`: 'leverage inputs not given' (the output is also missing an input: its one entry is missing_input and the not_defined text is dropped (R5, decision 14 of 2026-11-17))
+- `tests/golden/ratios.profitability/negative-invested-capital.yaml`: `expect` `/roe_leverage/cost_of_debt/not_defined`: 'leverage inputs not given' (the output is also missing an input: its one entry is missing_input and the not_defined text is dropped (R5, decision 14 of 2026-11-17))
 
 ## Keys without a rule: maintainer decision needed
 
 `apply` refuses a file with one of these keys until the plan gives it a rule.
 
-- `tests/golden/ratios.debt_service/no-debt-schedule.yaml`: `expect` `/llcr/not_defined`: 'no debt schedule given' (the output is also listed as not computed for a missing input: one entry with reason_code missing_input and the reason of that list (R5); the spec does not say where this text goes)
-- `tests/golden/ratios.profitability/negative-invested-capital.yaml`: `expect` `/roe_leverage/roe/not_defined`: 'leverage inputs not given' (the output is also listed as not computed for a missing input: one entry with reason_code missing_input and the reason of that list (R5); the spec does not say where this text goes)
-- `tests/golden/ratios.profitability/negative-invested-capital.yaml`: `expect` `/roe_leverage/cost_of_debt/not_defined`: 'leverage inputs not given' (the output is also listed as not computed for a missing input: one entry with reason_code missing_input and the reason of that list (R5); the spec does not say where this text goes)
+- none
 
 ## Files
+
+### `tests/golden/analysis.goal_seek/dcf-implied-discount-rate.yaml`
+
+- `input` `/output` -> `input` `/output_pointer`
+- `input` `/variable` -> `input` `/variable_pointer`
+
+### `tests/golden/analysis.goal_seek/error-report-inner-pointer.yaml`
+
+- `input` `/output` -> `input` `/output_pointer`
+- `input` `/variable` -> `input` `/variable_pointer`
+
+### `tests/golden/analysis.goal_seek/irr-via-npv.yaml`
+
+- `input` `/output` -> `input` `/output_pointer`
+- `input` `/variable` -> `input` `/variable_pointer`
+
+### `tests/golden/analysis.goal_seek/nested-analysis.yaml`
+
+- `input` `/output` -> `input` `/output_pointer`
+- `input` `/variable` -> `input` `/variable_pointer`
+
+### `tests/golden/analysis.goal_seek/no-convergence.yaml`
+
+- `input` `/output` -> `input` `/output_pointer`
+- `input` `/variable` -> `input` `/variable_pointer`
+
+### `tests/golden/analysis.goal_seek/target-not-bracketed.yaml`
+
+- `input` `/output` -> `input` `/output_pointer`
+- `input` `/variable` -> `input` `/variable_pointer`
+
+### `tests/golden/analysis.goal_seek/variable-not-a-decimal.yaml`
+
+- `input` `/output` -> `input` `/output_pointer`
+- `input` `/variable` -> `input` `/variable_pointer`
+
+### `tests/golden/analysis.scenarios/dcf-three-cases.yaml`
+
+- `input` `/outputs` -> `input` `/output_pointers`
+
+### `tests/golden/analysis.scenarios/zero-base.yaml`
+
+- `input` `/outputs` -> `input` `/output_pointers`
+
+### `tests/golden/analysis.sensitivity/wacc-g-5x5.yaml`
+
+- `input` `/output` -> `input` `/output_pointer`
+- `input` `/rows/variable` -> `input` `/rows/variable_pointer`
+- `input` `/columns/variable` -> `input` `/columns/variable_pointer`
+
+### `tests/golden/analysis.sensitivity/wacc-one-way.yaml`
+
+- `input` `/output` -> `input` `/output_pointer`
+- `input` `/rows/variable` -> `input` `/rows/variable_pointer`
+
+### `tests/golden/analysis.tornado/dcf-four-drivers.yaml`
+
+- `input` `/output` -> `input` `/output_pointer`
+- `input` `/variables/0/variable` -> `input` `/variables/0/variable_pointer`
+- `input` `/variables/1/variable` -> `input` `/variables/1/variable_pointer`
+- `input` `/variables/2/variable` -> `input` `/variables/2/variable_pointer`
+- `input` `/variables/3/variable` -> `input` `/variables/3/variable_pointer`
+- `expect` `/ranking/0/variable` -> `expect` `/ranking/0/variable_pointer`
+- `expect` `/ranking/1/variable` -> `expect` `/ranking/1/variable_pointer`
+- `expect` `/ranking/2/variable` -> `expect` `/ranking/2/variable_pointer`
+- `expect` `/ranking/3/variable` -> `expect` `/ranking/3/variable_pointer`
+
+### `tests/golden/analysis.tornado/npv-tie.yaml`
+
+- `input` `/output` -> `input` `/output_pointer`
+- `input` `/variables/0/variable` -> `input` `/variables/0/variable_pointer`
+- `input` `/variables/1/variable` -> `input` `/variables/1/variable_pointer`
+- `expect` `/ranking/0/variable` -> `expect` `/ranking/0/variable_pointer`
+- `expect` `/ranking/1/variable` -> `expect` `/ranking/1/variable_pointer`
 
 ### `tests/golden/dcf.fcff/net-financial-position-default-explicit.yaml`
 
@@ -319,7 +405,7 @@ ratio's value as a number, which implies it (R6).
 
 ### `tests/golden/ratios.debt_service/no-debt-schedule.yaml`
 
-- UNMAPPED `expect` `/llcr/not_defined`: 'no debt schedule given'
+- removed `expect` `/llcr/not_defined`: 'no debt schedule given' (the output is also missing an input: its one entry is missing_input and the not_defined text is dropped (R5, decision 14 of 2026-11-17))
 
 ### `tests/golden/ratios.debt_service/non-positive-ebitda.yaml`
 
@@ -522,8 +608,8 @@ ratio's value as a number, which implies it (R6).
 - `expect` `/roi/not_defined` -> `expect_diagnostics` `/not_computed/7/reason`
 - added `expect_diagnostics` `/not_computed/7/pointer`: '/value/roi' (carried by the old key: the ratio and that it is not defined)
 - added `expect_diagnostics` `/not_computed/7/reason_code`: 'not_defined' (carried by the old key: the ratio and that it is not defined)
-- UNMAPPED `expect` `/roe_leverage/roe/not_defined`: 'leverage inputs not given'
-- UNMAPPED `expect` `/roe_leverage/cost_of_debt/not_defined`: 'leverage inputs not given'
+- removed `expect` `/roe_leverage/roe/not_defined`: 'leverage inputs not given' (the output is also missing an input: its one entry is missing_input and the not_defined text is dropped (R5, decision 14 of 2026-11-17))
+- removed `expect` `/roe_leverage/cost_of_debt/not_defined`: 'leverage inputs not given' (the output is also missing an input: its one entry is missing_input and the not_defined text is dropped (R5, decision 14 of 2026-11-17))
 
 ### `tests/golden/ratios.profitability/roe-only.yaml`
 
