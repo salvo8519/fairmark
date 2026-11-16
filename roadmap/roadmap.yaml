@@ -96,6 +96,7 @@ milestones:
           - { issue: 192, title: "Golden case protection hook applies in every git worktree", status: done }
           - { issue: 210, title: "Rule for external analysis failures before merge", status: done }
           - { issue: 239, title: "Pin release build and smoke images by digest", status: done }
+          - { issue: 339, title: "Workspace report test runs without background git maintenance", status: done }
       - title: "Community infrastructure"
         issue: 15
         labels: ["area:infra"]
