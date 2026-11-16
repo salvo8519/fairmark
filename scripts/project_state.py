@@ -11,6 +11,7 @@ with CI and review state, the active sprint, issues in progress and issues ready
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import subprocess
@@ -22,8 +23,16 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _sprint_module() -> Any:
+    """scripts/sprint.py, which owns the location of the runtime sprint state (#333)."""
+    spec = importlib.util.spec_from_file_location("sprint", ROOT / "scripts" / "sprint.py")
+    module = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    return module
+
+
 def _state_line(path: Path) -> str:
-    """One line of per-issue sprint state for the briefing (sprints/SNN/state/*.yaml)."""
+    """One line of per-issue sprint state for the briefing (scripts/sprint.py state files)."""
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         return ""
@@ -129,11 +138,7 @@ def collect() -> dict[str, Any]:
                 "issues": [n for lane in data["lanes"] for n in lane.get("issues", [])],
             }
             sprint["state"] = [
-                line
-                for line in (
-                    _state_line(p) for p in sorted((f.with_suffix("") / "state").glob("*.yaml"))
-                )
-                if line
+                line for line in (_state_line(p) for p in _sprint_module().state_files(f)) if line
             ]
     state["active_sprint"] = sprint
     open_numbers = {i["number"] for i in issues}
@@ -194,7 +199,7 @@ def render(s: dict[str, Any]) -> str:
             f"{sp['file']}: {sp['goal']} (ends {sp['end']}); "
             f"{len(s['sprint_done'])}/{len(sp['issues'])} issues closed."
         )
-        out += *(
+        out += (
             ["Per-issue state (sprints state files, local recovery):"]
             + [f"- {line}" for line in sp.get("state") or []]
             if sp.get("state")

@@ -147,3 +147,103 @@ def test_command_line_state_validates_the_sprint_first(tmp_path: Path) -> None:
     broken.write_text("id: S02\nstatus: maybe\n", encoding="utf-8")
     with pytest.raises(SystemExit, match="Invalid sprint file"):
         sp.main(["state", str(broken), "1", "--step", "spec"])
+
+
+# ------------------------------------------------------------------------------------------
+# Shared state across worktrees (issue #333)
+
+
+def _git(cwd: Path, *args: str) -> str:
+    import subprocess
+
+    env = {
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@example.invalid",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@example.invalid",
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "HOME": str(cwd),
+        "PATH": __import__("os").environ["PATH"],
+    }
+    return subprocess.run(
+        ["git", *args], cwd=cwd, env=env, capture_output=True, text=True, check=True
+    ).stdout
+
+
+@pytest.fixture
+def repo_with_worktree(tmp_path: Path) -> tuple[Path, Path]:
+    """A repository with sprints/S01.yaml committed and a second worktree of it."""
+    main = tmp_path / "main"
+    (main / "sprints").mkdir(parents=True)
+    _git(main, "init", "-q", "-b", "main")
+    sprint_file(main / "sprints")
+    _git(main, "add", ".")
+    _git(main, "commit", "-q", "-m", "sprint")
+    lane = tmp_path / "lane"
+    _git(main, "worktree", "add", "-q", str(lane), "-b", "fix/12-lane")
+    return main, lane
+
+
+def test_state_written_from_a_worktree_is_read_from_the_main_checkout(
+    repo_with_worktree: tuple[Path, Path], fixed_now: None
+) -> None:
+    main, lane = repo_with_worktree
+    sp.write_state(lane / "sprints" / "S01.yaml", 12, step="tests")
+    state = sp.read_state(main / "sprints" / "S01.yaml", 12)
+    assert state is not None and state["step"] == "tests"
+
+
+def test_shared_state_lives_in_the_git_common_dir_outside_the_working_tree(
+    repo_with_worktree: tuple[Path, Path],
+) -> None:
+    main, lane = repo_with_worktree
+    expected = (main / ".git").resolve() / "fairmark" / "sprints" / "S01" / "state"
+    assert sp.state_dir(main / "sprints" / "S01.yaml") == expected
+    assert sp.state_dir(lane / "sprints" / "S01.yaml") == expected
+    assert sp.state_path(lane / "sprints" / "S01.yaml", 12) == expected / "12.yaml"
+
+
+def test_legacy_state_of_a_checkout_is_moved_once(
+    repo_with_worktree: tuple[Path, Path], fixed_now: None
+) -> None:
+    main, lane = repo_with_worktree
+    legacy = lane / "sprints" / "S01" / "state" / "13.yaml"
+    legacy.parent.mkdir(parents=True)
+    legacy.write_text("issue: 13\nstep: review\nupdated: '2026-11-14T10:00:00+00:00'\n")
+    files = sp.state_files(main / "sprints" / "S01.yaml")
+    assert files == []  # the legacy file belongs to the lane checkout, found from there
+    files = sp.state_files(lane / "sprints" / "S01.yaml")
+    assert [p.name for p in files] == ["13.yaml"]
+    assert not legacy.exists()
+    assert sp.read_state(main / "sprints" / "S01.yaml", 13)["step"] == "review"
+
+
+def test_legacy_state_older_than_the_shared_one_is_dropped(
+    repo_with_worktree: tuple[Path, Path], fixed_now: None
+) -> None:
+    main, lane = repo_with_worktree
+    sp.write_state(main / "sprints" / "S01.yaml", 12, step="pr")  # updated 2026-11-14T22:30
+    legacy = lane / "sprints" / "S01" / "state" / "12.yaml"
+    legacy.parent.mkdir(parents=True)
+    legacy.write_text("issue: 12\nstep: tests\nupdated: '2026-11-14T09:00:00+00:00'\n")
+    assert sp.read_state(lane / "sprints" / "S01.yaml", 12)["step"] == "pr"
+    assert not legacy.exists()
+
+
+def test_state_files_are_written_atomically(
+    repo_with_worktree: tuple[Path, Path], fixed_now: None
+) -> None:
+    main, _ = repo_with_worktree
+    sp.write_state(main / "sprints" / "S01.yaml", 12, step="spec")
+    directory = sp.state_dir(main / "sprints" / "S01.yaml")
+    assert [p.name for p in directory.iterdir()] == ["12.yaml"]  # no temporary file left
+
+
+def test_state_files_are_ordered_by_issue_number(
+    repo_with_worktree: tuple[Path, Path], fixed_now: None
+) -> None:
+    main, _ = repo_with_worktree
+    f = main / "sprints" / "S01.yaml"
+    for issue in (40, 12, 13):
+        sp.write_state(f, issue, step="spec")
+    assert [p.stem for p in sp.state_files(f)] == ["12", "13", "40"]
