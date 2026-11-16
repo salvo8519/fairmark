@@ -108,6 +108,15 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Repo:
         "GIT_COMMITTER_EMAIL": "t@example.com",
         "GIT_CONFIG_GLOBAL": os.devnull,
         "GIT_CONFIG_NOSYSTEM": "1",
+        # No automatic maintenance (#339): after commit, merge and fetch, git runs
+        # `git maintenance run --auto`, detached in the background since git 2.47. It takes a
+        # lock in .git/objects while a test compares the disk before and after the report,
+        # and fails it at random. The fixture must leave nothing running.
+        "GIT_CONFIG_COUNT": "2",
+        "GIT_CONFIG_KEY_0": "maintenance.auto",
+        "GIT_CONFIG_VALUE_0": "false",
+        "GIT_CONFIG_KEY_1": "gc.auto",
+        "GIT_CONFIG_VALUE_1": "0",
     }.items():
         monkeypatch.setenv(key, value)
     return Repo(tmp_path.resolve())
@@ -149,6 +158,12 @@ def test_script_source_has_no_deletion_capability() -> None:
 )
 def test_forbidden_patterns_catch_deletion_calls(snippet: str) -> None:
     assert any(re.search(pattern, snippet) for pattern in FORBIDDEN.values())
+
+
+def test_fixture_disables_background_git_maintenance(repo: Repo) -> None:
+    # The cause of the intermittent failure of the test below (#339).
+    assert sh(repo.main, "git", "config", "maintenance.auto") == "false"
+    assert sh(repo.main, "git", "config", "gc.auto") == "0"
 
 
 def test_report_changes_nothing_on_disk(repo: Repo) -> None:
