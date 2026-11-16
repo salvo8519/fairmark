@@ -1510,6 +1510,166 @@ mod tests {
         x
     }
 
+    /// Every golden case that expects a result: (file name, method id, input). Analyses
+    /// included.
+    pub(crate) fn golden_results() -> Vec<(String, String, Value)> {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
+        let mut dirs: Vec<_> = std::fs::read_dir(&root)
+            .unwrap()
+            .map(|d| d.unwrap().path())
+            .collect();
+        dirs.sort();
+        let mut out = Vec::new();
+        for dir in dirs {
+            let mut files: Vec<_> = std::fs::read_dir(&dir)
+                .unwrap()
+                .map(|f| f.unwrap().path())
+                .collect();
+            files.sort();
+            for file in files {
+                let case: Value =
+                    serde_norway::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+                if case.get("expect_error").is_some() {
+                    continue;
+                }
+                let (Some(id), Some(input)) = (case["method"].as_str(), case.get("input")) else {
+                    continue;
+                };
+                let dir_name = dir.file_name().unwrap().to_string_lossy().into_owned();
+                let name = file.file_name().unwrap().to_string_lossy().into_owned();
+                out.push((format!("{dir_name}/{name}"), id.to_owned(), input.clone()));
+            }
+        }
+        out
+    }
+
+    /// The keys of the object `v`, in order.
+    fn keys(v: &Value) -> Vec<&str> {
+        v.as_object()
+            .map(|m| m.keys().map(String::as_str).collect())
+            .unwrap_or_default()
+    }
+
+    /// SPEC-0012 AC1, AC2 and AC3 (R1 to R4): on every golden input, the result has exactly the
+    /// keys of ADR 0014 G4 in order, `meta.envelope_version` is the integer 1, `explain` is
+    /// `{formula, steps, conventions}`, and the three diagnostics arrays and
+    /// `meta.defaults_applied` are always present.
+    #[test]
+    #[ignore = "SPEC-0012: enabled by T11, which writes the envelope of ADR 0014 G4"]
+    fn every_result_has_the_envelope_of_g4() {
+        let mut failures = Vec::new();
+        let mut checked = 0u32;
+        for (name, id, input) in golden_results() {
+            let out = match run(&id, &input.to_string()) {
+                Ok(out) => out,
+                Err(e) => {
+                    failures.push(format!("{name}: {e}"));
+                    continue;
+                }
+            };
+            checked += 1;
+            if keys(&out) != ["method", "value", "explain", "diagnostics", "meta"] {
+                failures.push(format!("{name}: top-level keys {:?}", keys(&out)));
+            }
+            if keys(&out["explain"]) != ["formula", "steps", "conventions"] {
+                failures.push(format!("{name}: explain keys {:?}", keys(&out["explain"])));
+            }
+            if keys(&out["diagnostics"]) != ["not_computed", "warnings", "checks"]
+                || !["not_computed", "warnings", "checks"]
+                    .iter()
+                    .all(|k| out["diagnostics"][k].is_array())
+            {
+                failures.push(format!("{name}: diagnostics {}", out["diagnostics"]));
+            }
+            let meta = &out["meta"];
+            let mut want = vec!["engine_version", "envelope_version", "method_version"];
+            want.push("method_status");
+            if id.starts_with("analysis.") {
+                want.push("evaluated_method_status");
+            }
+            want.extend(["input_hash", "arithmetic", "defaults_applied"]);
+            if keys(meta) != want {
+                failures.push(format!("{name}: meta keys {:?}", keys(meta)));
+            }
+            if meta["envelope_version"] != 1u32 {
+                failures.push(format!(
+                    "{name}: envelope_version {}",
+                    meta["envelope_version"]
+                ));
+            }
+            if !meta["defaults_applied"].is_array() {
+                failures.push(format!(
+                    "{name}: defaults_applied {}",
+                    meta["defaults_applied"]
+                ));
+            }
+        }
+        assert!(checked > 500, "{checked}");
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    /// SPEC-0012 AC3 (R3): a result with nothing to report has the empty arrays, not missing
+    /// keys.
+    #[test]
+    #[ignore = "SPEC-0012: enabled by T11, which writes the envelope of ADR 0014 G4"]
+    fn a_result_without_diagnostics_has_empty_arrays() {
+        let out = run(
+            "tvm.npv",
+            r#"{"rate": "0.1", "cash_flows": [-100, 60, 60]}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            out["diagnostics"],
+            serde_json::json!({"not_computed": [], "warnings": [], "checks": []})
+        );
+        assert_eq!(out["meta"]["defaults_applied"], serde_json::json!([]));
+        assert_eq!(out["meta"]["envelope_version"], 1);
+        assert!(out["explain"].get("method").is_none());
+    }
+
+    /// SPEC-0012 AC3 (R2, R3, R4): the result schema of every method requires the diagnostics
+    /// block with its three arrays, `meta.envelope_version` and `meta.defaults_applied`, and
+    /// `explain` has no `method`.
+    #[test]
+    #[ignore = "SPEC-0012: enabled by T11, which writes the envelope of ADR 0014 G4"]
+    fn result_schemas_require_the_diagnostics() {
+        let has = |schema: &Value, key: &str| {
+            schema["required"]
+                .as_array()
+                .is_some_and(|r| r.contains(&Value::from(key)))
+        };
+        for m in METHODS {
+            let result = result_schema(m.id).unwrap();
+            let props: Vec<&str> = keys(&result["properties"]);
+            assert_eq!(
+                props,
+                ["method", "value", "explain", "diagnostics", "meta"],
+                "{}",
+                m.id
+            );
+            for key in ["method", "value", "explain", "diagnostics", "meta"] {
+                assert!(has(&result, key), "{}: {key}", m.id);
+            }
+            let defs = &result["$defs"];
+            for key in ["not_computed", "warnings", "checks"] {
+                assert!(
+                    has(&defs["Diagnostics"], key),
+                    "{}: diagnostics {key}",
+                    m.id
+                );
+            }
+            for key in ["envelope_version", "defaults_applied"] {
+                assert!(has(&defs["Meta"], key), "{}: meta {key}", m.id);
+            }
+            assert_eq!(
+                keys(&defs["Explain"]["properties"]),
+                ["formula", "steps", "conventions"],
+                "{}",
+                m.id
+            );
+        }
+    }
+
     /// Final review of #279, finding 2: whatever form a number takes in a decimal field (an
     /// exponent, a value too large, too many digits), no `FM-E001` is without a reason.
     #[test]
