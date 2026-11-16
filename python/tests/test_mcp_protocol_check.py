@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import anyio
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -109,3 +110,40 @@ def test_first_json_ignores_what_follows() -> None:
     assert check.first_json('note\n{"a": [1]}\n{"error": 1}') == {"a": [1]}
     with pytest.raises(check.Failure, match="no JSON"):
         check.first_json("nothing here")
+
+
+class Listing:
+    """Answers tools/list like the Inspector with --strict, with a given stderr summary."""
+
+    def __init__(self, stderr: str, code: int = 0) -> None:
+        self.stderr, self.code = stderr, code
+
+    def run(self, *args: str, server_args: tuple[str, ...] = ()) -> tuple[int, str, str]:
+        assert "--strict" in args and "tools/list" in args, args
+        listed = [
+            {"name": t.name, "inputSchema": t.input_schema}
+            for t in anyio.run(mcp_server.list_tools)
+        ]
+        return self.code, json.dumps({"tools": listed}), self.stderr
+
+
+def test_list_passes_without_portability_problems() -> None:
+    report: list[str] = []
+    check.check_list(Listing(""), report)
+    assert report[0].endswith("schema portability: no problem found")
+
+
+def test_list_fails_on_a_single_portability_warning() -> None:
+    with pytest.raises(check.Failure, match="0 errors, 1 warning"):
+        check.check_list(Listing("Warning: ...\n0 errors, 1 warning across 1 tool."), [])
+
+
+def test_list_fails_on_a_warning_line_without_a_summary() -> None:
+    # A later Inspector version may word its summary differently: the warning still counts.
+    with pytest.raises(check.Failure, match="1 problems"):
+        check.check_list(Listing('Warning: tool "x"\n  Path: inputSchema\n'), [])
+
+
+def test_list_fails_on_portability_errors() -> None:
+    with pytest.raises(check.Failure, match="error-severity"):
+        check.check_list(Listing("1 error, 0 warnings", code=6), [])

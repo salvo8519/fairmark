@@ -202,6 +202,58 @@ def _decimals_as_strings(node: Any) -> Any:
     return out
 
 
+# Keywords that describe a value rather than constrain it: they stay beside `anyOf`.
+# (`_inline` already removes `title`; it is listed so that the rule holds on its own.)
+_ANNOTATIONS = frozenset(
+    {"description", "title", "default", "examples", "deprecated", "readOnly", "writeOnly"}
+)
+# Validation keywords that also constrain a null value; every other keyword applies only to
+# strings, numbers, arrays or objects, and a null value satisfies it.
+_NULL_RULES = frozenset(
+    {"enum", "const", "anyOf", "oneOf", "allOf", "not", "$ref", "if", "then", "else"}
+)
+
+
+def _single_types(node: Any) -> Any:
+    """Every `type` written as one type: `{"type": ["string", "null"], ...}` becomes
+    `{"anyOf": [{"type": "string", ...}, {"type": "null"}]}`.
+
+    Both spellings are valid JSON Schema and accept exactly the same inputs. A list of types is
+    less portable: clients that map tool schemas onto a single-type dialect may reject the tool
+    or drop the constraint (the MCP Inspector reports it). Annotations stay beside `anyOf` and
+    every validation keyword goes into the branch of each type, since `(A or B) and R` is
+    `(A and R) or (B and R)`. The null branch keeps only the keywords that can constrain a null
+    value (`enum`, `const`, the combinators): the others do not apply to it. A null in an
+    `enum` matters only to the null branch, so it is left out of the others. The registry
+    schemas (`schemas/`) are not changed: only the tool definitions built from them.
+    """
+    if isinstance(node, list):
+        return [_single_types(v) for v in node]
+    if not isinstance(node, dict):
+        return node
+    out = {k: _single_types(v) for k, v in node.items()}
+    kinds = out.get("type")
+    if not isinstance(kinds, list):
+        return out
+    if len(kinds) == 1:
+        out["type"] = kinds[0]
+        return out
+    annotations = {k: v for k, v in out.items() if k in _ANNOTATIONS or k == _VALUES}
+    rules = {k: v for k, v in out.items() if k not in annotations and k != "type"}
+    branches: list[dict[str, Any]] = []
+    for kind in kinds:
+        if kind == "null":
+            branches.append(
+                {"type": "null", **{k: v for k, v in rules.items() if k in _NULL_RULES}}
+            )
+            continue
+        branch = {"type": kind, **rules}
+        if isinstance(branch.get("enum"), list):
+            branch["enum"] = [e for e in branch["enum"] if e is not None]
+        branches.append(branch)
+    return {**annotations, "anyOf": branches}
+
+
 # Formats defined by JSON Schema 2020-12; others (schemars' `uint32`) are dropped when compact.
 _STANDARD_FORMATS = frozenset(
     {
@@ -373,7 +425,7 @@ def definitions(
         if wanted is not None and m["id"].split(".")[0] not in wanted:
             continue
         schema = _inline(input_schema(m["id"]))
-        schema = _portable(schema) if portable else _decimals_as_strings(schema)
+        schema = _single_types(_portable(schema) if portable else _decimals_as_strings(schema))
         decimals = False
         if compact:
             schema, decimals = _compact(schema)

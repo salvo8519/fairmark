@@ -248,6 +248,7 @@ milestones:
           - { issue: 55, title: "Gemini and LangChain adapters", tags: [parallel, gfi], status: done }
           - { issue: 219, title: "Agent evaluation suite with success rates per release", status: open }
           - { issue: 331, title: "MCP server verified end to end with the MCP Inspector in CI", tags: [parallel], status: done }
+          - { issue: 343, title: "Tool schemas with one type per keyword, portable to every client", status: done }
       - title: "Agent skills and docs"
         issue: 56
         labels: ["area:docs"]
