@@ -1,6 +1,6 @@
 # ADR 0014 — Contract guidelines for inputs, the result envelope and errors
 
-Status: accepted · 2026-11-16 (proposed 2026-11-09, #257; accepted by the maintainer on 2026-11-16; maintainer decisions of 2026-11-09 recorded below)
+Status: accepted · 2026-11-16 (proposed 2026-11-09, #257; accepted by the maintainer on 2026-11-16; maintainer decisions of 2026-11-09 and 2026-11-16 recorded below; G4 amended on 2026-11-16)
 
 ## Context
 Fairmark is used mainly by AI agents, which fill an input from a document, read the result
@@ -71,6 +71,14 @@ and the diagnostics are produced in the core, so adapters still only translate (
 8. **Shapes that language models fill well** (G6), **one number grammar** (G7) and an
    **output versioning rule** (G8).
 
+### Maintainer decision of 2026-11-16
+Recorded with SPEC-0012 (#259), which implements G4.
+
+1. **Singular pointer fields (amends G4).** A field that holds one pointer may end in
+   `_pointer`, as a field that holds a list of pointers ends in `_pointers`. The suffix
+   names the content, so `aggregate_pointer` and `source_pointer` read as one pointer and
+   `source_pointers` as a list. G4 above states the rule as amended.
+
 ### G1. Minimal input first
 Each spec states a minimal input and a maximal input, and the schema carries both as
 `examples`. A field is required only when the method cannot produce any output without it.
@@ -131,8 +139,9 @@ Every method returns:
   is not defined and give the reason in `not_computed` with `reason_code: not_defined`.
 - Pointers follow RFC 6901. A pointer into the result starts at the envelope root; a pointer
   into the input starts at the input root. Every field that holds pointers is named
-  `pointer` or `pointers`, or ends in `_pointers`, except `missing_any_of`, which is defined
-  here.
+  `pointer` or `pointers`, or ends in `_pointer` (one pointer) or `_pointers` (a list),
+  except `missing_any_of`, which is defined here (`_pointer` admitted by the maintainer
+  decision of 2026-11-16 below).
 - `explain.conventions` stays human text and may echo defaults and warnings; agents read
   `diagnostics` and `meta`.
 - `meta.envelope_version` is an integer, 1 for the envelope defined here. A change to `meta`,

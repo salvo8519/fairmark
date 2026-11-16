@@ -14,7 +14,7 @@ migrate the golden keys of their own changes, and T16 adds new cases.
   `expect_diagnostics` and `expect_diagnostics_length`, tested on a temporary case [AC16]
 - [x] T3 [P] `scripts/golden_envelope_migration.py` with `list`, `apply` and `verify`; `list`
   output attached to issue #259 for the maintainer's named approval [R18; AC16]
-- [ ] T4 [P] ADR 0014 G4 amendment: `*_pointer` admitted, maintainer decision of 2026-11-16
+- [x] T4 [P] ADR 0014 G4 amendment: `*_pointer` admitted, maintainer decision of 2026-11-16
   [R12, R20]
 
 ## Tests (write first, they must fail)
