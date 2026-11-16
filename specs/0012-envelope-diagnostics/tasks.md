@@ -20,7 +20,7 @@ migrate the golden keys of their own changes, and T16 adds new cases.
 ## Tests (write first, they must fail)
 - [x] T5 Envelope tests in `registry.rs`: key order, `envelope_version`, no `explain.method`,
   empty arrays present and required in every result schema [R1 to R4; AC1 to AC3]
-- [ ] T6 Warning tests, one per code FM-W001 to FM-W016, and the echo test [R8, R9; AC7]
+- [x] T6 Warning tests, one per code FM-W001 to FM-W016, and the echo test [R8, R9; AC7]
 - [ ] T7 Not computed and checks tests for the ratios and the statements, defaults key test,
   and the precedence test of decision 14 (missing input before not defined: one entry per
   output) [R5 to R7, R10, R12; AC4 to AC6, AC8, AC9, AC17]

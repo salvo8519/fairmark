@@ -6,6 +6,7 @@
 
 ## Done
 - T5 envelope tests in `registry.rs`, ignored until T11 enables them.
+- T6 warning tests FM-W001 to FM-W016 and the echo test, `tests/warnings.rs`, ignored until T11 and T12.
 
 ## State at the end of the session
 - In progress: tasks T5 to T23 of `specs/0012-envelope-diagnostics/tasks.md`, one commit each.
@@ -20,4 +21,4 @@
 - none
 
 ## Next steps
-1. T6: one warning test per code FM-W001 to FM-W016 and the echo test.
+1. T7: not computed, checks, defaults key and decision 14 tests.
