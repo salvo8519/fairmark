@@ -35,6 +35,13 @@ core detect wrong results: `uv run just mutants-diff` tests the lines of
 recorded as equivalent after review; see
 [Mutation testing](docs/en/project/mutation-testing.md).
 
+The MCP server is also tested as agents use it: `uv run just mcp-check` starts `fairmark-mcp`
+over stdio and drives it with the MCP Inspector, the reference client of the protocol
+(Node.js 22.23 or later; `npx` downloads the pinned Inspector version). It checks the list of
+tools and the portability of their schemas, golden cases called through the protocol against
+the same call made in process, and the error report of an invalid input. CI runs it in the job
+"MCP · protocol check with the Inspector".
+
 The Rust extension is rebuilt automatically by `uv run` / `uv sync` when Rust sources change.
 `uv.lock` is committed: dependency updates go through PRs.
 

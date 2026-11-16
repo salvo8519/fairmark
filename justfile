@@ -76,6 +76,10 @@ release-notes:
 version:
     python scripts/version.py check
 
+# MCP server over stdio, driven by the MCP Inspector (needs Node.js 22.23 or later; #331)
+mcp-check:
+    python scripts/mcp_protocol_check.py
+
 # Translation status (English is the source)
 i18n:
     python scripts/i18n.py status
