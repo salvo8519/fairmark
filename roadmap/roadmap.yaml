@@ -76,6 +76,9 @@ milestones:
           - { issue: 327, title: "Journal index and search of the agent session memory", tags: [parallel], status: open }
           - { issue: 328, title: "Generated mirrors of .agents/ for other agent systems", tags: [parallel], status: open }
           - { issue: 329, title: "Agent loop planning update of 2026-11-14: ADR 0015", status: done }
+          - { issue: 333, title: "Sprint runtime state shared by every worktree of the repository", status: open }
+          - { issue: 334, title: "Sprint lanes declare their paths; overlaps fail validation and CI", status: open }
+          - { issue: 335, title: "Per-method schema manifests instead of one shared index rewritten by every lane", tags: [maintainer], status: open }
       - title: "CI/CD"
         issue: 10
         labels: ["area:infra"]
@@ -243,6 +246,7 @@ milestones:
           - { issue: 54, title: "Function-calling tools for Anthropic and OpenAI with dispatcher", status: done }
           - { issue: 55, title: "Gemini and LangChain adapters", tags: [parallel, gfi], status: done }
           - { issue: 219, title: "Agent evaluation suite with success rates per release", status: open }
+          - { issue: 331, title: "MCP server verified end to end with the MCP Inspector in CI", tags: [parallel], status: open }
       - title: "Agent skills and docs"
         issue: 56
         labels: ["area:docs"]
@@ -266,10 +270,11 @@ milestones:
         issue: 64
         labels: ["area:docs"]
         tasks:
-          - { issue: 65, title: "Release v0.1.0, MCP registry listings, announcement", tags: [maintainer], status: open }
+          - { issue: 65, title: "Release v0.1.0 and announcement", tags: [maintainer], status: open }
           - { issue: 125, title: "Release readiness check and version policy", status: done }
           - { issue: 171, title: "Disclaimer: a calculation tool, decisions belong to the user", status: done }
           - { issue: 144, title: "Documentation site meets WCAG AA contrast for the active navigation item", tags: [parallel], status: done }
+          - { issue: 332, title: "Fairmark listed on the official MCP Registry at each release", tags: [maintainer], status: open }
       - title: "Distribution to analysts"
         labels: []
         tasks:
