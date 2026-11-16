@@ -7,6 +7,7 @@
 ## Done
 - T5 envelope tests in `registry.rs`, ignored until T11 enables them.
 - T6 warning tests FM-W001 to FM-W016 and the echo test, `tests/warnings.rs`, ignored until T11 and T12.
+- T7 not computed, checks, defaults and decision 14 tests, `tests/diagnostics.rs`, ignored until T12 to T14.
 
 ## State at the end of the session
 - In progress: tasks T5 to T23 of `specs/0012-envelope-diagnostics/tasks.md`, one commit each.
@@ -15,10 +16,13 @@
   marker.
 
 ## Decisions taken
-- none yet
+- The key `field` of `meta.defaults_applied` is renamed `pointer` in T14, not T11: 15 statements
+  golden files mix that rename with the moves of T14, and `apply` migrates a file whole, so the
+  rename lands with the statements migration (the two dcf.fcff files and the seven statements
+  files with the rename only migrate in the same commit).
 
 ## Open questions for the maintainer
 - none
 
 ## Next steps
-1. T7: not computed, checks, defaults key and decision 14 tests.
+1. T8: pointer naming walk (AC10) and determinism (AC11) tests.
