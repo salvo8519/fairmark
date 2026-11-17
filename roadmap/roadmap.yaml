@@ -83,6 +83,7 @@ milestones:
           - { issue: 346, title: "Agentic development architecture page in the documentation site", status: done }
           - { issue: 347, title: "Generated artifacts grouped by generator, one lane per group", status: done }
           - { issue: 372, title: "Secrets in protected environments and branch updates through the GitHub App", status: done }
+          - { issue: 376, title: "AI workflow key behind an environment with approval per run", status: open }
       - title: "CI/CD"
         issue: 10
         labels: ["area:infra"]

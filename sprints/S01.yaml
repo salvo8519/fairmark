@@ -6,10 +6,10 @@ milestone: "M1 · Numerical core"
 status: active
 lanes:
   # Process lane: the agentic development system (scripts, sprints, skills, project docs).
-  # #372 needs maintainer actions in the repository settings (environments, secret scanning).
+  # #372 and #376 need maintainer actions in the repository settings (environments, secret scanning).
   # #335 stops at its ADR; #208 is an ADR the maintainer approves; #17 is repository settings.
   - name: process
-    issues: [327, 320, 372, 328, 335, 208, 17]
+    issues: [327, 320, 372, 376, 328, 335, 208, 17]
     paths:
       - "scripts/sprint.py"
       - "scripts/project_state.py"
@@ -25,6 +25,10 @@ lanes:
       - ".github/workflows/test-health.yml"
       - ".github/workflows/prepare-release.yml"
       - ".github/workflows/project-sync.yml"
+      - ".github/workflows/claude.yml"
+      - ".github/workflows/claude-review.yml"
+      - ".github/workflows/claude-docs.yml"
+      - "docs/en/project/maintainers.md"
       - ".gitignore"
       - "docs/en/project/releases.md"
       - "docs/en/project/conventions.md"
