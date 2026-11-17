@@ -28,16 +28,18 @@ fn assert_error(method: &str, input: &Value, code: &str, pointer: &str, parts: &
     );
 }
 
-/// The message of the entry of the `tv.compare` report on `input` that contains `part`.
-fn message_with(input: &Value, part: &str) -> String {
+/// The message of the only entry of the `tv.compare` report on `input`, at `pointer`.
+fn only_entry(input: &Value, pointer: &str) -> String {
     let err = run("tv.compare", &input.to_string()).expect_err("the input must be refused");
-    assert_eq!(err.code(), "FM-E001", "{err}");
     let report = err.to_report();
-    let found = report.errors.iter().find(|e| e.message.contains(part));
-    found
-        .unwrap_or_else(|| panic!("no entry contains {part:?}: {report:?}"))
-        .message
-        .clone()
+    assert_eq!(report.errors.len(), 1, "{report:?}");
+    assert_eq!(
+        report.errors[0].pointer.as_deref(),
+        Some(pointer),
+        "{report:?}"
+    );
+    assert_eq!(err.code(), "FM-E001", "{err}");
+    report.errors[0].message.clone()
 }
 
 fn dcf() -> Value {
@@ -444,10 +446,9 @@ fn compare_errors_inside_a_technique_entry() {
         "basis": "enterprise",
         "techniques": [{"tv.gordon": {"growth": "0.02", "next_flow": "100"}, "tv.h_model": {}}]
     });
-    // The entry about the keys is not first in the canonical order (issue #370): it is
-    // located at the second key, after the fields of the first.
-    let m = message_with(&two_keys, "exactly one key");
-    assert!(m.contains("`/techniques/0`"), "{m}");
+    // One entry, at the entry, naming the keys (rule of #370).
+    let m = only_entry(&two_keys, "/techniques/0");
+    assert!(m.contains("exactly one key"), "{m}");
     assert!(m.contains("got 2 keys: tv.gordon, tv.h_model"), "{m}");
     let unknown = json!({
         "rate": "0.09",
@@ -460,7 +461,7 @@ fn compare_errors_inside_a_technique_entry() {
         &unknown,
         "FM-E001",
         "/techniques/0/tv.gordo",
-        &["unknown variant `tv.gordo`", "`tv.gordon`"],
+        &["unknown field `tv.gordo`", "`tv.gordon`"],
     );
     let missing = json!({
         "rate": "0.09",
@@ -511,8 +512,8 @@ fn compare_entries_have_exactly_one_key() {
 
     let input: Value =
         serde_json::from_str(&text(r#"{"tv.gordon": {"growth": "x"}, "tv.h_model": {}}"#)).unwrap();
-    let m = message_with(&input, "exactly one key");
-    assert!(m.contains("`/techniques/1`"), "{m}");
+    let m = only_entry(&input, "/techniques/1");
+    assert!(m.contains("exactly one key"), "{m}");
     assert!(m.contains("got 2 keys: tv.gordon, tv.h_model"), "{m}");
 }
 

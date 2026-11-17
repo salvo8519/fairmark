@@ -823,9 +823,8 @@ fn reading_errors(
     let mut reads = true;
     if let Some((error, tokens)) = first {
         let (error, tokens, reason) = scope.locate(error, tokens, &value, &walk);
-        if !scope.hides(&tokens, reason, &value, &walk) {
-            errors.push(error);
-        }
+        // Kept or dropped with the others below, once every refused object is known.
+        errors.push(error);
         // Every other error `serde` raises, each as it raises it when it is the first: the
         // value at the error is repaired (the key removed, or a value the schema accepts put
         // in its place) and the input read again, until it reads (ADR 0014 G5).
@@ -876,8 +875,8 @@ fn reading_errors(
     let mut refused: Vec<String> = scope.poisoned.iter().filter_map(|t| pointer(t)).collect();
     refused.extend(renames.iter().map(|r| r.target.clone()));
     // Every value put in place of a refused one is refused where it is put, which may hold the
-    // pointer of its error (a technique entry with two keys is replaced as a whole, its error
-    // located at the second key): no error within it is decided by the value put there.
+    // pointer of its error (a technique entry with a refused term is replaced as a whole): no
+    // error within it is decided by the value put there.
     refused.extend(repairs.iter().filter_map(|(t, _)| pointer(t)));
     refused.extend(replaced.iter().filter_map(|t| pointer(t)));
     for error in errors {
@@ -1295,10 +1294,13 @@ fn refine(
                     _ => None,
                 };
                 if let Some(key_at) = key_at {
-                    let fix = unknown_field_fix(variant, &d.expected);
-                    return error
-                        .at(pointer(&key_at).unwrap_or_default(), Reason::UnknownField)
-                        .fix(fix);
+                    // The message of any unknown key, as the walk gives it (rule of #370).
+                    return unknown_field_error(
+                        pointer(&key_at).unwrap_or_default(),
+                        variant,
+                        d.expected.clone(),
+                        &d.expected,
+                    );
                 }
             }
             if d.expected.is_empty() {
@@ -1316,33 +1318,33 @@ fn refine(
             }
             error
         }
-        // Two keys or more where one is expected: the extra key is named; a key that is not
-        // one of the choices is an unknown field, like any other (audit 8b).
+        // Two keys or more where one is expected (rule of #370): two keys or more of the choice
+        // are one entry at the choice, whatever else the object holds; otherwise a key that is
+        // not one of the choices is an unknown field, like any other (audit 8b). The walk
+        // reports every unknown key the same way.
         Some(Reason::Length) => match node {
             Some(Value::Object(map)) if map.len() >= 2 => {
                 let choices = walk
                     .schema_at(&at_tokens, value)
                     .and_then(|s| walk.choice_values(&s))
                     .unwrap_or_default();
-                if let Some(key) = map
-                    .keys()
-                    .find(|k| !choices.is_empty() && !choices.contains(k))
-                {
-                    let fix = unknown_field_fix(key, &choices);
-                    return error
-                        .at(
-                            pointer(&join(&at_tokens, key)).unwrap_or_default(),
-                            Reason::UnknownField,
-                        )
-                        .expected(choices)
-                        .fix(fix);
-                }
                 let keys: Vec<String> = map
                     .keys()
                     .filter(|k| choices.is_empty() || choices.contains(k))
                     .cloned()
                     .collect();
-                keys_error(&at_tokens, keys, choices)
+                if keys.len() >= 2 {
+                    return keys_error(&at_tokens, keys, choices);
+                }
+                match map.keys().find(|k| !choices.contains(k)) {
+                    Some(key) => unknown_field_error(
+                        pointer(&join(&at_tokens, key)).unwrap_or_default(),
+                        key,
+                        choices.clone(),
+                        &choices,
+                    ),
+                    None => keys_error(&at_tokens, keys, choices),
+                }
             }
             _ => error,
         },
@@ -1451,15 +1453,22 @@ fn choice_error(at: &[String], node: &Value, choices: Vec<String>) -> FairmarkEr
                 .expected(choices)
                 .fix("give exactly one of the keys in `expected`");
             }
-            if let Some(key) = map.keys().find(|k| !choices.contains(k)) {
-                return unknown_field_error(
-                    pointer(&join(at, key)).unwrap_or_default(),
-                    key,
-                    choices.clone(),
-                    &choices,
-                );
+            let keys: Vec<String> = map
+                .keys()
+                .filter(|k| choices.contains(k))
+                .cloned()
+                .collect();
+            if keys.len() < 2 {
+                if let Some(key) = map.keys().find(|k| !choices.contains(k)) {
+                    return unknown_field_error(
+                        pointer(&join(at, key)).unwrap_or_default(),
+                        key,
+                        choices.clone(),
+                        &choices,
+                    );
+                }
             }
-            keys_error(at, map.keys().cloned().collect(), choices)
+            keys_error(at, keys, choices)
         }
         other => at_error(at, format!("invalid type: {}, {list}", unexpected(other)))
             .because(Reason::Enum)
@@ -1482,8 +1491,7 @@ pub(crate) fn keys_error(
     at_error(
         at,
         format!(
-            "{n} keys are given where exactly one key is expected (got {n} keys: {}), {list}; \
-             keep one",
+            "exactly one key is expected (got {n} keys: {}), {list}; keep one",
             keys.join(", "),
             n = keys.len()
         ),
@@ -1994,32 +2002,44 @@ impl UnknownKeys<'_> {
         map: &serde_json::Map<String, Value>,
         at: &mut Vec<String>,
     ) {
+        // A choice written as an object with one key (rule of #370), in every method alike:
+        // each key that is not a choice is an unknown field at the key, with the choices; two
+        // keys or more of the choice refuse it as a whole, without reading what they hold.
+        let choices = self.single_key_choices(schema);
+        if let Some(choices) = &choices {
+            for key in map.keys().filter(|k| !choices.contains(k)) {
+                self.found.push(Finding::Unknown {
+                    tokens: join(at, key),
+                    allowed: choices.clone(),
+                    listed: choices.clone(),
+                });
+            }
+            let keys: Vec<String> = map
+                .keys()
+                .filter(|k| choices.contains(k))
+                .cloned()
+                .collect();
+            if keys.len() >= 2 {
+                self.found.push(Finding::Keys {
+                    tokens: at.clone(),
+                    keys,
+                    choices: choices.clone(),
+                });
+                return;
+            }
+        }
         let Some(shape) = self.object_shape(schema, map) else {
             return;
         };
         let (allowed, listed) = fields(&shape);
-        // A choice of optional fields given two of them is refused as a whole, without reading
-        // what the keys hold.
-        let keys: Vec<String> = map
-            .keys()
-            .filter(|k| shape.properties.contains_key(*k))
-            .cloned()
-            .collect();
-        let refused =
-            schema.get("maxProperties").and_then(Value::as_u64) == Some(1) && keys.len() >= 2;
-        if refused {
-            self.found.push(Finding::Keys {
-                tokens: at.clone(),
-                keys,
-                choices: shape.properties.keys().cloned().collect(),
-            });
-        }
         for (key, value) in map {
+            if choices.as_ref().is_some_and(|c| !c.contains(key)) {
+                // Reported above, with the choices.
+                continue;
+            }
             at.push(key.clone());
             if let Some(sub) = shape.properties.get(key) {
-                if !refused {
-                    self.node(sub, value, at);
-                }
+                self.node(sub, value, at);
             } else if shape.closed {
                 self.found.push(Finding::Unknown {
                     tokens: at.clone(),
@@ -2031,6 +2051,41 @@ impl UnknownKeys<'_> {
             }
             at.pop();
         }
+    }
+
+    /// The keys of a choice written as an object with one key: an object of optional fields
+    /// with `maxProperties` 1 (the terminal of the DCF), or a choice whose branches are objects
+    /// of one property (an externally tagged choice); `None` for any other schema.
+    fn single_key_choices(&self, schema: &Value) -> Option<Vec<String>> {
+        if schema.get("maxProperties").and_then(Value::as_u64) == Some(1) {
+            let keys: Vec<String> = schema
+                .get("properties")?
+                .as_object()?
+                .keys()
+                .cloned()
+                .collect();
+            return (keys.len() >= 2).then_some(keys);
+        }
+        let branches: Vec<Value> = self
+            .branches(schema)
+            .into_iter()
+            .filter(|b| b.get("type") != Some(&Value::String("null".to_owned())))
+            .collect();
+        let mut keys = Vec::new();
+        for b in &branches {
+            let properties = b.get("properties").and_then(Value::as_object)?;
+            let required: Vec<&str> = b
+                .get("required")
+                .and_then(Value::as_array)?
+                .iter()
+                .filter_map(Value::as_str)
+                .collect();
+            match (properties.keys().next(), required.as_slice()) {
+                (Some(key), [r]) if properties.len() == 1 && key == r => keys.push(key.clone()),
+                _ => return None,
+            }
+        }
+        (keys.len() >= 2).then_some(keys)
     }
 
     /// The schema of the value at `tokens`, following the input where a choice must be made.

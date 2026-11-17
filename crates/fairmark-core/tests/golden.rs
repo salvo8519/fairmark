@@ -700,7 +700,9 @@ fn choice_objects(
 /// timeline of `series.project`, destination and split of `statements.reorganise`; for an
 /// analysis, those of its `base_input`) is given a second key of the same choice, holding an
 /// empty object, the terms of the first key or a number: the report is that entry alone, and
-/// the same with the keys of every object reversed.
+/// the same with the keys of every object reversed. With an unknown key beside the two keys,
+/// before or after them, the unknown key is one more entry, at the key, with the message of any
+/// unknown field.
 #[test]
 fn a_choice_with_two_keys_is_one_length_entry() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
@@ -729,9 +731,25 @@ fn a_choice_with_two_keys_is_one_length_entry() {
         );
         for (at, key, other) in objects {
             let terms = case.input.pointer(&at).unwrap()[key.as_str()].clone();
-            for content in [serde_json::json!({}), terms, serde_json::json!(1)] {
+            let variants = [
+                (serde_json::json!({}), false),
+                (terms, false),
+                (serde_json::json!(1), false),
+                (serde_json::json!({}), true),
+            ];
+            for (content, unknown) in variants {
                 let mut input = case.input.clone();
-                input.pointer_mut(&at).unwrap()[other.as_str()] = content.clone();
+                let choice = input.pointer_mut(&at).unwrap();
+                if unknown {
+                    // An unknown key before the two keys of the choice (code review of #371,
+                    // B1); the reversed order below puts it after them.
+                    let mut with: serde_json::Map<String, serde_json::Value> =
+                        serde_json::Map::new();
+                    with.insert("bogus".to_owned(), serde_json::json!(1));
+                    with.extend(choice.as_object().unwrap().clone());
+                    *choice = serde_json::Value::Object(with);
+                }
+                choice[other.as_str()] = content.clone();
                 let entries = match fairmark_core::run(&case.method, &input.to_string()) {
                     Ok(_) => vec!["accepted".to_owned()],
                     Err(e) => e
@@ -749,10 +767,17 @@ fn a_choice_with_two_keys_is_one_length_entry() {
                 if received(&case.method, &reversed) != received(&case.method, &input) {
                     failures.push(format!("{} {at}: depends on the key order", file.display()));
                 }
-                let one = entries.len() == 1
+                let mut keys = [key.as_str(), other.as_str()];
+                keys.sort_unstable();
+                let one = entries.len() == 1 + usize::from(unknown)
                     && entries[0].starts_with(&format!("Some({at:?}) Some(Length) "))
-                    && entries[0].contains(key.as_str())
-                    && entries[0].contains(other.as_str());
+                    && entries[0].contains(&format!("(got 2 keys: {})", keys.join(", ")))
+                    && (!unknown
+                        || entries[1].starts_with(&format!(
+                            "Some(\"{at}/bogus\") Some(UnknownField) invalid input at \
+                             `{inner_at}/bogus`: unknown field `bogus`",
+                            inner_at = at.strip_prefix(base).unwrap_or(&at)
+                        )));
                 if !one {
                     failures.push(format!(
                         "{} {at} ({key} + {other}: {content}):\n  {}",

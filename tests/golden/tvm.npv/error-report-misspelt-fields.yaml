@@ -2,8 +2,9 @@ method: tvm.npv
 description: 'ADR 0014 G5 (review of #279): two misspelt fields are both reported as unknown fields, each
   with the closest accepted field in fix, and the two fields they stand for as missing'
 source: 'ADR 0014 G5 as amended (every reading error reported, each as serde reports it alone, in the
-  canonical order of the maintainer decision of 2026-11-17: by pointer, then code, then message; expected = the accepted fields, fix naming the closest field
-  within an edit distance of 2); the accepted fields rate and cash_flows are those of schemas/tvm.npv/v1.json.
+  canonical order of the maintainer decision of 2026-11-17: by pointer, then code, then message;
+  expected = the accepted fields, fix naming the closest field within an edit distance of 2);
+  the accepted fields rate and cash_flows are those of schemas/tvm.npv/v1.json.
   Written from the ADR and the schema, not from the engine''s output.'
 input:
   rat: '0.1'

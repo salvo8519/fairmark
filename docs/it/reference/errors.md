@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: 5fde8e734055
+source_hash: 27e2e24684dd
 ---
 # Codici di errore
 
@@ -133,16 +133,16 @@ terminale rifiutata, un `principal` rifiutato non nasconde un tasso fuori interv
   sull'array; `""` per un input che è un array) sono rifiutati in tutti i metodi: verrebbero
   letti con l'ultimo valore o per posizione.
 - **Scelte scritte come oggetto con una sola chiave** (`terminal` del DCF, le tecniche di
-  `tv.compare`, `growth` e `timeline` di `series.project`): una chiave che non è tra le scelte è
-  `unknown_field` sulla chiave, con le scelte e la più vicina, anche accanto a una chiave
-  valida; quando è l'unica chiave (`{"tv.godon": {...}}`), è l'unica voce, senza `length` per
+  `tv.compare`, `growth` e `timeline` di `series.project`, `destination` e `split` nei
+  `treatment_overrides` di `statements.reorganise`), con una sola regola in tutti i metodi
+  (regola della #370): una chiave che non è tra le scelte è `unknown_field` sulla chiave, con il
+  messaggio di qualsiasi campo sconosciuto, le scelte e la più vicina, anche accanto a una o due
+  chiavi della scelta; quando è l'unica chiave (`{"tv.godon": {...}}`), è l'unica voce, senza `length` per
   la scelta che lascia vuota. Nessuna chiave è `length` sull'oggetto, con le scelte in
   `expected`. Due o più chiavi tra le scelte sono una sola voce, `length` sull'oggetto, il cui
   messaggio indica le chiavi trovate in ordine alfabetico (per esempio `(got 2 keys: tv.gordon,
   tv.h_model)`), con le scelte in `expected`, qualunque sia il loro contenuto: la scelta è
-  rifiutata per intero e nulla al suo interno è riportato, in ogni metodo e in qualsiasi ordine
-  delle chiavi (decisione del 2026-11-17 sulla issue #370; prima il terminal del DCF riportava
-  `conflict`).
+  rifiutata per intero e nulla al suo interno è riportato, in qualsiasi ordine delle chiavi.
 - **Analisi.** I campi dell'analisi e il suo `base_input` sono controllati in un solo
   passaggio: `base_input` è controllato dal metodo che indica, con la sola validazione di quel
   metodo (ogni controllo del suo input, nessun calcolo), e i suoi errori di input sono
