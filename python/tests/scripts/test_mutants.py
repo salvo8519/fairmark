@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 _spec = importlib.util.spec_from_file_location("mutants", ROOT / "scripts/mutants.py")
 assert _spec and _spec.loader
 mt = importlib.util.module_from_spec(_spec)

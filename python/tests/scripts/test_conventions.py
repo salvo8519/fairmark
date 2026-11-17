@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 _spec = importlib.util.spec_from_file_location(
-    "conventions", Path(__file__).resolve().parents[2] / "scripts" / "conventions.py"
+    "conventions", Path(__file__).resolve().parents[3] / "scripts" / "conventions.py"
 )
 assert _spec and _spec.loader
 conventions = importlib.util.module_from_spec(_spec)

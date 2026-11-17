@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 _spec = importlib.util.spec_from_file_location("i18n", ROOT / "scripts/i18n.py")
 assert _spec and _spec.loader
 i18n = importlib.util.module_from_spec(_spec)

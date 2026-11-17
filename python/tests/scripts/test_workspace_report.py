@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "scripts/workspace_report.py"
 _spec = importlib.util.spec_from_file_location("workspace_report", SCRIPT)
 assert _spec and _spec.loader

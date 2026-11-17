@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 _spec = importlib.util.spec_from_file_location("smoke_wheel", ROOT / "scripts/smoke_wheel.py")
 assert _spec and _spec.loader
 smoke = importlib.util.module_from_spec(_spec)

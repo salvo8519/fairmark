@@ -42,6 +42,12 @@ tools and the portability of their schemas, golden cases called through the prot
 the same call made in process, and the error report of an invalid input. CI runs it in the job
 "MCP · protocol check with the Inspector".
 
+The scripts in `scripts/` that run the project (checks, generators, sprint and release
+tooling) have their tests in `python/tests/scripts/`, with the same discipline as the engine:
+`test_every_script_is_tested.py` fails when a script has no test that names it. The tests of
+the independent numerical references (`scripts/reference_*.py`) live with the other numerical
+tests in `python/tests/`.
+
 The Rust extension is rebuilt automatically by `uv run` / `uv sync` when Rust sources change.
 `uv.lock` is committed: dependency updates go through PRs.
 
