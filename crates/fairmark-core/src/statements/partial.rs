@@ -163,7 +163,7 @@ mod tests {
 
     #[test]
     fn the_step_substitutes_every_term() {
-        let mut ex = Explain::new("t", "t");
+        let mut ex = Explain::new("t");
         let t = total(
             &mut ex,
             "Invested capital",

@@ -97,11 +97,16 @@ pub(crate) fn parse<M: crate::method::Method>(
 pub(crate) const ROUNDING_ON_READING: &str = "rounded half away from zero at the first digit \
      that does not fit (28 decimal places, or 28 to 29 significant digits)";
 
-/// One `warning: ` convention for every decimal of `input` that reading rounds, the value
-/// given and the value used, each named by its JSON pointer under `prefix` (maintainer
-/// decision of 2026-11-10 on #279: such a value is accepted and rounded, never silently).
-/// `schema` is the input schema of the method, by which a decimal field is recognised.
-pub(crate) fn rounded_on_reading(schema: &Value, input: &Value, prefix: &str) -> Vec<String> {
+/// One `(pointer, message)` of warning FM-W001 for every decimal of `input` that reading
+/// rounds, the value given and the value used, named by its JSON pointer under `prefix`
+/// (maintainer decision of 2026-11-10 on #279: such a value is accepted and rounded, never
+/// silently). `schema` is the input schema of the method, by which a decimal field is
+/// recognised.
+pub(crate) fn rounded_on_reading(
+    schema: &Value,
+    input: &Value,
+    prefix: &str,
+) -> Vec<(String, String)> {
     let walk = UnknownKeys {
         root: schema,
         found: Vec::new(),
@@ -119,7 +124,7 @@ impl UnknownKeys<'_> {
         node: &Value,
         at: &mut Vec<String>,
         prefix: &str,
-        found: &mut Vec<String>,
+        found: &mut Vec<(String, String)>,
     ) {
         match node {
             Value::Object(map) => {
@@ -148,7 +153,7 @@ impl UnknownKeys<'_> {
         text: &str,
         at: &[String],
         prefix: &str,
-        found: &mut Vec<String>,
+        found: &mut Vec<(String, String)>,
     ) {
         // A text with at most 28 digits and no exponent always fits: no schema lookup.
         let digits = text.bytes().filter(u8::is_ascii_digit).count();
@@ -168,10 +173,11 @@ impl UnknownKeys<'_> {
             return;
         }
         let field = format!("{prefix}{}", pointer(at).unwrap_or_default());
-        found.push(format!(
-            "warning: `{field}` has more digits than a decimal holds: given {text}, used {used}, \
+        let message = format!(
+            "`{field}` has more digits than a decimal holds: given {text}, used {used}, \
              {ROUNDING_ON_READING}, as the input is read"
-        ));
+        );
+        found.push((field, message));
     }
 }
 

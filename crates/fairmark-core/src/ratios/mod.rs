@@ -153,17 +153,7 @@ impl RatioValue {
 /// The input pointers an output lacks (R7), without duplicates.
 pub(crate) type Missing = BTreeSet<String>;
 
-/// Order of JSON pointers in every list of the result: token by token, array indices compared
-/// as numbers and before names (`/periods/2` before `/periods/10`).
-pub(crate) fn pointer_cmp(a: &str, b: &str) -> std::cmp::Ordering {
-    fn key(t: &str) -> (u8, u64, &str) {
-        match t.parse::<u64>() {
-            Ok(n) if !t.is_empty() && t.bytes().all(|c| c.is_ascii_digit()) => (0, n, ""),
-            _ => (1, 0, t),
-        }
-    }
-    a.split('/').map(key).cmp(b.split('/').map(key))
-}
+pub(crate) use crate::diagnostics::pointer_cmp;
 
 /// The pointers of `set` in the order of [`pointer_cmp`].
 pub(crate) fn ordered(set: &Missing) -> Vec<String> {
@@ -872,7 +862,7 @@ mod tests {
     use super::*;
 
     fn ex() -> Explain {
-        Explain::new("test", "test")
+        Explain::new("test")
     }
 
     fn known(name: &'static str, v: i64) -> Given {

@@ -113,7 +113,7 @@ fn check_npv(input: &NpvInput) -> Result<()> {
 
 pub fn npv(input: &NpvInput) -> Result<(NpvOutput, Explain)> {
     check_npv(input)?;
-    let mut ex = Explain::new("tvm.npv", "NPV = Σ CF_t / (1 + r)^t");
+    let mut ex = Explain::new("NPV = Σ CF_t / (1 + r)^t");
     ex.convention("cash_flows[0] occurs at t = 0 and is not discounted");
 
     let mut pvs = Vec::with_capacity(input.cash_flows.len());
@@ -192,7 +192,7 @@ pub fn irr(input: &IrrInput) -> Result<(IrrOutput, Explain)> {
     let cfs = &input.cash_flows;
     check_irr(input)?;
 
-    let mut ex = Explain::new("tvm.irr", "find r such that Σ CF_t / (1 + r)^t = 0");
+    let mut ex = Explain::new("find r such that Σ CF_t / (1 + r)^t = 0");
     ex.convention("cash_flows[0] occurs at t = 0");
     solver_conventions(&mut ex, "rates per period (the period of the cash flows)");
     let guess = guess_convention(&mut ex, input.guess);
@@ -719,10 +719,8 @@ pub fn present_value(input: &PresentValueInput) -> Result<(PresentValueOutput, E
             .between(["/rate", "/period_rates"]))
         }
     };
-    let mut ex = Explain::new(
-        "tvm.present_value",
-        "PV = Σ CF_k × DF_k, DF_k = Π_{i ≤ k} (1 + r_i)^-1 (adjusted for timing)",
-    );
+    let mut ex =
+        Explain::new("PV = Σ CF_k × DF_k, DF_k = Π_{i ≤ k} (1 + r_i)^-1 (adjusted for timing)");
     ex.convention(format!("timing: {}", input.timing.label()));
     ex.convention(if input.rate.is_some() {
         "one rate for every period"
@@ -974,7 +972,7 @@ fn with_compounding(e: FairmarkError, field: &str, given: Option<Compounding>) -
 
 /// Every input error of `xnpv`, without computing (ADR 0014 G5): the dates, then the rate.
 fn check_xnpv(input: &XnpvInput) -> Result<()> {
-    let mut ex = Explain::new("tvm.xnpv", "");
+    let mut ex = Explain::new("");
     let (dc, c) = dated_conventions(&mut ex, input.day_count, input.compounding);
     let mut found = Found::new();
     found.check(time_axis(&input.cash_flows, input.valuation_date, dc).map(|_| ()));
@@ -995,10 +993,8 @@ fn check_xnpv(input: &XnpvInput) -> Result<()> {
 }
 
 pub fn xnpv(input: &XnpvInput) -> Result<(XnpvOutput, Explain)> {
-    let mut ex = Explain::new(
-        "tvm.xnpv",
-        "XNPV = Σ CF_j × DF(r, t_j), t_j = year fraction(valuation date, d_j)",
-    );
+    let mut ex =
+        Explain::new("XNPV = Σ CF_j × DF(r, t_j), t_j = year fraction(valuation date, d_j)");
     let (dc, c) = dated_conventions(&mut ex, input.day_count, input.compounding);
     check_xnpv(input)?;
     let axis = Some(time_axis(&input.cash_flows, input.valuation_date, dc)?);
@@ -1093,7 +1089,7 @@ fn check_xirr(input: &XirrInput) -> Result<()> {
     if flows.is_empty() {
         return Err(FairmarkError::EmptyCashFlows);
     }
-    let mut ex = Explain::new("tvm.xirr", "");
+    let mut ex = Explain::new("");
     let (dc, c) = dated_conventions(&mut ex, input.day_count, input.compounding);
     let axis = time_axis(flows, None, dc)?;
     let netted = net_by_time(flows, &axis.times)?;
@@ -1122,7 +1118,7 @@ pub fn xirr(input: &XirrInput) -> Result<(XirrOutput, Explain)> {
     if flows.is_empty() {
         return Err(FairmarkError::EmptyCashFlows);
     }
-    let mut ex = Explain::new("tvm.xirr", "find r such that Σ CF_j × DF(r, t_j) = 0");
+    let mut ex = Explain::new("find r such that Σ CF_j × DF(r, t_j) = 0");
     let (dc, c) = dated_conventions(&mut ex, input.day_count, input.compounding);
     let axis = time_axis(flows, None, dc)?;
     let (v, ts) = (axis.valuation_date, axis.times.clone());
@@ -1217,10 +1213,7 @@ pub fn mirr(input: &MirrInput) -> Result<(MirrOutput, Explain)> {
     let cfs = &input.cash_flows;
     check_mirr(input)?;
     let n = (cfs.len() - 1) as i64;
-    let mut ex = Explain::new(
-        "tvm.mirr",
-        "MIRR = (FV of positive flows / −PV of negative flows)^(1/n) − 1",
-    );
+    let mut ex = Explain::new("MIRR = (FV of positive flows / −PV of negative flows)^(1/n) − 1");
     ex.convention("cash_flows[0] occurs at t = 0");
     ex.convention("negative flows discounted to t = 0 at the finance rate");
     ex.convention("positive flows compounded to t = n at the reinvestment rate (ECMA-376 MIRR)");
@@ -1400,7 +1393,7 @@ pub(crate) fn annuity_factor(
     let one_r = num::one_plus(r)?;
     let one_g = num::one_plus(g)?;
     let diff = num::sub(r, g)?;
-    let mut ex = Explain::new("", "");
+    let mut ex = Explain::new("");
     let ordinary_factor = if r == g {
         let f = periods
             .checked_div(one_r)
@@ -1491,9 +1484,7 @@ pub fn annuity(input: &AnnuityInput) -> Result<(AnnuityOutput, Explain)> {
         annuity_factor(r, g, n, input.timing).map_err(rate_field("/rate", None))?;
     let periods = Decimal::from(n);
     let one_r = num::one_plus(r)?;
-    let mut ex = Explain::new(
-        "tvm.annuity",
-        "PV = P × [1 − ((1 + g)/(1 + r))^n] / (r − g); P × n / (1 + r) when r = g; × (1 + r) if due",
+    let mut ex = Explain::new("PV = P × [1 − ((1 + g)/(1 + r))^n] / (r − g); P × n / (1 + r) when r = g; × (1 + r) if due",
     );
     ex.convention(match input.timing {
         AnnuityTiming::Ordinary => "ordinary annuity: payments at the end of each period",
@@ -1582,7 +1573,7 @@ fn check_perpetuity(input: &PerpetuityInput) -> Result<()> {
 pub fn perpetuity(input: &PerpetuityInput) -> Result<(PerpetuityOutput, Explain)> {
     let (r, g) = (input.rate, input.growth.unwrap_or_default());
     check_perpetuity(input)?;
-    let mut ex = Explain::new("tvm.perpetuity", "PV = P / (r − g); × (1 + r) if due");
+    let mut ex = Explain::new("PV = P / (r − g); × (1 + r) if due");
     ex.convention(match input.timing {
         AnnuityTiming::Ordinary => "first payment at the end of the first period",
         AnnuityTiming::Due => "first payment immediately (perpetuity due)",
@@ -1708,7 +1699,6 @@ pub fn future_value(input: &FutureValueInput) -> Result<(FutureValueOutput, Expl
     let pv = input.present_value.unwrap_or_default();
     let pmt = input.payment.unwrap_or_default();
     let mut ex = Explain::new(
-        "tvm.future_value",
         "FV = PV (1 + r)^n + A ((1 + r)^n − 1) / r, A the level payment, the payment term \
          × (1 + r) if due; PV + n A when r = 0",
     );

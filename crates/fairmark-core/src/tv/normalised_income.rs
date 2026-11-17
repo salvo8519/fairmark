@@ -105,10 +105,7 @@ pub fn normalised_income(
     check(input).map_err(super::into_error)?;
     let (income, i) = (input.income, input.capitalisation_rate);
     let g = input.growth.unwrap_or_default();
-    let mut ex = Explain::new(
-        "tv.normalised_income",
-        "TV_N = R / i; R / (i − g) with growth",
-    );
+    let mut ex = Explain::new("TV_N = R / i; R / (i − g) with growth");
     ex.convention(NOT_DISCOUNTED);
     ex.convention(format!("capitalisation rate {i} per period (given)"));
     ex.convention(match input.basis {

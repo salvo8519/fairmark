@@ -172,7 +172,6 @@ pub fn scenarios(input: &ScenariosInput) -> Result<(ScenariosOutput, Explain)> {
     let pointers: Vec<&str> = input.outputs.iter().map(String::as_str).collect();
     let base_outputs = base_case(&mut inner, &base, &pointers, |k| format!("/outputs/{k}"))?;
     let mut ex = Explain::new(
-        Scenarios::ID,
         "delta = output(scenario) − output(base); relative delta = delta / output(base)",
     );
     for (o, v) in input.outputs.iter().zip(&base_outputs) {

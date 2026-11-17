@@ -266,14 +266,15 @@ fn terminal_rate_only_when_used() {
     assert!(e.to_string().contains("/terminal_wacc"), "{e}");
 }
 
-/// Methods without defaults never carry `meta.defaults_applied`.
+/// Methods without defaults list none: `meta.defaults_applied` is always present, empty
+/// (SPEC-0012 R3).
 #[test]
-fn methods_without_defaults_omit_the_field() {
+fn methods_without_defaults_list_none() {
     let out = ok(
         "tvm.npv",
         &json!({"rate": "0.1", "cash_flows": [-100, 60, 60]}),
     );
-    assert!(out["meta"].get("defaults_applied").is_none());
+    assert_eq!(out["meta"]["defaults_applied"], json!([]));
 }
 
 /// R29, Decision 24: the defaulted fields are optional in the schema, their defaults are

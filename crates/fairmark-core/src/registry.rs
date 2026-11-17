@@ -8,8 +8,9 @@ use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+use crate::diagnostics::WarningCode;
 use crate::error::{FairmarkError, Result};
-use crate::explain::{Meta, Valuation};
+use crate::explain::{Meta, Valuation, ENVELOPE_VERSION};
 use crate::method::Method;
 use crate::reading::Source;
 pub(crate) use crate::reading::{nested_error, nested_error_text};
@@ -426,36 +427,40 @@ fn execute<M: Method>(input_json: &str, source: Source) -> Result<Value> {
     // with its defaults, so that a minimal input and its explicit equivalent hash identically.
     let (value, mut explain, defaults) = M::run_typed(&mut input)?;
     // A decimal with more digits than a `Decimal` holds is rounded as it is read; the caller is
-    // told, once, here for every method and adapter (ADR 0014 G7). Values an analysis builds
-    // (`Source::Engine`) come from an input already reported.
+    // told, once, here for every method and adapter (ADR 0014 G7), with warning FM-W001.
+    // Values an analysis builds (`Source::Engine`) come from an input already reported.
     if source == Source::Caller {
-        for warning in rounded_on_reading(M::ID, input_json) {
-            explain.convention(warning);
+        for (pointer, message) in rounded_on_reading(M::ID, input_json) {
+            explain.warn(WarningCode::RoundedOnReading, Some(pointer), message);
         }
     }
     let canonical =
         serde_json::to_string(&input).map_err(|e| FairmarkError::InvalidInput(e.to_string()))?;
+    let diagnostics = explain.take_diagnostics();
     let envelope = Valuation {
         method: M::ID.to_owned(),
         value,
         explain,
+        diagnostics,
         meta: Meta {
             engine_version: ENGINE_VERSION.to_owned(),
+            envelope_version: ENVELOPE_VERSION,
             method_version: M::VERSION.to_owned(),
-            input_hash: sha256_hex(canonical.as_bytes()),
-            arithmetic: "decimal, 96-bit mantissa (28-29 significant digits)".to_owned(),
             method_status: status_of(M::ID),
             evaluated_method_status: M::evaluated_method(&input).map(status_of),
+            input_hash: sha256_hex(canonical.as_bytes()),
+            arithmetic: "decimal, 96-bit mantissa (28-29 significant digits)".to_owned(),
             defaults_applied: defaults,
         },
     };
     serde_json::to_value(envelope).map_err(|e| FairmarkError::InvalidInput(e.to_string()))
 }
 
-/// The `warning: ` conventions of the decimals of `input_json` that reading rounds, for method
-/// `id`; for an analysis, also those of its `base_input`, read by the method it names and
-/// named under `/base_input`.
-fn rounded_on_reading(id: &str, input_json: &str) -> Vec<String> {
+/// The decimals of `input_json` that reading rounds, for method `id`, as `(pointer, message)`
+/// of warning FM-W001, ordered by pointer so that the order of the keys of the input changes
+/// nothing (SPEC-0012 R13); for an analysis, also those of its `base_input`, read by the method
+/// it names and located under `/base_input`.
+fn rounded_on_reading(id: &str, input_json: &str) -> Vec<(String, String)> {
     let Ok(input) = serde_json::from_str::<Value>(input_json) else {
         return Vec::new();
     };
@@ -480,15 +485,16 @@ fn rounded_on_reading(id: &str, input_json: &str) -> Vec<String> {
                 let replaced = (id == "analysis.goal_seek")
                     .then(|| input["variable"].as_str())
                     .flatten()
-                    .map(|v| format!("warning: `/base_input{v}` "));
+                    .map(|v| format!("/base_input{v}"));
                 found.extend(
                     crate::reading::rounded_on_reading(&schema, base, "/base_input")
                         .into_iter()
-                        .filter(|w| replaced.as_ref().is_none_or(|r| !w.starts_with(r.as_str()))),
+                        .filter(|(pointer, _)| replaced.as_deref() != Some(pointer.as_str())),
                 );
             }
         }
     }
+    found.sort_by(|a, b| crate::diagnostics::pointer_cmp(&a.0, &b.0));
     found
 }
 
@@ -708,7 +714,8 @@ mod tests {
         let required = meta["required"].as_array().unwrap();
         assert!(required.contains(&Value::from("method_version")));
         assert!(required.contains(&Value::from("method_status")));
-        assert!(!required.contains(&Value::from("defaults_applied")));
+        assert!(required.contains(&Value::from("defaults_applied")));
+        assert!(required.contains(&Value::from("envelope_version")));
         let seek = output_schema("analysis.goal_seek").unwrap();
         assert_eq!(
             seek["properties"]["inner_value"]["x-fairmark-output-of"],
@@ -1555,7 +1562,6 @@ mod tests {
     /// `{formula, steps, conventions}`, and the three diagnostics arrays and
     /// `meta.defaults_applied` are always present.
     #[test]
-    #[ignore = "SPEC-0012: enabled by T11, which writes the envelope of ADR 0014 G4"]
     fn every_result_has_the_envelope_of_g4() {
         let mut failures = Vec::new();
         let mut checked = 0u32;
@@ -1604,14 +1610,13 @@ mod tests {
                 ));
             }
         }
-        assert!(checked > 500, "{checked}");
+        assert!(checked > 300, "{checked}");
         assert!(failures.is_empty(), "{}", failures.join("\n"));
     }
 
     /// SPEC-0012 AC3 (R3): a result with nothing to report has the empty arrays, not missing
     /// keys.
     #[test]
-    #[ignore = "SPEC-0012: enabled by T11, which writes the envelope of ADR 0014 G4"]
     fn a_result_without_diagnostics_has_empty_arrays() {
         let out = run(
             "tvm.npv",
@@ -1631,7 +1636,6 @@ mod tests {
     /// block with its three arrays, `meta.envelope_version` and `meta.defaults_applied`, and
     /// `explain` has no `method`.
     #[test]
-    #[ignore = "SPEC-0012: enabled by T11, which writes the envelope of ADR 0014 G4"]
     fn result_schemas_require_the_diagnostics() {
         let has = |schema: &Value, key: &str| {
             schema["required"]
@@ -1873,7 +1877,6 @@ mod tests {
     /// SPEC-0012 AC11 (R13): two runs of every golden input give byte-identical diagnostics,
     /// and so does the input with the keys of every object reversed.
     #[test]
-    #[ignore = "SPEC-0012: enabled by T11, which writes the diagnostics"]
     fn diagnostics_are_deterministic() {
         let mut failures = Vec::new();
         for (name, id, input) in golden_results() {

@@ -884,7 +884,6 @@ fn test(i: usize, c: &Covenant, ex: &mut Explain) -> (CovenantResult, Missing) {
 pub fn covenants(input: &CovenantsInput) -> Result<(CovenantsOutput, Explain)> {
     validate(input)?;
     let mut ex = Explain::new(
-        Covenants::ID,
         "tested value = numerator / denominator (loan agreement definitions), rounded only as \
          the agreement states; outcome decided exactly; headroom = threshold − tested value \
          (maximum) or tested value − threshold (minimum); relative headroom = headroom / \

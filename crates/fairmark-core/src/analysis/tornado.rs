@@ -134,7 +134,6 @@ pub fn tornado(input: &TornadoInput) -> Result<(TornadoOutput, Explain)> {
         "/output".to_owned()
     })?[0];
     let mut ex = Explain::new(
-        Tornado::ID,
         "swing = output(variable at high) − output(variable at low), other inputs at base; \
         bars ranked by |swing|",
     );

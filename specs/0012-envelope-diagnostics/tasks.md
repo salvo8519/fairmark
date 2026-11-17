@@ -36,7 +36,7 @@ migrate the golden keys of their own changes, and T16 adds new cases.
 Each implementation task that moves golden keys runs `golden_envelope_migration.py apply` on
 its approved files and `verify` in the same commit, so every commit passes `just check`.
 
-- [ ] T11 `diagnostics.rs` types and collector; `Explain` without `method`; `Meta` with
+- [x] T11 `diagnostics.rs` types and collector; `Explain` without `method`; `Meta` with
   `envelope_version` and `defaults_applied` always written, key `pointer`; `Valuation` with
   `diagnostics`; registry assembly and FM-W001 from the reading; golden migration of the
   `expect_meta` keys `/defaults_applied/{k}/field` [R1 to R4, R8 to R11, R13; AC16]

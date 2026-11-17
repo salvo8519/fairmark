@@ -86,7 +86,6 @@ pub struct WorkingCapitalOutput {
 
 pub fn working_capital(input: &WorkingCapitalInput) -> Result<(WorkingCapitalOutput, Explain)> {
     let mut ex = Explain::new(
-        WorkingCapital::ID,
         "DSO = trade receivables × days / revenue; DIO = inventories × days / cost of sales; \
          DPO = trade payables × days / purchases; cash conversion cycle = DSO + DIO − DPO",
     );

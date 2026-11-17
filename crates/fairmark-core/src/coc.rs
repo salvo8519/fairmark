@@ -207,10 +207,9 @@ pub fn beta_relever(input: &BetaReleverInput) -> Result<(BetaReleverOutput, Expl
         BetaDirection::Relever => "β_L = β_U + (β_U − β_D) × k",
         BetaDirection::Unlever => "β_U = (β_L + β_D × k) / (1 + k)",
     };
-    let mut ex = Explain::new(
-        "coc.beta_relever",
-        &format!("{headline}; k = (1 − t) D/E (Hamada) or D/E (Harris-Pringle)"),
-    );
+    let mut ex = Explain::new(&format!(
+        "{headline}; k = (1 − t) D/E (Hamada) or D/E (Harris-Pringle)"
+    ));
     formula_conventions(&mut ex, input.formula);
     let bd = debt_beta_convention(&mut ex, input.debt_beta);
     let (de, t, b) = (input.debt_to_equity, input.tax_rate, input.beta);
@@ -319,9 +318,7 @@ pub fn beta_peers(input: &BetaPeersInput) -> Result<(BetaPeersOutput, Explain)> 
         );
     }
     check_beta_peers(input)?;
-    let mut ex = Explain::new(
-        "coc.beta_peers",
-        "β_U,i = (β_L,i + β_D × k_i) / (1 + k_i); statistic of β_U,i; β_L = β_U + (β_U − β_D) × k_target",
+    let mut ex = Explain::new("β_U,i = (β_L,i + β_D × k_i) / (1 + k_i); statistic of β_U,i; β_L = β_U + (β_U − β_D) × k_target",
     );
     formula_conventions(&mut ex, input.formula);
     let bd = debt_beta_convention(&mut ex, input.debt_beta);
@@ -553,10 +550,7 @@ fn check_cost_of_equity(input: &CostOfEquityInput) -> Result<()> {
 
 pub fn cost_of_equity(input: &CostOfEquityInput) -> Result<(CostOfEquityOutput, Explain)> {
     check_cost_of_equity(input)?;
-    let mut ex = Explain::new(
-        "coc.cost_of_equity",
-        "ke = rf + β_L × ERP + CRP × λ + size premium + specific premium",
-    );
+    let mut ex = Explain::new("ke = rf + β_L × ERP + CRP × λ + size premium + specific premium");
     ex.convention(ANNUAL);
     let beta = match (&input.levered_beta, &input.relever) {
         (Some(b), None) => {
@@ -727,7 +721,7 @@ fn check_cost_of_debt(input: &CostOfDebtInput) -> Result<()> {
 
 pub fn cost_of_debt(input: &CostOfDebtInput) -> Result<(CostOfDebtOutput, Explain)> {
     check_cost_of_debt(input)?;
-    let mut ex = Explain::new("coc.cost_of_debt", "kd_after_tax = kd × (1 − t)");
+    let mut ex = Explain::new("kd_after_tax = kd × (1 − t)");
     ex.convention(ANNUAL);
     let kd = match (
         input.pre_tax_cost_of_debt,
@@ -842,7 +836,7 @@ fn check_wacc(input: &WaccInput) -> Result<()> {
 
 pub fn wacc(input: &WaccInput) -> Result<(WaccOutput, Explain)> {
     check_wacc(input)?;
-    let mut ex = Explain::new("coc.wacc", "WACC = E/V × ke + D/V × kd × (1 − t)");
+    let mut ex = Explain::new("WACC = E/V × ke + D/V × kd × (1 − t)");
     ex.convention(ANNUAL);
     ex.convention(format!("tax rate of the tax shield {}", input.tax_rate));
     let (we, wd) = match (input.debt_to_equity, input.debt_weight) {

@@ -17,7 +17,7 @@ from fairmark import mcp_server, tools
 
 LONG = "0.009166666666666666666666666667"
 WARNING = (
-    "warning: `/rate` has more digits than a decimal holds: given "
+    "warning FM-W001: `/rate` has more digits than a decimal holds: given "
     "0.009166666666666666666666666667, used 0.0091666666666666666666666667, rounded half away "
     "from zero at the first digit that does not fit (28 decimal places, or 28 to 29 significant "
     "digits), as the input is read"
@@ -30,7 +30,7 @@ def _inputs(rate: object) -> dict[str, object]:
 
 
 def _warnings(conventions: list[str]) -> list[str]:
-    return [c for c in conventions if c.startswith("warning: ")]
+    return [c for c in conventions if c.startswith("warning")]
 
 
 @pytest.mark.parametrize("rate", [LONG, Decimal(LONG)])

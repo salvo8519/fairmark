@@ -125,10 +125,8 @@ pub fn limited_horizon(input: &LimitedHorizonInput) -> Result<(LimitedHorizonOut
         n,
         AnnuityTiming::Ordinary,
     )?;
-    let mut ex = Explain::new(
-        "tv.limited_horizon",
-        "TV_N = CF_{N+1} × [1 − ((1 + g)/(1 + r))^n] / (r − g) + RV × (1 + r)^−n",
-    );
+    let mut ex =
+        Explain::new("TV_N = CF_{N+1} × [1 − ((1 + g)/(1 + r))^n] / (r − g) + RV × (1 + r)^−n");
     ex.convention(NOT_DISCOUNTED);
     ex.convention(format!(
         "flows at the end of periods N + 1 to N + {n} ({n} periods, explicit), then the \

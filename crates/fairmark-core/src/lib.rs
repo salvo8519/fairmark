@@ -25,6 +25,7 @@ pub mod analysis;
 pub mod coc;
 pub mod dates;
 pub mod dcf;
+pub mod diagnostics;
 pub mod error;
 pub mod explain;
 pub mod frequency;

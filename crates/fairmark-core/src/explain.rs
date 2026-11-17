@@ -6,6 +6,7 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::Serialize;
 
+use crate::diagnostics::{self, Check, Diagnostics, NotComputed, Warning, WarningCode};
 use crate::registry::Status;
 
 /// One auditable step of a calculation.
@@ -22,23 +23,27 @@ pub struct Step {
 /// How a result was obtained.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct Explain {
-    /// Method identifier, e.g. `dcf.fcff`.
-    pub method: String,
     /// The method's formula in plain notation.
     pub formula: String,
     /// Ordered calculation steps.
     pub steps: Vec<Step>,
-    /// Conventions applied (timing, discounting of the terminal value, ...).
+    /// Conventions applied (timing, discounting of the terminal value, ...), the documented
+    /// defaults (`default: ...`) and the echo of every warning (`warning FM-Wnnn: ...`).
     pub conventions: Vec<String>,
+    /// The diagnostics written while the method computes; the registry moves them into the
+    /// envelope (`diagnostics`), so they are not part of `explain`.
+    #[serde(skip)]
+    #[schemars(skip)]
+    diagnostics: Diagnostics,
 }
 
 impl Explain {
-    pub fn new(method: &str, formula: &str) -> Self {
+    pub fn new(formula: &str) -> Self {
         Self {
-            method: method.to_owned(),
             formula: formula.to_owned(),
             steps: Vec::new(),
             conventions: Vec::new(),
+            diagnostics: Diagnostics::default(),
         }
     }
 
@@ -52,6 +57,44 @@ impl Explain {
 
     pub fn convention(&mut self, text: impl Into<String>) {
         self.conventions.push(text.into());
+    }
+
+    /// A warning of the catalogue (SPEC-0012 R8, R9): its entry in `diagnostics.warnings` and
+    /// its echo `warning FM-Wnnn: <message>` in the conventions, in one call, so that the two
+    /// keep the same order. `pointer` is written from the root the catalogue states for
+    /// `code`.
+    pub fn warn(&mut self, code: WarningCode, pointer: Option<String>, message: impl Into<String>) {
+        let message = message.into();
+        self.conventions.push(diagnostics::echo(code, &message));
+        self.diagnostics.warnings.push(Warning {
+            code,
+            pointer,
+            message,
+        });
+    }
+
+    /// Outputs not computed (SPEC-0012 R5); ordered by pointer when the envelope is built.
+    pub fn not_computed(&mut self, entries: impl IntoIterator<Item = NotComputed>) {
+        self.diagnostics.not_computed.extend(entries);
+    }
+
+    /// Relations verified or not verified (SPEC-0012 R7), in the order of the result.
+    pub fn checks(&mut self, entries: impl IntoIterator<Item = Check>) {
+        self.diagnostics.checks.extend(entries);
+    }
+
+    /// The diagnostics written so far.
+    pub fn diagnostics(&self) -> &Diagnostics {
+        &self.diagnostics
+    }
+
+    /// The diagnostics, moved out for the envelope, `not_computed` ordered by pointer
+    /// (SPEC-0012 R13).
+    pub(crate) fn take_diagnostics(&mut self) -> Diagnostics {
+        let mut d = std::mem::take(&mut self.diagnostics);
+        d.not_computed
+            .sort_by(|a, b| diagnostics::pointer_cmp(&a.pointer, &b.pointer));
+        d
     }
 }
 
@@ -124,31 +167,38 @@ impl DefaultApplied {
     }
 }
 
+/// Version of the envelope `{method, value, explain, diagnostics, meta}` (ADR 0014 G4): changes
+/// of `explain`, `diagnostics` or `meta` follow ADR 0014 G8 against this version, not against
+/// the method version (SPEC-0012 R4).
+pub const ENVELOPE_VERSION: u32 = 1;
+
 /// Reproducibility metadata attached to every result.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct Meta {
     /// Version of the fairmark engine that produced the result.
     pub engine_version: String,
+    /// Version of the envelope, an integer: 1 for `{method, value, explain, diagnostics,
+    /// meta}` (ADR 0014 G4).
+    pub envelope_version: u32,
     /// Version of the method implementation. Bumped on any numerical change.
     pub method_version: String,
-    /// SHA-256 of the canonical input, with the documented defaults filled in: same hash +
-    /// same versions = same value.
-    pub input_hash: String,
-    /// Arithmetic used for every operation.
-    pub arithmetic: String,
     /// Status of the method that produced the result, `available` or `preview` (ADR 0012).
     pub method_status: Status,
     /// Analysis methods only: status of the method they evaluated (ADR 0012).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub evaluated_method_status: Option<Status>,
+    /// SHA-256 of the canonical input, with the documented defaults filled in: same hash +
+    /// same versions = same value.
+    pub input_hash: String,
+    /// Arithmetic used for every operation.
+    pub arithmetic: String,
     /// Documented defaults filled in because their fields were not given, in input order;
-    /// omitted when none applies.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    /// empty when none applies.
     pub defaults_applied: Vec<DefaultApplied>,
 }
 
-/// The envelope every method returns. Its JSON Schema, with `value` described by the method's
-/// output schema, is `registry::result_schema`.
+/// The envelope every method returns (ADR 0014 G4). Its JSON Schema, with `value` described by
+/// the method's output schema, is `registry::result_schema`.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct Valuation<T: Serialize> {
     /// Id of the method that produced the result, for example `dcf.fcff`.
@@ -156,8 +206,11 @@ pub struct Valuation<T: Serialize> {
     /// The method's output: its schema is `registry::output_schema`, snapshotted as
     /// `schemas/<method>/v<N>.output.json`.
     pub value: T,
-    /// How the result was obtained: formula, conventions and every step.
+    /// How the result was obtained: formula, steps and conventions.
     pub explain: Explain,
-    /// Reproducibility metadata: engine and method versions, status, input hash, defaults.
+    /// What the result does not contain, what the reader could miss and what was verified.
+    pub diagnostics: Diagnostics,
+    /// Reproducibility metadata: engine, envelope and method versions, status, input hash,
+    /// defaults.
     pub meta: Meta,
 }

@@ -116,7 +116,6 @@ pub fn liquidation(input: &LiquidationInput) -> Result<(LiquidationOutput, Expla
     check(input).map_err(super::into_error)?;
     let tax = input.tax_on_gains;
     let mut ex = Explain::new(
-        "tv.liquidation",
         "TV_N = Σ realisable values − Σ liabilities − Σ liquidation costs − tax on gains",
     );
     ex.convention(NOT_DISCOUNTED);

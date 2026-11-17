@@ -213,7 +213,6 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
     check_debt_service(input)?;
     let defaults = defaults(input);
     let mut ex = Explain::new(
-        DebtService::ID,
         "interest cover = EBIT (or EBITDA) / interest; NFP / EBITDA; DSCR_t = CFADS_t / debt \
          service_t; LLCR = (Σ CFADS_t / (1 + r)^t + reserve balance) / debt outstanding",
     );

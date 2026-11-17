@@ -182,10 +182,8 @@ pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
         .pop()
         .ok_or(FairmarkError::Internal("goal seek has no evaluation"))?;
 
-    let mut ex = Explain::new(
-        GoalSeek::ID,
-        "find x in [low, high] such that output(x) − target = 0 (Brent's method)",
-    );
+    let mut ex =
+        Explain::new("find x in [low, high] such that output(x) − target = 0 (Brent's method)");
     for (i, (Point { x, fx, kind }, y)) in root.trace.iter().zip(&outputs).enumerate() {
         ex.step(
             format!("Evaluation {} ({})", i + 1, kind.label()),

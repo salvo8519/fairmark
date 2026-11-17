@@ -1795,7 +1795,7 @@ fn check_lines_before_refusal(input: &EngineInput<'_>) -> Result<()> {
         return Ok(());
     }
     let (mut known, positions) = stage_positions(input.stages);
-    let mut scratch = Explain::new("dcf", "");
+    let mut scratch = Explain::new("");
     lines_of_stages(
         &mut known,
         input.basis,
@@ -1934,7 +1934,7 @@ fn stage_lines(
                 running = running.saturating_add(s.periods);
                 continue;
             }
-            let mut own = Explain::new(FreeCashFlows::ID, FORMULA_FCFF);
+            let mut own = Explain::new(FORMULA_FCFF);
             let out = build_up(lines, taxes, at, &mut own)?;
             for step in own.steps {
                 ex.step(
@@ -2029,7 +2029,7 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain, found: Found) -> Re
 /// makes before it computes, every refusal reported, and nothing built up, projected or
 /// discounted.
 pub(crate) fn validate(input: &EngineInput<'_>, found: Found) -> Result<()> {
-    let mut scratch = Explain::new("dcf", "");
+    let mut scratch = Explain::new("");
     run_pass(input, &mut scratch, found, Pass::Validate).map(|_| ())
 }
 

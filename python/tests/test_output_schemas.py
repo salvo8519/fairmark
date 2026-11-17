@@ -46,7 +46,7 @@ def test_every_method_publishes_its_output_and_result_schemas(method: str) -> No
     assert output["$schema"] == "https://json-schema.org/draft/2020-12/schema"
     assert output["type"] == "object" and output["description"]
     result = fm.result_schema(method)
-    assert set(result["required"]) == {"method", "value", "explain", "meta"}
+    assert set(result["required"]) == {"method", "value", "explain", "diagnostics", "meta"}
     # The copies are independent: a caller cannot alter the schema used for decoding.
     output["type"] = "changed"
     assert fm.output_schema(method)["type"] == "object"

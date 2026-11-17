@@ -84,7 +84,6 @@ pub fn capital_structure(
     input: &CapitalStructureInput,
 ) -> Result<(CapitalStructureOutput, Explain)> {
     let mut ex = Explain::new(
-        CapitalStructure::ID,
         "D/E = gross debt / equity; NFP/E = net financial position / equity; equity ratio = \
          equity / total assets; structure margins = equity (+ non-current liabilities) − fixed \
          assets; fixed-asset coverage = equity (+ non-current liabilities) / fixed assets",

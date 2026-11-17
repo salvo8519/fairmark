@@ -187,7 +187,6 @@ pub struct ProfitabilityOutput {
 
 pub fn profitability(input: &ProfitabilityInput) -> Result<(ProfitabilityOutput, Explain)> {
     let mut ex = Explain::new(
-        Profitability::ID,
         "ROE = net income / equity; ROI = EBIT / operating return base; ROS = EBIT / revenue; \
          capital turnover = revenue / operating return base; ROE = net margin × asset turnover × \
          equity multiplier",

@@ -11,6 +11,7 @@
 - T8 pointer naming walk (AC10, any field whose description says "JSON pointer" or "RFC 6901"), pointer resolution and determinism tests in `registry.rs`, ignored until T11, T14, T15.
 - T9 catalogue test `tests/warning_catalogue.rs` (text check: `Variant = "FM-Wnnn"` declared in `src/diagnostics.rs`, emitted as `WarningCode::Variant`, documented in `docs/en/reference/warnings.md`); main test ignored until T20, planted test active.
 - T10 analysis diagnostics tests `tests/analysis_diagnostics.rs` (v2 field names), ignored until T15.
+- T11 `diagnostics.rs` (types, `WarningCode` FM-W001 to FM-W016, pattern-only schema), `Explain` without `method` and with `warn`/`not_computed`/`checks`, `Meta.envelope_version`, `defaults_applied` always present, `Valuation.diagnostics`, FM-W001 from the reading (sorted by pointer). Helpers for T12/T15 parked in `/tmp/i259-nested.rs`, `/tmp/i259-iswarning.rs`, `/tmp/i259-tests-moved.rs` (scratch, re-create if lost: `nested` rebasing for analyses, `is_warning_text`).
 
 ## State at the end of the session
 - In progress: tasks T5 to T23 of `specs/0012-envelope-diagnostics/tasks.md`, one commit each.
@@ -25,7 +26,11 @@
   files with the rename only migrate in the same commit).
 
 ## Open questions for the maintainer
-- none
+- The MCP server (`python/fairmark/mcp_server.py` `call_tool`) appends its own convention
+  `warning: \`<pointer>\` arrived as a binary floating-point number ...` to the core envelope.
+  It is a seventeenth warning condition the spec inventory (core only) did not list, it has no
+  code, and it contradicts R9 and R15 (adapter changes the envelope). Left unchanged; question
+  for the maintainer: give it a code (FM-W017, emitted how?) or keep it as an adapter note.
 
 ## Next steps
-1. T11: `diagnostics.rs`, Explain without method, Meta with envelope_version, Valuation with diagnostics, FM-W001.
+1. T12: every `warning: ` site through `ex.warn` (FM-W002 to FM-W016), debug assertion in `Explain::convention`, enable T6 and AC8 tests.

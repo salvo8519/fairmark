@@ -169,7 +169,7 @@ fn fcff_with_defaults(
     input: &DcfFcffInput,
     defaults: &[DefaultApplied],
 ) -> Result<(DcfFcffOutput, Explain)> {
-    let mut ex = Explain::new("dcf.fcff", FORMULA);
+    let mut ex = Explain::new(FORMULA);
     ex.convention("basis: enterprise, free cash flows to the firm (FCFF) discounted at the WACC");
     let engine_input = input.engine_input(defaults)?;
     // Bridge items are checked before any calculation, like every other input.
@@ -1026,7 +1026,7 @@ mod tests {
         });
         let given = run("dcf.fcff", &zero.to_string()).unwrap();
         let absent = run("dcf.fcff", &base().to_string()).unwrap();
-        assert!(given["meta"].get("defaults_applied").is_none());
+        assert_eq!(given["meta"]["defaults_applied"], json!([]));
         assert_eq!(
             given["value"]["equity_value"],
             absent["value"]["equity_value"]

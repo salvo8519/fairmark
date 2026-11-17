@@ -251,10 +251,8 @@ fn check_convert(input: &ConvertInput) -> Result<()> {
 }
 
 pub fn convert(input: &ConvertInput) -> Result<(ConvertOutput, Explain)> {
-    let mut ex = Explain::new(
-        "rates.convert",
-        "find r_to such that growth over one year is equal: (1 + r/m)^m or e^r",
-    );
+    let mut ex =
+        Explain::new("find r_to such that growth over one year is equal: (1 + r/m)^m or e^r");
     ex.convention(format!("from: {}", input.from.label()));
     ex.convention(format!("to: {}", input.to.label()));
     // The domain of the rate, reported as the validation reports it (with `/from`).
@@ -343,10 +341,7 @@ fn check_real_nominal(input: &RealNominalInput) -> Result<()> {
 pub fn real_nominal(input: &RealNominalInput) -> Result<(RealNominalOutput, Explain)> {
     let one = Decimal::ONE;
     check_real_nominal(input)?;
-    let mut ex = Explain::new(
-        "rates.real_nominal",
-        "(1 + nominal) = (1 + real) × (1 + inflation)",
-    );
+    let mut ex = Explain::new("(1 + nominal) = (1 + real) × (1 + inflation)");
     ex.convention("exact Fisher relation (not the additive approximation)");
     let (rate, formula) = match input.direction {
         FisherDirection::ToReal => (

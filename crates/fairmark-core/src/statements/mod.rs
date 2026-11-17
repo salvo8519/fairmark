@@ -520,7 +520,7 @@ pub(crate) struct Stated {
 /// The calculation, on an input whose defaults were filled in.
 fn compute(input: &ReorganiseInput, stated: Stated) -> Result<(ReorganiseOutput, Explain)> {
     validate::validate(input)?;
-    let mut ex = Explain::new(Reorganise::ID, FORMULA);
+    let mut ex = Explain::new(FORMULA);
     let statutory = input.years.iter().any(|y| y.statutory.is_some());
     ex.convention(
         "missing inputs are never taken as zero: an output whose inputs are missing is null and \

@@ -136,15 +136,12 @@ pub fn sensitivity(input: &SensitivityInput) -> Result<(SensitivityOutput, Expla
     let base_output = base_case(&mut inner, &base, &[input.output.as_str()], |_| {
         "/output".to_owned()
     })?[0];
-    let mut ex = Explain::new(
-        Sensitivity::ID,
-        if input.columns.is_some() {
-            "cell(i, j) = output(base input with rows.variable = rows.values[i] and \
+    let mut ex = Explain::new(if input.columns.is_some() {
+        "cell(i, j) = output(base input with rows.variable = rows.values[i] and \
             columns.variable = columns.values[j])"
-        } else {
-            "cell(i) = output(base input with rows.variable = rows.values[i])"
-        },
-    );
+    } else {
+        "cell(i) = output(base input with rows.variable = rows.values[i])"
+    });
     ex.step(
         "Base case",
         format!("{} with base_input unchanged", input.output),

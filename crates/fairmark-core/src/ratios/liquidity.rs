@@ -70,7 +70,6 @@ pub struct LiquidityOutput {
 
 pub fn liquidity(input: &LiquidityInput) -> Result<(LiquidityOutput, Explain)> {
     let mut ex = Explain::new(
-        Liquidity::ID,
         "current ratio = current assets / current liabilities; quick ratio = (current assets − \
          inventories) / current liabilities; cash ratio = cash / current liabilities; net \
          working capital = current assets − current liabilities; treasury margin = current \

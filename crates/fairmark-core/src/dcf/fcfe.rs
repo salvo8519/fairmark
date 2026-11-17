@@ -198,7 +198,7 @@ fn fcfe_with_defaults(
     defaults: &[DefaultApplied],
 ) -> Result<(DcfFcfeOutput, Explain)> {
     check_no_net_financial_position(input)?;
-    let mut ex = Explain::new(Fcfe::ID, FORMULA);
+    let mut ex = Explain::new(FORMULA);
     ex.convention(
         "basis: equity, free cash flows to equity (FCFE) discounted at the cost of equity",
     );

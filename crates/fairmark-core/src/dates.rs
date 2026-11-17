@@ -372,10 +372,7 @@ fn check_order(start: Date, end: Date) -> Result<()> {
 
 pub fn year_fraction(input: &YearFractionInput) -> Result<(YearFractionOutput, Explain)> {
     let (yf, formula) = input.day_count.year_fraction(input.start, input.end)?;
-    let mut ex = Explain::new(
-        "dates.year_fraction",
-        "year fraction = day count(start, end)",
-    );
+    let mut ex = Explain::new("year fraction = day count(start, end)");
     ex.convention(format!("day count: {}", input.day_count.label()));
     let days = input.start.days_until(input.end);
     ex.step(
@@ -679,7 +676,6 @@ pub(crate) fn schedule_explain(s: &BuiltSchedule, ex: &mut Explain) -> Result<()
 pub fn schedule(input: &ScheduleInput) -> Result<(ScheduleOutput, Explain)> {
     let s = build_schedule(input, "")?;
     let mut ex = Explain::new(
-        "dates.schedule",
         "period k = [d_(k−1), d_k), d_0 = start date, d_k = start date + k × p months \
          (end-of-month rule), k = 1..n",
     );

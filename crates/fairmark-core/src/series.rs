@@ -711,7 +711,6 @@ pub fn project(input: &ProjectInput) -> Result<(ProjectOutput, Explain)> {
 
     // The audit trail (R19), bounded: the per-period numbers are in the rows.
     let mut ex = Explain::new(
-        "series.project",
         "V_k = V_(k−1) × (1 + g_k), period by period, k = 1..n; g_k = growth per period into \
          period k",
     );

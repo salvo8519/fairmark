@@ -63,7 +63,6 @@ fn assert_warning(case: &str, code: &str, pointer: Option<&str>, message: &str) 
 }
 
 #[test]
-#[ignore = "SPEC-0012: enabled by T11, which writes FM-W001"]
 fn fm_w001_a_decimal_rounded_as_it_is_read() {
     assert_warning(
         "tvm.future_value/ecma-376-monthly-rate-due.yaml",

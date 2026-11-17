@@ -214,7 +214,7 @@ mod tests {
 
     #[test]
     fn growth_cap_is_reported_never_refused() {
-        let mut ex = Explain::new("tv.test", "");
+        let mut ex = Explain::new("");
         let c = check_growth_cap(&mut ex, "growth", d("0.03"), Some(d("0.03"))).unwrap();
         assert_eq!(c.status, CapStatus::Respected);
         let c = check_growth_cap(&mut ex, "growth", d("0.031"), Some(d("0.03"))).unwrap();
