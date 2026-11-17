@@ -390,6 +390,33 @@ mod tests {
         assert!(schema.get("enum").is_none());
     }
 
+    /// The warning code is one shared definition, `WarningCode`, referred to by every warning,
+    /// in the schemas the engine generates and in the envelope snapshot (mutants of #361).
+    #[test]
+    fn the_warning_code_schema_is_a_shared_definition() {
+        assert_eq!(WarningCode::schema_name(), "WarningCode");
+        let schema = serde_json::to_value(schemars::schema_for!(Warning)).unwrap();
+        assert_eq!(schema["properties"]["code"]["$ref"], "#/$defs/WarningCode");
+        assert_eq!(schema["$defs"]["WarningCode"]["pattern"], "^FM-W[0-9]{3}$");
+        let result = crate::registry::result_schema("tvm.npv").unwrap();
+        assert_eq!(
+            result["$defs"]["Warning"]["properties"]["code"]["$ref"],
+            "#/$defs/WarningCode"
+        );
+        let path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../schemas/envelope/v1.json");
+        let snapshot: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        assert_eq!(
+            snapshot["$defs"]["Warning"]["properties"]["code"]["$ref"],
+            "#/$defs/WarningCode"
+        );
+        assert_eq!(
+            snapshot["$defs"]["WarningCode"]["pattern"],
+            "^FM-W[0-9]{3}$"
+        );
+    }
+
     #[test]
     fn warning_texts_are_recognised() {
         assert!(is_warning_text("warning FM-W001: x"));

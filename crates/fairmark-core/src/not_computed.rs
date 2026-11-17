@@ -72,3 +72,52 @@ impl NotComputedEntry {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn entry(missing: &[&str], permitted: bool, reason: Option<&str>) -> NotComputedEntry {
+        NotComputedEntry {
+            output: "/years/0/income_statement/net_income".to_owned(),
+            missing: missing.iter().map(|p| (*p).to_owned()).collect(),
+            permitted: if permitted {
+                vec![Permitted {
+                    treatment: "/treatments/financial_fixed_assets".to_owned(),
+                    destinations: vec!["operating", "non_operating"],
+                }]
+            } else {
+                Vec::new()
+            },
+            reason: reason.map(str::to_owned),
+        }
+    }
+
+    /// SPEC-0012 R5: each reason of the computation becomes its reason code, with the reason of
+    /// that code when the entry gives none (mutants of #361).
+    #[test]
+    fn each_reason_converts_to_its_code_and_reason() {
+        let choice = entry(&["/treatments/financial_fixed_assets"], true, None).into_diagnostic();
+        assert_eq!(choice.reason_code, ReasonCode::ChoiceRequired);
+        assert_eq!(choice.reason, CHOICE_REQUIRED);
+        assert_eq!(
+            choice.missing_any_of,
+            [["/treatments/financial_fixed_assets".to_owned()]]
+        );
+        assert_eq!(choice.permitted[0].values, ["operating", "non_operating"]);
+        assert_eq!(choice.pointer, "/value/years/0/income_statement/net_income");
+
+        let not_applicable = entry(&[], false, None).into_diagnostic();
+        assert_eq!(not_applicable.reason_code, ReasonCode::NotApplicable);
+        assert_eq!(not_applicable.reason, NOT_APPLICABLE);
+        assert!(not_applicable.missing_any_of.is_empty());
+
+        let missing =
+            entry(&["/years/0/statutory/income_statement"], false, None).into_diagnostic();
+        assert_eq!(missing.reason_code, ReasonCode::MissingInput);
+        assert_eq!(missing.reason, diagnostics::MISSING_INPUT_REASON);
+
+        let given = entry(&[], false, Some("as the method says")).into_diagnostic();
+        assert_eq!(given.reason, "as the method says");
+    }
+}
