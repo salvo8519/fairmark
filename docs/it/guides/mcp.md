@@ -95,7 +95,7 @@ finanziari.
   [function calling](function-calling.md#gli-schemi-visti-dal-modello)). Un client che invia
   un numero JSON con più di 17 cifre significative perde cifre nella libreria MCP, che lo legge
   come numero in virgola mobile binaria prima che Fairmark lo veda. Il server passa al motore il
-  puntatore di ogni argomento arrivato in virgola mobile, e il motore lo segnala con l'avviso
+  puntatore di ogni argomento arrivato in virgola mobile, e il motore lo segnala con l'avvertenza
   `FM-W017` in `diagnostics.warnings`, a quel puntatore, riportato nelle convenzioni come
   ``warning FM-W017: `/rate` arrived as a binary floating-point number (…)``; il server non
   modifica mai il risultato.

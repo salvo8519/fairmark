@@ -128,9 +128,9 @@ corrisponde all'8%), unità monetarie per un importo. In Python, `rows` e `colum
 | `failed_cells` | Numero di celle che contengono un errore |
 
 La versione 2 (SPEC-0012) dà a ogni campo che contiene un pointer il suffisso `_pointer` o
-`_pointers`, nell'input e nell'output. Gli avvisi della valutazione di `base_input` sono riportati
+`_pointers`, nell'input e nell'output. Le avvertenze della valutazione di `base_input` sono riportate
 una sola volta in `diagnostics.warnings`, con i pointer degli input sotto `/base_input`, insieme
-all'avviso FM-W016 quando il metodo valutato è in anteprima; una cella mantiene il suo errore
+all'avvertenza FM-W016 quando il metodo valutato è in anteprima; una cella mantiene il suo errore
 compatto e non aggiunge diagnostica.
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)

@@ -62,7 +62,7 @@ its approved files and `verify` in the same commit, so every commit passes `just
   `checks`, `defaults_applied`; `python/tests/test_envelope.py` [R15; AC13]
 - [x] T19 [P] Pass-through tests: CLI `fairmark run`, function-calling dispatcher, MCP server
   equal the core envelope [R15; AC13]
-- [ ] T20 [P] `docs/en/reference/warnings.md` with nav entry, envelope reference, methodology
+- [x] T20 [P] `docs/en/reference/warnings.md` with nav entry, envelope reference, methodology
   pages of the seven bumped methods, agent skill [R16, R17]
 - [ ] T21 Italian edition via `/translate`: `docs/it/reference/warnings.md` and every page of
   T20, glossary terms [R16]

@@ -95,7 +95,7 @@ virgola mobile binaria, che conserva circa 17 cifre significative: le cifre oltr
 prima che Fairmark veda il valore, e nessun avviso può recuperarle. `fm.tools.dispatch` legge
 in modo esatto gli argomenti dati come testo JSON. Con un dizionario già letto dalla libreria
 client (LangChain, il server MCP), passa al motore il puntatore di ogni valore arrivato come
-float Python, e il motore segnala ciascuno con l'avviso `FM-W017` in `diagnostics.warnings`;
+float Python, e il motore segnala ciascuno di essi con l'avvertenza `FM-W017` in `diagnostics.warnings`;
 l'envelope è quello del motore, invariato. Una stringa con più cifre di quante un
 decimale ne contenga è arrotondata e segnalata (vedi il
 [riferimento degli errori](../reference/errors.md), grammatica dei numeri).

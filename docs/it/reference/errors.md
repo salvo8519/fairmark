@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: a58d199cc864
+source_hash: 5af9f96574ca
 ---
 # Codici di errore
 
@@ -110,9 +110,10 @@ terminale rifiutata, un `principal` rifiutato non nasconde un tasso fuori interv
   accettato e arrotondato alla lettura dell'input: si tengono le cifre che entrano e decide la
   prima cifra scartata, da 5 in su si arrotonda allontanandosi dallo zero (half up: le metà si
   arrotondano allontanandosi dallo zero, la regola del parser di `rust_decimal`). L'arrotondamento non è mai
-  silenzioso: una convenzione del risultato indica il campo, il valore dato e il valore usato,
-  per esempio ``warning: `/rate` has more digits than a decimal holds: given
-  0.009166666666666666666666666667, used 0.0091666666666666666666666667, ...``; per un'analisi
+  silenzioso: l'avvertenza [`FM-W001`](warnings.md) di `diagnostics.warnings` indica il campo, il
+  valore dato e il valore usato, riportata nelle convenzioni come ``warning FM-W001: `/rate` has
+  more digits than a decimal holds: given 0.009166666666666666666666666667, used
+  0.0091666666666666666666666667, ...``; per un'analisi
   il campo è sotto `/base_input`. `meta.input_hash` è calcolato sul valore usato. Un numero
   prodotto da Fairmark entra sempre, quindi un risultato usato di nuovo come input è letto
   invariato. Un valore troppo grande per un decimale (più di 28-29 cifre prima del punto) non è

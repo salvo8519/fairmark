@@ -162,7 +162,6 @@ fn catalogue() -> String {
 
 /// R16: the engine and its catalogue agree, and no warning is written outside the API.
 #[test]
-#[ignore = "SPEC-0012: enabled by T20, which writes the catalogue page"]
 fn every_warning_code_is_documented_and_emitted() {
     let found = breaches(&sources(), &catalogue());
     assert!(found.is_empty(), "{}", found.join("\n"));

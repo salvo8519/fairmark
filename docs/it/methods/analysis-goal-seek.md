@@ -171,7 +171,7 @@ il residuo sostituiti, seguita da un passaggio finale `Solution`.
 La versione 2 (SPEC-0012) chiama i campi pointer `variable_pointer` e `output_pointer`. La
 diagnostica della valutazione risolta (quella che dà `inner_value`) è riportata una sola volta:
 `diagnostics.not_computed`, `warnings` e `checks`, con i pointer del risultato sotto
-`/value/inner_value` e quelli degli input sotto `/base_input`; insieme all'avviso FM-W016 quando
+`/value/inner_value` e quelli degli input sotto `/base_input`; insieme all'avvertenza FM-W016 quando
 il metodo valutato è in anteprima.
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
