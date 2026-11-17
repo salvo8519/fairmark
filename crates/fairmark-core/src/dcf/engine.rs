@@ -14,6 +14,7 @@ use rust_decimal::{Decimal, MathematicalOps};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::diagnostics::WarningCode;
 use crate::error::{FairmarkError, Found, Reason, Result};
 use crate::explain::{DefaultApplied, Explain};
 use crate::method::Method;
@@ -461,13 +462,13 @@ pub(crate) struct Defaulted {
 
 impl Defaulted {
     pub(crate) fn of(defaults: &[DefaultApplied]) -> Self {
-        let has = |f: DefaultedField| defaults.iter().any(|d| d.field == f.pointer());
+        let has = |f: DefaultedField| defaults.iter().any(|d| d.pointer == f.pointer());
         Self {
             cash_flow_terms: has(DefaultedField::CashFlowTerms),
             discount_rate_terms: has(DefaultedField::DiscountRateTerms),
             timing: has(DefaultedField::Timing),
             terminal: has(DefaultedField::Terminal),
-            first_projection: defaults.iter().any(|d| d.field == "/stages/0/projection"),
+            first_projection: defaults.iter().any(|d| d.pointer == "/stages/0/projection"),
         }
     }
 }
@@ -1533,11 +1534,15 @@ fn restate_growth(
         other.label()
     ));
     if flows == Terms::Nominal && g < pi {
-        ex.convention(format!(
-            "warning: the perpetual growth {g} (nominal) is below the expected inflation of the \
-             terminal phase {pi}: the flows decline in real terms after the horizon (real growth \
-             {restated})"
-        ));
+        ex.warn(
+            WarningCode::PerpetualGrowthBelowInflation,
+            choice.perpetual_growth_pointer(),
+            format!(
+                "the perpetual growth {g} (nominal) is below the expected inflation of the \
+                 terminal phase {pi}: the flows decline in real terms after the horizon (real \
+                 growth {restated})"
+            ),
+        );
     }
     Ok((Some(g), Some(restated)))
 }
@@ -1685,10 +1690,14 @@ fn project(
                         "generated stage without a previous flow",
                     ))?;
                     if prev.is_sign_negative() && !prev.is_zero() {
-                        ex.convention(format!(
-                            "warning: period {k}: growth {g} applied to a negative flow ({prev}); \
-                             check the sign of the projection"
-                        ));
+                        ex.warn(
+                            WarningCode::GrowthOnNegativeFlow,
+                            Some(format!("/stages/{i}")),
+                            format!(
+                                "period {k}: growth {g} applied to a negative flow ({prev}); \
+                                 check the sign of the projection"
+                            ),
+                        );
                     }
                     let flow = mul(prev, one_plus(g)?)?;
                     ex.step(
@@ -1795,7 +1804,7 @@ fn check_lines_before_refusal(input: &EngineInput<'_>) -> Result<()> {
         return Ok(());
     }
     let (mut known, positions) = stage_positions(input.stages);
-    let mut scratch = Explain::new("dcf", "");
+    let mut scratch = Explain::new("");
     lines_of_stages(
         &mut known,
         input.basis,
@@ -1934,7 +1943,7 @@ fn stage_lines(
                 running = running.saturating_add(s.periods);
                 continue;
             }
-            let mut own = Explain::new(FreeCashFlows::ID, FORMULA_FCFF);
+            let mut own = Explain::new(FORMULA_FCFF);
             let out = build_up(lines, taxes, at, &mut own)?;
             for step in own.steps {
                 ex.step(
@@ -2029,7 +2038,7 @@ pub(crate) fn run(input: &EngineInput<'_>, ex: &mut Explain, found: Found) -> Re
 /// makes before it computes, every refusal reported, and nothing built up, projected or
 /// discounted.
 pub(crate) fn validate(input: &EngineInput<'_>, found: Found) -> Result<()> {
-    let mut scratch = Explain::new("dcf", "");
+    let mut scratch = Explain::new("");
     run_pass(input, &mut scratch, found, Pass::Validate).map(|_| ())
 }
 
@@ -2382,7 +2391,20 @@ mod tests {
 
     use serde_json::{json, Value};
 
+    use super::{DefaultApplied, Defaulted};
     use crate::registry::run;
+
+    /// Decision 24 of SPEC-0001: only the default of the first stage's projection marks the
+    /// projection as defaulted (mutants of #361, `Defaulted::of`).
+    #[test]
+    fn only_the_first_stage_projection_default_is_the_first_projection() {
+        let given = |p: &str| DefaultApplied::new(p, json!("given"), "r");
+        assert!(Defaulted::of(&[given("/stages/0/projection")]).first_projection);
+        for other in ["/stages/1/projection", "/timing", "/stages/0/periods"] {
+            assert!(!Defaulted::of(&[given(other)]).first_projection, "{other}");
+        }
+        assert!(!Defaulted::of(&[]).first_projection);
+    }
 
     fn base() -> Value {
         json!({
@@ -2506,8 +2528,9 @@ mod tests {
             "-0.01"
         );
         let warning = |c: &Vec<String>| {
-            c.iter()
-                .any(|c| c.starts_with("warning: the perpetual growth 0.01 (nominal) is below"))
+            c.iter().any(|c| {
+                c.starts_with("warning FM-W004: the perpetual growth 0.01 (nominal) is below")
+            })
         };
         assert!(warning(&conventions(&nominal)));
         assert!(conventions(&nominal).iter().any(|c| c.starts_with(
@@ -2527,7 +2550,7 @@ mod tests {
         assert_eq!(v["terms"]["perpetual_growth_other_terms"], "0.0403");
         assert!(!conventions(&real)
             .iter()
-            .any(|c| c.starts_with("warning: the perpetual")));
+            .any(|c| c.starts_with("warning FM-W004: the perpetual")));
     }
 
     /// R17: a technique with no perpetual growth is not restated, and the conventions say so.

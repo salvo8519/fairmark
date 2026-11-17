@@ -15,17 +15,18 @@ expect:
   /days_inventory_outstanding/value: 'null'
   /days_payable_outstanding/value: 'null'
   /cash_conversion_cycle/value: 'null'
-  /not_computed/0/output: '/days_inventory_outstanding'
-  /not_computed/0/missing/0: '/closing/inventories'
-  /not_computed/0/missing/1: '/income_statement/cost_of_sales'
-  /not_computed/1/output: '/days_payable_outstanding'
-  /not_computed/1/missing/0: '/closing/trade_payables'
-  /not_computed/1/missing/1: '/income_statement/purchases'
-  /not_computed/2/output: '/cash_conversion_cycle'
-  /not_computed/2/missing/0: '/closing/inventories'
-  /not_computed/2/missing/1: '/closing/trade_payables'
-  /not_computed/2/missing/2: '/income_statement/cost_of_sales'
-  /not_computed/2/missing/3: '/income_statement/purchases'
-expect_length:
+expect_diagnostics_length:
   /not_computed: '3'
+expect_diagnostics:
+  /not_computed/1/pointer: /value/days_inventory_outstanding
+  /not_computed/1/missing_any_of/0/0: '/closing/inventories'
+  /not_computed/1/missing_any_of/0/1: '/income_statement/cost_of_sales'
+  /not_computed/2/pointer: /value/days_payable_outstanding
+  /not_computed/2/missing_any_of/0/0: '/closing/trade_payables'
+  /not_computed/2/missing_any_of/0/1: '/income_statement/purchases'
+  /not_computed/0/pointer: /value/cash_conversion_cycle
+  /not_computed/0/missing_any_of/0/0: '/closing/inventories'
+  /not_computed/0/missing_any_of/0/1: '/closing/trade_payables'
+  /not_computed/0/missing_any_of/0/2: '/income_statement/cost_of_sales'
+  /not_computed/0/missing_any_of/0/3: '/income_statement/purchases'
 tolerance: '0.00000000000000000001'

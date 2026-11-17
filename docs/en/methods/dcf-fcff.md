@@ -23,7 +23,7 @@ import fairmark as fm
 
 r = fm.dcf.fcff(flows=[120, 135, 150, 160, 170], wacc="0.09")
 print(r.value_of_operations)  # 563.38243366056148746628356553
-print([d["field"] for d in r.meta["defaults_applied"]])
+print([d["pointer"] for d in r.meta["defaults_applied"]])
 ```
 
 The same input in JSON, for the CLI, MCP or function calling:
@@ -58,7 +58,7 @@ t = 0.
 
 Without a net financial position the engine subtracts zero, lists the default in
 `meta.defaults_applied` (`/net_financial_position`, `"0"`, "net financial position not given")
-and adds a warning to `explain.conventions`: the equity value then equals the enterprise value,
+and reports warning `FM-W012` in `diagnostics.warnings`: the equity value then equals the enterprise value,
 less the debt-like items and non-controlling interests when some are given. The output field
 `bridge.net_financial_position` stays `null`, because nothing was given. A net financial
 position given with every amount zero is a true zero: it is not listed as a default and carries

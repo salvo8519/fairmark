@@ -35,8 +35,14 @@ expect:
   /roe_leverage/pre_tax_roe/value: 'null'
   /roe_leverage/tax_rate/value: 'null'
   /roe_leverage/roe/value: 'null'
-  /roe/not_defined: equity is negative (-100)
-  /roe_three_factor/equity_multiplier/not_defined: equity is negative (-100)
-  /roe_three_factor/roe/not_defined: equity multiplier is not defined
-  /roi/not_defined: 'null'
+expect_diagnostics:
+  /not_computed/0/reason: equity is negative (-100)
+  /not_computed/8/reason: equity is negative (-100)
+  /not_computed/9/reason: equity multiplier is not defined
+  /not_computed/0/pointer: /value/roe
+  /not_computed/0/reason_code: not_defined
+  /not_computed/8/pointer: /value/roe_three_factor/equity_multiplier
+  /not_computed/8/reason_code: not_defined
+  /not_computed/9/pointer: /value/roe_three_factor/roe
+  /not_computed/9/reason_code: not_defined
 tolerance: '0.00000000000000000001'

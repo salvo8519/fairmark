@@ -16,7 +16,9 @@ use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value};
 
+use crate::diagnostics::{Diagnostics, WarningCode};
 use crate::error::{CompactErrorReport, FairmarkError, Found, Reason, Result};
+use crate::explain::Explain;
 use crate::registry;
 
 /// Most inner evaluations one analysis request may perform (ADR 0010).
@@ -140,15 +142,19 @@ impl Inner {
         self.id
     }
 
-    /// The convention an analysis reports when its inner method is preview (ADR 0012).
-    pub(crate) fn status_convention(&self) -> Option<String> {
-        (self.status == registry::Status::Preview).then(|| {
-            format!(
-                "Evaluated method {} is preview: its results have not been independently \
-                verified (docs/en/project/releases.md, Method status)",
-                self.id
-            )
-        })
+    /// Warning FM-W016 when the inner method is preview (ADR 0012), at `/method`.
+    pub(crate) fn warn_if_preview(&self, ex: &mut Explain) {
+        if self.status == registry::Status::Preview {
+            ex.warn(
+                WarningCode::EvaluatedMethodPreview,
+                Some("/method".to_owned()),
+                format!(
+                    "Evaluated method {} is preview: its results have not been independently \
+                     verified (docs/en/project/releases.md, Method status)",
+                    self.id
+                ),
+            );
+        }
     }
 
     /// Fails with `FM-E016` before any evaluation when the request needs more than
@@ -190,6 +196,23 @@ impl Inner {
         let mut envelope =
             registry::evaluate(self.id, input).map_err(|e| e.under("/base_input"))?;
         Ok(envelope["value"].take())
+    }
+
+    /// Runs the inner method; returns the `value` of its result and its diagnostics, for the
+    /// evaluations an analysis reports (SPEC-0012 R14): the base case, the solved input.
+    pub(crate) fn evaluate_reported(&mut self, input: &Value) -> Result<(Value, Diagnostics)> {
+        self.evaluations += 1;
+        if self.evaluations > self.reserved {
+            return Err(FairmarkError::Internal(
+                "an analysis exceeded its reserved evaluations",
+            ));
+        }
+        let mut envelope =
+            registry::evaluate(self.id, input).map_err(|e| e.under("/base_input"))?;
+        let diagnostics = serde_json::from_value(envelope["diagnostics"].take()).map_err(|_| {
+            FairmarkError::Internal("the diagnostics of an evaluation are unreadable")
+        })?;
+        Ok((envelope["value"].take(), diagnostics))
     }
 
     pub(crate) fn evaluations(&self) -> u64 {
@@ -290,23 +313,36 @@ pub(crate) fn with_values(base: &Value, values: &[(&str, Decimal)]) -> Result<Va
     Ok(input)
 }
 
-/// R9: the base case, `base_input` unchanged, and the selected outputs of its result. Any error
-/// is returned unchanged; an output pointer that does not resolve is `FM-E015`.
+/// R9: the base case, `base_input` unchanged, the selected outputs of its result and its
+/// diagnostics (SPEC-0012 R14). Any error is returned unchanged; an output pointer that does not
+/// resolve is `FM-E015`.
 ///
-/// `fields` gives the JSON pointer, in the analysis input, of each output pointer: `/output`,
-/// or `/outputs/k`.
+/// `fields` gives the JSON pointer, in the analysis input, of each output pointer:
+/// `/output_pointer`, or `/output_pointers/k`.
 pub(crate) fn base_case(
     inner: &mut Inner,
     base: &Value,
     outputs: &[&str],
     fields: impl Fn(usize) -> String,
-) -> Result<Vec<Decimal>> {
-    let value = inner.evaluate(base)?;
-    outputs
+) -> Result<(Vec<Decimal>, Diagnostics)> {
+    let (value, diagnostics) = inner.evaluate_reported(base)?;
+    let outputs = outputs
         .iter()
         .enumerate()
         .map(|(k, o)| output(&value, o).map_err(|e| e.located(fields(k))))
-        .collect()
+        .collect::<Result<Vec<Decimal>>>()?;
+    Ok((outputs, diagnostics))
+}
+
+/// SPEC-0012 R14, decision 9: the warnings of the evaluation of `base_input`, reported once by
+/// the analysis, input pointers under `/base_input`; a pointer into the inner result is null,
+/// since the analysis does not return that result (catalogue, FM-W007 and FM-W011). The cells
+/// of a table keep their compact errors and report no diagnostics.
+pub(crate) fn report_base_warnings(ex: &mut Explain, base: &Diagnostics) {
+    for w in &base.warnings {
+        let w = w.nested("/base_input", None);
+        ex.warn(w.code, w.pointer, w.message);
+    }
 }
 
 /// Outcome of one evaluation in a table or a scenario: a value, or the inner error (R16).
@@ -413,23 +449,23 @@ mod tests {
             (
                 "analysis.sensitivity",
                 json!({"method": method, "base_input": base,
-                "output": output, "rows": {"variable": variable, "values": ["0.06", "0.07"]}}),
+                "output_pointer": output, "rows": {"variable_pointer": variable, "values": ["0.06", "0.07"]}}),
             ),
             (
                 "analysis.goal_seek",
                 json!({"method": method, "base_input": base,
-                "variable": variable, "output": output, "target": "0",
+                "variable_pointer": variable, "output_pointer": output, "target": "0",
                 "bracket": ["0.01", "0.5"]}),
             ),
             (
                 "analysis.tornado",
-                json!({"method": method, "base_input": base, "output": output,
-                "variables": [{"variable": variable, "low": "0.06", "high": "0.07"}]}),
+                json!({"method": method, "base_input": base, "output_pointer": output,
+                "variables": [{"variable_pointer": variable, "low": "0.06", "high": "0.07"}]}),
             ),
             (
                 "analysis.scenarios",
                 json!({"method": method, "base_input": base,
-                "outputs": [output],
+                "output_pointers": [output],
                 "scenarios": [{"name": "a", "overrides": [{"pointer": variable, "value": "0.06"}]}]}),
             ),
         ]

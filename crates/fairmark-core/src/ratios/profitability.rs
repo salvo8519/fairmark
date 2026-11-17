@@ -11,7 +11,6 @@ use super::{
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
 use crate::method::Method;
-use crate::not_computed::NotComputedEntry;
 use crate::num;
 
 /// The capital on which the operating return (ROI) and the capital turnover are measured.
@@ -180,14 +179,10 @@ pub struct ProfitabilityOutput {
     pub roe_three_factor: RoeThreeFactor,
     /// Leverage form of the ROE decomposition.
     pub roe_leverage: RoeLeverage,
-    /// Outputs not computed because an input is missing, in the order of the fields above,
-    /// each with the JSON pointers of the inputs it lacks (SPEC-0007 R7).
-    pub not_computed: Vec<NotComputedEntry>,
 }
 
 pub fn profitability(input: &ProfitabilityInput) -> Result<(ProfitabilityOutput, Explain)> {
     let mut ex = Explain::new(
-        Profitability::ID,
         "ROE = net income / equity; ROI = EBIT / operating return base; ROS = EBIT / revenue; \
          capital turnover = revenue / operating return base; ROE = net margin × asset turnover × \
          equity multiplier",
@@ -358,15 +353,9 @@ pub fn profitability(input: &ProfitabilityInput) -> Result<(ProfitabilityOutput,
             tax_rate: nc.ratio("/roe_leverage/tax_rate", roe_leverage.tax_rate),
             roe: nc.ratio("/roe_leverage/roe", roe_leverage.roe),
         },
-        not_computed: Vec::new(),
     };
-    Ok((
-        ProfitabilityOutput {
-            not_computed: nc.finish(Profitability::ID)?,
-            ..output
-        },
-        ex,
-    ))
+    ex.not_computed(nc.finish(Profitability::ID)?);
+    Ok((output, ex))
 }
 
 const NO_LEVERAGE: &str = "leverage inputs not given";
@@ -497,10 +486,10 @@ impl Method for Profitability {
     const DESCRIPTION: &'static str =
         "ROE, ROI, ROA, ROS, EBITDA and EBIT margins, capital turnover and the ROE \
         decomposition in three factors and in the leverage form, on closing or average \
-        balances. Every amount is optional: a ratio whose amounts are not all given is null \
-        and listed in not_computed with the inputs it lacks; a ratio that is not meaningful \
-        is reported as not defined with the reason.";
-    const VERSION: &'static str = "2";
+        balances. Every amount is optional: a ratio whose amounts are not all given is null and \
+        listed in diagnostics.not_computed with the inputs it lacks; a ratio that is not \
+        meaningful is null, with the reason in diagnostics.not_computed (not_defined).";
+    const VERSION: &'static str = "3";
     type Input = ProfitabilityInput;
     type Output = ProfitabilityOutput;
 
@@ -554,10 +543,10 @@ mod tests {
 
     #[test]
     fn roi_is_ros_times_capital_turnover() {
-        let (out, _) = profitability(&input()).unwrap();
+        let (out, ex) = profitability(&input()).unwrap();
         let product = out.ros.value.unwrap() * out.capital_turnover.value.unwrap();
         assert_eq!(product, out.roi.value.unwrap());
-        assert!(out.not_computed.is_empty());
+        assert!(ex.diagnostics().not_computed.is_empty());
     }
 
     #[test]
@@ -604,10 +593,13 @@ mod tests {
             invested_capital: None,
             debt: d(1800),
         });
-        let (out, _) = profitability(&i).unwrap();
+        let (out, ex) = profitability(&i).unwrap();
         assert_eq!(out.roi.value, None);
-        assert_eq!(out.not_computed[0].output, "/roi");
-        assert_eq!(out.not_computed[0].missing, ["/opening/invested_capital"]);
+        assert_eq!(ex.diagnostics().not_computed[0].pointer, "/value/roi");
+        assert_eq!(
+            ex.diagnostics().not_computed[0].missing_any_of,
+            [["/opening/invested_capital"]]
+        );
         assert!(out.roe.value.is_some());
     }
 
@@ -629,8 +621,12 @@ mod tests {
             out.roe_leverage.roe.not_defined.as_deref(),
             Some("leverage inputs not given")
         );
-        assert_eq!(out.not_computed.len(), 7);
-        assert!(out.not_computed.iter().all(|e| e.missing == ["/leverage"]));
+        assert_eq!(ex.diagnostics().not_computed.len(), 7);
+        assert!(ex
+            .diagnostics()
+            .not_computed
+            .iter()
+            .all(|e| e.missing_any_of == [["/leverage"]]));
         assert!(ex
             .conventions
             .iter()
@@ -641,19 +637,19 @@ mod tests {
     fn leverage_without_debt_leaves_the_ratios_on_debt_not_computed() {
         let mut i = input();
         closing(&mut i).debt = None;
-        let (out, _) = profitability(&i).unwrap();
+        let (out, ex) = profitability(&i).unwrap();
         let l = &out.roe_leverage;
         assert!(l.roi.value.is_some() && l.tax_rate.value.is_some());
         assert_eq!(l.cost_of_debt.value, None);
         assert_eq!(l.roe.value, None);
-        assert_eq!(out.not_computed.len(), 5);
+        assert_eq!(ex.diagnostics().not_computed.len(), 5);
     }
 
     #[test]
     fn negative_invested_capital_leaves_roi_not_defined() {
         let mut i = input();
         closing(&mut i).invested_capital = d(-500);
-        let (out, _) = profitability(&i).unwrap();
+        let (out, ex) = profitability(&i).unwrap();
         assert_eq!(
             out.roi.not_defined.as_deref(),
             Some("invested capital is negative (-500)")
@@ -663,7 +659,15 @@ mod tests {
             Some("ROI is not defined")
         );
         assert!(out.capital_turnover.value.is_some());
-        assert!(out.not_computed.is_empty());
+        // Not defined, never missing an input (SPEC-0012 R5).
+        let diagnostics = ex.diagnostics();
+        assert!(diagnostics
+            .not_computed
+            .iter()
+            .all(|e| e.reason_code == crate::diagnostics::ReasonCode::NotDefined));
+        assert!(diagnostics.not_computed.iter().any(
+            |e| e.pointer == "/value/roi" && e.reason == "invested capital is negative (-500)"
+        ));
     }
 
     #[test]
@@ -672,8 +676,11 @@ mod tests {
         i.ebitda_definition = None;
         let (out, ex) = profitability(&i).unwrap();
         assert_eq!(out.ebitda_margin.value, None);
-        assert_eq!(out.not_computed.len(), 1);
-        assert_eq!(out.not_computed[0].missing, ["/ebitda_definition"]);
+        assert_eq!(ex.diagnostics().not_computed.len(), 1);
+        assert_eq!(
+            ex.diagnostics().not_computed[0].missing_any_of,
+            [["/ebitda_definition"]]
+        );
         assert!(ex
             .conventions
             .iter()

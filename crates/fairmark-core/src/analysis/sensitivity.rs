@@ -6,8 +6,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    base_case, base_value, output, pointer, recorded, with_values, BaseInput, Inner, InnerMethod,
-    Outcome,
+    base_case, base_value, output, pointer, recorded, report_base_warnings, with_values, BaseInput,
+    Inner, InnerMethod, Outcome,
 };
 use crate::error::{FairmarkError, Found, Result};
 use crate::explain::Explain;
@@ -19,6 +19,7 @@ use crate::method::Method;
 pub struct Axis {
     /// RFC 6901 JSON Pointer to a decimal input of the inner method, for example
     /// `/discount_rate`.
+    #[serde(rename = "variable_pointer")]
     pub variable: String,
     /// Values of the variable, in the variable's units, in the order of the table; at least one.
     pub values: Vec<Decimal>,
@@ -33,6 +34,7 @@ pub struct SensitivityInput {
     pub base_input: BaseInput,
     /// RFC 6901 JSON Pointer to the decimal output reported in each cell, in the `value` of
     /// the inner result, for example `/enterprise_value`.
+    #[serde(rename = "output_pointer")]
     pub output: String,
     /// The variable that changes along the rows, and its values.
     pub rows: Axis,
@@ -47,7 +49,9 @@ pub struct SensitivityInput {
 pub struct SensitivityOutput {
     /// The method evaluated, at the version run.
     pub inner_method: InnerMethod,
-    /// The output pointer reported in each cell.
+    /// RFC 6901 JSON Pointer to the output reported in each cell, in the `value` of the inner
+    /// result.
+    #[serde(rename = "output_pointer")]
     pub output: String,
     /// The output for `base_input` unchanged, in the output's units.
     pub base: Decimal,
@@ -71,7 +75,7 @@ fn check_axis(
     inner: Option<&Inner>,
     found: &mut Found,
 ) {
-    let at = |e: FairmarkError| e.located(format!("/{name}/variable"));
+    let at = |e: FairmarkError| e.located(format!("/{name}/variable_pointer"));
     match inner {
         Some(inner) => found.check(
             inner
@@ -106,12 +110,12 @@ fn check(input: &SensitivityInput) -> Result<Inner> {
                     "rows and columns use the same variable {}",
                     columns.variable
                 ))
-                .at("/columns/variable", crate::error::Reason::Conflict)
-                .between(["/columns/variable", "/rows/variable"]),
+                .at("/columns/variable_pointer", crate::error::Reason::Conflict)
+                .between(["/columns/variable_pointer", "/rows/variable_pointer"]),
             );
         }
     }
-    found.check(pointer::check_syntax(&input.output).map_err(|e| e.located("/output")));
+    found.check(pointer::check_syntax(&input.output).map_err(|e| e.located("/output_pointer")));
     if let Some(inner) = &inner {
         let n_rows = input.rows.values.len() as u64;
         let n_cols = input.columns.as_ref().map_or(1, |c| c.values.len() as u64);
@@ -133,18 +137,17 @@ pub fn sensitivity(input: &SensitivityInput) -> Result<(SensitivityOutput, Expla
     // R5: the base case plus one evaluation per cell, refused before the first evaluation.
     inner.reserve(n_rows.saturating_mul(n_cols).saturating_add(1), &base)?;
 
-    let base_output = base_case(&mut inner, &base, &[input.output.as_str()], |_| {
-        "/output".to_owned()
-    })?[0];
-    let mut ex = Explain::new(
-        Sensitivity::ID,
-        if input.columns.is_some() {
-            "cell(i, j) = output(base input with rows.variable = rows.values[i] and \
+    let (base_outputs, base_diagnostics) =
+        base_case(&mut inner, &base, &[input.output.as_str()], |_| {
+            "/output_pointer".to_owned()
+        })?;
+    let base_output = base_outputs[0];
+    let mut ex = Explain::new(if input.columns.is_some() {
+        "cell(i, j) = output(base input with rows.variable = rows.values[i] and \
             columns.variable = columns.values[j])"
-        } else {
-            "cell(i) = output(base input with rows.variable = rows.values[i])"
-        },
-    );
+    } else {
+        "cell(i) = output(base input with rows.variable = rows.values[i])"
+    });
     ex.step(
         "Base case",
         format!("{} with base_input unchanged", input.output),
@@ -165,7 +168,8 @@ pub fn sensitivity(input: &SensitivityInput) -> Result<(SensitivityOutput, Expla
             // resolve is a wrong request, not a refused combination, so it ends it (R3).
             let cell = match recorded(inner.evaluate(&candidate))? {
                 Outcome::Value { value } => Outcome::Value {
-                    value: output(&value, &input.output).map_err(|e| e.located("/output"))?,
+                    value: output(&value, &input.output)
+                        .map_err(|e| e.located("/output_pointer"))?,
                 },
                 Outcome::Error { error } => Outcome::Error { error },
             };
@@ -192,9 +196,8 @@ pub fn sensitivity(input: &SensitivityInput) -> Result<(SensitivityOutput, Expla
         inner.id(),
         inner.info().version
     ));
-    if let Some(note) = inner.status_convention() {
-        ex.convention(note);
-    }
+    inner.warn_if_preview(&mut ex);
+    report_base_warnings(&mut ex, &base_diagnostics);
     ex.convention(format!("each cell reports {}", input.output));
     ex.convention(
         "evaluation order: base case, then the cells row by row (row-major), columns in the \
@@ -235,7 +238,7 @@ impl Method for Sensitivity {
     const DESCRIPTION: &'static str =
         "One output of any method across a one-way or two-way table of input values, with the \
         base case; a combination the method refuses is recorded in its cell.";
-    const VERSION: &'static str = "1";
+    const VERSION: &'static str = "2";
     type Input = SensitivityInput;
     type Output = SensitivityOutput;
 
@@ -270,9 +273,9 @@ mod tests {
 
     fn table() -> Value {
         json!({
-            "method": "dcf.fcff", "base_input": dcf(), "output": "/value_of_operations",
-            "rows": {"variable": "/wacc", "values": ["0.07", "0.09", "0.11"]},
-            "columns": {"variable": "/terminal/tv.gordon/growth", "values": ["0.01", "0.08"]}
+            "method": "dcf.fcff", "base_input": dcf(), "output_pointer": "/value_of_operations",
+            "rows": {"variable_pointer": "/wacc", "values": ["0.07", "0.09", "0.11"]},
+            "columns": {"variable_pointer": "/terminal/tv.gordon/growth", "values": ["0.01", "0.08"]}
         })
     }
 
@@ -309,7 +312,7 @@ mod tests {
     #[test]
     fn invalid_tables_are_refused_before_any_evaluation() {
         let mut same = table();
-        same["columns"]["variable"] = json!("/wacc");
+        same["columns"]["variable_pointer"] = json!("/wacc");
         assert_eq!(
             run("analysis.sensitivity", &same).unwrap_err().code(),
             "FM-E001"
@@ -337,7 +340,7 @@ mod tests {
             "FM-E017"
         );
         let mut pointer = table();
-        pointer["columns"]["variable"] = json!("/timing");
+        pointer["columns"]["variable_pointer"] = json!("/timing");
         assert_eq!(
             run("analysis.sensitivity", &pointer).unwrap_err().code(),
             "FM-E015"

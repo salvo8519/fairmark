@@ -121,10 +121,7 @@ pub fn h_model(input: &HModelInput) -> Result<(HModelOutput, Explain)> {
         input.half_life,
         input.rate,
     );
-    let mut ex = Explain::new(
-        "tv.h_model",
-        "TV_N = CF_N × [(1 + g_l) + H × (g_s − g_l)] / (r − g_l)",
-    );
+    let mut ex = Explain::new("TV_N = CF_N × [(1 + g_l) + H × (g_s − g_l)] / (r − g_l)");
     ex.convention(NOT_DISCOUNTED);
     let two_h = mul(Decimal::TWO, h)?;
     ex.convention(format!(

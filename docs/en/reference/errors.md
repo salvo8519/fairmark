@@ -97,10 +97,11 @@ hide a refused terminal growth, a refused `principal` does not hide a rate out o
   significant digits. A value with more digits, as a string or as a JSON number, is accepted
   and rounded as the input is read: the digits that fit are kept and the first digit dropped
   decides, 5 or more rounding away from zero (round half away from zero, the rule of the
-  `rust_decimal` parser). The rounding is never silent: a convention of the result names the
-  field, the value given and the value used, for example ``warning: `/rate` has more digits
-  than a decimal holds: given 0.009166666666666666666666666667, used
-  0.0091666666666666666666666667, ...``; for an analysis the field is under `/base_input`.
+  `rust_decimal` parser). The rounding is never silent: warning
+  [`FM-W001`](warnings.md) of `diagnostics.warnings` names the field, the value given and the
+  value used, echoed in the conventions as ``warning FM-W001: `/rate` has more digits than a
+  decimal holds: given 0.009166666666666666666666666667, used 0.0091666666666666666666666667,
+  ...``; for an analysis the field is under `/base_input`.
   `meta.input_hash` is computed on the value used. A number Fairmark outputs always fits, so a
   result fed back as an input is read unchanged. A value too large for a decimal (more than 28
   to 29 digits before the point) is not rounded: it is refused as `type` at its field.

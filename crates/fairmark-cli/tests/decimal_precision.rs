@@ -8,7 +8,7 @@ use std::process::{Command, Stdio};
 const BIN: &str = env!("CARGO_BIN_EXE_fairmark");
 
 /// The expected warning and value, shared with the Python test.
-const WARNING: &str = "warning: `/rate` has more digits than a decimal holds: given \
+const WARNING: &str = "warning FM-W001: `/rate` has more digits than a decimal holds: given \
     0.009166666666666666666666666667, used 0.0091666666666666666666666667, rounded half away \
     from zero at the first digit that does not fit (28 decimal places, or 28 to 29 significant \
     digits), as the input is read";
@@ -50,7 +50,7 @@ fn the_cli_reports_the_rounding_as_the_core_does() {
             .unwrap()
             .iter()
             .filter_map(|c| c.as_str())
-            .filter(|c| c.starts_with("warning: "))
+            .filter(|c| c.starts_with("warning FM-W001: "))
             .collect();
         assert_eq!(warnings, vec![WARNING]);
     }

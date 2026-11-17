@@ -113,7 +113,6 @@ pub fn value_driver(input: &ValueDriverInput) -> Result<(ValueDriverOutput, Expl
     check(input).map_err(super::into_error)?;
     let (nopat, g, ronic, r) = (input.nopat_next, input.growth, input.ronic, input.rate);
     let mut ex = Explain::new(
-        "tv.value_driver",
         "TV_N = NOPAT_{N+1} × (1 − g / RONIC) / (r − g); NOPAT_{N+1} / r when RONIC = r",
     );
     ex.convention(NOT_DISCOUNTED);

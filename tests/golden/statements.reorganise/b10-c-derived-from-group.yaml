@@ -47,7 +47,7 @@ expect:
   /years/0/income_statement/investing_result: '9000'
   /years/0/income_statement/profit_before_financing_and_taxes: '275000'
   /years/0/assignments/17/reference: B10 c (B10 a to c less B10 a, b)
-  /years/0/assignments/17/aggregate: /years/0/statutory/income_statement/depreciation_and_write_downs/value_adjustments_of_fixed_assets
+  /years/0/assignments/17/aggregate_pointer: /years/0/statutory/income_statement/depreciation_and_write_downs/value_adjustments_of_fixed_assets
   /years/0/assignments/17/amount: '20000'
   /years/0/assignments/17/destination: depreciation_and_amortisation
   /years/0/assignments/17/origin: mapping

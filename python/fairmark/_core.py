@@ -6,7 +6,7 @@ import copy
 import functools
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
@@ -344,9 +344,13 @@ class Step:
 
 @dataclass(frozen=True)
 class Result:
-    """A valuation result: exact values, the audit trail and reproducibility metadata.
+    """A valuation result: exact values, the audit trail, the diagnostics and reproducibility
+    metadata (the envelope of ADR 0014 G4).
 
-    Value fields are reachable as attributes: ``result.enterprise_value``.
+    Value fields are reachable as attributes: ``result.enterprise_value``. The diagnostics are
+    ``result.diagnostics`` and the lists ``result.not_computed``, ``result.warnings``,
+    ``result.checks`` and ``result.defaults_applied``, which take precedence over a value field
+    with the same name.
     """
 
     method: str
@@ -356,6 +360,34 @@ class Result:
     conventions: list[str]
     meta: dict[str, Any]
     raw: dict[str, Any] = field(repr=False)
+    diagnostics: dict[str, Any]
+    """What the result does not contain (``not_computed``), what the reader could miss
+    (``warnings``, each with a stable code ``FM-Wnnn``) and what was verified (``checks``), as
+    the engine writes them: pointers and reasons are ``str``."""
+
+    @property
+    def not_computed(self) -> list[dict[str, Any]]:
+        """The outputs not computed: ``pointer`` (from the envelope root, ``/value/...``),
+        ``reason_code`` (``missing_input``, ``choice_required``, ``not_defined``,
+        ``not_applicable``), ``reason``, ``missing_any_of`` and ``permitted``."""
+        return list(self.diagnostics["not_computed"])
+
+    @property
+    def warnings(self) -> list[dict[str, Any]]:
+        """The warnings: ``code`` (``FM-Wnnn``, see the warning catalogue), ``pointer`` and
+        ``message``; each is echoed in ``conventions``."""
+        return list(self.diagnostics["warnings"])
+
+    @property
+    def checks(self) -> list[dict[str, Any]]:
+        """The relations verified: ``id``, ``status`` (``reconciled`` or ``not_checked``),
+        ``pointer`` (the result block) and ``pointers`` (the inputs read)."""
+        return list(self.diagnostics["checks"])
+
+    @property
+    def defaults_applied(self) -> list[dict[str, Any]]:
+        """The documented defaults filled in: ``pointer``, ``value`` and ``reason``."""
+        return list(self.meta["defaults_applied"])
 
     @property
     def method_version(self) -> str:
@@ -384,18 +416,35 @@ def _raise(err: Exception) -> None:
     raise FairmarkError(code, message, report) from None
 
 
-def _run_text(method: str, inputs: Mapping[str, Any] | str) -> str:
+def _run_text(
+    method: str, inputs: Mapping[str, Any] | str, binary_floats: Sequence[str] = ()
+) -> str:
     payload = inputs if isinstance(inputs, str) else json.dumps(dict(inputs), default=_encode)
     try:
-        return _engine.run(method, payload)
+        return _engine.run(method, payload, list(binary_floats))
     except _engine.EngineError as err:
         _raise(err)
         raise  # unreachable
 
 
-def run_json(method: str, inputs: Mapping[str, Any] | str) -> dict[str, Any]:
-    """Run a method and return the raw JSON envelope as a dict (decimals as strings)."""
-    out: dict[str, Any] = json.loads(_run_text(method, inputs))
+def run_json(
+    method: str, inputs: Mapping[str, Any] | str, *, binary_floats: Sequence[str] = ()
+) -> dict[str, Any]:
+    """Run a method and return the raw JSON envelope as a dict (decimals as strings).
+
+    ``binary_floats``: JSON pointers of the input values that reached the caller as binary
+    floating-point numbers (a client library read a JSON number as a float). The engine
+    reports each as warning ``FM-W017``; the envelope is the engine's, unchanged. Function
+    calling and the MCP server pass them (:func:`fairmark.tools.dispatch`).
+
+    A Python ``float`` in ``inputs`` is sent as its shortest decimal representation, the
+    literal the analyst typed (``0.095`` stays ``0.095``). A float that is the result of a
+    Python computation (for example ``0.1 + 0.2``, ``0.30000000000000004``) carries binary
+    artifacts that Fairmark cannot detect: pass ``Decimal`` or strings for computed values.
+    Warning ``FM-W017`` is emitted only where an outside library converts JSON numbers to
+    floats (function calling with a dict, MCP, LangChain), never for the floats given here.
+    """
+    out: dict[str, Any] = json.loads(_run_text(method, inputs, binary_floats))
     return out
 
 
@@ -405,6 +454,13 @@ def run(method: str, inputs: Mapping[str, Any] | str) -> Result:
     ``value`` is decoded by the method's output schema (:func:`output_schema`): every decimal
     is a ``Decimal``, every text (labels, ids, pointers, conventions) stays ``str``, integers
     stay ``int``.
+
+    A Python ``float`` in ``inputs`` is sent as its shortest decimal representation, the
+    literal the analyst typed (``0.095`` stays ``0.095``). A float that is the result of a
+    Python computation (for example ``0.1 + 0.2``, ``0.30000000000000004``) carries binary
+    artifacts that Fairmark cannot detect: pass ``Decimal`` or strings for computed values.
+    Warning ``FM-W017`` is emitted only where an outside library converts JSON numbers to
+    floats (function calling with a dict, MCP, LangChain), never for the floats given here.
     """
     text = _run_text(method, inputs)
     raw = json.loads(text)
@@ -420,6 +476,7 @@ def run(method: str, inputs: Mapping[str, Any] | str) -> Result:
         conventions=list(explain["conventions"]),
         meta=dict(raw["meta"]),
         raw=raw,
+        diagnostics=dict(raw["diagnostics"]),
     )
 
 

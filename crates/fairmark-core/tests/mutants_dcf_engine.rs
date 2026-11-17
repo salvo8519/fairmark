@@ -220,7 +220,7 @@ fn default_periods_reason_names_flows_or_lines() {
             .as_array()
             .unwrap()
             .iter()
-            .find(|d| d["field"] == "/stages/0/periods")
+            .find(|d| d["pointer"] == "/stages/0/periods")
             .unwrap()["reason"]
             .as_str()
             .unwrap()
@@ -379,7 +379,7 @@ fn real_decline_warning_only_below_inflation() {
     let warns = |out: &Value| {
         conventions(out)
             .iter()
-            .any(|c| c.starts_with("warning: the perpetual growth"))
+            .any(|c| c.starts_with("warning FM-W004: the perpetual growth"))
     };
     assert!(!warns(&ok("dcf.fcff", &input("0.02"))));
     assert!(warns(&ok("dcf.fcff", &input("0.019"))));

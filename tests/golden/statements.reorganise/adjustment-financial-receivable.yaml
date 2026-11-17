@@ -102,60 +102,63 @@ expect:
     (B)
   /years/0/balance_sheet/sources/net_financial_position/position/other_items/2/amount: '10000'
   /years/0/balance_sheet/sources/net_financial_position/composition/0/label: Financial debt (D)
-  /years/0/balance_sheet/sources/net_financial_position/composition/0/source: /years/0/statutory/balance_sheet/payables/financial_debt
+  /years/0/balance_sheet/sources/net_financial_position/composition/0/source_pointer: /years/0/statutory/balance_sheet/payables/financial_debt
   /years/0/balance_sheet/sources/net_financial_position/composition/0/amount: '900000'
   /years/0/balance_sheet/sources/net_financial_position/composition/0/current: '350000'
   /years/0/balance_sheet/sources/net_financial_position/composition/0/non_current: '550000'
   /years/0/balance_sheet/sources/net_financial_position/composition/1/label: Shareholder loans (D)
-  /years/0/balance_sheet/sources/net_financial_position/composition/1/source: /years/0/statutory/balance_sheet/payables/shareholder_loans
+  /years/0/balance_sheet/sources/net_financial_position/composition/1/source_pointer: /years/0/statutory/balance_sheet/payables/shareholder_loans
   /years/0/balance_sheet/sources/net_financial_position/composition/1/amount: '100000'
   /years/0/balance_sheet/sources/net_financial_position/composition/1/current: '50000'
   /years/0/balance_sheet/sources/net_financial_position/composition/1/non_current: '50000'
   /years/0/balance_sheet/sources/net_financial_position/composition/2/label: Cash (C.IV)
-  /years/0/balance_sheet/sources/net_financial_position/composition/2/source: /years/0/statutory/balance_sheet/cash
+  /years/0/balance_sheet/sources/net_financial_position/composition/2/source_pointer: /years/0/statutory/balance_sheet/cash
   /years/0/balance_sheet/sources/net_financial_position/composition/2/amount: '-240000'
   /years/0/balance_sheet/sources/net_financial_position/composition/2/current: '-240000'
   /years/0/balance_sheet/sources/net_financial_position/composition/2/non_current: '0'
   /years/0/balance_sheet/sources/net_financial_position/composition/3/label: Current financial assets
     (C.III)
-  /years/0/balance_sheet/sources/net_financial_position/composition/3/source: /years/0/statutory/balance_sheet/current_financial_assets
+  /years/0/balance_sheet/sources/net_financial_position/composition/3/source_pointer: /years/0/statutory/balance_sheet/current_financial_assets
   /years/0/balance_sheet/sources/net_financial_position/composition/3/amount: '-60000'
   /years/0/balance_sheet/sources/net_financial_position/composition/3/current: '-60000'
   /years/0/balance_sheet/sources/net_financial_position/composition/3/non_current: '0'
   /years/0/balance_sheet/sources/net_financial_position/composition/4/label: Loan to an affiliate
-  /years/0/balance_sheet/sources/net_financial_position/composition/4/source: /adjustments/0
+  /years/0/balance_sheet/sources/net_financial_position/composition/4/source_pointer: /adjustments/0
   /years/0/balance_sheet/sources/net_financial_position/composition/4/amount: '-70000'
   /years/0/balance_sheet/sources/net_financial_position/composition/4/current: '-70000'
   /years/0/balance_sheet/sources/net_financial_position/composition/4/non_current: '0'
   /years/0/balance_sheet/sources/net_financial_position/composition/5/label: Derivative liabilities (B)
-  /years/0/balance_sheet/sources/net_financial_position/composition/5/source: /years/0/statutory/balance_sheet/provisions/of_which_derivative_liabilities
+  /years/0/balance_sheet/sources/net_financial_position/composition/5/source_pointer: /years/0/statutory/balance_sheet/provisions/of_which_derivative_liabilities
   /years/0/balance_sheet/sources/net_financial_position/composition/5/amount: '10000'
   /years/0/balance_sheet/sources/net_financial_position/composition/5/current: '0'
   /years/0/balance_sheet/sources/net_financial_position/composition/5/non_current: '10000'
-  /years/0/checks/funds_invested_equals_sources/status: reconciled
 expect_meta:
-  /defaults_applied/0/field: /years/0/statutory/balance_sheet/intangible_assets
+  /defaults_applied/0/pointer: /years/0/statutory/balance_sheet/intangible_assets
   /defaults_applied/0/value: operating_fixed_assets
-  /defaults_applied/1/field: /years/0/statutory/balance_sheet/tangible_assets
+  /defaults_applied/1/pointer: /years/0/statutory/balance_sheet/tangible_assets
   /defaults_applied/1/value: operating_fixed_assets
-  /defaults_applied/2/field: /years/0/statutory/balance_sheet/receivables
+  /defaults_applied/2/pointer: /years/0/statutory/balance_sheet/receivables
   /defaults_applied/2/value: operating_working_capital
-  /defaults_applied/3/field: /years/0/statutory/balance_sheet/current_financial_assets
+  /defaults_applied/3/pointer: /years/0/statutory/balance_sheet/current_financial_assets
   /defaults_applied/3/value: net_financial_position_other_financial_asset
-  /defaults_applied/4/field: /years/0/statutory/balance_sheet/cash
+  /defaults_applied/4/pointer: /years/0/statutory/balance_sheet/cash
   /defaults_applied/4/value: net_financial_position_cash
-  /defaults_applied/5/field: /years/0/statutory/balance_sheet/prepayments_and_accrued_income
+  /defaults_applied/5/pointer: /years/0/statutory/balance_sheet/prepayments_and_accrued_income
   /defaults_applied/5/value: operating_working_capital
-  /defaults_applied/6/field: /years/0/statutory/balance_sheet/provisions
+  /defaults_applied/6/pointer: /years/0/statutory/balance_sheet/provisions
   /defaults_applied/6/value: operating_provisions
-  /defaults_applied/7/field: /years/0/statutory/balance_sheet/employee_severance_indemnity
+  /defaults_applied/7/pointer: /years/0/statutory/balance_sheet/employee_severance_indemnity
   /defaults_applied/7/value: operating_provisions
-  /defaults_applied/8/field: /years/0/statutory/balance_sheet/payables
+  /defaults_applied/8/pointer: /years/0/statutory/balance_sheet/payables
   /defaults_applied/8/value: operating_working_capital
-  /defaults_applied/9/field: /years/0/statutory/balance_sheet/accruals_and_deferred_income
+  /defaults_applied/9/pointer: /years/0/statutory/balance_sheet/accruals_and_deferred_income
   /defaults_applied/9/value: operating_working_capital
-  /defaults_applied/10/field: /treatments/write_downs_of_receivables
+  /defaults_applied/10/pointer: /treatments/write_downs_of_receivables
   /defaults_applied/10/value: operating
-  /defaults_applied/11/field: /treatments/write_downs_of_fixed_assets
+  /defaults_applied/11/pointer: /treatments/write_downs_of_fixed_assets
   /defaults_applied/11/value: operating
+expect_diagnostics:
+  /checks/11/status: reconciled
+  /checks/11/id: funds_invested_equals_sources
+  /checks/11/pointer: /value/years/0
 tolerance: '0'

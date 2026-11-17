@@ -29,6 +29,16 @@ struct Case {
     /// case, the pointers are into the error report, for example `/errors`.
     #[serde(default)]
     expect_length: std::collections::BTreeMap<String, String>,
+    /// Expected fields of `diagnostics` (keys are JSON Pointers into `diagnostics`, for example
+    /// `/not_computed/0/reason_code` or `/warnings/1/code`), compared like `expect`; optional,
+    /// for cases of SPEC-0012.
+    #[serde(default)]
+    expect_diagnostics: std::collections::BTreeMap<String, String>,
+    /// Expected lengths of arrays of `diagnostics` (keys are JSON Pointers into `diagnostics`,
+    /// for example `/warnings`, values counts), so that a list has no entry beyond those
+    /// asserted; optional, for cases of SPEC-0012.
+    #[serde(default)]
+    expect_diagnostics_length: std::collections::BTreeMap<String, String>,
     #[serde(default)]
     expect_error: Option<String>,
     /// Expected fields of the error report, with `expect_error` only (keys are JSON Pointers
@@ -67,6 +77,13 @@ fn golden_cases() {
         }
         let result = fairmark_core::run(&case.method, &case.input.to_string());
         if let Some(code) = &case.expect_error {
+            if !case.expect_diagnostics.is_empty() || !case.expect_diagnostics_length.is_empty() {
+                failures.push(format!(
+                    "{}: expect_diagnostics and expect_diagnostics_length need expect, not \
+                     expect_error",
+                    file.display()
+                ));
+            }
             match result {
                 Err(e) if e.code() == code => {
                     let report = serde_json::to_value(e.to_report()).unwrap();
@@ -115,93 +132,111 @@ fn golden_cases() {
                 continue;
             }
         };
-        if out["explain"]["conventions"]
-            .as_array()
-            .is_none_or(|c| c.is_empty())
-        {
-            failures.push(format!("{}: no conventions reported", file.display()));
-        }
-        for (field, count) in &case.expect_length {
-            let got = out["value"]
-                .pointer(field)
-                .and_then(|v| v.as_array())
-                .map(Vec::len);
-            if got.map(|n| n.to_string()).as_deref() != Some(count.as_str()) {
-                failures.push(format!(
-                    "{} [{}] {field}: length {got:?}, want {count}",
-                    file.display(),
-                    case.description
-                ));
-            }
-        }
-        let tolerance = case.tolerance.as_deref().expect("tolerance");
-        let expectations = case
-            .expect
-            .iter()
-            .map(|(f, e)| ("value", f, e))
-            .chain(case.expect_meta.iter().map(|(f, e)| ("meta", f, e)));
-        for (part, field, expected) in expectations {
-            // A key starting with '/' is an RFC 6901 pointer into `value` (or `meta` for
-            // `expect_meta`); any other key is a top-level field.
-            let found = if field.starts_with('/') {
-                out[part].pointer(field)
-            } else {
-                out[part].get(field.as_str())
-            };
-            // A missing field always fails, even when null is expected: a typo in a key must
-            // never pass.
-            let Some(raw) = found else {
-                failures.push(format!(
-                    "{} [{}] {field}: not in the result",
-                    file.display(),
-                    case.description
-                ));
-                continue;
-            };
-            // Expectations that are not decimals are compared exactly: `null` (an undefined
-            // value, such as a relative delta on a zero base), error codes, names.
-            let Ok(want) = Decimal::from_str(expected) else {
-                let matches = if expected == "null" {
-                    raw.is_null()
-                } else {
-                    raw.as_str() == Some(expected.as_str())
-                };
-                if !matches {
-                    failures.push(format!(
-                        "{} [{}] {field}: got {raw}, want {expected}",
-                        file.display(),
-                        case.description
-                    ));
-                }
-                continue;
-            };
-            let got = raw
-                .as_str()
-                .and_then(|v| Decimal::from_str(v).ok())
-                .or_else(|| raw.as_u64().map(Decimal::from))
-                .or_else(|| raw.as_i64().map(Decimal::from));
-            let Some(got) = got else {
-                failures.push(format!(
-                    "{} [{}] {field}: got {raw}, want the number {want}",
-                    file.display(),
-                    case.description
-                ));
-                continue;
-            };
-            if !within(&got.to_string(), expected, tolerance) {
-                failures.push(format!(
-                    "{} [{}] {field}: got {got}, want {expected}",
-                    file.display(),
-                    case.description
-                ));
-            }
-        }
+        failures.extend(check_result(&file.display().to_string(), &case, &out));
     }
     assert!(
         failures.is_empty(),
         "golden failures:\n{}",
         failures.join("\n")
     );
+}
+
+/// The failures of a successful result `out` against the expectations of `case`; `file` names
+/// the case in the messages.
+fn check_result(file: &str, case: &Case, out: &serde_json::Value) -> Vec<String> {
+    let mut failures = Vec::new();
+    if out["explain"]["conventions"]
+        .as_array()
+        .is_none_or(|c| c.is_empty())
+    {
+        failures.push(format!("{file}: no conventions reported"));
+    }
+    let lengths = case
+        .expect_length
+        .iter()
+        .map(|(f, c)| ("value", f, c))
+        .chain(
+            case.expect_diagnostics_length
+                .iter()
+                .map(|(f, c)| ("diagnostics", f, c)),
+        );
+    for (part, field, count) in lengths {
+        let got = out[part]
+            .pointer(field)
+            .and_then(|v| v.as_array())
+            .map(Vec::len);
+        if got.map(|n| n.to_string()).as_deref() != Some(count.as_str()) {
+            failures.push(format!(
+                "{} [{}] {field}: length {got:?}, want {count}",
+                file, case.description
+            ));
+        }
+    }
+    let tolerance = case.tolerance.as_deref().expect("tolerance");
+    let expectations = case
+        .expect
+        .iter()
+        .map(|(f, e)| ("value", f, e))
+        .chain(case.expect_meta.iter().map(|(f, e)| ("meta", f, e)))
+        .chain(
+            case.expect_diagnostics
+                .iter()
+                .map(|(f, e)| ("diagnostics", f, e)),
+        );
+    for (part, field, expected) in expectations {
+        // A key starting with '/' is an RFC 6901 pointer into `value` (`meta` for
+        // `expect_meta`, `diagnostics` for `expect_diagnostics`); any other key is a top-level
+        // field.
+        let found = if field.starts_with('/') {
+            out[part].pointer(field)
+        } else {
+            out[part].get(field.as_str())
+        };
+        // A missing field always fails, even when null is expected: a typo in a key must
+        // never pass.
+        let Some(raw) = found else {
+            failures.push(format!(
+                "{} [{}] {field}: not in the result",
+                file, case.description
+            ));
+            continue;
+        };
+        // Expectations that are not decimals are compared exactly: `null` (an undefined
+        // value, such as a relative delta on a zero base), error codes, names.
+        let Ok(want) = Decimal::from_str(expected) else {
+            let matches = if expected == "null" {
+                raw.is_null()
+            } else {
+                raw.as_str() == Some(expected.as_str())
+            };
+            if !matches {
+                failures.push(format!(
+                    "{} [{}] {field}: got {raw}, want {expected}",
+                    file, case.description
+                ));
+            }
+            continue;
+        };
+        let got = raw
+            .as_str()
+            .and_then(|v| Decimal::from_str(v).ok())
+            .or_else(|| raw.as_u64().map(Decimal::from))
+            .or_else(|| raw.as_i64().map(Decimal::from));
+        let Some(got) = got else {
+            failures.push(format!(
+                "{} [{}] {field}: got {raw}, want the number {want}",
+                file, case.description
+            ));
+            continue;
+        };
+        if !within(&got.to_string(), expected, tolerance) {
+            failures.push(format!(
+                "{} [{}] {field}: got {got}, want {expected}",
+                file, case.description
+            ));
+        }
+    }
+    failures
 }
 
 /// SPEC-0008 AC14 and AC20 for every analysis golden case: two runs are byte-identical, the
@@ -391,4 +426,88 @@ fn exact_comparison_does_not_round_the_expected_value() {
     assert!(within("1.5", "-1.25", "2.75"));
     assert!(within("0", "0.000", "0"));
     assert!(within("100", "100.0", "0"));
+}
+
+/// A temporary case with the diagnostics keys of SPEC-0012, checked against a result written
+/// here (the engine does not write `diagnostics` before task T11).
+fn temporary_case(extra: &str) -> Case {
+    serde_norway::from_str(&format!(
+        "method: tvm.npv\ndescription: temporary\ninput: {{}}\ntolerance: \"0.01\"\n\
+         expect:\n  /npv: \"4.13\"\n{extra}"
+    ))
+    .unwrap()
+}
+
+fn temporary_result() -> serde_json::Value {
+    serde_json::json!({
+        "method": "tvm.npv",
+        "value": {"npv": "4.132"},
+        "explain": {"formula": "NPV", "steps": [], "conventions": ["end of period"]},
+        "diagnostics": {
+            "not_computed": [{"pointer": "/value/roe", "reason_code": "not_defined"}],
+            "warnings": [
+                {"code": "FM-W012", "pointer": "/net_financial_position", "message": "m"},
+                {"code": "FM-W005", "pointer": null, "message": "m"}
+            ],
+            "checks": []
+        },
+        "meta": {"envelope_version": 1}
+    })
+}
+
+#[test]
+fn diagnostics_expectations_pass_on_a_matching_result() {
+    let case = temporary_case(
+        "expect_diagnostics:\n  /warnings/0/code: FM-W012\n  \
+         /warnings/0/pointer: /net_financial_position\n  /warnings/1/pointer: \"null\"\n  \
+         /not_computed/0/reason_code: not_defined\n\
+         expect_diagnostics_length:\n  /warnings: \"2\"\n  /checks: \"0\"\n",
+    );
+    assert_eq!(case.expect_diagnostics.len(), 4);
+    assert_eq!(case.expect_diagnostics_length.len(), 2);
+    let failures = check_result("temporary.yaml", &case, &temporary_result());
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+#[test]
+fn diagnostics_expectations_fail_on_a_wrong_value_a_missing_key_or_a_wrong_length() {
+    let case = temporary_case(
+        "expect_diagnostics:\n  /warnings/0/code: FM-W013\n  /warnings/2/code: FM-W005\n  \
+         /warnings/0/pointer: \"null\"\n\
+         expect_diagnostics_length:\n  /warnings: \"1\"\n  /not_computed/0: \"1\"\n",
+    );
+    let failures = check_result("temporary.yaml", &case, &temporary_result());
+    let text = failures.join("\n");
+    assert_eq!(failures.len(), 5, "{text}");
+    assert!(
+        text.contains("/warnings/0/code: got \"FM-W012\", want FM-W013"),
+        "{text}"
+    );
+    assert!(
+        text.contains("/warnings/2/code: not in the result"),
+        "{text}"
+    );
+    assert!(text.contains("/warnings/0/pointer: got \"/net_financial_position\", want null"));
+    assert!(text.contains("/warnings: length Some(2), want 1"), "{text}");
+    assert!(
+        text.contains("/not_computed/0: length None, want 1"),
+        "{text}"
+    );
+}
+
+#[test]
+fn diagnostics_expectations_read_diagnostics_not_value() {
+    // The same pointer in `value` must not satisfy an expectation on `diagnostics`.
+    let case = temporary_case("expect_diagnostics:\n  /npv: \"4.13\"\n");
+    let failures = check_result("temporary.yaml", &case, &temporary_result());
+    assert_eq!(failures.len(), 1, "{failures:?}");
+    assert!(failures[0].contains("/npv: not in the result"));
+    // A result without `diagnostics` fails every expectation on it.
+    let mut result = temporary_result();
+    result.as_object_mut().unwrap().remove("diagnostics");
+    let case = temporary_case(
+        "expect_diagnostics:\n  /warnings/0/code: FM-W012\n\
+         expect_diagnostics_length:\n  /warnings: \"2\"\n",
+    );
+    assert_eq!(check_result("temporary.yaml", &case, &result).len(), 2);
 }

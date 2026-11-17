@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-tornado.md
-source_hash: e57262df337f
+source_hash: 073134a81e28
 ---
 # Tornado (`analysis.tornado`)
 
@@ -53,7 +53,7 @@ base = {
 t = fm.analysis.tornado(
     "dcf.fcff",
     base,
-    output="/equity_value",
+    output_pointer="/equity_value",
     variables={
         "/net_financial_position/gross_debt": ("250", "350"),
         "/stages/0/flows/0": ("90", "110"),
@@ -63,13 +63,13 @@ t = fm.analysis.tornado(
 )
 print(t.base)  # 1485.9356357015730744749501235
 for bar in t.ranking:
-    print(bar["variable"], bar["swing"])
+    print(bar["variable_pointer"], bar["swing"])
 # /wacc -536.7420151241019796250302455
 # /terminal/tv.gordon/growth 413.2480397880313369436240625
 # /net_financial_position/gross_debt -100.0000000000000000000000000
 # /stages/0/flows/0 18.3486238532110091743119266
 
-assert [bar["variable"] for bar in t.ranking] == [
+assert [bar["variable_pointer"] for bar in t.ranking] == [
     "/wacc", "/terminal/tv.gordon/growth", "/net_financial_position/gross_debt", "/stages/0/flows/0",
 ]
 # Escursioni attese da un calcolo indipendente a 50 cifre (scripts/reference_analysis.py).
@@ -83,12 +83,12 @@ for bar, swing in zip(t.ranking, expected):
 same = fm.run("analysis.tornado", {
     "method": "dcf.fcff",
     "base_input": base,
-    "output": "/equity_value",
+    "output_pointer": "/equity_value",
     "variables": [
-        {"variable": "/net_financial_position/gross_debt", "low": "250", "high": "350"},
-        {"variable": "/stages/0/flows/0", "low": "90", "high": "110"},
-        {"variable": "/terminal/tv.gordon/growth", "low": "0.01", "high": "0.03"},
-        {"variable": "/wacc", "low": "0.08", "high": "0.10"},
+        {"variable_pointer": "/net_financial_position/gross_debt", "low": "250", "high": "350"},
+        {"variable_pointer": "/stages/0/flows/0", "low": "90", "high": "110"},
+        {"variable_pointer": "/terminal/tv.gordon/growth", "low": "0.01", "high": "0.03"},
+        {"variable_pointer": "/wacc", "low": "0.08", "high": "0.10"},
     ],
 })
 assert same.ranking == t.ranking
@@ -105,9 +105,9 @@ nell'ordine indicato, l'output al valore basso, l'output al valore alto e l'escu
 | --- | --- | --- |
 | `method` | Identificativo del metodo da valutare, ad esempio `dcf.fcff`; i metodi di analisi non sono ammessi | obbligatorio |
 | `base_input` | Input completo di quel metodo, esattamente come il metodo lo accetta: il caso base; ogni variabile cambia da sola, le altre mantengono il valore del caso base | obbligatorio |
-| `output` | JSON Pointer RFC 6901 all'output decimale da ordinare, nel `value` del risultato interno, ad esempio `/equity_value` | obbligatorio |
+| `output_pointer` | JSON Pointer RFC 6901 all'output decimale da ordinare, nel `value` del risultato interno, ad esempio `/equity_value` | obbligatorio |
 | `variables` | Gli input da far variare; almeno uno; i puntatori non si ripetono | obbligatorio |
-| `variables[].variable` | JSON Pointer RFC 6901 a un input decimale in `base_input`, ad esempio `/discount_rate` | obbligatorio |
+| `variables[].variable_pointer` | JSON Pointer RFC 6901 a un input decimale in `base_input`, ad esempio `/discount_rate` | obbligatorio |
 | `variables[].low` | Valore basso dell'input, nella sua unità di misura, inferiore a `high` | obbligatorio |
 | `variables[].high` | Valore alto dell'input, nella sua unità di misura | obbligatorio |
 
@@ -121,13 +121,19 @@ l'ordine è mantenuto.
 | Campo | Significato |
 | --- | --- |
 | `inner_method` | `id` e `version` del metodo valutato, nella versione eseguita da questo motore |
-| `output` | Puntatore dell'output ordinato |
+| `output_pointer` | Puntatore dell'output ordinato |
 | `base` | Output per `base_input` senza modifiche, nell'unità di misura dell'output |
 | `ranking` | Le barre per `abs_swing` decrescente; a parità di escursione è mantenuto l'ordine di `variables` |
-| `ranking[].variable`, `low`, `high` | L'input fatto variare e i suoi due valori, come indicati |
+| `ranking[].variable_pointer`, `low`, `high` | L'input fatto variare e i suoi due valori, come indicati |
 | `ranking[].output_low`, `output_high` | L'output con l'input a `low` e a `high`, nell'unità di misura dell'output |
 | `ranking[].swing` | `output_high − output_low`, nell'unità di misura dell'output; negativo quando l'output diminuisce all'aumentare dell'input |
 | `ranking[].abs_swing` | $\lvert$`swing`$\rvert$: la lunghezza della barra e il criterio di ordinamento |
+
+La versione 2 (SPEC-0012) dà a ogni campo che contiene un pointer il suffisso `_pointer` o
+`_pointers`, nell'input e nell'output. Le avvertenze della valutazione di `base_input` sono riportate
+una sola volta in `diagnostics.warnings`, con i pointer degli input sotto `/base_input`, insieme
+all'avvertenza FM-W016 quando il metodo valutato è in anteprima; una cella mantiene il suo errore
+compatto e non aggiunge diagnostica.
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
 
@@ -152,13 +158,13 @@ più il caso base.
 | --- | --- |
 | `FM-E001` | `variables` è vuoto, una variabile si ripete, low ≥ high, oppure un campo è mancante o sconosciuto |
 | `FM-E007` | `method` non corrisponde ad alcun metodo registrato |
-| `FM-E015` | Una variabile non si risolve in un decimale in `base_input`, oppure `output` non si risolve in un decimale nel risultato del caso base; il messaggio indica il puntatore |
+| `FM-E015` | Una variabile non si risolve in un decimale in `base_input`, oppure `output_pointer` non si risolve in un decimale nel risultato del caso base; il messaggio indica il puntatore |
 | `FM-E016` | Due valutazioni per variabile più il caso base superano 10.000 oppure valutazioni × valori in `base_input` superano 1.000.000; restituito prima della prima valutazione |
 | `FM-E017` | `method` indica un metodo di analisi |
 
-I puntatori delle variabili, i valori basso e alto, la sintassi di `output` e `base_input` sono
+I puntatori delle variabili, i valori basso e alto, la sintassi di `output_pointer` e `base_input` sono
 verificati prima di qualsiasi valutazione, `base_input` con la sola validazione del metodo interno (ogni controllo del suo input,
-nessun calcolo, i suoi errori di input riportati sotto `/base_input`); `output` è risolto sul caso base. A differenza delle tabelle di
+nessun calcolo, i suoi errori di input riportati sotto `/base_input`); `output_pointer` è risolto sul caso base. A differenza delle tabelle di
 sensitività e dell'analisi di scenario, un errore del metodo interno in qualsiasi valutazione,
 compreso il caso base, interrompe la richiesta ed è restituito invariato con il proprio codice:
 un ordinamento con una barra mancante non è definito. Ad esempio, un valore alto del tasso di

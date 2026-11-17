@@ -1348,7 +1348,7 @@ pub(crate) fn statutory(
             // R13: the total is the SPEC-0007 function's, so AC8 holds by construction. Its
             // steps restate gross debt and cash "as given"; here they were computed above with
             // their parts substituted, so only the other items and the total are kept.
-            let mut scratch = Explain::new("statements.reorganise", "");
+            let mut scratch = Explain::new("");
             if position.total(&mut scratch, year)? != expected {
                 return Err(FairmarkError::Internal(
                     "statements: net financial position differs from its composition",

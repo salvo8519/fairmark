@@ -31,6 +31,9 @@ input:
         income_taxes: '64000'
         net_income: '150000'
 expect:
-  /years/0/checks/operating_profit_total/status: not_checked
   /years/0/income_statement/operating_profit: '301000'
+expect_diagnostics:
+  /checks/4/status: not_checked
+  /checks/4/id: operating_profit_total
+  /checks/4/pointer: /value/years/0
 tolerance: '0'

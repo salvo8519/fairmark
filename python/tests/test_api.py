@@ -75,7 +75,7 @@ def test_names_and_versions_stay_text() -> None:
     r = fm.analysis.scenarios(
         "tvm.npv",
         {"rate": "0.1", "cash_flows": [-100, 60, 60]},
-        outputs=["/npv"],
+        output_pointers=["/npv"],
         cases={"2025": {"/rate": "0.05"}},
     )
     assert r.inner_method["version"] == "2"
@@ -88,7 +88,7 @@ def test_repeated_names_in_the_list_form_reach_the_engine() -> None:
         fm.analysis.scenarios(
             "tvm.npv",
             {"rate": "0.1", "cash_flows": [-100, 60, 60]},
-            outputs=["/npv"],
+            output_pointers=["/npv"],
             cases=[("a", {"/rate": "0.05"}), ("a", {"/rate": "0.2"})],
         )
     assert err.value.code == "FM-E001"
@@ -104,8 +104,8 @@ def test_existing_results_keep_their_shape() -> None:
     seek = fm.analysis.goal_seek(
         "tvm.npv",
         {"rate": "0.05", "cash_flows": [-1000, 300, 400, 500]},
-        variable="/rate",
-        output="/npv",
+        variable_pointer="/rate",
+        output_pointer="/npv",
         target="0",
         bracket=("0", "1"),
     )

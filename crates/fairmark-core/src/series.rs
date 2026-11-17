@@ -10,6 +10,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::dates::{self, BuiltSchedule, Date, ScheduleInput};
+use crate::diagnostics::WarningCode;
 use crate::error::{FairmarkError, Reason, Result};
 use crate::explain::Explain;
 use crate::frequency::{self, check_number_of_periods, Frequency, PeriodLength};
@@ -711,7 +712,6 @@ pub fn project(input: &ProjectInput) -> Result<(ProjectOutput, Explain)> {
 
     // The audit trail (R19), bounded: the per-period numbers are in the rows.
     let mut ex = Explain::new(
-        "series.project",
         "V_k = V_(k−1) × (1 + g_k), period by period, k = 1..n; g_k = growth per period into \
          period k",
     );
@@ -754,11 +754,15 @@ pub fn project(input: &ProjectInput) -> Result<(ProjectOutput, Explain)> {
         ));
     }
     if input.base_value.is_sign_negative() && !input.base_value.is_zero() {
-        ex.convention(format!(
-            "warning: the base value {} is negative, so a positive growth makes the values more \
-             negative; check the sign of the series",
-            input.base_value
-        ));
+        ex.warn(
+            WarningCode::NegativeBaseValue,
+            Some("/base_value".to_owned()),
+            format!(
+                "the base value {} is negative, so a positive growth makes the values more \
+                 negative; check the sign of the series",
+                input.base_value
+            ),
+        );
     }
     ex.convention("values: computed with 28 to 29 significant digits, not rounded");
     if let Some(s) = &schedule {
@@ -1191,6 +1195,30 @@ mod tests {
         assert_eq!(chained["value"]["xnpv"], by_hand["value"]["xnpv"]);
     }
 
+    /// R18, SPEC-0012: only a negative base value is warned (FM-W002); a positive base value
+    /// and a zero, `-0` included, carry no warning (mutants of #361).
+    #[test]
+    fn only_a_negative_base_value_is_warned() {
+        for base in ["200", "0", "-0"] {
+            let (_, ex) = run(json!({"base_value": base, "base_period": "period_0",
+                                     "growth": {"constant": {"growth": "0.10"}},
+                                     "timeline": periods(3, None)}))
+            .unwrap();
+            assert!(ex.diagnostics().warnings.is_empty(), "{base}");
+        }
+        let (_, ex) = run(json!({"base_value": "-200", "base_period": "period_0",
+                                 "growth": {"constant": {"growth": "0.10"}},
+                                 "timeline": periods(3, None)}))
+        .unwrap();
+        let codes: Vec<&str> = ex
+            .diagnostics()
+            .warnings
+            .iter()
+            .map(|w| w.code.code())
+            .collect();
+        assert_eq!(codes, ["FM-W002"]);
+    }
+
     /// R18: a negative base value is projected, with a warning.
     #[test]
     fn negative_base_value_is_projected_with_a_warning() {
@@ -1200,7 +1228,7 @@ mod tests {
         .unwrap();
         assert_eq!(out.values, [d("-220"), d("-242"), d("-266.2")]);
         assert!(ex.conventions.iter().any(|c| c.starts_with(
-            "warning: the base value -200 is negative, so a positive growth makes the values \
+            "warning FM-W002: the base value -200 is negative, so a positive growth makes the values \
              more negative"
         )));
     }

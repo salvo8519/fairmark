@@ -86,7 +86,8 @@ n = fm.ratios.profitability(
     closing={"equity": -100, "total_assets": 6000},
 )
 assert n.roe["value"] is None
-print(n.roe["not_defined"])  # equity is negative (-100)
+reasons = {e["pointer"]: e["reason"] for e in n.not_computed}
+print(reasons["/value/roe"])  # equity is negative (-100)
 
 # Leverage form, D on the net financial position: equals ROE when capital = E + D.
 lev = fm.ratios.profitability(
@@ -121,8 +122,8 @@ assert lev.roe_leverage["roe"]["value"] == Decimal("0.13")  # 0.2 × (1 − 0.35
 
 ## Outputs
 
-Every ratio is an object `{"value": ..., "not_defined": ...}`: `value` is null when the ratio
-is not defined, and `not_defined` then gives the reason.
+Every ratio is an object `{"value": ...}` (version 3): `value` is null when the ratio
+is not defined, and its entry in `diagnostics.not_computed` (`reason_code` `not_defined`) gives the reason.
 
 | Field | Meaning |
 | --- | --- |
@@ -135,12 +136,12 @@ is not defined, and `not_defined` then gives the reason.
 | `capital_turnover` | Revenue / operating return base, times per period |
 | `roe_three_factor` | `net_margin`, `asset_turnover`, `equity_multiplier` and their product `roe` |
 | `roe_leverage` | `roi`, `cost_of_debt` (i), `debt_to_equity` (D/E), `leverage_effect`, `pre_tax_roe`, `tax_rate` (t) and `roe` |
-| `not_computed` | Outputs not computed because an input is missing, in the order of the outputs: `{"output", "missing", "reason"}`, with `output` the JSON pointer of the output in the result value and `missing` the sorted JSON pointers of the inputs it lacks; empty when every output is computed |
+| `diagnostics.not_computed` | In the envelope, not in `value` (version 3, SPEC-0012): one entry per output not computed or ratio not defined, ordered by pointer, `{"pointer", "reason_code", "reason", "missing_any_of", "permitted"}`; `pointer` is the output from the envelope root (`/value/...`); `missing_input` lists in `missing_any_of` the one set of input pointers the output lacks; `not_defined` gives the reason a given term makes the ratio not defined; empty when every output is computed and defined |
 
 ## Partial input
 
 Every amount is optional (version 2, SPEC-0007 R7). Give what the statements show: each output
-is computed when its own amounts are given; otherwise it is null and listed in `not_computed`
+is computed when its own amounts are given; otherwise it is null and listed in `diagnostics.not_computed`
 with the JSON pointers of the inputs it lacks. A missing amount is never taken as zero and is
 not an error by itself. The floor: at least one output must have every input it needs (a ratio
 not defined by its own inputs counts); below it the input is refused with `FM-E027`, whose
@@ -158,7 +159,7 @@ listed.
 | `ros`, `ebit_margin` | EBIT, revenue |
 | `ebitda_margin` | EBITDA, `ebitda_definition`, revenue |
 | `roe_three_factor` | net margin: net income, revenue; asset turnover: revenue, total assets; equity multiplier: total assets, equity; `roe`: the three factors |
-| `roe_leverage` | the `leverage` block (each output listed with `/leverage` when it is absent, with the version 1 reason "leverage inputs not given"); i: financial charges, D; D/E: D, equity; t: taxes, pre-tax income; leverage effect and pre-tax ROE: ROI, i, D/E; `roe`: pre-tax ROE, t |
+| `roe_leverage` | the `leverage` block (each output listed once, `missing_input` with `/leverage`, when it is absent); i: financial charges, D; D/E: D, equity; t: taxes, pre-tax income; leverage effect and pre-tax ROE: ROI, i, D/E; `roe`: pre-tax ROE, t |
 
 ```python
 r = fm.ratios.profitability(
@@ -169,8 +170,8 @@ r = fm.ratios.profitability(
 )
 assert r.roe["value"] == Decimal("0.13")  # 260 / 2000
 assert r.roa["value"] is None
-assert r.not_computed[1]["output"] == "/roa"
-assert r.not_computed[1]["missing"] == ["/closing/total_assets", "/income_statement/ebit"]
+roa = next(e for e in r.not_computed if e["pointer"] == "/value/roa")
+assert roa["missing_any_of"] == [["/closing/total_assets", "/income_statement/ebit"]]
 ```
 
 ## Conventions (explicit, reported in `explain.conventions`)

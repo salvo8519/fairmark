@@ -121,7 +121,7 @@ fn flow_form_error(both_given: bool) -> FairmarkError {
 pub fn gordon(input: &GordonInput) -> Result<(GordonOutput, Explain)> {
     check(input).map_err(super::into_error)?;
     let (r, g) = (input.rate, input.growth);
-    let mut ex = Explain::new("tv.gordon", "TV_N = CF_{N+1} / (r − g)");
+    let mut ex = Explain::new("TV_N = CF_{N+1} / (r − g)");
     ex.convention(NOT_DISCOUNTED);
     let (next, basis) = match (input.next_flow, input.last_flow) {
         (Some(next), None) => {

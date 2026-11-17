@@ -70,6 +70,9 @@ input:
     shareholder_loans: financial_debt
     derivative_liabilities: financial_liability
 expect:
-  /years/0/checks/prepayments_and_accrued_income_beyond_one_year/status: not_checked
   /years/0/form: statutory
+expect_diagnostics:
+  /checks/15/status: not_checked
+  /checks/15/id: prepayments_and_accrued_income_beyond_one_year
+  /checks/15/pointer: /value/years/0
 tolerance: '0'

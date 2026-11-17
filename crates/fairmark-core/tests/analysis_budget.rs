@@ -21,9 +21,9 @@ fn request() -> String {
             "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}},
             "net_financial_position": {"gross_debt": 300, "cash": 0}
         },
-        "output": "/value_of_operations",
-        "rows": {"variable": "/wacc", "values": rates},
-        "columns": {"variable": "/terminal/tv.gordon/growth", "values": growths}
+        "output_pointer": "/value_of_operations",
+        "rows": {"variable_pointer": "/wacc", "values": rates},
+        "columns": {"variable_pointer": "/terminal/tv.gordon/growth", "values": growths}
     })
     .to_string()
 }

@@ -8,9 +8,15 @@ pyo3::create_exception!(_engine, EngineError, PyValueError);
 
 /// Run a method on a JSON input. Returns the JSON result envelope.
 /// Raises `EngineError` whose message is a JSON `{"code", "message"}` report.
+/// `binary_floats`: JSON pointers of the input values that reached the adapter as binary
+/// floating-point numbers; the engine reports each as warning FM-W017 (SPEC-0012).
 #[pyfunction]
-fn run(method: &str, input_json: &str) -> PyResult<String> {
-    fairmark_core::run(method, input_json)
+#[pyo3(signature = (method, input_json, binary_floats = None))]
+fn run(method: &str, input_json: &str, binary_floats: Option<Vec<String>>) -> PyResult<String> {
+    let options = fairmark_core::RunOptions {
+        binary_floats: binary_floats.unwrap_or_default(),
+    };
+    fairmark_core::run_with(method, input_json, &options)
         .map(|v| v.to_string())
         .map_err(|e| {
             EngineError::new_err(serde_json::to_string(&e.to_report()).unwrap_or_default())

@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-profitability.md
-source_hash: 4ad682dde358
+source_hash: b205ca0206ce
 ---
 # Indici di redditività (`ratios.profitability`)
 
@@ -92,7 +92,8 @@ n = fm.ratios.profitability(
     closing={"equity": -100, "total_assets": 6000},
 )
 assert n.roe["value"] is None
-print(n.roe["not_defined"])  # equity is negative (-100)
+reasons = {e["pointer"]: e["reason"] for e in n.not_computed}
+print(reasons["/value/roe"])  # equity is negative (-100)
 
 # Forma con leva finanziaria, D sulla posizione finanziaria netta: coincide con il ROE quando
 # il capitale investito è pari a E + D.
@@ -128,8 +129,8 @@ assert lev.roe_leverage["roe"]["value"] == Decimal("0.13")  # 0,2 × (1 − 0,35
 
 ## Output
 
-Ogni indice è un oggetto `{"value": ..., "not_defined": ...}`: `value` è null quando l'indice
-non è definito, e `not_defined` ne indica allora il motivo.
+Ogni indice è un oggetto `{"value": ...}` (versione 3): `value` è null quando l'indice
+non è definito, e la sua voce in `diagnostics.not_computed` (`reason_code` `not_defined`) ne indica il motivo.
 
 | Campo | Significato |
 | --- | --- |
@@ -142,13 +143,13 @@ non è definito, e `not_defined` ne indica allora il motivo.
 | `capital_turnover` | Ricavi / base del rendimento operativo, volte nel periodo |
 | `roe_three_factor` | `net_margin`, `asset_turnover`, `equity_multiplier` e il loro prodotto `roe` |
 | `roe_leverage` | `roi`, `cost_of_debt` (i), `debt_to_equity` (D/E), `leverage_effect` (effetto leva), `pre_tax_roe`, `tax_rate` (t) e `roe` |
-| `not_computed` | Output non calcolati perché manca un input, nell'ordine degli output: `{"output", "missing", "reason"}`, con `output` il JSON pointer dell'output nel valore del risultato e `missing` i JSON pointer ordinati degli input che gli mancano; vuoto quando ogni output è calcolato |
+| `diagnostics.not_computed` | Nell'envelope, non in `value` (versione 3, SPEC-0012): una voce per ogni output non calcolato o indice non definito, in ordine di pointer, `{"pointer", "reason_code", "reason", "missing_any_of", "permitted"}`; `pointer` è l'output dalla radice dell'envelope (`/value/...`); `missing_input` elenca in `missing_any_of` l'unico insieme di pointer degli input che mancano all'output; `not_defined` indica il motivo per cui un termine fornito rende l'indice non definito; vuoto quando ogni output è calcolato e definito |
 
 ## Input parziale
 
 Ogni importo è facoltativo (versione 2, SPEC-0007 R7). Si fornisce ciò che il bilancio riporta:
 ogni output è calcolato quando sono forniti i suoi importi; altrimenti è null ed è elencato in
-`not_computed` con i JSON pointer degli input che gli mancano. Un importo mancante non è mai
+`diagnostics.not_computed` con i JSON pointer degli input che gli mancano. Un importo mancante non è mai
 considerato zero e da solo non è un errore. La soglia minima: almeno un output deve avere tutti
 gli input che gli servono (conta anche un indice non definito dai propri input); sotto la soglia
 l'input è rifiutato con `FM-E027`, il cui messaggio elenca gli insiemi alternativi di input che
@@ -165,7 +166,7 @@ non è elencato.
 | `ros`, `ebit_margin` | EBIT, ricavi |
 | `ebitda_margin` | EBITDA, `ebitda_definition`, ricavi |
 | `roe_three_factor` | net margin: utile netto, ricavi; asset turnover: ricavi, totale attivo; equity multiplier: totale attivo, capitale proprio; `roe`: i tre fattori |
-| `roe_leverage` | il blocco `leverage` (ogni output elencato con `/leverage` quando manca, con il motivo della versione 1 "leverage inputs not given"); i: oneri finanziari, D; D/E: D, capitale proprio; t: imposte, risultato ante imposte; effetto leva e ROE ante imposte: ROI, i, D/E; `roe`: ROE ante imposte, t |
+| `roe_leverage` | il blocco `leverage` (ogni output elencato una sola volta, `missing_input` con `/leverage`, quando manca); i: oneri finanziari, D; D/E: D, capitale proprio; t: imposte, risultato ante imposte; effetto leva e ROE ante imposte: ROI, i, D/E; `roe`: ROE ante imposte, t |
 
 ```python
 r = fm.ratios.profitability(
@@ -176,8 +177,8 @@ r = fm.ratios.profitability(
 )
 assert r.roe["value"] == Decimal("0.13")  # 260 / 2000
 assert r.roa["value"] is None
-assert r.not_computed[1]["output"] == "/roa"
-assert r.not_computed[1]["missing"] == ["/closing/total_assets", "/income_statement/ebit"]
+roa = next(e for e in r.not_computed if e["pointer"] == "/value/roa")
+assert roa["missing_any_of"] == [["/closing/total_assets", "/income_statement/ebit"]]
 ```
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)

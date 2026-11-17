@@ -1,0 +1,484 @@
+//! The `diagnostics` block of the result envelope (ADR 0014 G4; SPEC-0012): what the result
+//! does not contain (`not_computed`), what the reader could miss (`warnings`, with stable codes)
+//! and what was verified (`checks`).
+//!
+//! A method writes its diagnostics through [`crate::explain::Explain`] while it computes:
+//! [`Explain::warn`](crate::explain::Explain::warn) records a warning and its echo in the
+//! conventions in one call, so that the two cannot diverge (R9);
+//! [`Explain::not_computed`](crate::explain::Explain::not_computed) and
+//! [`Explain::checks`](crate::explain::Explain::checks) hand over the lists of a method that
+//! computes from partial input. The registry moves them into the envelope.
+//!
+//! Every warning code is declared once below, as `Variant = "FM-Wnnn"`, documented in
+//! `docs/en/reference/warnings.md`, and never reused or renumbered (decision 3 of SPEC-0012); a
+//! test reads this file and the catalogue and checks that they agree (R16).
+
+use std::borrow::Cow;
+use std::cmp::Ordering;
+
+use schemars::{JsonSchema, Schema, SchemaGenerator};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+/// What the result does not contain, what the reader could miss and what was verified (ADR
+/// 0014 G4). Every list is always present, empty when there is nothing to report.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Diagnostics {
+    /// The outputs not computed, one entry per output, ordered by `pointer` (array indices
+    /// compared as numbers); empty when every output is computed.
+    pub not_computed: Vec<NotComputed>,
+    /// The warnings of the catalogue (`docs/en/reference/warnings.md`), in the order of their
+    /// echo in `explain.conventions`; empty when nothing is warned.
+    pub warnings: Vec<Warning>,
+    /// Every relation the method verified or could not verify, ordered by result block, then by
+    /// `id`; empty for a method without checks.
+    pub checks: Vec<Check>,
+}
+
+/// Why an output is not computed. Values may be added, never renamed (ADR 0014 G8).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ReasonCode {
+    /// An input it needs is not given; `missing_any_of` lists the inputs that make it
+    /// computable.
+    MissingInput,
+    /// A treatment or a choice must be given; `permitted` lists the values to choose from.
+    ChoiceRequired,
+    /// A given term makes the output not defined, for example a ratio over a negative equity.
+    NotDefined,
+    /// No input could supply it in the form given, for example a statutory output of an entry
+    /// given in reclassified form.
+    NotApplicable,
+}
+
+/// A choice the analyst must make for an output to be computed.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Permitted {
+    /// JSON pointer of the input to give, from the root of the input sent.
+    pub pointer: String,
+    /// Its permitted values.
+    pub values: Vec<String>,
+}
+
+/// An output not computed, and why.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NotComputed {
+    /// JSON pointer of the output, from the root of the result envelope (`/value/...`).
+    pub pointer: String,
+    /// Why it is not computed.
+    pub reason_code: ReasonCode,
+    /// The reason in one sentence, in English; guidance, not contract.
+    pub reason: String,
+    /// Alternative sets of input pointers, from the root of the input sent: any one set given
+    /// makes the output computable. Empty for `not_defined` and `not_applicable`.
+    pub missing_any_of: Vec<Vec<String>>,
+    /// The choices to make for `choice_required`; empty otherwise.
+    pub permitted: Vec<Permitted>,
+}
+
+/// The status of a relation. Values may be added, never renamed (ADR 0014 G8). A relation that
+/// fails is an error (`FM-E026`), never a check.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckStatus {
+    /// Both sides given and equal.
+    Reconciled,
+    /// A side is missing: the relation could not be checked.
+    NotChecked,
+}
+
+/// One relation the method verified.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Check {
+    /// The relation id, snake_case, documented on the methodology page of the method.
+    pub id: String,
+    /// `reconciled` or `not_checked`.
+    pub status: CheckStatus,
+    /// JSON pointer of the result block the check belongs to, from the root of the result
+    /// envelope, for example `/value/years/0`.
+    pub pointer: String,
+    /// JSON pointers of the inputs on both sides of the relation, from the root of the input
+    /// sent, as read; empty when the sides are computed outputs.
+    pub pointers: Vec<String>,
+}
+
+/// A condition the reader could miss (ADR 0014 G4).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Warning {
+    /// The code of the condition, documented in `docs/en/reference/warnings.md`.
+    pub code: WarningCode,
+    /// JSON pointer of the field the warning concerns, from the root its catalogue entry states:
+    /// the input sent, or the result envelope when it is `/value` or starts with `/value/`; null
+    /// only where the catalogue entry says so.
+    pub pointer: Option<String>,
+    /// The warning in one sentence, in English; guidance, not contract.
+    pub message: String,
+}
+
+/// The root a warning pointer is written from (catalogue column "Pointer root").
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PointerRoot {
+    /// The input the client sent (inside an analysis, under `/base_input`).
+    Input,
+    /// The result envelope (`/value/...`).
+    Envelope,
+}
+
+/// Declares the warning codes: one line `Variant = "FM-Wnnn",` each, read by the catalogue
+/// test (R16).
+macro_rules! warning_codes {
+    ($($(#[doc = $doc:literal])+ $variant:ident = $code:literal,)+) => {
+        /// The code of a warning of the catalogue (`docs/en/reference/warnings.md`): `FM-W`
+        /// and three digits, never reused or renumbered. A new condition takes the next free
+        /// code, which is additive (ADR 0014 G8).
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+        pub enum WarningCode {
+            $($(#[doc = $doc])+ $variant,)+
+        }
+
+        impl WarningCode {
+            /// Every code, in the order of the catalogue.
+            pub const ALL: &'static [WarningCode] = &[$(WarningCode::$variant),+];
+
+            /// The code as written in a result, for example `FM-W001`.
+            pub const fn code(self) -> &'static str {
+                match self {
+                    $(WarningCode::$variant => $code,)+
+                }
+            }
+        }
+    };
+}
+
+warning_codes! {
+    /// A decimal of the input has more digits than a decimal holds and is rounded as it is
+    /// read (ADR 0014 G7).
+    RoundedOnReading = "FM-W001",
+    /// `series.project`: the base value is negative.
+    NegativeBaseValue = "FM-W002",
+    /// `dcf.*`: a growth is applied to a negative flow, once per period.
+    GrowthOnNegativeFlow = "FM-W003",
+    /// `dcf.*`: the nominal perpetual growth is below the expected inflation of the terminal
+    /// phase.
+    PerpetualGrowthBelowInflation = "FM-W004",
+    /// `dcf.*`: no terminal value is included.
+    NoTerminalValue = "FM-W005",
+    /// `dcf.*`: a given terminal value is negative.
+    NegativeGivenTerminalValue = "FM-W006",
+    /// `dcf.*`: the terminal value is negative, so its weight is not meaningful.
+    TerminalValueWeightNotMeaningful = "FM-W007",
+    /// `dcf.*`: the growth of the last explicit period differs from the perpetual growth.
+    LastGrowthDiffersFromPerpetualGrowth = "FM-W008",
+    /// `dcf.*`: a price at a date is discounted at N − 0.5.
+    PriceAtDateDiscountedAtHalfPeriod = "FM-W009",
+    /// `dcf.*`: under mid-period timing a perpetuity-growth terminal value is discounted at N.
+    PerpetuityDiscountedAtHorizon = "FM-W010",
+    /// `dcf.*`: the equity value is negative.
+    NegativeEquityValue = "FM-W011",
+    /// `dcf.fcff`: no net financial position given; zero is subtracted.
+    NoNetFinancialPosition = "FM-W012",
+    /// `ratios.*`: no other items of a net financial position given.
+    NoOtherItemsOfNetFinancialPosition = "FM-W013",
+    /// `ratios.debt_service`: no reserve balance given.
+    NoReserveBalance = "FM-W014",
+    /// `statements.reorganise`: a write-down is placed below EBITDA by the default treatment.
+    WriteDownBelowEbitdaByDefault = "FM-W015",
+    /// `analysis.*`: the evaluated method is preview (ADR 0012).
+    EvaluatedMethodPreview = "FM-W016",
+    /// A value of the input arrived as a binary floating-point number: an adapter read a JSON
+    /// number as a float before the engine saw it, so digits beyond about 17 may be lost.
+    ArrivedAsBinaryFloat = "FM-W017",
+}
+
+impl WarningCode {
+    /// The root its pointer is written from (catalogue column "Pointer root").
+    pub const fn root(self) -> PointerRoot {
+        match self {
+            WarningCode::TerminalValueWeightNotMeaningful | WarningCode::NegativeEquityValue => {
+                PointerRoot::Envelope
+            }
+            _ => PointerRoot::Input,
+        }
+    }
+
+    /// The code written as `text`, if it is one of the catalogue.
+    pub fn from_code(text: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|c| c.code() == text)
+    }
+}
+
+impl std::fmt::Display for WarningCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.code())
+    }
+}
+
+impl Serialize for WarningCode {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.code())
+    }
+}
+
+impl<'de> Deserialize<'de> for WarningCode {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        Self::from_code(&text)
+            .ok_or_else(|| serde::de::Error::custom(format!("unknown warning code {text}")))
+    }
+}
+
+impl JsonSchema for WarningCode {
+    fn schema_name() -> Cow<'static, str> {
+        "WarningCode".into()
+    }
+
+    /// A pattern, not an enumeration: a code added by a later release is additive (ADR 0014
+    /// G8), and clients accept codes they do not know.
+    fn json_schema(_: &mut SchemaGenerator) -> Schema {
+        schemars::json_schema!({
+            "type": "string",
+            "pattern": "^FM-W[0-9]{3}$",
+            "description": "The code of a warning: FM-W and three digits, documented in \
+                docs/en/reference/warnings.md, never reused or renumbered. Clients accept codes \
+                they do not know."
+        })
+    }
+}
+
+/// The echo of a warning in `explain.conventions` (R9): `warning FM-Wnnn: <message>`.
+pub(crate) fn echo(code: WarningCode, message: &str) -> String {
+    format!("warning {code}: {message}")
+}
+
+/// True when a convention text reads as a warning, which only [`echo`] may write (R16).
+pub(crate) fn is_warning_text(text: &str) -> bool {
+    text.get(..7)
+        .is_some_and(|head| head.eq_ignore_ascii_case("warning"))
+}
+
+/// The reason of every output not computed because an input it needs is not given, the same
+/// for every method (SPEC-0012 R5).
+pub(crate) const MISSING_INPUT_REASON: &str =
+    "an input it needs is not given; a missing input is never taken as zero";
+
+/// Order of JSON pointers in every list of the result (R13): token by token, array indices
+/// compared as numbers and before names (`/periods/2` before `/periods/10`). A token is an
+/// array index only as RFC 6901 writes one: `0`, or digits without a leading zero; `01` is a
+/// name.
+pub(crate) fn pointer_cmp(a: &str, b: &str) -> Ordering {
+    fn key(t: &str) -> (u8, u64, &str) {
+        let index = t == "0" || (t.bytes().all(|c| c.is_ascii_digit()) && !t.starts_with('0'));
+        match t.parse::<u64>() {
+            Ok(n) if index && !t.is_empty() => (0, n, ""),
+            _ => (1, 0, t),
+        }
+    }
+    a.split('/').map(key).cmp(b.split('/').map(key))
+}
+
+/// `pointer` written under `prefix`: an input pointer of an evaluated method under
+/// `/base_input`, a result pointer under `/value/inner_value` (R14).
+fn under(prefix: &str, pointer: &str) -> String {
+    format!("{prefix}{pointer}")
+}
+
+/// True when `pointer` is from the root of the result envelope: `/value` or a pointer starting
+/// with `/value/` (not `/values`).
+pub(crate) fn is_result_pointer(pointer: &str) -> bool {
+    pointer
+        .strip_prefix("/value")
+        .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+}
+
+/// A result pointer of an evaluated method (`/value` or `/value/...`), rebased under `inner`
+/// (`/value/inner_value`); `None` when it is not a result pointer.
+fn rebased(pointer: &str, inner: &str) -> Option<String> {
+    is_result_pointer(pointer).then(|| format!("{inner}{}", &pointer["/value".len()..]))
+}
+
+impl Warning {
+    /// The warning of an evaluated method as reported by the analysis that evaluated it (R14):
+    /// an input pointer under `input` (`/base_input`); a result pointer under `result`
+    /// (`/value/inner_value`) when the analysis returns the inner value, otherwise null, as the
+    /// catalogue states for the codes whose root is the result.
+    pub(crate) fn nested(&self, input: &str, result: Option<&str>) -> Self {
+        let pointer = self
+            .pointer
+            .as_deref()
+            .and_then(|p| match self.code.root() {
+                PointerRoot::Input => Some(under(input, p)),
+                PointerRoot::Envelope => result.and_then(|r| rebased(p, r)),
+            });
+        Self {
+            code: self.code,
+            pointer,
+            message: self.message.clone(),
+        }
+    }
+}
+
+impl NotComputed {
+    /// The entry of an evaluated method, result pointer under `result`, input pointers under
+    /// `input` (R14).
+    pub(crate) fn nested(&self, input: &str, result: &str) -> Self {
+        Self {
+            pointer: rebased(&self.pointer, result).unwrap_or_else(|| self.pointer.clone()),
+            reason_code: self.reason_code,
+            reason: self.reason.clone(),
+            missing_any_of: self
+                .missing_any_of
+                .iter()
+                .map(|set| set.iter().map(|p| under(input, p)).collect())
+                .collect(),
+            permitted: self
+                .permitted
+                .iter()
+                .map(|p| Permitted {
+                    pointer: under(input, &p.pointer),
+                    values: p.values.clone(),
+                })
+                .collect(),
+        }
+    }
+}
+
+impl Check {
+    /// The check of an evaluated method, result pointer under `result`, input pointers under
+    /// `input` (R14).
+    pub(crate) fn nested(&self, input: &str, result: &str) -> Self {
+        Self {
+            id: self.id.clone(),
+            status: self.status,
+            pointer: rebased(&self.pointer, result).unwrap_or_else(|| self.pointer.clone()),
+            pointers: self.pointers.iter().map(|p| under(input, p)).collect(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn codes_are_unique_and_in_order() {
+        for (i, code) in WarningCode::ALL.iter().enumerate() {
+            assert_eq!(code.code(), format!("FM-W{:03}", i + 1));
+            assert_eq!(WarningCode::from_code(code.code()), Some(*code));
+        }
+        assert_eq!(WarningCode::from_code("FM-W999"), None);
+    }
+
+    #[test]
+    fn codes_serialise_as_text_and_the_schema_is_a_pattern() {
+        let w = Warning {
+            code: WarningCode::NoReserveBalance,
+            pointer: None,
+            message: "m".into(),
+        };
+        let json = serde_json::to_value(&w).unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({"code": "FM-W014", "pointer": null, "message": "m"})
+        );
+        assert_eq!(serde_json::from_value::<Warning>(json).unwrap(), w);
+        let schema = serde_json::to_value(schemars::schema_for!(WarningCode)).unwrap();
+        assert_eq!(schema["pattern"], "^FM-W[0-9]{3}$");
+        assert!(schema.get("enum").is_none());
+    }
+
+    /// The warning code is one shared definition, `WarningCode`, referred to by every warning,
+    /// in the schemas the engine generates and in the envelope snapshot (mutants of #361).
+    #[test]
+    fn the_warning_code_schema_is_a_shared_definition() {
+        assert_eq!(WarningCode::schema_name(), "WarningCode");
+        let schema = serde_json::to_value(schemars::schema_for!(Warning)).unwrap();
+        assert_eq!(schema["properties"]["code"]["$ref"], "#/$defs/WarningCode");
+        assert_eq!(schema["$defs"]["WarningCode"]["pattern"], "^FM-W[0-9]{3}$");
+        let result = crate::registry::result_schema("tvm.npv").unwrap();
+        assert_eq!(
+            result["$defs"]["Warning"]["properties"]["code"]["$ref"],
+            "#/$defs/WarningCode"
+        );
+        let path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../schemas/envelope/v1.json");
+        let snapshot: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        assert_eq!(
+            snapshot["$defs"]["Warning"]["properties"]["code"]["$ref"],
+            "#/$defs/WarningCode"
+        );
+        assert_eq!(
+            snapshot["$defs"]["WarningCode"]["pattern"],
+            "^FM-W[0-9]{3}$"
+        );
+    }
+
+    #[test]
+    fn warning_texts_are_recognised() {
+        assert!(is_warning_text("warning FM-W001: x"));
+        assert!(is_warning_text("Warning: x"));
+        assert!(!is_warning_text("warn"));
+        assert!(!is_warning_text("default: x"));
+    }
+
+    /// Review nit N5: the guard holds in every build, not only in debug builds.
+    #[test]
+    #[should_panic(expected = "a warning was written as a convention")]
+    fn a_warning_written_as_a_convention_is_refused() {
+        let mut ex = crate::explain::Explain::new("f");
+        ex.convention("warning: free text");
+    }
+
+    #[test]
+    fn warnings_are_echoed_with_their_code() {
+        assert_eq!(
+            echo(WarningCode::RoundedOnReading, "m"),
+            "warning FM-W001: m"
+        );
+    }
+
+    #[test]
+    fn nested_pointers_are_rebased() {
+        let input = Warning {
+            code: WarningCode::NoNetFinancialPosition,
+            pointer: Some("/net_financial_position".into()),
+            message: "m".into(),
+        };
+        assert_eq!(
+            input.nested("/base_input", None).pointer.as_deref(),
+            Some("/base_input/net_financial_position")
+        );
+        let result = Warning {
+            code: WarningCode::NegativeEquityValue,
+            pointer: Some("/value/equity_value".into()),
+            message: "m".into(),
+        };
+        assert_eq!(result.nested("/base_input", None).pointer, None);
+        assert_eq!(
+            result
+                .nested("/base_input", Some("/value/inner_value"))
+                .pointer
+                .as_deref(),
+            Some("/value/inner_value/equity_value")
+        );
+        assert_eq!(rebased("/values", "/x"), None);
+        assert_eq!(rebased("/value", "/x").as_deref(), Some("/x"));
+        assert!(is_result_pointer("/value") && is_result_pointer("/value/roe"));
+        assert!(!is_result_pointer("/values") && !is_result_pointer("/net_financial_position"));
+    }
+
+    #[test]
+    fn pointers_compare_indices_as_numbers() {
+        assert_eq!(pointer_cmp("/periods/2", "/periods/10"), Ordering::Less);
+        assert_eq!(pointer_cmp("/periods/10", "/periods/a"), Ordering::Less);
+        assert_eq!(pointer_cmp("/a", "/a"), Ordering::Equal);
+        // `01` is a name, not the index 1: an index sorts before it.
+        assert_eq!(pointer_cmp("/a/1", "/a/01"), Ordering::Less);
+        assert_ne!(pointer_cmp("/a/01", "/a/1"), Ordering::Equal);
+        assert_eq!(pointer_cmp("/a/0", "/a/00"), Ordering::Less);
+    }
+}

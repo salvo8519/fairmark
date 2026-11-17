@@ -21,6 +21,11 @@ description: Author a golden test case for a Fairmark method with expected value
    for example `/defaults_applied/0/field`; it is compared like `expect` and protected like it.
    To assert that a list has no entry beyond those asserted, add `expect_length` with JSON
    Pointers into `value` and the expected count, for example `/not_computed: "3"`.
+   To assert the diagnostics of the result (SPEC-0012), add `expect_diagnostics` with JSON
+   Pointers into `diagnostics`, for example `/warnings/0/code: FM-W012` or
+   `/not_computed/1/reason_code: not_defined`, compared like `expect`, and
+   `expect_diagnostics_length` with the expected count of a list, for example `/warnings: "1"`;
+   both need `expect` and are protected like it.
    An error case (`expect_error`) may add `expect_error_report` with JSON Pointers into the
    error report (ADR 0014 G5), for example `/pointer`, `/reason`, `/pointers/1` or
    `/errors/2/pointer`; values are compared exactly (`null` for a null field) and protected

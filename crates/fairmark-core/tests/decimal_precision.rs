@@ -1,7 +1,8 @@
 //! A decimal with more digits than a `Decimal` holds (more than 28 decimal places, or more than
-//! 28 to 29 significant digits) is accepted, rounded as the input is read, and reported: a
-//! convention starting with `warning: ` names the field by its JSON pointer, the value given
-//! and the value used (maintainer decision of 2026-11-10 on #279, ADR 0014 G7).
+//! 28 to 29 significant digits) is accepted, rounded as the input is read, and reported: warning
+//! FM-W001, echoed in the conventions as `warning FM-W001: ...`, names the field by its JSON
+//! pointer, the value given and the value used (maintainer decision of 2026-11-10 on #279, ADR
+//! 0014 G7; SPEC-0012 R8).
 
 use fairmark_core::run;
 use serde_json::{json, Value};
@@ -22,7 +23,9 @@ fn conventions(result: &Value) -> Vec<String> {
 fn warnings(result: &Value) -> Vec<String> {
     conventions(result)
         .into_iter()
-        .filter(|c| c.starts_with("warning: ") && c.contains("more digits than a decimal holds"))
+        .filter(|c| {
+            c.starts_with("warning FM-W001: ") && c.contains("more digits than a decimal holds")
+        })
         .collect()
 }
 
@@ -35,7 +38,7 @@ fn a_long_decimal_string_is_rounded_and_reported() {
     let result = run("tvm.future_value", &future_value(&format!("\"{LONG}\""))).unwrap();
     let w = warnings(&result);
     assert_eq!(w.len(), 1, "{w:?}");
-    assert!(w[0].starts_with("warning: `/rate` "), "{}", w[0]);
+    assert!(w[0].starts_with("warning FM-W001: `/rate` "), "{}", w[0]);
     assert!(w[0].contains(&format!("given {LONG}")), "{}", w[0]);
     assert!(w[0].contains(&format!("used {USED}")), "{}", w[0]);
     assert!(w[0].contains("half away from zero"), "{}", w[0]);
@@ -50,7 +53,7 @@ fn a_long_json_number_is_rounded_and_reported() {
     let result = run("tvm.future_value", &future_value(LONG)).unwrap();
     let w = warnings(&result);
     assert_eq!(w.len(), 1, "{w:?}");
-    assert!(w[0].starts_with("warning: `/rate` "), "{}", w[0]);
+    assert!(w[0].starts_with("warning FM-W001: `/rate` "), "{}", w[0]);
     assert!(w[0].contains(&format!("given {LONG}")), "{}", w[0]);
     assert!(w[0].contains(&format!("used {USED}")), "{}", w[0]);
     let rounded = run("tvm.future_value", &future_value(USED)).unwrap();
@@ -85,7 +88,11 @@ fn the_warning_names_the_pointer_inside_an_array() {
     let result = run("tvm.npv", &input.to_string()).unwrap();
     let w = warnings(&result);
     assert_eq!(w.len(), 1, "{w:?}");
-    assert!(w[0].starts_with("warning: `/cash_flows/2` "), "{}", w[0]);
+    assert!(
+        w[0].starts_with("warning FM-W001: `/cash_flows/2` "),
+        "{}",
+        w[0]
+    );
     assert!(
         w[0].contains("given 1500.00000000000000000000000049"),
         "{}",
@@ -133,13 +140,17 @@ fn an_analysis_names_the_pointer_under_base_input() {
     let input = json!({
         "method": "tvm.future_value",
         "base_input": {"payment": "2000", "rate": LONG, "periods": 35, "timing": "due"},
-        "output": "/future_value",
-        "rows": {"variable": "/payment", "values": ["1000", "2000"]}
+        "output_pointer": "/future_value",
+        "rows": {"variable_pointer": "/payment", "values": ["1000", "2000"]}
     });
     let result = run("analysis.sensitivity", &input.to_string()).unwrap();
     let w = warnings(&result);
     assert_eq!(w.len(), 1, "{w:?}");
-    assert!(w[0].starts_with("warning: `/base_input/rate` "), "{}", w[0]);
+    assert!(
+        w[0].starts_with("warning FM-W001: `/base_input/rate` "),
+        "{}",
+        w[0]
+    );
 }
 
 /// `meta.input_hash` is computed, as before this rule, on the input after reading (with its
@@ -356,8 +367,8 @@ fn goal_seek_does_not_warn_for_the_value_its_variable_replaces() {
     let input = json!({
         "method": "tvm.future_value",
         "base_input": {"payment": "2000", "rate": LONG, "periods": 35, "timing": "due"},
-        "variable": "/rate",
-        "output": "/future_value",
+        "variable_pointer": "/rate",
+        "output_pointer": "/future_value",
         "target": "80000",
         "bracket": ["0.001", "0.05"]
     });
@@ -369,7 +380,7 @@ fn goal_seek_does_not_warn_for_the_value_its_variable_replaces() {
     let w = warnings(&result);
     assert_eq!(w.len(), 1, "{w:?}");
     assert!(
-        w[0].starts_with("warning: `/base_input/payment` "),
+        w[0].starts_with("warning FM-W001: `/base_input/payment` "),
         "{}",
         w[0]
     );

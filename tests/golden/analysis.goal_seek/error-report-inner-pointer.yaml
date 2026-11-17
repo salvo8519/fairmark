@@ -13,8 +13,8 @@ input:
     - '60'
     - '60'
     bogus: '1'
-  variable: /rate
-  output: /npv
+  variable_pointer: /rate
+  output_pointer: /npv
   target: '0'
   bracket:
   - '0.01'

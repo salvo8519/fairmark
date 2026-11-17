@@ -46,7 +46,7 @@ def test_every_method_publishes_its_output_and_result_schemas(method: str) -> No
     assert output["$schema"] == "https://json-schema.org/draft/2020-12/schema"
     assert output["type"] == "object" and output["description"]
     result = fm.result_schema(method)
-    assert set(result["required"]) == {"method", "value", "explain", "meta"}
+    assert set(result["required"]) == {"method", "value", "explain", "diagnostics", "meta"}
     # The copies are independent: a caller cannot alter the schema used for decoding.
     output["type"] = "changed"
     assert fm.output_schema(method)["type"] == "object"
@@ -141,11 +141,11 @@ def test_numeric_looking_text_stays_text() -> None:
     r = fm.analysis.scenarios(
         "tvm.npv",
         {"rate": "0.1", "cash_flows": [-100, 60, 60]},
-        outputs=["/npv"],
+        output_pointers=["/npv"],
         cases=[("2025", {"/rate": "0.05"}), ("2026", {"/rate": "-1"})],
     )
     first, failed = r.value["scenarios"]
-    assert first["name"] == "2025" and first["value"][0]["output"] == "/npv"
+    assert first["name"] == "2025" and first["value"][0]["output_pointer"] == "/npv"
     assert isinstance(first["value"][0]["delta"], Decimal)
     assert failed["name"] == "2026" and failed["error"]["code"] == "FM-E003"
     assert r.value["inner_method"] == {"id": "tvm.npv", "version": "2"}
@@ -164,8 +164,8 @@ def test_inner_input_and_value_are_decoded_by_the_inner_methods_schemas() -> Non
     seek = fm.analysis.goal_seek(
         "tvm.npv",
         {"rate": "0.05", "cash_flows": [-1000, 300, 400, 500]},
-        variable="/rate",
-        output="/npv",
+        variable_pointer="/rate",
+        output_pointer="/npv",
         target="0",
         bracket=("0", "1"),
     )
@@ -181,7 +181,8 @@ def test_numbers_in_an_input_held_in_a_result_are_read_exactly() -> None:
         "analysis.goal_seek",
         '{"method": "tvm.npv", "base_input": {"rate": 0.05, "cash_flows": '
         "[-1000.10000000000000000001, 300, 400, 500]}, "
-        '"variable": "/rate", "output": "/npv", "target": "0", "bracket": ["0", "1"]}',
+        '"variable_pointer": "/rate", "output_pointer": "/npv", "target": "0", '
+        '"bracket": ["0", "1"]}',
     )
     flow = seek.value["solved_input"]["cash_flows"][0]
     assert flow == Decimal("-1000.10000000000000000001") and isinstance(flow, Decimal)

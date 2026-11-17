@@ -38,8 +38,8 @@ def test_the_net_financial_position_reaches_dcf_fcff_unchanged() -> None:
     position = r.years[0]["balance_sheet"]["sources"]["net_financial_position"]["position"]
     v = fm.dcf.fcff([fm.dcf.given(["100", "100"])], wacc="0.10", net_financial_position=position)
     assert v.bridge["net_financial_position"] == Decimal("400")
-    nc = r.years[0]["not_computed"]["balance_sheet"]
-    assert any(e["output"].endswith("/invested_capital") for e in nc)
+    nc = r.raw["diagnostics"]["not_computed"]
+    assert any(e["pointer"].endswith("/balance_sheet/operating/invested_capital") for e in nc)
 
 
 def test_a_label_that_looks_like_a_number_stays_text() -> None:

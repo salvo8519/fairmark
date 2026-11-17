@@ -9,6 +9,7 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::diagnostics::WarningCode;
 use crate::error::{FairmarkError, Found, Reason, Result};
 use crate::explain::Explain;
 use crate::num::add;
@@ -233,9 +234,13 @@ pub(crate) fn claims_total(
 /// refused; `reason` says what made it negative on the caller's basis.
 pub(crate) fn warn_if_negative(ex: &mut Explain, equity_value: Decimal, reason: &str) {
     if equity_value.is_sign_negative() && !equity_value.is_zero() {
-        ex.convention(format!(
-            "warning: the equity value is negative ({equity_value}): {reason}; it is reported \
-             as computed, not floored at zero"
-        ));
+        ex.warn(
+            WarningCode::NegativeEquityValue,
+            Some("/value/equity_value".to_owned()),
+            format!(
+                "the equity value is negative ({equity_value}): {reason}; it is reported as \
+                 computed, not floored at zero"
+            ),
+        );
     }
 }

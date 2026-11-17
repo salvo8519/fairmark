@@ -514,7 +514,7 @@ fn check_instalment(input: &InstalmentInput) -> Result<()> {
     }));
     // The balloon is compared with the principal: skipped when the principal is refused.
     if principal_valid {
-        let mut scratch = Explain::new("", "");
+        let mut scratch = Explain::new("");
         found.check(balloon(input.principal, input.balloon_amount, &mut scratch).map(|_| ()));
     }
     found.finish()
@@ -523,7 +523,6 @@ fn check_instalment(input: &InstalmentInput) -> Result<()> {
 pub fn instalment(input: &InstalmentInput) -> Result<(InstalmentOutput, Explain)> {
     check_instalment(input)?;
     let mut ex = Explain::new(
-        "loans.instalment",
         "A = (P − B (1 + i)^−n) × i / (1 − (1 + i)^−n), divided by (1 + i) if due; \
          (P − B) / n when i = 0",
     );
@@ -639,7 +638,6 @@ pub fn number_of_instalments(
     check_number_of_instalments(input)?;
     let (p, a) = (input.principal, input.instalment);
     let mut ex = Explain::new(
-        "loans.number_of_instalments",
         "n* = −ln(1 − i P' / A) / ln(1 + i), P' = P (ordinary) or P / (1 + i) (due); \
          n* = P / A when i = 0; N = ⌈n*⌉",
     );
@@ -999,7 +997,7 @@ fn check_amortisation_schedule(input: &AmortisationScheduleInput) -> Result<()> 
     }));
     // The balloon is compared with the principal: skipped when the principal is refused.
     if principal_valid && kind != AmortisationType::Bullet {
-        let mut scratch = Explain::new("", "");
+        let mut scratch = Explain::new("");
         found.check(
             balloon(input.principal, input.balloon_amount, &mut scratch)
                 .map(|_| ())
@@ -1018,7 +1016,6 @@ pub fn amortisation_schedule(
     let (p, n) = (input.principal, input.number_of_instalments);
     let g = input.principal_grace_periods.unwrap_or_default();
     let mut ex = Explain::new(
-        "loans.amortisation_schedule",
         "interest_k = i × opening balance_k; principal_k = instalment − interest_k (french), \
          (P − B) / (n − g) (fixed_amortisation_schedule), 0 before the last period (bullet) \
          and in the grace periods; closing balance_k = opening balance_k − principal_k; last \
@@ -1385,6 +1382,21 @@ impl Method for NumberOfInstalments {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The balloon is compared with the principal only when the principal is valid and the
+    /// type accepts a balloon: a refused principal is the only error, not a second one about the
+    /// balloon (mutants of #361, `check_amortisation_schedule`).
+    #[test]
+    fn a_refused_principal_is_not_compared_with_the_balloon() {
+        let input = serde_json::json!({"principal": "-100", "balloon_amount": "50",
+            "rate": "0.05", "compounding": "annual", "payment_frequency": "annual",
+            "number_of_instalments": 6, "timing": "ordinary", "amortisation_type": "french"});
+        let errors = crate::run("loans.amortisation_schedule", &input.to_string())
+            .unwrap_err()
+            .into_errors();
+        let pointers: Vec<Option<String>> = errors.iter().map(|e| e.details().pointer).collect();
+        assert_eq!(pointers, [Some("/principal".to_owned())]);
+    }
     use std::str::FromStr;
 
     fn d(s: &str) -> Decimal {

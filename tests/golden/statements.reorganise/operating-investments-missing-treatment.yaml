@@ -108,10 +108,11 @@ expect:
   /years/0/income_statement/operating_profit: 'null'
   /years/0/income_statement/investing_result: 'null'
   /years/0/income_statement/net_income: 'null'
-  /years/0/not_computed/income_statement/0/output: /years/0/income_statement/income_from_operating_investments
-  /years/0/not_computed/income_statement/0/missing/0: /treatments/financial_fixed_assets
-  /years/0/not_computed/income_statement/0/permitted/0/treatment: /treatments/financial_fixed_assets
-  /years/0/not_computed/income_statement/0/permitted/0/destinations/0: operating
-  /years/0/not_computed/income_statement/0/permitted/0/destinations/1: non_operating
-  /years/0/not_computed/income_statement/0/permitted/0/destinations/2: financial_asset
+expect_diagnostics:
+  /not_computed/10/pointer: /value/years/0/income_statement/income_from_operating_investments
+  /not_computed/10/missing_any_of/0/0: /treatments/financial_fixed_assets
+  /not_computed/10/permitted/0/pointer: /treatments/financial_fixed_assets
+  /not_computed/10/permitted/0/values/0: operating
+  /not_computed/10/permitted/0/values/1: non_operating
+  /not_computed/10/permitted/0/values/2: financial_asset
 tolerance: '0'

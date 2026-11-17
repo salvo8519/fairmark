@@ -1,6 +1,6 @@
 ---
 source: methods/statements-reorganise.md
-source_hash: 8d253745cf90
+source_hash: c1a6a4ff9dbd
 ---
 # Bilancio riclassificato (`statements.reorganise`)
 
@@ -25,7 +25,7 @@ con A − B. Le variazioni esatte tra esercizi consecutivi arrivano con una vers
 ## Calcolo sui dati disponibili
 
 Ogni input è facoltativo. Un output è calcolato quando sono forniti gli input di cui ha bisogno;
-altrimenti è `null` ed è elencato in `not_computed` con i JSON pointer degli input mancanti. Un
+altrimenti è `null` ed è elencato in `diagnostics.not_computed` con i JSON pointer degli input mancanti. Un
 input mancante non è mai considerato zero e non è mai un errore. Un agente che legge pochi
 totali da un testo può passarli, ricevere ciò che consentono e chiedere all'utente soltanto i
 pointer elencati.
@@ -152,7 +152,7 @@ con, per un esercizio in forma civilistica:
   result;
 - componenti non ricorrenti = Σ proventi non ricorrenti − Σ oneri non ricorrenti, dalle
   rettifiche `non_recurring`: zero, con la convenzione "no item labelled non-recurring", se
-  assenti; nullo, ed elencato in `not_computed`, quando l'esercizio non fornisce il conto
+  assenti; nullo, ed elencato in `diagnostics.not_computed`, quando l'esercizio non fornisce il conto
   economico (E6);
 - financing result (risultato della gestione finanziaria) = C17-bis − C17 (C17 più gli
   interessi dei beni in leasing, restituito come `interest_and_other_financial_charges`) − la
@@ -202,7 +202,7 @@ ciascuna parte non sono forniti: C15 resta nell'investing result e le convenzion
 Con B.III fornita e diversa da zero e la sua classificazione mancante, C15 la attende solo
 quando C15 è fornita e diversa da zero (A3): income from operating investments, reddito
 operativo, investing result e i livelli sottostanti non sono calcolati e sono elencati in
-`not_computed` con il pointer della classificazione e le destinazioni ammesse (R8). C15 fornita
+`diagnostics.not_computed` con il pointer della classificazione e le destinazioni ammesse (R8). C15 fornita
 pari a zero non attende nulla; C15 non fornita manca con il proprio pointer.
 
 La rivalutazione del TFR (interest cost) è compresa in B9. Quando una rettifica
@@ -222,7 +222,7 @@ per un esercizio in cui la rettifica si applica (`FM-E001` altrimenti); oltre qu
 `reconciliations.profit_before_financing_and_taxes` partono da A − B del conto economico
 civilistico, elencano ogni importo spostato (svalutazioni, parti `investing` e `non_recurring`,
 righe del leasing, rivalutazioni del TFR, C15, C16 e D) con i pointer effettivamente letti
-(`sources`: D18 e D19 entrambe quando sono lette entrambe; il gruppo B10 a-c, con la correzione,
+(`source_pointers`: D18 e D19 entrambe quando sono lette entrambe; il gruppo B10 a-c, con la correzione,
 quando B10 c è letta come assente; per una rettifica, l'importo dell'esercizio che sposta, per
 esempio `/adjustments/0/amounts/0/payments` o `/adjustments/1/interest_cost/0`), e arrivano al subtotale, in modo esatto. Il risultato prima delle imposte è
 uguale ad A − B ± C ± D e l'utile netto alla voce 21, salvo la differenza dei leasing, canoni −
@@ -392,7 +392,7 @@ non si applicano a un esercizio riclassificato: fornire i totali già rettificat
 
 Il blocco degli importi correnti e non correnti e la composizione della posizione finanziaria
 netta richiedono la forma civilistica: in un esercizio riclassificato sono elencati in
-`not_computed` senza un pointer da fornire, e una convenzione lo indica. Le rimanenze sono tratte
+`diagnostics.not_computed` senza un pointer da fornire, e una convenzione lo indica. Le rimanenze sono tratte
 da `operating_working_capital.inventories`.
 
 ### Conto economico civilistico (Appendice A.2)
@@ -439,14 +439,14 @@ operativo (MOL − ammortamenti − `other_charges_below_ebitda` +
 `other_charges_below_ebitda` e `income_from_operating_investments` (zero o più) definiti come
 nella forma civilistica (E1, E2, P2); per ottenere il reddito operativo derivato, fornire
 `income_from_operating_investments`, zero se non ve ne sono. Le
-riconciliazioni con A − B richiedono la forma civilistica e sono elencate in `not_computed`
+riconciliazioni con A − B richiedono la forma civilistica e sono elencate in `diagnostics.not_computed`
 senza un pointer da fornire.
 
 ## Classificazioni
 
 Indicate una volta in `treatments` e applicate a ogni esercizio in forma civilistica. Una
 classificazione è necessaria solo quando il suo aggregato è fornito e diverso da zero; quando è
-necessaria e manca, gli output che dipendono dall'aggregato non sono calcolati e `not_computed`
+necessaria e manca, gli output che dipendono dall'aggregato non sono calcolati e `diagnostics.not_computed`
 indica la classificazione e le destinazioni ammesse.
 
 | Classificazione | Valori | Predefinito |
@@ -520,10 +520,16 @@ Per esercizio: `label`, `date`, `form`, `layout`, poi:
 | `balance_sheet.excess_cash` | C.IV al netto della liquidità operativa |
 | `current_non_current` | `fixed_assets`, `current_assets`, `inventories`, `cash`, `total_assets` (al netto della voce A), `current_liabilities`, `non_current_liabilities`; dai totali B, C e dal totale attivo quando forniti |
 | `income_statement` | I livelli dell'Appendice B.2 (si veda [Formula](#conto-economico-appendice-b2)), `ebitda_definition` e `reconciliations`; le voci che portano il nome di una voce civilistica (`revenue`, `purchases`, `materials_consumed`, `personnel_costs`, `depreciation_and_amortisation`, `interest_and_other_financial_charges`) sono importi della parte caratteristica, dopo le rettifiche |
-| `assignments` | Ogni aggregato fornito: riferimento, pointer, importo, destinazione, origine (`mapping` o `analyst`) |
-| `adjustments_applied` | Ogni rettifica: tipo, etichetta, importo, motivo, origine, destinazione; per un leasing, una voce per importo con la sua `line` |
-| `checks` | Ogni relazione per identificativo: `reconciled` o `not_checked`, con i suoi pointer |
-| `not_computed` | Per blocco, ogni output mancante con i pointer degli input mancanti e, per una classificazione mancante, le destinazioni ammesse; la voce ha la stessa forma dei metodi `ratios.*` (`output`, `missing`, `permitted`) |
+| `assignments` | Ogni aggregato fornito: riferimento, `aggregate_pointer`, importo, destinazione, origine (`mapping` o `analyst`) |
+| `adjustments_applied` | Ogni rettifica: tipo, etichetta, importo, motivo, origine (`source_pointer`), destinazione; per un leasing, una voce per importo con la sua `line` |
+
+I controlli e gli output non calcolati non sono in `value` (versione 2, SPEC-0012): sono nel
+blocco `diagnostics` del risultato.
+
+| Campo | Significato |
+| --- | --- |
+| `diagnostics.checks` | Ogni relazione di ogni esercizio: `{"id", "status", "pointer", "pointers"}`, `status` `reconciled` o `not_checked`, `pointer` il blocco dell'esercizio (`/value/years/<i>`), `pointers` gli input dei due lati; in ordine di esercizio, poi di identificativo |
+| `diagnostics.not_computed` | Ogni output non calcolato, `{"pointer", "reason_code", "reason", "missing_any_of", "permitted"}`, in ordine di pointer: `missing_input` con gli input mancanti in `missing_any_of`; `choice_required` per una classificazione mancante, con `permitted` `[{"pointer", "values"}]` (la classificazione e le destinazioni ammesse); `not_applicable` per un output che la forma fornita non può dare |
 
 | Output | Alimenta |
 | --- | --- |
@@ -549,7 +555,7 @@ quest'ordine:
    trattamento di fine rapporto C, debiti D, voce E del passivo; poi A5 verso
    `value_of_production`, B14 verso `external_costs`, B10 c verso
    `depreciation_and_amortisation` e B10 d verso `other_charges_below_ebitda`, ciascuna finché la
-   sua classificazione non è fornita): `field` è il pointer della voce,
+   sua classificazione non è fornita): `pointer` è il pointer della voce,
    `value` la destinazione, e la convenzione riporta "assigned to". Un aggregato è fornito quando
    è fornito il suo importo: un nodo che ne contiene solo una parte (per esempio
    `receivables.trade`) non basta;
@@ -557,8 +563,9 @@ quest'ordine:
    `operating` se non fornite, ciascuna elencata ogni volta che un esercizio civilistico fornisce
    il conto economico, perché decidono che cosa è calcolato (decisione A4 del 2026-11-09, che
    modifica F1); quando una di queste classificazioni predefinite colloca una B10 c o una B10 d
-   diversa da zero, una convenzione che inizia con "warning: " indica il valore predefinito e il
-   subtotale che sposta (ADR 0014, test 4 di ammissione dei valori predefiniti);
+   diversa da zero, l'avvertenza `FM-W015` in `diagnostics.warnings`, al pointer della
+   classificazione, indica il valore predefinito e il subtotale che sposta (ADR 0014, test 4 di
+   ammissione dei valori predefiniti);
 3. ogni voce considerata pari a zero perché non fornita ([Calcolo sui dati
    disponibili](#calcolo-sui-dati-disponibili)): `value` è `"0"` e la convenzione riporta "not
    given, set to".
@@ -570,7 +577,7 @@ Le destinazioni fisse non sono valori predefiniti e non sono elencate.
 | Convenzione | Opzioni | Predefinito |
 | --- | --- | --- |
 | Esercizi | dal più vecchio; date verificate quando le voci consecutive le hanno: stesso mese e giorno un anno solare dopo, 28 febbraio dopo 29 febbraio, oppure entrambe fine mese (28 febbraio 2023, 29 febbraio 2024) | ordine assunto e riportato quando manca una data |
-| Input mancante | output nullo, elencato in `not_computed` | mai zero, mai un errore |
+| Input mancante | output nullo, elencato in `diagnostics.not_computed` | mai zero, mai un errore |
 | Verifiche | esatte, solo quando entrambi i lati sono forniti | `not_checked` altrimenti |
 | Schema | `ordinary`, `abridged`, `micro_entity` | riportato; nessun numero ne dipende |
 | Fondi per rischi e oneri B, trattamento di fine rapporto C | operating provisions; debt-like items tramite rettifica | predefinito |
@@ -629,7 +636,7 @@ maintainer del 2026-11-08), che indica solo quelle voci e la correzione: un impo
 diverso, oppure una di queste voci considerate pari a zero non è zero. Una parte "di cui" considerata
 assente sposta un importo all'interno di un solo lato e non è indicata. Con tutte le voci
 fornite, una differenza è un difetto (`FM-E012`). Questa relazione non indica pointer in
-`checks`: i suoi lati sono output calcolati, e il suo stato tiene conto delle voci considerate
+`diagnostics.checks`: i suoi lati sono output calcolati, e il suo stato tiene conto delle voci considerate
 pari a zero.
 
 Per i bilanci depositati in unità di euro, fornire la riserva da arrotondamento nelle altre
@@ -702,7 +709,7 @@ arrotondamento.
   economico è stata scritta prima di quella del motore.
 - `python/tests/test_reference_statements.py`: il motore rispetto a quel riferimento su 400
   chiamate casuali con seme fisso nelle due forme, per ogni output, riconciliazione, verifica,
-  valore predefinito e voce di `not_computed`, comprese le voci considerate pari a zero, le
+  valore predefinito e voce di `diagnostics.not_computed`, comprese le voci considerate pari a zero, le
   ripartizioni dei debiti verso soci per finanziamenti con scadenze, le posizioni finanziarie
   nette riclassificate fornite per parti, ogni tipo di rettifica e la scrittura doppia del
   leasing.

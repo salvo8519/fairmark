@@ -24,6 +24,11 @@ report its results.
 5. **Report**:
    - quote values exactly as returned (round only for display, and say so);
    - cite the relevant `explain.steps` and every item in `explain.conventions`;
+   - read `diagnostics`, not the text of the conventions: tell the user every entry of
+     `diagnostics.warnings` (its code `FM-Wnnn` and message), every output in
+     `diagnostics.not_computed` with its `reason_code` (for `missing_input`, ask for one set of
+     `missing_any_of`; for `choice_required`, ask the user to choose among `permitted`), and the
+     `diagnostics.checks` that are `not_checked`; each list is always present, `[]` when empty;
    - state the inputs you used and where each one came from;
    - include `meta.input_hash` and engine version for reproducibility.
 

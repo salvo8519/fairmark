@@ -198,7 +198,7 @@ fn fcfe_with_defaults(
     defaults: &[DefaultApplied],
 ) -> Result<(DcfFcfeOutput, Explain)> {
     check_no_net_financial_position(input)?;
-    let mut ex = Explain::new(Fcfe::ID, FORMULA);
+    let mut ex = Explain::new(FORMULA);
     ex.convention(
         "basis: equity, free cash flows to equity (FCFE) discounted at the cost of equity",
     );
@@ -608,7 +608,7 @@ mod tests {
             });
             let out = run("dcf.fcfe", &v.to_string()).unwrap();
             assert_eq!(
-                out["meta"]["defaults_applied"][0]["field"],
+                out["meta"]["defaults_applied"][0]["pointer"],
                 format!("/{field}"),
                 "{field}"
             );
@@ -695,7 +695,10 @@ mod tests {
         let o = out(&v);
         assert!(d(&o, "/equity_value").is_sign_negative());
         let c = o["explain"]["conventions"].to_string();
-        assert!(c.contains("warning: the equity value is negative"), "{c}");
+        assert!(
+            c.contains("warning FM-W011: the equity value is negative"),
+            "{c}"
+        );
         assert!(!conventions(&base())
             .join("\n")
             .contains("equity value is negative"));

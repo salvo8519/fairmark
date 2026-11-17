@@ -16,7 +16,7 @@ input:
     timing: end_of_period
     terminal: {"tv.gordon": {growth: "0.02", first_flow: last_flow_grown}}
     net_financial_position: {gross_debt: 300, cash: 0}
-  outputs: [/enterprise_value, /equity_value]
+  output_pointers: [/enterprise_value, /equity_value]
   scenarios:
   - name: downside
     overrides:

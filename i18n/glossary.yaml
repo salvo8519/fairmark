@@ -30,6 +30,13 @@ terms:
   golden case: caso di riferimento (golden case)
   audit trail: tracciabilità del calcolo (audit trail)
   convention: convenzione
+  result envelope: busta (envelope) del risultato
+  diagnostics: diagnostica (blocco diagnostics)
+  warning: avvertenza
+  warning code: codice di avvertenza
+  not computed: non calcolato
+  not defined: non definito
+  check (relation verified): controllo
   financial statements: bilancio d'esercizio
   business plan: business plan
   spec: specifica

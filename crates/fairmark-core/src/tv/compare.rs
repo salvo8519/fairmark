@@ -447,7 +447,6 @@ pub fn compare(input: &CompareInput) -> Result<(CompareOutput, Explain)> {
     }
     let (r, cap, basis) = (input.rate, input.growth_cap, input.basis);
     let mut ex = Explain::new(
-        "tv.compare",
         "each technique computed by its own method on the shared rate, growth cap and basis",
     );
     ex.convention(NOT_DISCOUNTED);

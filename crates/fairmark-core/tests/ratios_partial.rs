@@ -1,11 +1,11 @@
 //! SPEC-0007 R7 to R13, AC6: every row of the computability tables. For each method a complete
 //! input is run, then one input at a time is removed: the outputs of the row become null and are
-//! listed in `not_computed` with the pointer removed, and every other output is unchanged. Also
-//! the floor (R12, `FM-E027`) and the two documented defaults (R13).
+//! listed in `diagnostics.not_computed` (SPEC-0012) with the pointer removed, and every other
+//! output is unchanged. Also the floor (R12, `FM-E027`) and the two documented defaults (R13).
 
 use serde_json::{json, Value};
 
-/// How an output reads as null: a ratio object (`value` null, `not_defined` null) or an amount.
+/// How an output reads as null: a ratio object (`value` null) or an amount.
 #[derive(Clone, Copy)]
 enum Kind {
     Ratio,
@@ -42,21 +42,65 @@ fn remove(input: &Value, pointer: &str) -> Value {
     out
 }
 
+/// The entries of `diagnostics.not_computed` with the reason code `code` (SPEC-0012 R5).
+fn listed<'a>(out: &'a Value, code: &str) -> Vec<&'a Value> {
+    out["diagnostics"]["not_computed"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|e| e["reason_code"] == code)
+        .collect()
+}
+
+/// The output an entry is about, as a pointer into `value`.
+fn output_of(entry: &Value) -> &str {
+    entry["pointer"]
+        .as_str()
+        .and_then(|p| p.strip_prefix("/value"))
+        .unwrap()
+}
+
+/// The reason the ratio at `output` (a pointer into `value`) is not defined, if it is.
+fn not_defined<'a>(out: &'a Value, output: &str) -> Option<&'a str> {
+    listed(out, "not_defined")
+        .into_iter()
+        .find(|e| output_of(e) == output)
+        .and_then(|e| e["reason"].as_str())
+}
+
+/// The outputs not computed for a missing input, as pointers into `value`, sorted.
+fn missing_outputs(out: &Value) -> Vec<&str> {
+    let mut v: Vec<&str> = listed(out, "missing_input")
+        .into_iter()
+        .map(output_of)
+        .collect();
+    v.sort_unstable();
+    v
+}
+
 fn check(table: &Table, rows: &[Row<'_>]) {
     let full = run(table.method, &table.input);
-    assert_eq!(full["value"]["not_computed"], json!([]), "{}", table.method);
-    assert_eq!(full["meta"]["method_version"], "2", "{}", table.method);
+    assert!(missing_outputs(&full).is_empty(), "{}", table.method);
+    assert!(
+        full["value"].get("not_computed").is_none(),
+        "{}",
+        table.method
+    );
+    assert_eq!(full["meta"]["method_version"], "3", "{}", table.method);
     for (removed, missing, affected) in rows {
         let out = run(table.method, &remove(&table.input, removed));
-        let listed: Vec<&str> = out["value"]["not_computed"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|e| e["output"].as_str().unwrap())
-            .collect();
-        assert_eq!(&listed, affected, "{} without {removed}", table.method);
-        for entry in out["value"]["not_computed"].as_array().unwrap() {
-            let pointers = entry["missing"].as_array().unwrap();
+        let mut want: Vec<&str> = affected.to_vec();
+        want.sort_unstable();
+        assert_eq!(
+            missing_outputs(&out),
+            want,
+            "{} without {removed}",
+            table.method
+        );
+        for entry in listed(&out, "missing_input") {
+            let alternatives = entry["missing_any_of"].as_array().unwrap();
+            assert_eq!(alternatives.len(), 1, "one set of missing inputs: {entry}");
+            let pointers = alternatives[0].as_array().unwrap();
             assert!(
                 pointers.iter().any(|p| p == missing),
                 "{} without {removed}: {entry}",
@@ -66,10 +110,7 @@ fn check(table: &Table, rows: &[Row<'_>]) {
             sorted.sort_by(|a, b| a.as_str().cmp(&b.as_str()));
             assert_eq!(&sorted, pointers, "missing pointers are sorted");
             assert!(entry["reason"].as_str().is_some_and(|r| !r.is_empty()));
-            assert!(
-                entry.get("permitted").is_none(),
-                "no choice is ever missing"
-            );
+            assert_eq!(entry["permitted"], json!([]), "no choice is ever missing");
         }
         for (output, kind) in table.outputs {
             let got = out["value"].pointer(output).unwrap();
@@ -244,14 +285,21 @@ fn profitability_rows() {
     );
 }
 
+/// Decision 14 of SPEC-0012: without the leverage block, the leverage ROE has one entry,
+/// `missing_input` with the block, and its version 1 reason is not repeated as not defined.
 #[test]
-fn profitability_without_leverage_keeps_the_version_1_reason() {
+fn profitability_without_leverage_lists_the_block_once() {
     let input = remove(&profitability("closing").input, "/leverage");
     let out = run("ratios.profitability", &input);
-    assert_eq!(
-        out["value"]["roe_leverage"]["roe"]["not_defined"],
-        "leverage inputs not given"
-    );
+    let roe: Vec<&Value> = out["diagnostics"]["not_computed"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|e| e["pointer"] == "/value/roe_leverage/roe")
+        .collect();
+    assert_eq!(roe.len(), 1);
+    assert_eq!(roe[0]["reason_code"], "missing_input");
+    assert_eq!(roe[0]["missing_any_of"], json!([["/leverage"]]));
 }
 
 #[test]
@@ -264,7 +312,7 @@ fn a_blank_definition_is_refused_and_null_equals_absent() {
     let mut null = profitability("closing").input;
     null["closing"]["equity"] = Value::Null;
     let out = run("ratios.profitability", &null);
-    assert_eq!(out["value"]["not_computed"][0]["output"], "/roe");
+    assert!(missing_outputs(&out).contains(&"/roe"));
 }
 
 #[test]
@@ -276,13 +324,9 @@ fn not_defined_by_a_given_term_wins_over_a_missing_term() {
         "income_statement": {"revenue": "0", "ebit": "10"}
     });
     let out = run("ratios.profitability", &input);
-    assert_eq!(out["value"]["ros"]["not_defined"], "revenue is zero");
-    assert_eq!(
-        out["value"]["ebitda_margin"]["not_defined"],
-        "revenue is zero"
-    );
-    let listed = out["value"]["not_computed"].to_string();
-    assert!(!listed.contains("\"/ebitda_margin\""), "{listed}");
+    assert_eq!(not_defined(&out, "/ros"), Some("revenue is zero"));
+    assert_eq!(not_defined(&out, "/ebitda_margin"), Some("revenue is zero"));
+    assert!(!missing_outputs(&out).contains(&"/ebitda_margin"));
 }
 
 const CAPITAL_STRUCTURE: &[(&str, Kind)] = &[
@@ -624,17 +668,18 @@ fn debt_service_rows() {
             ),
         ],
     );
-    // Without a schedule: DSCR empty, PV and LLCR listed, LLCR keeps its version 1 reason.
+    // Without a schedule: DSCR empty, PV and LLCR listed once each, missing the schedule
+    // (decision 14 of SPEC-0012: the version 1 reason of the LLCR is not repeated).
     let out = run(
         "ratios.debt_service",
         &remove(&debt_service_input(), schedule),
     );
-    let v = &out["value"];
-    assert_eq!(v["dscr"], json!([]));
-    assert_eq!(v["llcr"]["not_defined"], "no debt schedule given");
-    assert_eq!(v["not_computed"][0]["output"], "/pv_cfads");
-    assert_eq!(v["not_computed"][0]["missing"], json!([schedule]));
-    assert_eq!(v["not_computed"][1]["output"], "/llcr");
+    assert_eq!(out["value"]["dscr"], json!([]));
+    assert_eq!(missing_outputs(&out), ["/llcr", "/pv_cfads"]);
+    for e in listed(&out, "missing_input") {
+        assert_eq!(e["missing_any_of"], json!([[schedule]]));
+    }
+    assert_eq!(not_defined(&out, "/llcr"), None);
 }
 
 #[test]
@@ -651,7 +696,7 @@ fn covenant_rows() {
         covenant(json!("3000"), json!("1000"), "breached"),
     ]});
     let full = run("ratios.covenants", &input);
-    assert_eq!(full["value"]["not_computed"], json!([]));
+    assert_eq!(full["diagnostics"]["not_computed"], json!([]));
     let partial = remove(&input, "/covenants/0/numerator/amount");
     let out = run("ratios.covenants", &partial);
     let c = &out["value"]["covenants"][0];
@@ -661,18 +706,12 @@ fn covenant_rows() {
     assert!(c["headroom_relative"]["value"].is_null());
     assert_eq!(out["value"]["covenants"][1], full["value"]["covenants"][1]);
     assert_eq!(out["value"]["summary"]["not_tested"], 1);
-    let listed: Vec<&str> = out["value"]["not_computed"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|e| e["output"].as_str().unwrap())
-        .collect();
     assert_eq!(
-        listed,
+        missing_outputs(&out),
         [
-            "/covenants/0/value",
             "/covenants/0/headroom",
-            "/covenants/0/headroom_relative"
+            "/covenants/0/headroom_relative",
+            "/covenants/0/value"
         ]
     );
     // A zero denominator decides by its rule, with or without the numerator.
@@ -680,11 +719,11 @@ fn covenant_rows() {
     zero["covenants"][1]["denominator"]["amount"] = json!("0");
     let out = run("ratios.covenants", &zero);
     assert_eq!(out["value"]["covenants"][1]["outcome"], "breached");
-    assert_eq!(out["value"]["not_computed"], json!([]));
+    assert!(missing_outputs(&out).is_empty());
 }
 
 #[test]
-fn every_ratios_method_is_version_2() {
+fn every_ratios_method_is_version_3() {
     for id in [
         "ratios.profitability",
         "ratios.capital_structure",
@@ -693,7 +732,7 @@ fn every_ratios_method_is_version_2() {
         "ratios.debt_service",
         "ratios.covenants",
     ] {
-        assert_eq!(fairmark_core::method(id).unwrap().version, "2", "{id}");
+        assert_eq!(fairmark_core::method(id).unwrap().version, "3", "{id}");
     }
 }
 
@@ -788,8 +827,8 @@ fn one_output_with_every_input_is_above_the_floor_even_when_not_defined() {
                 "closing": {"current_assets": "0", "current_liabilities": "0"}}),
     );
     assert_eq!(
-        out["value"]["current_ratio"]["not_defined"],
-        "current liabilities is zero"
+        not_defined(&out, "/current_ratio"),
+        Some("current liabilities is zero")
     );
     // Every DSO term given with zero revenue: not defined, but complete, so accepted.
     let out = run(
@@ -798,8 +837,8 @@ fn one_output_with_every_input_is_above_the_floor_even_when_not_defined() {
                 "income_statement": {"revenue": "0"}, "closing": {"trade_receivables": "10"}}),
     );
     assert_eq!(
-        out["value"]["days_sales_outstanding"]["not_defined"],
-        "revenue is zero"
+        not_defined(&out, "/days_sales_outstanding"),
+        Some("revenue is zero")
     );
     // A covenant decided by its rule without the numerator is above the floor (R11).
     let out = run(
@@ -838,7 +877,7 @@ fn defaults(out: &Value) -> Vec<String> {
         .as_array()
         .map(|d| {
             d.iter()
-                .map(|e| e["field"].as_str().unwrap().to_owned())
+                .map(|e| e["pointer"].as_str().unwrap().to_owned())
                 .collect()
         })
         .unwrap_or_default()
@@ -851,7 +890,7 @@ fn warnings(out: &Value) -> Vec<String> {
         .iter()
         .filter_map(|c| {
             c.as_str()
-                .filter(|c| c.starts_with("warning: "))
+                .filter(|c| c.starts_with("warning "))
                 .map(str::to_owned)
         })
         .collect()
@@ -936,18 +975,16 @@ fn missing_pointers_sort_array_indices_as_numbers() {
             .remove("cfads");
     }
     let out = run("ratios.debt_service", &input);
-    let pv = out["value"]["not_computed"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|e| e["output"] == "/pv_cfads")
+    let pv = listed(&out, "missing_input")
+        .into_iter()
+        .find(|e| e["pointer"] == "/value/pv_cfads")
         .unwrap()
         .clone();
     assert_eq!(
-        pv["missing"],
-        json!([
+        pv["missing_any_of"],
+        json!([[
             "/debt_schedule/periods/2/cfads",
             "/debt_schedule/periods/10/cfads"
-        ])
+        ]])
     );
 }

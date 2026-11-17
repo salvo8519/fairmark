@@ -45,8 +45,11 @@ input:
         income_taxes: '64000'
         profit_or_loss_for_the_year: '150000'
 expect:
-  /years/0/checks/value_adjustments_of_fixed_assets_total/status: not_checked
   /years/0/form: statutory
   /years/0/income_statement/operating_profit: '266000'
   /years/0/income_statement/net_income: '150000'
+expect_diagnostics:
+  /checks/33/status: not_checked
+  /checks/33/id: value_adjustments_of_fixed_assets_total
+  /checks/33/pointer: /value/years/0
 tolerance: '0'

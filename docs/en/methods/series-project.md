@@ -164,7 +164,8 @@ Under `period_1` the growth fields of period 1 are absent: no growth step leads 
 | Value timing | `end_of_period`, `beginning_of_period` | required with a schedule |
 | Projection | $V_k = V_{k-1}(1 + g_k)$, period by period, no rounding | fixed |
 
-A negative base value is projected, with a warning: a positive growth makes the values more
+A negative base value is projected, with warning `FM-W002` at `/base_value` in
+`diagnostics.warnings`: a positive growth makes the values more
 negative. `explain` states the recurrence, the base value and base period, the growth rule
 with its parameters, the basis and the effective annual growth it implies, the conversion of
 the first rate with the numbers substituted, the first and the last value and, with a schedule,

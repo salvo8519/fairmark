@@ -182,10 +182,7 @@ pub fn exit_multiple(input: &ExitMultipleInput) -> Result<(ExitMultipleOutput, E
     let (m, x, metric) = (input.multiple, input.metric_value, input.metric);
     let pair = input.rate.zip(input.next_flow);
     let basis = metric.basis();
-    let mut ex = Explain::new(
-        "tv.exit_multiple",
-        "TV_N = multiple × metric_N; implied g = r − CF_{N+1} / TV_N",
-    );
+    let mut ex = Explain::new("TV_N = multiple × metric_N; implied g = r − CF_{N+1} / TV_N");
     ex.convention(NOT_DISCOUNTED);
     ex.convention(match basis {
         TerminalBasis::Enterprise => format!(

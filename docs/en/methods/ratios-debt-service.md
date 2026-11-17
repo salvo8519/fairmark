@@ -49,7 +49,7 @@ assert r.dscr[0]["value"] == Decimal("1.25")  # 250 / 200
 # Level CFADS: LLCR = 250 × (1 − 1.06^−5) / 0.06 / 1000
 assert abs(r.llcr["value"] - Decimal("1.05309094639142847003375")) < Decimal("1e-20")
 
-# Without a debt schedule, DSCR and LLCR are not defined; the other ratios are computed.
+# Without a debt schedule, DSCR and LLCR are not computed; the other ratios are.
 s = fm.ratios.debt_service(
     balances="closing",
     ebitda_definition="reported EBITDA, no adjustments",
@@ -57,7 +57,9 @@ s = fm.ratios.debt_service(
     income_statement={"ebitda": 800, "ebit": 500, "interest": 100},
     closing={"net_financial_position": {"gross_debt": 2200, "cash": 300}},
 )
-assert s.llcr["not_defined"] == "no debt schedule given"
+assert s.llcr["value"] is None
+llcr = next(e for e in s.not_computed if e["pointer"] == "/value/llcr")
+assert llcr["missing_any_of"] == [["/debt_schedule"]]
 assert s.interest_cover_ebitda["value"] == Decimal("8")
 ```
 
@@ -84,14 +86,14 @@ assert s.interest_cover_ebitda["value"] == Decimal("8")
 | `dscr` | CFADS / debt service of each period, multiple, in the order of the schedule; empty without a debt schedule |
 | `pv_cfads` | Present value of the CFADS at the start of the first period, currency units; null without a debt schedule |
 | `llcr` | (Present value of CFADS + reserve balance) / debt outstanding, multiple |
-| `not_computed` | Outputs not computed because an input is missing, in the order of the outputs: `{"output", "missing", "reason"}`, with `output` the JSON pointer of the output in the result value and `missing` the sorted JSON pointers of the inputs it lacks; empty when every output is computed |
+| `diagnostics.not_computed` | In the envelope, not in `value` (version 3, SPEC-0012): one entry per output not computed or ratio not defined, ordered by pointer, `{"pointer", "reason_code", "reason", "missing_any_of", "permitted"}`; `pointer` is the output from the envelope root (`/value/...`); `missing_input` lists in `missing_any_of` the one set of input pointers the output lacks; `not_defined` gives the reason a given term makes the ratio not defined; empty when every output is computed and defined |
 
-Ratios are objects `{"value": ..., "not_defined": ...}`, as in every ratio group.
+Ratios are objects `{"value": ...}`, as in every ratio group (version 3); the reason a ratio is not defined is its entry in `diagnostics.not_computed`.
 
 ## Partial input
 
 Every amount is optional (version 2, SPEC-0007 R7). Give what the statements show: each output
-is computed when its own amounts are given; otherwise it is null and listed in `not_computed`
+is computed when its own amounts are given; otherwise it is null and listed in `diagnostics.not_computed`
 with the JSON pointers of the inputs it lacks. A missing amount is never taken as zero and is
 not an error by itself. The floor: at least one output must have every input it needs (a ratio
 not defined by its own inputs counts); below it the input is refused with `FM-E027`, whose
@@ -112,7 +114,7 @@ listed.
 | `llcr` | the present value of CFADS, `debt_outstanding` |
 
 Without a debt schedule `dscr` is empty and `pv_cfads` and `llcr` are listed with
-`/debt_schedule`; `llcr` keeps its version 1 reason, "no debt schedule given".
+`/debt_schedule`, `llcr` once, `missing_input` (SPEC-0012 decision 14).
 
 ## Conventions (explicit, reported in `explain.conventions`)
 
@@ -125,7 +127,7 @@ Without a debt schedule `dscr` is empty and `pv_cfads` and `llcr` are listed wit
 | LLCR discounting | end of each period, at `discount_rate` per period, the cost of debt chosen by the analyst | fixed |
 | Reserve balance | added undiscounted to the LLCR numerator; when absent and the LLCR has its other inputs, none: reported in `meta.defaults_applied` (`/debt_schedule/reserve_balance`, `"0"`) with a warning, and not written into the input, so `meta.input_hash` differs from a reserve given as `0` | none (documented default) |
 | Other items of the net financial position | none when `other_items` is absent and gross debt and cash are given: reported in `meta.defaults_applied` with a warning | none (documented default) |
-| Debt schedule | optional; without it DSCR and LLCR are not defined ("no debt schedule given") | none |
+| Debt schedule | optional; without it DSCR is empty and the present value of CFADS and LLCR are not computed (`missing_input` with `/debt_schedule`) | none |
 | Not defined | zero denominator; interest covers when interest or the numerator (EBIT or EBITDA) is zero or negative; NFP / EBITDA when EBITDA is zero or negative; DSCR when debt service is zero or negative; LLCR when debt outstanding is zero or negative | fixed |
 
 ## Errors

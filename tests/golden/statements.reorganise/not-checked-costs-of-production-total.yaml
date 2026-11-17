@@ -45,8 +45,11 @@ input:
         income_taxes: '64000'
         profit_or_loss_for_the_year: '150000'
 expect:
-  /years/0/checks/costs_of_production_total/status: not_checked
   /years/0/form: statutory
   /years/0/income_statement/operating_profit: '266000'
   /years/0/income_statement/net_income: '150000'
+expect_diagnostics:
+  /checks/1/status: not_checked
+  /checks/1/id: costs_of_production_total
+  /checks/1/pointer: /value/years/0
 tolerance: '0'

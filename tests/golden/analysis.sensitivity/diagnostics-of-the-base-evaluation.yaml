@@ -1,0 +1,47 @@
+method: analysis.sensitivity
+description: 'SPEC-0012 R14, decision 9 (T16): a one-way table of a dcf.fcff without a net financial
+  position reports the preview warning of the evaluated method (FM-W016 at /method) and the warning
+  of the base evaluation once (FM-W012 at /base_input/net_financial_position), whatever the number of
+  cells; the inner result is not returned, so nothing else is listed'
+source: 'Written by hand from the rules, not from the engine output. ADR 0012 (dcf.fcff is preview: an
+  analysis evaluating it warns), decision 2 of 2026-11-09 on SPEC-0001 (no net financial position:
+  zero is subtracted, with a warning), the warning catalogue of SPEC-0012 (codes, pointer roots) and
+  R9, R14 (the analysis writes FM-W016 first, then the warnings of the base evaluation, input
+  pointers under /base_input). Base value of operations: 100 / 1.09 + 110 / 1.09^2 + (110 × 1.02 /
+  (0.09 − 0.02)) / 1.09^2 = 91.743119266 + 92.584799259 + 1349.092789207 = 1533.420707732 (to 9
+  places), asserted as the base of the table; terms corrected and recomputed in Python decimal (50
+  digits) by the numerical audit of the branch.'
+input:
+  method: dcf.fcff
+  base_input:
+    stages:
+    - periods: 2
+      projection: given
+      flows: [100, 110]
+    cash_flow_terms: nominal
+    discount_rate_terms: nominal
+    wacc: '0.09'
+    timing: end_of_period
+    terminal:
+      tv.gordon:
+        growth: '0.02'
+        first_flow: last_flow_grown
+  output_pointer: /enterprise_value
+  rows:
+    variable_pointer: /wacc
+    values: ['0.08', '0.09', '0.10']
+expect:
+  /output_pointer: /enterprise_value
+  /rows/variable_pointer: /wacc
+  /inner_method/id: dcf.fcff
+  /base: '1533.4207077326343381389252949'
+expect_diagnostics:
+  /warnings/0/code: FM-W016
+  /warnings/0/pointer: /method
+  /warnings/1/code: FM-W012
+  /warnings/1/pointer: /base_input/net_financial_position
+expect_diagnostics_length:
+  /warnings: '2'
+  /not_computed: '0'
+  /checks: '0'
+tolerance: '0'

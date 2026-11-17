@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-covenants.md
-source_hash: 752c2aca5581
+source_hash: d47fe7c7b753
 ---
 # Verifica dei covenant (`ratios.covenants`)
 
@@ -173,18 +173,18 @@ assert r.summary == {"passed": 2, "breached": 1, "not_tested": 1}
 | `covenants[].value` | Il valore confrontato con la soglia: numeratore / denominatore con 28 cifre significative, oppure arrotondato come indica `rounding`; null se il denominatore non è positivo o il covenant non è verificato |
 | `covenants[].value_unrounded` | Con `rounding`: numeratore / denominatore prima dell'arrotondamento; null altrimenti |
 | `covenants[].headroom` | Distanza di `value` dalla soglia nell'unità dell'indice, positiva dal lato del rispetto; null se `value` è null |
-| `covenants[].headroom_relative` | `{"value": ..., "not_defined": ...}`: headroom / soglia, frazione decimale, con lo stesso segno dell'headroom |
+| `covenants[].headroom_relative` | `{"value": ...}`: headroom / soglia; null quando non è definito, con il motivo in `diagnostics.not_computed`, frazione decimale, con lo stesso segno dell'headroom |
 | `covenants[].not_tested_code` | `denominator_not_positive`, `overflow` o `missing_input`; null se l'esito è `passed` o `breached` |
 | `covenants[].not_tested_reason` | Perché il covenant non è stato verificato, a parole; null se l'esito è `passed` o `breached` |
 | `summary` | `passed`, `breached`, `not_tested`: quanti covenant hanno ciascun esito |
-| `not_computed` | Per ogni covenant non verificato perché manca un importo, i suoi `value`, `headroom` e `headroom_relative`: `{"output", "missing", "reason"}`, con `output` il JSON pointer dell'output nel valore del risultato (`/covenants/0/value`) e `missing` i JSON pointer degli importi che gli mancano; vuoto altrimenti |
+| `diagnostics.not_computed` | Nell'envelope, non in `value` (versione 3, SPEC-0012): per ogni covenant non verificato perché manca un importo, i suoi `value`, `headroom` e `headroom_relative` (`missing_input`, gli importi mancanti in `missing_any_of`), e ogni `headroom_relative` non definito (`not_defined`, con il suo motivo); `pointer` dalla radice dell'envelope (`/value/covenants/0/value`); in ordine di pointer; vuoto altrimenti |
 
 ## Input parziale
 
 Gli importi sono facoltativi (versione 2, SPEC-0007 R11). Un covenant di cui non è fornito
 l'importo del denominatore, oppure con denominatore positivo e senza l'importo del numeratore,
 non è verificato con `not_tested_code` `missing_input`, mai una violazione, e i suoi output sono
-elencati in `not_computed`. Un denominatore fornito nullo o negativo dà l'esito di
+elencati in `diagnostics.not_computed`. Un denominatore fornito nullo o negativo dà l'esito di
 `if_denominator_not_positive` qualunque sia il numeratore, anche quando l'importo del numeratore
 non è fornito, perché il contratto decide quel caso senza di esso: il covenant è deciso, non
 elencato. Un importo mancante non è mai considerato zero. La soglia minima: almeno un covenant
@@ -205,7 +205,7 @@ r = fm.ratios.covenants(covenants=[
      "if_denominator_not_positive": "breached"}])
 c = r.covenants[0]
 assert (c["outcome"], c["not_tested_code"]) == ("not_tested", "missing_input")
-assert r.not_computed[0]["missing"] == ["/covenants/0/numerator/amount"]
+assert r.not_computed[0]["missing_any_of"] == [["/covenants/0/numerator/amount"]]
 assert r.covenants[1]["outcome"] == "passed"  # 1000 / 200 = 5, at least 4
 # Con il solo primo covenant l'input sarebbe sotto la soglia minima (FM-E027).
 ```
@@ -224,7 +224,7 @@ assert r.covenants[1]["outcome"] == "passed"  # 1000 / 200 = 5, at least 4
 | Segno dell'headroom | positivo dal lato del rispetto, negativo dal lato della violazione | fissa |
 | Headroom relativo | headroom / soglia; non definito quando la soglia è nulla o negativa, o quando non c'è un valore verificato | fissa |
 | Overflow | il valore, il valore arrotondato o l'headroom superano l'intervallo del tipo decimale: non verificato (`overflow`), mai una violazione, e gli altri covenant sono verificati | fissa |
-| Importo mancante | non verificato (`missing_input`), mai una violazione, salvo che un denominatore fornito nullo o negativo decida con la sua regola; elencato in `not_computed` | fissa |
+| Importo mancante | non verificato (`missing_input`), mai una violazione, salvo che un denominatore fornito nullo o negativo decida con la sua regola; elencato in `diagnostics.not_computed` | fissa |
 
 I covenant sono numerati da 1 nella tracciabilità del calcolo. Ogni covenant aggiunge la propria
 regola di verifica ("covenant 1, net leverage (2026-12-31): passes when the tested value ≤ 3.5

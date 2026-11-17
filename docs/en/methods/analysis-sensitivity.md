@@ -46,7 +46,7 @@ base = {
 table = fm.analysis.sensitivity(
     "dcf.fcff",
     base,
-    output="/enterprise_value",
+    output_pointer="/enterprise_value",
     rows=("/wacc", ["0.08", "0.09", "0.10"]),
     columns=("/terminal/tv.gordon/growth", ["0.01", "0.02", "0.08"]),
 )
@@ -70,7 +70,7 @@ assert table.cells[1][1]["value"] == table.base
 one_way = fm.analysis.sensitivity(
     "dcf.fcff",
     base,
-    output="/enterprise_value",
+    output_pointer="/enterprise_value",
     rows=("/wacc", ["0.08", "0.09", "0.10"]),
 )
 assert [row[0] for row in one_way.cells] == [row[1] for row in table.cells]
@@ -79,9 +79,9 @@ assert [row[0] for row in one_way.cells] == [row[1] for row in table.cells]
 same = fm.run("analysis.sensitivity", {
     "method": "dcf.fcff",
     "base_input": base,
-    "output": "/enterprise_value",
-    "rows": {"variable": "/wacc", "values": ["0.08", "0.09", "0.10"]},
-    "columns": {"variable": "/terminal/tv.gordon/growth", "values": ["0.01", "0.02", "0.08"]},
+    "output_pointer": "/enterprise_value",
+    "rows": {"variable_pointer": "/wacc", "values": ["0.08", "0.09", "0.10"]},
+    "columns": {"variable_pointer": "/terminal/tv.gordon/growth", "values": ["0.01", "0.02", "0.08"]},
 })
 assert same.cells == table.cells
 ```
@@ -97,10 +97,10 @@ substituted.
 | --- | --- | --- |
 | `method` | Id of the method to evaluate, for example `dcf.fcff`; analysis methods are not accepted | required |
 | `base_input` | Input of that method, complete, exactly as the method accepts it: the base case | required |
-| `output` | RFC 6901 JSON Pointer to the decimal output reported in each cell, in the `value` of the inner result, for example `/enterprise_value` | required |
-| `rows.variable` | RFC 6901 JSON Pointer to the decimal input that changes along the rows, in `base_input`, for example `/discount_rate` | required |
+| `output_pointer` | RFC 6901 JSON Pointer to the decimal output reported in each cell, in the `value` of the inner result, for example `/enterprise_value` | required |
+| `rows.variable_pointer` | RFC 6901 JSON Pointer to the decimal input that changes along the rows, in `base_input`, for example `/discount_rate` | required |
 | `rows.values` | Values of the row variable, in its units, in table order; at least one | required |
-| `columns.variable` | Pointer to a second decimal input, different from the row variable | absent: one-way table |
+| `columns.variable_pointer` | Pointer to a second decimal input, different from the row variable | absent: one-way table |
 | `columns.values` | Values of the column variable, in its units, in table order; at least one | required with `columns` |
 
 Values are in the units of the variable: a decimal fraction for a rate (`"0.08"` is 8%),
@@ -111,12 +111,18 @@ currency units for an amount. In Python, `rows` and `columns` are `(pointer, val
 | Field | Meaning |
 | --- | --- |
 | `inner_method` | `id` and `version` of the method evaluated, at the version this engine ran |
-| `output` | The output pointer reported in each cell |
+| `output_pointer` | The output pointer reported in each cell |
 | `base` | The output for `base_input` unchanged, in the output's units |
 | `rows` | The row axis, as given |
 | `columns` | The column axis, as given; absent for a one-way table |
 | `cells` | `cells[i][j]`: `{"value": ...}` in the output's units, or `{"error": {"code", "message"}}` when the inner method refused that combination; a one-way table has one column |
 | `failed_cells` | Number of cells holding an error |
+
+Version 2 (SPEC-0012) names every field that holds a pointer with the suffix `_pointer` or
+`_pointers`, in the input and in the output. The warnings of the evaluation of `base_input` are
+reported once in `diagnostics.warnings`, their input pointers under `/base_input`, with the
+warning FM-W016 when the evaluated method is preview; a cell keeps its compact error and adds no
+diagnostics.
 
 ## Conventions (explicit, reported in `explain.conventions`)
 
@@ -139,13 +145,13 @@ of 10,000 allows at most 9,999 cells.
 | --- | --- |
 | `FM-E001` | The row and column variables are the same pointer, an axis has no values, or a field is missing or unknown |
 | `FM-E007` | `method` names no registered method |
-| `FM-E015` | A row or column variable does not resolve to a decimal in `base_input`, or `output` does not resolve to a decimal in the result of the base case; the message names the pointer |
+| `FM-E015` | A row or column variable does not resolve to a decimal in `base_input`, or `output_pointer` does not resolve to a decimal in the result of the base case; the message names the pointer |
 | `FM-E016` | rows × columns + 1 exceeds 10,000 evaluations or the evaluations × values in `base_input` exceed 1,000,000; returned before the first evaluation |
 | `FM-E017` | `method` names an analysis method |
 
-Variable pointers, the syntax of `output` and `base_input` are checked before any evaluation,
+Variable pointers, the syntax of `output_pointer` and `base_input` are checked before any evaluation,
 `base_input` by the validation alone of the inner method (every check of its input, nothing
-computed, its input errors reported under `/base_input`); `output` is
+computed, its input errors reported under `/base_input`); `output_pointer` is
 resolved on the base case. An error of the inner method on the base case is returned unchanged,
 with its own code: without a base case the table has no reference. An error of the inner method
 in a cell (for example `FM-E004` in `dcf.fcff`, or `FM-E001` when a value is outside the range

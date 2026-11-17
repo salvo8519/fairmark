@@ -33,6 +33,11 @@ expect:
   /llcr/value: 'null'
   /dscr/0/value: 'null'
   /dscr/1/value: '1.5'
-  /dscr/0/not_defined: debt service is negative (-10)
-  /llcr/not_defined: debt outstanding is negative (-100)
+expect_diagnostics:
+  /not_computed/0/reason: debt service is negative (-10)
+  /not_computed/1/reason: debt outstanding is negative (-100)
+  /not_computed/0/pointer: /value/dscr/0
+  /not_computed/0/reason_code: not_defined
+  /not_computed/1/pointer: /value/llcr
+  /not_computed/1/reason_code: not_defined
 tolerance: '0.00000000000000000001'

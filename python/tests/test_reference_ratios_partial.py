@@ -3,10 +3,10 @@
 Seeded random inputs for every `ratios.*` method, with random gaps (any amount, the opening
 balance sheet, the definitions, the leverage block, the debt schedule), zero and negative
 amounts that make ratios not defined, and both balance conventions: every output value, every
-`not_computed` entry (output and missing pointers) and every documented default applied must
-equal the reference, and an input below the floor must be refused with `FM-E027` and the
-alternative sets of the reference. The golden cases pin selected inputs; this test covers the
-space between them.
+`diagnostics.not_computed` entry for a missing input (output and missing pointers) and every
+documented default applied must equal the reference, and an input below the floor must be
+refused with `FM-E027` and the alternative sets of the reference. The golden cases pin selected
+inputs; this test covers the space between them.
 """
 
 from __future__ import annotations
@@ -195,6 +195,11 @@ GENERATORS = {
 }
 
 
+def pointer_key(pointer: str) -> list[tuple[int, int, str]]:
+    """The order of the engine's lists: array indices as numbers, before names (R13)."""
+    return [(0, int(t), "") if t.isdigit() else (1, 0, t) for t in pointer.split("/")]
+
+
 def close(got: Any, want: Any) -> bool:
     if want is None or isinstance(want, str):
         return bool(got == want)
@@ -225,7 +230,7 @@ def test_engine_matches_the_reference_on_random_partial_inputs(method: str) -> N
             continue
         out = run_json(method, data)
         value = out["value"]
-        applied = [d["field"] for d in out["meta"].get("defaults_applied", [])]
+        applied = [d["pointer"] for d in out["meta"].get("defaults_applied", [])]
         assert applied == expected["defaults"], context
         for pointer, want in expected["values"].items():
             path = pointer.strip("/").split("/")
@@ -235,7 +240,14 @@ def test_engine_matches_the_reference_on_random_partial_inputs(method: str) -> N
             for key in path:
                 got = got[int(key)] if isinstance(got, list) else got[key]
             assert close(got, want), f"{context}: {pointer} = {got}, reference {want}"
-        listed = [(e["output"], e["missing"]) for e in value["not_computed"]]
-        assert listed == expected["not_computed"], context
+        # SPEC-0012: the outputs not computed for a missing input are entries of
+        # `diagnostics.not_computed`, one set of missing pointers each, ordered by pointer.
+        assert "not_computed" not in value, context
+        listed = [
+            (e["pointer"].removeprefix("/value"), e["missing_any_of"][0])
+            for e in out["diagnostics"]["not_computed"]
+            if e["reason_code"] == "missing_input"
+        ]
+        assert listed == sorted(expected["not_computed"], key=lambda e: pointer_key(e[0])), context
     # The generators reach both sides of the floor.
     assert 0 < refused < CASES, f"{method}: {refused} inputs below the floor"

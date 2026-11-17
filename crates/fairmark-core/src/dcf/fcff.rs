@@ -8,6 +8,7 @@ use serde::Serialize;
 
 use super::bridge::{self, BridgeClaim};
 use super::engine::{self, dcf_input, DiscountedValue};
+use crate::diagnostics::WarningCode;
 use crate::error::{Found, Result};
 use crate::explain::{DefaultApplied, Explain};
 use crate::method::Method;
@@ -169,7 +170,7 @@ fn fcff_with_defaults(
     input: &DcfFcffInput,
     defaults: &[DefaultApplied],
 ) -> Result<(DcfFcffOutput, Explain)> {
-    let mut ex = Explain::new("dcf.fcff", FORMULA);
+    let mut ex = Explain::new(FORMULA);
     ex.convention("basis: enterprise, free cash flows to the firm (FCFF) discounted at the WACC");
     let engine_input = input.engine_input(defaults)?;
     // Bridge items are checked before any calculation, like every other input.
@@ -256,11 +257,15 @@ fn bridge(
             (true, false) => " less the non-controlling interests given",
             (false, false) => " less the debt-like items and non-controlling interests given",
         };
-        ex.convention(format!(
-            "warning: no net financial position given (`{NFP_POINTER}`): zero is subtracted, so \
-             the equity value equals the enterprise value{rest}; give the net financial position \
-             to value the equity"
-        ));
+        ex.warn(
+            WarningCode::NoNetFinancialPosition,
+            Some(NFP_POINTER.to_owned()),
+            format!(
+                "no net financial position given (`{NFP_POINTER}`): zero is subtracted, so the \
+                 equity value equals the enterprise value{rest}; give the net financial \
+                 position to value the equity"
+            ),
+        );
     }
     let nfp_subtracted = nfp.unwrap_or(Decimal::ZERO);
     let equity_value = sub(
@@ -801,7 +806,7 @@ mod tests {
             });
             let out = run("dcf.fcff", &v.to_string()).unwrap();
             assert_eq!(
-                out["meta"]["defaults_applied"][0]["field"],
+                out["meta"]["defaults_applied"][0]["pointer"],
                 format!("/{field}"),
                 "{field}"
             );
@@ -822,7 +827,7 @@ mod tests {
             );
         });
         let c = conventions(&v);
-        let warnings: Vec<&String> = c.iter().filter(|c| c.starts_with("warning: ")).collect();
+        let warnings: Vec<&String> = c.iter().filter(|c| c.starts_with("warning ")).collect();
         // Two negative-flow warnings, the growth discontinuity, the net financial position not
         // given (Decision 25) and (R26) the negative equity value that these flows produce.
         assert_eq!(warnings.len(), 5, "{c:?}");
@@ -929,7 +934,10 @@ mod tests {
             .unwrap();
         assert!(equity.is_sign_negative());
         let c = out["explain"]["conventions"].to_string();
-        assert!(c.contains("warning: the equity value is negative"), "{c}");
+        assert!(
+            c.contains("warning FM-W011: the equity value is negative"),
+            "{c}"
+        );
         assert!(!conventions(&base())
             .join("\n")
             .contains("equity value is negative"));
@@ -945,7 +953,7 @@ mod tests {
         assert_eq!(
             defaults.as_slice(),
             [json!({
-                "field": "/net_financial_position",
+                "pointer": "/net_financial_position",
                 "value": "0",
                 "reason": "net financial position not given"
             })]
@@ -996,7 +1004,7 @@ mod tests {
             });
             conventions(&v)
                 .into_iter()
-                .find(|c| c.starts_with("warning: no net financial position given"))
+                .find(|c| c.starts_with("warning FM-W012: no net financial position given"))
                 .unwrap()
         };
         assert!(
@@ -1026,7 +1034,7 @@ mod tests {
         });
         let given = run("dcf.fcff", &zero.to_string()).unwrap();
         let absent = run("dcf.fcff", &base().to_string()).unwrap();
-        assert!(given["meta"].get("defaults_applied").is_none());
+        assert_eq!(given["meta"]["defaults_applied"], json!([]));
         assert_eq!(
             given["value"]["equity_value"],
             absent["value"]["equity_value"]
@@ -1038,11 +1046,11 @@ mod tests {
         assert_ne!(given["meta"]["input_hash"], absent["meta"]["input_hash"]);
     }
 
-    const WARNING_NO_CLAIMS: &str = "warning: no net financial position given \
+    const WARNING_NO_CLAIMS: &str = "warning FM-W012: no net financial position given \
         (`/net_financial_position`): zero is subtracted, so the equity value equals the \
         enterprise value; give the net financial position to value the equity";
 
-    const WARNING_WITH_CLAIMS: &str = "warning: no net financial position given \
+    const WARNING_WITH_CLAIMS: &str = "warning FM-W012: no net financial position given \
         (`/net_financial_position`): zero is subtracted, so the equity value equals the \
         enterprise value less the debt-like items and non-controlling interests given; give the \
         net financial position to value the equity";
@@ -1056,14 +1064,14 @@ mod tests {
         });
         assert!(conventions(&v)
             .iter()
-            .any(|c| c.starts_with("warning: under mid-period timing")));
+            .any(|c| c.starts_with("warning FM-W010: under mid-period timing")));
         let m = with(v, |m| {
             m.insert("terminal_discount_time".into(), json!("mid_period"));
         });
         let c = conventions(&m);
         assert!(!c
             .iter()
-            .any(|c| c.starts_with("warning: under mid-period timing")));
+            .any(|c| c.starts_with("warning FM-W010: under mid-period timing")));
         assert!(
             c.iter()
                 .any(|c| c.contains("r_T = 0.10 (R21, Decision 16)")),
@@ -1252,7 +1260,10 @@ mod tests {
             .unwrap();
         assert!(equity.is_sign_negative());
         let c = out["explain"]["conventions"].to_string();
-        assert!(c.contains("warning: the equity value is negative"), "{c}");
+        assert!(
+            c.contains("warning FM-W011: the equity value is negative"),
+            "{c}"
+        );
     }
 
     /// R25, R27 (#44): every refusal of a bridge claim names its field by JSON pointer and

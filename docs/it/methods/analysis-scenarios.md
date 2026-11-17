@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-scenarios.md
-source_hash: 570bdc7ca464
+source_hash: fb50221f537b
 ---
 # Analisi di scenario (`analysis.scenarios`)
 
@@ -54,7 +54,7 @@ base = {
 r = fm.analysis.scenarios(
     "dcf.fcff",
     base,
-    outputs=["/enterprise_value", "/equity_value"],
+    output_pointers=["/enterprise_value", "/equity_value"],
     cases={
         "downside": {"/wacc": "0.10", "/terminal/tv.gordon/growth": "0.01",
                      "/stages/0/flows/0": "90"},
@@ -82,7 +82,7 @@ assert downside["delta"] == downside["value"] - r.base[1]["value"]
 same = fm.run("analysis.scenarios", {
     "method": "dcf.fcff",
     "base_input": base,
-    "outputs": ["/enterprise_value", "/equity_value"],
+    "output_pointers": ["/enterprise_value", "/equity_value"],
     "scenarios": [
         {"name": "downside", "overrides": [
             {"pointer": "/wacc", "value": "0.10"},
@@ -111,7 +111,7 @@ import fairmark as fm
 npv = fm.analysis.scenarios(
     "tvm.npv",
     {"rate": "0.10", "cash_flows": [-100, 110]},
-    outputs=["/npv"],
+    output_pointers=["/npv"],
     cases={"lower rate": {"/rate": "0.05"}},
 )
 lower = npv.scenarios[0]["value"][0]
@@ -126,7 +126,7 @@ assert lower["relative_delta"] is None
 | --- | --- | --- |
 | `method` | Identificativo del metodo da valutare, ad esempio `dcf.fcff`; i metodi di analisi non sono ammessi | obbligatorio |
 | `base_input` | Input completo di quel metodo, esattamente come il metodo lo accetta: il caso base | obbligatorio |
-| `outputs` | JSON Pointer RFC 6901 agli output decimali da riportare, nel `value` del risultato interno, ad esempio `["/enterprise_value", "/equity_value"]`; almeno uno, senza ripetizioni | obbligatorio |
+| `output_pointers` | JSON Pointer RFC 6901 agli output decimali da riportare, nel `value` del risultato interno, ad esempio `["/enterprise_value", "/equity_value"]`; almeno uno, senza ripetizioni | obbligatorio |
 | `scenarios` | Gli scenari, valutati nell'ordine indicato; almeno uno | obbligatorio |
 | `scenarios[].name` | Nome dello scenario, univoco e non vuoto, ad esempio `downside` | obbligatorio |
 | `scenarios[].overrides` | Input modificati in questo scenario; i puntatori non si ripetono all'interno di uno scenario | obbligatorio |
@@ -141,14 +141,20 @@ mantenuto.
 | Campo | Significato |
 | --- | --- |
 | `inner_method` | `id` e `version` del metodo valutato, nella versione eseguita da questo motore |
-| `base` | Un `{output, value}` per ogni puntatore di output: gli output di `base_input` senza modifiche, nell'unità di misura dell'output |
+| `base` | Un `{output_pointer, value}` per ogni puntatore di output: gli output di `base_input` senza modifiche, nell'unità di misura dell'output |
 | `scenarios` | Una voce per scenario, nell'ordine indicato: `{name, value: [...]}`, oppure `{name, error: {code, message}}` quando il metodo interno ha rifiutato lo scenario |
-| `scenarios[].value[]` | Per ogni output: `output`, `value` (unità di misura dell'output), `delta` (`value − base`, unità di misura dell'output), `relative_delta` (`delta / base`, frazione decimale, `null` quando il caso base è zero) |
+| `scenarios[].value[]` | Per ogni output: `output_pointer`, `value` (unità di misura dell'output), `delta` (`value − base`, unità di misura dell'output), `relative_delta` (`delta / base`, frazione decimale, `null` quando il caso base è zero) |
 | `failed_scenarios` | Numero di scenari rifiutati dal metodo interno o i cui scostamenti superano l'intervallo dei decimali |
 
 I passaggi elencano il valore del caso base di ogni output, poi un passaggio per ogni output di
 ciascuno scenario valutato con successo, con le sostituzioni, il valore, lo scostamento e lo
 scostamento relativo sostituiti.
+
+La versione 2 (SPEC-0012) dà a ogni campo che contiene un pointer il suffisso `_pointer` o
+`_pointers`, nell'input e nell'output. Le avvertenze della valutazione di `base_input` sono riportate
+una sola volta in `diagnostics.warnings`, con i pointer degli input sotto `/base_input`, insieme
+all'avvertenza FM-W016 quando il metodo valutato è in anteprima; una cella mantiene il suo errore
+compatto e non aggiunge diagnostica.
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
 
@@ -169,7 +175,7 @@ scenari in errore. Una richiesta esegue una valutazione per scenario più il cas
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | `outputs` o `scenarios` è vuoto, un output si ripete, il nome di uno scenario è vuoto, ha spazi iniziali o finali, o si ripete, un puntatore si ripete all'interno di uno scenario, oppure un campo è mancante o sconosciuto |
+| `FM-E001` | `output_pointers` o `scenarios` è vuoto, un output si ripete, il nome di uno scenario è vuoto, ha spazi iniziali o finali, o si ripete, un puntatore si ripete all'interno di uno scenario, oppure un campo è mancante o sconosciuto |
 | `FM-E007` | `method` non corrisponde ad alcun metodo registrato |
 | `FM-E015` | Il puntatore di una sostituzione non si risolve in un decimale in `base_input`, oppure il puntatore di un output non si risolve in un decimale nel risultato del caso base; il messaggio indica il puntatore |
 | `FM-E016` | Il numero di scenari più uno supera 10.000 valutazioni oppure valutazioni × valori in `base_input` superano 1.000.000; restituito prima della prima valutazione |

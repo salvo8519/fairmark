@@ -39,7 +39,10 @@ input:
         income_taxes: '64000'
         profit_or_loss_for_the_year: '150000'
 expect:
-  /years/0/checks/value_adjustments_of_fixed_assets_of_which/status: not_checked
   /years/0/income_statement/depreciation_and_amortisation: 'null'
   /years/0/income_statement/investing_result: '9000'
+expect_diagnostics:
+  /checks/32/status: not_checked
+  /checks/32/id: value_adjustments_of_fixed_assets_of_which
+  /checks/32/pointer: /value/years/0
 tolerance: '0'

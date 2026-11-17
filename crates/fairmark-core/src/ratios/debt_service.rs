@@ -9,10 +9,10 @@ use super::{
     require_definition, term, union, warn_defaults, BalanceBasis, Balances, Given, Missing,
     NfpComposition, NotComputedList, Ratio, RatioValue, MISSING_CONVENTION, NFP_CONVENTION,
 };
+use crate::diagnostics::WarningCode;
 use crate::error::{rate_field, FairmarkError, Found, Reason, Result};
 use crate::explain::{DefaultApplied, Explain};
 use crate::method::Method;
-use crate::not_computed::NotComputedEntry;
 use crate::num;
 use crate::tvm::discount_factor;
 
@@ -134,9 +134,6 @@ pub struct DebtServiceOutput {
     pub pv_cfads: Option<Decimal>,
     /// (Present value of CFADS + reserve balance) / debt outstanding, multiple.
     pub llcr: RatioValue,
-    /// Outputs not computed because an input is missing, in the order of the fields above,
-    /// each with the JSON pointers of the inputs it lacks (SPEC-0007 R7).
-    pub not_computed: Vec<NotComputedEntry>,
 }
 
 pub(crate) const NO_SCHEDULE: &str = "no debt schedule given";
@@ -213,7 +210,6 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
     check_debt_service(input)?;
     let defaults = defaults(input);
     let mut ex = Explain::new(
-        DebtService::ID,
         "interest cover = EBIT (or EBITDA) / interest; NFP / EBITDA; DSCR_t = CFADS_t / debt \
          service_t; LLCR = (Σ CFADS_t / (1 + r)^t + reserve balance) / debt outstanding",
     );
@@ -305,6 +301,7 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
         nc.observe(&no_schedule);
         let llcr = RatioValue::block_not_given(NO_SCHEDULE, "/debt_schedule");
         let llcr = nc.ratio("/llcr", llcr);
+        ex.not_computed(nc.finish(DebtService::ID)?);
         return Ok((
             DebtServiceOutput {
                 net_financial_position,
@@ -314,7 +311,6 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
                 dscr: Vec::new(),
                 pv_cfads: None,
                 llcr,
-                not_computed: nc.finish(DebtService::ID)?,
             },
             ex,
         ));
@@ -355,11 +351,15 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
         Some(reserve) => ex.convention(format!(
             "reserve balance {reserve} added undiscounted to the LLCR numerator"
         )),
-        None if defaults.iter().any(|d| d.field == RESERVE_POINTER) => ex.convention(format!(
-            "warning: no reserve balance given (`{RESERVE_POINTER}`): nothing is added to the \
-             present value of CFADS, so the LLCR assumes no debt service reserve account; give \
-             the reserve balance, or 0 for none"
-        )),
+        None if defaults.iter().any(|d| d.pointer == RESERVE_POINTER) => ex.warn(
+            WarningCode::NoReserveBalance,
+            Some(RESERVE_POINTER.to_owned()),
+            format!(
+                "no reserve balance given (`{RESERVE_POINTER}`): nothing is added to the present \
+                 value of CFADS, so the LLCR assumes no debt service reserve account; give the \
+                 reserve balance, or 0 for none"
+            ),
+        ),
         None => ex.convention("no reserve balance given: LLCR on CFADS only"),
     }
 
@@ -447,6 +447,7 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
     let pv_cfads = nc.amount("/pv_cfads", &pv_cfads);
     let llcr = nc.ratio("/llcr", llcr);
 
+    ex.not_computed(nc.finish(DebtService::ID)?);
     Ok((
         DebtServiceOutput {
             net_financial_position,
@@ -456,7 +457,6 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
             dscr,
             pv_cfads,
             llcr,
-            not_computed: nc.finish(DebtService::ID)?,
         },
         ex,
     ))
@@ -498,10 +498,10 @@ impl Method for DebtService {
     const DESCRIPTION: &'static str =
         "Interest cover on EBIT and EBITDA, net financial position to EBITDA, DSCR per period \
         and LLCR on a loan schedule with an explicit discount rate. Every amount is optional: a \
-        ratio whose amounts are not all given is null and listed in not_computed with the \
-        inputs it lacks; a ratio that is not meaningful is reported as not defined with the \
-        reason.";
-    const VERSION: &'static str = "2";
+        ratio whose amounts are not all given is null and listed in diagnostics.not_computed \
+        with the inputs it lacks; a ratio that is not meaningful is null, with the reason in \
+        diagnostics.not_computed (not_defined).";
+    const VERSION: &'static str = "3";
     type Input = DebtServiceInput;
     type Output = DebtServiceOutput;
 
@@ -623,7 +623,7 @@ mod tests {
     fn without_a_schedule_dscr_and_llcr_are_not_defined() {
         let mut i = input();
         i.debt_schedule = None;
-        let (out, _) = debt_service(&i).unwrap();
+        let (out, ex) = debt_service(&i).unwrap();
         assert!(out.dscr.is_empty());
         assert_eq!(out.pv_cfads, None);
         assert_eq!(
@@ -631,8 +631,13 @@ mod tests {
             Some("no debt schedule given")
         );
         assert!(out.interest_cover_ebit.value.is_some());
-        let listed: Vec<_> = out.not_computed.iter().map(|e| e.output.as_str()).collect();
-        assert_eq!(listed, ["/pv_cfads", "/llcr"]);
+        let listed: Vec<_> = ex
+            .diagnostics()
+            .not_computed
+            .iter()
+            .map(|e| e.pointer.as_str())
+            .collect();
+        assert_eq!(listed, ["/value/pv_cfads", "/value/llcr"]);
     }
 
     #[test]
@@ -642,8 +647,14 @@ mod tests {
         let (out, ex) = debt_service(&i).unwrap();
         assert_eq!(out.pv_cfads, None);
         assert_eq!(out.llcr.value, None);
-        let listed: Vec<_> = out.not_computed.iter().map(|e| e.output.as_str()).collect();
-        assert_eq!(listed, ["/dscr/1", "/pv_cfads", "/llcr"]);
+        let listed: Vec<_> = ex
+            .diagnostics()
+            .not_computed
+            .iter()
+            .filter(|e| e.reason_code == crate::diagnostics::ReasonCode::MissingInput)
+            .map(|e| e.pointer.as_str())
+            .collect();
+        assert_eq!(listed, ["/value/dscr/1", "/value/pv_cfads", "/value/llcr"]);
         assert!(!ex
             .steps
             .iter()
@@ -658,9 +669,12 @@ mod tests {
     fn interest_without_its_definition_leaves_the_covers_not_computed() {
         let mut i = input();
         i.interest_definition = None;
-        let (out, _) = debt_service(&i).unwrap();
+        let (out, ex) = debt_service(&i).unwrap();
         assert_eq!(out.interest_cover_ebit.value, None);
-        assert_eq!(out.not_computed[0].missing, ["/interest_definition"]);
+        assert_eq!(
+            ex.diagnostics().not_computed[0].missing_any_of,
+            [["/interest_definition"]]
+        );
         assert!(out.nfp_to_ebitda.value.is_some());
     }
 

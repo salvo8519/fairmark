@@ -15,9 +15,9 @@ input:
     timing: end_of_period
     terminal: {"tv.gordon": {growth: "0.02", first_flow: last_flow_grown}}
     net_financial_position: {gross_debt: 300, cash: 0}
-  output: /enterprise_value
+  output_pointer: /enterprise_value
   rows:
-    variable: /wacc
+    variable_pointer: /wacc
     values: ["0.07", "0.08", "0.09", "0.10", "0.11"]
 expect:
   /cells/0/0/value: "2522.7749205614380837183048794907454745761699411947"

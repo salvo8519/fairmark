@@ -11,10 +11,10 @@ non-recurring and financing results, profit before tax, income taxes and net inc
 reconciliations of the two IFRS 18 aligned subtotals with A - B).
 
 Every input is optional. An output is computed when its inputs are given; otherwise it is
-``None`` and listed in ``not_computed`` with the JSON pointers of the missing inputs, so an
-agent can ask only for those. Totals given are checked exactly against their components
-(``FM-E026`` when they differ). Amounts are in the currency units of the statements, as
-strings or ``Decimal``.
+``None`` and listed in ``result.not_computed`` with the JSON pointers of the missing inputs, so
+an agent can ask only for those. Totals given are checked exactly against their components
+(``FM-E026`` when they differ); every relation is listed in ``result.checks``. Amounts are in
+the currency units of the statements, as strings or ``Decimal``.
 
 The outputs feed other methods unchanged: ``sources.net_financial_position.position``,
 ``non_operating_assets`` and ``sources.debt_like_items`` go to ``fm.dcf.fcff``;

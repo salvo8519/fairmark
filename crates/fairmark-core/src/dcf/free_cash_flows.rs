@@ -520,7 +520,7 @@ pub(crate) const FORMULA_FCFE: &str =
 
 /// Builds FCFF, and FCFE when the financing lines are given, for every period.
 pub fn free_cash_flows(input: &FreeCashFlowsInput) -> Result<(FreeCashFlowsOutput, Explain)> {
-    let mut ex = Explain::new(FreeCashFlows::ID, FORMULA_FCFF);
+    let mut ex = Explain::new(FORMULA_FCFF);
     let choice = TaxChoice {
         notional_tax_rate: input.notional_tax_rate,
         negative_ebit: input.negative_ebit,
@@ -1290,7 +1290,7 @@ mod tests {
             pointer_prefix: "/stages/1/lines",
             first_period: 6,
         };
-        let mut ex = Explain::new("dcf.fcff", "");
+        let mut ex = Explain::new("");
         let out = build_up(&[lines("100"), lines("-5")], &choice, at, &mut ex).unwrap();
         assert_eq!(out.periods[1].period, 7);
         assert!(ex.steps.iter().any(|s| s.label == "FCFF, period 7"));

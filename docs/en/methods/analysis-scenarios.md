@@ -46,7 +46,7 @@ base = {
 r = fm.analysis.scenarios(
     "dcf.fcff",
     base,
-    outputs=["/enterprise_value", "/equity_value"],
+    output_pointers=["/enterprise_value", "/equity_value"],
     cases={
         "downside": {"/wacc": "0.10", "/terminal/tv.gordon/growth": "0.01",
                      "/stages/0/flows/0": "90"},
@@ -74,7 +74,7 @@ assert downside["delta"] == downside["value"] - r.base[1]["value"]
 same = fm.run("analysis.scenarios", {
     "method": "dcf.fcff",
     "base_input": base,
-    "outputs": ["/enterprise_value", "/equity_value"],
+    "output_pointers": ["/enterprise_value", "/equity_value"],
     "scenarios": [
         {"name": "downside", "overrides": [
             {"pointer": "/wacc", "value": "0.10"},
@@ -102,7 +102,7 @@ import fairmark as fm
 npv = fm.analysis.scenarios(
     "tvm.npv",
     {"rate": "0.10", "cash_flows": [-100, 110]},
-    outputs=["/npv"],
+    output_pointers=["/npv"],
     cases={"lower rate": {"/rate": "0.05"}},
 )
 lower = npv.scenarios[0]["value"][0]
@@ -117,7 +117,7 @@ assert lower["relative_delta"] is None
 | --- | --- | --- |
 | `method` | Id of the method to evaluate, for example `dcf.fcff`; analysis methods are not accepted | required |
 | `base_input` | Input of that method, complete, exactly as the method accepts it: the base case | required |
-| `outputs` | RFC 6901 JSON Pointers to the decimal outputs to report, in the `value` of the inner result, for example `["/enterprise_value", "/equity_value"]`; at least one, no repeats | required |
+| `output_pointers` | RFC 6901 JSON Pointers to the decimal outputs to report, in the `value` of the inner result, for example `["/enterprise_value", "/equity_value"]`; at least one, no repeats | required |
 | `scenarios` | The cases, evaluated in the order given; at least one | required |
 | `scenarios[].name` | Name of the case, unique and not empty, for example `downside` | required |
 | `scenarios[].overrides` | Inputs changed in this case; pointers do not repeat within a scenario | required |
@@ -131,13 +131,19 @@ In Python, `cases` maps each scenario name to `{pointer: value}`; the mapping ke
 | Field | Meaning |
 | --- | --- |
 | `inner_method` | `id` and `version` of the method evaluated, at the version this engine ran |
-| `base` | One `{output, value}` per output pointer: the outputs of `base_input` unchanged, in the output's units |
+| `base` | One `{output_pointer, value}` per output pointer: the outputs of `base_input` unchanged, in the output's units |
 | `scenarios` | One entry per scenario, in the order given: `{name, value: [...]}`, or `{name, error: {code, message}}` when the inner method refused the case |
-| `scenarios[].value[]` | Per output: `output`, `value` (output's units), `delta` (`value − base`, output's units), `relative_delta` (`delta / base`, decimal fraction, `null` when the base is zero) |
+| `scenarios[].value[]` | Per output: `output_pointer`, `value` (output's units), `delta` (`value − base`, output's units), `relative_delta` (`delta / base`, decimal fraction, `null` when the base is zero) |
 | `failed_scenarios` | Number of scenarios refused by the inner method or whose deltas overflow |
 
 The steps list the base value of each output, then one step per output of each successful
 scenario, with the overrides, the value, the delta and the relative delta substituted.
+
+Version 2 (SPEC-0012) names every field that holds a pointer with the suffix `_pointer` or
+`_pointers`, in the input and in the output. The warnings of the evaluation of `base_input` are
+reported once in `diagnostics.warnings`, their input pointers under `/base_input`, with the
+warning FM-W016 when the evaluated method is preview; a cell keeps its compact error and adds no
+diagnostics.
 
 ## Conventions (explicit, reported in `explain.conventions`)
 
@@ -158,7 +164,7 @@ failed scenarios. A request needs one evaluation per scenario plus the base case
 
 | Code | When |
 | --- | --- |
-| `FM-E001` | `outputs` or `scenarios` is empty, an output repeats, a scenario name is empty, has leading or trailing spaces, or repeats, a pointer repeats within one scenario, or a field is missing or unknown |
+| `FM-E001` | `output_pointers` or `scenarios` is empty, an output repeats, a scenario name is empty, has leading or trailing spaces, or repeats, a pointer repeats within one scenario, or a field is missing or unknown |
 | `FM-E007` | `method` names no registered method |
 | `FM-E015` | An override pointer does not resolve to a decimal in `base_input`, or an output pointer does not resolve to a decimal in the result of the base case; the message names the pointer |
 | `FM-E016` | The number of scenarios plus one exceeds 10,000 evaluations or the evaluations × values in `base_input` exceed 1,000,000; returned before the first evaluation |

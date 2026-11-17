@@ -38,8 +38,14 @@ expect:
   /llcr/value: '0.50068027210884353741496598639455782312925170068026'
   /dscr/0/value: 'null'
   /dscr/1/value: '1.5'
-  /interest_cover_ebit/not_defined: interest is zero
-  /interest_cover_ebitda/not_defined: interest is zero
-  /dscr/0/not_defined: debt service is zero
-  /dscr/1/not_defined: 'null'
+expect_diagnostics:
+  /not_computed/1/reason: interest is zero
+  /not_computed/2/reason: interest is zero
+  /not_computed/0/reason: debt service is zero
+  /not_computed/1/pointer: /value/interest_cover_ebit
+  /not_computed/1/reason_code: not_defined
+  /not_computed/2/pointer: /value/interest_cover_ebitda
+  /not_computed/2/reason_code: not_defined
+  /not_computed/0/pointer: /value/dscr/0
+  /not_computed/0/reason_code: not_defined
 tolerance: '0.00000000000000000001'

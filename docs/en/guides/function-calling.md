@@ -81,7 +81,10 @@ Inspector, which reports no portability problem.
 Send decimals as strings. The engine also accepts JSON numbers, but most client libraries read
 a JSON number in tool arguments as a binary float, which keeps about 17 significant digits:
 the digits beyond are lost before Fairmark sees the value, and no warning can recover them.
-`fm.tools.dispatch` reads arguments given as JSON text exactly. A string with more digits than
+`fm.tools.dispatch` reads arguments given as JSON text exactly. Given a dict already parsed by
+the client library (LangChain, the MCP server), it passes to the engine the pointer of every
+value that arrived as a Python float, and the engine reports each as warning `FM-W017` in
+`diagnostics.warnings`; the envelope is the engine's, unchanged. A string with more digits than
 a decimal holds is rounded and reported (see the
 [errors reference](../reference/errors.md), number grammar).
 

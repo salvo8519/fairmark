@@ -210,8 +210,8 @@ fn goal_seek() -> Value {
     json!({
         "method": "tvm.annuity",
         "base_input": {"payment": "1", "rate": "-5", "periods": 2, "timing": "ordinary"},
-        "variable": "/rate",
-        "output": "/present_value",
+        "variable_pointer": "/rate",
+        "output_pointer": "/present_value",
         "target": "1",
         "bracket": ["0.01", "0.5"]
     })
@@ -234,7 +234,7 @@ fn an_unknown_inner_method_is_the_only_entry_about_it() {
     for variable in ["/nope", "/periods", "/rate"] {
         let mut input = goal_seek();
         input["method"] = json!("tvm.nope");
-        input["variable"] = json!(variable);
+        input["variable_pointer"] = json!(variable);
         let r = report("analysis.goal_seek", &input);
         assert_eq!(pointers(&r), ["/method"], "{variable}: {r:#}");
         assert_eq!(r["code"], "FM-E007");

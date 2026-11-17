@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: 4ad8d3440893
+source_hash: cb453efd4d6b
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
@@ -29,7 +29,7 @@ import fairmark as fm
 
 r = fm.dcf.fcff(flows=[120, 135, 150, 160, 170], wacc="0.09")
 print(r.value_of_operations)  # 563.38243366056148746628356553
-print([d["field"] for d in r.meta["defaults_applied"]])
+print([d["pointer"] for d in r.meta["defaults_applied"]])
 ```
 
 Lo stesso input in JSON, per la CLI, MCP o il function calling:
@@ -64,7 +64,7 @@ NPV) dei flussi al WACC, lo stesso di `tvm.npv` con un primo flusso pari a zero 
 
 Senza posizione finanziaria netta il motore sottrae zero, elenca il valore predefinito in
 `meta.defaults_applied` (`/net_financial_position`, `"0"`, "net financial position not given")
-e aggiunge un'avvertenza in `explain.conventions`: l'equity value coincide allora con
+e riporta l'avvertenza `FM-W012` in `diagnostics.warnings`: l'equity value coincide allora con
 l'enterprise value, al netto dei debt-like items e delle partecipazioni di minoranza quando
 sono forniti. Il campo di output `bridge.net_financial_position` resta `null`, perché non è
 stato fornito nulla. Una posizione finanziaria netta fornita con tutti gli importi pari a zero

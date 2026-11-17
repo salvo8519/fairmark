@@ -77,7 +77,7 @@ fn errors_inside_base_input_never_give_a_line_and_column() {
     let input = json!({
         "method": "tvm.annuity",
         "base_input": {"payment": "1", "rate": "0.1", "periods": 2, "timing": true},
-        "variable": "/rate", "output": "/present_value", "target": "1",
+        "variable_pointer": "/rate", "output_pointer": "/present_value", "target": "1",
         "bracket": ["0.01", "0.5"]
     });
     let r = report("analysis.goal_seek", &input);
@@ -302,8 +302,8 @@ fn an_unknown_method_lists_the_methods() {
         .contains(&json!("tvm.npv")));
     let r = report(
         "analysis.goal_seek",
-        &json!({"method": "tvm.nope", "base_input": {}, "variable": "/rate",
-                "output": "/x", "target": "1", "bracket": ["0.01", "0.5"]}),
+        &json!({"method": "tvm.nope", "base_input": {}, "variable_pointer": "/rate",
+                "output_pointer": "/x", "target": "1", "bracket": ["0.01", "0.5"]}),
     );
     assert_eq!(r["pointer"], "/method");
     let expected = r["expected"].as_array().unwrap();
@@ -416,8 +416,8 @@ fn goal_seek() -> Value {
     json!({
         "method": "tvm.annuity",
         "base_input": annuity(),
-        "variable": "/rate",
-        "output": "/present_value",
+        "variable_pointer": "/rate",
+        "output_pointer": "/present_value",
         "target": "1",
         "bracket": ["0.01", "0.5"]
     })
@@ -460,11 +460,11 @@ fn analysis_checks_and_base_input_are_reported_together() {
 #[test]
 fn a_variable_must_point_to_a_decimal_field() {
     let mut input = goal_seek();
-    input["variable"] = json!("/periods");
+    input["variable_pointer"] = json!("/periods");
     input["bracket"] = json!(["1", "5"]);
     let r = report("analysis.goal_seek", &input);
     assert_eq!(r["code"], "FM-E015", "{r:#}");
-    assert_eq!(r["pointer"], "/variable");
+    assert_eq!(r["pointer"], "/variable_pointer");
 }
 
 #[test]
@@ -472,7 +472,7 @@ fn every_analysis_collects_its_request_errors() {
     let scenarios = json!({
         "method": "tvm.npv",
         "base_input": {"rate": "0.1", "cash_flows": [-100, 60, 60], "bogus": 1},
-        "outputs": ["/npv", "/npv"],
+        "output_pointers": ["/npv", "/npv"],
         "scenarios": [
             {"name": " ", "overrides": [{"pointer": "/rate", "value": "0.2"}]},
             {"name": "b", "overrides": [{"pointer": "/rate", "value": "0.2"}]},
@@ -483,7 +483,7 @@ fn every_analysis_collects_its_request_errors() {
     assert_eq!(
         pointers_of(&r),
         [
-            "/outputs/1",
+            "/output_pointers/1",
             "/scenarios/0/name",
             "/scenarios/2/name",
             "/base_input/bogus"
@@ -493,10 +493,10 @@ fn every_analysis_collects_its_request_errors() {
     let tornado = json!({
         "method": "tvm.npv",
         "base_input": {"rate": "0.1", "cash_flows": [-100, 60, 60], "bogus": 1},
-        "output": "/npv",
+        "output_pointer": "/npv",
         "variables": [
-            {"variable": "/rate", "low": "0.2", "high": "0.1"},
-            {"variable": "/nope", "low": "0.1", "high": "0.2"}
+            {"variable_pointer": "/rate", "low": "0.2", "high": "0.1"},
+            {"variable_pointer": "/nope", "low": "0.1", "high": "0.2"}
         ]
     });
     let r = report("analysis.tornado", &tornado);
@@ -504,7 +504,7 @@ fn every_analysis_collects_its_request_errors() {
         pointers_of(&r),
         [
             "/variables/0/low",
-            "/variables/1/variable",
+            "/variables/1/variable_pointer",
             "/base_input/bogus"
         ],
         "{r:#}"
@@ -512,13 +512,13 @@ fn every_analysis_collects_its_request_errors() {
     let sensitivity = json!({
         "method": "tvm.npv",
         "base_input": {"rate": "0.1", "cash_flows": [-100, 60, 60], "bogus": 1},
-        "output": "npv",
-        "rows": {"variable": "/rate", "values": []}
+        "output_pointer": "npv",
+        "rows": {"variable_pointer": "/rate", "values": []}
     });
     let r = report("analysis.sensitivity", &sensitivity);
     assert_eq!(
         pointers_of(&r),
-        ["/rows/values", "/output", "/base_input/bogus"],
+        ["/rows/values", "/output_pointer", "/base_input/bogus"],
         "{r:#}"
     );
 }

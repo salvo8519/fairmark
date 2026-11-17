@@ -8,8 +8,9 @@ use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+use crate::diagnostics::WarningCode;
 use crate::error::{FairmarkError, Result};
-use crate::explain::{Meta, Valuation};
+use crate::explain::{Meta, Valuation, ENVELOPE_VERSION};
 use crate::method::Method;
 use crate::reading::Source;
 pub(crate) use crate::reading::{nested_error, nested_error_text};
@@ -195,7 +196,7 @@ macro_rules! registry {
                 return match serde_json::from_str::<<$m as Method>::Input>(input_json) {
                     Ok(mut input) => <$m as Method>::apply_defaults(&mut input)
                         .into_iter()
-                        .map(|d| d.field)
+                        .map(|d| d.pointer)
                         .collect(),
                     Err(_) => Vec::new(),
                 };
@@ -203,9 +204,14 @@ macro_rules! registry {
             Vec::new()
         }
 
-        fn dispatch_to(id: &str, input_json: &str, source: Source) -> Option<Result<Value>> {
+        fn dispatch_to(
+            id: &str,
+            input_json: &str,
+            source: Source,
+            options: &RunOptions,
+        ) -> Option<Result<Value>> {
             $(if id == <$m as Method>::ID {
-                return Some(execute::<$m>(input_json, source));
+                return Some(execute::<$m>(input_json, source, options));
             })+
             None
         }
@@ -267,7 +273,12 @@ registry! {
 /// called from within a `run` (ADR 0010). The value is built by the engine from an input the
 /// method already checked ([`validate`]), so `serde` alone reads it (review of #279, S2).
 pub(crate) fn evaluate(id: &str, input: &Value) -> Result<Value> {
-    dispatch(id, &input.to_string(), Source::Engine)
+    dispatch(
+        id,
+        &input.to_string(),
+        Source::Engine,
+        &RunOptions::default(),
+    )
 }
 
 /// Every input error of method `id` on `input`, without computing anything (ADR 0014 G5): the
@@ -339,7 +350,8 @@ pub fn output_schema(id: &str) -> Result<Value> {
 /// The schema also describes what the method returns when it fails (ADR 0014 G5):
 /// `$defs/FairmarkErrorResponse`, the `{"error": <report>}` document of every adapter, named at
 /// the root by `x-fairmark-error` (an RFC 6901 fragment of this schema). A client validates an
-/// error against `<this schema>#/$defs/FairmarkErrorResponse`.
+/// error against `<this schema>#/$defs/FairmarkErrorResponse`. The root states the envelope
+/// version, `x-fairmark-envelope-version` (SPEC-0012), snapshotted as `schemas/envelope/v<N>.json`.
 pub fn result_schema(id: &str) -> Result<Value> {
     let schema = result_schema_of(id).ok_or_else(|| FairmarkError::UnknownMethod(id.to_owned()))?;
     let mut result =
@@ -374,6 +386,11 @@ pub fn result_schema(id: &str) -> Result<Value> {
         "x-fairmark-error".to_owned(),
         Value::from(format!("#/$defs/{ERROR_RESPONSE}")),
     );
+    // The envelope follows its own version (SPEC-0012 R4, R17).
+    root.insert(
+        "x-fairmark-envelope-version".to_owned(),
+        Value::from(ENVELOPE_VERSION),
+    );
     Ok(result)
 }
 
@@ -401,22 +418,39 @@ fn serialize_schema<T: JsonSchema>() -> schemars::Schema {
 /// Numbers in the input may be JSON numbers or strings; both are parsed
 /// exactly into decimals (no binary floating point is ever involved).
 pub fn run(id: &str, input_json: &str) -> Result<Value> {
+    run_with(id, input_json, &RunOptions::default())
+}
+
+/// What an adapter knows about the transport of an input and the engine reports (SPEC-0012,
+/// decision 15 of 2026-11-17). Not part of the input: it changes neither the method's schema
+/// nor `meta.input_hash`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RunOptions {
+    /// RFC 6901 JSON pointers, from the root of the input, of the values that reached the
+    /// adapter as binary floating-point numbers (a client library read a JSON number as a
+    /// float): each is reported as warning FM-W017. A pointer that names no value of the input
+    /// is ignored.
+    pub binary_floats: Vec<String>,
+}
+
+/// [`run`] with the transport facts of [`RunOptions`].
+pub fn run_with(id: &str, input_json: &str, options: &RunOptions) -> Result<Value> {
     // Last line of defence: all arithmetic is checked, so a panic is a defect. It must never
     // cross an adapter boundary (Python, CLI, MCP): it becomes `FM-E012` instead. This guard
     // has no effect where panics abort (for example WebAssembly targets); checked arithmetic
     // and the extreme-input contract cases (`tests/contracts/`) remain the primary defence there. Panic messages in
     // the core never contain input values.
-    std::panic::catch_unwind(|| dispatch(id, input_json, Source::Caller)).unwrap_or(Err(
+    std::panic::catch_unwind(|| dispatch(id, input_json, Source::Caller, options)).unwrap_or(Err(
         FairmarkError::Internal("unexpected panic in the engine"),
     ))
 }
 
-fn dispatch(id: &str, input_json: &str, source: Source) -> Result<Value> {
-    dispatch_to(id, input_json, source)
+fn dispatch(id: &str, input_json: &str, source: Source, options: &RunOptions) -> Result<Value> {
+    dispatch_to(id, input_json, source, options)
         .unwrap_or_else(|| Err(FairmarkError::UnknownMethod(id.to_owned())))
 }
 
-fn execute<M: Method>(input_json: &str, source: Source) -> Result<Value> {
+fn execute<M: Method>(input_json: &str, source: Source, options: &RunOptions) -> Result<Value> {
     let mut input: M::Input = crate::reading::parse::<M>(input_json, source)?;
     #[cfg(test)]
     if !M::ID.starts_with("analysis.") {
@@ -426,36 +460,43 @@ fn execute<M: Method>(input_json: &str, source: Source) -> Result<Value> {
     // with its defaults, so that a minimal input and its explicit equivalent hash identically.
     let (value, mut explain, defaults) = M::run_typed(&mut input)?;
     // A decimal with more digits than a `Decimal` holds is rounded as it is read; the caller is
-    // told, once, here for every method and adapter (ADR 0014 G7). Values an analysis builds
-    // (`Source::Engine`) come from an input already reported.
+    // told, once, here for every method and adapter (ADR 0014 G7), with warning FM-W001.
+    // Values an analysis builds (`Source::Engine`) come from an input already reported.
     if source == Source::Caller {
-        for warning in rounded_on_reading(M::ID, input_json) {
-            explain.convention(warning);
+        for (pointer, message) in rounded_on_reading(M::ID, input_json) {
+            explain.warn(WarningCode::RoundedOnReading, Some(pointer), message);
+        }
+        for (pointer, message) in binary_floats(input_json, &options.binary_floats) {
+            explain.warn(WarningCode::ArrivedAsBinaryFloat, Some(pointer), message);
         }
     }
     let canonical =
         serde_json::to_string(&input).map_err(|e| FairmarkError::InvalidInput(e.to_string()))?;
+    let diagnostics = explain.take_diagnostics();
     let envelope = Valuation {
         method: M::ID.to_owned(),
         value,
         explain,
+        diagnostics,
         meta: Meta {
             engine_version: ENGINE_VERSION.to_owned(),
+            envelope_version: ENVELOPE_VERSION,
             method_version: M::VERSION.to_owned(),
-            input_hash: sha256_hex(canonical.as_bytes()),
-            arithmetic: "decimal, 96-bit mantissa (28-29 significant digits)".to_owned(),
             method_status: status_of(M::ID),
             evaluated_method_status: M::evaluated_method(&input).map(status_of),
+            input_hash: sha256_hex(canonical.as_bytes()),
+            arithmetic: "decimal, 96-bit mantissa (28-29 significant digits)".to_owned(),
             defaults_applied: defaults,
         },
     };
     serde_json::to_value(envelope).map_err(|e| FairmarkError::InvalidInput(e.to_string()))
 }
 
-/// The `warning: ` conventions of the decimals of `input_json` that reading rounds, for method
-/// `id`; for an analysis, also those of its `base_input`, read by the method it names and
-/// named under `/base_input`.
-fn rounded_on_reading(id: &str, input_json: &str) -> Vec<String> {
+/// The decimals of `input_json` that reading rounds, for method `id`, as `(pointer, message)`
+/// of warning FM-W001, ordered by pointer so that the order of the keys of the input changes
+/// nothing (SPEC-0012 R13); for an analysis, also those of its `base_input`, read by the method
+/// it names and located under `/base_input`.
+fn rounded_on_reading(id: &str, input_json: &str) -> Vec<(String, String)> {
     let Ok(input) = serde_json::from_str::<Value>(input_json) else {
         return Vec::new();
     };
@@ -478,18 +519,48 @@ fn rounded_on_reading(id: &str, input_json: &str) -> Vec<String> {
                 // Goal seek replaces the value of its variable in `base_input`: that value is
                 // never used, so its rounding is not reported (final review of #279).
                 let replaced = (id == "analysis.goal_seek")
-                    .then(|| input["variable"].as_str())
+                    .then(|| input["variable_pointer"].as_str())
                     .flatten()
-                    .map(|v| format!("warning: `/base_input{v}` "));
+                    .map(|v| format!("/base_input{v}"));
                 found.extend(
                     crate::reading::rounded_on_reading(&schema, base, "/base_input")
                         .into_iter()
-                        .filter(|w| replaced.as_ref().is_none_or(|r| !w.starts_with(r.as_str()))),
+                        .filter(|(pointer, _)| replaced.as_deref() != Some(pointer.as_str())),
                 );
             }
         }
     }
+    found.sort_by(|a, b| crate::diagnostics::pointer_cmp(&a.0, &b.0));
     found
+}
+
+/// `(pointer, message)` of warning FM-W017 for each pointer of `pointers` that names a value of
+/// the input, once, ordered by pointer (SPEC-0012 R13, decision 15 of 2026-11-17).
+fn binary_floats(input_json: &str, pointers: &[String]) -> Vec<(String, String)> {
+    if pointers.is_empty() {
+        return Vec::new();
+    }
+    let Ok(input) = serde_json::from_str::<Value>(input_json) else {
+        return Vec::new();
+    };
+    let mut sorted: Vec<&String> = pointers.iter().collect();
+    sorted.sort_by(|a, b| crate::diagnostics::pointer_cmp(a, b));
+    sorted.dedup();
+    sorted
+        .into_iter()
+        .filter_map(|p| {
+            input.pointer(p).map(|v| {
+                (
+                    p.clone(),
+                    format!(
+                        "`{p}` arrived as a binary floating-point number ({v}): a JSON number may \
+                         have lost digits before Fairmark read it; send decimals as strings, for \
+                         example \"0.095\", to keep every digit"
+                    ),
+                )
+            })
+        })
+        .collect()
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -576,15 +647,15 @@ mod tests {
     }
 
     /// ADR 0012: an analysis reports the status of the method it evaluates, in `meta` and, when
-    /// that method is preview, as a convention.
+    /// that method is preview, as warning FM-W016.
     #[test]
     fn analysis_reports_the_status_of_the_evaluated_method() {
         let table = |method: &str, base: &str, variable: &str, output: &str| {
             run(
                 "analysis.sensitivity",
                 &format!(
-                    r#"{{"method": "{method}", "base_input": {base}, "output": "{output}",
-                        "rows": {{"variable": "{variable}", "values": ["0.08", "0.09"]}}}}"#
+                    r#"{{"method": "{method}", "base_input": {base}, "output_pointer": "{output}",
+                        "rows": {{"variable_pointer": "{variable}", "values": ["0.08", "0.09"]}}}}"#
                 ),
             )
             .unwrap()
@@ -596,7 +667,7 @@ mod tests {
         assert!(conventions.iter().any(|c| c
             .as_str()
             .unwrap()
-            .starts_with("Evaluated method dcf.fcff is preview")));
+            .starts_with("warning FM-W016: Evaluated method dcf.fcff is preview")));
 
         let available = table(
             "tv.gordon",
@@ -708,7 +779,8 @@ mod tests {
         let required = meta["required"].as_array().unwrap();
         assert!(required.contains(&Value::from("method_version")));
         assert!(required.contains(&Value::from("method_status")));
-        assert!(!required.contains(&Value::from("defaults_applied")));
+        assert!(required.contains(&Value::from("defaults_applied")));
+        assert!(required.contains(&Value::from("envelope_version")));
         let seek = output_schema("analysis.goal_seek").unwrap();
         assert_eq!(
             seek["properties"]["inner_value"]["x-fairmark-output-of"],
@@ -916,8 +988,8 @@ mod tests {
         let text = base.to_string();
         let values: Vec<String> = (0..40).map(|i| format!("0.0{}", 70 + i % 30)).collect();
         let request = serde_json::json!({
-            "method": "dcf.fcff", "base_input": base, "output": "/value_of_operations",
-            "rows": {"variable": "/wacc", "values": values}
+            "method": "dcf.fcff", "base_input": base, "output_pointer": "/value_of_operations",
+            "rows": {"variable_pointer": "/wacc", "values": values}
         })
         .to_string();
         (request, text)
@@ -1508,6 +1580,510 @@ mod tests {
             _ => return base.clone(),
         }
         x
+    }
+
+    /// Every golden case that expects a result: (file name, method id, input). Analyses
+    /// included.
+    pub(crate) fn golden_results() -> Vec<(String, String, Value)> {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
+        let mut dirs: Vec<_> = std::fs::read_dir(&root)
+            .unwrap()
+            .map(|d| d.unwrap().path())
+            .collect();
+        dirs.sort();
+        let mut out = Vec::new();
+        for dir in dirs {
+            let mut files: Vec<_> = std::fs::read_dir(&dir)
+                .unwrap()
+                .map(|f| f.unwrap().path())
+                .collect();
+            files.sort();
+            for file in files {
+                let case: Value =
+                    serde_norway::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+                if case.get("expect_error").is_some() {
+                    continue;
+                }
+                let (Some(id), Some(input)) = (case["method"].as_str(), case.get("input")) else {
+                    continue;
+                };
+                let dir_name = dir.file_name().unwrap().to_string_lossy().into_owned();
+                let name = file.file_name().unwrap().to_string_lossy().into_owned();
+                out.push((format!("{dir_name}/{name}"), id.to_owned(), input.clone()));
+            }
+        }
+        out
+    }
+
+    /// The keys of the object `v`, in order.
+    fn keys(v: &Value) -> Vec<&str> {
+        v.as_object()
+            .map(|m| m.keys().map(String::as_str).collect())
+            .unwrap_or_default()
+    }
+
+    /// SPEC-0012 AC1, AC2 and AC3 (R1 to R4): on every golden input, the result has exactly the
+    /// keys of ADR 0014 G4 in order, `meta.envelope_version` is the integer 1, `explain` is
+    /// `{formula, steps, conventions}`, and the three diagnostics arrays and
+    /// `meta.defaults_applied` are always present.
+    #[test]
+    fn every_result_has_the_envelope_of_g4() {
+        let mut failures = Vec::new();
+        let mut checked = 0u32;
+        for (name, id, input) in golden_results() {
+            let out = match run(&id, &input.to_string()) {
+                Ok(out) => out,
+                Err(e) => {
+                    failures.push(format!("{name}: {e}"));
+                    continue;
+                }
+            };
+            checked += 1;
+            if keys(&out) != ["method", "value", "explain", "diagnostics", "meta"] {
+                failures.push(format!("{name}: top-level keys {:?}", keys(&out)));
+            }
+            if keys(&out["explain"]) != ["formula", "steps", "conventions"] {
+                failures.push(format!("{name}: explain keys {:?}", keys(&out["explain"])));
+            }
+            if keys(&out["diagnostics"]) != ["not_computed", "warnings", "checks"]
+                || !["not_computed", "warnings", "checks"]
+                    .iter()
+                    .all(|k| out["diagnostics"][k].is_array())
+            {
+                failures.push(format!("{name}: diagnostics {}", out["diagnostics"]));
+            }
+            let meta = &out["meta"];
+            let mut want = vec!["engine_version", "envelope_version", "method_version"];
+            want.push("method_status");
+            if id.starts_with("analysis.") {
+                want.push("evaluated_method_status");
+            }
+            want.extend(["input_hash", "arithmetic", "defaults_applied"]);
+            if keys(meta) != want {
+                failures.push(format!("{name}: meta keys {:?}", keys(meta)));
+            }
+            if meta["envelope_version"] != 1u32 {
+                failures.push(format!(
+                    "{name}: envelope_version {}",
+                    meta["envelope_version"]
+                ));
+            }
+            if !meta["defaults_applied"].is_array() {
+                failures.push(format!(
+                    "{name}: defaults_applied {}",
+                    meta["defaults_applied"]
+                ));
+            }
+        }
+        assert!(checked > 300, "{checked}");
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    /// SPEC-0012 AC3 (R3): a result with nothing to report has the empty arrays, not missing
+    /// keys.
+    #[test]
+    fn a_result_without_diagnostics_has_empty_arrays() {
+        let out = run(
+            "tvm.npv",
+            r#"{"rate": "0.1", "cash_flows": [-100, 60, 60]}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            out["diagnostics"],
+            serde_json::json!({"not_computed": [], "warnings": [], "checks": []})
+        );
+        assert_eq!(out["meta"]["defaults_applied"], serde_json::json!([]));
+        assert_eq!(out["meta"]["envelope_version"], 1);
+        assert!(out["explain"].get("method").is_none());
+    }
+
+    /// SPEC-0012 AC3 (R2, R3, R4): the result schema of every method requires the diagnostics
+    /// block with its three arrays, `meta.envelope_version` and `meta.defaults_applied`, and
+    /// `explain` has no `method`.
+    #[test]
+    fn result_schemas_require_the_diagnostics() {
+        let has = |schema: &Value, key: &str| {
+            schema["required"]
+                .as_array()
+                .is_some_and(|r| r.contains(&Value::from(key)))
+        };
+        for m in METHODS {
+            let result = result_schema(m.id).unwrap();
+            let props: Vec<&str> = keys(&result["properties"]);
+            assert_eq!(
+                props,
+                ["method", "value", "explain", "diagnostics", "meta"],
+                "{}",
+                m.id
+            );
+            for key in ["method", "value", "explain", "diagnostics", "meta"] {
+                assert!(has(&result, key), "{}: {key}", m.id);
+            }
+            let defs = &result["$defs"];
+            for key in ["not_computed", "warnings", "checks"] {
+                assert!(
+                    has(&defs["Diagnostics"], key),
+                    "{}: diagnostics {key}",
+                    m.id
+                );
+            }
+            for key in ["envelope_version", "defaults_applied"] {
+                assert!(has(&defs["Meta"], key), "{}: meta {key}", m.id);
+            }
+            assert_eq!(
+                keys(&defs["Explain"]["properties"]),
+                ["formula", "steps", "conventions"],
+                "{}",
+                m.id
+            );
+        }
+    }
+
+    /// True when a property schema holds text: a string, or a list of strings (`null`
+    /// allowed), following `$ref` into the `$defs` of `root` and the members of `anyOf` and
+    /// `oneOf`. A list of objects that carry pointers is not a pointer field (SPEC-0012 AC10).
+    fn holds_text(property: &Value, root: &Value) -> bool {
+        fn resolve<'a>(s: &'a Value, root: &'a Value) -> &'a Value {
+            match s["$ref"].as_str().and_then(|r| r.strip_prefix("#/$defs/")) {
+                Some(name) => resolve(&root["$defs"][name], root),
+                None => s,
+            }
+        }
+        fn kinds(s: &Value, root: &Value, out: &mut Vec<String>) {
+            let s = resolve(s, root);
+            match &s["type"] {
+                Value::String(t) => out.push(t.clone()),
+                Value::Array(ts) => {
+                    out.extend(ts.iter().filter_map(|t| t.as_str().map(str::to_owned)))
+                }
+                _ => {}
+            }
+            for key in ["anyOf", "oneOf"] {
+                for member in s[key].as_array().into_iter().flatten() {
+                    kinds(member, root, out);
+                }
+            }
+        }
+        let s = resolve(property, root);
+        let mut own = Vec::new();
+        kinds(s, root, &mut own);
+        let mut items = Vec::new();
+        kinds(&s["items"], root, &mut items);
+        for key in ["anyOf", "oneOf"] {
+            for member in s[key].as_array().into_iter().flatten() {
+                kinds(&resolve(member, root)["items"], root, &mut items);
+            }
+        }
+        own.iter().any(|t| t == "string")
+            || (own.iter().any(|t| t == "array") && items.iter().any(|t| t == "string"))
+    }
+
+    /// Every property of `schema` (its `$defs` included) that holds text and whose description
+    /// says it holds a JSON pointer ("JSON pointer" or "RFC 6901"), with its location.
+    fn pointer_properties(schema: &Value, root: &Value, at: &str, out: &mut Vec<(String, String)>) {
+        match schema {
+            Value::Object(map) => {
+                for (key, sub) in map {
+                    match key.as_str() {
+                        "properties" => {
+                            for (name, property) in sub.as_object().into_iter().flatten() {
+                                let description = property["description"]
+                                    .as_str()
+                                    .unwrap_or("")
+                                    .to_ascii_lowercase();
+                                let says = description.contains("json pointer")
+                                    || description.contains("rfc 6901");
+                                if holds_text(property, root) && says {
+                                    out.push((format!("{at}/{name}"), name.clone()));
+                                }
+                                pointer_properties(property, root, &format!("{at}/{name}"), out);
+                            }
+                        }
+                        "$defs" => {
+                            for (name, def) in sub.as_object().into_iter().flatten() {
+                                pointer_properties(def, root, &format!("$defs/{name}"), out);
+                            }
+                        }
+                        _ => pointer_properties(sub, root, at, out),
+                    }
+                }
+            }
+            Value::Array(items) => items
+                .iter()
+                .for_each(|i| pointer_properties(i, root, at, out)),
+            _ => {}
+        }
+    }
+
+    /// A name of ADR 0014 G4 as amended (decision 7 of SPEC-0012) for a field that holds
+    /// pointers.
+    fn is_pointer_name(name: &str) -> bool {
+        matches!(name, "pointer" | "pointers" | "missing_any_of")
+            || ["_pointer", "_pointers"].iter().any(|suffix| {
+                name.strip_suffix(suffix).is_some_and(|stem| {
+                    !stem.is_empty()
+                        && stem
+                            .bytes()
+                            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+                })
+            })
+    }
+
+    #[test]
+    fn pointer_names_are_recognised() {
+        for ok in [
+            "pointer",
+            "pointers",
+            "missing_any_of",
+            "output_pointer",
+            "source_pointers",
+        ] {
+            assert!(is_pointer_name(ok), "{ok}");
+        }
+        for bad in [
+            "output",
+            "variable",
+            "sources",
+            "_pointer",
+            "Pointer",
+            "x_pointerz",
+        ] {
+            assert!(!is_pointer_name(bad), "{bad}");
+        }
+    }
+
+    /// SPEC-0012 AC10 (R11, R12, R20): every property of every input schema and every result
+    /// schema that holds a JSON pointer is named per ADR 0014 G4 as amended, with no exemption.
+    #[test]
+    fn every_pointer_field_follows_g4() {
+        let mut misnamed = Vec::new();
+        let mut seen = 0u32;
+        for m in METHODS {
+            for (side, schema) in [
+                ("input", input_schema(m.id).unwrap()),
+                ("result", result_schema(m.id).unwrap()),
+            ] {
+                let mut found = Vec::new();
+                pointer_properties(&schema, &schema, "", &mut found);
+                for (at, name) in found {
+                    seen += 1;
+                    if !is_pointer_name(&name) {
+                        misnamed.push(format!("{} {side} {at}", m.id));
+                    }
+                }
+            }
+        }
+        misnamed.sort();
+        misnamed.dedup();
+        assert!(seen > 100, "{seen}");
+        assert!(misnamed.is_empty(), "{}", misnamed.join("\n"));
+    }
+
+    /// Every property named `name` anywhere in `schema`, with its schema.
+    fn properties_named<'a>(schema: &'a Value, out: &mut Vec<(&'a str, &'a Value)>) {
+        match schema {
+            Value::Object(map) => {
+                for (key, sub) in map {
+                    if key == "properties" {
+                        for (name, property) in sub.as_object().into_iter().flatten() {
+                            out.push((name.as_str(), property));
+                        }
+                    }
+                    properties_named(sub, out);
+                }
+            }
+            Value::Array(items) => items.iter().for_each(|i| properties_named(i, out)),
+            _ => {}
+        }
+    }
+
+    /// SPEC-0012 AC10, the reverse check: every property named `pointer`, `pointers`,
+    /// `*_pointer` or `*_pointers`, in every input schema and every result schema, says in its
+    /// description that it holds a JSON pointer, so the naming walk cannot miss it.
+    #[test]
+    fn every_pointer_name_is_described_as_a_json_pointer() {
+        let mut silent = Vec::new();
+        for m in METHODS {
+            for (side, schema) in [
+                ("input", input_schema(m.id).unwrap()),
+                ("result", result_schema(m.id).unwrap()),
+            ] {
+                let mut found = Vec::new();
+                properties_named(&schema, &mut found);
+                for (name, property) in found {
+                    if !is_pointer_name(name) || name == "missing_any_of" {
+                        continue;
+                    }
+                    let description = property["description"]
+                        .as_str()
+                        .unwrap_or("")
+                        .to_ascii_lowercase();
+                    if !(description.contains("json pointer") || description.contains("rfc 6901")) {
+                        silent.push(format!("{} {side} {name}: {description:?}", m.id));
+                    }
+                }
+            }
+        }
+        silent.sort();
+        silent.dedup();
+        assert!(silent.is_empty(), "{}", silent.join("\n"));
+    }
+
+    /// Text fields that may start with `/` without holding a pointer.
+    const TEXT_FIELDS: [&str; 5] = ["formula", "label", "conventions", "message", "reason"];
+
+    /// Every string value of `v` that starts with `/`, with the name of the property that
+    /// holds it (the nearest object key; an array keeps the key of its property).
+    fn slashed<'a>(v: &'a Value, key: &'a str, out: &mut Vec<(&'a str, &'a str)>) {
+        match v {
+            Value::String(s) if s.starts_with('/') => out.push((key, s)),
+            Value::Array(items) => items.iter().for_each(|i| slashed(i, key, out)),
+            Value::Object(map) => {
+                for (k, x) in map {
+                    if !TEXT_FIELDS.contains(&k.as_str()) {
+                        slashed(x, k, out);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// SPEC-0012 AC10, by value: on every golden input and its result, every string value that
+    /// starts with `/` (a JSON pointer) sits under a name of ADR 0014 G4, the inputs and outputs
+    /// of an evaluated method included (`base_input`, `solved_input`, `inner_value`).
+    #[test]
+    fn every_pointer_value_sits_under_a_g4_name() {
+        let mut misnamed = Vec::new();
+        let mut seen = 0u32;
+        for (name, id, input) in golden_results() {
+            let out = run(&id, &input.to_string()).unwrap();
+            let mut found = Vec::new();
+            slashed(&input, "", &mut found);
+            slashed(&out, "", &mut found);
+            for (key, value) in found {
+                seen += 1;
+                if !is_pointer_name(key) {
+                    misnamed.push(format!("{name}: {key} = {value}"));
+                }
+            }
+        }
+        misnamed.sort();
+        misnamed.dedup();
+        assert!(seen > 1000, "{seen}");
+        assert!(misnamed.is_empty(), "{}", misnamed.join("\n"));
+    }
+
+    /// The input pointer `p` names a field of `input`, or a field the method filled in with its
+    /// default (listed in `meta.defaults_applied`), or a field within one.
+    fn resolves_in_input(input: &Value, out: &Value, p: &str) -> bool {
+        let within =
+            |i: &str, o: &str| i == o || i.strip_prefix(o).is_some_and(|r| r.starts_with('/'));
+        input.pointer(p).is_some()
+            || out["meta"]["defaults_applied"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|d| d["pointer"].as_str())
+                .any(|d| within(p, d))
+    }
+
+    /// Inside an analysis, the input pointer `p` names, under `/base_input`, a field of the base
+    /// input or one the evaluated method fills in with its default.
+    fn resolves_in_base_input(input: &Value, p: &str) -> bool {
+        let (Some(rest), Some(inner), Some(base)) = (
+            p.strip_prefix("/base_input"),
+            input["method"].as_str(),
+            input.get("base_input"),
+        ) else {
+            return false;
+        };
+        run(inner, &base.to_string()).is_ok_and(|out| resolves_in_input(base, &out, rest))
+    }
+
+    /// SPEC-0012 AC10 (R11): on every golden result, every pointer of the diagnostics resolves
+    /// where its field says: `not_computed[].pointer` and `checks[].pointer` in the result, a
+    /// warning in the result when it is `/value` or starts with `/value/`, otherwise in the input
+    /// sent (with its defaults); the input pointers of a reconciled check in the input sent.
+    #[test]
+    fn every_diagnostics_pointer_resolves() {
+        let mut failures = Vec::new();
+        let mut seen = 0u32;
+        for (name, id, input) in golden_results() {
+            let out = run(&id, &input.to_string()).unwrap();
+            let d = &out["diagnostics"];
+            let all = |key: &str| d[key].as_array().cloned().unwrap_or_default();
+            for e in all("not_computed").iter().chain(&all("checks")) {
+                seen += 1;
+                let p = e["pointer"].as_str().unwrap_or("<none>");
+                if !crate::diagnostics::is_result_pointer(p) || out.pointer(p).is_none() {
+                    failures.push(format!("{name}: {p} does not resolve in the result"));
+                }
+            }
+            for c in all("checks") {
+                if c["status"] != "reconciled" {
+                    continue;
+                }
+                for p in c["pointers"].as_array().into_iter().flatten() {
+                    let p = p.as_str().unwrap();
+                    if !resolves_in_input(&input, &out, p) {
+                        failures.push(format!("{name}: check {} {p} not in the input", c["id"]));
+                    }
+                }
+            }
+            for w in all("warnings") {
+                seen += 1;
+                let Some(p) = w["pointer"].as_str() else {
+                    continue;
+                };
+                let ok = if crate::diagnostics::is_result_pointer(p) {
+                    out.pointer(p).is_some()
+                } else {
+                    resolves_in_input(&input, &out, p) || resolves_in_base_input(&input, p)
+                };
+                if !ok {
+                    failures.push(format!(
+                        "{name}: warning {} at {p} does not resolve",
+                        w["code"]
+                    ));
+                }
+            }
+        }
+        assert!(seen > 1000, "{seen}");
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    /// `value` with the keys of every object in reverse order.
+    fn reversed(value: &Value) -> Value {
+        match value {
+            Value::Object(map) => Value::Object(
+                map.iter()
+                    .rev()
+                    .map(|(k, v)| (k.clone(), reversed(v)))
+                    .collect(),
+            ),
+            Value::Array(items) => Value::Array(items.iter().map(reversed).collect()),
+            other => other.clone(),
+        }
+    }
+
+    /// SPEC-0012 AC11 (R13): two runs of every golden input give byte-identical diagnostics,
+    /// and so does the input with the keys of every object reversed.
+    #[test]
+    fn diagnostics_are_deterministic() {
+        let mut failures = Vec::new();
+        for (name, id, input) in golden_results() {
+            let text = |input: &Value| {
+                let out = run(&id, &input.to_string()).unwrap();
+                assert!(out["diagnostics"].is_object(), "{name}: no diagnostics");
+                serde_json::to_string(&out["diagnostics"]).unwrap()
+            };
+            let first = text(&input);
+            if text(&input) != first || text(&reversed(&input)) != first {
+                failures.push(name);
+            }
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
     }
 
     /// Final review of #279, finding 2: whatever form a number takes in a decimal field (an

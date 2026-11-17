@@ -92,6 +92,7 @@ nav = [
     "reference/python.md",
     "reference/methods.md",
     "reference/errors.md",
+    "reference/warnings.md",
   ] },
   { "Project" = [
     "project/vision.md",

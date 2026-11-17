@@ -21,8 +21,8 @@ expect:
   /bridge/debt_like_items_total: "0"
   /bridge/non_controlling_interests_total: "0"
 expect_meta:
-  /defaults_applied/5/field: "/terminal"
-  /defaults_applied/6/field: "/net_financial_position"
+  /defaults_applied/5/pointer: "/terminal"
+  /defaults_applied/6/pointer: "/net_financial_position"
   /defaults_applied/6/value: "0"
   /defaults_applied/6/reason: "net financial position not given"
 tolerance: "0.00000000000000000001"

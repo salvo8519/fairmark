@@ -38,6 +38,9 @@ input:
           non_current: '610000'
         debt_like_items: []
 expect:
-  /years/0/checks/funds_invested_equals_sources/status: not_checked
   /years/0/form: reclassified
+expect_diagnostics:
+  /checks/1/status: not_checked
+  /checks/1/id: funds_invested_equals_sources
+  /checks/1/pointer: /value/years/0
 tolerance: '0'

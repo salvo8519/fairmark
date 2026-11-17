@@ -73,8 +73,8 @@ def test_engine_reproduces_the_textbook_brent_path(case: tuple) -> None:  # type
     result = fm.analysis.goal_seek(
         method,
         base,
-        variable=variable,
-        output=output,
+        variable_pointer=variable,
+        output_pointer=output,
         target=target,
         bracket=bracket,
         tolerance=tol,
@@ -129,7 +129,7 @@ def test_tornado_golden_is_reproduced_by_the_reference() -> None:
         "discount_rate": "/wacc",
     }
     for k, (name, low, high, swing) in enumerate(ranking):
-        assert expect[f"/ranking/{k}/variable"] == pointers[name]
+        assert expect[f"/ranking/{k}/variable_pointer"] == pointers[name]
         assert abs(D(expect[f"/ranking/{k}/output_low"]) - low) < D("1e-24")
         assert abs(D(expect[f"/ranking/{k}/output_high"]) - high) < D("1e-24")
         assert abs(D(expect[f"/ranking/{k}/swing"]) - swing) < D("1e-24")

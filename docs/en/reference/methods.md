@@ -502,9 +502,9 @@ FCFF per period from EBIT, taxes on EBIT (a rate or amounts), depreciation and a
 
 ## `statements.reorganise`
 
-**Financial statements — operating and financing reorganisation** · method version 1 · status preview · tool `fairmark_statements_reorganise`
+**Financial statements — operating and financing reorganisation** · method version 2 · status preview · tool `fairmark_statements_reorganise`
 
-Reorganises statutory aggregates (art. 2424, 2425, abridged art. 2435-bis) or totals already reclassified, for one or more financial years, into invested capital, non-operating assets, equity, quasi-equity, the net financial position (SPEC-0007 type) and debt-like items, plus current and non-current amounts for the ratios, and the income statement by nature reorganised into value of production, value added, EBITDA, operating profit, investing result, profit before financing and taxes (subtotals aligned with IFRS 18), non-recurring and financing results, profit before tax and net income, with its reconciliations with A − B; best effort: each output is computed when its inputs are given, otherwise null and listed in `not_computed` with the missing input pointers; totals are checked exactly (FM-E026).
+Reorganises statutory aggregates (art. 2424, 2425, abridged art. 2435-bis) or totals already reclassified, for one or more financial years, into invested capital, non-operating assets, equity, quasi-equity, the net financial position (SPEC-0007 type) and debt-like items, plus current and non-current amounts for the ratios, and the income statement by nature reorganised into value of production, value added, EBITDA, operating profit, investing result, profit before financing and taxes (subtotals aligned with IFRS 18), non-recurring and financing results, profit before tax and net income, with its reconciliations with A − B; best effort: each output is computed when its inputs are given, otherwise null and listed in `diagnostics.not_computed` with the missing input pointers; totals are checked exactly (FM-E026), every relation listed in `diagnostics.checks`.
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -514,9 +514,9 @@ Reorganises statutory aggregates (art. 2424, 2425, abridged art. 2435-bis) or to
 
 ## `ratios.profitability`
 
-**Ratios — profitability** · method version 2 · status preview · tool `fairmark_ratios_profitability`
+**Ratios — profitability** · method version 3 · status preview · tool `fairmark_ratios_profitability`
 
-ROE, ROI, ROA, ROS, EBITDA and EBIT margins, capital turnover and the ROE decomposition in three factors and in the leverage form, on closing or average balances. Every amount is optional: a ratio whose amounts are not all given is null and listed in not_computed with the inputs it lacks; a ratio that is not meaningful is reported as not defined with the reason.
+ROE, ROI, ROA, ROS, EBITDA and EBIT margins, capital turnover and the ROE decomposition in three factors and in the leverage form, on closing or average balances. Every amount is optional: a ratio whose amounts are not all given is null and listed in diagnostics.not_computed with the inputs it lacks; a ratio that is not meaningful is null, with the reason in diagnostics.not_computed (not_defined).
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -530,9 +530,9 @@ ROE, ROI, ROA, ROS, EBITDA and EBIT margins, capital turnover and the ROE decomp
 
 ## `ratios.capital_structure`
 
-**Ratios — capital structure** · method version 2 · status preview · tool `fairmark_ratios_capital_structure`
+**Ratios — capital structure** · method version 3 · status preview · tool `fairmark_ratios_capital_structure`
 
-Debt to equity, net financial position to equity, equity ratio, primary and secondary structure margins and fixed-asset coverage, with the net financial position and its composition stated. Every amount is optional: an output whose amounts are not all given is null and listed in not_computed with the inputs it lacks; a ratio that is not meaningful is reported as not defined with the reason.
+Debt to equity, net financial position to equity, equity ratio, primary and secondary structure margins and fixed-asset coverage, with the net financial position and its composition stated. Every amount is optional: an output whose amounts are not all given is null and listed in diagnostics.not_computed with the inputs it lacks; a ratio that is not meaningful is null, with the reason in diagnostics.not_computed (not_defined).
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -542,9 +542,9 @@ Debt to equity, net financial position to equity, equity ratio, primary and seco
 
 ## `ratios.liquidity`
 
-**Ratios — liquidity** · method version 2 · status preview · tool `fairmark_ratios_liquidity`
+**Ratios — liquidity** · method version 3 · status preview · tool `fairmark_ratios_liquidity`
 
-Current, quick and cash ratios, net working capital and treasury margin, on closing or average balances. Every amount is optional: an output whose amounts are not all given is null and listed in not_computed with the inputs it lacks; a ratio with a zero denominator is reported as not defined with the reason.
+Current, quick and cash ratios, net working capital and treasury margin, on closing or average balances. Every amount is optional: an output whose amounts are not all given is null and listed in diagnostics.not_computed with the inputs it lacks; a ratio with a zero denominator is null, with the reason in diagnostics.not_computed (not_defined).
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -554,9 +554,9 @@ Current, quick and cash ratios, net working capital and treasury margin, on clos
 
 ## `ratios.working_capital`
 
-**Ratios — working capital** · method version 2 · status preview · tool `fairmark_ratios_working_capital`
+**Ratios — working capital** · method version 3 · status preview · tool `fairmark_ratios_working_capital`
 
-Days sales outstanding, days inventory outstanding, days payable outstanding and the cash conversion cycle, on closing or average balances and a 360 or 365-day basis. Every amount is optional: a ratio whose amounts are not all given is null and listed in not_computed with the inputs it lacks; a ratio with a zero denominator is reported as not defined with the reason.
+Days sales outstanding, days inventory outstanding, days payable outstanding and the cash conversion cycle, on closing or average balances and a 360 or 365-day basis. Every amount is optional: a ratio whose amounts are not all given is null and listed in diagnostics.not_computed with the inputs it lacks; a ratio with a zero denominator is null, with the reason in diagnostics.not_computed (not_defined).
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -568,9 +568,9 @@ Days sales outstanding, days inventory outstanding, days payable outstanding and
 
 ## `ratios.debt_service`
 
-**Ratios — debt service** · method version 2 · status preview · tool `fairmark_ratios_debt_service`
+**Ratios — debt service** · method version 3 · status preview · tool `fairmark_ratios_debt_service`
 
-Interest cover on EBIT and EBITDA, net financial position to EBITDA, DSCR per period and LLCR on a loan schedule with an explicit discount rate. Every amount is optional: a ratio whose amounts are not all given is null and listed in not_computed with the inputs it lacks; a ratio that is not meaningful is reported as not defined with the reason.
+Interest cover on EBIT and EBITDA, net financial position to EBITDA, DSCR per period and LLCR on a loan schedule with an explicit discount rate. Every amount is optional: a ratio whose amounts are not all given is null and listed in diagnostics.not_computed with the inputs it lacks; a ratio that is not meaningful is null, with the reason in diagnostics.not_computed (not_defined).
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -584,9 +584,9 @@ Interest cover on EBIT and EBITDA, net financial position to EBITDA, DSCR per pe
 
 ## `ratios.covenants`
 
-**Ratios — covenants** · method version 2 · status preview · tool `fairmark_ratios_covenants`
+**Ratios — covenants** · method version 3 · status preview · tool `fairmark_ratios_covenants`
 
-Tests financial covenants on the numerator and denominator defined by the loan agreement, against a threshold with an explicit operator (at most, less than, at least, greater than) at a test date. The agreement's own rules are explicit inputs: the outcome when the denominator is zero or negative, and the rounding of the tested value. Returns for each covenant the outcome (passed, breached, or not tested with a code and the reason), decided exactly, the tested value and the headroom, absolute and relative to the threshold. The amounts are optional: a covenant without the amounts it needs is not tested (missing_input), never breached, and listed in not_computed.
+Tests financial covenants on the numerator and denominator defined by the loan agreement, against a threshold with an explicit operator (at most, less than, at least, greater than) at a test date. The agreement's own rules are explicit inputs: the outcome when the denominator is zero or negative, and the rounding of the tested value. Returns for each covenant the outcome (passed, breached, or not tested with a code and the reason), decided exactly, the tested value and the headroom, absolute and relative to the threshold. The amounts are optional: a covenant without the amounts it needs is not tested (missing_input), never breached, and listed in diagnostics.not_computed.
 
 | Input | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -594,7 +594,7 @@ Tests financial covenants on the numerator and denominator defined by the loan a
 
 ## `analysis.goal_seek`
 
-**Goal seek** · method version 1 · status available · tool `fairmark_analysis_goal_seek`
+**Goal seek** · method version 2 · status available · tool `fairmark_analysis_goal_seek`
 
 Value of one decimal input of any method at which one of its outputs equals a target, found with Brent's method in an explicit bracket; every evaluation is reported.
 
@@ -602,8 +602,8 @@ Value of one decimal input of any method at which one of its outputs equals a ta
 | --- | --- | --- | --- | --- |
 | `method` | string | yes |  | Id of the method to evaluate, for example `dcf.fcff`. Analysis methods are not accepted. |
 | `base_input` | object | yes |  | Input of that method, complete, including the variable at any starting value. |
-| `variable` | string | yes |  | RFC 6901 JSON Pointer to the decimal input to solve for, for example `/discount_rate`. |
-| `output` | string | yes |  | RFC 6901 JSON Pointer to the decimal output of the method, in its `value`, for example `/enterprise_value`. |
+| `variable_pointer` | string | yes |  | RFC 6901 JSON Pointer to the decimal input to solve for, for example `/discount_rate`. |
+| `output_pointer` | string | yes |  | RFC 6901 JSON Pointer to the decimal output of the method, in its `value`, for example `/enterprise_value`. |
 | `target` | decimal | yes |  | Value the output must reach, in the output's units. |
 | `bracket` | list of decimal | yes |  | `[low, high]`, low < high: the variable is searched in this interval, and the output minus the target must change sign between its ends (or meet the tolerance at one end). |
 | `tolerance` | decimal | no | `"0.000000001"` | Absolute tolerance on the output, in the output's units, greater than 0. Default: 0.000000001. |
@@ -611,7 +611,7 @@ Value of one decimal input of any method at which one of its outputs equals a ta
 
 ## `analysis.sensitivity`
 
-**Sensitivity table** · method version 1 · status available · tool `fairmark_analysis_sensitivity`
+**Sensitivity table** · method version 2 · status available · tool `fairmark_analysis_sensitivity`
 
 One output of any method across a one-way or two-way table of input values, with the base case; a combination the method refuses is recorded in its cell.
 
@@ -619,13 +619,13 @@ One output of any method across a one-way or two-way table of input values, with
 | --- | --- | --- | --- | --- |
 | `method` | string | yes |  | Id of the method to evaluate, for example `dcf.fcff`. Analysis methods are not accepted. |
 | `base_input` | object | yes |  | Input of that method, complete: the base case. |
-| `output` | string | yes |  | RFC 6901 JSON Pointer to the decimal output reported in each cell, in the `value` of the inner result, for example `/enterprise_value`. |
+| `output_pointer` | string | yes |  | RFC 6901 JSON Pointer to the decimal output reported in each cell, in the `value` of the inner result, for example `/enterprise_value`. |
 | `rows` | object | yes |  | The variable that changes along the rows, and its values. |
 | `columns` |  | no |  | Optional second variable, along the columns, different from the row variable. Absent: a one-way table (one column). |
 
 ## `analysis.scenarios`
 
-**Scenario analysis** · method version 1 · status available · tool `fairmark_analysis_scenarios`
+**Scenario analysis** · method version 2 · status available · tool `fairmark_analysis_scenarios`
 
 Outputs of any method under named sets of input changes, with deltas and relative deltas against the base case; a scenario the method refuses is recorded.
 
@@ -633,12 +633,12 @@ Outputs of any method under named sets of input changes, with deltas and relativ
 | --- | --- | --- | --- | --- |
 | `method` | string | yes |  | Id of the method to evaluate, for example `dcf.fcff`. Analysis methods are not accepted. |
 | `base_input` | object | yes |  | Input of that method, complete: the base case. |
-| `outputs` | list of string | yes |  | RFC 6901 JSON Pointers to the decimal outputs to report, in the `value` of the inner result, for example `["/enterprise_value", "/equity_value"]`; at least one, no repeats. |
+| `output_pointers` | list of string | yes |  | RFC 6901 JSON Pointers to the decimal outputs to report, in the `value` of the inner result, for example `["/enterprise_value", "/equity_value"]`; at least one, no repeats. |
 | `scenarios` | list of object | yes |  | The cases, evaluated in this order; at least one. |
 
 ## `analysis.tornado`
 
-**Tornado** · method version 1 · status available · tool `fairmark_analysis_tornado`
+**Tornado** · method version 2 · status available · tool `fairmark_analysis_tornado`
 
 Which inputs move one output of any method the most: each input varied alone between explicit low and high values, ranked by the absolute swing of the output.
 
@@ -646,5 +646,5 @@ Which inputs move one output of any method the most: each input varied alone bet
 | --- | --- | --- | --- | --- |
 | `method` | string | yes |  | Id of the method to evaluate, for example `dcf.fcff`. Analysis methods are not accepted. |
 | `base_input` | object | yes |  | Input of that method, complete: the base case. Each variable is changed alone, the others keep their base values. |
-| `output` | string | yes |  | RFC 6901 JSON Pointer to the decimal output to rank, in the `value` of the inner result, for example `/equity_value`. |
+| `output_pointer` | string | yes |  | RFC 6901 JSON Pointer to the decimal output to rank, in the `value` of the inner result, for example `/equity_value`. |
 | `variables` | list of object | yes |  | The inputs to vary; at least one. |

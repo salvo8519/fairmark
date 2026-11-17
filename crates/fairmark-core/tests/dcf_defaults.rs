@@ -35,7 +35,7 @@ fn defaulted_fields(out: &Value) -> Vec<String> {
         .as_array()
         .map(|a| {
             a.iter()
-                .map(|d| d["field"].as_str().unwrap().to_owned())
+                .map(|d| d["pointer"].as_str().unwrap().to_owned())
                 .collect()
         })
         .unwrap_or_default()
@@ -73,7 +73,7 @@ fn minimal_input_reports_every_default() {
     let c = conventions(&out);
     for (i, d) in defaults.iter().enumerate() {
         assert!(c[i].starts_with("default: "), "{}", c[i]);
-        assert!(c[i].contains(d["field"].as_str().unwrap()), "{}", c[i]);
+        assert!(c[i].contains(d["pointer"].as_str().unwrap()), "{}", c[i]);
     }
     assert!(!c[defaults.len()].starts_with("default: "));
     // Texts are single-spaced (a broken string continuation shows as a run of spaces).
@@ -88,7 +88,7 @@ fn no_terminal_value_is_a_warning() {
     let c = conventions(&out);
     assert!(
         c.iter()
-            .any(|c| c.starts_with("warning: no terminal value is included")),
+            .any(|c| c.starts_with("warning FM-W005: no terminal value is included")),
         "{c:?}"
     );
     assert_eq!(out["value"]["terminal"]["technique"], "none");
@@ -100,7 +100,7 @@ fn no_terminal_value_is_a_warning() {
     let c = conventions(&ok("dcf.fcff", &explicit()));
     assert!(c
         .iter()
-        .any(|c| c.starts_with("warning: no terminal value is included")));
+        .any(|c| c.starts_with("warning FM-W005: no terminal value is included")));
 }
 
 /// R31: explicit inputs prevail and produce no default entry; the hash covers the input with
@@ -234,7 +234,7 @@ fn given_terminal_value_states_basis_and_warns_when_negative() {
     );
     assert!(c
         .iter()
-        .any(|c| c.starts_with("warning: the given terminal value -300 is negative")));
+        .any(|c| c.starts_with("warning FM-W006: the given terminal value -300 is negative")));
     assert_eq!(out["value"]["terminal"]["terminal_value"], "-300");
     let mut e = json!({"stages": [{"flows": ["80", "85"]}], "cost_of_equity": "0.11"});
     e["terminal"] = json!({"given": {"value": "900"}});
@@ -266,14 +266,15 @@ fn terminal_rate_only_when_used() {
     assert!(e.to_string().contains("/terminal_wacc"), "{e}");
 }
 
-/// Methods without defaults never carry `meta.defaults_applied`.
+/// Methods without defaults list none: `meta.defaults_applied` is always present, empty
+/// (SPEC-0012 R3).
 #[test]
-fn methods_without_defaults_omit_the_field() {
+fn methods_without_defaults_list_none() {
     let out = ok(
         "tvm.npv",
         &json!({"rate": "0.1", "cash_flows": [-100, 60, 60]}),
     );
-    assert!(out["meta"].get("defaults_applied").is_none());
+    assert_eq!(out["meta"]["defaults_applied"], json!([]));
 }
 
 /// R29, Decision 24: the defaulted fields are optional in the schema, their defaults are
@@ -417,9 +418,10 @@ fn terminal_option_details() {
     v["terminal"] = json!({"given": {"value": "-300"}});
     let c = conventions(&ok("dcf.fcff", &v));
     assert!(
-        c.iter()
-            .any(|c| c.starts_with("warning: the terminal value is negative")
-                && c.contains("terminal value weight is not meaningful")),
+        c.iter().any(
+            |c| c.starts_with("warning FM-W007: the terminal value is negative")
+                && c.contains("terminal value weight is not meaningful")
+        ),
         "{c:?}"
     );
     v.as_object_mut().unwrap().remove("wacc");
@@ -460,7 +462,7 @@ fn given_terminal_value_at_n_minus_half_warns() {
     let c = conventions(&ok("dcf.fcff", &v));
     assert!(
         c.iter().any(|c| c
-            == "warning: given: the analyst's terminal value at the horizon N; discounting it \
+            == "warning FM-W009: given: the analyst's terminal value at the horizon N; discounting it \
                 at N − 0.5 brings it forward half a period; it is discounted at N − 0.5 as \
                 chosen"),
         "{c:?}"

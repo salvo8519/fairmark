@@ -32,9 +32,10 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::diagnostics::WarningCode;
+use crate::diagnostics::{NotComputed, ReasonCode};
 use crate::error::{FairmarkError, MinimumInput, Result};
 use crate::explain::{DefaultApplied, Explain};
-use crate::not_computed::NotComputedEntry;
 use crate::num;
 
 /// Which balance-sheet amounts the ratios use (SPEC-0007 R2). No default: the analyst chooses.
@@ -67,17 +68,21 @@ impl DayBasis {
     }
 }
 
-/// A ratio, or the reason it is not defined (SPEC-0007 R3), or not computed (R7).
+/// A ratio (SPEC-0007 R3, R7). When it is not defined or not computed, its value is null and
+/// the reason is an entry of `diagnostics.not_computed` at the ratio's pointer (SPEC-0012 R6).
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 pub struct RatioValue {
     /// The ratio, in the unit stated by the field that holds it (decimal fraction, multiple or
-    /// days); null when the ratio is not defined or not computed.
+    /// days); null when the ratio is not defined or not computed (see
+    /// `diagnostics.not_computed`).
     pub value: Option<Decimal>,
-    /// Why the ratio is not defined, for example "equity is negative (-100)"; null when it is
-    /// defined, and when it is not computed for a missing input (listed in `not_computed`).
-    pub not_defined: Option<String>,
+    /// Why the ratio is not defined, for example "equity is negative (-100)"; `None` when it is
+    /// defined or not computed. Reported in `diagnostics.not_computed`, not in the ratio.
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub(crate) not_defined: Option<String>,
     /// Input pointers the ratio lacks; empty when it is computed or not defined. Reported in
-    /// `not_computed`, not in the ratio.
+    /// `diagnostics.not_computed`, not in the ratio.
     #[serde(skip)]
     #[schemars(skip)]
     pub(crate) missing: BTreeSet<String>,
@@ -153,17 +158,7 @@ impl RatioValue {
 /// The input pointers an output lacks (R7), without duplicates.
 pub(crate) type Missing = BTreeSet<String>;
 
-/// Order of JSON pointers in every list of the result: token by token, array indices compared
-/// as numbers and before names (`/periods/2` before `/periods/10`).
-pub(crate) fn pointer_cmp(a: &str, b: &str) -> std::cmp::Ordering {
-    fn key(t: &str) -> (u8, u64, &str) {
-        match t.parse::<u64>() {
-            Ok(n) if !t.is_empty() && t.bytes().all(|c| c.is_ascii_digit()) => (0, n, ""),
-            _ => (1, 0, t),
-        }
-    }
-    a.split('/').map(key).cmp(b.split('/').map(key))
-}
+pub(crate) use crate::diagnostics::pointer_cmp;
 
 /// The pointers of `set` in the order of [`pointer_cmp`].
 pub(crate) fn ordered(set: &Missing) -> Vec<String> {
@@ -452,11 +447,12 @@ pub(crate) fn composite(
     })
 }
 
-/// The outputs not computed of one result, in the order of the output fields (R7), and what
-/// every output lacks, for the floor (R12).
+/// The outputs not computed of one result (R7) and the ratios not defined (R3), as entries of
+/// `diagnostics.not_computed` (SPEC-0012 R5, R6), and what every output lacks, for the floor
+/// (R12).
 #[derive(Default)]
 pub(crate) struct NotComputedList {
-    entries: Vec<NotComputedEntry>,
+    entries: Vec<NotComputed>,
     /// What each output lacks; an empty set is an output with every input it needs.
     gaps: Vec<Missing>,
 }
@@ -468,19 +464,28 @@ const BLOCKS: [&str; 2] = ["/leverage", "/debt_schedule"];
 /// Convention of every `ratios.*` method (R7).
 pub(crate) const MISSING_CONVENTION: &str =
     "a missing input is never taken as zero: an output that lacks an input is null and listed in \
-     not_computed with the input pointers it lacks";
-
-/// Reason given for every output not computed because an input is missing.
-pub(crate) const MISSING_REASON: &str =
-    "an input it needs is not given; a missing input is never taken as zero";
+     diagnostics.not_computed with the input pointers it lacks";
 
 impl NotComputedList {
-    pub(crate) fn push(&mut self, output: impl Into<String>, missing: &Missing) {
-        self.entries.push(NotComputedEntry {
-            output: output.into(),
-            missing: ordered(missing),
+    /// The output at `output` (a pointer into `value`) lacks the inputs `missing`.
+    pub(crate) fn push(&mut self, output: impl AsRef<str>, missing: &Missing) {
+        self.entries.push(NotComputed {
+            pointer: format!("/value{}", output.as_ref()),
+            reason_code: ReasonCode::MissingInput,
+            reason: crate::diagnostics::MISSING_INPUT_REASON.to_owned(),
+            missing_any_of: vec![ordered(missing)],
             permitted: Vec::new(),
-            reason: Some(MISSING_REASON.to_owned()),
+        });
+    }
+
+    /// The ratio at `output` (a pointer into `value`) is not defined, for `reason`.
+    pub(crate) fn not_defined(&mut self, output: impl AsRef<str>, reason: &str) {
+        self.entries.push(NotComputed {
+            pointer: format!("/value{}", output.as_ref()),
+            reason_code: ReasonCode::NotDefined,
+            reason: reason.to_owned(),
+            missing_any_of: Vec::new(),
+            permitted: Vec::new(),
         });
     }
 
@@ -489,10 +494,14 @@ impl NotComputedList {
         self.gaps.push(lacking.clone());
     }
 
-    /// Lists `ratio` at `output` when it is not computed; returns it.
+    /// Lists `ratio` at `output` when it is not computed, or else when it is not defined: an
+    /// output both not defined and missing an input has one entry, `missing_input` (decision 14
+    /// of SPEC-0012). Returns it.
     pub(crate) fn ratio(&mut self, output: &str, ratio: RatioValue) -> RatioValue {
         if !ratio.missing.is_empty() {
             self.push(output, &ratio.missing);
+        } else if let Some(reason) = &ratio.not_defined {
+            self.not_defined(output, reason);
         }
         self.observe(&ratio.lacking);
         ratio
@@ -515,7 +524,7 @@ impl NotComputedList {
 
     /// The list, or `FM-E027` when no output has every input it needs (R12, ADR 0014 G10.1),
     /// with the minimal alternative sets of missing inputs, shortest first.
-    pub(crate) fn finish(self, method: &'static str) -> Result<Vec<NotComputedEntry>> {
+    pub(crate) fn finish(self, method: &'static str) -> Result<Vec<NotComputed>> {
         if self.gaps.iter().any(BTreeSet::is_empty) {
             return Ok(self.entries);
         }
@@ -783,13 +792,16 @@ pub(crate) fn other_items_defaults<'a>(
 /// The warning of every `other_items` default applied (G3, test 4: it determines the net
 /// financial position).
 pub(crate) fn warn_defaults(ex: &mut Explain, defaults: &[DefaultApplied], suffix: &str) {
-    for d in defaults.iter().filter(|d| d.field.ends_with(suffix)) {
-        ex.convention(format!(
-            "warning: no other items of the net financial position given (`{}`): the net \
-             financial position is gross debt less cash; list the other items, or give `[]` \
-             for none",
-            d.field
-        ));
+    for d in defaults.iter().filter(|d| d.pointer.ends_with(suffix)) {
+        ex.warn(
+            WarningCode::NoOtherItemsOfNetFinancialPosition,
+            Some(d.pointer.clone()),
+            format!(
+                "no other items of the net financial position given (`{}`): the net financial \
+                 position is gross debt less cash; list the other items, or give `[]` for none",
+                d.pointer
+            ),
+        );
     }
 }
 
@@ -872,7 +884,7 @@ mod tests {
     use super::*;
 
     fn ex() -> Explain {
-        Explain::new("test", "test")
+        Explain::new("test")
     }
 
     fn known(name: &'static str, v: i64) -> Given {

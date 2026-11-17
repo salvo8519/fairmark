@@ -39,6 +39,9 @@ input:
           non_current: '610000'
         total_sources: '1610000'
 expect:
-  /years/0/checks/total_sources_total/status: not_checked
   /years/0/form: reclassified
+expect_diagnostics:
+  /checks/11/status: not_checked
+  /checks/11/id: total_sources_total
+  /checks/11/pointer: /value/years/0
 tolerance: '0'
