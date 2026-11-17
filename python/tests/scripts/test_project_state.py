@@ -6,7 +6,7 @@ import importlib.util
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "scripts" / "project_state.py"
 _spec = importlib.util.spec_from_file_location("project_state", SCRIPT)
 ps = importlib.util.module_from_spec(_spec)  # type: ignore[arg-type]

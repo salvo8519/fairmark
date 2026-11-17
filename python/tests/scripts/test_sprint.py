@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "scripts" / "sprint.py"
 _spec = importlib.util.spec_from_file_location("sprint", SCRIPT)
 sp = importlib.util.module_from_spec(_spec)

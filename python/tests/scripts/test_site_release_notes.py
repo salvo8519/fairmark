@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 _spec = importlib.util.spec_from_file_location("docs_site", ROOT / "scripts/docs.py")
 assert _spec and _spec.loader
 docs_site = importlib.util.module_from_spec(_spec)

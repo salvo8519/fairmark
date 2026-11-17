@@ -15,7 +15,7 @@ from typing import Any
 import anyio
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "scripts" / "mcp_protocol_check.py"
 _spec = importlib.util.spec_from_file_location("mcp_protocol_check", SCRIPT)
 check = importlib.util.module_from_spec(_spec)  # type: ignore[arg-type]
