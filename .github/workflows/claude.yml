@@ -1,5 +1,6 @@
 # Mention @claude in an issue or PR comment to ask Claude Code to answer, review or
-# implement. Requires the ANTHROPIC_API_KEY repository secret.
+# implement. Requires the ANTHROPIC_API_KEY secret of the environment `anthropic`: every run
+# waits for the maintainer's approval (#376, docs/en/project/maintainers.md).
 name: Claude
 
 # Comments and issues come from anyone on a public repository: the job runs only for the
@@ -25,6 +26,8 @@ jobs:
         contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association))
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # The key is a secret of this environment; each run waits for the maintainer's approval.
+    environment: anthropic
     permissions:
       contents: write
       pull-requests: write

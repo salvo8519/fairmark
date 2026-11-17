@@ -1,11 +1,16 @@
 # Label a pull request `docs-sync` and Claude brings the documentation in line with the code,
 # following .agents/agents/docs-writer.md, and pushes a commit to the PR branch.
-# Requires the ANTHROPIC_API_KEY secret. Same-repository branches only (no forks).
+# Requires the ANTHROPIC_API_KEY secret of the environment `anthropic`: every run waits for the
+# maintainer's approval (#376). Same-repository branches only (no forks).
 name: Claude docs sync
 
 on:
   pull_request:
     types: [labeled]
+
+concurrency:
+  group: claude-docs-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
 
 permissions: {}
 
@@ -14,6 +19,8 @@ jobs:
     if: github.event.label.name == 'docs-sync' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # The key is a secret of this environment; each run waits for the maintainer's approval.
+    environment: anthropic
     permissions:
       contents: write
       pull-requests: write
@@ -24,7 +31,9 @@ jobs:
           # The action replaces checkout credentials with its own token before it pushes;
           # none stays on disk while the project builds from the pull request branch.
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.ref }}
+          # The commit the maintainer approved, not the branch: a push that lands after the
+          # approval is never built with the key (#376).
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
@@ -34,6 +43,8 @@ jobs:
           python-version: "3.13"
       - run: uv sync --locked --all-extras --group dev --group docs
       - uses: anthropics/claude-code-action@4fa93a88de49bbef68b10eb15aabedf28ca0e1ed # v1
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
@@ -43,7 +54,9 @@ jobs:
                `uv run python scripts/docs_sync.py coverage`; close every gap they report.
             2. Run `uv run just generate` and `uv run just docs`.
             3. Commit only documentation and generated files with a Conventional Commit
-               message `docs(<scope>): ...`, signed off, and push to the PR branch.
+               message `docs(<scope>): ...`, signed off, and push to the PR branch with
+               `git push origin "HEAD:refs/heads/$HEAD_REF"`. The checkout is the approved
+               commit; if the branch moved since, the push is refused: stop and report it.
             Follow the house style in AGENTS.md: no icons or emoji.
           claude_args: >-
             --max-turns 40
