@@ -128,6 +128,7 @@ nav = [
       "project/adr/0015-agent-memory-one-source-tiered-mirrors.md",
       "project/adr/0016-constitution-principle-unambiguous-and-transparent.md",
       "project/adr/0017-per-method-schema-manifests.md",
+      "project/adr/0018-sources-policy.md",
     ] },
   ] },
 ]
