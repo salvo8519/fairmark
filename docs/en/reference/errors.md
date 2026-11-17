@@ -77,9 +77,9 @@ hide a refused terminal growth, a refused `principal` does not hide a rate out o
   the method still run on the fields that were read, and their errors are reported with the
   reading errors: a `"+0.1"` for one rate does not hide a tax rate of -1. Each refused value is
   replaced by one its schema accepts only so that the input can be read, and that value never
-  decides an error that is reported: the value is refused where it is put, also when its error
-  is located elsewhere (a technique of `tv.compare` with two keys is replaced as a whole, so
-  nothing within it is reported beside the entry at its second key). Every error depends on
+  decides an error that is reported: the value is refused where it is put (a technique of
+  `tv.compare` with two keys is replaced as a whole, so nothing within it is reported beside its
+  `length` entry). Every error depends on
   known fields: its `pointer`, its
   `pointers` and the fields its check otherwise read (for example the projection of a stage,
   which decides the fields the stage takes). It is reported only when none of these is a
@@ -123,8 +123,12 @@ hide a refused terminal growth, a refused `principal` does not hide a rate out o
   `tv.compare`, `growth` and `timeline` of `series.project`): a key that is not one of the
   choices is `unknown_field` at the key, with the choices and the closest one, also next to a
   valid key; when it is the only key (`{"tv.godon": {...}}`), that is the only entry, with no
-  `length` for the choice it leaves empty. No key, or a second key that is one of the choices,
-  is `length` (at the object, or at the second key), with the choices in `expected`.
+  `length` for the choice it leaves empty. No key is `length` at the object, with the choices in
+  `expected`. Two keys or more of the choices are one entry, `length` at the object, whose
+  message names the keys found in alphabetical order (for example `(got 2 keys: tv.gordon,
+  tv.h_model)`), with the choices in `expected`, whatever the keys hold: the choice is refused as
+  a whole and nothing within it is reported, in every method and in any order of the keys
+  (decision of 2026-11-17 on issue #370; the DCF terminal reported `conflict` before).
 - **Analyses.** The fields of the analysis and its `base_input` are checked in one pass:
   `base_input` is checked by the method it names, through the validation alone of that method
   (every check of its input, nothing computed), and its input errors are reported under

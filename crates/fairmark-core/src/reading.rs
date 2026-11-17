@@ -809,7 +809,13 @@ fn reading_errors(
                 _ => None,
             })
             .collect(),
-        poisoned: Vec::new(),
+        poisoned: findings
+            .iter()
+            .filter_map(|f| match f {
+                Finding::Keys { tokens, .. } => Some(tokens.clone()),
+                _ => None,
+            })
+            .collect(),
         duplicates: duplicate_keys(text),
     };
     let mut errors = Vec::new();
@@ -817,7 +823,9 @@ fn reading_errors(
     let mut reads = true;
     if let Some((error, tokens)) = first {
         let (error, tokens, reason) = scope.locate(error, tokens, &value, &walk);
-        errors.push(error);
+        if !scope.hides(&tokens, reason, &value, &walk) {
+            errors.push(error);
+        }
         // Every other error `serde` raises, each as it raises it when it is the first: the
         // value at the error is repaired (the key removed, or a value the schema accepts put
         // in its place) and the input read again, until it reads (ADR 0014 G5).
@@ -848,6 +856,11 @@ fn reading_errors(
                 replaced.push(tokens.clone());
                 grammar_error(&tokens, &text)
             }
+            Finding::Keys {
+                tokens,
+                keys,
+                choices,
+            } => keys_error(&tokens, keys, choices),
         };
         errors.push(error);
     }
@@ -870,6 +883,14 @@ fn reading_errors(
     for error in errors {
         let error = renamed(error, &renames);
         let d = error.details();
+        // An error met before the reading found that its object is refused as a whole (a
+        // choice given two keys, read in the order of the keys) is dropped like those met after:
+        // the order of the keys of the input changes nothing.
+        if let Some(p) = &d.pointer {
+            if scope.hides(&tokens_of(p), d.reason, &value, &walk) {
+                continue;
+            }
+        }
         let key = (d.pointer.clone(), d.reason);
         if reported.contains(&key) {
             continue;
@@ -1028,6 +1049,17 @@ impl Scope {
         }
         let error = refine(error, &tokens, value, walk, &self.duplicates);
         let reason = error.details().reason;
+        // A choice given two keys or more is refused as a whole: nothing within it is read.
+        if reason == Some(Reason::Length) {
+            let at = tokens_of(&error.details().pointer.unwrap_or_default());
+            let node = value.pointer(&pointer(&at).unwrap_or_default());
+            if node
+                .and_then(Value::as_object)
+                .is_some_and(|m| m.len() >= 2)
+            {
+                self.poisoned.push(at);
+            }
+        }
         if matches!(reason, Some(Reason::Missing | Reason::Enum)) && walk.is_tag(&tokens, value) {
             if let Some((_, parent)) = tokens.split_last() {
                 self.poisoned.push(parent.to_vec());
@@ -1305,11 +1337,12 @@ fn refine(
                         .expected(choices)
                         .fix(fix);
                 }
-                let second = map.keys().nth(1).cloned().unwrap_or_default();
-                error.at(
-                    pointer(&join(&at_tokens, &second)).unwrap_or_default(),
-                    Reason::Length,
-                )
+                let keys: Vec<String> = map
+                    .keys()
+                    .filter(|k| choices.is_empty() || choices.contains(k))
+                    .cloned()
+                    .collect();
+                keys_error(&at_tokens, keys, choices)
             }
             _ => error,
         },
@@ -1426,23 +1459,38 @@ fn choice_error(at: &[String], node: &Value, choices: Vec<String>) -> FairmarkEr
                     &choices,
                 );
             }
-            let second = map.keys().nth(1).cloned().unwrap_or_default();
-            at_error(
-                &join(at, &second),
-                format!(
-                    "{} keys are given where one key is expected, {list}; keep one",
-                    map.len()
-                ),
-            )
-            .because(Reason::Length)
-            .expected(choices)
-            .fix("keep one key")
+            keys_error(at, map.keys().cloned().collect(), choices)
         }
         other => at_error(at, format!("invalid type: {}, {list}", unexpected(other)))
             .because(Reason::Enum)
             .expected(choices)
             .fix("use one of the values in `expected`"),
     }
+}
+
+/// A choice written as an object with one key, given two keys or more of the choice (ADR 0014
+/// G5, decision of 2026-11-17 on #370): one entry, `length` at the choice, naming the keys
+/// found in alphabetical order, so that the order of the keys of the input changes nothing.
+/// The same in every method, whatever the keys hold; nothing within the choice is reported.
+pub(crate) fn keys_error(
+    at: &[String],
+    mut keys: Vec<String>,
+    choices: Vec<String>,
+) -> FairmarkError {
+    keys.sort();
+    let list = one_of(&choices);
+    at_error(
+        at,
+        format!(
+            "{n} keys are given where exactly one key is expected (got {n} keys: {}), {list}; \
+             keep one",
+            keys.join(", "),
+            n = keys.len()
+        ),
+    )
+    .because(Reason::Length)
+    .expected(choices)
+    .fix("keep one key")
 }
 
 /// "expected `a`", "expected `a` or `b`", "expected one of `a`, `b`, `c`", as `serde` words it.
@@ -1739,6 +1787,13 @@ enum Finding {
     Positional { tokens: Vec<String> },
     /// A decimal written as a string outside the grammar of the schema.
     Grammar { tokens: Vec<String>, text: String },
+    /// A choice that `serde` reads as an object of optional fields (`maxProperties` 1, the
+    /// terminal of the DCF) given two keys or more of the choice.
+    Keys {
+        tokens: Vec<String>,
+        keys: Vec<String>,
+        choices: Vec<String>,
+    },
 }
 
 /// What an object schema allows: its named properties, whether it is closed, and the schema of
@@ -1943,10 +1998,28 @@ impl UnknownKeys<'_> {
             return;
         };
         let (allowed, listed) = fields(&shape);
+        // A choice of optional fields given two of them is refused as a whole, without reading
+        // what the keys hold.
+        let keys: Vec<String> = map
+            .keys()
+            .filter(|k| shape.properties.contains_key(*k))
+            .cloned()
+            .collect();
+        let refused =
+            schema.get("maxProperties").and_then(Value::as_u64) == Some(1) && keys.len() >= 2;
+        if refused {
+            self.found.push(Finding::Keys {
+                tokens: at.clone(),
+                keys,
+                choices: shape.properties.keys().cloned().collect(),
+            });
+        }
         for (key, value) in map {
             at.push(key.clone());
             if let Some(sub) = shape.properties.get(key) {
-                self.node(sub, value, at);
+                if !refused {
+                    self.node(sub, value, at);
+                }
             } else if shape.closed {
                 self.found.push(Finding::Unknown {
                     tokens: at.clone(),
@@ -2358,7 +2431,8 @@ mod tests {
             .map(|f| match f {
                 Finding::Unknown { tokens, .. }
                 | Finding::Positional { tokens }
-                | Finding::Grammar { tokens, .. } => (tokens, ()),
+                | Finding::Grammar { tokens, .. }
+                | Finding::Keys { tokens, .. } => (tokens, ()),
             })
             .collect()
     }

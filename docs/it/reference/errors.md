@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: 6c2f8bea5a60
+source_hash: 5fde8e734055
 ---
 # Codici di errore
 
@@ -86,9 +86,8 @@ terminale rifiutata, un `principal` rifiutato non nasconde un tasso fuori interv
   riportati insieme a quelli di lettura: un `"+0.1"` in un tasso non nasconde un'aliquota di -1.
   Ogni valore rifiutato è sostituito da uno che lo schema accetta solo per poter leggere
   l'input, e quel valore non decide mai un errore riportato: il valore è rifiutato dove viene
-  messo, anche quando il suo errore è collocato altrove (una tecnica di `tv.compare` con due
-  chiavi è sostituita per intero, quindi nulla al suo interno è riportato oltre alla voce sulla
-  seconda chiave). Ogni errore dipende da campi
+  messo (una tecnica di `tv.compare` con due chiavi è sostituita per intero, quindi nulla al suo
+  interno è riportato oltre alla sua voce `length`). Ogni errore dipende da campi
   noti: il suo `pointer`, i suoi `pointers` e i campi che il suo controllo ha letto in altro
   modo (per esempio la proiezione di uno stadio, che decide i campi che lo stadio accetta).
   Viene riportato solo quando nessuno di essi è un campo rifiutato, un campo al suo interno o
@@ -137,8 +136,13 @@ terminale rifiutata, un `principal` rifiutato non nasconde un tasso fuori interv
   `tv.compare`, `growth` e `timeline` di `series.project`): una chiave che non è tra le scelte è
   `unknown_field` sulla chiave, con le scelte e la più vicina, anche accanto a una chiave
   valida; quando è l'unica chiave (`{"tv.godon": {...}}`), è l'unica voce, senza `length` per
-  la scelta che lascia vuota. Nessuna chiave, o una seconda chiave che è tra le scelte, è
-  `length` (sull'oggetto, o sulla seconda chiave), con le scelte in `expected`.
+  la scelta che lascia vuota. Nessuna chiave è `length` sull'oggetto, con le scelte in
+  `expected`. Due o più chiavi tra le scelte sono una sola voce, `length` sull'oggetto, il cui
+  messaggio indica le chiavi trovate in ordine alfabetico (per esempio `(got 2 keys: tv.gordon,
+  tv.h_model)`), con le scelte in `expected`, qualunque sia il loro contenuto: la scelta è
+  rifiutata per intero e nulla al suo interno è riportato, in ogni metodo e in qualsiasi ordine
+  delle chiavi (decisione del 2026-11-17 sulla issue #370; prima il terminal del DCF riportava
+  `conflict`).
 - **Analisi.** I campi dell'analisi e il suo `base_input` sono controllati in un solo
   passaggio: `base_input` è controllato dal metodo che indica, con la sola validazione di quel
   metodo (ogni controllo del suo input, nessun calcolo), e i suoi errori di input sono

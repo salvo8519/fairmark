@@ -758,26 +758,14 @@ pub(crate) fn choose(t: &Terminal) -> Result<TerminalChoice<'_>> {
         .at("/terminal", Reason::Length)
         .expected(TERMINAL_OPTIONS)),
         [one] => Ok(*one),
-        many => {
-            let ids: Vec<&str> = many.iter().map(|t| t.id()).collect();
-            let option = |t: &TerminalChoice<'_>| !matches!(t, TerminalChoice::Technique(_));
-            // The text for techniques only is kept as it was before Decision 24.
-            if many.iter().any(option) {
-                return Err(invalid(format!(
-                    "`/terminal` names {} terminal options ({}); give exactly one terminal \
-                     option: a `tv.*` technique, `given` (a terminal value at N) or `none`",
-                    ids.len(),
-                    ids.join(", ")
-                ))
-                .at("/terminal", Reason::Conflict));
-            }
-            Err(invalid(format!(
-                "`/terminal` names {} techniques ({}); give exactly one terminal technique",
-                ids.len(),
-                ids.join(", ")
-            ))
-            .at("/terminal", Reason::Conflict))
-        }
+        // Two options or more: one entry, `length` at the choice, as for every choice written
+        // as an object with one key (ADR 0014 G5, decision of 2026-11-17 on #370). The JSON
+        // reading reports it first; this is the same entry for an input built in code.
+        many => Err(crate::reading::keys_error(
+            &["terminal".to_owned()],
+            many.iter().map(|t| t.id().to_owned()).collect(),
+            TERMINAL_OPTIONS.iter().map(|o| (*o).to_owned()).collect(),
+        )),
     }
 }
 

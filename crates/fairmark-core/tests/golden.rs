@@ -671,19 +671,23 @@ fn choice_objects(
     }
 }
 
-/// ADR 0014 G5 (declared reads; found with issue #370): a value read in place of a refused one
-/// never decides a reported error. On every golden input that succeeds, each choice written as
-/// an object with one key is given a second key of the same choice, with an empty object: the
-/// input is refused, and no entry of the report names a field within the first key, whose
-/// terms were valid as given. For an analysis, the choices of its `base_input`, read by the
-/// method it names, are given the second key.
+/// ADR 0014 G5 (declared reads; found with issue #370): a choice written as an object with one
+/// key and given two is reported the same way in every method, whatever its keys contain: one
+/// entry, `length` at the choice, whose message names the keys found; nothing within the
+/// choice is reported, since the value read in its place decides nothing. On every golden input
+/// that succeeds, each such choice (the DCF terminal, the techniques of `tv.compare`, growth and
+/// timeline of `series.project`, destination and split of `statements.reorganise`; for an
+/// analysis, those of its `base_input`) is given a second key of the same choice, holding an
+/// empty object, the terms of the first key or a number: the report is that entry alone, and
+/// the same with the keys of every object reversed.
 #[test]
-fn a_choice_with_two_keys_reports_nothing_within_the_valid_key() {
+fn a_choice_with_two_keys_is_one_length_entry() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
     let mut files = Vec::new();
     golden_files(&root, &mut files);
     files.sort();
     let (mut checked, mut failures) = (0, Vec::new());
+    let mut methods = std::collections::BTreeSet::new();
     for file in &files {
         let case: Case = serde_norway::from_str(&std::fs::read_to_string(file).unwrap()).unwrap();
         if case.expect_error.is_some() {
@@ -703,33 +707,49 @@ fn a_choice_with_two_keys_reports_nothing_within_the_valid_key() {
             &mut objects,
         );
         for (at, key, other) in objects {
-            let mut input = case.input.clone();
-            input.pointer_mut(&at).unwrap()[other.as_str()] = serde_json::json!({});
-            let Err(e) = fairmark_core::run(&case.method, &input.to_string()) else {
-                failures.push(format!(
-                    "{} {at}: {key} and {other} accepted",
-                    file.display()
-                ));
-                continue;
-            };
-            checked += 1;
-            let valid = format!("{at}/{}", key.replace('~', "~0").replace('/', "~1"));
-            let within = |p: &String| *p == valid || p.starts_with(&format!("{valid}/"));
-            let report = e.to_report();
-            let wrong: Vec<String> = report
-                .errors
-                .iter()
-                .filter(|x| x.pointer.iter().chain(&x.pointers).any(within))
-                .map(|x| format!("{:?} {}", x.pointer, x.message))
-                .collect();
-            if !wrong.is_empty() {
-                failures.push(format!(
-                    "{} {at} ({key} + {other}):\n  {}",
-                    file.display(),
-                    wrong.join("\n  ")
-                ));
+            let terms = case.input.pointer(&at).unwrap()[key.as_str()].clone();
+            for content in [serde_json::json!({}), terms, serde_json::json!(1)] {
+                let mut input = case.input.clone();
+                input.pointer_mut(&at).unwrap()[other.as_str()] = content.clone();
+                let entries = match fairmark_core::run(&case.method, &input.to_string()) {
+                    Ok(_) => vec!["accepted".to_owned()],
+                    Err(e) => e
+                        .to_report()
+                        .errors
+                        .iter()
+                        .map(|x| format!("{:?} {:?} {}", x.pointer, x.reason, x.message))
+                        .collect(),
+                };
+                checked += 1;
+                methods.insert(inner.to_owned());
+                // The order of the keys, of the choice and of every other object, changes
+                // nothing (principle I).
+                let reversed = permuted_keys(&input, &mut |n| (0..n).rev().collect());
+                if received(&case.method, &reversed) != received(&case.method, &input) {
+                    failures.push(format!("{} {at}: depends on the key order", file.display()));
+                }
+                let one = entries.len() == 1
+                    && entries[0].starts_with(&format!("Some({at:?}) Some(Length) "))
+                    && entries[0].contains(key.as_str())
+                    && entries[0].contains(other.as_str());
+                if !one {
+                    failures.push(format!(
+                        "{} {at} ({key} + {other}: {content}):\n  {}",
+                        file.display(),
+                        entries.join("\n  ")
+                    ));
+                }
             }
         }
+    }
+    for m in [
+        "dcf.fcff",
+        "dcf.fcfe",
+        "tv.compare",
+        "series.project",
+        "statements.reorganise",
+    ] {
+        assert!(methods.contains(m), "no choice of {m} checked: {methods:?}");
     }
     assert!(checked > 30, "{checked}");
     assert!(failures.is_empty(), "{}", failures.join("\n"));

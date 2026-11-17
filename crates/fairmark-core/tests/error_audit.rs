@@ -59,7 +59,7 @@ fn a_wrong_kind_of_value_for_a_choice_is_named_with_its_values() {
 }
 
 #[test]
-fn a_single_key_choice_with_two_keys_names_the_extra_key() {
+fn a_single_key_choice_with_two_keys_names_the_keys() {
     let mut input = series();
     input["growth"]["x"] = json!(1);
     let r = report("series.project", &input);
@@ -68,8 +68,16 @@ fn a_single_key_choice_with_two_keys_names_the_extra_key() {
     let mut input = series();
     input["growth"]["per_period"] = json!({"growth_rates": ["0.1"]});
     let r = report("series.project", &input);
-    assert_eq!(r["pointer"], "/growth/per_period", "{r:#}");
+    // Decision of 2026-11-17 on #370: one entry at the choice, naming the keys found.
+    assert_eq!(pointers_of(&r), ["/growth"], "{r:#}");
     assert_eq!(r["reason"], "length");
+    assert!(
+        r["message"]
+            .as_str()
+            .unwrap()
+            .contains("(got 2 keys: constant, per_period)"),
+        "{r:#}"
+    );
 }
 
 #[test]
@@ -181,15 +189,22 @@ fn technique_entries_name_their_keys() {
     let mut two = base.clone();
     two["techniques"][0]["tv.liquidation"] = base["techniques"][6]["tv.liquidation"].clone();
     let r = report("tv.compare", &two);
-    assert_eq!(r["pointer"], "/techniques/0/tv.liquidation", "{r:#}");
+    // One entry, `length` at the entry, naming the keys found (decision of 2026-11-17 on
+    // #370). The entry is refused as a whole: the value read in its place decides no error,
+    // so the terms of `tv.gordon`, valid as given, are not reported (G5, declared reads).
+    assert_eq!(pointers_of(&r), ["/techniques/0"], "{r:#}");
     assert_eq!(r["reason"], "length");
-    // The entry is refused as a whole: the value read in its place decides no error, so the
-    // terms of `tv.gordon`, valid as given, are not reported (G5, declared reads).
-    assert_eq!(pointers_of(&r), ["/techniques/0/tv.liquidation"], "{r:#}");
+    assert!(
+        r["message"]
+            .as_str()
+            .unwrap()
+            .contains("(got 2 keys: tv.gordon, tv.liquidation)"),
+        "{r:#}"
+    );
     let mut gordon = base.clone();
     gordon["techniques"][0]["tv.h_model"] = json!({});
     let r = report("tv.compare", &gordon);
-    assert_eq!(pointers_of(&r), ["/techniques/0/tv.h_model"], "{r:#}");
+    assert_eq!(pointers_of(&r), ["/techniques/0"], "{r:#}");
 }
 
 /// Audit 9: a misspelt key of a single-key choice is an unknown field at the key, with the
