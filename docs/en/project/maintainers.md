@@ -62,8 +62,19 @@ These cannot be set from the code and are listed here so that they are not forgo
 | Rules, Rulesets for `main` | Ruleset "Protect main", active, no bypass, target the default branch: restrict deletions; require linear history; require a pull request with 0 approvals and squash as the only merge method; require the status checks listed in `.github/required-checks.txt`, without requiring branches to be up to date; block force pushes |
 | Advanced Security | Dependency graph (required by Dependency review), Dependabot alerts and security updates, secret scanning and push protection: all enabled. CodeQL runs from `security.yml`, so leave "default setup" off |
 | Pages | Source: GitHub Actions |
+| General, Features | Discussions: on, with the categories Q&A, Ideas, Methodology and Announcements (Announcements: maintainers only). `GOVERNANCE.md`, `CONTRIBUTING.md` and the telemetry proposal send readers there |
+| Labels | Only the labels declared in `roadmap/roadmap.yaml`; delete any other (see Labels below) |
 | Actions, General | Workflow permissions: read repository contents; allow Actions to create pull requests only if needed |
 | Environments | `anthropic` for the AI workflows (below); `fairmark-app`, `pypi` and `crates-io` as described in [Releases](releases.md) |
+
+### Labels
+
+Labels are declared in `roadmap/roadmap.yaml`, with their colours, like the rest of the plan.
+`scripts/bootstrap_github.py` creates the declared labels that are missing. GitHub ignores a
+label that does not exist, without an error: an issue template, a labeler rule or a workflow
+that names one would silently do nothing, so a test (`python/tests/scripts/test_labels.py`)
+fails when a label named in `.github/` is not declared. A label on GitHub that is not declared
+is deleted by the maintainer.
 
 ### AI workflows: one approval per run
 
