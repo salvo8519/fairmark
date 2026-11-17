@@ -469,8 +469,8 @@ fn goal_seek() -> Value {
     json!({
         "method": "tvm.npv",
         "base_input": {"rate": "0.1", "cash_flows": [-100, 60, 60]},
-        "variable": "/rate",
-        "output": "/npv",
+        "variable_pointer": "/rate",
+        "output_pointer": "/npv",
         "target": "0",
         "bracket": ["0.01", "0.5"]
     })
@@ -497,11 +497,19 @@ fn inner_errors_are_located_under_base_input() {
 #[test]
 fn analysis_fields_are_named() {
     let mut input = goal_seek();
-    input["variable"] = json!("/nope");
-    assert_eq!(report("analysis.goal_seek", &input)["pointer"], "/variable");
+    input["variable_pointer"] = json!("/nope");
+    let r = report("analysis.goal_seek", &input);
+    assert_eq!(
+        (r["code"].as_str(), r["pointer"].as_str()),
+        (Some("FM-E015"), Some("/variable_pointer"))
+    );
     let mut input = goal_seek();
-    input["output"] = json!("npv");
-    assert_eq!(report("analysis.goal_seek", &input)["pointer"], "/output");
+    input["output_pointer"] = json!("npv");
+    let r = report("analysis.goal_seek", &input);
+    assert_eq!(
+        (r["code"].as_str(), r["pointer"].as_str()),
+        (Some("FM-E015"), Some("/output_pointer"))
+    );
     let mut input = goal_seek();
     input["method"] = json!("tvm.nope");
     let r = report("analysis.goal_seek", &input);
@@ -522,8 +530,8 @@ fn tornado_and_scenarios_name_their_entries() {
     let tornado = json!({
         "method": "tvm.npv",
         "base_input": {"rate": "0.1", "cash_flows": [-100, 60, 60]},
-        "output": "/npv",
-        "variables": [{"variable": "/rate", "low": "0.2", "high": "0.1"}]
+        "output_pointer": "/npv",
+        "variables": [{"variable_pointer": "/rate", "low": "0.2", "high": "0.1"}]
     });
     let r = report("analysis.tornado", &tornado);
     assert_eq!(r["pointer"], "/variables/0/low");
@@ -533,18 +541,18 @@ fn tornado_and_scenarios_name_their_entries() {
     );
     let mut dup = tornado.clone();
     dup["variables"] = json!([
-        {"variable": "/rate", "low": "0.05", "high": "0.1"},
-        {"variable": "/rate", "low": "0.05", "high": "0.1"}
+        {"variable_pointer": "/rate", "low": "0.05", "high": "0.1"},
+        {"variable_pointer": "/rate", "low": "0.05", "high": "0.1"}
     ]);
     let r = report("analysis.tornado", &dup);
-    assert_eq!(r["pointer"], "/variables/1/variable");
+    assert_eq!(r["pointer"], "/variables/1/variable_pointer");
     assert_eq!(r["reason"], "duplicate");
 
     let scenarios = |names: [&str; 2]| {
         json!({
             "method": "tvm.npv",
             "base_input": {"rate": "0.1", "cash_flows": [-100, 60, 60]},
-            "outputs": ["/npv"],
+            "output_pointers": ["/npv"],
             "scenarios": [
                 {"name": names[0], "overrides": [{"pointer": "/rate", "value": "0.2"}]},
                 {"name": names[1], "overrides": [{"pointer": "/rate", "value": "0.3"}]}

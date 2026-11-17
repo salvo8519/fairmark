@@ -145,7 +145,7 @@ def test_numeric_looking_text_stays_text() -> None:
         cases=[("2025", {"/rate": "0.05"}), ("2026", {"/rate": "-1"})],
     )
     first, failed = r.value["scenarios"]
-    assert first["name"] == "2025" and first["value"][0]["output"] == "/npv"
+    assert first["name"] == "2025" and first["value"][0]["output_pointer"] == "/npv"
     assert isinstance(first["value"][0]["delta"], Decimal)
     assert failed["name"] == "2026" and failed["error"]["code"] == "FM-E003"
     assert r.value["inner_method"] == {"id": "tvm.npv", "version": "2"}
@@ -181,7 +181,8 @@ def test_numbers_in_an_input_held_in_a_result_are_read_exactly() -> None:
         "analysis.goal_seek",
         '{"method": "tvm.npv", "base_input": {"rate": 0.05, "cash_flows": '
         "[-1000.10000000000000000001, 300, 400, 500]}, "
-        '"variable": "/rate", "output": "/npv", "target": "0", "bracket": ["0", "1"]}',
+        '"variable_pointer": "/rate", "output_pointer": "/npv", "target": "0", '
+        '"bracket": ["0", "1"]}',
     )
     flow = seek.value["solved_input"]["cash_flows"][0]
     assert flow == Decimal("-1000.10000000000000000001") and isinstance(flow, Decimal)

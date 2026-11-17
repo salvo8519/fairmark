@@ -6,8 +6,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    base_case, base_value, output, pointer, recorded, unique, with_values, BaseInput, Inner,
-    InnerMethod, Outcome,
+    base_case, base_value, output, pointer, recorded, report_base_warnings, unique, with_values,
+    BaseInput, Inner, InnerMethod, Outcome,
 };
 use crate::error::{FairmarkError, Found, Result};
 use crate::explain::Explain;
@@ -45,6 +45,7 @@ pub struct ScenariosInput {
     pub base_input: BaseInput,
     /// RFC 6901 JSON Pointers to the decimal outputs to report, in the `value` of the inner
     /// result, for example `["/enterprise_value", "/equity_value"]`; at least one, no repeats.
+    #[serde(rename = "output_pointers")]
     pub outputs: Vec<String>,
     /// The cases, evaluated in this order; at least one.
     pub scenarios: Vec<Scenario>,
@@ -53,7 +54,8 @@ pub struct ScenariosInput {
 /// One output of the base case.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct BaseOutput {
-    /// The output pointer.
+    /// RFC 6901 JSON Pointer to the output, in the `value` of the inner result.
+    #[serde(rename = "output_pointer")]
     pub output: String,
     /// Its value for `base_input` unchanged, in the output's units.
     pub value: Decimal,
@@ -62,7 +64,8 @@ pub struct BaseOutput {
 /// One output of a scenario, compared with the base case.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct ScenarioOutput {
-    /// The output pointer.
+    /// RFC 6901 JSON Pointer to the output, in the `value` of the inner result.
+    #[serde(rename = "output_pointer")]
     pub output: String,
     /// Its value in the scenario, in the output's units.
     pub value: Decimal,
@@ -105,8 +108,8 @@ fn check(input: &ScenariosInput) -> Result<Inner> {
     let base = base_value(&input.base_input);
     if input.outputs.is_empty() {
         found.push(
-            FairmarkError::InvalidInput("outputs is empty".to_owned())
-                .at("/outputs", crate::error::Reason::Length),
+            FairmarkError::InvalidInput("output_pointers is empty".to_owned())
+                .at("/output_pointers", crate::error::Reason::Length),
         );
     }
     if input.scenarios.is_empty() {
@@ -118,10 +121,12 @@ fn check(input: &ScenariosInput) -> Result<Inner> {
     found.check(unique(
         "output",
         input.outputs.iter().map(String::as_str),
-        |k| format!("/outputs/{k}"),
+        |k| format!("/output_pointers/{k}"),
     ));
     for (k, o) in input.outputs.iter().enumerate() {
-        found.check(pointer::check_syntax(o).map_err(|e| e.located(format!("/outputs/{k}"))));
+        found.check(
+            pointer::check_syntax(o).map_err(|e| e.located(format!("/output_pointers/{k}"))),
+        );
     }
     for (i, s) in input.scenarios.iter().enumerate() {
         if s.name.trim().is_empty() || s.name.trim() != s.name {
@@ -170,7 +175,9 @@ pub fn scenarios(input: &ScenariosInput) -> Result<(ScenariosOutput, Explain)> {
     inner.reserve(input.scenarios.len() as u64 + 1, &base)?;
 
     let pointers: Vec<&str> = input.outputs.iter().map(String::as_str).collect();
-    let base_outputs = base_case(&mut inner, &base, &pointers, |k| format!("/outputs/{k}"))?;
+    let (base_outputs, base_diagnostics) = base_case(&mut inner, &base, &pointers, |k| {
+        format!("/output_pointers/{k}")
+    })?;
     let mut ex = Explain::new(
         "delta = output(scenario) − output(base); relative delta = delta / output(base)",
     );
@@ -200,7 +207,9 @@ pub fn scenarios(input: &ScenariosInput) -> Result<(ScenariosOutput, Explain)> {
                     .outputs
                     .iter()
                     .enumerate()
-                    .map(|(k, o)| output(&value, o).map_err(|e| e.located(format!("/outputs/{k}"))))
+                    .map(|(k, o)| {
+                        output(&value, o).map_err(|e| e.located(format!("/output_pointers/{k}")))
+                    })
                     .collect::<Result<Vec<_>>>()?;
                 let compared = input
                     .outputs
@@ -261,6 +270,7 @@ pub fn scenarios(input: &ScenariosInput) -> Result<(ScenariosOutput, Explain)> {
         inner.info().version
     ));
     inner.warn_if_preview(&mut ex);
+    report_base_warnings(&mut ex, &base_diagnostics);
     ex.convention("evaluation order: base case, then the scenarios in the order given");
     ex.convention("inputs a scenario does not change keep their base value");
     ex.convention("relative delta is null when the base output is zero");
@@ -304,7 +314,7 @@ impl Method for Scenarios {
     const DESCRIPTION: &'static str =
         "Outputs of any method under named sets of input changes, with deltas and relative \
         deltas against the base case; a scenario the method refuses is recorded.";
-    const VERSION: &'static str = "1";
+    const VERSION: &'static str = "2";
     type Input = ScenariosInput;
     type Output = ScenariosOutput;
 
@@ -337,7 +347,7 @@ mod tests {
                            "wacc": "0.09", "timing": "end_of_period",
                            "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}},
                            "net_financial_position": {"gross_debt": 50, "cash": 0}},
-            "outputs": ["/enterprise_value", "/equity_value"],
+            "output_pointers": ["/enterprise_value", "/equity_value"],
             "scenarios": [
                 {"name": "low", "overrides": [{"pointer": "/wacc", "value": "0.12"}]},
                 {"name": "bad", "overrides": [{"pointer": "/terminal/tv.gordon/growth", "value": "0.2"}]}
@@ -372,7 +382,7 @@ mod tests {
         let r = json!({
             "method": "tvm.npv",
             "base_input": {"rate": "0", "cash_flows": [format!("-{max}")]},
-            "outputs": ["/npv"],
+            "output_pointers": ["/npv"],
             "scenarios": [
                 {"name": "huge", "overrides": [{"pointer": "/cash_flows/0", "value": max}]},
                 {"name": "small", "overrides": [{"pointer": "/cash_flows/0", "value": "-1"}]}
@@ -391,18 +401,18 @@ mod tests {
             ("/scenarios/0/name", json!(" "), "FM-E001"),
             ("/scenarios/0/name", json!("low "), "FM-E001"),
             (
-                "/outputs",
+                "/output_pointers",
                 json!(["/equity_value", "/equity_value"]),
                 "FM-E001",
             ),
-            ("/outputs", json!([]), "FM-E001"),
+            ("/output_pointers", json!([]), "FM-E001"),
             ("/scenarios", json!([]), "FM-E001"),
             (
                 "/scenarios/0/overrides/0/pointer",
                 json!("/nope"),
                 "FM-E015",
             ),
-            ("/outputs", json!(["/periods"]), "FM-E015"),
+            ("/output_pointers", json!(["/periods"]), "FM-E015"),
             ("/method", json!("analysis.scenarios"), "FM-E017"),
         ] {
             let mut r = request();

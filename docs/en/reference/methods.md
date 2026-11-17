@@ -594,7 +594,7 @@ Tests financial covenants on the numerator and denominator defined by the loan a
 
 ## `analysis.goal_seek`
 
-**Goal seek** · method version 1 · status available · tool `fairmark_analysis_goal_seek`
+**Goal seek** · method version 2 · status available · tool `fairmark_analysis_goal_seek`
 
 Value of one decimal input of any method at which one of its outputs equals a target, found with Brent's method in an explicit bracket; every evaluation is reported.
 
@@ -602,8 +602,8 @@ Value of one decimal input of any method at which one of its outputs equals a ta
 | --- | --- | --- | --- | --- |
 | `method` | string | yes |  | Id of the method to evaluate, for example `dcf.fcff`. Analysis methods are not accepted. |
 | `base_input` | object | yes |  | Input of that method, complete, including the variable at any starting value. |
-| `variable` | string | yes |  | RFC 6901 JSON Pointer to the decimal input to solve for, for example `/discount_rate`. |
-| `output` | string | yes |  | RFC 6901 JSON Pointer to the decimal output of the method, in its `value`, for example `/enterprise_value`. |
+| `variable_pointer` | string | yes |  | RFC 6901 JSON Pointer to the decimal input to solve for, for example `/discount_rate`. |
+| `output_pointer` | string | yes |  | RFC 6901 JSON Pointer to the decimal output of the method, in its `value`, for example `/enterprise_value`. |
 | `target` | decimal | yes |  | Value the output must reach, in the output's units. |
 | `bracket` | list of decimal | yes |  | `[low, high]`, low < high: the variable is searched in this interval, and the output minus the target must change sign between its ends (or meet the tolerance at one end). |
 | `tolerance` | decimal | no | `"0.000000001"` | Absolute tolerance on the output, in the output's units, greater than 0. Default: 0.000000001. |
@@ -611,7 +611,7 @@ Value of one decimal input of any method at which one of its outputs equals a ta
 
 ## `analysis.sensitivity`
 
-**Sensitivity table** · method version 1 · status available · tool `fairmark_analysis_sensitivity`
+**Sensitivity table** · method version 2 · status available · tool `fairmark_analysis_sensitivity`
 
 One output of any method across a one-way or two-way table of input values, with the base case; a combination the method refuses is recorded in its cell.
 
@@ -619,13 +619,13 @@ One output of any method across a one-way or two-way table of input values, with
 | --- | --- | --- | --- | --- |
 | `method` | string | yes |  | Id of the method to evaluate, for example `dcf.fcff`. Analysis methods are not accepted. |
 | `base_input` | object | yes |  | Input of that method, complete: the base case. |
-| `output` | string | yes |  | RFC 6901 JSON Pointer to the decimal output reported in each cell, in the `value` of the inner result, for example `/enterprise_value`. |
+| `output_pointer` | string | yes |  | RFC 6901 JSON Pointer to the decimal output reported in each cell, in the `value` of the inner result, for example `/enterprise_value`. |
 | `rows` | object | yes |  | The variable that changes along the rows, and its values. |
 | `columns` |  | no |  | Optional second variable, along the columns, different from the row variable. Absent: a one-way table (one column). |
 
 ## `analysis.scenarios`
 
-**Scenario analysis** · method version 1 · status available · tool `fairmark_analysis_scenarios`
+**Scenario analysis** · method version 2 · status available · tool `fairmark_analysis_scenarios`
 
 Outputs of any method under named sets of input changes, with deltas and relative deltas against the base case; a scenario the method refuses is recorded.
 
@@ -633,12 +633,12 @@ Outputs of any method under named sets of input changes, with deltas and relativ
 | --- | --- | --- | --- | --- |
 | `method` | string | yes |  | Id of the method to evaluate, for example `dcf.fcff`. Analysis methods are not accepted. |
 | `base_input` | object | yes |  | Input of that method, complete: the base case. |
-| `outputs` | list of string | yes |  | RFC 6901 JSON Pointers to the decimal outputs to report, in the `value` of the inner result, for example `["/enterprise_value", "/equity_value"]`; at least one, no repeats. |
+| `output_pointers` | list of string | yes |  | RFC 6901 JSON Pointers to the decimal outputs to report, in the `value` of the inner result, for example `["/enterprise_value", "/equity_value"]`; at least one, no repeats. |
 | `scenarios` | list of object | yes |  | The cases, evaluated in this order; at least one. |
 
 ## `analysis.tornado`
 
-**Tornado** · method version 1 · status available · tool `fairmark_analysis_tornado`
+**Tornado** · method version 2 · status available · tool `fairmark_analysis_tornado`
 
 Which inputs move one output of any method the most: each input varied alone between explicit low and high values, ranked by the absolute swing of the output.
 
@@ -646,5 +646,5 @@ Which inputs move one output of any method the most: each input varied alone bet
 | --- | --- | --- | --- | --- |
 | `method` | string | yes |  | Id of the method to evaluate, for example `dcf.fcff`. Analysis methods are not accepted. |
 | `base_input` | object | yes |  | Input of that method, complete: the base case. Each variable is changed alone, the others keep their base values. |
-| `output` | string | yes |  | RFC 6901 JSON Pointer to the decimal output to rank, in the `value` of the inner result, for example `/equity_value`. |
+| `output_pointer` | string | yes |  | RFC 6901 JSON Pointer to the decimal output to rank, in the `value` of the inner result, for example `/equity_value`. |
 | `variables` | list of object | yes |  | The inputs to vary; at least one. |

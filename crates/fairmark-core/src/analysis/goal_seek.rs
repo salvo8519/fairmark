@@ -7,11 +7,15 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{base_value, output, pointer, sorted, BaseInput, Inner, InnerMethod};
+use crate::diagnostics::Diagnostics;
 use crate::error::{FairmarkError, Found, Result};
 use crate::explain::Explain;
 use crate::method::Method;
 use crate::num::sub;
 use crate::solver::{brent, Point};
+
+/// Where the inner value is in the result, the root of the pointers of the solved evaluation.
+const INNER_VALUE: &str = "/value/inner_value";
 
 /// Default absolute tolerance on the output.
 pub const DEFAULT_TOLERANCE: &str = "0.000000001";
@@ -35,9 +39,11 @@ pub struct GoalSeekInput {
     /// Input of that method, complete, including the variable at any starting value.
     pub base_input: BaseInput,
     /// RFC 6901 JSON Pointer to the decimal input to solve for, for example `/discount_rate`.
+    #[serde(rename = "variable_pointer")]
     pub variable: String,
     /// RFC 6901 JSON Pointer to the decimal output of the method, in its `value`, for example
     /// `/enterprise_value`.
+    #[serde(rename = "output_pointer")]
     pub output: String,
     /// Value the output must reach, in the output's units.
     pub target: Decimal,
@@ -119,12 +125,12 @@ fn check(input: &GoalSeekInput) -> Result<Inner> {
         Some(inner) => found.take(
             inner
                 .check_variable(&base, &input.variable)
-                .map_err(|e| e.located("/variable")),
+                .map_err(|e| e.located("/variable_pointer")),
         ),
         // A refused method is reported alone: its variables are not checked against it.
         None => None,
     };
-    found.check(pointer::check_syntax(&input.output).map_err(|e| e.located("/output")));
+    found.check(pointer::check_syntax(&input.output).map_err(|e| e.located("/output_pointer")));
     let needed = 2 + u64::from(input.max_iterations);
     match (&inner, variable) {
         // The base input as the search first evaluates it: with the variable at the low end.
@@ -151,14 +157,17 @@ pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
 
     // One entry per evaluation, in the order of the solver's trace: (output, inner value).
     let mut values: Vec<(Decimal, Value)> = Vec::new();
+    // The diagnostics of the last evaluation, the solved one (SPEC-0012 R14).
+    let mut solved = Diagnostics::default();
     let root = brent(
         |x| {
             let mut candidate = base.clone();
             pointer::write_decimal(&mut candidate, &input.variable, x)
-                .map_err(|e| e.located("/variable"))?;
-            let value = inner.evaluate(&candidate)?;
-            let y = output(&value, &input.output).map_err(|e| e.located("/output"))?;
+                .map_err(|e| e.located("/variable_pointer"))?;
+            let (value, diagnostics) = inner.evaluate_reported(&candidate)?;
+            let y = output(&value, &input.output).map_err(|e| e.located("/output_pointer"))?;
             values.push((y, value));
+            solved = diagnostics;
             sub(y, input.target)
         },
         low,
@@ -174,7 +183,7 @@ pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
     }
     let mut solved_input = base.clone();
     pointer::write_decimal(&mut solved_input, &input.variable, root.x)
-        .map_err(|e| e.located("/variable"))?;
+        .map_err(|e| e.located("/variable_pointer"))?;
     // Keys sorted, so the result does not depend on the order in which the caller wrote them.
     let solved_input = sorted(&solved_input);
     let outputs: Vec<Decimal> = values.iter().map(|(y, _)| *y).collect();
@@ -208,6 +217,24 @@ pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
         inner.info().version
     ));
     inner.warn_if_preview(&mut ex);
+    // SPEC-0012 R14, decision 9: the diagnostics of the solved evaluation, reported once, input
+    // pointers under `/base_input`, result pointers under `/value/inner_value`.
+    for w in &solved.warnings {
+        let w = w.nested("/base_input", Some(INNER_VALUE));
+        ex.warn(w.code, w.pointer, w.message);
+    }
+    ex.not_computed(
+        solved
+            .not_computed
+            .iter()
+            .map(|e| e.nested("/base_input", INNER_VALUE)),
+    );
+    ex.checks(
+        solved
+            .checks
+            .iter()
+            .map(|c| c.nested("/base_input", INNER_VALUE)),
+    );
     ex.convention(
         "root finding: Brent's method (inverse quadratic interpolation, secant, bisection)",
     );
@@ -271,7 +298,7 @@ impl Method for GoalSeek {
     const DESCRIPTION: &'static str =
         "Value of one decimal input of any method at which one of its outputs equals a target, \
         found with Brent's method in an explicit bracket; every evaluation is reported.";
-    const VERSION: &'static str = "1";
+    const VERSION: &'static str = "2";
     type Input = GoalSeekInput;
     type Output = GoalSeekOutput;
 
@@ -300,7 +327,7 @@ mod tests {
         json!({
             "method": "tvm.npv",
             "base_input": {"rate": "0.05", "cash_flows": [-1000, 300, 400, 500]},
-            "variable": "/rate", "output": "/npv", "target": "0", "bracket": ["0", "1"]
+            "variable_pointer": "/rate", "output_pointer": "/npv", "target": "0", "bracket": ["0", "1"]
         })
     }
 
@@ -332,9 +359,9 @@ mod tests {
         r["method"] = json!("x.y");
         assert_eq!(code(r), "FM-E007");
         for (field, pointer) in [
-            ("variable", "/missing"),
-            ("variable", "rate"),
-            ("output", "/present_values"),
+            ("variable_pointer", "/missing"),
+            ("variable_pointer", "rate"),
+            ("output_pointer", "/present_values"),
         ] {
             let mut r = npv_request();
             r[field] = json!(pointer);
@@ -358,7 +385,7 @@ mod tests {
     fn key_order_and_number_spelling_do_not_change_the_result() {
         let a = run(npv_request()).unwrap();
         let reordered = json!({
-            "bracket": ["0", "1"], "target": "0", "output": "/npv", "variable": "/rate",
+            "bracket": ["0", "1"], "target": "0", "output_pointer": "/npv", "variable_pointer": "/rate",
             "base_input": {"cash_flows": [-1000, 300, 400, 500], "rate": "0.05"},
             "method": "tvm.npv"
         });

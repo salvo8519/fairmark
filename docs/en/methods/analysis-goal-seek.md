@@ -92,8 +92,8 @@ assert abs(r.solution - Decimal("0.107373099787207080")) < Decimal("0.0000000000
 same = fm.run("analysis.goal_seek", {
     "method": "dcf.fcff",
     "base_input": base,
-    "variable": "/wacc",
-    "output": "/enterprise_value",
+    "variable_pointer": "/wacc",
+    "output_pointer": "/enterprise_value",
     "target": "1300",
     "bracket": ["0.05", "0.5"],
 })
@@ -115,8 +115,8 @@ interpolation steps) with the rate, the enterprise value and the residual of eac
 | --- | --- | --- |
 | `method` | Id of the method to evaluate, for example `dcf.fcff`; analysis methods are not accepted | required |
 | `base_input` | Input of that method, complete, exactly as the method accepts it, including the variable at any starting value | required |
-| `variable` | RFC 6901 JSON Pointer to the decimal input to solve for, in `base_input`, for example `/discount_rate` or `/cash_flows/0` | required |
-| `output` | RFC 6901 JSON Pointer to the decimal output, in the `value` of the inner result, for example `/enterprise_value` | required |
+| `variable_pointer` | RFC 6901 JSON Pointer to the decimal input to solve for, in `base_input`, for example `/discount_rate` or `/cash_flows/0` | required |
+| `output_pointer` | RFC 6901 JSON Pointer to the decimal output, in the `value` of the inner result, for example `/enterprise_value` | required |
 | `target` | Value the output must reach, in the output's units | required |
 | `bracket` | `[low, high]` with low < high: the interval searched for the variable, in the variable's units | required |
 | `tolerance` | Absolute tolerance on the output, in the output's units, greater than 0 | `0.000000001` |
@@ -152,6 +152,12 @@ The steps list one entry per evaluation, labelled `Evaluation k (bracket end)`, 
 `(secant)` or `(inverse quadratic interpolation)`, with the variable, the output and the
 residual substituted, then a final `Solution` step.
 
+Version 2 (SPEC-0012) names the pointer fields `variable_pointer` and `output_pointer`. The
+diagnostics of the solved evaluation (the one that gives `inner_value`) are reported once:
+`diagnostics.not_computed`, `warnings` and `checks`, their result pointers under
+`/value/inner_value`, their input pointers under `/base_input`; with the warning FM-W016 when the
+evaluated method is preview.
+
 ## Conventions (explicit, reported in `explain.conventions`)
 
 | Convention | Value | Default |
@@ -178,11 +184,11 @@ The last convention reported is the number of evaluations of the inner method.
 | `FM-E007` | `method` names no registered method |
 | `FM-E013` | The output minus the target has the same sign at both ends of the bracket and neither end meets the tolerance; the message reports both values |
 | `FM-E014` | The tolerance was not met within `max_iterations`, or the output jumps across the target; the message reports the closest evaluation and the interval that still brackets the target |
-| `FM-E015` | `variable` does not resolve to a decimal in `base_input`, or `output` does not resolve to a decimal in the inner result; the message names the pointer |
+| `FM-E015` | `variable_pointer` does not resolve to a decimal in `base_input`, or `output_pointer` does not resolve to a decimal in the inner result; the message names the pointer |
 | `FM-E016` | The request would exceed 10,000 inner evaluations; goal seek needs at most 1,002, so this code concerns the other analysis methods |
 | `FM-E017` | `method` names an analysis method |
 
-`variable` is checked before any evaluation, `output` on the first one. `base_input` is also
+`variable_pointer` is checked before any evaluation, `output_pointer` on the first one. `base_input` is also
 checked before any evaluation, with the variable at the low end of the bracket, by the
 validation alone of the inner method (every check of its input, nothing computed); its input
 errors are reported under `/base_input` with the other errors of the request. The value of the

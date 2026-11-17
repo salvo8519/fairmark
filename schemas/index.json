@@ -2,7 +2,7 @@
   "format": 1,
   "methods": {
     "analysis.goal_seek": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "analysis.goal_seek/v1.json",
@@ -10,11 +10,18 @@
           "output_file": "analysis.goal_seek/v1.output.json",
           "output_sha256": "97dda701376a2672de743d118632f9d791978d385fba0f983a64cd30801d98a1",
           "sha256": "5459dabe66dc9234feed55398e319ebfb2f816a41ebe88e4f19cd32f00f45cf2"
+        },
+        "2": {
+          "file": "analysis.goal_seek/v2.json",
+          "introduced_in": "unreleased",
+          "output_file": "analysis.goal_seek/v2.output.json",
+          "output_sha256": "a6895aca42d0e33387eb6070a6d0b5186972831795443060562aaa241c33290b",
+          "sha256": "7a9374b39b73592a03dec563fa7b1bb9c6003120561256c0d6414fba92db244d"
         }
       }
     },
     "analysis.scenarios": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "analysis.scenarios/v1.json",
@@ -22,11 +29,18 @@
           "output_file": "analysis.scenarios/v1.output.json",
           "output_sha256": "7c0af51c1357823d330dddb9f47a6577ff29befb38618b8a3e8ec843e08b4d26",
           "sha256": "cb66bb4298bdf2fd2b4584737190182141122b969d6be7175c1bda231905cabc"
+        },
+        "2": {
+          "file": "analysis.scenarios/v2.json",
+          "introduced_in": "unreleased",
+          "output_file": "analysis.scenarios/v2.output.json",
+          "output_sha256": "d95b27867764452a31e3d84c403efcb974f74986adcb0bf3b95be24ee071e5bf",
+          "sha256": "4d68b33c3954094efd83d524128254b652f9b0409633cbea3105a8eadde04ce4"
         }
       }
     },
     "analysis.sensitivity": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "analysis.sensitivity/v1.json",
@@ -34,11 +48,18 @@
           "output_file": "analysis.sensitivity/v1.output.json",
           "output_sha256": "33dd92f99de389e9c6570b3597bcda6d7378a2162e4cb135ed9444b243b6aa4f",
           "sha256": "0a0656e61b1bcd20262ea836996e8d965761f2116796f6e22b371ee0bc0eb1b4"
+        },
+        "2": {
+          "file": "analysis.sensitivity/v2.json",
+          "introduced_in": "unreleased",
+          "output_file": "analysis.sensitivity/v2.output.json",
+          "output_sha256": "b8f2a4bb5384d22d373b697e841dcbffdd3dd41570b7f3de1d4bde61ae4a34be",
+          "sha256": "cbecc1e1125cff1579ec8e9b4f5a677994d56505a878d12a1ff02132e8d6b291"
         }
       }
     },
     "analysis.tornado": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "analysis.tornado/v1.json",
@@ -46,6 +67,13 @@
           "output_file": "analysis.tornado/v1.output.json",
           "output_sha256": "7f2214e5fe8064d64af2403aba9738104715bd5f2f5555031d605710192833c6",
           "sha256": "2727a053838eb8761e489b543b981c36eb65dc2f8863df8b05edbd59d3df9504"
+        },
+        "2": {
+          "file": "analysis.tornado/v2.json",
+          "introduced_in": "unreleased",
+          "output_file": "analysis.tornado/v2.output.json",
+          "output_sha256": "978f4eb1bdfcf4e5bbd1491e8031a3e7040bf80e79d21ae756fe2d8a0e226c06",
+          "sha256": "bb6d63f2bb3773c8e153885e6ab8b73f9f336d89ce79d3e29cc7e5c8ad26d9c1"
         }
       }
     },

@@ -15,8 +15,8 @@ input:
     timing: end_of_period
     terminal: {"tv.gordon": {growth: "0.02", first_flow: last_flow_grown}}
     net_financial_position: {gross_debt: 200, cash: 0}
-  variable: /wacc
-  output: /enterprise_value
+  variable_pointer: /wacc
+  output_pointer: /enterprise_value
   target: "1300"
   bracket: ["0.05", "0.5"]
 expect:

@@ -25,7 +25,6 @@ fn warnings(out: &Value) -> &Vec<Value> {
 /// AC12: a table of 5 × 1 evaluations reports the warning of its base evaluation once, at the
 /// pointer of the field in the analysis input, echoed once.
 #[test]
-#[ignore = "SPEC-0012: enabled by T15, analyses v2"]
 fn a_table_reports_the_warnings_of_its_base_evaluation_once() {
     let out = run(
         "analysis.sensitivity",
@@ -59,7 +58,6 @@ fn a_table_reports_the_warnings_of_its_base_evaluation_once() {
 /// AC12: goal seek on a ratio method reports the outputs the solved evaluation did not compute,
 /// under the inner value, with the missing inputs under `/base_input`.
 #[test]
-#[ignore = "SPEC-0012: enabled by T15, analyses v2"]
 fn goal_seek_reports_the_diagnostics_of_the_solved_evaluation() {
     let out = run(
         "analysis.goal_seek",
@@ -97,7 +95,6 @@ fn goal_seek_reports_the_diagnostics_of_the_solved_evaluation() {
 /// R14: goal seek reports the warnings of the solved evaluation once, input pointers under
 /// `/base_input`, result pointers under `/value/inner_value`.
 #[test]
-#[ignore = "SPEC-0012: enabled by T15, analyses v2"]
 fn goal_seek_reports_the_warnings_of_the_solved_evaluation() {
     let out = run(
         "analysis.goal_seek",

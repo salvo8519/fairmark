@@ -6,7 +6,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    base_case, base_value, output, pointer, unique, with_values, BaseInput, Inner, InnerMethod,
+    base_case, base_value, output, pointer, report_base_warnings, unique, with_values, BaseInput,
+    Inner, InnerMethod,
 };
 use crate::error::{FairmarkError, Found, Result};
 use crate::explain::Explain;
@@ -19,6 +20,7 @@ use crate::num::sub;
 pub struct TornadoVariable {
     /// RFC 6901 JSON Pointer to a decimal input of the inner method, for example
     /// `/discount_rate`. Variables do not repeat.
+    #[serde(rename = "variable_pointer")]
     pub variable: String,
     /// Low value of the input, in its units; lower than `high`.
     pub low: Decimal,
@@ -36,6 +38,7 @@ pub struct TornadoInput {
     pub base_input: BaseInput,
     /// RFC 6901 JSON Pointer to the decimal output to rank, in the `value` of the inner
     /// result, for example `/equity_value`.
+    #[serde(rename = "output_pointer")]
     pub output: String,
     /// The inputs to vary; at least one.
     pub variables: Vec<TornadoVariable>,
@@ -44,7 +47,8 @@ pub struct TornadoInput {
 /// One bar of the tornado.
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct TornadoBar {
-    /// The input varied.
+    /// RFC 6901 JSON Pointer to the input varied, in the base input.
+    #[serde(rename = "variable_pointer")]
     pub variable: String,
     /// Low value of the input.
     pub low: Decimal,
@@ -65,7 +69,8 @@ pub struct TornadoBar {
 pub struct TornadoOutput {
     /// The method evaluated, at the version run.
     pub inner_method: InnerMethod,
-    /// The output ranked.
+    /// RFC 6901 JSON Pointer to the output ranked, in the `value` of the inner result.
+    #[serde(rename = "output_pointer")]
     pub output: String,
     /// The output for `base_input` unchanged, in the output's units.
     pub base: Decimal,
@@ -89,10 +94,10 @@ fn check(input: &TornadoInput) -> Result<Inner> {
     found.check(unique(
         "variable",
         input.variables.iter().map(|v| v.variable.as_str()),
-        |k| format!("/variables/{k}/variable"),
+        |k| format!("/variables/{k}/variable_pointer"),
     ));
     for (k, v) in input.variables.iter().enumerate() {
-        let at = |e: FairmarkError| e.located(format!("/variables/{k}/variable"));
+        let at = |e: FairmarkError| e.located(format!("/variables/{k}/variable_pointer"));
         match &inner {
             Some(inner) => found.check(
                 inner
@@ -117,7 +122,7 @@ fn check(input: &TornadoInput) -> Result<Inner> {
             );
         }
     }
-    found.check(pointer::check_syntax(&input.output).map_err(|e| e.located("/output")));
+    found.check(pointer::check_syntax(&input.output).map_err(|e| e.located("/output_pointer")));
     if let Some(inner) = &inner {
         inner.check_input(&base, 2 * input.variables.len() as u64 + 1, &mut found);
     }
@@ -130,9 +135,11 @@ pub fn tornado(input: &TornadoInput) -> Result<(TornadoOutput, Explain)> {
     let base = base_value(&input.base_input);
     inner.reserve(2 * input.variables.len() as u64 + 1, &base)?;
 
-    let base_output = base_case(&mut inner, &base, &[input.output.as_str()], |_| {
-        "/output".to_owned()
-    })?[0];
+    let (base_outputs, base_diagnostics) =
+        base_case(&mut inner, &base, &[input.output.as_str()], |_| {
+            "/output_pointer".to_owned()
+        })?;
+    let base_output = base_outputs[0];
     let mut ex = Explain::new(
         "swing = output(variable at high) − output(variable at low), other inputs at base; \
         bars ranked by |swing|",
@@ -148,7 +155,7 @@ pub fn tornado(input: &TornadoInput) -> Result<(TornadoOutput, Explain)> {
         // R21: a failed evaluation leaves the ranking undefined, so its error is returned.
         let mut at = |x: Decimal| -> Result<Decimal> {
             let value = inner.evaluate(&with_values(&base, &[(v.variable.as_str(), x)])?)?;
-            output(&value, &input.output).map_err(|e| e.located("/output"))
+            output(&value, &input.output).map_err(|e| e.located("/output_pointer"))
         };
         let output_low = at(v.low)?;
         let output_high = at(v.high)?;
@@ -196,6 +203,7 @@ pub fn tornado(input: &TornadoInput) -> Result<(TornadoOutput, Explain)> {
         inner.info().version
     ));
     inner.warn_if_preview(&mut ex);
+    report_base_warnings(&mut ex, &base_diagnostics);
     ex.convention(format!("the bars measure {}", input.output));
     ex.convention("each variable is varied alone; the other inputs keep their base values");
     ex.convention("low and high values are given explicitly; no percentage shocks");
@@ -235,7 +243,7 @@ impl Method for Tornado {
     const DESCRIPTION: &'static str =
         "Which inputs move one output of any method the most: each input varied alone between \
         explicit low and high values, ranked by the absolute swing of the output.";
-    const VERSION: &'static str = "1";
+    const VERSION: &'static str = "2";
     type Input = TornadoInput;
     type Output = TornadoOutput;
 
@@ -268,10 +276,10 @@ mod tests {
                            "wacc": "0.09", "timing": "end_of_period",
                            "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}},
                            "net_financial_position": {"gross_debt": 50, "cash": 0}},
-            "output": "/equity_value",
+            "output_pointer": "/equity_value",
             "variables": [
-                {"variable": "/net_financial_position/gross_debt", "low": "40", "high": "60"},
-                {"variable": "/wacc", "low": "0.08", "high": "0.10"}
+                {"variable_pointer": "/net_financial_position/gross_debt", "low": "40", "high": "60"},
+                {"variable_pointer": "/wacc", "low": "0.08", "high": "0.10"}
             ]
         })
     }
@@ -279,9 +287,9 @@ mod tests {
     #[test]
     fn ranked_by_absolute_swing_with_signed_swing_kept() {
         let v = run(&request()).unwrap()["value"].clone();
-        assert_eq!(v["ranking"][0]["variable"], "/wacc");
+        assert_eq!(v["ranking"][0]["variable_pointer"], "/wacc");
         assert_eq!(
-            v["ranking"][1]["variable"],
+            v["ranking"][1]["variable_pointer"],
             "/net_financial_position/gross_debt"
         );
         let dec = |x: &Value| {
@@ -312,18 +320,18 @@ mod tests {
     fn invalid_requests_and_failed_evaluations_are_errors() {
         for (path, value, code) in [
             (
-                "/variables/1/variable",
+                "/variables/1/variable_pointer",
                 json!("/net_financial_position/gross_debt"),
                 "FM-E001",
             ),
             ("/variables/0/low", json!("60"), "FM-E001"),
             ("/variables", json!([]), "FM-E001"),
-            ("/variables/0/variable", json!("/timing"), "FM-E015"),
+            ("/variables/0/variable_pointer", json!("/timing"), "FM-E015"),
             ("/method", json!("analysis.goal_seek"), "FM-E017"),
             // R21: growth above the rate at the high end: the ranking is not defined.
             (
                 "/variables/1",
-                json!({"variable": "/terminal/tv.gordon/growth", "low": "0.01",
+                json!({"variable_pointer": "/terminal/tv.gordon/growth", "low": "0.01",
                                     "high": "0.2"}),
                 "FM-E004",
             ),

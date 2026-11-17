@@ -6,8 +6,8 @@ input:
   base_input:
     rate: "0.05"
     cash_flows: [-1000, 300, 400, 500]
-  variable: /cash_flows
-  output: /npv
+  variable_pointer: /cash_flows
+  output_pointer: /npv
   target: "0"
   bracket: ["0", "1"]
 expect_error: FM-E015

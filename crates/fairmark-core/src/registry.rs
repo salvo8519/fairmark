@@ -483,7 +483,7 @@ fn rounded_on_reading(id: &str, input_json: &str) -> Vec<(String, String)> {
                 // Goal seek replaces the value of its variable in `base_input`: that value is
                 // never used, so its rounding is not reported (final review of #279).
                 let replaced = (id == "analysis.goal_seek")
-                    .then(|| input["variable"].as_str())
+                    .then(|| input["variable_pointer"].as_str())
                     .flatten()
                     .map(|v| format!("/base_input{v}"));
                 found.extend(
@@ -589,8 +589,8 @@ mod tests {
             run(
                 "analysis.sensitivity",
                 &format!(
-                    r#"{{"method": "{method}", "base_input": {base}, "output": "{output}",
-                        "rows": {{"variable": "{variable}", "values": ["0.08", "0.09"]}}}}"#
+                    r#"{{"method": "{method}", "base_input": {base}, "output_pointer": "{output}",
+                        "rows": {{"variable_pointer": "{variable}", "values": ["0.08", "0.09"]}}}}"#
                 ),
             )
             .unwrap()
@@ -923,8 +923,8 @@ mod tests {
         let text = base.to_string();
         let values: Vec<String> = (0..40).map(|i| format!("0.0{}", 70 + i % 30)).collect();
         let request = serde_json::json!({
-            "method": "dcf.fcff", "base_input": base, "output": "/value_of_operations",
-            "rows": {"variable": "/wacc", "values": values}
+            "method": "dcf.fcff", "base_input": base, "output_pointer": "/value_of_operations",
+            "rows": {"variable_pointer": "/wacc", "values": values}
         })
         .to_string();
         (request, text)
@@ -1768,7 +1768,6 @@ mod tests {
     /// SPEC-0012 AC10 (R11, R12, R20): every property of every input schema and every result
     /// schema that holds a JSON pointer is named per ADR 0014 G4 as amended, with no exemption.
     #[test]
-    #[ignore = "SPEC-0012: enabled by T15, the last task that renames pointer fields"]
     fn every_pointer_field_follows_g4() {
         let mut misnamed = Vec::new();
         let mut seen = 0u32;

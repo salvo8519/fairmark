@@ -5,30 +5,30 @@ method: analysis.goal_seek
 extreme_inputs:
 - method: tvm.npv
   base_input: {rate: '0.1', cash_flows: ['-100', '60', '60']}
-  variable: /rate
-  output: /npv
+  variable_pointer: /rate
+  output_pointer: /npv
   target: MAX
   bracket: [MIN, MAX]
 - method: tvm.npv
   base_input: {rate: '0.1', cash_flows: [MAX, MIN, MAX]}
-  variable: /cash_flows/1
-  output: /npv
+  variable_pointer: /cash_flows/1
+  output_pointer: /npv
   target: '0'
   bracket: [MIN, MAX]
   tolerance: '0.0000000000000000000000000001'
   max_iterations: 1000
 - method: dcf.fcff
   base_input: {stages: [{periods: 1, projection: given, flows: ['100']}], cash_flow_terms: nominal, discount_rate_terms: nominal, wacc: '0.1', timing: end_of_period, terminal: {tv.gordon: {growth: '0.02', first_flow: last_flow_grown}}, net_financial_position: {gross_debt: '0', cash: '0'}}
-  variable: /wacc
-  output: /value_of_operations
+  variable_pointer: /wacc
+  output_pointer: /value_of_operations
   target: '1000'
   bracket: ['-0.99', MAX]
 conventions:
 - input:
     method: tvm.npv
     base_input: {rate: '0.1', cash_flows: ['-100', '60', '60']}
-    variable: /rate
-    output: /npv
+    variable_pointer: /rate
+    output_pointer: /npv
     target: '0'
     bracket: ['0', '1']
   expect:

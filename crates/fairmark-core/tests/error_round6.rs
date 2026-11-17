@@ -377,29 +377,29 @@ fn an_analysis_variable_is_not_checked_against_a_refused_value() {
         ),
     ] {
         let sensitivity = json!({
-            "method": "dcf.fcff", "base_input": base_input, "output": "/value_of_operations",
-            "rows": {"variable": "/wacc", "values": ["0.08", "0.09"]}
+            "method": "dcf.fcff", "base_input": base_input, "output_pointer": "/value_of_operations",
+            "rows": {"variable_pointer": "/wacc", "values": ["0.08", "0.09"]}
         });
         let r = report("analysis.sensitivity", &sensitivity);
         assert_eq!(entries(&r), expected, "sensitivity: {r:#}");
 
         let tornado = json!({
-            "method": "dcf.fcff", "base_input": base_input, "output": "/value_of_operations",
-            "variables": [{"variable": "/wacc", "low": "0.08", "high": "0.1"}]
+            "method": "dcf.fcff", "base_input": base_input, "output_pointer": "/value_of_operations",
+            "variables": [{"variable_pointer": "/wacc", "low": "0.08", "high": "0.1"}]
         });
         let r = report("analysis.tornado", &tornado);
         assert_eq!(entries(&r), expected, "tornado: {r:#}");
 
         let scenarios = json!({
-            "method": "dcf.fcff", "base_input": base_input, "outputs": ["/value_of_operations"],
+            "method": "dcf.fcff", "base_input": base_input, "output_pointers": ["/value_of_operations"],
             "scenarios": [{"name": "low", "overrides": [{"pointer": "/wacc", "value": "0.08"}]}]
         });
         let r = report("analysis.scenarios", &scenarios);
         assert_eq!(entries(&r), expected, "scenarios: {r:#}");
 
         let goal_seek = json!({
-            "method": "dcf.fcff", "base_input": base_input, "variable": "/wacc",
-            "output": "/value_of_operations", "target": "1000", "bracket": ["0.05", "0.2"]
+            "method": "dcf.fcff", "base_input": base_input, "variable_pointer": "/wacc",
+            "output_pointer": "/value_of_operations", "target": "1000", "bracket": ["0.05", "0.2"]
         });
         let r = report("analysis.goal_seek", &goal_seek);
         assert_eq!(entries(&r), expected, "goal seek: {r:#}");
@@ -410,12 +410,12 @@ fn an_analysis_variable_is_not_checked_against_a_refused_value() {
 fn an_analysis_variable_that_names_no_input_is_still_refused() {
     let base = golden_input("dcf.fcff/three-stage-given-linear-decline-gordon.yaml");
     let sensitivity = json!({
-        "method": "dcf.fcff", "base_input": base, "output": "/value_of_operations",
-        "rows": {"variable": "/nope", "values": ["0.08"]}
+        "method": "dcf.fcff", "base_input": base, "output_pointer": "/value_of_operations",
+        "rows": {"variable_pointer": "/nope", "values": ["0.08"]}
     });
     let r = report("analysis.sensitivity", &sensitivity);
     assert_eq!(r["code"], "FM-E015", "{r:#}");
-    assert_eq!(entries(&r)[0].0, "/rows/variable", "{r:#}");
+    assert_eq!(entries(&r)[0].0, "/rows/variable_pointer", "{r:#}");
 }
 
 // ------------------------------------------------- every named field can be acted on

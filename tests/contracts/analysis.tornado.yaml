@@ -5,22 +5,22 @@ method: analysis.tornado
 extreme_inputs:
 - method: tvm.npv
   base_input: {rate: '0.1', cash_flows: ['-100', '60', '60']}
-  output: /npv
+  output_pointer: /npv
   variables:
-  - {variable: /cash_flows/0, low: MIN, high: MAX}
-  - {variable: /rate, low: '-0.5', high: MAX}
+  - {variable_pointer: /cash_flows/0, low: MIN, high: MAX}
+  - {variable_pointer: /rate, low: '-0.5', high: MAX}
 - method: tvm.npv
   base_input: {rate: '0', cash_flows: [MAX, MAX]}
-  output: /npv
+  output_pointer: /npv
   variables:
-  - {variable: /cash_flows/1, low: MIN, high: MAX}
+  - {variable_pointer: /cash_flows/1, low: MIN, high: MAX}
 conventions:
 - input:
     method: tvm.npv
     base_input: {rate: '0.1', cash_flows: ['-100', '60', '60']}
-    output: /npv
+    output_pointer: /npv
     variables:
-    - {variable: /rate, low: '0.05', high: '0.15'}
+    - {variable_pointer: /rate, low: '0.05', high: '0.15'}
   expect:
   - inner method tvm.npv version 2
   - each variable is varied alone; the other inputs keep their base values

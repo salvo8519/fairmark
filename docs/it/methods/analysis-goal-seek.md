@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-goal-seek.md
-source_hash: b08389fc0121
+source_hash: 00713f5f305f
 ---
 # Ricerca obiettivo (`analysis.goal_seek`)
 
@@ -107,8 +107,8 @@ assert abs(r.solution - Decimal("0.107373099787207080")) < Decimal("0.0000000000
 same = fm.run("analysis.goal_seek", {
     "method": "dcf.fcff",
     "base_input": base,
-    "variable": "/wacc",
-    "output": "/enterprise_value",
+    "variable_pointer": "/wacc",
+    "output_pointer": "/enterprise_value",
     "target": "1300",
     "bracket": ["0.05", "0.5"],
 })
@@ -131,8 +131,8 @@ l'enterprise value e il residuo di ciascuna.
 | --- | --- | --- |
 | `method` | Identificativo del metodo da valutare, ad esempio `dcf.fcff`; i metodi di analisi non sono ammessi | obbligatorio |
 | `base_input` | Input completo di quel metodo, esattamente come il metodo lo accetta, compresa la variabile con un valore iniziale qualsiasi | obbligatorio |
-| `variable` | JSON Pointer RFC 6901 all'input decimale da determinare, in `base_input`, ad esempio `/discount_rate` o `/cash_flows/0` | obbligatorio |
-| `output` | JSON Pointer RFC 6901 all'output decimale, nel `value` del risultato interno, ad esempio `/enterprise_value` | obbligatorio |
+| `variable_pointer` | JSON Pointer RFC 6901 all'input decimale da determinare, in `base_input`, ad esempio `/discount_rate` o `/cash_flows/0` | obbligatorio |
+| `output_pointer` | JSON Pointer RFC 6901 all'output decimale, nel `value` del risultato interno, ad esempio `/enterprise_value` | obbligatorio |
 | `target` | Valore che l'output deve raggiungere, nell'unità di misura dell'output | obbligatorio |
 | `bracket` | `[low, high]` con low < high: l'intervallo di ricerca della variabile, nell'unità di misura della variabile | obbligatorio |
 | `tolerance` | Tolleranza assoluta sull'output, nell'unità di misura dell'output, maggiore di 0 | `0.000000001` |
@@ -168,6 +168,12 @@ I passaggi riportano una voce per ogni valutazione, con etichetta `Evaluation k 
 `(bisection)`, `(secant)` o `(inverse quadratic interpolation)`, con la variabile, l'output e
 il residuo sostituiti, seguita da un passaggio finale `Solution`.
 
+La versione 2 (SPEC-0012) chiama i campi pointer `variable_pointer` e `output_pointer`. La
+diagnostica della valutazione risolta (quella che dà `inner_value`) è riportata una sola volta:
+`diagnostics.not_computed`, `warnings` e `checks`, con i pointer del risultato sotto
+`/value/inner_value` e quelli degli input sotto `/base_input`; insieme all'avviso FM-W016 quando
+il metodo valutato è in anteprima.
+
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
 
 | Convenzione | Valore | Default |
@@ -194,11 +200,11 @@ L'ultima convenzione riportata è il numero di valutazioni del metodo interno.
 | `FM-E007` | `method` non corrisponde ad alcun metodo registrato |
 | `FM-E013` | L'output meno il valore obiettivo ha lo stesso segno a entrambi gli estremi dell'intervallo e nessuno dei due rispetta la tolleranza; il messaggio riporta entrambi i valori |
 | `FM-E014` | La tolleranza non è stata rispettata entro `max_iterations`, oppure l'output salta oltre il valore obiettivo; il messaggio riporta la valutazione più vicina e l'intervallo che contiene ancora il valore obiettivo |
-| `FM-E015` | `variable` non si risolve in un decimale in `base_input`, oppure `output` non si risolve in un decimale nel risultato interno; il messaggio indica il puntatore |
+| `FM-E015` | `variable_pointer` non si risolve in un decimale in `base_input`, oppure `output_pointer` non si risolve in un decimale nel risultato interno; il messaggio indica il puntatore |
 | `FM-E016` | La richiesta supererebbe 10.000 valutazioni del metodo interno; la ricerca obiettivo ne richiede al massimo 1.002, quindi questo codice riguarda gli altri metodi di analisi |
 | `FM-E017` | `method` indica un metodo di analisi |
 
-`variable` è verificato prima di qualsiasi valutazione, `output` alla prima. Anche `base_input`
+`variable_pointer` è verificato prima di qualsiasi valutazione, `output_pointer` alla prima. Anche `base_input`
 è verificato prima di qualsiasi valutazione, con la variabile all'estremo inferiore
 dell'intervallo, dalla sola validazione del metodo interno (ogni controllo del suo input,
 nessun calcolo); i suoi errori di input sono riportati sotto `/base_input` con gli altri

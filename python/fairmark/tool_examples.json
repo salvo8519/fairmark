@@ -13,8 +13,8 @@
             500
           ]
         },
-        "variable": "/rate",
-        "output": "/npv",
+        "variable_pointer": "/rate",
+        "output_pointer": "/npv",
         "target": "0",
         "bracket": [
           "0",
@@ -54,8 +54,8 @@
             "cash": 0
           }
         },
-        "variable": "/wacc",
-        "output": "/enterprise_value",
+        "variable_pointer": "/wacc",
+        "output_pointer": "/enterprise_value",
         "target": "1300",
         "bracket": [
           "0.05",
@@ -76,7 +76,7 @@
             110
           ]
         },
-        "outputs": [
+        "output_pointers": [
           "/npv"
         ],
         "scenarios": [
@@ -125,7 +125,7 @@
             "cash": 0
           }
         },
-        "outputs": [
+        "output_pointers": [
           "/enterprise_value",
           "/equity_value"
         ],
@@ -207,9 +207,9 @@
             "cash": 0
           }
         },
-        "output": "/enterprise_value",
+        "output_pointer": "/enterprise_value",
         "rows": {
-          "variable": "/wacc",
+          "variable_pointer": "/wacc",
           "values": [
             "0.07",
             "0.08",
@@ -253,9 +253,9 @@
             "cash": 0
           }
         },
-        "output": "/enterprise_value",
+        "output_pointer": "/enterprise_value",
         "rows": {
-          "variable": "/wacc",
+          "variable_pointer": "/wacc",
           "values": [
             "0.07",
             "0.08",
@@ -265,7 +265,7 @@
           ]
         },
         "columns": {
-          "variable": "/terminal/tv.gordon/growth",
+          "variable_pointer": "/terminal/tv.gordon/growth",
           "values": [
             "0",
             "0.01",
@@ -290,15 +290,15 @@
             60
           ]
         },
-        "output": "/npv",
+        "output_pointer": "/npv",
         "variables": [
           {
-            "variable": "/cash_flows/2",
+            "variable_pointer": "/cash_flows/2",
             "low": "59",
             "high": "61"
           },
           {
-            "variable": "/cash_flows/1",
+            "variable_pointer": "/cash_flows/1",
             "low": "49",
             "high": "51"
           }
@@ -338,25 +338,25 @@
             "cash": 0
           }
         },
-        "output": "/equity_value",
+        "output_pointer": "/equity_value",
         "variables": [
           {
-            "variable": "/net_financial_position/gross_debt",
+            "variable_pointer": "/net_financial_position/gross_debt",
             "low": "250",
             "high": "350"
           },
           {
-            "variable": "/stages/0/flows/0",
+            "variable_pointer": "/stages/0/flows/0",
             "low": "90",
             "high": "110"
           },
           {
-            "variable": "/terminal/tv.gordon/growth",
+            "variable_pointer": "/terminal/tv.gordon/growth",
             "low": "0.01",
             "high": "0.03"
           },
           {
-            "variable": "/wacc",
+            "variable_pointer": "/wacc",
             "low": "0.08",
             "high": "0.10"
           }

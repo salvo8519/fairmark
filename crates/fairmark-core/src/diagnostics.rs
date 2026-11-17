@@ -276,6 +276,80 @@ pub(crate) fn pointer_cmp(a: &str, b: &str) -> Ordering {
     a.split('/').map(key).cmp(b.split('/').map(key))
 }
 
+/// `pointer` written under `prefix`: an input pointer of an evaluated method under
+/// `/base_input`, a result pointer under `/value/inner_value` (R14).
+fn under(prefix: &str, pointer: &str) -> String {
+    format!("{prefix}{pointer}")
+}
+
+/// A result pointer of an evaluated method (`/value/...`), rebased under `inner`
+/// (`/value/inner_value`); `None` when it is not a result pointer.
+fn rebased(pointer: &str, inner: &str) -> Option<String> {
+    pointer
+        .strip_prefix("/value")
+        .filter(|rest| rest.is_empty() || rest.starts_with('/'))
+        .map(|rest| format!("{inner}{rest}"))
+}
+
+impl Warning {
+    /// The warning of an evaluated method as reported by the analysis that evaluated it (R14):
+    /// an input pointer under `input` (`/base_input`); a result pointer under `result`
+    /// (`/value/inner_value`) when the analysis returns the inner value, otherwise null, as the
+    /// catalogue states for the codes whose root is the result.
+    pub(crate) fn nested(&self, input: &str, result: Option<&str>) -> Self {
+        let pointer = self
+            .pointer
+            .as_deref()
+            .and_then(|p| match self.code.root() {
+                PointerRoot::Input => Some(under(input, p)),
+                PointerRoot::Envelope => result.and_then(|r| rebased(p, r)),
+            });
+        Self {
+            code: self.code,
+            pointer,
+            message: self.message.clone(),
+        }
+    }
+}
+
+impl NotComputed {
+    /// The entry of an evaluated method, result pointer under `result`, input pointers under
+    /// `input` (R14).
+    pub(crate) fn nested(&self, input: &str, result: &str) -> Self {
+        Self {
+            pointer: rebased(&self.pointer, result).unwrap_or_else(|| self.pointer.clone()),
+            reason_code: self.reason_code,
+            reason: self.reason.clone(),
+            missing_any_of: self
+                .missing_any_of
+                .iter()
+                .map(|set| set.iter().map(|p| under(input, p)).collect())
+                .collect(),
+            permitted: self
+                .permitted
+                .iter()
+                .map(|p| Permitted {
+                    pointer: under(input, &p.pointer),
+                    values: p.values.clone(),
+                })
+                .collect(),
+        }
+    }
+}
+
+impl Check {
+    /// The check of an evaluated method, result pointer under `result`, input pointers under
+    /// `input` (R14).
+    pub(crate) fn nested(&self, input: &str, result: &str) -> Self {
+        Self {
+            id: self.id.clone(),
+            status: self.status,
+            pointer: rebased(&self.pointer, result).unwrap_or_else(|| self.pointer.clone()),
+            pointers: self.pointers.iter().map(|p| under(input, p)).collect(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -321,6 +395,33 @@ mod tests {
             echo(WarningCode::RoundedOnReading, "m"),
             "warning FM-W001: m"
         );
+    }
+
+    #[test]
+    fn nested_pointers_are_rebased() {
+        let input = Warning {
+            code: WarningCode::NoNetFinancialPosition,
+            pointer: Some("/net_financial_position".into()),
+            message: "m".into(),
+        };
+        assert_eq!(
+            input.nested("/base_input", None).pointer.as_deref(),
+            Some("/base_input/net_financial_position")
+        );
+        let result = Warning {
+            code: WarningCode::NegativeEquityValue,
+            pointer: Some("/value/equity_value".into()),
+            message: "m".into(),
+        };
+        assert_eq!(result.nested("/base_input", None).pointer, None);
+        assert_eq!(
+            result
+                .nested("/base_input", Some("/value/inner_value"))
+                .pointer
+                .as_deref(),
+            Some("/value/inner_value/equity_value")
+        );
+        assert_eq!(rebased("/values", "/x"), None);
     }
 
     #[test]

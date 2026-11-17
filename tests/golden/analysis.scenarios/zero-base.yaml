@@ -8,7 +8,7 @@ input:
   base_input:
     rate: "0.10"
     cash_flows: [-100, 110]
-  outputs: [/npv]
+  output_pointers: [/npv]
   scenarios:
   - name: lower rate
     overrides:

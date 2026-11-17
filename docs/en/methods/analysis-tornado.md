@@ -55,13 +55,13 @@ t = fm.analysis.tornado(
 )
 print(t.base)  # 1485.9356357015730744749501235
 for bar in t.ranking:
-    print(bar["variable"], bar["swing"])
+    print(bar["variable_pointer"], bar["swing"])
 # /wacc -536.7420151241019796250302455
 # /terminal/tv.gordon/growth 413.2480397880313369436240625
 # /net_financial_position/gross_debt -100.0000000000000000000000000
 # /stages/0/flows/0 18.3486238532110091743119266
 
-assert [bar["variable"] for bar in t.ranking] == [
+assert [bar["variable_pointer"] for bar in t.ranking] == [
     "/wacc", "/terminal/tv.gordon/growth", "/net_financial_position/gross_debt", "/stages/0/flows/0",
 ]
 # Expected swings from an independent 50-digit computation (scripts/reference_analysis.py).
@@ -75,12 +75,12 @@ for bar, swing in zip(t.ranking, expected):
 same = fm.run("analysis.tornado", {
     "method": "dcf.fcff",
     "base_input": base,
-    "output": "/equity_value",
+    "output_pointer": "/equity_value",
     "variables": [
-        {"variable": "/net_financial_position/gross_debt", "low": "250", "high": "350"},
-        {"variable": "/stages/0/flows/0", "low": "90", "high": "110"},
-        {"variable": "/terminal/tv.gordon/growth", "low": "0.01", "high": "0.03"},
-        {"variable": "/wacc", "low": "0.08", "high": "0.10"},
+        {"variable_pointer": "/net_financial_position/gross_debt", "low": "250", "high": "350"},
+        {"variable_pointer": "/stages/0/flows/0", "low": "90", "high": "110"},
+        {"variable_pointer": "/terminal/tv.gordon/growth", "low": "0.01", "high": "0.03"},
+        {"variable_pointer": "/wacc", "low": "0.08", "high": "0.10"},
     ],
 })
 assert same.ranking == t.ranking
@@ -97,9 +97,9 @@ swing.
 | --- | --- | --- |
 | `method` | Id of the method to evaluate, for example `dcf.fcff`; analysis methods are not accepted | required |
 | `base_input` | Input of that method, complete, exactly as the method accepts it: the base case; each variable changes alone, the others keep their base values | required |
-| `output` | RFC 6901 JSON Pointer to the decimal output to rank, in the `value` of the inner result, for example `/equity_value` | required |
+| `output_pointer` | RFC 6901 JSON Pointer to the decimal output to rank, in the `value` of the inner result, for example `/equity_value` | required |
 | `variables` | The inputs to vary; at least one; pointers do not repeat | required |
-| `variables[].variable` | RFC 6901 JSON Pointer to a decimal input in `base_input`, for example `/discount_rate` | required |
+| `variables[].variable_pointer` | RFC 6901 JSON Pointer to a decimal input in `base_input`, for example `/discount_rate` | required |
 | `variables[].low` | Low value of the input, in its units, lower than `high` | required |
 | `variables[].high` | High value of the input, in its units | required |
 
@@ -112,13 +112,19 @@ its `(low, high)` pair; the mapping keeps its order.
 | Field | Meaning |
 | --- | --- |
 | `inner_method` | `id` and `version` of the method evaluated, at the version this engine ran |
-| `output` | The output pointer ranked |
+| `output_pointer` | The output pointer ranked |
 | `base` | The output for `base_input` unchanged, in the output's units |
 | `ranking` | The bars by decreasing `abs_swing`; equal swings keep the order of `variables` |
-| `ranking[].variable`, `low`, `high` | The input varied and its two values, as given |
+| `ranking[].variable_pointer`, `low`, `high` | The input varied and its two values, as given |
 | `ranking[].output_low`, `output_high` | The output with the input at `low` and at `high`, in the output's units |
 | `ranking[].swing` | `output_high − output_low`, in the output's units; negative when the output falls as the input rises |
 | `ranking[].abs_swing` | $\lvert$`swing`$\rvert$: the length of the bar and the ranking key |
+
+Version 2 (SPEC-0012) names every field that holds a pointer with the suffix `_pointer` or
+`_pointers`, in the input and in the output. The warnings of the evaluation of `base_input` are
+reported once in `diagnostics.warnings`, their input pointers under `/base_input`, with the
+warning FM-W016 when the evaluated method is preview; a cell keeps its compact error and adds no
+diagnostics.
 
 ## Conventions (explicit, reported in `explain.conventions`)
 
@@ -143,14 +149,14 @@ plus the base case.
 | --- | --- |
 | `FM-E001` | `variables` is empty, a variable repeats, low ≥ high, or a field is missing or unknown |
 | `FM-E007` | `method` names no registered method |
-| `FM-E015` | A variable does not resolve to a decimal in `base_input`, or `output` does not resolve to a decimal in the result of the base case; the message names the pointer |
+| `FM-E015` | A variable does not resolve to a decimal in `base_input`, or `output_pointer` does not resolve to a decimal in the result of the base case; the message names the pointer |
 | `FM-E016` | Two evaluations per variable plus the base case exceed 10,000 or the evaluations × values in `base_input` exceed 1,000,000; returned before the first evaluation |
 | `FM-E017` | `method` names an analysis method |
 
-Variable pointers, low and high, the syntax of `output` and `base_input` are checked before any
+Variable pointers, low and high, the syntax of `output_pointer` and `base_input` are checked before any
 evaluation, `base_input` by the validation alone of the inner method (every check of its input,
 nothing computed, its input errors reported under `/base_input`);
-`output` is resolved on the base case. Unlike tables and scenarios, an error of the inner method
+`output_pointer` is resolved on the base case. Unlike tables and scenarios, an error of the inner method
 at any evaluation, base case included, ends the request and is returned unchanged with its own
 code: a ranking with a missing bar is not defined. For example, a terminal growth high value at
 or above the discount rate of `dcf.fcff` returns `FM-E004`; choose low and high values at which

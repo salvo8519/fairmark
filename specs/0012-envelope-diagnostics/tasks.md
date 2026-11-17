@@ -48,7 +48,7 @@ its approved files and `verify` in the same commit, so every commit passes `just
 - [x] T14 Statements v2: checks and not computed into diagnostics with `pointer`, pointer fields
   renamed, `VERSION` = "2", `uv run just generate` (snapshots, index), golden migration of
   `tests/golden/statements.reorganise` [R5, R7, R12, R18; AC6, AC15, AC16]
-- [ ] T15 Analyses report nested diagnostics once; goal seek rebases the solved evaluation;
+- [x] T15 Analyses report nested diagnostics once; goal seek rebases the solved evaluation;
   pointer fields renamed on the input and the output side (decision 13), the four `VERSION` =
   "2", `uv run just generate`; golden migration of the `analysis.*` cases on the list [R12,
   R14, R18; AC10, AC12, AC15, AC16]

@@ -2,7 +2,9 @@
 
 The inner method is named by its id and receives ``base_input`` exactly as it would be passed
 to :func:`fairmark.run`. Variables and outputs are RFC 6901 JSON Pointers, for example
-``"/discount_rate"`` or ``"/enterprise_value"``.
+``"/discount_rate"`` or ``"/enterprise_value"``. The keyword arguments ``variable``, ``output``
+and ``outputs`` are sent as the input fields ``variable_pointer``, ``output_pointer`` and
+``output_pointers`` of the analyses (version 2, SPEC-0012).
 """
 
 from __future__ import annotations
@@ -44,8 +46,8 @@ def goal_seek(
     payload: dict[str, Any] = {
         "method": method,
         "base_input": dict(base_input),
-        "variable": variable,
-        "output": output,
+        "variable_pointer": variable,
+        "output_pointer": output,
         "target": target,
         "bracket": list(bracket),
     }
@@ -79,11 +81,11 @@ def sensitivity(
     payload: dict[str, Any] = {
         "method": method,
         "base_input": dict(base_input),
-        "output": output,
-        "rows": {"variable": rows[0], "values": list(rows[1])},
+        "output_pointer": output,
+        "rows": {"variable_pointer": rows[0], "values": list(rows[1])},
     }
     if columns is not None:
-        payload["columns"] = {"variable": columns[0], "values": list(columns[1])}
+        payload["columns"] = {"variable_pointer": columns[0], "values": list(columns[1])}
     return run("analysis.sensitivity", payload)
 
 
@@ -111,7 +113,7 @@ def scenarios(
     payload = {
         "method": method,
         "base_input": dict(base_input),
-        "outputs": list(outputs),
+        "output_pointers": list(outputs),
         "scenarios": [
             {"name": name, "overrides": [{"pointer": p, "value": v} for p, v in changes.items()]}
             for name, changes in (cases.items() if isinstance(cases, Mapping) else cases)
@@ -142,9 +144,9 @@ def tornado(
     payload = {
         "method": method,
         "base_input": dict(base_input),
-        "output": output,
+        "output_pointer": output,
         "variables": [
-            {"variable": p, "low": low, "high": high}
+            {"variable_pointer": p, "low": low, "high": high}
             for p, (low, high) in (
                 variables.items() if isinstance(variables, Mapping) else variables
             )

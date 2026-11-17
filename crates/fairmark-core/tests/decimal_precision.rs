@@ -140,8 +140,8 @@ fn an_analysis_names_the_pointer_under_base_input() {
     let input = json!({
         "method": "tvm.future_value",
         "base_input": {"payment": "2000", "rate": LONG, "periods": 35, "timing": "due"},
-        "output": "/future_value",
-        "rows": {"variable": "/payment", "values": ["1000", "2000"]}
+        "output_pointer": "/future_value",
+        "rows": {"variable_pointer": "/payment", "values": ["1000", "2000"]}
     });
     let result = run("analysis.sensitivity", &input.to_string()).unwrap();
     let w = warnings(&result);
@@ -367,8 +367,8 @@ fn goal_seek_does_not_warn_for_the_value_its_variable_replaces() {
     let input = json!({
         "method": "tvm.future_value",
         "base_input": {"payment": "2000", "rate": LONG, "periods": 35, "timing": "due"},
-        "variable": "/rate",
-        "output": "/future_value",
+        "variable_pointer": "/rate",
+        "output_pointer": "/future_value",
         "target": "80000",
         "bracket": ["0.001", "0.05"]
     });
