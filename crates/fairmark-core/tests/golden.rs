@@ -592,3 +592,145 @@ fn key_order_changes_neither_envelope_nor_error_report() {
     );
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+/// The key sets of every choice written as an object with one key in `schema`: an object with
+/// `maxProperties` 1, or a `oneOf` / `anyOf` whose branches are objects of one property.
+fn single_key_choices(schema: &serde_json::Value) -> Vec<Vec<String>> {
+    fn resolve<'a>(root: &'a serde_json::Value, n: &'a serde_json::Value) -> &'a serde_json::Value {
+        match n["$ref"].as_str().and_then(|r| r.strip_prefix("#/$defs/")) {
+            Some(name) => &root["$defs"][name],
+            None => n,
+        }
+    }
+    fn walk(root: &serde_json::Value, n: &serde_json::Value, out: &mut Vec<Vec<String>>) {
+        match n {
+            serde_json::Value::Object(map) => {
+                if map.get("maxProperties").and_then(serde_json::Value::as_u64) == Some(1) {
+                    if let Some(props) = map.get("properties").and_then(|p| p.as_object()) {
+                        out.push(props.keys().cloned().collect());
+                    }
+                }
+                for k in ["oneOf", "anyOf"] {
+                    let Some(branches) = map.get(k).and_then(|b| b.as_array()) else {
+                        continue;
+                    };
+                    let keys: Vec<String> = branches
+                        .iter()
+                        .map(|b| resolve(root, b))
+                        .filter_map(|b| {
+                            let props = b["properties"].as_object()?;
+                            (props.len() == 1).then(|| props.keys().next().unwrap().clone())
+                        })
+                        .collect();
+                    if keys.len() > 1 && keys.len() == branches.len() {
+                        out.push(keys);
+                    }
+                }
+                map.values().for_each(|v| walk(root, v, out));
+            }
+            serde_json::Value::Array(items) => items.iter().for_each(|v| walk(root, v, out)),
+            _ => {}
+        }
+    }
+    let mut out = Vec::new();
+    walk(schema, schema, &mut out);
+    out
+}
+
+/// The pointers of the objects of `v` written with one key that is a key of a choice, with the
+/// key and another key of the same choice.
+fn choice_objects(
+    v: &serde_json::Value,
+    at: String,
+    choices: &[Vec<String>],
+    out: &mut Vec<(String, String, String)>,
+) {
+    match v {
+        serde_json::Value::Object(map) => {
+            if map.len() == 1 {
+                let key = map.keys().next().unwrap();
+                if let Some(other) = choices
+                    .iter()
+                    .filter(|c| c.contains(key))
+                    .find_map(|c| c.iter().find(|k| *k != key))
+                {
+                    out.push((at.clone(), key.clone(), other.clone()));
+                }
+            }
+            for (k, x) in map {
+                let token = k.replace('~', "~0").replace('/', "~1");
+                choice_objects(x, format!("{at}/{token}"), choices, out);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for (i, x) in items.iter().enumerate() {
+                choice_objects(x, format!("{at}/{i}"), choices, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// ADR 0014 G5 (declared reads; found with issue #370): a value read in place of a refused one
+/// never decides a reported error. On every golden input that succeeds, each choice written as
+/// an object with one key is given a second key of the same choice, with an empty object: the
+/// input is refused, and no entry of the report names a field within the first key, whose
+/// terms were valid as given. For an analysis, the choices of its `base_input`, read by the
+/// method it names, are given the second key.
+#[test]
+fn a_choice_with_two_keys_reports_nothing_within_the_valid_key() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
+    let mut files = Vec::new();
+    golden_files(&root, &mut files);
+    files.sort();
+    let (mut checked, mut failures) = (0, Vec::new());
+    for file in &files {
+        let case: Case = serde_norway::from_str(&std::fs::read_to_string(file).unwrap()).unwrap();
+        if case.expect_error.is_some() {
+            continue;
+        }
+        let (inner, base) = if case.method.starts_with("analysis.") {
+            (case.input["method"].as_str().unwrap(), "/base_input")
+        } else {
+            (case.method.as_str(), "")
+        };
+        let choices = single_key_choices(&fairmark_core::input_schema(inner).unwrap());
+        let mut objects = Vec::new();
+        choice_objects(
+            case.input.pointer(base).unwrap(),
+            base.to_owned(),
+            &choices,
+            &mut objects,
+        );
+        for (at, key, other) in objects {
+            let mut input = case.input.clone();
+            input.pointer_mut(&at).unwrap()[other.as_str()] = serde_json::json!({});
+            let Err(e) = fairmark_core::run(&case.method, &input.to_string()) else {
+                failures.push(format!(
+                    "{} {at}: {key} and {other} accepted",
+                    file.display()
+                ));
+                continue;
+            };
+            checked += 1;
+            let valid = format!("{at}/{}", key.replace('~', "~0").replace('/', "~1"));
+            let within = |p: &String| *p == valid || p.starts_with(&format!("{valid}/"));
+            let report = e.to_report();
+            let wrong: Vec<String> = report
+                .errors
+                .iter()
+                .filter(|x| x.pointer.iter().chain(&x.pointers).any(within))
+                .map(|x| format!("{:?} {}", x.pointer, x.message))
+                .collect();
+            if !wrong.is_empty() {
+                failures.push(format!(
+                    "{} {at} ({key} + {other}):\n  {}",
+                    file.display(),
+                    wrong.join("\n  ")
+                ));
+            }
+        }
+    }
+    assert!(checked > 30, "{checked}");
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

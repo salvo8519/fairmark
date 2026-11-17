@@ -181,16 +181,15 @@ fn technique_entries_name_their_keys() {
     let mut two = base.clone();
     two["techniques"][0]["tv.liquidation"] = base["techniques"][6]["tv.liquidation"].clone();
     let r = report("tv.compare", &two);
-    let second = r["errors"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|e| e["pointer"] == "/techniques/0/tv.liquidation");
-    assert_eq!(
-        second.map(|e| &e["reason"]),
-        Some(&json!("length")),
-        "{r:#}"
-    );
+    assert_eq!(r["pointer"], "/techniques/0/tv.liquidation", "{r:#}");
+    assert_eq!(r["reason"], "length");
+    // The entry is refused as a whole: the value read in its place decides no error, so the
+    // terms of `tv.gordon`, valid as given, are not reported (G5, declared reads).
+    assert_eq!(pointers_of(&r), ["/techniques/0/tv.liquidation"], "{r:#}");
+    let mut gordon = base.clone();
+    gordon["techniques"][0]["tv.h_model"] = json!({});
+    let r = report("tv.compare", &gordon);
+    assert_eq!(pointers_of(&r), ["/techniques/0/tv.h_model"], "{r:#}");
 }
 
 /// Audit 9: a misspelt key of a single-key choice is an unknown field at the key, with the

@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: 57b921bbb8b2
+source_hash: 6c2f8bea5a60
 ---
 # Codici di errore
 
@@ -85,7 +85,10 @@ terminale rifiutata, un `principal` rifiutato non nasconde un tasso fuori interv
   controlli del metodo vengono eseguiti comunque sui campi letti, e i loro errori sono
   riportati insieme a quelli di lettura: un `"+0.1"` in un tasso non nasconde un'aliquota di -1.
   Ogni valore rifiutato è sostituito da uno che lo schema accetta solo per poter leggere
-  l'input, e quel valore non decide mai un errore riportato. Ogni errore dipende da campi
+  l'input, e quel valore non decide mai un errore riportato: il valore è rifiutato dove viene
+  messo, anche quando il suo errore è collocato altrove (una tecnica di `tv.compare` con due
+  chiavi è sostituita per intero, quindi nulla al suo interno è riportato oltre alla voce sulla
+  seconda chiave). Ogni errore dipende da campi
   noti: il suo `pointer`, i suoi `pointers` e i campi che il suo controllo ha letto in altro
   modo (per esempio la proiezione di uno stadio, che decide i campi che lo stadio accetta).
   Viene riportato solo quando nessuno di essi è un campo rifiutato, un campo al suo interno o

@@ -862,6 +862,11 @@ fn reading_errors(
     let mut reported: Vec<(Option<String>, Option<Reason>)> = Vec::new();
     let mut refused: Vec<String> = scope.poisoned.iter().filter_map(|t| pointer(t)).collect();
     refused.extend(renames.iter().map(|r| r.target.clone()));
+    // Every value put in place of a refused one is refused where it is put, which may hold the
+    // pointer of its error (a technique entry with two keys is replaced as a whole, its error
+    // located at the second key): no error within it is decided by the value put there.
+    refused.extend(repairs.iter().filter_map(|(t, _)| pointer(t)));
+    refused.extend(replaced.iter().filter_map(|t| pointer(t)));
     for error in errors {
         let error = renamed(error, &renames);
         let d = error.details();

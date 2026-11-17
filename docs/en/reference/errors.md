@@ -77,7 +77,10 @@ hide a refused terminal growth, a refused `principal` does not hide a rate out o
   the method still run on the fields that were read, and their errors are reported with the
   reading errors: a `"+0.1"` for one rate does not hide a tax rate of -1. Each refused value is
   replaced by one its schema accepts only so that the input can be read, and that value never
-  decides an error that is reported. Every error depends on known fields: its `pointer`, its
+  decides an error that is reported: the value is refused where it is put, also when its error
+  is located elsewhere (a technique of `tv.compare` with two keys is replaced as a whole, so
+  nothing within it is reported beside the entry at its second key). Every error depends on
+  known fields: its `pointer`, its
   `pointers` and the fields its check otherwise read (for example the projection of a stage,
   which decides the fields the stage takes). It is reported only when none of these is a
   refused field, a field within one or a field that holds one: with `compounding` refused, the
