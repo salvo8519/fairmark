@@ -262,7 +262,7 @@ fn dcf_without_nfp() -> Value {
 /// AC8 (R8, R10): the default zero of the net financial position is listed with its pointer
 /// and warned; a net financial position given as zero is neither.
 #[test]
-#[ignore = "SPEC-0012: enabled by T12, which writes FM-W002 to FM-W016"]
+#[ignore = "SPEC-0012: enabled by T14, which renames the key field of the defaults"]
 fn the_default_net_financial_position_is_listed_and_warned() {
     let out = run("dcf.fcff", &dcf_without_nfp());
     let defaults = out["meta"]["defaults_applied"].as_array().unwrap();

@@ -189,9 +189,7 @@ pub fn sensitivity(input: &SensitivityInput) -> Result<(SensitivityOutput, Expla
         inner.id(),
         inner.info().version
     ));
-    if let Some(note) = inner.status_convention() {
-        ex.convention(note);
-    }
+    inner.warn_if_preview(&mut ex);
     ex.convention(format!("each cell reports {}", input.output));
     ex.convention(
         "evaluation order: base case, then the cells row by row (row-major), columns in the \

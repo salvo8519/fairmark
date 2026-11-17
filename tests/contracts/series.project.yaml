@@ -78,6 +78,6 @@ conventions:
   - 'base period: `period_1`'
   - 'growth rule: per period, 2 rates applied in order'
   - 'with 12-month periods the three bases coincide'
-  - 'warning: the base value -50 is negative'
+  - 'warning FM-W002: the base value -50 is negative'
   - 'value timing: beginning of period'
   - 'from and including its start date to but excluding its end date'

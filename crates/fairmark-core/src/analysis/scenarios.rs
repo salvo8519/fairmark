@@ -260,9 +260,7 @@ pub fn scenarios(input: &ScenariosInput) -> Result<(ScenariosOutput, Explain)> {
         inner.id(),
         inner.info().version
     ));
-    if let Some(note) = inner.status_convention() {
-        ex.convention(note);
-    }
+    inner.warn_if_preview(&mut ex);
     ex.convention("evaluation order: base case, then the scenarios in the order given");
     ex.convention("inputs a scenario does not change keep their base value");
     ex.convention("relative delta is null when the base output is zero");

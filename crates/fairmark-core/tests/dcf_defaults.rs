@@ -88,7 +88,7 @@ fn no_terminal_value_is_a_warning() {
     let c = conventions(&out);
     assert!(
         c.iter()
-            .any(|c| c.starts_with("warning: no terminal value is included")),
+            .any(|c| c.starts_with("warning FM-W005: no terminal value is included")),
         "{c:?}"
     );
     assert_eq!(out["value"]["terminal"]["technique"], "none");
@@ -100,7 +100,7 @@ fn no_terminal_value_is_a_warning() {
     let c = conventions(&ok("dcf.fcff", &explicit()));
     assert!(c
         .iter()
-        .any(|c| c.starts_with("warning: no terminal value is included")));
+        .any(|c| c.starts_with("warning FM-W005: no terminal value is included")));
 }
 
 /// R31: explicit inputs prevail and produce no default entry; the hash covers the input with
@@ -234,7 +234,7 @@ fn given_terminal_value_states_basis_and_warns_when_negative() {
     );
     assert!(c
         .iter()
-        .any(|c| c.starts_with("warning: the given terminal value -300 is negative")));
+        .any(|c| c.starts_with("warning FM-W006: the given terminal value -300 is negative")));
     assert_eq!(out["value"]["terminal"]["terminal_value"], "-300");
     let mut e = json!({"stages": [{"flows": ["80", "85"]}], "cost_of_equity": "0.11"});
     e["terminal"] = json!({"given": {"value": "900"}});
@@ -418,9 +418,10 @@ fn terminal_option_details() {
     v["terminal"] = json!({"given": {"value": "-300"}});
     let c = conventions(&ok("dcf.fcff", &v));
     assert!(
-        c.iter()
-            .any(|c| c.starts_with("warning: the terminal value is negative")
-                && c.contains("terminal value weight is not meaningful")),
+        c.iter().any(
+            |c| c.starts_with("warning FM-W007: the terminal value is negative")
+                && c.contains("terminal value weight is not meaningful")
+        ),
         "{c:?}"
     );
     v.as_object_mut().unwrap().remove("wacc");
@@ -461,7 +462,7 @@ fn given_terminal_value_at_n_minus_half_warns() {
     let c = conventions(&ok("dcf.fcff", &v));
     assert!(
         c.iter().any(|c| c
-            == "warning: given: the analyst's terminal value at the horizon N; discounting it \
+            == "warning FM-W009: given: the analyst's terminal value at the horizon N; discounting it \
                 at N − 0.5 brings it forward half a period; it is discounted at N − 0.5 as \
                 chosen"),
         "{c:?}"

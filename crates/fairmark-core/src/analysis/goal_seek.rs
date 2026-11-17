@@ -207,9 +207,7 @@ pub fn goal_seek(input: &GoalSeekInput) -> Result<(GoalSeekOutput, Explain)> {
         inner.id(),
         inner.info().version
     ));
-    if let Some(note) = inner.status_convention() {
-        ex.convention(note);
-    }
+    inner.warn_if_preview(&mut ex);
     ex.convention(
         "root finding: Brent's method (inverse quadratic interpolation, secant, bisection)",
     );

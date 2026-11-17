@@ -85,7 +85,7 @@ conventions:
   - 'bridge signs (equity basis): non-operating assets added to the present value of the explicit flows and the terminal value; debt-like items and non-controlling interests subtracted; every debt-like item and non-controlling interest is zero or more'
   - 'debt-like item ''Unfunded pension obligation'': measurement basis present_value (present value of the obligation), stated by the analyst; note: net of tax'
   - 'non-controlling interest ''40% of Subsidiary C'': measurement basis book_value (book value per the accounts), stated by the analyst'
-  - 'warning: the equity value is negative'
+  - 'warning FM-W011: the equity value is negative'
 - input:
     stages: [{periods: 2, projection: given, lines: [{ebit: '100', depreciation_and_amortisation: '10', capital_expenditure: '12', change_in_net_working_capital: '3', interest_expense: '8', net_borrowing: '5'}, {ebit: '-20', depreciation_and_amortisation: '10', capital_expenditure: '12', change_in_net_working_capital: '3', interest_expense: '8', net_borrowing: '0'}]}]
     notional_tax_rate: '0.24'
@@ -108,4 +108,4 @@ conventions:
     terminal: {tv.exit_multiple: {multiple: '11', metric: earnings, metric_value: '150'}}
   expect:
   - 'terminal technique: tv.exit_multiple version 1 on the equity basis'
-  - 'warning: tv.exit_multiple is a price at the horizon N'
+  - 'warning FM-W009: tv.exit_multiple is a price at the horizon N'

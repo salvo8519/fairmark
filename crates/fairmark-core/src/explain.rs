@@ -55,8 +55,15 @@ impl Explain {
         });
     }
 
+    /// A convention. A warning is never written here: [`Explain::warn`] writes it with its code
+    /// (SPEC-0012 R9, R16).
     pub fn convention(&mut self, text: impl Into<String>) {
-        self.conventions.push(text.into());
+        let text = text.into();
+        debug_assert!(
+            !diagnostics::is_warning_text(&text),
+            "write a warning with Explain::warn, not as a convention: {text}"
+        );
+        self.conventions.push(text);
     }
 
     /// A warning of the catalogue (SPEC-0012 R8, R9): its entry in `diagnostics.warnings` and

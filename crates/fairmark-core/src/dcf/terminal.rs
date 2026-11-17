@@ -11,6 +11,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::engine::TerminalDiscountTime;
+use crate::diagnostics::WarningCode;
 use crate::error::{FairmarkError, Reason, Result};
 use crate::explain::Explain;
 use crate::method::Method;
@@ -394,6 +395,17 @@ impl Technique<'_> {
         }
     }
 
+    /// JSON pointer, in the input, of the perpetual growth of [`Self::perpetual_growth`]: the
+    /// field the warnings FM-W004 and FM-W008 concern.
+    pub(crate) fn perpetual_growth_pointer(self) -> Option<String> {
+        let field = match self {
+            Self::Gordon(_) | Self::ValueDriver(_) | Self::NormalisedIncome(_) => "growth",
+            Self::HModel(_) => "long_term_growth",
+            Self::ExitMultiple(_) | Self::LimitedHorizon(_) | Self::Liquidation(_) => return None,
+        };
+        Some(format!("/terminal/{}/{field}", self.id()))
+    }
+
     /// The perpetual growth the technique assumes after the horizon, for the continuity
     /// warning of R11; `None` for the techniques that state none.
     pub(crate) fn perpetual_growth(self) -> Option<Decimal> {
@@ -445,6 +457,14 @@ impl TerminalChoice<'_> {
             Self::Technique(t) => t.id(),
             Self::Given(_) => "given",
             Self::None => "none",
+        }
+    }
+
+    /// JSON pointer, in the input, of the perpetual growth of the technique chosen.
+    pub(crate) fn perpetual_growth_pointer(self) -> Option<String> {
+        match self {
+            Self::Technique(t) => t.perpetual_growth_pointer(),
+            Self::Given(_) | Self::None => None,
         }
     }
 
@@ -1066,11 +1086,15 @@ fn no_terminal_value(ex: &mut Explain, c: &TerminalContext<'_>) -> TerminalOutpu
         "terminal value: none (`/terminal/none`): the value covers the {n} explicit flows only, \
          a holding period of N = {n} periods"
     ));
-    ex.convention(format!(
-        "warning: no terminal value is included: the value covers the {n} explicit flows only; \
-         include an exit value in the last flow, or give a terminal value in `/terminal` \
-         (`given`, or a `tv.*` technique)"
-    ));
+    ex.warn(
+        WarningCode::NoTerminalValue,
+        Some("/terminal".to_owned()),
+        format!(
+            "no terminal value is included: the value covers the {n} explicit flows only; \
+             include an exit value in the last flow, or give a terminal value in `/terminal` \
+             (`given`, or a `tv.*` technique)"
+        ),
+    );
     ex.step(
         "Terminal value at N",
         "none: no terminal value",
@@ -1111,13 +1135,19 @@ pub(crate) fn value(ex: &mut Explain, c: &TerminalContext<'_>) -> Result<Termina
                 c.basis.name()
             ));
             if v.is_sign_negative() && !v.is_zero() {
-                ex.convention(format!(
-                    "warning: the given terminal value {v} is negative (for example a \
-                     decommissioning cost); it is discounted as given"
-                ));
-                ex.convention(
-                    "warning: the terminal value is negative, so the terminal value weight is \
-                     not meaningful as a share of the value",
+                ex.warn(
+                    WarningCode::NegativeGivenTerminalValue,
+                    Some("/terminal/given/value".to_owned()),
+                    format!(
+                        "the given terminal value {v} is negative (for example a \
+                         decommissioning cost); it is discounted as given"
+                    ),
+                );
+                ex.warn(
+                    WarningCode::TerminalValueWeightNotMeaningful,
+                    Some("/value/terminal_value_weight".to_owned()),
+                    "the terminal value is negative, so the terminal value weight is not \
+                     meaningful as a share of the value",
                 );
             }
             ex.step("Terminal value at N", "as given", v);
@@ -1165,10 +1195,14 @@ fn report_technique(
     }
     if let (Some(last_growth), Some(g)) = (c.last_growth, technique.perpetual_growth()) {
         if last_growth != g {
-            ex.convention(format!(
-                "warning: the growth of the last explicit period ({last_growth}) differs from \
-                 the perpetual growth of the terminal value ({g})"
-            ));
+            ex.warn(
+                WarningCode::LastGrowthDiffersFromPerpetualGrowth,
+                technique.perpetual_growth_pointer(),
+                format!(
+                    "the growth of the last explicit period ({last_growth}) differs from the \
+                     perpetual growth of the terminal value ({g})"
+                ),
+            );
         }
     }
 }
@@ -1214,10 +1248,14 @@ fn discount(
                 TerminalChoice::None => None,
             };
             if let Some(what) = price_at_date {
-                ex.convention(format!(
-                    "warning: {what}; discounting it at N − 0.5 brings it forward half a \
-                     period; it is discounted at N − 0.5 as chosen"
-                ));
+                ex.warn(
+                    WarningCode::PriceAtDateDiscountedAtHalfPeriod,
+                    Some("/terminal_discount_time".to_owned()),
+                    format!(
+                        "{what}; discounting it at N − 0.5 brings it forward half a period; it \
+                         is discounted at N − 0.5 as chosen"
+                    ),
+                );
             }
             ex.step(at_n, df_n_formula, df_n);
             ex.step(
@@ -1260,10 +1298,12 @@ fn discount(
             let perpetual =
                 matches!(c.choice, TerminalChoice::Technique(t) if t.is_perpetual_growth());
             if timing == Timing::MidPeriod && perpetual {
-                ex.convention(
-                    "warning: under mid-period timing a perpetuity-growth terminal value is \
-                     commonly discounted at N − 0.5, consistent with the flows it capitalises; \
-                     it is discounted at the horizon N as chosen",
+                ex.warn(
+                    WarningCode::PerpetuityDiscountedAtHorizon,
+                    Some("/terminal_discount_time".to_owned()),
+                    "under mid-period timing a perpetuity-growth terminal value is commonly \
+                     discounted at N − 0.5, consistent with the flows it capitalises; it is \
+                     discounted at the horizon N as chosen",
                 );
             }
             ex.step(at_n, df_n_formula, df_n);
@@ -1388,7 +1428,7 @@ mod tests {
     fn warnings(v: &Value) -> Vec<String> {
         conventions(v)
             .into_iter()
-            .filter(|c| c.starts_with("warning: "))
+            .filter(|c| c.starts_with("warning "))
             .collect()
     }
 

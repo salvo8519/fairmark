@@ -258,6 +258,12 @@ pub(crate) fn echo(code: WarningCode, message: &str) -> String {
     format!("warning {code}: {message}")
 }
 
+/// True when a convention text reads as a warning, which only [`echo`] may write (R16).
+pub(crate) fn is_warning_text(text: &str) -> bool {
+    text.get(..7)
+        .is_some_and(|head| head.eq_ignore_ascii_case("warning"))
+}
+
 /// Order of JSON pointers in every list of the result (R13): token by token, array indices
 /// compared as numbers and before names (`/periods/2` before `/periods/10`).
 pub(crate) fn pointer_cmp(a: &str, b: &str) -> Ordering {
@@ -299,6 +305,14 @@ mod tests {
         let schema = serde_json::to_value(schemars::schema_for!(WarningCode)).unwrap();
         assert_eq!(schema["pattern"], "^FM-W[0-9]{3}$");
         assert!(schema.get("enum").is_none());
+    }
+
+    #[test]
+    fn warning_texts_are_recognised() {
+        assert!(is_warning_text("warning FM-W001: x"));
+        assert!(is_warning_text("Warning: x"));
+        assert!(!is_warning_text("warn"));
+        assert!(!is_warning_text("default: x"));
     }
 
     #[test]

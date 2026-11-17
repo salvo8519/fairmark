@@ -27,9 +27,9 @@ def test_minimal_call_works_and_reports_its_defaults() -> None:
         "/terminal",
         "/net_financial_position",
     ]
-    assert any(c.startswith("warning: no terminal value is included") for c in r.conventions)
+    assert any(c.startswith("warning FM-W005: no terminal value") for c in r.conventions)
     # Decision 25 (#261): no net financial position, a reported default of zero and a warning.
-    assert any(c.startswith("warning: no net financial position given") for c in r.conventions)
+    assert any(c.startswith("warning FM-W012: no net financial position") for c in r.conventions)
     assert r.equity_value == r.enterprise_value
 
 

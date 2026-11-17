@@ -135,7 +135,7 @@ conventions:
   - 'first terminal flow: normalised flow at N + 1'
   - 'terminal discounting time: horizon, t = N'
   - 'default: `/net_financial_position` not given, set to'
-  - 'warning: no net financial position given (`/net_financial_position`): zero is subtracted'
+  - 'warning FM-W012: no net financial position given (`/net_financial_position`): zero is subtracted'
 - input:
     stages: [{periods: 3, projection: given, flows: ['100', '110', '120']}]
     cash_flow_terms: nominal
@@ -149,7 +149,7 @@ conventions:
   - 'no next flow given: the terminal rate is not used'
   - 'terminal value from the metric at N; no terminal flow is projected'
   - 'terminal discounting time: mid_period, t = N − 0.5'
-  - 'warning: tv.exit_multiple is a price at the horizon N'
+  - 'warning FM-W009: tv.exit_multiple is a price at the horizon N'
 - input:
     stages: [{periods: 2, projection: given, flows: ['100', '110']}]
     cash_flow_terms: nominal
@@ -192,4 +192,4 @@ conventions:
   - 'non-operating assets: none given'
   - 'debt-like item ''Unfunded pension obligation'': measurement basis present_value (present value of the obligation), stated by the analyst; note: net of tax'
   - 'non-controlling interest ''40% of Subsidiary B'': measurement basis fair_value (fair value as defined by IFRS 13), stated by the analyst'
-  - 'warning: the equity value is negative'
+  - 'warning FM-W011: the equity value is negative'

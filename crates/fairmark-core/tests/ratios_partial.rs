@@ -851,7 +851,7 @@ fn warnings(out: &Value) -> Vec<String> {
         .iter()
         .filter_map(|c| {
             c.as_str()
-                .filter(|c| c.starts_with("warning: "))
+                .filter(|c| c.starts_with("warning "))
                 .map(str::to_owned)
         })
         .collect()

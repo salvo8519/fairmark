@@ -24,6 +24,7 @@ use super::{
     AppliedAdjustment, Assignment, Destination, IncomeStatement, NotComputedEntry, Notes, Origin,
     Reconciliation, ReconciliationLine, Reconciliations, Stated,
 };
+use crate::diagnostics::WarningCode;
 use crate::error::{FairmarkError, Result};
 use crate::explain::Explain;
 
@@ -692,12 +693,16 @@ fn write_down_warnings(y: &Year, ex: &mut Explain) {
     ];
     for (stated, amount, item, treatment, line) in cases {
         match amount.value() {
-            Some(v) if !stated && !v.is_zero() => ex.convention(format!(
-                "warning: year {name}: {item} ({v}) is in {line}, below EBITDA, by the default \
-                 `operating` of `/treatments/{treatment}`, not given: it lowers operating_profit; \
-                 `investing` would place it in investing_result (EBITDA and \
-                 profit_before_financing_and_taxes do not change)"
-            )),
+            Some(v) if !stated && !v.is_zero() => ex.warn(
+                WarningCode::WriteDownBelowEbitdaByDefault,
+                Some(format!("/treatments/{treatment}")),
+                format!(
+                    "year {name}: {item} ({v}) is in {line}, below EBITDA, by the default \
+                     `operating` of `/treatments/{treatment}`, not given: it lowers \
+                     operating_profit; `investing` would place it in investing_result (EBITDA \
+                     and profit_before_financing_and_taxes do not change)"
+                ),
+            ),
             _ => {}
         }
     }

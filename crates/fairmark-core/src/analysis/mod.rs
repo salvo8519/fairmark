@@ -16,7 +16,9 @@ use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value};
 
+use crate::diagnostics::WarningCode;
 use crate::error::{CompactErrorReport, FairmarkError, Found, Reason, Result};
+use crate::explain::Explain;
 use crate::registry;
 
 /// Most inner evaluations one analysis request may perform (ADR 0010).
@@ -140,15 +142,19 @@ impl Inner {
         self.id
     }
 
-    /// The convention an analysis reports when its inner method is preview (ADR 0012).
-    pub(crate) fn status_convention(&self) -> Option<String> {
-        (self.status == registry::Status::Preview).then(|| {
-            format!(
-                "Evaluated method {} is preview: its results have not been independently \
-                verified (docs/en/project/releases.md, Method status)",
-                self.id
-            )
-        })
+    /// Warning FM-W016 when the inner method is preview (ADR 0012), at `/method`.
+    pub(crate) fn warn_if_preview(&self, ex: &mut Explain) {
+        if self.status == registry::Status::Preview {
+            ex.warn(
+                WarningCode::EvaluatedMethodPreview,
+                Some("/method".to_owned()),
+                format!(
+                    "Evaluated method {} is preview: its results have not been independently \
+                     verified (docs/en/project/releases.md, Method status)",
+                    self.id
+                ),
+            );
+        }
     }
 
     /// Fails with `FM-E016` before any evaluation when the request needs more than

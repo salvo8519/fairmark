@@ -695,7 +695,10 @@ mod tests {
         let o = out(&v);
         assert!(d(&o, "/equity_value").is_sign_negative());
         let c = o["explain"]["conventions"].to_string();
-        assert!(c.contains("warning: the equity value is negative"), "{c}");
+        assert!(
+            c.contains("warning FM-W011: the equity value is negative"),
+            "{c}"
+        );
         assert!(!conventions(&base())
             .join("\n")
             .contains("equity value is negative"));

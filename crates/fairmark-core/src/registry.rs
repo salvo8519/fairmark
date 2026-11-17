@@ -582,7 +582,7 @@ mod tests {
     }
 
     /// ADR 0012: an analysis reports the status of the method it evaluates, in `meta` and, when
-    /// that method is preview, as a convention.
+    /// that method is preview, as warning FM-W016.
     #[test]
     fn analysis_reports_the_status_of_the_evaluated_method() {
         let table = |method: &str, base: &str, variable: &str, output: &str| {
@@ -602,7 +602,7 @@ mod tests {
         assert!(conventions.iter().any(|c| c
             .as_str()
             .unwrap()
-            .starts_with("Evaluated method dcf.fcff is preview")));
+            .starts_with("warning FM-W016: Evaluated method dcf.fcff is preview")));
 
         let available = table(
             "tv.gordon",

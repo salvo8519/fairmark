@@ -8,6 +8,7 @@ use serde::Serialize;
 
 use super::bridge::{self, BridgeClaim};
 use super::engine::{self, dcf_input, DiscountedValue};
+use crate::diagnostics::WarningCode;
 use crate::error::{Found, Result};
 use crate::explain::{DefaultApplied, Explain};
 use crate::method::Method;
@@ -256,11 +257,15 @@ fn bridge(
             (true, false) => " less the non-controlling interests given",
             (false, false) => " less the debt-like items and non-controlling interests given",
         };
-        ex.convention(format!(
-            "warning: no net financial position given (`{NFP_POINTER}`): zero is subtracted, so \
-             the equity value equals the enterprise value{rest}; give the net financial position \
-             to value the equity"
-        ));
+        ex.warn(
+            WarningCode::NoNetFinancialPosition,
+            Some(NFP_POINTER.to_owned()),
+            format!(
+                "no net financial position given (`{NFP_POINTER}`): zero is subtracted, so the \
+                 equity value equals the enterprise value{rest}; give the net financial \
+                 position to value the equity"
+            ),
+        );
     }
     let nfp_subtracted = nfp.unwrap_or(Decimal::ZERO);
     let equity_value = sub(
@@ -822,7 +827,7 @@ mod tests {
             );
         });
         let c = conventions(&v);
-        let warnings: Vec<&String> = c.iter().filter(|c| c.starts_with("warning: ")).collect();
+        let warnings: Vec<&String> = c.iter().filter(|c| c.starts_with("warning ")).collect();
         // Two negative-flow warnings, the growth discontinuity, the net financial position not
         // given (Decision 25) and (R26) the negative equity value that these flows produce.
         assert_eq!(warnings.len(), 5, "{c:?}");
@@ -929,7 +934,10 @@ mod tests {
             .unwrap();
         assert!(equity.is_sign_negative());
         let c = out["explain"]["conventions"].to_string();
-        assert!(c.contains("warning: the equity value is negative"), "{c}");
+        assert!(
+            c.contains("warning FM-W011: the equity value is negative"),
+            "{c}"
+        );
         assert!(!conventions(&base())
             .join("\n")
             .contains("equity value is negative"));
@@ -996,7 +1004,7 @@ mod tests {
             });
             conventions(&v)
                 .into_iter()
-                .find(|c| c.starts_with("warning: no net financial position given"))
+                .find(|c| c.starts_with("warning FM-W012: no net financial position given"))
                 .unwrap()
         };
         assert!(
@@ -1038,11 +1046,11 @@ mod tests {
         assert_ne!(given["meta"]["input_hash"], absent["meta"]["input_hash"]);
     }
 
-    const WARNING_NO_CLAIMS: &str = "warning: no net financial position given \
+    const WARNING_NO_CLAIMS: &str = "warning FM-W012: no net financial position given \
         (`/net_financial_position`): zero is subtracted, so the equity value equals the \
         enterprise value; give the net financial position to value the equity";
 
-    const WARNING_WITH_CLAIMS: &str = "warning: no net financial position given \
+    const WARNING_WITH_CLAIMS: &str = "warning FM-W012: no net financial position given \
         (`/net_financial_position`): zero is subtracted, so the equity value equals the \
         enterprise value less the debt-like items and non-controlling interests given; give the \
         net financial position to value the equity";
@@ -1056,14 +1064,14 @@ mod tests {
         });
         assert!(conventions(&v)
             .iter()
-            .any(|c| c.starts_with("warning: under mid-period timing")));
+            .any(|c| c.starts_with("warning FM-W010: under mid-period timing")));
         let m = with(v, |m| {
             m.insert("terminal_discount_time".into(), json!("mid_period"));
         });
         let c = conventions(&m);
         assert!(!c
             .iter()
-            .any(|c| c.starts_with("warning: under mid-period timing")));
+            .any(|c| c.starts_with("warning FM-W010: under mid-period timing")));
         assert!(
             c.iter()
                 .any(|c| c.contains("r_T = 0.10 (R21, Decision 16)")),
@@ -1252,7 +1260,10 @@ mod tests {
             .unwrap();
         assert!(equity.is_sign_negative());
         let c = out["explain"]["conventions"].to_string();
-        assert!(c.contains("warning: the equity value is negative"), "{c}");
+        assert!(
+            c.contains("warning FM-W011: the equity value is negative"),
+            "{c}"
+        );
     }
 
     /// R25, R27 (#44): every refusal of a bridge claim names its field by JSON pointer and

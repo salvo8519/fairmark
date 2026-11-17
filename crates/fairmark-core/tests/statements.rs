@@ -2090,7 +2090,7 @@ fn a_write_down_default_that_decides_a_subtotal_is_warned() {
             .unwrap()
             .iter()
             .filter_map(|c| c.as_str())
-            .filter(|c| c.starts_with("warning: "))
+            .filter(|c| c.starts_with("warning "))
             .map(str::to_owned)
             .collect()
     };

@@ -10,6 +10,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::dates::{self, BuiltSchedule, Date, ScheduleInput};
+use crate::diagnostics::WarningCode;
 use crate::error::{FairmarkError, Reason, Result};
 use crate::explain::Explain;
 use crate::frequency::{self, check_number_of_periods, Frequency, PeriodLength};
@@ -753,11 +754,15 @@ pub fn project(input: &ProjectInput) -> Result<(ProjectOutput, Explain)> {
         ));
     }
     if input.base_value.is_sign_negative() && !input.base_value.is_zero() {
-        ex.convention(format!(
-            "warning: the base value {} is negative, so a positive growth makes the values more \
-             negative; check the sign of the series",
-            input.base_value
-        ));
+        ex.warn(
+            WarningCode::NegativeBaseValue,
+            Some("/base_value".to_owned()),
+            format!(
+                "the base value {} is negative, so a positive growth makes the values more \
+                 negative; check the sign of the series",
+                input.base_value
+            ),
+        );
     }
     ex.convention("values: computed with 28 to 29 significant digits, not rounded");
     if let Some(s) = &schedule {
@@ -1199,7 +1204,7 @@ mod tests {
         .unwrap();
         assert_eq!(out.values, [d("-220"), d("-242"), d("-266.2")]);
         assert!(ex.conventions.iter().any(|c| c.starts_with(
-            "warning: the base value -200 is negative, so a positive growth makes the values \
+            "warning FM-W002: the base value -200 is negative, so a positive growth makes the values \
              more negative"
         )));
     }

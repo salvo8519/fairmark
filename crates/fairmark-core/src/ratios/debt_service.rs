@@ -9,6 +9,7 @@ use super::{
     require_definition, term, union, warn_defaults, BalanceBasis, Balances, Given, Missing,
     NfpComposition, NotComputedList, Ratio, RatioValue, MISSING_CONVENTION, NFP_CONVENTION,
 };
+use crate::diagnostics::WarningCode;
 use crate::error::{rate_field, FairmarkError, Found, Reason, Result};
 use crate::explain::{DefaultApplied, Explain};
 use crate::method::Method;
@@ -354,11 +355,15 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
         Some(reserve) => ex.convention(format!(
             "reserve balance {reserve} added undiscounted to the LLCR numerator"
         )),
-        None if defaults.iter().any(|d| d.field == RESERVE_POINTER) => ex.convention(format!(
-            "warning: no reserve balance given (`{RESERVE_POINTER}`): nothing is added to the \
-             present value of CFADS, so the LLCR assumes no debt service reserve account; give \
-             the reserve balance, or 0 for none"
-        )),
+        None if defaults.iter().any(|d| d.field == RESERVE_POINTER) => ex.warn(
+            WarningCode::NoReserveBalance,
+            Some(RESERVE_POINTER.to_owned()),
+            format!(
+                "no reserve balance given (`{RESERVE_POINTER}`): nothing is added to the present \
+                 value of CFADS, so the LLCR assumes no debt service reserve account; give the \
+                 reserve balance, or 0 for none"
+            ),
+        ),
         None => ex.convention("no reserve balance given: LLCR on CFADS only"),
     }
 

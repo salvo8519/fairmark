@@ -74,7 +74,6 @@ fn fm_w001_a_decimal_rounded_as_it_is_read() {
 }
 
 #[test]
-#[ignore = "SPEC-0012: enabled by T12, which writes FM-W002 to FM-W016"]
 fn fm_w002_a_negative_base_value() {
     assert_warning(
         "series.project/negative-base-value.yaml",
@@ -85,7 +84,6 @@ fn fm_w002_a_negative_base_value() {
 }
 
 #[test]
-#[ignore = "SPEC-0012: enabled by T12, which writes FM-W002 to FM-W016"]
 fn fm_w003_a_growth_applied_to_a_negative_flow() {
     for period in ["period 4", "period 5"] {
         let (method, input) =
@@ -115,7 +113,6 @@ fn fm_w003_a_growth_applied_to_a_negative_flow() {
 }
 
 #[test]
-#[ignore = "SPEC-0012: enabled by T12, which writes FM-W002 to FM-W016"]
 fn fm_w004_a_perpetual_growth_below_inflation() {
     assert_warning(
         "dcf.fcff/terms-equal-with-inflation-growth-in-other-terms.yaml",
@@ -127,7 +124,6 @@ fn fm_w004_a_perpetual_growth_below_inflation() {
 }
 
 #[test]
-#[ignore = "SPEC-0012: enabled by T12, which writes FM-W002 to FM-W016"]
 fn fm_w005_no_terminal_value() {
     assert_warning(
         "dcf.fcfe/flows-only-single-cost-of-equity.yaml",
@@ -138,7 +134,6 @@ fn fm_w005_no_terminal_value() {
 }
 
 #[test]
-#[ignore = "SPEC-0012: enabled by T12, which writes FM-W002 to FM-W016"]
 fn fm_w006_a_negative_given_terminal_value() {
     assert_warning(
         "dcf.fcff/terminal-given-negative-decommissioning.yaml",
@@ -150,7 +145,6 @@ fn fm_w006_a_negative_given_terminal_value() {
 }
 
 #[test]
-#[ignore = "SPEC-0012: enabled by T12, which writes FM-W002 to FM-W016"]
 fn fm_w007_a_terminal_value_weight_not_meaningful() {
     assert_warning(
         "dcf.fcff/terminal-given-negative-decommissioning.yaml",
@@ -162,7 +156,6 @@ fn fm_w007_a_terminal_value_weight_not_meaningful() {
 }
 
 #[test]
-#[ignore = "SPEC-0012: enabled by T12, which writes FM-W002 to FM-W016"]
 fn fm_w008_last_explicit_growth_differs_from_the_perpetual_growth() {
     assert_warning(
         "dcf.fcff/terms-converted-rate-exact.yaml",
@@ -174,7 +167,6 @@ fn fm_w008_last_explicit_growth_differs_from_the_perpetual_growth() {
 }
 
 #[test]
-#[ignore = "SPEC-0012: enabled by T12, which writes FM-W002 to FM-W016"]
 fn fm_w009_a_price_at_a_date_discounted_at_n_minus_half() {
     assert_warning(
         "dcf.fcff/terminal-exit-multiple-mid-period-at-n-minus-half.yaml",
@@ -192,7 +184,6 @@ fn fm_w009_a_price_at_a_date_discounted_at_n_minus_half() {
 }
 
 #[test]
-#[ignore = "SPEC-0012: enabled by T12, which writes FM-W002 to FM-W016"]
 fn fm_w010_a_perpetuity_discounted_at_the_horizon_under_mid_period_timing() {
     assert_warning(
         "dcf.fcff/terminal-normalised-income-zero-growth.yaml",
@@ -204,7 +195,6 @@ fn fm_w010_a_perpetuity_discounted_at_the_horizon_under_mid_period_timing() {
 }
 
 #[test]
-#[ignore = "SPEC-0012: enabled by T12, which writes FM-W002 to FM-W016"]
 fn fm_w011_a_negative_equity_value() {
     assert_warning(
         "dcf.fcff/bridge-negative-equity-value.yaml",
@@ -221,7 +211,6 @@ fn fm_w011_a_negative_equity_value() {
 }
 
 #[test]
-#[ignore = "SPEC-0012: enabled by T12, which writes FM-W002 to FM-W016"]
 fn fm_w012_no_net_financial_position() {
     assert_warning(
         "dcf.fcff/terms-equal-with-inflation-growth-in-other-terms.yaml",
@@ -233,7 +222,6 @@ fn fm_w012_no_net_financial_position() {
 }
 
 #[test]
-#[ignore = "SPEC-0012: enabled by T12, which writes FM-W002 to FM-W016"]
 fn fm_w013_no_other_items_of_the_net_financial_position() {
     assert_warning(
         "ratios.debt_service/partial-schedule.yaml",
@@ -246,7 +234,6 @@ fn fm_w013_no_other_items_of_the_net_financial_position() {
 }
 
 #[test]
-#[ignore = "SPEC-0012: enabled by T12, which writes FM-W002 to FM-W016"]
 fn fm_w014_no_reserve_balance() {
     assert_warning(
         "ratios.debt_service/partial-schedule.yaml",
@@ -258,7 +245,6 @@ fn fm_w014_no_reserve_balance() {
 }
 
 #[test]
-#[ignore = "SPEC-0012: enabled by T12, which writes FM-W002 to FM-W016"]
 fn fm_w015_a_write_down_below_ebitda_by_default() {
     assert_warning(
         "statements.reorganise/income-statement-loss.yaml",
@@ -276,7 +262,6 @@ fn fm_w015_a_write_down_below_ebitda_by_default() {
 }
 
 #[test]
-#[ignore = "SPEC-0012: enabled by T12, which writes FM-W002 to FM-W016"]
 fn fm_w016_the_evaluated_method_is_preview() {
     assert_warning(
         "analysis.goal_seek/dcf-implied-discount-rate.yaml",
@@ -290,7 +275,6 @@ fn fm_w016_the_evaluated_method_is_preview() {
 /// `warning FM-Wnnn: <message>`, in the order of `diagnostics.warnings`, and no other convention
 /// starts with `warning`.
 #[test]
-#[ignore = "SPEC-0012: enabled by T12, which writes FM-W002 to FM-W016"]
 fn every_warning_is_echoed_once_in_order() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
     let mut failures = Vec::new();
