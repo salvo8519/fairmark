@@ -66,7 +66,7 @@ its approved files and `verify` in the same commit, so every commit passes `just
   pages of the seven bumped methods, agent skill [R16, R17]
 - [x] T21 Italian edition via `/translate`: `docs/it/reference/warnings.md` and every page of
   T20, glossary terms [R16]
-- [ ] T22 [P] Release notes `changes/259.breaking.md` and `changes/259.feature.md`
+- [x] T22 [P] Release notes `changes/259.breaking.md` and `changes/259.feature.md`
 
 ## Verification
 - [ ] T23 `uv run just generate`, `uv run just check`, `uv run just docs` green; every AC ticked
