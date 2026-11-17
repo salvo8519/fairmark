@@ -191,6 +191,15 @@ approves every change to an existing golden case, decides the roadmap, approves 
 merges, and cuts releases. These decisions are recorded where agents read them: in the spec,
 in the issue, in the journal or in an ADR.
 
+## Changing the process
+
+The process described on this page is complete and frozen since sprint S01 (maintainer
+decision of 2026-11-18): the work goes to the product. The sprint loop scripts, the lanes, the
+gates, the roles, the skills and the workflows change only for a measured problem, which the
+request names: a defect, a failure that happened, or a figure of
+`scripts/sprint.py burndown` (cycle time, failed checks, agent steps). A change that only adds
+a rule waits. The process stays reusable as a template for other repositories.
+
 ## What is not enforced yet
 
 - The cost of an issue is measured in orchestrator steps (`scripts/sprint.py burndown`), not in

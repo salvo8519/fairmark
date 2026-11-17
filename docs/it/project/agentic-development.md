@@ -4,7 +4,7 @@ description: Come Fairmark viene costruito da agenti AI e da un maintainer — r
   memoria, corsie degli sprint e i controlli deterministici che fanno rispettare ogni
   regola.
 source: project/agentic-development.md
-source_hash: 11e832b4e35b
+source_hash: 199c00624d00
 ---
 # Sviluppo agentico
 
@@ -203,6 +203,16 @@ Gli agenti propongono, il maintainer decide. Il maintainer approva le spec e le 
 metodo, approva ogni modifica a un golden case esistente, decide la roadmap, approva lo sprint,
 esegue i merge e pubblica i rilasci. Queste decisioni sono registrate dove gli agenti le
 leggono: nella spec, nella issue, nel diario o in un ADR.
+
+## Cambiare il processo
+
+Il processo descritto in questa pagina è completo e congelato dallo sprint S01 (decisione del
+maintainer del 2026-11-18): il lavoro passa al prodotto. Gli script del ciclo degli sprint, le
+corsie, i controlli, i ruoli, le skill e i workflow cambiano solo per un problema misurato, che
+la richiesta nomina: un difetto, un errore avvenuto, oppure un dato di
+`scripts/sprint.py burndown` (tempo di ciclo, controlli falliti, passaggi degli agenti). Una
+modifica che aggiunge soltanto una regola aspetta. Il processo resta riutilizzabile come
+modello per altri repository.
 
 ## Cosa non è ancora verificato
 
