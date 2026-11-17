@@ -1,7 +1,7 @@
 # ADR 0018 — Sources policy
 
-Status: proposed · 2026-11-17 (#208; records the maintainer's decision of 2026-11-08 under
-constitution principle VII)
+Status: accepted · 2026-11-18 (#208; records the maintainer's decision of 2026-11-08 under
+constitution principle VII; accepted by the maintainer on 2026-11-18)
 
 ## Context
 
@@ -44,8 +44,10 @@ how it is applied and checked.
    page is one line: the principal references by name (for example "CFA Institute curriculum;
    IFRS 13; Damodaran, Investment Valuation, 3rd ed.") and a link to the spec for the full
    list. A page never shows an item marked "to verify": an unverified source stays in the spec
-   until it is verified or removed. Whether the "Verified against" section counts as references
-   is open (below).
+   until it is verified or removed. The "Verified against" section is not a list of references
+   and is not limited: it is the evidence of principle VI that a reader checks, each line naming
+   a published example and the figures the golden cases reproduce (maintainer decision of
+   2026-11-18).
 3. **Vocabulary follows international practice where Italian practice is not settled.** The
    reference frameworks are CFA Institute, EBA, IFRS and IVS. Where no verified Italian term
    exists, or Italian sources conflict with each other or with those frameworks, the English
@@ -72,30 +74,24 @@ how it is applied and checked.
 - An auditor finds every source in one place per method (the spec), with the evidence per case
   in the golden files; a reader of the site sees a short, verified reference line.
 - Three "Sources" sections shrink to one line and move their detail to their specs; their
-  Italian editions follow. Items marked "to verify" leave the public pages. If "Verified
-  against" counts as references, 44 pages change as well.
+  Italian editions follow. Items marked "to verify" leave the public pages. "Verified
+  against" sections stay as they are.
 - The spec template gains a `Sources` section; the `spec-writer` role changes from "no
   bibliographies" to "every source used, with edition and section, in the `Sources` section";
   the `docs-writer` role applies the one-line rule.
 - `scripts/docs_sync.py claims` gains two checks on public pages: a `Sources` section of at most
-  one line, and none of the compliance phrases of decision 4 (English and Italian).
+  one line (not `Verified against`), and none of the compliance phrases of decision 4 (English
+  and Italian).
 
-## Implementation (after approval)
+## Implementation
 
-| Task | Lane | Files |
+| Task | Lane | Issue |
 | --- | --- | --- |
-| Constitution VII wording (decision 6) | process | `specs/constitution.md` (with this ADR) |
-| `Sources` section in the spec template; the three method pages and their Italian editions | product | `specs/_templates/spec.md`, `docs/*/methods/` |
-| `docs-writer` and `spec-writer` roles | process | `.agents/agents/` |
-| The two checks in `docs_sync.py claims` | process | `scripts/docs_sync.py`, its tests |
+| Constitution VII wording (decision 6) | governance, with this ADR | #208 |
+| `docs-writer` and `spec-writer` roles | process | #208 |
+| `Sources` section in the spec template; the three method pages and their Italian editions | product | #387 |
+| The two checks in `docs_sync.py claims`, merged after #387 | process | #388 |
 
-The two checks merge last, after the pages comply, so CI stays green on `main`.
+## Decisions of the maintainer
 
-## Open questions for the maintainer
-
-- The "Verified against" section of 44 pages: is it a list of references, limited to one line
-  by decision 2, or the evidence of principle VI that a reader checks, kept on the page? The
-  proposal is to keep it, as evidence: each line names a published example and the figures the
-  golden case reproduces, which is what an analyst verifies, and the one-line rule applies to
-  the bibliographic "Sources" line only. With this reading, three pages change; with the other,
-  44 pages move their verification detail to the specs.
+- 2026-11-18: ADR accepted; `Verified against` stays on the pages, as evidence.

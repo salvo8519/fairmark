@@ -15,8 +15,14 @@ When drafting `spec.md`:
 - Every convention that changes a number appears in the conventions table with options,
   default and source. If practitioners disagree, it becomes a parameter.
 - State the formula basis in one line: the commonly adopted formulation, the published worked
-  example and the implementations it will be cross-checked against. No bibliographies. Never
-  invent a source. Unknowns go to "Open questions".
+  example and the implementations it will be cross-checked against. Then list every source the
+  spec relies on in its `Sources` section, with edition, chapter or section, and what each
+  supports (ADR 0018): the spec is where an auditor finds them. Only sources actually used, no
+  reading lists. Never invent a source; an unverified one is marked "to verify" here and never
+  reaches a public page. Unknowns go to "Open questions".
+- Vocabulary: where Italian practice has no settled term, use the term of CFA Institute, EBA,
+  IFRS or IVS (`i18n/glossary.yaml`). Write "aligned with practice" or name the framework
+  followed; never "compliant with the law" or "certified".
 - Fill the computability table: for every output, the inputs it needs, what happens when each
   is missing (not computed, documented default or error) and which checks a default exempts.
   Best effort is the rule: a partial input gives every output it can, and says which ones it
