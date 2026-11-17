@@ -1670,6 +1670,226 @@ mod tests {
         }
     }
 
+    /// True when a property schema holds text: a string, or a list of strings (`null`
+    /// allowed). A list of objects that carry pointers is not a pointer field (SPEC-0012 AC10).
+    fn holds_text(property: &Value) -> bool {
+        let types = |s: &Value| -> Vec<String> {
+            match &s["type"] {
+                Value::String(t) => vec![t.clone()],
+                Value::Array(ts) => ts
+                    .iter()
+                    .filter_map(|t| t.as_str().map(str::to_owned))
+                    .collect(),
+                _ => Vec::new(),
+            }
+        };
+        let own = types(property);
+        own.iter().any(|t| t == "string")
+            || (own.iter().any(|t| t == "array")
+                && types(&property["items"]).iter().any(|t| t == "string"))
+    }
+
+    /// Every property of `schema` (its `$defs` included) that holds text and whose description
+    /// says it holds a JSON pointer ("JSON pointer" or "RFC 6901"), with its location.
+    fn pointer_properties(schema: &Value, at: &str, out: &mut Vec<(String, String)>) {
+        match schema {
+            Value::Object(map) => {
+                for (key, sub) in map {
+                    match key.as_str() {
+                        "properties" => {
+                            for (name, property) in sub.as_object().into_iter().flatten() {
+                                let description = property["description"]
+                                    .as_str()
+                                    .unwrap_or("")
+                                    .to_ascii_lowercase();
+                                let says = description.contains("json pointer")
+                                    || description.contains("rfc 6901");
+                                if holds_text(property) && says {
+                                    out.push((format!("{at}/{name}"), name.clone()));
+                                }
+                                pointer_properties(property, &format!("{at}/{name}"), out);
+                            }
+                        }
+                        "$defs" => {
+                            for (name, def) in sub.as_object().into_iter().flatten() {
+                                pointer_properties(def, &format!("$defs/{name}"), out);
+                            }
+                        }
+                        _ => pointer_properties(sub, at, out),
+                    }
+                }
+            }
+            Value::Array(items) => items.iter().for_each(|i| pointer_properties(i, at, out)),
+            _ => {}
+        }
+    }
+
+    /// A name of ADR 0014 G4 as amended (decision 7 of SPEC-0012) for a field that holds
+    /// pointers.
+    fn is_pointer_name(name: &str) -> bool {
+        matches!(name, "pointer" | "pointers" | "missing_any_of")
+            || ["_pointer", "_pointers"].iter().any(|suffix| {
+                name.strip_suffix(suffix).is_some_and(|stem| {
+                    !stem.is_empty()
+                        && stem
+                            .bytes()
+                            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+                })
+            })
+    }
+
+    #[test]
+    fn pointer_names_are_recognised() {
+        for ok in [
+            "pointer",
+            "pointers",
+            "missing_any_of",
+            "output_pointer",
+            "source_pointers",
+        ] {
+            assert!(is_pointer_name(ok), "{ok}");
+        }
+        for bad in [
+            "output",
+            "variable",
+            "sources",
+            "_pointer",
+            "Pointer",
+            "x_pointerz",
+        ] {
+            assert!(!is_pointer_name(bad), "{bad}");
+        }
+    }
+
+    /// SPEC-0012 AC10 (R11, R12, R20): every property of every input schema and every result
+    /// schema that holds a JSON pointer is named per ADR 0014 G4 as amended, with no exemption.
+    #[test]
+    #[ignore = "SPEC-0012: enabled by T15, the last task that renames pointer fields"]
+    fn every_pointer_field_follows_g4() {
+        let mut misnamed = Vec::new();
+        let mut seen = 0u32;
+        for m in METHODS {
+            for (side, schema) in [
+                ("input", input_schema(m.id).unwrap()),
+                ("result", result_schema(m.id).unwrap()),
+            ] {
+                let mut found = Vec::new();
+                pointer_properties(&schema, "", &mut found);
+                for (at, name) in found {
+                    seen += 1;
+                    if !is_pointer_name(&name) {
+                        misnamed.push(format!("{} {side} {at}", m.id));
+                    }
+                }
+            }
+        }
+        misnamed.sort();
+        misnamed.dedup();
+        assert!(seen > 100, "{seen}");
+        assert!(misnamed.is_empty(), "{}", misnamed.join("\n"));
+    }
+
+    /// The input pointer `p` names a field of `input`, or a field the method filled in with its
+    /// default (listed in `meta.defaults_applied`), or a field within one.
+    fn resolves_in_input(input: &Value, out: &Value, p: &str) -> bool {
+        let within =
+            |i: &str, o: &str| i == o || i.strip_prefix(o).is_some_and(|r| r.starts_with('/'));
+        input.pointer(p).is_some()
+            || out["meta"]["defaults_applied"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|d| d["pointer"].as_str())
+                .any(|d| within(p, d))
+    }
+
+    /// SPEC-0012 AC10 (R11): on every golden result, every pointer of the diagnostics resolves
+    /// where its field says: `not_computed[].pointer` and `checks[].pointer` in the result, a
+    /// warning in the result when it starts with `/value`, otherwise in the input sent (with
+    /// its defaults); the input pointers of a reconciled check in the input sent.
+    #[test]
+    #[ignore = "SPEC-0012: enabled by T14, when every diagnostics array is written"]
+    fn every_diagnostics_pointer_resolves() {
+        let mut failures = Vec::new();
+        let mut seen = 0u32;
+        for (name, id, input) in golden_results() {
+            let out = run(&id, &input.to_string()).unwrap();
+            let d = &out["diagnostics"];
+            let all = |key: &str| d[key].as_array().cloned().unwrap_or_default();
+            for e in all("not_computed").iter().chain(&all("checks")) {
+                seen += 1;
+                let p = e["pointer"].as_str().unwrap_or("<none>");
+                if !p.starts_with("/value") || out.pointer(p).is_none() {
+                    failures.push(format!("{name}: {p} does not resolve in the result"));
+                }
+            }
+            for c in all("checks") {
+                if c["status"] != "reconciled" {
+                    continue;
+                }
+                for p in c["pointers"].as_array().into_iter().flatten() {
+                    let p = p.as_str().unwrap();
+                    if !resolves_in_input(&input, &out, p) {
+                        failures.push(format!("{name}: check {} {p} not in the input", c["id"]));
+                    }
+                }
+            }
+            for w in all("warnings") {
+                seen += 1;
+                let Some(p) = w["pointer"].as_str() else {
+                    continue;
+                };
+                let ok = if p.starts_with("/value") {
+                    out.pointer(p).is_some()
+                } else {
+                    resolves_in_input(&input, &out, p)
+                };
+                if !ok {
+                    failures.push(format!(
+                        "{name}: warning {} at {p} does not resolve",
+                        w["code"]
+                    ));
+                }
+            }
+        }
+        assert!(seen > 1000, "{seen}");
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    /// `value` with the keys of every object in reverse order.
+    fn reversed(value: &Value) -> Value {
+        match value {
+            Value::Object(map) => Value::Object(
+                map.iter()
+                    .rev()
+                    .map(|(k, v)| (k.clone(), reversed(v)))
+                    .collect(),
+            ),
+            Value::Array(items) => Value::Array(items.iter().map(reversed).collect()),
+            other => other.clone(),
+        }
+    }
+
+    /// SPEC-0012 AC11 (R13): two runs of every golden input give byte-identical diagnostics,
+    /// and so does the input with the keys of every object reversed.
+    #[test]
+    #[ignore = "SPEC-0012: enabled by T11, which writes the diagnostics"]
+    fn diagnostics_are_deterministic() {
+        let mut failures = Vec::new();
+        for (name, id, input) in golden_results() {
+            let text = |input: &Value| {
+                let out = run(&id, &input.to_string()).unwrap();
+                assert!(out["diagnostics"].is_object(), "{name}: no diagnostics");
+                serde_json::to_string(&out["diagnostics"]).unwrap()
+            };
+            let first = text(&input);
+            if text(&input) != first || text(&reversed(&input)) != first {
+                failures.push(name);
+            }
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
     /// Final review of #279, finding 2: whatever form a number takes in a decimal field (an
     /// exponent, a value too large, too many digits), no `FM-E001` is without a reason.
     #[test]

@@ -24,7 +24,7 @@ migrate the golden keys of their own changes, and T16 adds new cases.
 - [x] T7 Not computed and checks tests for the ratios and the statements, defaults key test,
   and the precedence test of decision 14 (missing input before not defined: one entry per
   output) [R5 to R7, R10, R12; AC4 to AC6, AC8, AC9, AC17]
-- [ ] T8 Pointer and determinism tests: naming walk over every input and result schema, no
+- [x] T8 Pointer and determinism tests: naming walk over every input and result schema, no
   exemption, pointer resolution and byte-identical diagnostics over golden inputs [R11 to R13;
   AC10, AC11]
 - [ ] T9 [P] Catalogue test: every emitted code documented, every documented code emitted, no
