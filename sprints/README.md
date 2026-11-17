@@ -18,15 +18,15 @@ lanes:                     # lanes run in parallel; issues within a lane run in 
   - name: core
     issues: [12, 13]
     paths: ["crates/", "python/fairmark/", "python/tests/", "tests/golden/"]
-    generates: true          # the one lane that runs `uv run just generate`
+    generates: [registry]    # the generator groups this lane regenerates
   - name: docs
     issues: [40]
     paths: ["docs/en/guides/", "docs/it/guides/"]
 ```
 
 Lanes must touch disjoint areas of the code (for example `core` and `docs`), so that parallel
-agents never edit the same files. They must also stay disjoint in what they generate: at most
-one lane may run `uv run just generate` in a sprint (see the next two sections). Both rules
+agents never edit the same files. They must also stay disjoint in what they generate: each group of
+generated artifacts belongs to at most one lane of a sprint (see the next two sections). Both rules
 are checked, not only written down (next section).
 
 ## Lane paths
@@ -34,7 +34,17 @@ are checked, not only written down (next section).
 Every lane declares `paths`, the files it may change, as glob patterns relative to the
 repository root: `*` matches within one path segment, `**` any number of segments, `?` one
 character, and a pattern that ends with `/` stands for the directory and everything below it.
-`generates: true` marks the one lane that runs `uv run just generate` (default `false`).
+`generates` lists the generator groups the lane regenerates (default none). Generated
+artifacts come from two independent generators, so they form two groups, and each group has at
+most one lane per sprint:
+
+| Group | Generator | Artifacts |
+| --- | --- | --- |
+| `registry` | `schema_snapshots.py`, `gen_reference.py`, `tool_examples.py` | `schemas/`, `docs/*/reference/methods.md`, `docs/*/methods/index.md`, `README.md`, `README.it.md`, `python/fairmark/tool_examples.json` |
+| `agents` | `sync_agents.py` | `.claude/` |
+
+A product lane that changes methods and a process lane that changes skills can therefore run
+in parallel: they regenerate different files.
 
 `uv run python scripts/sprint.py validate sprints/SNN.yaml`, run by `uv run just check` and by
 CI on every push, rejects a sprint when:
@@ -42,18 +52,16 @@ CI on every push, rejects a sprint when:
 - a lane has no `paths`;
 - two lanes have patterns that some file could match both, naming the lanes and an example
   path;
-- more than one lane has `generates: true`;
-- a lane without `generates` covers a generated artifact: `schemas/`,
-  `docs/*/reference/methods.md`, `docs/*/methods/index.md`, `README.md`, `README.it.md`,
-  `python/fairmark/tool_examples.json` or `.claude/`. The two README files and the methods
-  indexes are listed whole because their generated block cannot be told apart from the rest
-  of the file in a diff.
+- `generates` is not a list of known groups, or two lanes generate the same group;
+- a lane covers a generated artifact of a group it does not generate. The two README files and
+  the methods indexes are listed whole because their generated block cannot be told apart from
+  the rest of the file in a diff.
 
 On a pull request from a sprint branch (`sprint/SNN/<issue>-<slug>`), CI runs
 `scripts/sprint.py check-diff` and fails when a changed file is outside the paths of the
 issue's lane. Every lane may also change `roadmap/roadmap.yaml`, `.agents/journal/` and
 `changes/` (the roadmap line, the journal entry and the release note of the issue); the
-generating lane may also change the generated artifacts. A file that a lane really needs
+lane may also change the artifacts of the groups it generates. A file that a lane really needs
 outside its paths is a planning change: update the sprint file in its own pull request, so
 that the overlap check runs on the new paths before the work continues.
 
@@ -93,17 +101,20 @@ removes it in the same way, once its pull request is pushed.
 
 ## Generated artifacts and the merge order
 
-`uv run just generate` writes files that belong to no single lane: the schema snapshots in
-`schemas/` with `schemas/index.json`, `docs/en/reference/methods.md`, the tool examples, the
-Python docstrings and the `.claude/` mirror of `.agents/`. Two lanes that both add or change
-methods regenerate them independently and collide when their pull requests merge.
+`uv run just generate` writes files that belong to no single lane, in two groups (Lane paths):
+the `registry` group (schema snapshots with `schemas/index.json`, the methods reference and
+indexes, the README blocks, the tool examples) and the `agents` group (the `.claude/` mirror of
+`.agents/`). Two lanes that both add or change methods regenerate the same files independently
+and collide when their pull requests merge; a lane that does not change the sources of a group
+regenerates its files unchanged.
 
 The policy of this repository is the merge order:
 
-1. A sprint plans at most one lane whose pull requests run `uv run just generate`: method
-   changes, error-documentation changes and `.agents/` changes that rewrite the mirror all
-   belong to that one lane.
-2. Pull requests that carry regenerated artifacts merge strictly one at a time.
+1. A sprint plans at most one lane per generator group: method and error-documentation changes
+   belong to the lane that generates `registry`, `.agents/` changes to the lane that
+   generates `agents`.
+2. Pull requests that carry regenerated artifacts of the same group merge strictly one at a
+   time.
 3. After one of them merges, the next one in the order is rebased on `main`, and
    `uv run just generate` is run again in it, so its artifacts supersede those of the pull
    request merged before it. CI (generated files current, docs coverage, tool examples)

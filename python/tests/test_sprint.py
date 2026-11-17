@@ -31,7 +31,7 @@ lanes:
   - name: core
     issues: [12, 13]
     paths: ["crates/", "python/tests/test_core_*.py"]
-    generates: true
+    generates: [registry]
   - name: docs
     issues: [40]
     paths: ["docs/en/guides/", "docs/it/guides/"]
@@ -257,7 +257,7 @@ def test_state_files_are_ordered_by_issue_number(
 # Lane paths (issue #334)
 
 
-def lanes(*specs: tuple[str, list[str], bool]) -> list[dict[str, object]]:
+def lanes(*specs: tuple[str, list[str], list[str]]) -> list[dict[str, object]]:
     return [
         {"name": n, "issues": [i + 1], "paths": paths, "generates": gen}
         for i, (n, paths, gen) in enumerate(specs)
@@ -313,7 +313,9 @@ def test_disjoint_patterns_have_no_overlap(a: str, b: str) -> None:
 
 
 def test_disjoint_lanes_are_valid() -> None:
-    plan = lanes(("process", ["scripts/sprint.py", "sprints/"], False), ("core", ["crates/"], True))
+    plan = lanes(
+        ("process", ["scripts/sprint.py", "sprints/"], []), ("core", ["crates/"], ["registry"])
+    )
     assert sp.validate_paths(plan) == []
 
 
@@ -325,21 +327,21 @@ def test_a_lane_without_paths_is_rejected() -> None:
 
 
 def test_overlapping_lanes_are_rejected_with_an_example() -> None:
-    plan = lanes(("a", ["scripts/"], False), ("b", ["scripts/*.py"], False))
+    plan = lanes(("a", ["scripts/"], []), ("b", ["scripts/*.py"], []))
     [error] = sp.validate_paths(plan)
     assert error.startswith("lanes a and b overlap: 'scripts/' and 'scripts/*.py' both cover")
 
 
 def test_two_generating_lanes_are_rejected() -> None:
-    plan = lanes(("a", ["crates/"], True), ("b", ["python/fairmark/"], True))
-    assert "only one lane may generate artifacts" in sp.validate_paths(plan)[0]
+    plan = lanes(("a", ["crates/"], ["registry"]), ("b", ["python/fairmark/"], ["registry"]))
+    assert "only one lane may generate the registry artifacts" in sp.validate_paths(plan)[0]
 
 
 def test_a_lane_that_does_not_generate_cannot_cover_generated_artifacts() -> None:
-    plan = lanes(("docs", ["docs/"], False))
+    plan = lanes(("docs", ["docs/"], []))
     errors = sp.validate_paths(plan)
     assert any("generated artifact 'docs/x/reference/methods.md'" in e for e in errors)
-    assert sp.validate_paths(lanes(("docs", ["docs/"], True))) == []
+    assert sp.validate_paths(lanes(("docs", ["docs/"], ["registry"]))) == []
 
 
 def test_the_sprint_template_is_valid() -> None:
@@ -405,3 +407,41 @@ def test_check_diff_ignores_branches_outside_a_sprint(
 ) -> None:
     assert check_diff(sprint_repo, "fix/334-lane-paths") == 0
     assert "not a sprint branch" in capsys.readouterr().out
+
+
+# ------------------------------------------------------------------------------------------
+# Generator groups (issue #347)
+
+
+def test_two_lanes_may_generate_different_groups() -> None:
+    plan = lanes(
+        ("product", ["crates/", "schemas/"], ["registry"]),
+        ("process", [".agents/", ".claude/"], ["agents"]),
+    )
+    assert sp.validate_paths(plan) == []
+
+
+def test_two_lanes_may_not_generate_the_same_group() -> None:
+    plan = lanes(("a", [".agents/skills/"], ["agents"]), ("b", [".agents/agents/"], ["agents"]))
+    assert sp.validate_paths(plan) == [
+        "only one lane may generate the agents artifacts; lanes: ['a', 'b']"
+    ]
+
+
+def test_a_lane_covering_the_artifacts_of_another_group_is_rejected() -> None:
+    plan = lanes(("process", [".claude/", "schemas/"], ["agents"]))
+    [error] = sp.validate_paths(plan)
+    assert "'schemas/x' of the registry group" in error
+
+
+@pytest.mark.parametrize("value", [True, "registry", ["registry", "docs"], [1]])
+def test_generates_must_name_known_groups(value: object) -> None:
+    plan = [{"name": "a", "issues": [1], "paths": ["crates/"], "generates": value}]
+    assert sp.validate_paths(plan)[0].startswith("lane a: 'generates' must be a list of groups")
+
+
+def test_check_diff_allows_only_the_artifacts_of_the_lane_groups(sprint_repo: Path) -> None:
+    _git(sprint_repo, "switch", "-q", "-c", "sprint/S01/12-core")
+    commit_files(sprint_repo, "schemas/index.json", ".claude/skills/x/SKILL.md")
+    with pytest.raises(SystemExit, match=re.escape(".claude/skills/x/SKILL.md")):
+        check_diff(sprint_repo, "sprint/S01/12-core")
