@@ -14,7 +14,14 @@ NOW = dt.datetime(2026, 11, 17, 12, tzinfo=dt.UTC)
 REPO = "o/r"
 
 
-def pull(number: int, *, dirty: bool = False, fork: bool = False, updated: str = "2026-11-16"):
+def pull(
+    number: int,
+    *,
+    dirty: bool = False,
+    fork: bool = False,
+    updated: str = "2026-11-16",
+    base: str = "main",
+):
     base_repo = {"full_name": REPO}
     return {
         "number": number,
@@ -27,13 +34,14 @@ def pull(number: int, *, dirty: bool = False, fork: bool = False, updated: str =
             "sha": f"sha{number}",
             "repo": {"full_name": "someone/r" if fork else REPO},
         },
-        "base": {"ref": "main", "repo": base_repo},
+        "base": {"ref": base, "repo": base_repo},
     }
 
 
 class FakeGitHub:
-    def __init__(self, pulls, behind, failures, drafts=()):
+    def __init__(self, pulls, behind, failures, drafts=(), refuse=()):
         self.pulls = {p["number"]: p for p in pulls}
+        self.refuse = set(refuse)
         self.behind, self.failures, self.drafts = behind, failures, set(drafts)
         self.calls: list[tuple[str, str, dict[str, str]]] = []
 
@@ -42,6 +50,10 @@ class FakeGitHub:
         if path.startswith(f"repos/{REPO}/pulls?"):
             return [{"number": n, "draft": n in self.drafts} for n in self.pulls]
         if path.endswith("/update-branch"):
+            if int(path.split("/pulls/")[1].split("/")[0]) in self.refuse:
+                raise pq.subprocess.CalledProcessError(
+                    1, ["gh"], stderr="gh: refusing to allow a GitHub App to update workflows\n"
+                )
             return {"message": "Updating pull request branch."}
         if path.startswith(f"repos/{REPO}/pulls/"):
             return self.pulls[int(path.rsplit("/", 1)[1])]
@@ -107,7 +119,8 @@ def test_render(github: FakeGitHub) -> None:
 
 
 def test_update_is_a_dry_run_without_apply(github: FakeGitHub) -> None:
-    log = pq.update(REPO, pq.queue(REPO, NOW, 3), None, apply=False)
+    log, refused = pq.update(REPO, pq.queue(REPO, NOW, 3), None, apply=False)
+    assert refused == 0
     assert "#4: would merge main (1 commits); --apply to do it" in log
     assert "#5: from a fork, not updated" in log
     assert "#2: conflict, not updated" in log
@@ -116,15 +129,42 @@ def test_update_is_a_dry_run_without_apply(github: FakeGitHub) -> None:
 
 def test_update_applies_only_to_behind_with_the_head_it_read(github: FakeGitHub) -> None:
     rows = pq.queue(REPO, NOW, 3)
-    log = pq.update(REPO, rows, None, apply=True)
+    log, refused = pq.update(REPO, rows, None, apply=True)
+    assert refused == 0
     puts = [c for c in github.calls if c[0] == "PUT"]
     assert puts == [("PUT", f"repos/{REPO}/pulls/4/update-branch", {"expected_head_sha": "sha4"})]
     assert "#4: main merged into feat/4-x; CI runs again" in log
 
 
 def test_update_one_pull_request(github: FakeGitHub) -> None:
-    log = pq.update(REPO, pq.queue(REPO, NOW, 3), 2, apply=True)
+    log, _ = pq.update(REPO, pq.queue(REPO, NOW, 3), 2, apply=True)
     assert log == ["#2: conflict, not updated"]
+
+
+def test_a_refused_update_is_logged_and_the_others_continue(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake = FakeGitHub(
+        pulls=[pull(7), pull(8)], behind={"sha7": 1, "sha8": 1}, failures={}, refuse={7}
+    )
+    monkeypatch.setattr(pq, "_gh", fake)
+    log, refused = pq.update(REPO, pq.queue(REPO, NOW, 3), None, apply=True)
+    assert refused == 1
+    assert log == [
+        "#7: update refused: gh: refusing to allow a GitHub App to update workflows",
+        "#8: main merged into feat/8-x; CI runs again",
+    ]
+    monkeypatch.setattr(pq, "now", lambda: NOW)
+    assert pq.main(["update", "--repo", REPO, "--apply"]) == 1
+    capsys.readouterr()
+
+
+def test_only_pull_requests_into_main_are_updated(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeGitHub(pulls=[pull(9, base="release/v1")], behind={"sha9": 2}, failures={})
+    monkeypatch.setattr(pq, "_gh", fake)
+    log, _ = pq.update(REPO, pq.queue(REPO, NOW, 3), None, apply=True)
+    assert log == ["#9: targets release/v1, not main; not updated"]
+    assert not [c for c in fake.calls if c[0] == "PUT"]
 
 
 def test_fail_on_stale_exit_code(

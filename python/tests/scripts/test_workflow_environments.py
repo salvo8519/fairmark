@@ -1,0 +1,57 @@
+"""The environment that holds the GitHub App key is used only where a branch cannot reach it.
+
+The environment `fairmark-app` accepts deployments from `main` only. Events such as
+`pull_request_target`, `issue_comment` or `issues` also run with the ref `main`, while reacting to
+content written by others; a job of such a workflow must never name the environment (#372).
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+import yaml
+from conftest import ROOT
+
+WORKFLOWS = ROOT / ".github" / "workflows"
+APP_ENVIRONMENT = "fairmark-app"
+ALLOWED_EVENTS = {"schedule", "workflow_dispatch"}
+
+
+def environment_name(job: dict[str, Any]) -> str | None:
+    env = job.get("environment")
+    return env.get("name") if isinstance(env, dict) else env
+
+
+def jobs_with_the_app_environment() -> list[tuple[Path, dict[str, Any], str, dict[str, Any]]]:
+    found = []
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        # YAML 1.1 reads the key `on` as True.
+        events = data.get("on", data.get(True))
+        names = set(events) if isinstance(events, (dict, list)) else {events}
+        for job_id, job in (data.get("jobs") or {}).items():
+            if environment_name(job) == APP_ENVIRONMENT:
+                found.append((path, {"events": names}, job_id, job))
+    return found
+
+
+def test_the_app_environment_is_used() -> None:
+    names = {(p.name, job_id) for p, _, job_id, _ in jobs_with_the_app_environment()}
+    assert ("prepare-release.yml", "prepare") in names
+    assert ("test-health.yml", "update") in names
+
+
+def test_only_scheduled_or_manual_workflows_on_main_use_the_app_environment() -> None:
+    for path, meta, job_id, job in jobs_with_the_app_environment():
+        where = f"{path.name}:{job_id}"
+        assert meta["events"] <= ALLOWED_EVENTS, f"{where} runs on {sorted(meta['events'])}"
+        assert "refs/heads/main" in str(job.get("if", "")), f"{where} is not limited to main"
+
+
+def test_no_workflow_reads_the_app_key_outside_the_environment() -> None:
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        for job_id, job in (data.get("jobs") or {}).items():
+            if "FAIRMARK_APP_PRIVATE_KEY" in yaml.safe_dump(job):
+                assert environment_name(job) == APP_ENVIRONMENT, f"{path.name}:{job_id}"

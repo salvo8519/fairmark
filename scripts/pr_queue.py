@@ -18,10 +18,13 @@ blocked and someone must act (the scheduled report in test-health.yml uses it).
 
 `update` merges `main` into the branch of every pull request in the state `behind` (or the one
 named with `--pr`), through the GitHub API, only with `--apply`; without it, it prints what it
-would do. It never touches a pull request in conflict, from a fork, or whose head moved since it
-was read. The update must run with a personal or app token: GitHub does not start workflows for
-changes made with the `GITHUB_TOKEN` of a workflow, so an update made that way would never be
-checked again. The scheduled workflow therefore only reports the queue (test-health.yml).
+would do. It never touches a pull request in conflict, from a fork, into a branch other than
+`main`, or whose head moved since it was read. A refused update (for example a GitHub App
+without the Workflows permission, when `main` changed a workflow) is logged and the others go
+on; the command then exits with 1. The update must run with a personal or App token: GitHub
+does not start workflows for changes made with the `GITHUB_TOKEN` of a workflow, so an update
+made that way would never be checked again. The scheduled workflow (test-health.yml) runs it
+with a token of the project's GitHub App, whose key only `main` can use (#372).
 """
 
 from __future__ import annotations
@@ -84,6 +87,7 @@ def queue(repo: str, now: dt.datetime, stale_days: int) -> list[dict[str, Any]]:
                 "number": pr["number"],
                 "title": pr["title"],
                 "branch": head["ref"],
+                "base": base["ref"],
                 "head_sha": head["sha"],
                 "fork": head["repo"]["full_name"] != base["repo"]["full_name"]
                 if head.get("repo")
@@ -119,9 +123,13 @@ def blocked(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [r for r in rows if r["stale"] and r["state"] in ("conflict", "failing")]
 
 
-def update(repo: str, rows: list[dict[str, Any]], only: int | None, apply: bool) -> list[str]:
-    """Bring the pull requests in the state `behind` up to date with `main`."""
-    log = []
+def update(
+    repo: str, rows: list[dict[str, Any]], only: int | None, apply: bool
+) -> tuple[list[str], int]:
+    """Bring the pull requests in the state `behind` up to date with `main`.
+
+    Returns the log and the number of updates GitHub refused."""
+    log, refused = [], 0
     for r in rows:
         if only is not None and r["number"] != only:
             continue
@@ -131,17 +139,26 @@ def update(repo: str, rows: list[dict[str, Any]], only: int | None, apply: bool)
         if r["fork"]:
             log.append(f"#{r['number']}: from a fork, not updated")
             continue
+        if r["base"] != "main":
+            log.append(f"#{r['number']}: targets {r['base']}, not main; not updated")
+            continue
         if not apply:
             behind = r["behind_by"]
             log.append(f"#{r['number']}: would merge main ({behind} commits); --apply to do it")
             continue
-        _gh(
-            f"repos/{repo}/pulls/{r['number']}/update-branch",
-            "PUT",
-            expected_head_sha=r["head_sha"],
-        )
+        try:
+            _gh(
+                f"repos/{repo}/pulls/{r['number']}/update-branch",
+                "PUT",
+                expected_head_sha=r["head_sha"],
+            )
+        except subprocess.CalledProcessError as error:
+            reason = (error.stderr or "").strip().splitlines() or ["no reason given"]
+            log.append(f"#{r['number']}: update refused: {reason[0]}")
+            refused += 1
+            continue
         log.append(f"#{r['number']}: main merged into {r['branch']}; CI runs again")
-    return log
+    return log, refused
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -162,8 +179,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "list":
         print(json.dumps(rows, indent=2) if args.json else render(rows))
         return 1 if args.fail_on_stale and blocked(rows) else 0
-    print("\n".join(update(repo, rows, args.pr, args.apply)) or "Nothing to update.")
-    return 0
+    log, refused = update(repo, rows, args.pr, args.apply)
+    print("\n".join(log) or "Nothing to update.")
+    return 1 if refused else 0
 
 
 if __name__ == "__main__":
