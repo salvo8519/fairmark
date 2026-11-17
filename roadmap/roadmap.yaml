@@ -316,7 +316,7 @@ milestones:
           - { issue: 271, title: "ADR 0014: default admission tests and the floor of best effort", status: done }
           - { issue: 280, title: "Fix every review finding before v0.1", status: open }
           - { issue: 282, title: "Mutation testing of the core with cargo-mutants", status: done }
-          - { issue: 351, title: "Golden cases assert values, schema snapshots assert shape", status: open }
+          - { issue: 351, title: "Golden cases assert values, schema snapshots assert shape", spec: "0013", status: open }
           - { issue: 352, title: "One catalogue of error and warning codes, documentation and schema enums generated from it", status: open }
           - { issue: 353, title: "ADR: compatibility policy for method versions after v1.0", status: open }
           - { issue: 359, title: "Constitution principle IX: unambiguous and transparent", status: done }
