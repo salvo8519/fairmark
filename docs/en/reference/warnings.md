@@ -18,7 +18,8 @@ Every warning is an entry of `diagnostics.warnings` in the result envelope:
   accepts codes it does not know.
 - **`pointer`** is an RFC 6901 JSON pointer to the field the warning concerns, from the root
   the table below states: the **input** the client sent (inside an analysis, under
-  `/base_input`), or the **envelope** of the result (it then starts with `/value`). It is
+  `/base_input`), or the **envelope** of the result (it is then `/value` or a pointer starting
+  with `/value/`). It is
   `null` only where the table says so.
 - **`message`** is one sentence in English. It is guidance, not contract: its wording may
   change between releases; `code` and `pointer` do not.

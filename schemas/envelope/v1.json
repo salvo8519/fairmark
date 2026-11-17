@@ -569,7 +569,7 @@
           "type": "string"
         },
         "pointer": {
-          "description": "JSON pointer of the field the warning concerns, from the root its catalogue entry states:\nthe input sent, or the result envelope when it starts with `/value`; null only where the\ncatalogue entry says so.",
+          "description": "JSON pointer of the field the warning concerns, from the root its catalogue entry states:\nthe input sent, or the result envelope when it is `/value` or starts with `/value/`; null\nonly where the catalogue entry says so.",
           "type": [
             "string",
             "null"

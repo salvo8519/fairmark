@@ -119,8 +119,8 @@ pub struct Warning {
     /// The code of the condition, documented in `docs/en/reference/warnings.md`.
     pub code: WarningCode,
     /// JSON pointer of the field the warning concerns, from the root its catalogue entry states:
-    /// the input sent, or the result envelope when it starts with `/value`; null only where the
-    /// catalogue entry says so.
+    /// the input sent, or the result envelope when it is `/value` or starts with `/value/`; null
+    /// only where the catalogue entry says so.
     pub pointer: Option<String>,
     /// The warning in one sentence, in English; guidance, not contract.
     pub message: String,
@@ -285,13 +285,18 @@ fn under(prefix: &str, pointer: &str) -> String {
     format!("{prefix}{pointer}")
 }
 
-/// A result pointer of an evaluated method (`/value/...`), rebased under `inner`
-/// (`/value/inner_value`); `None` when it is not a result pointer.
-fn rebased(pointer: &str, inner: &str) -> Option<String> {
+/// True when `pointer` is from the root of the result envelope: `/value` or a pointer starting
+/// with `/value/` (not `/values`).
+pub(crate) fn is_result_pointer(pointer: &str) -> bool {
     pointer
         .strip_prefix("/value")
-        .filter(|rest| rest.is_empty() || rest.starts_with('/'))
-        .map(|rest| format!("{inner}{rest}"))
+        .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+}
+
+/// A result pointer of an evaluated method (`/value` or `/value/...`), rebased under `inner`
+/// (`/value/inner_value`); `None` when it is not a result pointer.
+fn rebased(pointer: &str, inner: &str) -> Option<String> {
+    is_result_pointer(pointer).then(|| format!("{inner}{}", &pointer["/value".len()..]))
 }
 
 impl Warning {
@@ -425,6 +430,9 @@ mod tests {
             Some("/value/inner_value/equity_value")
         );
         assert_eq!(rebased("/values", "/x"), None);
+        assert_eq!(rebased("/value", "/x").as_deref(), Some("/x"));
+        assert!(is_result_pointer("/value") && is_result_pointer("/value/roe"));
+        assert!(!is_result_pointer("/values") && !is_result_pointer("/net_financial_position"));
     }
 
     #[test]

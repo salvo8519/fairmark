@@ -1,6 +1,6 @@
 ---
 source: reference/warnings.md
-source_hash: 99ddc3ecc244
+source_hash: 0c00b7bf5540
 ---
 # Codici delle avvertenze
 
@@ -23,7 +23,8 @@ Ogni avvertenza è una voce di `diagnostics.warnings` nella busta (envelope) del
   client accetta i codici che non conosce.
 - **`pointer`** è un JSON pointer RFC 6901 al campo cui si riferisce l'avvertenza, dalla radice
   indicata nella tabella: l'**input** inviato dal client (in un'analisi, sotto `/base_input`) o
-  l'**envelope** del risultato (allora inizia con `/value`). È `null` solo dove la tabella lo
+  l'**envelope** del risultato (allora è `/value` o un pointer che inizia con `/value/`). È
+  `null` solo dove la tabella lo
   indica.
 - **`message`** è una frase in inglese. È un'indicazione, non un contratto: il testo può cambiare
   tra una release e l'altra; `code` e `pointer` no.

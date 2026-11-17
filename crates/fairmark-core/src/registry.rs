@@ -2003,8 +2003,8 @@ mod tests {
 
     /// SPEC-0012 AC10 (R11): on every golden result, every pointer of the diagnostics resolves
     /// where its field says: `not_computed[].pointer` and `checks[].pointer` in the result, a
-    /// warning in the result when it starts with `/value`, otherwise in the input sent (with
-    /// its defaults); the input pointers of a reconciled check in the input sent.
+    /// warning in the result when it is `/value` or starts with `/value/`, otherwise in the input
+    /// sent (with its defaults); the input pointers of a reconciled check in the input sent.
     #[test]
     fn every_diagnostics_pointer_resolves() {
         let mut failures = Vec::new();
@@ -2016,7 +2016,7 @@ mod tests {
             for e in all("not_computed").iter().chain(&all("checks")) {
                 seen += 1;
                 let p = e["pointer"].as_str().unwrap_or("<none>");
-                if !p.starts_with("/value") || out.pointer(p).is_none() {
+                if !crate::diagnostics::is_result_pointer(p) || out.pointer(p).is_none() {
                     failures.push(format!("{name}: {p} does not resolve in the result"));
                 }
             }
@@ -2036,7 +2036,7 @@ mod tests {
                 let Some(p) = w["pointer"].as_str() else {
                     continue;
                 };
-                let ok = if p.starts_with("/value") {
+                let ok = if crate::diagnostics::is_result_pointer(p) {
                     out.pointer(p).is_some()
                 } else {
                     resolves_in_input(&input, &out, p) || resolves_in_base_input(&input, p)
