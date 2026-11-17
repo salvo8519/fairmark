@@ -1,7 +1,7 @@
 # ADR 0017 — Per-method schema manifests and a reference assembled at build time
 
-Status: proposed · 2026-11-17 (#335; supersedes the merge-order part of #319 for the `registry`
-group)
+Status: accepted · 2026-11-17 (#335; approved by the maintainer on 2026-11-17; supersedes the
+merge-order part of #319 for the `registry` group)
 
 ## Context
 
@@ -135,11 +135,11 @@ Approved specs name the file as the place where a version is recorded.
 4. The two-branch merge test (acceptance criterion 3); `sprints/README.md` and `sprint.py`
    drop the merge order for `registry` (acceptance criterion 5).
 
-Tier: substantial (schema history contract): one `code-reviewer` pass on the implementation.
-The maintainer accepts this ADR before the implementation is planned (sprint S02).
+Tier: substantial (schema history contract): one `code-reviewer` pass on the implementation,
+planned in sprint S02.
 
-## Open questions for the maintainer
+## Decisions of the maintainer
 
-- Decision 6 removes the per-method table from the README. The alternative keeps it and
-  accepts a README conflict when two methods are added in parallel, resolved by regenerating
-  after a rebase: the only place left where the merge order would apply.
+- 2026-11-17: ADR accepted. The README lists the themes and links to the methods pages of the
+  documentation site (the methods index and the methods reference), for every reader and as
+  the number of methods grows, real-asset methods included.
