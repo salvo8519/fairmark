@@ -536,11 +536,32 @@ fn permuted_keys(
     }
 }
 
-/// The text a client receives for `input`: the envelope, or `{"error": <report>}`.
+/// The text a client receives for `input`: the envelope, or `{"error": <report>}`. For an
+/// error, the code, the message and the pointer of the error itself (the typed API, the
+/// compact report of an analysis cell) must be those of the first entry of the report (code
+/// review of #371, S6); a mismatch is returned as the text instead.
 fn received(method: &str, input: &serde_json::Value) -> String {
     match fairmark_core::run(method, &input.to_string()) {
         Ok(envelope) => envelope.to_string(),
-        Err(e) => serde_json::json!({ "error": e.to_report() }).to_string(),
+        Err(e) => {
+            let report = e.to_report();
+            let first = &report.errors[0];
+            if e.code() != first.code
+                || e.to_string() != first.message
+                || e.details().pointer != first.pointer
+            {
+                return format!(
+                    "the error starts from {} {} {:?}, the report from {} {} {:?}",
+                    e.code(),
+                    e,
+                    e.details().pointer,
+                    first.code,
+                    first.message,
+                    first.pointer
+                );
+            }
+            serde_json::json!({ "error": report }).to_string()
+        }
     }
 }
 
@@ -753,4 +774,37 @@ fn a_choice_with_two_keys_is_one_length_entry() {
     }
     assert!(checked > 30, "{checked}");
     assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// Code review of #371, S6: a cell of an analysis whose inner input has two errors records the
+/// first entry of the inner method's report, whatever the order of the keys of the request.
+#[test]
+fn an_analysis_cell_records_the_first_entry_of_its_report() {
+    let request = serde_json::json!({
+        "method": "tvm.annuity",
+        "base_input": {"payment": "100", "rate": "0.05", "periods": 3, "growth": "0.01",
+                       "timing": "ordinary"},
+        "output_pointers": ["/present_value"],
+        "scenarios": [{"name": "both refused", "overrides": [
+            {"pointer": "/rate", "value": "-1"},
+            {"pointer": "/growth", "value": "-1"}
+        ]}]
+    });
+    let inner = serde_json::json!({"payment": "100", "rate": "-1", "periods": 3,
+                                   "growth": "-1", "timing": "ordinary"});
+    let report = fairmark_core::run("tvm.annuity", &inner.to_string())
+        .unwrap_err()
+        .to_report();
+    assert!(report.errors.len() >= 2, "{:?}", report.errors);
+    let written = received("analysis.scenarios", &request);
+    let out: serde_json::Value = serde_json::from_str(&written).expect(&written);
+    let cell = &out["value"]["scenarios"][0]["error"];
+    assert_eq!(cell["code"], report.errors[0].code, "{out:#}");
+    assert_eq!(
+        cell["message"],
+        report.errors[0].message.as_str(),
+        "{out:#}"
+    );
+    let reversed = permuted_keys(&request, &mut |n| (0..n).rev().collect());
+    assert_eq!(received("analysis.scenarios", &reversed), written);
 }

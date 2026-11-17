@@ -446,7 +446,7 @@ pub fn run_with(id: &str, input_json: &str, options: &RunOptions) -> Result<Valu
     ))
 }
 
-/// Runs method `id`; an error leaves in the canonical order of a report (issue #370), so that
+/// Runs method `id`; an error leaves in the canonical order of a report (rule of #370), so that
 /// the order of the keys of the input changes nothing a caller receives.
 fn dispatch(id: &str, input_json: &str, source: Source, options: &RunOptions) -> Result<Value> {
     dispatch_to(id, input_json, source, options)

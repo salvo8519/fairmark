@@ -1469,7 +1469,7 @@ fn choice_error(at: &[String], node: &Value, choices: Vec<String>) -> FairmarkEr
 }
 
 /// A choice written as an object with one key, given two keys or more of the choice (ADR 0014
-/// G5, decision of 2026-11-17 on #370): one entry, `length` at the choice, naming the keys
+/// G5, rule of #370): one entry, `length` at the choice, naming the keys
 /// found in alphabetical order, so that the order of the keys of the input changes nothing.
 /// The same in every method, whatever the keys hold; nothing within the choice is reported.
 pub(crate) fn keys_error(

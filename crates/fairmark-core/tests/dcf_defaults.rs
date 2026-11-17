@@ -435,7 +435,7 @@ fn terminal_option_details() {
     );
 }
 
-/// Code review of #197, and the decision of 2026-11-17 on #370: two terminal options are one
+/// Code review of #197, and the rule of #370: two terminal options are one
 /// entry, `length` at `/terminal`, naming the keys found and listing the options, whatever the
 /// keys hold; nothing within the terminal is reported (ADR 0014 G5).
 #[test]

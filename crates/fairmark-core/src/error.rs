@@ -260,23 +260,45 @@ impl Several {
     }
 }
 
-/// The canonical order of the entries of an error report (issue #370): by `pointer`, the
+/// The canonical order of the entries of an error report (rule of #370): by `pointer`, the
 /// entries without one first, then token by token as RFC 6901 writes them, array indices
-/// compared as numbers and before names ([`pointer_cmp`]); then by code; then by message.
-/// The order of the keys of the input therefore changes nothing in the report (principle I).
-fn canonical_cmp(
-    a: (Option<&str>, &str, &str),
-    b: (Option<&str>, &str, &str),
-) -> std::cmp::Ordering {
-    let pointer = match (a.0, b.0) {
-        (None, None) => std::cmp::Ordering::Equal,
-        (None, Some(_)) => std::cmp::Ordering::Less,
-        (Some(_), None) => std::cmp::Ordering::Greater,
-        (Some(x), Some(y)) => pointer_cmp(x, y),
-    };
-    pointer
-        .then_with(|| a.1.cmp(b.1))
-        .then_with(|| a.2.cmp(b.2))
+/// compared as numbers and before names ([`pointer_cmp`], where `01` is a name); then by code;
+/// then by message; then, so that the order is total, by reason, pointers, expected, fix and
+/// alternative sets. The order of the keys of the input therefore changes nothing in the
+/// report (principle I).
+pub(crate) fn entry_cmp(a: &ErrorEntry, b: &ErrorEntry) -> std::cmp::Ordering {
+    fn optional(a: Option<&str>, b: Option<&str>) -> std::cmp::Ordering {
+        match (a, b) {
+            (None, None) => std::cmp::Ordering::Equal,
+            (None, Some(_)) => std::cmp::Ordering::Less,
+            (Some(_), None) => std::cmp::Ordering::Greater,
+            (Some(x), Some(y)) => pointer_cmp(x, y),
+        }
+    }
+    fn pointers(a: &[String], b: &[String]) -> std::cmp::Ordering {
+        a.iter()
+            .zip(b)
+            .map(|(x, y)| pointer_cmp(x, y))
+            .find(|o| o.is_ne())
+            .unwrap_or_else(|| a.len().cmp(&b.len()))
+    }
+    let reason = |e: &ErrorEntry| e.reason.map(|r| format!("{r:?}"));
+    optional(a.pointer.as_deref(), b.pointer.as_deref())
+        .then_with(|| a.code.cmp(b.code))
+        .then_with(|| a.message.cmp(&b.message))
+        .then_with(|| reason(a).cmp(&reason(b)))
+        .then_with(|| pointers(&a.pointers, &b.pointers))
+        .then_with(|| a.expected.cmp(&b.expected))
+        .then_with(|| a.fix.cmp(&b.fix))
+        .then_with(|| a.missing_any_of.cmp(&b.missing_any_of))
+}
+
+/// `errors` in the canonical order of a report ([`entry_cmp`]).
+fn in_canonical_order(errors: Vec<FairmarkError>) -> Vec<FairmarkError> {
+    let mut keyed: Vec<(ErrorEntry, FairmarkError)> =
+        errors.into_iter().map(|e| (e.entry(), e)).collect();
+    keyed.sort_by(|a, b| entry_cmp(&a.0, &b.0));
+    keyed.into_iter().map(|(_, e)| e).collect()
 }
 
 /// The sub-kind of an error (ADR 0014 G5): it tells apart the conditions that share a code,
@@ -428,7 +450,11 @@ impl Found {
         match self.input.len() {
             0 => self.computation.map_or(Ok(()), Err),
             1 => Err(self.input.remove(0)),
-            _ => Err(FairmarkError::Several(Box::new(Several(self.input)))),
+            // Canonical when built (code review of #371, S5): the code, the message and the
+            // details of the error start from the first entry of its report.
+            _ => Err(FairmarkError::Several(Box::new(Several(
+                in_canonical_order(self.input),
+            )))),
         }
     }
 }
@@ -771,24 +797,14 @@ impl FairmarkError {
     }
 
     /// This error with the errors of `Several` in the canonical order of a report (see
-    /// [`canonical_cmp`]), so that its code and message, its compact report and its full report
-    /// all start from the same entry whatever the order of the keys of the input. Applied where
-    /// an error leaves the engine (the registry's `run` and validation of an inner input), after
-    /// every builder: sorting changes no entry, only their order.
+    /// [`entry_cmp`]). `Found` builds `Several` in that order; this keeps it for an error
+    /// re-prefixed or merged afterwards, where an error leaves the engine (the registry's `run`
+    /// and the validation of an inner input), after every builder: sorting changes no entry,
+    /// only their order.
     pub(crate) fn canonical(self) -> Self {
         match self {
             Self::Several(several) => {
-                let mut keyed: Vec<(Option<String>, &'static str, String, Self)> = several
-                    .0
-                    .into_iter()
-                    .map(|e| (e.details().pointer, e.code(), e.to_string(), e))
-                    .collect();
-                keyed.sort_by(|a, b| {
-                    canonical_cmp((a.0.as_deref(), a.1, &a.2), (b.0.as_deref(), b.1, &b.2))
-                });
-                Self::Several(Box::new(Several(
-                    keyed.into_iter().map(|(.., e)| e).collect(),
-                )))
+                Self::Several(Box::new(Several(in_canonical_order(several.0))))
             }
             other => other,
         }
@@ -1005,19 +1021,14 @@ impl FairmarkError {
     }
 
     /// JSON-friendly representation used by every adapter (CLI, Python, MCP): every error
-    /// found in `errors`, in the canonical order (by pointer, code and message; issue #370),
-    /// and the first of them at the top level (ADR 0014 G5).
+    /// found in `errors`, in the canonical order of [`entry_cmp`] (rule of #370), and the first
+    /// of them at the top level (ADR 0014 G5).
     pub fn to_report(&self) -> ErrorReport {
         let mut errors: Vec<ErrorEntry> = match self {
             Self::Several(s) => s.errors().iter().map(Self::entry).collect(),
             other => vec![other.entry()],
         };
-        errors.sort_by(|a, b| {
-            canonical_cmp(
-                (a.pointer.as_deref(), a.code, &a.message),
-                (b.pointer.as_deref(), b.code, &b.message),
-            )
-        });
+        errors.sort_by(entry_cmp);
         ErrorReport {
             first: errors[0].clone(),
             errors,
@@ -1196,6 +1207,83 @@ pub type Result<T> = std::result::Result<T, FairmarkError>;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn entry(pointer: Option<&str>, code: &'static str, message: &str) -> ErrorEntry {
+        ErrorEntry {
+            code,
+            message: message.to_owned(),
+            pointer: pointer.map(str::to_owned),
+            pointers: Vec::new(),
+            reason: None,
+            expected: Vec::new(),
+            fix: None,
+            missing_any_of: Vec::new(),
+        }
+    }
+
+    /// Code review of #371, S4: the order of the entries of a report is total. No pointer
+    /// first; pointers token by token, indices as numbers and before names, `01` a name; then
+    /// code and message; then reason, pointers, expected, fix and alternative sets.
+    #[test]
+    fn report_entries_are_in_a_total_order() {
+        use std::cmp::Ordering::{Equal, Greater, Less};
+        let e = |p: Option<&str>| entry(p, "FM-E001", "m");
+        assert_eq!(entry_cmp(&e(None), &e(Some(""))), Less);
+        assert_eq!(entry_cmp(&e(Some("")), &e(None)), Greater);
+        assert_eq!(
+            entry_cmp(&e(Some("/periods/2")), &e(Some("/periods/10"))),
+            Less
+        );
+        assert_eq!(
+            entry_cmp(&e(Some("/periods/10")), &e(Some("/periods/total"))),
+            Less
+        );
+        assert_eq!(
+            entry_cmp(&e(Some("/periods/1")), &e(Some("/periods/01"))),
+            Less
+        );
+        assert_eq!(
+            entry_cmp(&e(Some("/periods/01")), &e(Some("/periods/1"))),
+            Greater
+        );
+        assert_eq!(
+            entry_cmp(
+                &entry(Some("/a"), "FM-E001", "z"),
+                &entry(Some("/a"), "FM-E003", "a")
+            ),
+            Less
+        );
+        assert_eq!(
+            entry_cmp(
+                &entry(Some("/a"), "FM-E001", "a"),
+                &entry(Some("/a"), "FM-E001", "b")
+            ),
+            Less
+        );
+        // Equal on pointer, code and message: the other fields decide, so that no two
+        // different entries compare equal.
+        let base = e(Some("/a"));
+        let mut reason = base.clone();
+        reason.reason = Some(Reason::Range);
+        let mut pointers = base.clone();
+        pointers.pointers = vec!["/a".to_owned(), "/b".to_owned()];
+        let mut expected = base.clone();
+        expected.expected = vec!["x".to_owned()];
+        let mut fix = base.clone();
+        fix.fix = Some("f".to_owned());
+        let mut sets = base.clone();
+        sets.missing_any_of = vec![vec!["/c".to_owned()]];
+        for other in [&reason, &pointers, &expected, &fix, &sets] {
+            assert_eq!(entry_cmp(&base, other), Less, "{other:?}");
+            assert_eq!(entry_cmp(other, &base), Greater, "{other:?}");
+        }
+        assert_eq!(entry_cmp(&base, &base.clone()), Equal);
+        let mut later = base.clone();
+        later.pointers = vec!["/a".to_owned(), "/b/10".to_owned()];
+        let mut earlier = base.clone();
+        earlier.pointers = vec!["/a".to_owned(), "/b/2".to_owned()];
+        assert_eq!(entry_cmp(&earlier, &later), Less);
+    }
 
     /// Review of #279, round 3: the class of every variant, input or computation. The match has
     /// no wildcard, so a new variant cannot be added without being classed here.

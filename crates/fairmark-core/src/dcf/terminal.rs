@@ -759,7 +759,7 @@ pub(crate) fn choose(t: &Terminal) -> Result<TerminalChoice<'_>> {
         .expected(TERMINAL_OPTIONS)),
         [one] => Ok(*one),
         // Two options or more: one entry, `length` at the choice, as for every choice written
-        // as an object with one key (ADR 0014 G5, decision of 2026-11-17 on #370). The JSON
+        // as an object with one key (ADR 0014 G5, rule of #370). The JSON
         // reading reports it first; this is the same entry for an input built in code.
         many => Err(crate::reading::keys_error(
             &["terminal".to_owned()],
