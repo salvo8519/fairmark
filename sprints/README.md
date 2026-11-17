@@ -149,8 +149,32 @@ uv run python scripts/sprint.py state sprints/S01.yaml 42 \
 
 The step is the current step of the lane loop: `spec`, `tests`, `implementation`, `review`,
 `pr` or `done`. The file holds the issue, its lane, branch, pull request, current step,
-blockers, `started` and `updated` (UTC, ISO 8601) and `agent_steps`, counted one per write:
-the agent cost of the issue.
+blockers, `blocked_since` (when the issue became blocked, null when it is not), `started` and
+`updated` (UTC, ISO 8601) and `agent_steps`, counted one per write: the agent cost of the
+issue, measured in orchestrator steps, not in tokens.
+
+Every write also appends one event to the sprint ledger, `ledger.jsonl` beside the state
+directory (shared by every worktree, never committed): one JSON line per checkpoint with the
+time, issue, lane, step, pull request, number of blockers and agent steps. Lines are appended
+in a single write each, so parallel lanes never interleave them.
+
+## Burn-down and loop metrics
+
+`uv run python scripts/sprint.py burndown sprints/SNN.yaml` (`--json` for agents) reads the
+ledger and GitHub and prints:
+
+| Figure | Meaning |
+| --- | --- |
+| Burn-down | Per day of the sprint, every issue in exactly one state: `done` (closed that day or before), `in review` (one of its pull requests open at the end of the day), `in progress` (a ledger checkpoint that day or before), `open` |
+| Cycle time | Hours from the first ledger checkpoint of an issue to its closing; the median over the sprint. An issue closed without a checkpoint is listed as not measured, never estimated |
+| Failed check runs per lane | Check runs that concluded `failure` on the commits of the issue's pull requests, each commit counted once |
+| Agent steps | Orchestrator steps per issue, from the ledger |
+| Blocked now | Open issues whose last checkpoint recorded blockers, with the time |
+
+A pull request belongs to an issue when it is opened from a branch of the issue
+(`<type>/<issue>-<slug>` or `sprint/SNN/<issue>-<slug>`) or recorded in its state; a pull
+request that only mentions the issue (a roadmap update) does not. An issue closed as not
+planned never counts as done.
 
 `uv run python scripts/sprint.py status sprints/S01.yaml` prints the state directory and, for
 each issue, the state next to the
@@ -174,5 +198,5 @@ state; the committed record stays the journal entry and the pull request of the 
    Claude in GitHub Actions. Every issue ends as a pull request; nothing is merged without
    the maintainer.
 4. **Track** — `uv run python scripts/sprint.py status sprints/SNN.yaml` shows progress from
-   GitHub.
+   GitHub; `scripts/sprint.py burndown sprints/SNN.yaml` the burn-down and loop metrics.
 5. **Close** — set `status: done`; unfinished issues move to the next sprint.

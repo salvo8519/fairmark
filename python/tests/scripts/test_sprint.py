@@ -67,6 +67,7 @@ def test_write_state_creates_the_file_with_the_first_step(tmp_path: Path, fixed_
         "started": "2026-11-14T22:30:00+00:00",
         "updated": "2026-11-14T22:30:00+00:00",
         "agent_steps": 1,
+        "blocked_since": None,
     }
     assert sp.state_path(f, 12).exists()
 
@@ -445,3 +446,182 @@ def test_check_diff_allows_only_the_artifacts_of_the_lane_groups(sprint_repo: Pa
     commit_files(sprint_repo, "schemas/index.json", ".claude/skills/x/SKILL.md")
     with pytest.raises(SystemExit, match=re.escape(".claude/skills/x/SKILL.md")):
         check_diff(sprint_repo, "sprint/S01/12-core")
+
+
+# ------------------------------------------------------------------------------------------
+# Event ledger, burn-down and loop metrics (issue #320)
+
+import datetime as dt  # noqa: E402
+import json  # noqa: E402
+
+
+def test_every_checkpoint_appends_one_ledger_event(tmp_path: Path, fixed_now: None) -> None:
+    f = sprint_file(tmp_path)
+    sp.write_state(f, 12, branch="feat/12-irr-sign", step="spec")
+    sp.write_state(f, 12, step="tests", blocker=["needs the spec approved"])
+    sp.write_state(f, 40, step="docs")
+    events = sp.read_ledger(f)
+    assert sp.ledger_path(f) == tmp_path / "S01" / "ledger.jsonl"
+    assert [(e["issue"], e["step"], e["blockers"], e["agent_steps"]) for e in events] == [
+        (12, "spec", 0, 1),
+        (12, "tests", 1, 2),
+        (40, "docs", 0, 1),
+    ]
+    assert events[0]["lane"] == "core" and events[0]["at"] == "2026-11-14T22:30:00+00:00"
+
+
+def test_blocked_since_is_set_once_and_cleared_with_the_blockers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    f = sprint_file(tmp_path)
+    clock = iter(dt.datetime(2026, 11, 14, 9, m, tzinfo=dt.UTC) for m in range(60))
+    monkeypatch.setattr(sp, "_now", lambda: next(clock))
+    assert sp.write_state(f, 12, step="spec")["blocked_since"] is None
+    blocked = sp.write_state(f, 12, blocker=["a"])
+    assert blocked["blocked_since"] == blocked["updated"]
+    assert sp.write_state(f, 12, blocker=["b"])["blocked_since"] == blocked["updated"]
+    assert sp.write_state(f, 12, clear_blockers=True)["blocked_since"] is None
+
+
+def test_the_ledger_skips_a_damaged_line(tmp_path: Path, fixed_now: None) -> None:
+    f = sprint_file(tmp_path)
+    sp.write_state(f, 12, step="spec")
+    with sp.ledger_path(f).open("a", encoding="utf-8") as ledger:
+        ledger.write('{"issue": 12, "at": "2026-11-14T23:\n')
+    sp.write_state(f, 13, step="spec")
+    assert [e["issue"] for e in sp.read_ledger(f)] == [12, 13]
+
+
+def test_appends_from_many_writers_keep_whole_lines(tmp_path: Path) -> None:
+    f = sprint_file(tmp_path)
+    for i in range(200):
+        sp.append_ledger(
+            f, {"at": f"2026-11-14T10:00:{i % 60:02d}+00:00", "issue": i, "x": "y" * 300}
+        )
+    lines = sp.ledger_path(f).read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 200 and all(json.loads(line)["x"] == "y" * 300 for line in lines)
+
+
+def at(day: int, hour: int = 9) -> str:
+    return dt.datetime(2026, 11, day, hour, tzinfo=dt.UTC).isoformat()
+
+
+SPRINT = {
+    "id": "S01",
+    "start": dt.date(2026, 11, 10),
+    "end": dt.date(2026, 11, 20),
+    "lanes": [{"name": "core", "issues": [12, 13]}, {"name": "docs", "issues": [40, 41]}],
+}
+EVENTS = [
+    {"at": at(10), "issue": 12, "blockers": 0, "agent_steps": 1},
+    {"at": at(11), "issue": 12, "blockers": 0, "agent_steps": 4},
+    {"at": at(11), "issue": 13, "blockers": 1, "agent_steps": 2},
+    {"at": at(12), "issue": 99, "blockers": 0, "agent_steps": 9},  # not in the sprint
+]
+FACTS = {
+    12: {
+        "closed_at": at(12, 21),
+        "pull_requests": [{"number": 1, "created_at": at(11), "closed_at": at(12, 21)}],
+        "failed_checks": 2,
+    },
+    # A pull request of #13 closed while the issue stays open (as #244 for #243): the issue
+    # leaves review when the pull request closes.
+    13: {
+        "closed_at": None,
+        "pull_requests": [{"number": 3, "created_at": at(10), "closed_at": at(11, 18)}],
+    },
+    40: {
+        "closed_at": None,
+        "pull_requests": [{"number": 2, "created_at": at(11), "closed_at": None}],
+        "failed_checks": 1,
+    },
+    41: {"closed_at": at(13)},
+}
+
+
+def test_burndown_puts_each_issue_in_one_state_per_day() -> None:
+    report = sp.burndown(SPRINT, EVENTS, FACTS, dt.date(2026, 11, 13))
+    assert report["days"] == [
+        {"day": "2026-11-10", "open": 2, "in_progress": 1, "in_review": 1, "done": 0},
+        {"day": "2026-11-11", "open": 1, "in_progress": 1, "in_review": 2, "done": 0},
+        {"day": "2026-11-12", "open": 1, "in_progress": 1, "in_review": 1, "done": 1},
+        {"day": "2026-11-13", "open": 0, "in_progress": 1, "in_review": 1, "done": 2},
+    ]
+
+
+def test_cycle_time_is_measured_only_from_a_checkpoint() -> None:
+    report = sp.burndown(SPRINT, EVENTS, FACTS, dt.date(2026, 11, 13))
+    assert report["cycle_time_hours"] == {"12": 60.0}
+    assert report["cycle_time_median_hours"] == 60.0
+    assert report["closed_without_checkpoint"] == [41]
+
+
+def test_failed_gates_steps_and_blocked_issues() -> None:
+    report = sp.burndown(SPRINT, EVENTS, FACTS, dt.date(2026, 11, 13))
+    assert report["failed_gates_per_lane"] == {"core": 2, "docs": 1}
+    assert report["agent_steps"] == {"12": 4, "13": 2}
+    assert report["blocked"] == {"13": at(11)}
+    text = sp.render_burndown(report)
+    assert "median 60.0 h over 1 issues" in text and "#41" in text and "not tokens" in text
+
+
+def test_a_pull_request_belongs_to_an_issue_only_from_its_branch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pulls = {
+        244: {"number": 244, "head": {"ref": "chore/243-roadmap-wording"}},  # its branch
+        356: {"number": 356, "head": {"ref": "chore/6-sprint-s01"}},  # only mentions it
+        357: {"number": 357, "head": {"ref": "sprint/S01/243-fix"}},
+    }
+
+    def fake_gh(path: str) -> object:
+        if path.endswith("/timeline?per_page=100"):
+            return [
+                {
+                    "event": "cross-referenced",
+                    "source": {"issue": {"number": n, "pull_request": {"url": "u"}}},
+                }
+                for n in pulls
+            ] + [{"event": "labeled"}]
+        return pulls[int(path.rsplit("/", 1)[1])]
+
+    monkeypatch.setattr(sp, "_gh", fake_gh)
+    assert [p["number"] for p in sp.pull_requests_of("o/r", 243, None)] == [244, 357]
+    assert sp.issue_branch(24).match("feat/24-x") and not sp.issue_branch(24).match("feat/243-x")
+
+
+def test_github_facts_count_shared_commits_once_and_skip_not_planned(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_gh(path: str) -> object:
+        if path == "repos/o/r/issues/12":
+            return {"title": "a", "closed_at": at(12), "state_reason": "completed"}
+        if path == "repos/o/r/issues/40":
+            return {"title": "b", "closed_at": at(12), "state_reason": "not_planned"}
+        if path.endswith("/timeline?per_page=100"):
+            n = 12 if "/12/" in path else 40
+            return [
+                {
+                    "event": "cross-referenced",
+                    "source": {"issue": {"number": n * 10 + k, "pull_request": {"url": "u"}}},
+                }
+                for k in (1, 2)
+            ]
+        if "/commits?" in path:
+            return [{"sha": "same"}, {"sha": path.split("/")[-2]}]
+        if "/check-runs" in path:
+            return {"check_runs": [{"conclusion": "failure"}, {"conclusion": "success"}]}
+        number = int(path.rsplit("/", 1)[1])
+        return {
+            "number": number,
+            "head": {"ref": f"feat/{number // 10}-x"},
+            "created_at": at(11),
+            "closed_at": at(12),
+        }
+
+    monkeypatch.setattr(sp, "_gh", fake_gh)
+    sprint = {"lanes": [{"name": "core", "issues": [12, 40]}]}
+    facts = sp.github_facts("o/r", sprint, [])
+    assert facts[12]["failed_checks"] == 3  # commits "same", "121", "122": one failure each
+    assert [p["number"] for p in facts[12]["pull_requests"]] == [121, 122]
+    assert facts[40]["closed_at"] is None  # closed as not planned is not done

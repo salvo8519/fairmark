@@ -84,6 +84,8 @@ place that fits how long it must live ([ADR 0015](adr/0015-agent-memory-one-sour
 No database: every tier is readable by any agent of any system, and auditable in a diff. A crash
 or a context reset costs minutes: `scripts/project_state.py` prints where the project stands,
 the journal says where the last session stopped, and the branch on GitHub carries the work.
+`scripts/sprint.py burndown` turns the sprint ledger and GitHub into a burn-down, cycle times,
+failed check runs per lane and agent steps per issue.
 `scripts/journal.py search <issue|area|date|text>` finds the entries about an issue, its own
 first; `session-start` cites them for every issue it proposes. The index is built from the
 entries each time it is read and never committed, so parallel lanes never collide on it.
@@ -145,6 +147,9 @@ in the issue, in the journal or in an ADR.
 
 ## What is not enforced yet
 
-- Sprint burn-down and loop metrics (cycle time, failed gates, agent steps per issue) are
-  planned in #320; until then the cost of the process is not measured.
+- The cost of an issue is measured in orchestrator steps (`scripts/sprint.py burndown`), not in
+  tokens: the scripts cannot see token usage.
+- The pull request queue is not yet maintained automatically (stale pull requests are rebased
+  by hand), and intermittent test failures are not yet counted per test; both are the second
+  part of #320.
 - Mirrors for agent systems other than Claude Code are planned in #328.
