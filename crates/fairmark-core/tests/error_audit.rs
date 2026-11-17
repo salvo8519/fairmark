@@ -181,8 +181,16 @@ fn technique_entries_name_their_keys() {
     let mut two = base.clone();
     two["techniques"][0]["tv.liquidation"] = base["techniques"][6]["tv.liquidation"].clone();
     let r = report("tv.compare", &two);
-    assert_eq!(r["pointer"], "/techniques/0/tv.liquidation", "{r:#}");
-    assert_eq!(r["reason"], "length");
+    let second = r["errors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["pointer"] == "/techniques/0/tv.liquidation");
+    assert_eq!(
+        second.map(|e| &e["reason"]),
+        Some(&json!("length")),
+        "{r:#}"
+    );
 }
 
 /// Audit 9: a misspelt key of a single-key choice is an unknown field at the key, with the
@@ -436,12 +444,12 @@ fn analysis_checks_and_base_input_are_reported_together() {
     assert_eq!(
         pointers_of(&r),
         [
-            "/bracket",
-            "/tolerance",
-            "/max_iterations",
-            "/base_input/payment",
             "/base_input/bogus",
+            "/base_input/payment",
             "/base_input/timng",
+            "/bracket",
+            "/max_iterations",
+            "/tolerance",
         ],
         "{r:#}"
     );
@@ -452,7 +460,7 @@ fn analysis_checks_and_base_input_are_reported_together() {
     let r = report("analysis.goal_seek", &input);
     assert_eq!(
         pointers_of(&r),
-        ["/tolerance", "/base_input/bogus", "/base_input/timng"],
+        ["/base_input/bogus", "/base_input/timng", "/tolerance"],
         "{r:#}"
     );
 }
@@ -483,10 +491,10 @@ fn every_analysis_collects_its_request_errors() {
     assert_eq!(
         pointers_of(&r),
         [
+            "/base_input/bogus",
             "/output_pointers/1",
             "/scenarios/0/name",
-            "/scenarios/2/name",
-            "/base_input/bogus"
+            "/scenarios/2/name"
         ],
         "{r:#}"
     );
@@ -503,9 +511,9 @@ fn every_analysis_collects_its_request_errors() {
     assert_eq!(
         pointers_of(&r),
         [
+            "/base_input/bogus",
             "/variables/0/low",
-            "/variables/1/variable_pointer",
-            "/base_input/bogus"
+            "/variables/1/variable_pointer"
         ],
         "{r:#}"
     );
@@ -518,7 +526,7 @@ fn every_analysis_collects_its_request_errors() {
     let r = report("analysis.sensitivity", &sensitivity);
     assert_eq!(
         pointers_of(&r),
-        ["/rows/values", "/output_pointer", "/base_input/bogus"],
+        ["/base_input/bogus", "/output_pointer", "/rows/values"],
         "{r:#}"
     );
 }
@@ -555,7 +563,7 @@ fn dcf_reports_every_rate_and_the_terminal_terms() {
     let r = report("dcf.fcff", &input);
     assert_eq!(
         pointers_of(&r),
-        ["/wacc", "/terminal/tv.gordon/growth"],
+        ["/terminal/tv.gordon/growth", "/wacc"],
         "{r:#}"
     );
 }
@@ -746,7 +754,7 @@ fn decimal_strings_follow_the_schema_grammar() {
         "tvm.npv",
         &json!({"rate": "+0.1", "cash_flows": ["-100", "6_0", "60"]}),
     );
-    assert_eq!(pointers_of(&r), ["/rate", "/cash_flows/1"], "{r:#}");
+    assert_eq!(pointers_of(&r), ["/cash_flows/1", "/rate"], "{r:#}");
     for good in ["0.1", "-0.1", "1e2", "10", "0"] {
         assert!(
             run(

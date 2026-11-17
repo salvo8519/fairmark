@@ -23,13 +23,15 @@ def test_python_error_exposes_the_report() -> None:
         fm.run("loans.instalment", BAD_LOAN)
     err = caught.value
     assert err.code == "FM-E001"
-    assert err.pointer == "/principal"
+    # Canonical order of the entries (issue #370): by pointer, then code, then message.
+    assert err.pointer == "/number_of_instalments"
     assert err.reason == "range"
-    assert err.expected == ["an amount greater than 0"]
-    assert [e.pointer for e in err.errors] == ["/principal", "/number_of_instalments"]
+    assert err.expected == ["a whole number from 1 to 10000"]
+    assert [e.pointer for e in err.errors] == ["/number_of_instalments", "/principal"]
     assert err.errors[0] is err
     assert err.errors[1].errors == [err.errors[1]]
     assert err.report["errors"][1]["reason"] == "range"
+    assert err.errors[1].expected == ["an amount greater than 0"]
 
 
 def test_missing_any_of_and_pointers() -> None:
@@ -77,10 +79,8 @@ def test_mcp_returns_the_report_as_structured_content() -> None:
     result = mcp_server.call_tool(tools.tool_name("loans.instalment"), BAD_LOAN)
     assert result.is_error
     error = result.structured_content["error"]
-    assert error["pointer"] == "/principal"
-    assert json.loads(result.content[0].text)["error"]["errors"][1]["pointer"] == (
-        "/number_of_instalments"
-    )
+    assert error["pointer"] == "/number_of_instalments"
+    assert json.loads(result.content[0].text)["error"]["errors"][1]["pointer"] == "/principal"
 
 
 def test_result_schema_validates_the_error_document() -> None:

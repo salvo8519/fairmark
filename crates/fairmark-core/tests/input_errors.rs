@@ -28,6 +28,18 @@ fn assert_error(method: &str, input: &Value, code: &str, pointer: &str, parts: &
     );
 }
 
+/// The message of the entry of the `tv.compare` report on `input` that contains `part`.
+fn message_with(input: &Value, part: &str) -> String {
+    let err = run("tv.compare", &input.to_string()).expect_err("the input must be refused");
+    assert_eq!(err.code(), "FM-E001", "{err}");
+    let report = err.to_report();
+    let found = report.errors.iter().find(|e| e.message.contains(part));
+    found
+        .unwrap_or_else(|| panic!("no entry contains {part:?}: {report:?}"))
+        .message
+        .clone()
+}
+
 fn dcf() -> Value {
     json!({
         "stages": [{"periods": 2, "projection": "given", "flows": [100, 110]}],
@@ -432,13 +444,11 @@ fn compare_errors_inside_a_technique_entry() {
         "basis": "enterprise",
         "techniques": [{"tv.gordon": {"growth": "0.02", "next_flow": "100"}, "tv.h_model": {}}]
     });
-    assert_error(
-        "tv.compare",
-        &two_keys,
-        "FM-E001",
-        "/techniques/0",
-        &["exactly one key", "got 2 keys: tv.gordon, tv.h_model"],
-    );
+    // The entry about the keys is not first in the canonical order (issue #370): it is
+    // located at the second key, after the fields of the first.
+    let m = message_with(&two_keys, "exactly one key");
+    assert!(m.contains("`/techniques/0`"), "{m}");
+    assert!(m.contains("got 2 keys: tv.gordon, tv.h_model"), "{m}");
     let unknown = json!({
         "rate": "0.09",
         "basis": "enterprise",
@@ -499,13 +509,9 @@ fn compare_entries_have_exactly_one_key() {
         "{m}"
     );
 
-    let err = run(
-        "tv.compare",
-        &text(r#"{"tv.gordon": {"growth": "x"}, "tv.h_model": {}}"#),
-    )
-    .unwrap_err();
-    assert_eq!(err.code(), "FM-E001");
-    let m = err.to_string();
+    let input: Value =
+        serde_json::from_str(&text(r#"{"tv.gordon": {"growth": "x"}, "tv.h_model": {}}"#)).unwrap();
+    let m = message_with(&input, "exactly one key");
     assert!(m.contains("`/techniques/1`"), "{m}");
     assert!(m.contains("got 2 keys: tv.gordon, tv.h_model"), "{m}");
 }

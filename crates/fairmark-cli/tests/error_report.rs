@@ -33,11 +33,12 @@ fn run_prints_the_structured_report() {
     );
     let error = &report["error"];
     assert_eq!(error["code"], "FM-E001");
-    assert_eq!(error["pointer"], "/principal");
+    // Canonical order of the entries (issue #370): by pointer, then code, then message.
+    assert_eq!(error["pointer"], "/number_of_instalments");
     assert_eq!(error["reason"], "range");
     let errors = error["errors"].as_array().unwrap();
     assert_eq!(errors.len(), 2);
-    assert_eq!(errors[1]["pointer"], "/number_of_instalments");
+    assert_eq!(errors[1]["pointer"], "/principal");
 }
 
 #[test]

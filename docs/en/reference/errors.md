@@ -15,20 +15,20 @@ A refused call returns `{"error": <report>}` (ADR 0014 G5):
 ```json
 {"error": {
   "code": "FM-E001",
-  "message": "invalid input: `principal` must be greater than 0 (got 0)",
-  "pointer": "/principal",
+  "message": "invalid input: `number_of_instalments` must be between 1 and 10000 (got 0)",
+  "pointer": "/number_of_instalments",
   "pointers": [],
   "reason": "range",
-  "expected": ["an amount greater than 0"],
+  "expected": ["a whole number from 1 to 10000"],
   "fix": null,
   "errors": [
-    {"code": "FM-E001", "message": "invalid input: `principal` must be greater than 0 (got 0)",
-     "pointer": "/principal", "pointers": [], "reason": "range",
-     "expected": ["an amount greater than 0"], "fix": null},
     {"code": "FM-E001",
      "message": "invalid input: `number_of_instalments` must be between 1 and 10000 (got 0)",
      "pointer": "/number_of_instalments", "pointers": [], "reason": "range",
-     "expected": ["a whole number from 1 to 10000"], "fix": null}
+     "expected": ["a whole number from 1 to 10000"], "fix": null},
+    {"code": "FM-E001", "message": "invalid input: `principal` must be greater than 0 (got 0)",
+     "pointer": "/principal", "pointers": [], "reason": "range",
+     "expected": ["an amount greater than 0"], "fix": null}
   ]
 }}
 ```
@@ -43,18 +43,26 @@ A refused call returns `{"error": <report>}` (ADR 0014 G5):
 | `expected` | A list of strings. When the accepted values form a closed list, the literal values: the values of an enumeration (`reason` `enum`, and the method ids of `FM-E007`), the fields an object accepts (`unknown_field`, the tag of an internally tagged object included), the keys of a choice written as an object with one key (`length`, `unknown_field`). Otherwise short descriptions of the accepted form in plain words, for example `"an amount greater than 0"` or `"a whole number of 0 or more"`, never a Rust type name. Empty when not known. When the message also quotes accepted values, `expected`, not the message, is the complete list. |
 | `fix` | One sentence that resolves the error; `null` when the message is the only guidance. Its wording is guidance and may change between releases; rely on `code`, `pointer` and `reason`. |
 | `missing_any_of` | `FM-E027` only: alternative sets of input pointers, any one of which lifts the input above the minimum of the method, for example `[["/closing/cash"], ["/closing/current_assets"]]`. |
-| `errors` | Every error found, at least one (`minItems` 1); the first is the top-level report itself. The entries have no `errors` of their own. |
+| `errors` | Every error found, at least one (`minItems` 1), in the canonical order below; the first is the top-level report itself. The entries have no `errors` of their own. |
+
+**Order of the entries.** The entries of `errors` are in a canonical order, so that the order
+of the keys of the input changes nothing in the report (ADR 0014 G5, maintainer decision of
+2026-11-17): the entries without a `pointer` first; then by `pointer`, token by token as RFC
+6901 writes it, an array index compared as a number and before a name (`/periods/2` before
+`/periods/10` and before `/periods/total`; `01` is a name, not an index); then by `code`; then
+by `message`. The top level is the first entry. The order in which the method checks its input
+decides which errors are found, never where they are listed: the first entry is not
+necessarily the error a single check would have stopped at.
 
 **Every input error, in one call.** Every method validates its whole input before it computes
-anything: the validation goes on after a refusal and reports every error it finds, in the order
-it checks them, so the first error is the one a single report would give. A check that needs a
-refused input is skipped (for example the count of the rates when a DCF stage is refused, the
+anything: the validation goes on after a refusal and reports every error it finds. A check that
+needs a refused input is skipped (for example the count of the rates when a DCF stage is refused, the
 comparison of a growth with a rate that is itself refused, or the rest of an adjustment whose
 amounts are not one per year); a check that does not is still made (a refused `wacc` does not
 hide a refused terminal growth, a refused `principal` does not hide a rate out of range).
 
 - **Reading the input.** Every field that cannot be read is reported: the first as `serde`
-  reports it (ADR 0013), then every other value of the wrong type, missing required field and
+  reports it (ADR 0013), and every other value of the wrong type, missing required field and
   unknown value of an enumeration, each with the message, pointer, reason, `expected` and `fix`
   it would have if it were the only error. The text is also read as JSON and walked against
   the schema of the method, and every unknown key, every key given twice in one object and
@@ -66,7 +74,7 @@ hide a refused terminal growth, a refused `principal` does not hide a rate out o
   its field with the values. A field has the same reason and `expected` wherever it is: inside
   a technique of `tv.compare` as in the technique given directly.
 - **Reading errors and the checks of the method.** When the input cannot be read, the checks of
-  the method still run on the fields that were read, and their errors are reported after the
+  the method still run on the fields that were read, and their errors are reported with the
   reading errors: a `"+0.1"` for one rate does not hide a tax rate of -1. Each refused value is
   replaced by one its schema accepts only so that the input can be read, and that value never
   decides an error that is reported. Every error depends on known fields: its `pointer`, its

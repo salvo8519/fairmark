@@ -184,15 +184,16 @@ fn every_unknown_field_is_reported() {
         .iter()
         .map(|e| e["pointer"].as_str().unwrap())
         .collect();
-    assert_eq!(pointers, ["/typo", "/other"]);
+    // Canonical order (issue #370): by pointer, whatever the order of the keys.
+    assert_eq!(pointers, ["/other", "/typo"]);
     for e in r["errors"].as_array().unwrap() {
         assert_eq!(e["reason"], "unknown_field");
         assert_eq!(e["expected"], json!(["rate", "cash_flows"]));
     }
-    // The message of a key found by the walk is the one serde gives when it meets it first.
+    // The message of a key found by the walk is the one serde gives when it meets it first:
+    // with the keys swapped, serde meets the other key first, and the report is the same.
     let swapped = report_text("tvm.npv", &text("other", "typo"));
-    assert_eq!(r["errors"][1]["message"], swapped["message"]);
-    assert_eq!(swapped["errors"][1]["message"], r["message"]);
+    assert_eq!(r["errors"], swapped["errors"]);
 }
 
 #[test]
@@ -213,12 +214,12 @@ fn unknown_fields_are_found_at_every_depth() {
     assert_eq!(
         found,
         [
-            ("/stages/0/flow", "rename `flow` to `flows`"),
-            ("/terminal/tv.gordon/growht", "rename `growht` to `growth`"),
             (
                 "/net_financial_position/debt",
                 "remove `debt`, or rename it to one of the fields in `expected`"
             ),
+            ("/stages/0/flow", "rename `flow` to `flows`"),
+            ("/terminal/tv.gordon/growht", "rename `growht` to `growth`"),
             ("/wac", "rename `wac` to `wacc`"),
             // The method's own check (round 5, audit 1): no rate is given under its name. The
             // misspelt key stands for it (round 6): the same fix, at both.
@@ -246,9 +247,9 @@ fn unknown_fields_inside_tagged_choices() {
     assert_eq!(
         pointers,
         [
-            "/years/0/statutory/balance_sheet/cashh",
             "/adjustments/0/from_aggregate",
             "/adjustments/1/labl",
+            "/years/0/statutory/balance_sheet/cashh",
         ]
     );
     let mut compare = golden_input("tv.compare/seven-techniques.yaml");
@@ -289,16 +290,17 @@ fn statements_validation_reports_every_error() {
     let errors = r["errors"].as_array().unwrap();
     assert_eq!(errors.len(), 5, "{r:#}");
     let base = "/years/0/statutory/balance_sheet";
-    assert_eq!(at(0), format!("{base}/inventories"));
-    assert_eq!(at(1), format!("{base}/cash"));
+    // Canonical order (issue #370): by pointer.
+    assert_eq!(at(0), "/adjustments/0/label");
+    assert_eq!(at(1), "/adjustments/0/reason");
+    assert_eq!(at(2), format!("{base}/cash"));
     assert_eq!(
-        at(2),
+        at(3),
         format!("{base}/equity/negative_reserve_for_own_shares")
     );
-    assert_eq!(at(3), "/adjustments/0/label");
-    assert_eq!(at(4), "/adjustments/0/reason");
-    assert_eq!(r["errors"][2]["reason"], "sign");
-    assert_eq!(r["errors"][3]["reason"], "blank");
+    assert_eq!(at(4), format!("{base}/inventories"));
+    assert_eq!(r["errors"][3]["reason"], "sign");
+    assert_eq!(r["errors"][0]["reason"], "blank");
     for e in errors {
         assert_eq!(e["code"], "FM-E001");
     }
@@ -386,13 +388,13 @@ fn dcf_validation_reports_the_bridge_and_the_stages() {
     assert_eq!(
         pointers,
         [
-            "/non_operating_assets/0/value",
-            "/non_operating_assets/0/label",
             "/debt_like_items/0/value",
+            "/non_operating_assets/0/label",
+            "/non_operating_assets/0/value",
             "/stages/0/periods",
         ]
     );
-    assert_eq!(r["errors"][0]["reason"], "sign");
+    assert_eq!(r["errors"][2]["reason"], "sign");
     assert_eq!(r["errors"][1]["reason"], "blank");
     assert_eq!(r["errors"][3]["reason"], "range");
     top_level_is_the_first_entry(&r);
@@ -440,15 +442,15 @@ fn loans_validation_reports_every_error() {
     assert_eq!(
         pointers,
         [
-            "/principal",
             "/number_of_instalments",
-            "/rounding/decimal_places",
             "/periodic_rate",
+            "/principal",
+            "/rounding/decimal_places",
         ]
     );
-    assert_eq!(r["errors"][3]["reason"], "conflict");
+    assert_eq!(r["errors"][1]["reason"], "conflict");
     assert_eq!(
-        r["errors"][3]["pointers"],
+        r["errors"][1]["pointers"],
         json!(["/periodic_rate", "/rate"])
     );
     top_level_is_the_first_entry(&r);
@@ -635,7 +637,7 @@ fn pointers_of(r: &Value) -> Vec<String> {
 }
 
 /// Maintainer instruction of 2026-11-09 (item B): dcf.free_cash_flows, tv.*, tvm.* and coc.*
-/// report every input error of their validation, in the order of their checks.
+/// report every input error of their validation, in the canonical order (issue #370).
 #[test]
 fn free_cash_flows_reports_every_input_error() {
     let mut input = golden_input("dcf.free_cash_flows/amounts-form-with-adjustments.yaml");
@@ -647,10 +649,10 @@ fn free_cash_flows_reports_every_input_error() {
     assert_eq!(
         pointers_of(&r),
         [
+            "/interest_tax_rate",
             "/periods/0/capital_expenditure",
             "/periods/1/depreciation_and_amortisation",
             "/periods/1/other_adjustments/0/label",
-            "/interest_tax_rate",
         ]
     );
 }
@@ -666,7 +668,7 @@ fn tv_methods_report_every_input_error() {
         "tv.exit_multiple",
         &json!({"multiple": "0", "metric": "ebitda", "metric_value": "0"}),
     );
-    assert_eq!(pointers_of(&r), ["/multiple", "/metric_value"]);
+    assert_eq!(pointers_of(&r), ["/metric_value", "/multiple"]);
     let r = report(
         "tv.liquidation",
         &json!({"basis": "enterprise", "tax_on_gains": "-1",
@@ -675,7 +677,7 @@ fn tv_methods_report_every_input_error() {
     );
     assert_eq!(
         pointers_of(&r),
-        ["/tax_on_gains", "/assets/0/label", "/assets/0/value"]
+        ["/assets/0/label", "/assets/0/value", "/tax_on_gains"]
     );
     let mut compare = golden_input("tv.compare/seven-techniques.yaml");
     compare["techniques"][0]["tv.gordon"]["growth"] = json!("-2");
@@ -735,17 +737,17 @@ fn tvm_methods_report_every_input_error() {
         "tvm.annuity",
         &json!({"payment": "1", "rate": "-1", "periods": 0, "growth": "-1", "timing": "ordinary"}),
     );
-    assert_eq!(pointers_of(&r), ["/periods", "/rate", "/growth"]);
+    assert_eq!(pointers_of(&r), ["/growth", "/periods", "/rate"]);
     let r = report(
         "tvm.perpetuity",
         &json!({"payment": "1", "rate": "-1", "growth": "-1", "timing": "ordinary"}),
     );
-    assert_eq!(pointers_of(&r), ["/rate", "/growth"]);
+    assert_eq!(pointers_of(&r), ["/growth", "/rate"]);
     let r = report(
         "tvm.future_value",
         &json!({"rate": "-1", "periods": 0, "timing": "ordinary"}),
     );
-    assert_eq!(pointers_of(&r), ["/present_value", "/periods", "/rate"]);
+    assert_eq!(pointers_of(&r), ["/periods", "/present_value", "/rate"]);
 }
 
 #[test]
@@ -759,9 +761,9 @@ fn coc_methods_report_every_input_error() {
     assert_eq!(
         pointers_of(&r),
         [
-            "/levered_beta",
-            "/country_risk_premium",
             "/country_exposure",
+            "/country_risk_premium",
+            "/levered_beta",
             "/specific_risk_justification"
         ]
     );
@@ -770,12 +772,12 @@ fn coc_methods_report_every_input_error() {
         &json!({"cost_of_equity": "0.1", "pre_tax_cost_of_debt": "0.05",
                 "tax_rate": "1", "debt_weight": "1"}),
     );
-    assert_eq!(pointers_of(&r), ["/tax_rate", "/debt_weight"]);
+    assert_eq!(pointers_of(&r), ["/debt_weight", "/tax_rate"]);
     let r = report(
         "coc.cost_of_debt",
         &json!({"risk_free_rate": "0.03", "tax_rate": "-0.1"}),
     );
-    assert_eq!(pointers_of(&r), ["/tax_rate", "/pre_tax_cost_of_debt"]);
+    assert_eq!(pointers_of(&r), ["/pre_tax_cost_of_debt", "/tax_rate"]);
     let r = report(
         "coc.beta_relever",
         &json!({"beta": "1", "direction": "unlever", "debt_to_equity": "-1",
@@ -790,9 +792,9 @@ fn coc_methods_report_every_input_error() {
     assert_eq!(
         pointers_of(&r),
         [
-            "/target_tax_rate",
             "/peers/1/debt_to_equity",
-            "/peers/2/tax_rate"
+            "/peers/2/tax_rate",
+            "/target_tax_rate"
         ]
     );
 }

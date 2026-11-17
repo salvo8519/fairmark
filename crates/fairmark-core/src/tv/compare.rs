@@ -595,7 +595,14 @@ mod tests {
             {"tv.gordon": {"growth": "0", "next_flow": 1}, "tv.h_model": {}}]}"#;
         let err = crate::run("tv.compare", json).unwrap_err();
         assert_eq!(err.code(), "FM-E001");
-        assert!(err.to_string().contains("exactly one key"), "{err}");
+        let report = err.to_report();
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.message.contains("exactly one key")),
+            "{err}"
+        );
     }
 
     #[test]
