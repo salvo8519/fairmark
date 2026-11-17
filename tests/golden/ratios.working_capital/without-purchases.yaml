@@ -18,10 +18,11 @@ expect:
   /days_inventory_outstanding/value: '73'
   /days_payable_outstanding/value: 'null'
   /cash_conversion_cycle/value: 'null'
-  /not_computed/0/output: '/days_payable_outstanding'
-  /not_computed/0/missing/0: '/income_statement/purchases'
-  /not_computed/1/output: '/cash_conversion_cycle'
-  /not_computed/1/missing/0: '/income_statement/purchases'
-expect_length:
+expect_diagnostics_length:
   /not_computed: '2'
+expect_diagnostics:
+  /not_computed/1/pointer: /value/days_payable_outstanding
+  /not_computed/1/missing_any_of/0/0: '/income_statement/purchases'
+  /not_computed/0/pointer: /value/cash_conversion_cycle
+  /not_computed/0/missing_any_of/0/0: '/income_statement/purchases'
 tolerance: '0.00000000000000000001'

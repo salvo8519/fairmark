@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-liquidity.md
-source_hash: dc8fd64f93b5
+source_hash: c50b0f831b73
 ---
 # Indici di liquidità (`ratios.liquidity`)
 
@@ -65,16 +65,16 @@ assert r.treasury_margin == Decimal("-400")  # 2500 − 900 − 2000
 | `cash_ratio` | Disponibilità liquide / passività correnti, multiplo |
 | `net_working_capital` | Attivo corrente − passività correnti, in unità monetarie |
 | `treasury_margin` | Attivo corrente − rimanenze − passività correnti, in unità monetarie |
-| `not_computed` | Output non calcolati perché manca un input, nell'ordine degli output: `{"output", "missing", "reason"}`, con `output` il JSON pointer dell'output nel valore del risultato e `missing` i JSON pointer ordinati degli input che gli mancano; vuoto quando ogni output è calcolato |
+| `diagnostics.not_computed` | Nell'envelope, non in `value` (versione 3, SPEC-0012): una voce per ogni output non calcolato o indice non definito, in ordine di pointer, `{"pointer", "reason_code", "reason", "missing_any_of", "permitted"}`; `pointer` è l'output dalla radice dell'envelope (`/value/...`); `missing_input` elenca in `missing_any_of` l'unico insieme di pointer degli input che mancano all'output; `not_defined` indica il motivo per cui un termine fornito rende l'indice non definito; vuoto quando ogni output è calcolato e definito |
 
-Gli indici sono oggetti `{"value": ..., "not_defined": ...}`, come in ogni gruppo di indici; i
+Gli indici sono oggetti `{"value": ...}`, come in ogni gruppo di indici (versione 3); il motivo per cui un indice non è definito è la sua voce in `diagnostics.not_computed`; i
 margini sono importi, null quando non calcolati.
 
 ## Input parziale
 
 Ogni importo è facoltativo (versione 2, SPEC-0007 R7). Si fornisce ciò che il bilancio riporta:
 ogni output è calcolato quando sono forniti i suoi importi; altrimenti è null ed è elencato in
-`not_computed` con i JSON pointer degli input che gli mancano. Un importo mancante non è mai
+`diagnostics.not_computed` con i JSON pointer degli input che gli mancano. Un importo mancante non è mai
 considerato zero e da solo non è un errore. La soglia minima: almeno un output deve avere tutti
 gli input che gli servono (conta anche un indice non definito dai propri input); sotto la soglia
 l'input è rifiutato con `FM-E027`, il cui messaggio elenca gli insiemi alternativi di input che
@@ -96,10 +96,12 @@ r = fm.ratios.liquidity(
 )
 assert r.current_ratio["value"] == Decimal("1.25")
 assert r.quick_ratio["value"] is None  # rimanenze non fornite
-assert r.not_computed[0] == {
-    "output": "/quick_ratio",
-    "missing": ["/closing/inventories"],
+assert r.raw["diagnostics"]["not_computed"][0] == {
+    "pointer": "/value/quick_ratio",
+    "reason_code": "missing_input",
     "reason": "an input it needs is not given; a missing input is never taken as zero",
+    "missing_any_of": [["/closing/inventories"]],
+    "permitted": [],
 }
 ```
 

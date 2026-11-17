@@ -24,5 +24,4 @@ expect:
   /nfp_to_ebitda/value: '2.375'
   /pv_cfads: 'null'
   /llcr/value: 'null'
-  /llcr/not_defined: no debt schedule given
 tolerance: '0.00000000000000000001'

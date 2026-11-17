@@ -1,0 +1,65 @@
+{
+  "$defs": {
+    "RatioValue": {
+      "description": "A ratio (SPEC-0007 R3, R7). When it is not defined or not computed, its value is null and\nthe reason is an entry of `diagnostics.not_computed` at the ratio's pointer (SPEC-0012 R6).",
+      "properties": {
+        "value": {
+          "description": "The ratio, in the unit stated by the field that holds it (decimal fraction, multiple or\ndays); null when the ratio is not defined or not computed (see\n`diagnostics.not_computed`).",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:ratios.liquidity:v3:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `ratios.liquidity`.",
+  "properties": {
+    "cash_ratio": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "Cash / current liabilities, multiple."
+    },
+    "current_ratio": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "Current assets / current liabilities, multiple."
+    },
+    "net_working_capital": {
+      "description": "Current assets − current liabilities, in currency units; null when not computed.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "quick_ratio": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "(Current assets − inventories) / current liabilities, multiple."
+    },
+    "treasury_margin": {
+      "description": "Current assets − inventories − current liabilities, in currency units; null when not\ncomputed.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "current_ratio",
+    "quick_ratio",
+    "cash_ratio",
+    "net_working_capital",
+    "treasury_margin"
+  ],
+  "title": "LiquidityOutput",
+  "type": "object",
+  "x-fairmark-method": "ratios.liquidity",
+  "x-fairmark-method-version": "3"
+}

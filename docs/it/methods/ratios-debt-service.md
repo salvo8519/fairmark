@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-debt-service.md
-source_hash: c5cb64f5e9a2
+source_hash: 076d0487fd54
 ---
 # Indici di servizio del debito (`ratios.debt_service`)
 
@@ -56,7 +56,7 @@ assert r.dscr[0]["value"] == Decimal("1.25")  # 250 / 200
 # CFADS costante: LLCR = 250 × (1 − 1,06^−5) / 0,06 / 1000
 assert abs(r.llcr["value"] - Decimal("1.05309094639142847003375")) < Decimal("1e-20")
 
-# Senza piano di rimborso DSCR e LLCR non sono definiti; gli altri indici sono calcolati.
+# Senza piano di rimborso DSCR e LLCR non sono calcolati; gli altri indici sì.
 s = fm.ratios.debt_service(
     balances="closing",
     ebitda_definition="reported EBITDA, no adjustments",
@@ -64,7 +64,9 @@ s = fm.ratios.debt_service(
     income_statement={"ebitda": 800, "ebit": 500, "interest": 100},
     closing={"net_financial_position": {"gross_debt": 2200, "cash": 300}},
 )
-assert s.llcr["not_defined"] == "no debt schedule given"
+assert s.llcr["value"] is None
+llcr = next(e for e in s.raw["diagnostics"]["not_computed"] if e["pointer"] == "/value/llcr")
+assert llcr["missing_any_of"] == [["/debt_schedule"]]
 assert s.interest_cover_ebitda["value"] == Decimal("8")
 ```
 
@@ -91,15 +93,15 @@ assert s.interest_cover_ebitda["value"] == Decimal("8")
 | `dscr` | CFADS / servizio del debito di ogni periodo, multiplo, nell'ordine del piano; vuoto senza piano di rimborso |
 | `pv_cfads` | Valore attuale dei CFADS all'inizio del primo periodo, in unità monetarie; null senza piano di rimborso |
 | `llcr` | (Valore attuale dei CFADS + riserva) / debito residuo, multiplo |
-| `not_computed` | Output non calcolati perché manca un input, nell'ordine degli output: `{"output", "missing", "reason"}`, con `output` il JSON pointer dell'output nel valore del risultato e `missing` i JSON pointer ordinati degli input che gli mancano; vuoto quando ogni output è calcolato |
+| `diagnostics.not_computed` | Nell'envelope, non in `value` (versione 3, SPEC-0012): una voce per ogni output non calcolato o indice non definito, in ordine di pointer, `{"pointer", "reason_code", "reason", "missing_any_of", "permitted"}`; `pointer` è l'output dalla radice dell'envelope (`/value/...`); `missing_input` elenca in `missing_any_of` l'unico insieme di pointer degli input che mancano all'output; `not_defined` indica il motivo per cui un termine fornito rende l'indice non definito; vuoto quando ogni output è calcolato e definito |
 
-Gli indici sono oggetti `{"value": ..., "not_defined": ...}`, come in ogni gruppo di indici.
+Gli indici sono oggetti `{"value": ...}`, come in ogni gruppo di indici (versione 3); il motivo per cui un indice non è definito è la sua voce in `diagnostics.not_computed`.
 
 ## Input parziale
 
 Ogni importo è facoltativo (versione 2, SPEC-0007 R7). Si fornisce ciò che il bilancio riporta:
 ogni output è calcolato quando sono forniti i suoi importi; altrimenti è null ed è elencato in
-`not_computed` con i JSON pointer degli input che gli mancano. Un importo mancante non è mai
+`diagnostics.not_computed` con i JSON pointer degli input che gli mancano. Un importo mancante non è mai
 considerato zero e da solo non è un errore. La soglia minima: almeno un output deve avere tutti
 gli input che gli servono (conta anche un indice non definito dai propri input); sotto la soglia
 l'input è rifiutato con `FM-E027`, il cui messaggio elenca gli insiemi alternativi di input che
@@ -119,7 +121,7 @@ non è elencato.
 | `llcr` | il valore attuale dei CFADS, `debt_outstanding` |
 
 Senza piano di rimborso `dscr` è vuoto e `pv_cfads` e `llcr` sono elencati con
-`/debt_schedule`; `llcr` mantiene il motivo della versione 1, "no debt schedule given".
+`/debt_schedule`, `llcr` una sola volta, `missing_input` (SPEC-0012, decisione 14).
 
 ## Convenzioni (esplicite, riportate in `explain.conventions`)
 
@@ -132,7 +134,7 @@ Senza piano di rimborso `dscr` è vuoto e `pv_cfads` e `llcr` sono elencati con
 | Attualizzazione dell'LLCR | a fine periodo, a `discount_rate` per periodo, il costo del debito scelto dall'analista | fissa |
 | Riserva | sommata senza attualizzazione al numeratore dell'LLCR; quando assente e l'LLCR ha gli altri input, nessuna: riportata in `meta.defaults_applied` (`/debt_schedule/reserve_balance`, `"0"`) con un avvertimento, e non scritta nell'input, così `meta.input_hash` differisce da una riserva fornita come `0` | nessuna (default documentato) |
 | Altre voci della posizione finanziaria netta | nessuna quando `other_items` è assente e sono forniti debiti finanziari lordi e disponibilità liquide: riportato in `meta.defaults_applied` con un avvertimento | nessuna (default documentato) |
-| Piano di rimborso | facoltativo; senza di esso DSCR e LLCR non sono definiti ("no debt schedule given") | nessuno |
+| Piano di rimborso | facoltativo; senza di esso DSCR è vuoto e il valore attuale dei CFADS e LLCR non sono calcolati (`missing_input` con `/debt_schedule`) | nessuno |
 | Non definito | denominatore nullo; copertura degli oneri finanziari quando gli oneri o il numeratore (EBIT o EBITDA) sono nulli o negativi; PFN / EBITDA quando l'EBITDA è nullo o negativo; DSCR quando il servizio del debito è nullo o negativo; LLCR quando il debito residuo è nullo o negativo | fissa |
 
 ## Errori

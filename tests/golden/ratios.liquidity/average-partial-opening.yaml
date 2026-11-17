@@ -21,8 +21,9 @@ expect:
   /cash_ratio/value: 'null'
   /net_working_capital: '450'
   /treasury_margin: '-400'
-  /not_computed/0/output: '/cash_ratio'
-  /not_computed/0/missing/0: '/opening/cash'
-expect_length:
+expect_diagnostics_length:
   /not_computed: '1'
+expect_diagnostics:
+  /not_computed/0/pointer: /value/cash_ratio
+  /not_computed/0/missing_any_of/0/0: '/opening/cash'
 tolerance: '0.00000000000000000001'

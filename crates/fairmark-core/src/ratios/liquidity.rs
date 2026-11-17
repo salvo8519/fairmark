@@ -11,7 +11,6 @@ use super::{
 use crate::error::Result;
 use crate::explain::Explain;
 use crate::method::Method;
-use crate::not_computed::NotComputedEntry;
 use crate::num;
 
 /// Balance-sheet amounts at one date, in currency units. Every amount is optional: absent or
@@ -63,9 +62,6 @@ pub struct LiquidityOutput {
     /// Current assets − inventories − current liabilities, in currency units; null when not
     /// computed.
     pub treasury_margin: Option<Decimal>,
-    /// Outputs not computed because an input is missing, in the order of the fields above,
-    /// each with the JSON pointers of the inputs it lacks (SPEC-0007 R7).
-    pub not_computed: Vec<NotComputedEntry>,
 }
 
 pub fn liquidity(input: &LiquidityInput) -> Result<(LiquidityOutput, Explain)> {
@@ -145,15 +141,9 @@ pub fn liquidity(input: &LiquidityInput) -> Result<(LiquidityOutput, Explain)> {
         cash_ratio: nc.ratio("/cash_ratio", cash_ratio),
         net_working_capital: nc.amount("/net_working_capital", &nwc),
         treasury_margin: nc.amount("/treasury_margin", &treasury),
-        not_computed: Vec::new(),
     };
-    Ok((
-        LiquidityOutput {
-            not_computed: nc.finish(Liquidity::ID)?,
-            ..output
-        },
-        ex,
-    ))
+    ex.not_computed(nc.finish(Liquidity::ID)?);
+    Ok((output, ex))
 }
 
 /// `ratios.liquidity`: see the methodology page.
@@ -165,9 +155,9 @@ impl Method for Liquidity {
     const DESCRIPTION: &'static str =
         "Current, quick and cash ratios, net working capital and treasury margin, on closing or \
         average balances. Every amount is optional: an output whose amounts are not all given \
-        is null and listed in not_computed with the inputs it lacks; a ratio with a zero \
-        denominator is reported as not defined with the reason.";
-    const VERSION: &'static str = "2";
+        is null and listed in diagnostics.not_computed with the inputs it lacks; a ratio with a \
+        zero denominator is null, with the reason in diagnostics.not_computed (not_defined).";
+    const VERSION: &'static str = "3";
     type Input = LiquidityInput;
     type Output = LiquidityOutput;
 
@@ -199,7 +189,7 @@ mod tests {
 
     #[test]
     fn zero_current_liabilities_leave_margins_defined() {
-        let (out, _) = liquidity(&input(0)).unwrap();
+        let (out, ex) = liquidity(&input(0)).unwrap();
         for r in [&out.current_ratio, &out.quick_ratio, &out.cash_ratio] {
             assert_eq!(r.value, None);
             assert_eq!(
@@ -209,7 +199,35 @@ mod tests {
         }
         assert_eq!(out.net_working_capital, d(2500));
         assert_eq!(out.treasury_margin, d(1600));
-        assert!(out.not_computed.is_empty());
+        // The three ratios not defined are listed with their reason (SPEC-0012 R6), nothing
+        // else.
+        let listed: Vec<_> = ex
+            .diagnostics()
+            .not_computed
+            .iter()
+            .map(|e| (e.pointer.as_str(), e.reason_code, e.reason.as_str()))
+            .collect();
+        let not_defined = crate::diagnostics::ReasonCode::NotDefined;
+        assert_eq!(
+            listed,
+            [
+                (
+                    "/value/current_ratio",
+                    not_defined,
+                    "current liabilities is zero"
+                ),
+                (
+                    "/value/quick_ratio",
+                    not_defined,
+                    "current liabilities is zero"
+                ),
+                (
+                    "/value/cash_ratio",
+                    not_defined,
+                    "current liabilities is zero"
+                ),
+            ]
+        );
     }
 
     #[test]

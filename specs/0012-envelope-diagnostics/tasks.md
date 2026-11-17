@@ -42,7 +42,7 @@ its approved files and `verify` in the same commit, so every commit passes `just
   `expect_meta` keys `/defaults_applied/{k}/field` [R1 to R4, R8 to R11, R13; AC16]
 - [x] T12 Warnings through `ex.warn` in series, DCF engine, terminal, bridge, fcff, ratios,
   statements and the analysis preview convention (FM-W002 to FM-W016) [R8, R9]
-- [ ] T13 Ratios v3: `RatioValue` with `value` only, `not_computed` into diagnostics, six
+- [x] T13 Ratios v3: `RatioValue` with `value` only, `not_computed` into diagnostics, six
   `VERSION` = "3", `uv run just generate` (snapshots `v3.json`, `v3.output.json`, index), golden
   migration of `tests/golden/ratios.*` [R5, R6, R18; AC4, AC5, AC15, AC16]
 - [ ] T14 Statements v2: checks and not computed into diagnostics with `pointer`, pointer fields

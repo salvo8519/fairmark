@@ -1,0 +1,78 @@
+{
+  "$defs": {
+    "RatioValue": {
+      "description": "A ratio (SPEC-0007 R3, R7). When it is not defined or not computed, its value is null and\nthe reason is an entry of `diagnostics.not_computed` at the ratio's pointer (SPEC-0012 R6).",
+      "properties": {
+        "value": {
+          "description": "The ratio, in the unit stated by the field that holds it (decimal fraction, multiple or\ndays); null when the ratio is not defined or not computed (see\n`diagnostics.not_computed`).",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:fairmark:schema:ratios.debt_service:v3:output",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Output of `ratios.debt_service`.",
+  "properties": {
+    "dscr": {
+      "description": "CFADS / debt service of each period, multiple, in the order of the schedule; empty when\nno debt schedule is given.",
+      "items": {
+        "$ref": "#/$defs/RatioValue"
+      },
+      "type": "array"
+    },
+    "interest_cover_ebit": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "EBIT / interest, multiple."
+    },
+    "interest_cover_ebitda": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "EBITDA / interest, multiple."
+    },
+    "llcr": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "(Present value of CFADS + reserve balance) / debt outstanding, multiple."
+    },
+    "net_financial_position": {
+      "description": "Net financial position used by the ratios, in currency units (positive for net debt);\nnull when not computed.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "nfp_to_ebitda": {
+      "$ref": "#/$defs/RatioValue",
+      "description": "Net financial position / EBITDA, multiple."
+    },
+    "pv_cfads": {
+      "description": "Present value of the CFADS of every period at the calculation date, in currency units;\nnull when no debt schedule is given or when it is not computed.",
+      "pattern": "^-?\\d+(\\.\\d+)?$",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "net_financial_position",
+    "interest_cover_ebit",
+    "interest_cover_ebitda",
+    "nfp_to_ebitda",
+    "dscr",
+    "pv_cfads",
+    "llcr"
+  ],
+  "title": "DebtServiceOutput",
+  "type": "object",
+  "x-fairmark-method": "ratios.debt_service",
+  "x-fairmark-method-version": "3"
+}

@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-working-capital.md
-source_hash: 2592368c4702
+source_hash: 00695c981727
 ---
 # Indici del capitale circolante (`ratios.working_capital`)
 
@@ -67,15 +67,15 @@ base IVA, e così debiti commerciali e acquisti.
 | `days_inventory_outstanding` | Rimanenze × giorni / costo del venduto, giorni |
 | `days_payable_outstanding` | Debiti commerciali × giorni / acquisti, giorni |
 | `cash_conversion_cycle` | DSO + DIO − DPO, giorni; non definito quando uno dei tre non lo è, non calcolato quando uno dei tre non è calcolato |
-| `not_computed` | Output non calcolati perché manca un input, nell'ordine degli output: `{"output", "missing", "reason"}`, con `output` il JSON pointer dell'output nel valore del risultato e `missing` i JSON pointer ordinati degli input che gli mancano; vuoto quando ogni output è calcolato |
+| `diagnostics.not_computed` | Nell'envelope, non in `value` (versione 3, SPEC-0012): una voce per ogni output non calcolato o indice non definito, in ordine di pointer, `{"pointer", "reason_code", "reason", "missing_any_of", "permitted"}`; `pointer` è l'output dalla radice dell'envelope (`/value/...`); `missing_input` elenca in `missing_any_of` l'unico insieme di pointer degli input che mancano all'output; `not_defined` indica il motivo per cui un termine fornito rende l'indice non definito; vuoto quando ogni output è calcolato e definito |
 
-Gli indici sono oggetti `{"value": ..., "not_defined": ...}`, come in ogni gruppo di indici.
+Gli indici sono oggetti `{"value": ...}`, come in ogni gruppo di indici (versione 3); il motivo per cui un indice non è definito è la sua voce in `diagnostics.not_computed`.
 
 ## Input parziale
 
 Ogni importo è facoltativo (versione 2, SPEC-0007 R7). Si fornisce ciò che il bilancio riporta:
 ogni output è calcolato quando sono forniti i suoi importi; altrimenti è null ed è elencato in
-`not_computed` con i JSON pointer degli input che gli mancano. Un importo mancante non è mai
+`diagnostics.not_computed` con i JSON pointer degli input che gli mancano. Un importo mancante non è mai
 considerato zero e da solo non è un errore. La soglia minima: almeno un output deve avere tutti
 gli input che gli servono (conta anche un indice non definito dai propri input); sotto la soglia
 l'input è rifiutato con `FM-E027`, il cui messaggio elenca gli insiemi alternativi di input che

@@ -52,7 +52,6 @@ fn keys(v: &Value) -> Vec<&str> {
 /// AC4 (R5, R6): the inputs `ratios.debt_service` lacks for the NFP / EBITDA ratio are the one
 /// alternative of `missing_any_of`, and `value` has no list.
 #[test]
-#[ignore = "SPEC-0012: enabled by T13, ratios v3"]
 fn a_ratio_not_computed_is_in_the_diagnostics() {
     let out = run(
         "ratios.debt_service",
@@ -89,7 +88,6 @@ fn a_ratio_not_computed_is_in_the_diagnostics() {
 /// AC5 (R5, R6): a ratio a given term makes not defined is the object `{value}` with a null
 /// value, and its reason is a `not_defined` entry.
 #[test]
-#[ignore = "SPEC-0012: enabled by T13, ratios v3"]
 fn a_ratio_not_defined_is_in_the_diagnostics() {
     let out = run_golden("ratios.profitability/negative-equity.yaml");
     assert_eq!(out["value"]["roe"], json!({"value": null}));
@@ -103,7 +101,6 @@ fn a_ratio_not_defined_is_in_the_diagnostics() {
 /// AC17 (R5, decision 14): an output both not defined and missing an input has one entry,
 /// `missing_input`, with the missing pointers of today.
 #[test]
-#[ignore = "SPEC-0012: enabled by T13, ratios v3"]
 fn missing_input_comes_before_not_defined() {
     let out = run_golden("ratios.debt_service/no-debt-schedule.yaml");
     let e = entry(&out, "/value/llcr");
@@ -124,7 +121,6 @@ fn missing_input_comes_before_not_defined() {
 
 /// R13: the outputs not computed are ordered by pointer, array indices as numbers.
 #[test]
-#[ignore = "SPEC-0012: enabled by T13, ratios v3"]
 fn not_computed_is_ordered_by_pointer() {
     let out = run_golden("ratios.debt_service/partial-schedule.yaml");
     let pointers: Vec<&str> = out["diagnostics"]["not_computed"]

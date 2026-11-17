@@ -11,7 +11,6 @@ use super::{
 use crate::error::Result;
 use crate::explain::Explain;
 use crate::method::Method;
-use crate::not_computed::NotComputedEntry;
 use crate::num;
 
 /// Flows of the period, in currency units. Every amount is optional: absent or null means not
@@ -79,9 +78,6 @@ pub struct WorkingCapitalOutput {
     pub days_payable_outstanding: RatioValue,
     /// DSO + DIO − DPO, days.
     pub cash_conversion_cycle: RatioValue,
-    /// Outputs not computed because an input is missing, in the order of the fields above,
-    /// each with the JSON pointers of the inputs it lacks (SPEC-0007 R7).
-    pub not_computed: Vec<NotComputedEntry>,
 }
 
 pub fn working_capital(input: &WorkingCapitalInput) -> Result<(WorkingCapitalOutput, Explain)> {
@@ -168,15 +164,9 @@ pub fn working_capital(input: &WorkingCapitalInput) -> Result<(WorkingCapitalOut
         days_inventory_outstanding: nc.ratio("/days_inventory_outstanding", dio),
         days_payable_outstanding: nc.ratio("/days_payable_outstanding", dpo),
         cash_conversion_cycle: nc.ratio("/cash_conversion_cycle", ccc),
-        not_computed: Vec::new(),
     };
-    Ok((
-        WorkingCapitalOutput {
-            not_computed: nc.finish(WorkingCapital::ID)?,
-            ..output
-        },
-        ex,
-    ))
+    ex.not_computed(nc.finish(WorkingCapital::ID)?);
+    Ok((output, ex))
 }
 
 /// `ratios.working_capital`: see the methodology page.
@@ -189,9 +179,9 @@ impl Method for WorkingCapital {
         "Days sales outstanding, days inventory outstanding, days payable outstanding and the \
         cash conversion cycle, on closing or average balances and a 360 or 365-day basis. Every \
         amount is optional: a ratio whose amounts are not all given is null and listed in \
-        not_computed with the inputs it lacks; a ratio with a zero denominator is reported as \
-        not defined with the reason.";
-    const VERSION: &'static str = "2";
+        diagnostics.not_computed with the inputs it lacks; a ratio with a zero denominator is \
+        null, with the reason in diagnostics.not_computed (not_defined).";
+    const VERSION: &'static str = "3";
     type Input = WorkingCapitalInput;
     type Output = WorkingCapitalOutput;
 
@@ -248,10 +238,16 @@ mod tests {
 
     #[test]
     fn one_missing_part_leaves_the_cycle_not_computed() {
-        let (out, _) = working_capital(&input(None)).unwrap();
+        let (out, ex) = working_capital(&input(None)).unwrap();
         assert_eq!(out.cash_conversion_cycle.not_defined, None);
-        assert_eq!(out.not_computed.len(), 2);
-        assert_eq!(out.not_computed[1].output, "/cash_conversion_cycle");
-        assert_eq!(out.not_computed[1].missing, ["/income_statement/purchases"]);
+        assert_eq!(ex.diagnostics().not_computed.len(), 2);
+        assert_eq!(
+            ex.diagnostics().not_computed[1].pointer,
+            "/value/cash_conversion_cycle"
+        );
+        assert_eq!(
+            ex.diagnostics().not_computed[1].missing_any_of,
+            [["/income_statement/purchases"]]
+        );
     }
 }

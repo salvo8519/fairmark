@@ -13,6 +13,7 @@
 - T10 analysis diagnostics tests `tests/analysis_diagnostics.rs` (v2 field names), ignored until T15.
 - T11 `diagnostics.rs` (types, `WarningCode` FM-W001 to FM-W016, pattern-only schema), `Explain` without `method` and with `warn`/`not_computed`/`checks`, `Meta.envelope_version`, `defaults_applied` always present, `Valuation.diagnostics`, FM-W001 from the reading (sorted by pointer). Helpers for T12/T15 parked in `/tmp/i259-nested.rs`, `/tmp/i259-iswarning.rs`, `/tmp/i259-tests-moved.rs` (scratch, re-create if lost: `nested` rebasing for analyses, `is_warning_text`).
 - T12 every warning site through `ex.warn` (FM-W002 to FM-W016, preview as FM-W016 via `Inner::warn_if_preview`), debug assertion in `Explain::convention`, T6 tests enabled; contract expectations in `tests/contracts/` carry the codes. AC8 test stays ignored until T14 (key rename).
+- T13 ratios v3: `RatioValue {value}`, `NotComputedList` writes `NotComputed` (missing_input, not_defined; decision 14), six VERSION 3, snapshots v3, 34 ratios golden files migrated (verify: 34 checked, 34 migrated, 0 problems), `ratios_partial.rs` and the reference test read the diagnostics, ratio pages en/it updated and restamped (snippets use `r.raw["diagnostics"]` until T18).
 
 ## State at the end of the session
 - In progress: tasks T5 to T23 of `specs/0012-envelope-diagnostics/tasks.md`, one commit each.
@@ -34,4 +35,4 @@
   for the maintainer: give it a code (FM-W017, emitted how?) or keep it as an adapter note.
 
 ## Next steps
-1. T13: ratios v3 (RatioValue {value}, not_computed into diagnostics, VERSION 3, generate, golden apply/verify of `tests/golden/ratios.*`).
+1. T14: statements v2 (checks/not_computed into diagnostics, pointer renames, VERSION 2) plus the `field` -> `pointer` rename of defaults; golden apply of the 82 statements files and the 2 dcf.fcff files; enable AC8, AC9, AC6 tests.

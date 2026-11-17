@@ -34,12 +34,13 @@ expect:
   /dscr/2/value: '1.125'
   /pv_cfads: '693.94533742619746502146066887430563485293228638406'
   /llcr/value: '0.69394533742619746502146066887430563485293228638406'
-  /not_computed/0/output: '/interest_cover_ebit'
-  /not_computed/0/missing/0: '/interest_definition'
-  /not_computed/1/output: '/interest_cover_ebitda'
-  /not_computed/1/missing/0: '/interest_definition'
-  /not_computed/2/output: '/dscr/1'
-  /not_computed/2/missing/0: '/debt_schedule/periods/1/debt_service'
-expect_length:
+expect_diagnostics_length:
   /not_computed: '3'
+expect_diagnostics:
+  /not_computed/1/pointer: /value/interest_cover_ebit
+  /not_computed/1/missing_any_of/0/0: '/interest_definition'
+  /not_computed/2/pointer: /value/interest_cover_ebitda
+  /not_computed/2/missing_any_of/0/0: '/interest_definition'
+  /not_computed/0/pointer: /value/dscr/1
+  /not_computed/0/missing_any_of/0/0: '/debt_schedule/periods/1/debt_service'
 tolerance: '0.00000000000000000001'

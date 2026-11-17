@@ -20,16 +20,17 @@ expect:
   /secondary_structure_margin: 'null'
   /primary_fixed_asset_coverage/value: '0.57142857142857142857142857142857142857142857142857'
   /secondary_fixed_asset_coverage/value: 'null'
-  /not_computed/0/output: '/net_financial_position'
-  /not_computed/0/missing/0: '/closing/net_financial_position/cash'
-  /not_computed/1/output: '/nfp_to_equity'
-  /not_computed/1/missing/0: '/closing/net_financial_position/cash'
-  /not_computed/2/output: '/equity_ratio'
-  /not_computed/2/missing/0: '/closing/total_assets'
-  /not_computed/3/output: '/secondary_structure_margin'
-  /not_computed/3/missing/0: '/closing/non_current_liabilities'
-  /not_computed/4/output: '/secondary_fixed_asset_coverage'
-  /not_computed/4/missing/0: '/closing/non_current_liabilities'
-expect_length:
+expect_diagnostics_length:
   /not_computed: '5'
+expect_diagnostics:
+  /not_computed/1/pointer: /value/net_financial_position
+  /not_computed/1/missing_any_of/0/0: '/closing/net_financial_position/cash'
+  /not_computed/2/pointer: /value/nfp_to_equity
+  /not_computed/2/missing_any_of/0/0: '/closing/net_financial_position/cash'
+  /not_computed/0/pointer: /value/equity_ratio
+  /not_computed/0/missing_any_of/0/0: '/closing/total_assets'
+  /not_computed/4/pointer: /value/secondary_structure_margin
+  /not_computed/4/missing_any_of/0/0: '/closing/non_current_liabilities'
+  /not_computed/3/pointer: /value/secondary_fixed_asset_coverage
+  /not_computed/3/missing_any_of/0/0: '/closing/non_current_liabilities'
 tolerance: '0.00000000000000000001'

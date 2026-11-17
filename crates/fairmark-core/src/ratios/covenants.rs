@@ -29,7 +29,6 @@ use crate::dates::Date;
 use crate::error::{FairmarkError, Found, Reason, Result};
 use crate::explain::Explain;
 use crate::method::Method;
-use crate::not_computed::NotComputedEntry;
 use crate::num;
 
 /// Most decimal places a contractual rounding may state.
@@ -294,9 +293,6 @@ pub struct CovenantsOutput {
     pub covenants: Vec<CovenantResult>,
     /// Count of each outcome.
     pub summary: CovenantSummary,
-    /// Outputs not computed because an amount is missing, in the order of the covenants, each
-    /// with the JSON pointers of the amounts it lacks (SPEC-0007 R11).
-    pub not_computed: Vec<NotComputedEntry>,
 }
 
 // ------------------------------------------------------------------ exact arithmetic
@@ -953,6 +949,11 @@ pub fn covenants(input: &CovenantsInput) -> Result<(CovenantsOutput, Explain)> {
                 nc.push(format!("/covenants/{i}/{output}"), &missing);
             }
         }
+        // A relative headroom not defined by a given term (a threshold at or below zero, no
+        // tested value); not listed again when an input is missing (decision 14 of SPEC-0012).
+        if let (true, Some(reason)) = (missing.is_empty(), &r.headroom_relative.not_defined) {
+            nc.not_defined(format!("/covenants/{i}/headroom_relative"), reason);
+        }
         // A covenant tested, or decided by its rule, has every input it needs (R12).
         nc.observe(&missing);
         let count = match r.outcome {
@@ -976,11 +977,11 @@ pub fn covenants(input: &CovenantsInput) -> Result<(CovenantsOutput, Explain)> {
             Decimal::from(count),
         );
     }
+    ex.not_computed(nc.finish(Covenants::ID)?);
     Ok((
         CovenantsOutput {
             covenants: results,
             summary,
-            not_computed: nc.finish(Covenants::ID)?,
         },
         ex,
     ))
@@ -994,14 +995,14 @@ impl Method for Covenants {
     const TITLE: &'static str = "Ratios — covenants";
     const DESCRIPTION: &'static str =
         "Tests financial covenants on the numerator and denominator defined by the loan \
-        agreement, against a threshold with an explicit operator (at most, less than, at \
-        least, greater than) at a test date. The agreement's own rules are explicit inputs: the \
-        outcome when the denominator is zero or negative, and the rounding of the tested \
-        value. Returns for each covenant the outcome (passed, breached, or not tested with a \
-        code and the reason), decided exactly, the tested value and the headroom, absolute and \
-        relative to the threshold. The amounts are optional: a covenant without the amounts \
-        it needs is not tested (missing_input), never breached, and listed in not_computed.";
-    const VERSION: &'static str = "2";
+        agreement, against a threshold with an explicit operator (at most, less than, at least, \
+        greater than) at a test date. The agreement's own rules are explicit inputs: the \
+        outcome when the denominator is zero or negative, and the rounding of the tested value. \
+        Returns for each covenant the outcome (passed, breached, or not tested with a code and \
+        the reason), decided exactly, the tested value and the headroom, absolute and relative \
+        to the threshold. The amounts are optional: a covenant without the amounts it needs is \
+        not tested (missing_input), never breached, and listed in diagnostics.not_computed.";
+    const VERSION: &'static str = "3";
     type Input = CovenantsInput;
     type Output = CovenantsOutput;
 

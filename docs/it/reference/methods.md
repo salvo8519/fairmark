@@ -515,9 +515,9 @@ Reorganises statutory aggregates (art. 2424, 2425, abridged art. 2435-bis) or to
 
 ## `ratios.profitability`
 
-**Ratios — profitability** · versione del metodo 2 · stato anteprima · tool `fairmark_ratios_profitability`
+**Ratios — profitability** · versione del metodo 3 · stato anteprima · tool `fairmark_ratios_profitability`
 
-ROE, ROI, ROA, ROS, EBITDA and EBIT margins, capital turnover and the ROE decomposition in three factors and in the leverage form, on closing or average balances. Every amount is optional: a ratio whose amounts are not all given is null and listed in not_computed with the inputs it lacks; a ratio that is not meaningful is reported as not defined with the reason.
+ROE, ROI, ROA, ROS, EBITDA and EBIT margins, capital turnover and the ROE decomposition in three factors and in the leverage form, on closing or average balances. Every amount is optional: a ratio whose amounts are not all given is null and listed in diagnostics.not_computed with the inputs it lacks; a ratio that is not meaningful is null, with the reason in diagnostics.not_computed (not_defined).
 
 | Input | Tipo | Obbligatorio | Default | Descrizione |
 | --- | --- | --- | --- | --- |
@@ -531,9 +531,9 @@ ROE, ROI, ROA, ROS, EBITDA and EBIT margins, capital turnover and the ROE decomp
 
 ## `ratios.capital_structure`
 
-**Ratios — capital structure** · versione del metodo 2 · stato anteprima · tool `fairmark_ratios_capital_structure`
+**Ratios — capital structure** · versione del metodo 3 · stato anteprima · tool `fairmark_ratios_capital_structure`
 
-Debt to equity, net financial position to equity, equity ratio, primary and secondary structure margins and fixed-asset coverage, with the net financial position and its composition stated. Every amount is optional: an output whose amounts are not all given is null and listed in not_computed with the inputs it lacks; a ratio that is not meaningful is reported as not defined with the reason.
+Debt to equity, net financial position to equity, equity ratio, primary and secondary structure margins and fixed-asset coverage, with the net financial position and its composition stated. Every amount is optional: an output whose amounts are not all given is null and listed in diagnostics.not_computed with the inputs it lacks; a ratio that is not meaningful is null, with the reason in diagnostics.not_computed (not_defined).
 
 | Input | Tipo | Obbligatorio | Default | Descrizione |
 | --- | --- | --- | --- | --- |
@@ -543,9 +543,9 @@ Debt to equity, net financial position to equity, equity ratio, primary and seco
 
 ## `ratios.liquidity`
 
-**Ratios — liquidity** · versione del metodo 2 · stato anteprima · tool `fairmark_ratios_liquidity`
+**Ratios — liquidity** · versione del metodo 3 · stato anteprima · tool `fairmark_ratios_liquidity`
 
-Current, quick and cash ratios, net working capital and treasury margin, on closing or average balances. Every amount is optional: an output whose amounts are not all given is null and listed in not_computed with the inputs it lacks; a ratio with a zero denominator is reported as not defined with the reason.
+Current, quick and cash ratios, net working capital and treasury margin, on closing or average balances. Every amount is optional: an output whose amounts are not all given is null and listed in diagnostics.not_computed with the inputs it lacks; a ratio with a zero denominator is null, with the reason in diagnostics.not_computed (not_defined).
 
 | Input | Tipo | Obbligatorio | Default | Descrizione |
 | --- | --- | --- | --- | --- |
@@ -555,9 +555,9 @@ Current, quick and cash ratios, net working capital and treasury margin, on clos
 
 ## `ratios.working_capital`
 
-**Ratios — working capital** · versione del metodo 2 · stato anteprima · tool `fairmark_ratios_working_capital`
+**Ratios — working capital** · versione del metodo 3 · stato anteprima · tool `fairmark_ratios_working_capital`
 
-Days sales outstanding, days inventory outstanding, days payable outstanding and the cash conversion cycle, on closing or average balances and a 360 or 365-day basis. Every amount is optional: a ratio whose amounts are not all given is null and listed in not_computed with the inputs it lacks; a ratio with a zero denominator is reported as not defined with the reason.
+Days sales outstanding, days inventory outstanding, days payable outstanding and the cash conversion cycle, on closing or average balances and a 360 or 365-day basis. Every amount is optional: a ratio whose amounts are not all given is null and listed in diagnostics.not_computed with the inputs it lacks; a ratio with a zero denominator is null, with the reason in diagnostics.not_computed (not_defined).
 
 | Input | Tipo | Obbligatorio | Default | Descrizione |
 | --- | --- | --- | --- | --- |
@@ -569,9 +569,9 @@ Days sales outstanding, days inventory outstanding, days payable outstanding and
 
 ## `ratios.debt_service`
 
-**Ratios — debt service** · versione del metodo 2 · stato anteprima · tool `fairmark_ratios_debt_service`
+**Ratios — debt service** · versione del metodo 3 · stato anteprima · tool `fairmark_ratios_debt_service`
 
-Interest cover on EBIT and EBITDA, net financial position to EBITDA, DSCR per period and LLCR on a loan schedule with an explicit discount rate. Every amount is optional: a ratio whose amounts are not all given is null and listed in not_computed with the inputs it lacks; a ratio that is not meaningful is reported as not defined with the reason.
+Interest cover on EBIT and EBITDA, net financial position to EBITDA, DSCR per period and LLCR on a loan schedule with an explicit discount rate. Every amount is optional: a ratio whose amounts are not all given is null and listed in diagnostics.not_computed with the inputs it lacks; a ratio that is not meaningful is null, with the reason in diagnostics.not_computed (not_defined).
 
 | Input | Tipo | Obbligatorio | Default | Descrizione |
 | --- | --- | --- | --- | --- |
@@ -585,9 +585,9 @@ Interest cover on EBIT and EBITDA, net financial position to EBITDA, DSCR per pe
 
 ## `ratios.covenants`
 
-**Ratios — covenants** · versione del metodo 2 · stato anteprima · tool `fairmark_ratios_covenants`
+**Ratios — covenants** · versione del metodo 3 · stato anteprima · tool `fairmark_ratios_covenants`
 
-Tests financial covenants on the numerator and denominator defined by the loan agreement, against a threshold with an explicit operator (at most, less than, at least, greater than) at a test date. The agreement's own rules are explicit inputs: the outcome when the denominator is zero or negative, and the rounding of the tested value. Returns for each covenant the outcome (passed, breached, or not tested with a code and the reason), decided exactly, the tested value and the headroom, absolute and relative to the threshold. The amounts are optional: a covenant without the amounts it needs is not tested (missing_input), never breached, and listed in not_computed.
+Tests financial covenants on the numerator and denominator defined by the loan agreement, against a threshold with an explicit operator (at most, less than, at least, greater than) at a test date. The agreement's own rules are explicit inputs: the outcome when the denominator is zero or negative, and the rounding of the tested value. Returns for each covenant the outcome (passed, breached, or not tested with a code and the reason), decided exactly, the tested value and the headroom, absolute and relative to the threshold. The amounts are optional: a covenant without the amounts it needs is not tested (missing_input), never breached, and listed in diagnostics.not_computed.
 
 | Input | Tipo | Obbligatorio | Default | Descrizione |
 | --- | --- | --- | --- | --- |

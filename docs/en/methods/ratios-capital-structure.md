@@ -94,15 +94,15 @@ explicitly, with no default entry and no warning, and the same `meta.input_hash`
 | `secondary_structure_margin` | Equity + non-current liabilities − fixed assets, currency units |
 | `primary_fixed_asset_coverage` | Equity / fixed assets, multiple |
 | `secondary_fixed_asset_coverage` | (Equity + non-current liabilities) / fixed assets, multiple |
-| `not_computed` | Outputs not computed because an input is missing, in the order of the outputs: `{"output", "missing", "reason"}`, with `output` the JSON pointer of the output in the result value and `missing` the sorted JSON pointers of the inputs it lacks; empty when every output is computed |
+| `diagnostics.not_computed` | In the envelope, not in `value` (version 3, SPEC-0012): one entry per output not computed or ratio not defined, ordered by pointer, `{"pointer", "reason_code", "reason", "missing_any_of", "permitted"}`; `pointer` is the output from the envelope root (`/value/...`); `missing_input` lists in `missing_any_of` the one set of input pointers the output lacks; `not_defined` gives the reason a given term makes the ratio not defined; empty when every output is computed and defined |
 
-Ratios are objects `{"value": ..., "not_defined": ...}`, as in every ratio group; the net
+Ratios are objects `{"value": ...}`, as in every ratio group (version 3); the reason a ratio is not defined is its entry in `diagnostics.not_computed`; the net
 financial position and the margins are amounts, null when not computed.
 
 ## Partial input
 
 Every amount is optional (version 2, SPEC-0007 R7). Give what the statements show: each output
-is computed when its own amounts are given; otherwise it is null and listed in `not_computed`
+is computed when its own amounts are given; otherwise it is null and listed in `diagnostics.not_computed`
 with the JSON pointers of the inputs it lacks. A missing amount is never taken as zero and is
 not an error by itself. The floor: at least one output must have every input it needs (a ratio
 not defined by its own inputs counts); below it the input is refused with `FM-E027`, whose

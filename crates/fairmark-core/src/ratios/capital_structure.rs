@@ -12,7 +12,6 @@ use super::{
 use crate::error::Result;
 use crate::explain::{DefaultApplied, Explain};
 use crate::method::Method;
-use crate::not_computed::NotComputedEntry;
 use crate::num;
 
 /// Balance-sheet amounts at one date, in currency units. Every amount is optional: absent or
@@ -75,9 +74,6 @@ pub struct CapitalStructureOutput {
     pub primary_fixed_asset_coverage: RatioValue,
     /// (Equity + non-current liabilities) / fixed assets, multiple.
     pub secondary_fixed_asset_coverage: RatioValue,
-    /// Outputs not computed because an input is missing, in the order of the fields above,
-    /// each with the JSON pointers of the inputs it lacks (SPEC-0007 R7).
-    pub not_computed: Vec<NotComputedEntry>,
 }
 
 pub fn capital_structure(
@@ -200,15 +196,9 @@ pub fn capital_structure(
         primary_fixed_asset_coverage: nc.ratio("/primary_fixed_asset_coverage", primary_coverage),
         secondary_fixed_asset_coverage: nc
             .ratio("/secondary_fixed_asset_coverage", secondary_coverage),
-        not_computed: Vec::new(),
     };
-    Ok((
-        CapitalStructureOutput {
-            not_computed: nc.finish(CapitalStructure::ID)?,
-            ..output
-        },
-        ex,
-    ))
+    ex.not_computed(nc.finish(CapitalStructure::ID)?);
+    Ok((output, ex))
 }
 
 /// `ratios.capital_structure`: see the methodology page.
@@ -220,10 +210,10 @@ impl Method for CapitalStructure {
     const DESCRIPTION: &'static str =
         "Debt to equity, net financial position to equity, equity ratio, primary and secondary \
         structure margins and fixed-asset coverage, with the net financial position and its \
-        composition stated. Every amount is optional: an output whose amounts are not all \
-        given is null and listed in not_computed with the inputs it lacks; a ratio that is not \
-        meaningful is reported as not defined with the reason.";
-    const VERSION: &'static str = "2";
+        composition stated. Every amount is optional: an output whose amounts are not all given \
+        is null and listed in diagnostics.not_computed with the inputs it lacks; a ratio that \
+        is not meaningful is null, with the reason in diagnostics.not_computed (not_defined).";
+    const VERSION: &'static str = "3";
     type Input = CapitalStructureInput;
     type Output = CapitalStructureOutput;
 
@@ -286,12 +276,12 @@ mod tests {
 
     #[test]
     fn secondary_margin_is_primary_plus_non_current_liabilities() {
-        let (out, _) = capital_structure(&input(2000)).unwrap();
+        let (out, ex) = capital_structure(&input(2000)).unwrap();
         assert_eq!(
             out.secondary_structure_margin.unwrap(),
             out.primary_structure_margin.unwrap() + Decimal::from(1800)
         );
-        assert!(out.not_computed.is_empty());
+        assert!(ex.diagnostics().not_computed.is_empty());
     }
 
     #[test]
@@ -320,12 +310,17 @@ mod tests {
         let (out, ex) = capital_structure(&i).unwrap();
         assert_eq!(out.secondary_structure_margin, None);
         assert!(out.primary_structure_margin.is_some());
-        let listed: Vec<_> = out.not_computed.iter().map(|e| e.output.as_str()).collect();
+        let listed: Vec<_> = ex
+            .diagnostics()
+            .not_computed
+            .iter()
+            .map(|e| e.pointer.as_str())
+            .collect();
         assert_eq!(
             listed,
             [
-                "/secondary_structure_margin",
-                "/secondary_fixed_asset_coverage"
+                "/value/secondary_structure_margin",
+                "/value/secondary_fixed_asset_coverage"
             ]
         );
         assert!(!ex.steps.iter().any(|s| s.label.starts_with("Secondary")));

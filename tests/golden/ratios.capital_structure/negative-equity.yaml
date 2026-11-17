@@ -25,6 +25,11 @@ expect:
   /secondary_structure_margin: '-1900'
   /primary_fixed_asset_coverage/value: '-0.057142857142857142857142857142857142857142857142857'
   /secondary_fixed_asset_coverage/value: '0.45714285714285714285714285714285714285714285714286'
-  /debt_to_equity/not_defined: equity is negative (-200)
-  /nfp_to_equity/not_defined: equity is negative (-200)
+expect_diagnostics:
+  /not_computed/0/reason: equity is negative (-200)
+  /not_computed/1/reason: equity is negative (-200)
+  /not_computed/0/pointer: /value/debt_to_equity
+  /not_computed/0/reason_code: not_defined
+  /not_computed/1/pointer: /value/nfp_to_equity
+  /not_computed/1/reason_code: not_defined
 tolerance: '0.00000000000000000001'

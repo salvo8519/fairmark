@@ -42,5 +42,8 @@ expect:
   /dscr/2/value: '1.25'
   /dscr/3/value: '1.25'
   /dscr/4/value: '1.25'
-  /llcr/not_defined: debt outstanding is zero
+expect_diagnostics:
+  /not_computed/0/reason: debt outstanding is zero
+  /not_computed/0/pointer: /value/llcr
+  /not_computed/0/reason_code: not_defined
 tolerance: '0.00000000000000000001'

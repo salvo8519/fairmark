@@ -25,8 +25,11 @@ expect:
   /covenants/0/value: '0.000000000000000000000000000012621774483536188886587657044683888865884548189447'
   /covenants/0/headroom: '0.000000000000000000000000000012621774483536188886587657044683888865884548189447'
   /covenants/0/headroom_relative/value: 'null'
-  /covenants/0/headroom_relative/not_defined: threshold is zero
   /summary/passed: '1'
   /summary/breached: '0'
   /summary/not_tested: '0'
+expect_diagnostics:
+  /not_computed/0/reason: threshold is zero
+  /not_computed/0/pointer: /value/covenants/0/headroom_relative
+  /not_computed/0/reason_code: not_defined
 tolerance: '0.00000000000000000001'

@@ -15,10 +15,11 @@ expect:
   /cash_ratio/value: '0.1'
   /net_working_capital: '500'
   /treasury_margin: 'null'
-  /not_computed/0/output: '/quick_ratio'
-  /not_computed/0/missing/0: '/closing/inventories'
-  /not_computed/1/output: '/treasury_margin'
-  /not_computed/1/missing/0: '/closing/inventories'
-expect_length:
+expect_diagnostics_length:
   /not_computed: '2'
+expect_diagnostics:
+  /not_computed/0/pointer: /value/quick_ratio
+  /not_computed/0/missing_any_of/0/0: '/closing/inventories'
+  /not_computed/1/pointer: /value/treasury_margin
+  /not_computed/1/missing_any_of/0/0: '/closing/inventories'
 tolerance: '0.00000000000000000001'

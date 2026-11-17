@@ -245,7 +245,7 @@
       }
     },
     "ratios.capital_structure": {
-      "current": "2",
+      "current": "3",
       "versions": {
         "1": {
           "file": "ratios.capital_structure/v1.json",
@@ -258,11 +258,18 @@
           "output_file": "ratios.capital_structure/v2.output.json",
           "output_sha256": "b1fe8c67ae50c6f7993e2caf118cd4617a77820987e041796f4c378a92273ed7",
           "sha256": "273135992a21cbdd2604917e9c4b6739bc7f92b849718025ba672cad9bab447b"
+        },
+        "3": {
+          "file": "ratios.capital_structure/v3.json",
+          "introduced_in": "unreleased",
+          "output_file": "ratios.capital_structure/v3.output.json",
+          "output_sha256": "2aa556cca55dbfb88d807e5670889f0d8cc9294885f44eef53b71f796ec72513",
+          "sha256": "0a7db2bf4c23439f3722b363724dedf1edfd22d1e4f79e77e63abeb0d4be1382"
         }
       }
     },
     "ratios.covenants": {
-      "current": "2",
+      "current": "3",
       "versions": {
         "1": {
           "file": "ratios.covenants/v1.json",
@@ -275,11 +282,18 @@
           "output_file": "ratios.covenants/v2.output.json",
           "output_sha256": "abe33e5a824481de662548ccb9842ae8e31e5c5cf4416d1b59df3a9c24fe69b0",
           "sha256": "ca0d866e9d9958b0b64aea16713512b29cb7a2eb97d16b8bb0bc9668f2629602"
+        },
+        "3": {
+          "file": "ratios.covenants/v3.json",
+          "introduced_in": "unreleased",
+          "output_file": "ratios.covenants/v3.output.json",
+          "output_sha256": "259e093a10a49ff7ff814fcb985d3e942eacc5a0538c8d0030c8ed810f3c1357",
+          "sha256": "fdc79bb2e62d580a22245f1f9ccdb7e3b94c89d175eb1e8bba1644420c67d08f"
         }
       }
     },
     "ratios.debt_service": {
-      "current": "2",
+      "current": "3",
       "versions": {
         "1": {
           "file": "ratios.debt_service/v1.json",
@@ -292,11 +306,18 @@
           "output_file": "ratios.debt_service/v2.output.json",
           "output_sha256": "2f8388ac32d96da621439596689936a4e5be59ab8c34369d725aafc578c494eb",
           "sha256": "cc252a4cd59102cbfcb24adb47e2a55addc32b12eaff545a9667e3328a97cc8e"
+        },
+        "3": {
+          "file": "ratios.debt_service/v3.json",
+          "introduced_in": "unreleased",
+          "output_file": "ratios.debt_service/v3.output.json",
+          "output_sha256": "a1e2a8afcabedad443bda81b19e61e211af442d6019a88982e296df5062c9245",
+          "sha256": "be42787c50c182419bba3b3c8ceaa4888db21016a8d29df19dc91d2863870b54"
         }
       }
     },
     "ratios.liquidity": {
-      "current": "2",
+      "current": "3",
       "versions": {
         "1": {
           "file": "ratios.liquidity/v1.json",
@@ -309,11 +330,18 @@
           "output_file": "ratios.liquidity/v2.output.json",
           "output_sha256": "18963c0f51645151c1d57f1a9b78e085077434bcab423771670ad8846ad462e1",
           "sha256": "b7efc0e28dc9921df3b7a4a801d073a6ebb3576a9969a5494c2e23a485b60e48"
+        },
+        "3": {
+          "file": "ratios.liquidity/v3.json",
+          "introduced_in": "unreleased",
+          "output_file": "ratios.liquidity/v3.output.json",
+          "output_sha256": "fcce177a1af2e42b2b27ba9590bb2fd81554443c86f46c9007b97abd18a8a654",
+          "sha256": "1561f4aa7596f504f6a5c1b083823eb69915e326ca66b90c049e86e7985da9f6"
         }
       }
     },
     "ratios.profitability": {
-      "current": "2",
+      "current": "3",
       "versions": {
         "1": {
           "file": "ratios.profitability/v1.json",
@@ -326,11 +354,18 @@
           "output_file": "ratios.profitability/v2.output.json",
           "output_sha256": "76d5309605c4227664bf09fb394fe917c5afad66a68524c589d9d017d4484f22",
           "sha256": "9bd8e3d81a7160fc19a021624633b6a9edb1e8fb4b072250d2a86da3daab1fe4"
+        },
+        "3": {
+          "file": "ratios.profitability/v3.json",
+          "introduced_in": "unreleased",
+          "output_file": "ratios.profitability/v3.output.json",
+          "output_sha256": "c5531984c62529a9b07243518ba4eb3e59ebc407ba2ff099bf7928739a7644d0",
+          "sha256": "4ce95a869fe47c090f6026dfcef41a4c6c12946197e846b65b8e841dd5749325"
         }
       }
     },
     "ratios.working_capital": {
-      "current": "2",
+      "current": "3",
       "versions": {
         "1": {
           "file": "ratios.working_capital/v1.json",
@@ -343,6 +378,13 @@
           "output_file": "ratios.working_capital/v2.output.json",
           "output_sha256": "34dea1694454785f2ead93218d0994116b7d14da863af6a1b45cc547b8641e83",
           "sha256": "8d62175cdff9cd251a44f011c7f082894f27734328d233f14cef41eae1da3d52"
+        },
+        "3": {
+          "file": "ratios.working_capital/v3.json",
+          "introduced_in": "unreleased",
+          "output_file": "ratios.working_capital/v3.output.json",
+          "output_sha256": "8f451477ae02c7bd9927c584147e01ea9e0fa374179dcab60e3289b28b0f2215",
+          "sha256": "fd9a674ad833f28ced6d0d24f642de60fd88849dcec928499dd294e24a0c419d"
         }
       }
     },
