@@ -41,3 +41,14 @@ Changing one requires an ADR and the maintainer's approval.
 ## VIII. Simple to use, hard to misuse
 - Units are explicit in names and descriptions (rates are decimal fractions).
 - Inputs map to how analysts think (financial statements, business plans), not to internals.
+
+## IX. Unambiguous and transparent
+- Every name, value, message and document has one meaning. A term means the same thing in the
+  code, the schemas, the documentation and both language editions; a value is never interpreted
+  by guesswork (units, sign, order, period).
+- Whatever the engine does on the user's behalf is visible: a default, a rounding, a
+  reinterpretation or a value not computed is reported in the result, with its reason. Nothing
+  changes silently.
+- Documentation states only what exists and what is verified; limits and known gaps are written
+  down, not left out.
+- When two readings of a rule are possible, the rule is rewritten until one remains.
