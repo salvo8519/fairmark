@@ -6,11 +6,13 @@ milestone: "M0 · Foundations"
 status: planned
 lanes:
   # paths: glob patterns of the files the lane may change (sprints/README.md, Lane paths).
-  # generates: true for the one lane that runs `uv run just generate` in this sprint.
+  # generates: the generator groups the lane regenerates, one lane per group:
+  # registry (schemas, methods reference, README blocks, tool examples), agents (.claude/).
   - name: core
     issues: []
     paths: ["crates/", "python/fairmark/", "python/tests/", "tests/golden/"]
-    generates: true
+    generates: [registry]
   - name: docs
     issues: []
     paths: ["docs/en/guides/", "docs/it/guides/"]
+    generates: []

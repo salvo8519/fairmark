@@ -34,18 +34,24 @@ STATE_FILE_GITIGNORE = "/sprints/*/state/"
 SHARED_STATE = Path("fairmark") / "sprints"
 
 # Files written by `uv run just generate` (sprints/README.md, Generated artifacts and the merge
-# order). They belong to no single lane: only the lane with `generates: true` may change them.
+# order), grouped by the generator that writes them (#347). They belong to no single lane: only
+# the lane that names the group in `generates` may change them, one lane per group.
 # README.md, README.it.md and the methods indexes are listed whole because their generated
 # block cannot be separated from the rest of the file in a diff.
-GENERATED = (
-    "schemas/**",
-    "docs/*/reference/methods.md",
-    "docs/*/methods/index.md",
-    "README.md",
-    "README.it.md",
-    "python/fairmark/tool_examples.json",
-    ".claude/**",
-)
+GENERATED_GROUPS: dict[str, tuple[str, ...]] = {
+    # scripts/schema_snapshots.py, gen_reference.py, tool_examples.py: from the method registry
+    "registry": (
+        "schemas/**",
+        "docs/*/reference/methods.md",
+        "docs/*/methods/index.md",
+        "README.md",
+        "README.it.md",
+        "python/fairmark/tool_examples.json",
+    ),
+    # scripts/sync_agents.py: the mirror of .agents/
+    "agents": (".claude/**",),
+}
+GENERATED = tuple(p for group in GENERATED_GROUPS.values() for p in group)
 # Files every pull request of a sprint may change, whatever its lane: the roadmap line of the
 # issue it closes, the session journal and the release note fragment.
 ALWAYS_ALLOWED = ("roadmap/roadmap.yaml", ".agents/journal/**", "changes/**")
@@ -193,28 +199,47 @@ def overlap_example(a: str, b: str) -> str | None:
     return witness
 
 
+def generated_groups(lane: dict[str, Any]) -> list[str]:
+    """The generator groups a lane regenerates; invalid values are reported by validation."""
+    groups = lane.get("generates", [])
+    return [g for g in groups if g in GENERATED_GROUPS] if isinstance(groups, list) else []
+
+
 def validate_paths(lanes: list[dict[str, Any]]) -> list[str]:
     errors: list[str] = []
-    generating = [lane.get("name") for lane in lanes if lane.get("generates") is True]
-    if len(generating) > 1:
-        errors.append(f"only one lane may generate artifacts; generating lanes: {generating}")
+    known = ", ".join(GENERATED_GROUPS)
+    owners: dict[str, list[str]] = {g: [] for g in GENERATED_GROUPS}
+    for lane in lanes:
+        groups = lane.get("generates", [])
+        if not isinstance(groups, list) or any(g not in GENERATED_GROUPS for g in groups):
+            errors.append(
+                f"lane {lane.get('name')}: 'generates' must be a list of groups ({known}), "
+                f"got {groups!r}"
+            )
+            continue
+        for group in groups:
+            owners[group].append(str(lane.get("name")))
+    for group, names in owners.items():
+        if len(names) > 1:
+            errors.append(f"only one lane may generate the {group} artifacts; lanes: {names}")
     for lane in lanes:
         name, paths = lane.get("name"), lane.get("paths")
         if not isinstance(paths, list) or not paths or not all(isinstance(p, str) for p in paths):
             errors.append(f"lane {name}: 'paths' must be a non-empty list of glob patterns")
             continue
-        if not isinstance(lane.get("generates", False), bool):
-            errors.append(f"lane {name}: 'generates' must be true or false")
-        if lane.get("generates") is True:
-            continue
+        own = generated_groups(lane)
         for path in paths:
-            for generated in GENERATED:
-                example = overlap_example(path, generated)
-                if example:
-                    errors.append(
-                        f"lane {name}: '{path}' covers the generated artifact '{example}'; "
-                        "only the lane with 'generates: true' may change it"
-                    )
+            for group, patterns in GENERATED_GROUPS.items():
+                if group in own:
+                    continue
+                for generated in patterns:
+                    example = overlap_example(path, generated)
+                    if example:
+                        errors.append(
+                            f"lane {name}: '{path}' covers the generated artifact '{example}' "
+                            f"of the {group} group; only the lane with '{group}' in "
+                            "'generates' may change it"
+                        )
     valid = [lane for lane in lanes if isinstance(lane.get("paths"), list)]
     for i, first in enumerate(valid):
         for second in valid[i + 1 :]:
@@ -230,8 +255,8 @@ def validate_paths(lanes: list[dict[str, Any]]) -> list[str]:
 
 
 def allowed_patterns(lane: dict[str, Any]) -> list[str]:
-    patterns = [*lane["paths"], *ALWAYS_ALLOWED]
-    return patterns + list(GENERATED) if lane.get("generates") is True else patterns
+    generated = [p for g in generated_groups(lane) for p in GENERATED_GROUPS[g]]
+    return [*lane["paths"], *ALWAYS_ALLOWED, *generated]
 
 
 def files_outside_lane(lane: dict[str, Any], changed: list[str]) -> list[str]:
