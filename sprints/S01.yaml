@@ -1,0 +1,45 @@
+id: S01
+goal: Close M0 (process foundations) and M1 (numerical core) in parallel, one lane each
+start: 2026-11-17
+end: 2026-11-30
+milestone: "M1 · Numerical core"
+status: planned
+lanes:
+  # Process lane: the agentic development system (scripts, sprints, skills, project docs).
+  - name: process
+    issues: [327, 320, 328, 335]
+    paths:
+      - "scripts/sprint.py"
+      - "scripts/project_state.py"
+      - "scripts/journal.py"
+      - "scripts/sync_agents.py"
+      - "scripts/workspace_report.py"
+      - ".agents/"
+      - ".claude/"
+      - "sprints/"
+      - "python/tests/scripts/"
+      - "docs/en/project/adr/"
+      - "docs/en/project/agentic-development.md"
+      - "docs/it/project/"
+      - ".github/workflows/maintenance.yml"
+      - "justfile"
+    generates: [agents]
+  # Product lane: the numerical core of M1 (engine, Python package, golden cases, methods).
+  - name: product
+    issues: [217, 175, 189, 243, 222, 19]
+    paths:
+      - "crates/"
+      - "python/fairmark/"
+      - "python/tests/test_*.py"
+      - "tests/golden/"
+      - "specs/"
+      - "docs/en/methods/"
+      - "docs/it/methods/"
+      - "docs/en/concepts/"
+      - "docs/it/concepts/"
+      - "docs/en/reference/errors.md"
+      - "docs/it/reference/errors.md"
+      - "scripts/reference_*.py"
+      - "Cargo.toml"
+      - "Cargo.lock"
+    generates: [registry]
