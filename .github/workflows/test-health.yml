@@ -1,14 +1,17 @@
 name: Test health and pull request queue
 
-# Early warning, never blocking (#320). Two reports:
+# Early warning, never blocking (#320). Three jobs:
 # - tests: the JUnit files uploaded by the Python jobs of ci.yml on `main` in the last 14 days,
 #   aggregated per test by scripts/test_failures.py. A test that failed in some runs and passed
 #   in others is intermittent: fix it, or quarantine it (python/tests/quarantine.yaml) with an
 #   issue and an expiry date. A test that failed in every run is a defect.
 # - queue: the open pull requests that are stale and in conflict or failing
-#   (scripts/pr_queue.py). Updating a branch that is only behind `main` is done with
-#   `scripts/pr_queue.py update --apply` and a personal token: GitHub does not start workflows
-#   for changes pushed with this workflow's token, so the updated branch would never be checked.
+#   (scripts/pr_queue.py).
+# - update: pull requests that are only behind `main` get `main` merged in, through
+#   `scripts/pr_queue.py update --apply` with a token of the project's GitHub App. GitHub starts
+#   the checks for a push made with an App token, never for one made with this workflow's own
+#   token. The App key is a secret of the environment `fairmark-app`, usable only from `main`
+#   (#372); without the App the job is skipped and branches are updated by hand.
 # A problem opens (or updates) one issue labelled `test-health`.
 on:
   schedule:
@@ -64,9 +67,42 @@ jobs:
           set -o pipefail
           python3 scripts/pr_queue.py list --repo "$GITHUB_REPOSITORY" --fail-on-stale | tee -a "$GITHUB_STEP_SUMMARY"
 
+  update:
+    name: Bring pull requests that are behind up to date
+    if: vars.FAIRMARK_APP_ID != '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # The App key is a secret of this environment, limited to deployments from main.
+    environment: fairmark-app
+    concurrency:
+      group: test-health-update
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      # Valid one hour, revoked at the end of the job; only what reading the queue and
+      # updating a branch need.
+      - name: GitHub App token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.FAIRMARK_APP_ID }}
+          private-key: ${{ secrets.FAIRMARK_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-checks: read
+      # The standard library only: no dependency is installed in a job that holds a write token.
+      - env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          set -o pipefail
+          python3 scripts/pr_queue.py update --repo "$GITHUB_REPOSITORY" --apply | tee -a "$GITHUB_STEP_SUMMARY"
+
   report:
     name: Open or update the test health issue
-    needs: [tests, queue]
+    needs: [tests, queue, update]
     if: failure() && github.event_name == 'schedule'
     runs-on: ubuntu-latest
     permissions:
@@ -75,7 +111,7 @@ jobs:
       - env:
           GH_TOKEN: ${{ github.token }}
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          RESULTS: tests=${{ needs.tests.result }}, queue=${{ needs.queue.result }}
+          RESULTS: tests=${{ needs.tests.result }}, queue=${{ needs.queue.result }}, update=${{ needs.update.result }}
         run: |
           body="Test health found problems: ${RESULTS}. Details in the run summary: ${RUN}. Policy: sprints/README.md (Test health and the pull request queue)."
           gh label create test-health -R "$GITHUB_REPOSITORY" --color C5DEF5 \

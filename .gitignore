@@ -31,3 +31,10 @@ mutants.out*/
 
 # Sprint state of a run: runtime files of the orchestrator (sprints/README.md)
 /sprints/*/state/
+
+# Local environment files can hold credentials: never committed (#372)
+.env
+.env.*
+!.env.example
+.envrc
+*.pem

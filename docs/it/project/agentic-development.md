@@ -4,7 +4,7 @@ description: Come Fairmark viene costruito da agenti AI e da un maintainer — r
   memoria, corsie degli sprint e i controlli deterministici che fanno rispettare ogni
   regola.
 source: project/agentic-development.md
-source_hash: 620adfdaa044
+source_hash: 420a52bbee8f
 ---
 # Sviluppo agentico
 
@@ -148,6 +148,34 @@ Ogni pull request dichiara il proprio livello
 Ogni rilievo di una revisione si corregge nella stessa pull request. Un difetto non si rinvia
 mai.
 
+## Credenziali
+
+Gli agenti lavorano sui branch. Le credenziali del processo di sviluppo sono tenute fuori dalla
+portata di un branch, con un'eccezione scritta qui sotto.
+
+- Fairmark non usa credenziali e non invia dati da nessuna parte (costituzione, principio V).
+- L'automazione che deve avviare i controlli (la pull request di rilascio, l'aggiornamento
+  delle pull request rimaste indietro rispetto a `main`) usa la GitHub App del progetto. La sua
+  chiave è un secret dell'environment `fairmark-app`, utilizzabile solo da `main`: un branch
+  che modifica un workflow non può leggerla. Ogni job crea un token valido un'ora, con i soli
+  permessi che gli servono, revocato alla fine del job. Un test fallisce se un job che può
+  girare su contenuti scritti da altri (pull request, issue, commenti) usa quell'environment.
+- Il token della board di progetto (`PROJECT_TOKEN`) è letto solo da un workflow che gira
+  sempre nella versione di `main` (`pull_request_target`, senza checkout).
+- La pubblicazione usa il trusted publishing (OIDC) da un tag protetto. L'unico token salvato è
+  quello di crates.io per il primissimo rilascio, un secret dell'environment `crates-io`; il
+  maintainer lo cancella dopo quel rilascio, e il job lo rifiuta appena i crate esistono.
+- Eccezione: la chiave della revisione AI (`ANTHROPIC_API_KEY`) è un secret del repository,
+  perché la revisione gira su ogni pull request. Un branch che modifica `claude-review.yml` o
+  `claude-docs.yml` potrebbe leggerla. Le pull request dai fork non la ricevono mai. Il danno
+  possibile è limitato all'uso dell'API sull'account del progetto; usare una chiave di un
+  workspace separato con un limite di spesa.
+- I file `.env` e le chiavi `.pem` sono ignorati da git; la scansione dei secret con protezione
+  dei push rifiuta una credenziale inviata per errore.
+
+Configurazione e rotazione: [Releases](https://salvo8519.github.io/fairmark/project/releases/#the-projects-github-app)
+(in inglese).
+
 ## Cosa decide il maintainer
 
 Gli agenti propongono, il maintainer decide. Il maintainer approva le spec e le scelte di
@@ -161,8 +189,9 @@ leggono: nella spec, nella issue, nel diario o in un ADR.
   burndown`), non in token: gli script non vedono il consumo di token.
 - I test intermittenti e le pull request ferme sono segnalati ogni giorno feriale, non
   bloccati (`.github/workflows/test-health.yml`). Le pull request rimaste indietro rispetto a
-  `main` sono aggiornate da una persona o da una sessione con `scripts/pr_queue.py update
-  --apply`, non dal workflow pianificato: GitHub non avvia i controlli per un push fatto con il
-  token del workflow stesso. Un token dedicato eliminerebbe questo passaggio; nessuno è
-  configurato.
+  `main` sono aggiornate dalla GitHub App del progetto, dopo che il maintainer l'ha
+  configurata; fino ad allora, a mano con `scripts/pr_queue.py update --apply`.
+- Che la scansione dei secret con protezione dei push sia attiva, e che la chiave della App
+  stia solo nell'environment `fairmark-app`, sono impostazioni del repository che la CI non
+  verifica.
 - Le copie per sistemi di agenti diversi da Claude Code sono pianificate nella #328.

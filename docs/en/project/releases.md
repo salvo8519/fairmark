@@ -171,13 +171,71 @@ checks it), so the site is current after each merge.
   to create pull requests.
 - A pull request opened with the default workflow token does not start the pull request
   workflows; its body says so, and closing and reopening it starts them. To have the checks
-  start on their own, create a GitHub App with contents and pull requests write access,
-  install it on the repository, and store its id in the variable `RELEASE_APP_ID` and its
-  private key in the secret `RELEASE_APP_PRIVATE_KEY`. The workflow then uses a token limited
-  to those two permissions.
+  start on their own, set up the project's GitHub App (below). The workflow then creates a
+  token limited to contents and pull requests write, after every build step, and the token is
+  revoked at the end of the job.
 
 The documentation site is republished at every merge on `main`; the **Docs** workflow can also
 be run by hand on `main` to republish it without a commit.
+
+### The project's GitHub App
+
+One GitHub App acts for the automation that must start checks: the release pull request
+(`prepare-release.yml`) and the update of pull requests behind `main` (`test-health.yml`).
+Its private key never reaches a branch: it is a secret of an environment that only `main` can
+use. A repository secret would not do: GitHub gives repository secrets to the workflows of pull
+requests opened from branches of this repository, and those run as the branch wrote them.
+
+The branch rule of the environment is only as strong as the protection of `main`: `main`
+accepts changes only through a pull request (the ruleset "Protect main"), and the App is never
+in the bypass list of that ruleset. Otherwise its token, which can write contents, could push
+to `main` directly.
+
+1. **Create the environment first.** Repository settings, Environments, `fairmark-app` (New
+   environment, or open it if it already exists: GitHub creates an environment without any
+   rule the first time a job names it, and `prepare-release.yml` always does):
+   - Deployment branches and tags: Selected branches and tags, with the branch rule `main`
+     only;
+   - no required reviewers: the update job runs on a schedule;
+   - "Allow administrators to bypass configured protection rules": off.
+
+   Set the branch rule before storing any secret in the environment.
+2. **Create the App.** Settings of the owner account, Developer settings, GitHub Apps, New:
+   - webhook: off;
+   - repository permissions: Contents read and write, Pull requests read and write, Checks
+     read; nothing else, in particular not Workflows;
+   - where it can be installed: only this account.
+
+   Generate a private key (a `.pem` file is downloaded; `.gitignore` excludes `*.pem`, but
+   keep it outside the working copy) and install the App on this repository only.
+3. **Store the App.** The App id is not a secret: store it as the repository variable
+   `FAIRMARK_APP_ID` (Secrets and variables, Actions, Variables). A job reads its `if:` before
+   it enters its environment, so an environment variable would leave the update job skipped.
+   Store the whole content of the `.pem` file as the secret `FAIRMARK_APP_PRIVATE_KEY` of the
+   environment `fairmark-app` (Environments, `fairmark-app`, Environment secrets), never as a
+   repository secret. Then delete the `.pem` file from the computer.
+4. **Remove older copies.** Delete the repository secret `RELEASE_APP_PRIVATE_KEY` and the
+   repository variable `RELEASE_APP_ID` if they exist.
+5. **Rotation.** Generate a new private key in the App settings, replace the environment
+   secret, then delete the old key in the App settings. Do it once a year. If the key may have
+   been exposed, do it at once and review the App's recent activity in the audit log of the
+   repository (Settings, Audit log, filter by the App).
+
+Until the App is set up, the update job of `test-health.yml` is skipped and the release pull
+request is opened with the workflow's own token, which is why that job keeps `contents: write`
+and `pull-requests: write` on it.
+
+Without the Workflows permission, GitHub refuses to update a pull request when `main` changed
+a file in `.github/workflows/` since the branch was created. The refusal is logged, the other
+pull requests are updated, and the job fails so the report issue says so: update that branch
+by hand. Granting Workflows write would let the App change the workflows themselves, so it is
+not granted.
+
+### Secret scanning
+
+Repository settings, Advanced Security: turn on secret scanning and push protection (free for
+public repositories). Push protection rejects a push that contains a known kind of credential
+before it reaches GitHub. `.gitignore` excludes `.env` files, which often hold credentials.
 
 ## The Release workflow
 

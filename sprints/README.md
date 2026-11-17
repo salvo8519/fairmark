@@ -219,9 +219,13 @@ report fails when a stale pull request is in conflict or failing.
 
 `scripts/pr_queue.py update` merges `main` into the pull requests that are `behind`: a dry run
 by default, the change only with `--apply`, never on a fork or a pull request in conflict, and
-only if the head is still the commit that was read. It runs with your token or the session's,
-not in the scheduled workflow: GitHub starts no workflow for a push made with a workflow's own
-token, so the updated branch would never be checked again.
+only if the head is still the commit that was read. The scheduled workflow runs it with a
+token of the project's GitHub App, whose key only `main` can use (#372,
+`docs/en/project/releases.md`). It never uses its own token for this: GitHub starts no
+workflow for a push made with a workflow's own token, so the updated branch would never be
+checked again. Until the App is set up, run it with your token or the session's. An update
+GitHub refuses (for example when `main` changed a workflow, which the App may not do) is
+logged, the others go on, and the command exits with 1.
 
 ## Workflow
 1. **Plan** — `/plan-sprint`: the `sprint-planner` agent proposes `sprints/SNN.yaml` from the

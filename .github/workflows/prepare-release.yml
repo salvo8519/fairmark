@@ -27,6 +27,8 @@ jobs:
     name: Readiness check and release pull request
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # The App key is a secret of this environment, limited to deployments from main.
+    environment: fairmark-app
     permissions:
       contents: write        # push the release/v<version> branch
       pull-requests: write   # open the release pull request
@@ -35,20 +37,6 @@ jobs:
       VERSION: ${{ inputs.version }}
       ISSUE: ${{ inputs.issue }}
     steps:
-      # Pull requests opened with the default GITHUB_TOKEN do not start the pull request
-      # workflows. A GitHub App token does: configure the variable RELEASE_APP_ID and the
-      # secret RELEASE_APP_PRIVATE_KEY to use one. Without them, the pull request body says how
-      # to start the checks.
-      - name: GitHub App token (optional)
-        id: app
-        if: vars.RELEASE_APP_ID != ''
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          app-id: ${{ vars.RELEASE_APP_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-          # Only what pushing the branch and opening the pull request need.
-          permission-contents: write
-          permission-pull-requests: write
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
@@ -97,6 +85,26 @@ jobs:
           uv run git-cliff --tag "v$VERSION" --output CHANGELOG.md
           uv run python scripts/version.py check
           git status --short
+      # Written before the App token exists: no project or dependency code runs while a write
+      # token is in the job.
+      - name: Release notes for the pull request body
+        run: uv run python scripts/release_notes.py "$VERSION" > "$RUNNER_TEMP/notes.md"
+      # Pull requests opened with the default GITHUB_TOKEN do not start the pull request
+      # workflows. A token of the project's GitHub App does. Its key is a secret of the
+      # environment `fairmark-app`, which only `main` can use (docs/en/project/releases.md).
+      # The token is created here, after every build and script step, valid one hour and
+      # revoked at the end of the job. Without the App, the pull request body says how to
+      # start the checks.
+      - name: GitHub App token (optional)
+        id: app
+        if: vars.FAIRMARK_APP_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.FAIRMARK_APP_ID }}
+          private-key: ${{ secrets.FAIRMARK_APP_PRIVATE_KEY }}
+          # Only what pushing the branch and opening the pull request need.
+          permission-contents: write
+          permission-pull-requests: write
       - name: Commit and push release/v${{ inputs.version }}
         env:
           GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
@@ -125,7 +133,7 @@ jobs:
             echo "## Release notes"
             echo "Review this text before merging: it is what users read in the GitHub Release."
             echo
-            uv run python scripts/release_notes.py "$VERSION"
+            cat "$RUNNER_TEMP/notes.md"
             echo
             echo "## Readiness"
             echo '```text'

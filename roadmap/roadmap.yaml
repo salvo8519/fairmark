@@ -40,6 +40,7 @@ labels:
   - { name: "translation-pending", color: "fbca04" }
   - { name: "golden-cases", color: "5319e7" }
   - { name: "maintenance", color: "fbca04" }
+  - { name: "test-health", color: "c5def5" }
 
 milestones:
   - title: "M0 · Foundations"
@@ -81,7 +82,7 @@ milestones:
           - { issue: 335, title: "Per-method schema manifests instead of one shared index rewritten by every lane", tags: [maintainer], status: open }
           - { issue: 346, title: "Agentic development architecture page in the documentation site", status: done }
           - { issue: 347, title: "Generated artifacts grouped by generator, one lane per group", status: done }
-          - { issue: 372, title: "Secrets in protected environments and branch updates through the GitHub App", status: open }
+          - { issue: 372, title: "Secrets in protected environments and branch updates through the GitHub App", status: done }
       - title: "CI/CD"
         issue: 10
         labels: ["area:infra"]

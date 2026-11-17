@@ -139,6 +139,33 @@ Review standards):
 
 Every finding of a review is fixed in the same pull request. A defect is never deferred.
 
+## Credentials
+
+Agents work on branches. The credentials of the development process are kept out of reach of a
+branch, with one exception written down below.
+
+- Fairmark itself uses no credential and sends no data anywhere (constitution, principle V).
+- The automation that must start checks (the release pull request, the update of pull
+  requests behind `main`) uses the project's GitHub App. Its key is a secret of the
+  environment `fairmark-app`, which only `main` can use; a branch that changes a workflow
+  cannot read it. Each job creates a token valid one hour, with only the permissions it needs,
+  revoked at the end of the job. A test fails if a job that can run on content written by
+  others (pull requests, issues, comments) names that environment.
+- The project board token (`PROJECT_TOKEN`) is read only by a workflow that always runs as it
+  is on `main` (`pull_request_target`, no checkout).
+- Publishing uses trusted publishing (OIDC) from a protected tag. The only stored token is the
+  crates.io token of the very first release, a secret of the `crates-io` environment; the
+  maintainer deletes it after that release, and the job refuses it once the crates exist.
+- Exception: the key of the AI review (`ANTHROPIC_API_KEY`) is a repository secret, because
+  the review runs on every pull request. A branch that edits `claude-review.yml` or
+  `claude-docs.yml` could read it. Pull requests from forks never receive it. Its exposure is
+  limited to API usage on the project's account; use a key of a separate workspace with a
+  spending limit.
+- `.env` files and `.pem` keys are ignored by git; secret scanning with push protection
+  rejects a credential pushed by mistake.
+
+Setup and rotation: [Releases](releases.md#the-projects-github-app).
+
 ## What the maintainer decides
 
 Agents propose; the maintainer decides. The maintainer approves specs and methodology choices,
@@ -151,8 +178,9 @@ in the issue, in the journal or in an ADR.
 - The cost of an issue is measured in orchestrator steps (`scripts/sprint.py burndown`), not in
   tokens: the scripts cannot see token usage.
 - Intermittent tests and stale pull requests are reported every weekday, not blocked
-  (`.github/workflows/test-health.yml`). Pull requests behind `main` are updated by a person or
-  a session with `scripts/pr_queue.py update --apply`, not by the scheduled workflow: GitHub
-  starts no checks for a push made with a workflow's own token. A dedicated token would remove
-  this step; none is configured.
+  (`.github/workflows/test-health.yml`). Pull requests behind `main` are updated by the
+  project's GitHub App once the maintainer has set it up; until then, by hand with
+  `scripts/pr_queue.py update --apply`.
+- Whether secret scanning with push protection is on, and whether the App key lives only in
+  the environment `fairmark-app`, are repository settings that CI does not verify.
 - Mirrors for agent systems other than Claude Code are planned in #328.
