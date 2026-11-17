@@ -511,3 +511,84 @@ fn diagnostics_expectations_read_diagnostics_not_value() {
     );
     assert_eq!(check_result("temporary.yaml", &case, &result).len(), 2);
 }
+
+/// `v` with the keys of every object, at every depth, put in the order `order` gives for the
+/// number of keys and the depth-first position of the object; arrays keep their order.
+fn permuted_keys(
+    v: &serde_json::Value,
+    order: &mut dyn FnMut(usize) -> Vec<usize>,
+) -> serde_json::Value {
+    match v {
+        serde_json::Value::Object(map) => {
+            let entries: Vec<_> = map.iter().collect();
+            let positions = order(entries.len());
+            serde_json::Value::Object(
+                positions
+                    .into_iter()
+                    .map(|i| (entries[i].0.clone(), permuted_keys(entries[i].1, order)))
+                    .collect(),
+            )
+        }
+        serde_json::Value::Array(items) => {
+            serde_json::Value::Array(items.iter().map(|x| permuted_keys(x, order)).collect())
+        }
+        other => other.clone(),
+    }
+}
+
+/// The text a client receives for `input`: the envelope, or `{"error": <report>}`.
+fn received(method: &str, input: &serde_json::Value) -> String {
+    match fairmark_core::run(method, &input.to_string()) {
+        Ok(envelope) => envelope.to_string(),
+        Err(e) => serde_json::json!({ "error": e.to_report() }).to_string(),
+    }
+}
+
+/// Issue #370 (principle I): the order of the keys of the input changes nothing a client
+/// receives. For every golden input, results and errors alike, the keys of every object are
+/// reversed, and shuffled with a fixed seed, at every depth: the envelope or the error report
+/// is byte-identical to that of the input as written.
+#[test]
+fn key_order_changes_neither_envelope_nor_error_report() {
+    // SplitMix64 with a fixed seed: the same shuffles on every run and platform.
+    let mut state: u64 = 0x5EED_0370;
+    let mut next = move || {
+        state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    };
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
+    let mut files = Vec::new();
+    golden_files(&root, &mut files);
+    files.sort();
+    let (mut checked, mut errors) = (0, 0);
+    let mut failures = Vec::new();
+    for file in &files {
+        let case: Case = serde_norway::from_str(&std::fs::read_to_string(file).unwrap()).unwrap();
+        let written = received(&case.method, &case.input);
+        let reversed = permuted_keys(&case.input, &mut |n| (0..n).rev().collect());
+        let shuffled = permuted_keys(&case.input, &mut |n| {
+            // Fisher-Yates.
+            let mut p: Vec<usize> = (0..n).collect();
+            for i in (1..n).rev() {
+                let j = usize::try_from(next() % (i as u64 + 1)).unwrap();
+                p.swap(i, j);
+            }
+            p
+        });
+        for (how, input) in [("reversed", &reversed), ("shuffled", &shuffled)] {
+            if received(&case.method, input) != written {
+                failures.push(format!("{} ({how})", file.display()));
+            }
+        }
+        checked += 1;
+        errors += usize::from(case.expect_error.is_some());
+    }
+    assert!(
+        checked > 300 && errors > 50,
+        "{checked} cases, {errors} errors"
+    );
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

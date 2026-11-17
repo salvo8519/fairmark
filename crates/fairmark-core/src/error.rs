@@ -7,6 +7,8 @@ use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::Serialize;
 
+use crate::diagnostics::pointer_cmp;
+
 /// Every failure the engine can report. Nothing is ever silently defaulted.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum FairmarkError {
@@ -223,10 +225,11 @@ pub enum FairmarkError {
     #[error("{}", .0.error)]
     Detailed(Box<Detailed>),
 
-    /// Every input error a validation found, in the order it checks the input (ADR 0014 G5).
-    /// The code and the message are those of the first, so a client that reads only `code`
-    /// and `message` sees what it saw before; the report lists all of them in `errors`. Built
-    /// only by [`Found`], with two or more errors.
+    /// Every input error a validation found (ADR 0014 G5), in the order it checks the input
+    /// within the engine and in the canonical order ([`FairmarkError::canonical`]) once it
+    /// leaves the engine. The code and the message are those of the first, so a client that
+    /// reads only `code` and `message` sees the top level of the report; the report lists all
+    /// of them in `errors`. Built only by [`Found`], with two or more errors.
     #[error("{}", .0.first())]
     Several(Box<Several>),
 }
@@ -250,10 +253,30 @@ impl Several {
         &self.0[0]
     }
 
-    /// Every error found, in the order of the validation.
+    /// Every error found: in the order of the validation within the engine, in the canonical
+    /// order once it leaves it.
     pub fn errors(&self) -> &[FairmarkError] {
         &self.0
     }
+}
+
+/// The canonical order of the entries of an error report (issue #370): by `pointer`, the
+/// entries without one first, then token by token as RFC 6901 writes them, array indices
+/// compared as numbers and before names ([`pointer_cmp`]); then by code; then by message.
+/// The order of the keys of the input therefore changes nothing in the report (principle I).
+fn canonical_cmp(
+    a: (Option<&str>, &str, &str),
+    b: (Option<&str>, &str, &str),
+) -> std::cmp::Ordering {
+    let pointer = match (a.0, b.0) {
+        (None, None) => std::cmp::Ordering::Equal,
+        (None, Some(_)) => std::cmp::Ordering::Less,
+        (Some(_), None) => std::cmp::Ordering::Greater,
+        (Some(x), Some(y)) => pointer_cmp(x, y),
+    };
+    pointer
+        .then_with(|| a.1.cmp(b.1))
+        .then_with(|| a.2.cmp(b.2))
 }
 
 /// The sub-kind of an error (ADR 0014 G5): it tells apart the conditions that share a code,
@@ -747,6 +770,30 @@ impl FairmarkError {
         }
     }
 
+    /// This error with the errors of `Several` in the canonical order of a report (see
+    /// [`canonical_cmp`]), so that its code and message, its compact report and its full report
+    /// all start from the same entry whatever the order of the keys of the input. Applied where
+    /// an error leaves the engine (the registry's `run` and validation of an inner input), after
+    /// every builder: sorting changes no entry, only their order.
+    pub(crate) fn canonical(self) -> Self {
+        match self {
+            Self::Several(several) => {
+                let mut keyed: Vec<(Option<String>, &'static str, String, Self)> = several
+                    .0
+                    .into_iter()
+                    .map(|e| (e.details().pointer, e.code(), e.to_string(), e))
+                    .collect();
+                keyed.sort_by(|a, b| {
+                    canonical_cmp((a.0.as_deref(), a.1, &a.2), (b.0.as_deref(), b.1, &b.2))
+                });
+                Self::Several(Box::new(Several(
+                    keyed.into_iter().map(|(.., e)| e).collect(),
+                )))
+            }
+            other => other,
+        }
+    }
+
     /// Every error this one carries: the errors of `Several`, or the error itself.
     pub(crate) fn into_errors(self) -> Vec<Self> {
         match self {
@@ -957,13 +1004,20 @@ impl FairmarkError {
         }
     }
 
-    /// JSON-friendly representation used by every adapter (CLI, Python, MCP): the first
-    /// error at the top level, every error found in `errors` (ADR 0014 G5).
+    /// JSON-friendly representation used by every adapter (CLI, Python, MCP): every error
+    /// found in `errors`, in the canonical order (by pointer, code and message; issue #370),
+    /// and the first of them at the top level (ADR 0014 G5).
     pub fn to_report(&self) -> ErrorReport {
-        let errors: Vec<ErrorEntry> = match self {
+        let mut errors: Vec<ErrorEntry> = match self {
             Self::Several(s) => s.errors().iter().map(Self::entry).collect(),
             other => vec![other.entry()],
         };
+        errors.sort_by(|a, b| {
+            canonical_cmp(
+                (a.pointer.as_deref(), a.code, &a.message),
+                (b.pointer.as_deref(), b.code, &b.message),
+            )
+        });
         ErrorReport {
             first: errors[0].clone(),
             errors,
@@ -1019,11 +1073,13 @@ pub struct ErrorEntry {
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 #[schemars(rename = "FairmarkErrorReport")]
 pub struct ErrorReport {
-    /// The first error found; its code and message are those of the whole report.
+    /// The first entry of `errors`; its code and message are those of the whole report.
     #[serde(flatten)]
     pub first: ErrorEntry,
     /// Every error found, at least one, the first equal to the top level: the validation of
-    /// the input reports all the errors it finds, in the order of its checks; an error raised
+    /// the input reports all the errors it finds, in a canonical order (by pointer, the entries
+    /// without one first and array indices compared as numbers, then by code, then by
+    /// message), which the order of the keys of the input does not change; an error raised
     /// during the computation stops it and is the only entry.
     #[schemars(length(min = 1))]
     pub errors: Vec<ErrorEntry>,

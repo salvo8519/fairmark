@@ -288,6 +288,7 @@ pub(crate) fn evaluate(id: &str, input: &Value) -> Result<Value> {
 pub(crate) fn validate(id: &str, input: &Value) -> Result<()> {
     validate_to(id, &input.to_string())
         .unwrap_or_else(|| Err(FairmarkError::UnknownMethod(id.to_owned())))
+        .map_err(FairmarkError::canonical)
 }
 
 fn validate_only<M: Method>(input_json: &str) -> Result<()> {
@@ -445,9 +446,12 @@ pub fn run_with(id: &str, input_json: &str, options: &RunOptions) -> Result<Valu
     ))
 }
 
+/// Runs method `id`; an error leaves in the canonical order of a report (issue #370), so that
+/// the order of the keys of the input changes nothing a caller receives.
 fn dispatch(id: &str, input_json: &str, source: Source, options: &RunOptions) -> Result<Value> {
     dispatch_to(id, input_json, source, options)
         .unwrap_or_else(|| Err(FairmarkError::UnknownMethod(id.to_owned())))
+        .map_err(FairmarkError::canonical)
 }
 
 fn execute<M: Method>(input_json: &str, source: Source, options: &RunOptions) -> Result<Value> {
