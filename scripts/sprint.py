@@ -54,8 +54,9 @@ GENERATED_GROUPS: dict[str, tuple[str, ...]] = {
 }
 GENERATED = tuple(p for group in GENERATED_GROUPS.values() for p in group)
 # Files every pull request of a sprint may change, whatever its lane: the roadmap line of the
-# issue it closes, the session journal and the release note fragment.
-ALWAYS_ALLOWED = ("roadmap/roadmap.yaml", ".agents/journal/**", "changes/**")
+# issue it closes, the session journal, the release note fragment and the navigation entry of a
+# new page (zensical.toml: a method page belongs to the product lane, an ADR to the process lane).
+ALWAYS_ALLOWED = ("roadmap/roadmap.yaml", ".agents/journal/**", "changes/**", "zensical.toml")
 SPRINT_BRANCH = re.compile(r"^sprint/(?P<sprint>S\d+)/(?P<issue>\d+)-")
 
 

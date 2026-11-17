@@ -383,6 +383,11 @@ def test_check_diff_accepts_files_inside_the_lane(sprint_repo: Path) -> None:
     assert check_diff(sprint_repo) == 0
 
 
+def test_check_diff_accepts_the_navigation_of_a_new_page(sprint_repo: Path) -> None:
+    commit_files(sprint_repo, "docs/en/guides/start.md", "zensical.toml")
+    assert check_diff(sprint_repo) == 0
+
+
 def test_check_diff_rejects_files_outside_the_lane(sprint_repo: Path) -> None:
     commit_files(sprint_repo, "docs/en/guides/start.md", "scripts/sprint.py")
     with pytest.raises(SystemExit, match=re.escape("Files outside the lane:\n  scripts/sprint.py")):
