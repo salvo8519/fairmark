@@ -173,11 +173,29 @@ def item_props(nodes: list[dict[str, Any]], root: dict[str, Any]) -> set[str]:
     return props
 
 
+def schema_history(repo: Path) -> dict[str, Any]:
+    """The schema history: through `schema_history()` of `scripts/schema_snapshots.py` once
+    ADR 0017 provides it (the only reader allowed then), else the committed index."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "schema_snapshots", repo / "scripts/schema_snapshots.py"
+    )
+    if spec and spec.loader:
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        if hasattr(module, "schema_history"):
+            history: dict[str, Any] = module.schema_history()
+            return history
+    index: dict[str, Any] = json.loads((repo / "schemas/index.json").read_text(encoding="utf-8"))
+    return index
+
+
 class Schemas:
     """The current output snapshot of each method and the envelope snapshot, read from disk."""
 
     def __init__(self, repo: Path) -> None:
-        index = json.loads((repo / "schemas/index.json").read_text(encoding="utf-8"))
+        index = schema_history(repo)
         self.output: dict[str, dict[str, Any]] = {}
         for method, entry in index["methods"].items():
             version = entry["versions"][entry["current"]]
