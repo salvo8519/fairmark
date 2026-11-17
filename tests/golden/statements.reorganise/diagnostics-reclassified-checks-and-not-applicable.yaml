@@ -2,8 +2,9 @@ method: statements.reorganise
 description: 'SPEC-0012 R5, R7, R12, R13 (T16): the reclassified balance sheet of the golden case reclassified-balance-sheet,
   without an income statement: the outputs that only the statutory form supplies (the composition of the
   net financial position, the current and non-current block) are not_applicable, with no input to give;
-  every relation of the reclassified form is a check of /value/years/0, ordered by id, those of the income
-  statement not_checked; value holds no list'
+  every relation of the reclassified form is a check of /value/years/0, ordered by id, those of the balance
+  sheet reconciled (every total given equals its parts), those of the income statement not_checked; value
+  holds no list'
 source: 'Written by hand from the rules, not from the engine output. SPEC-0005 R13 and R15 (the composition
   and the current and non-current amounts need the statutory form), the relation ids of the reclassified
   form listed in the inventory of specs/0012-envelope-diagnostics/spec.md (reclassified.rs and income_statement.rs),
@@ -54,12 +55,16 @@ expect_diagnostics:
   /checks/0/status: not_checked
   /checks/1/id: funds_invested_equals_sources
   /checks/1/pointer: /value/years/0
+  /checks/1/status: reconciled
   /checks/2/id: invested_capital_total
   /checks/2/pointer: /value/years/0
+  /checks/2/status: reconciled
   /checks/3/id: net_financial_position_maturity
   /checks/3/pointer: /value/years/0
+  /checks/3/status: reconciled
   /checks/4/id: net_financial_position_total
   /checks/4/pointer: /value/years/0
+  /checks/4/status: reconciled
   /checks/5/id: net_income_total
   /checks/5/pointer: /value/years/0
   /checks/5/status: not_checked
@@ -68,6 +73,7 @@ expect_diagnostics:
   /checks/6/status: not_checked
   /checks/7/id: operating_working_capital_total
   /checks/7/pointer: /value/years/0
+  /checks/7/status: reconciled
   /checks/8/id: profit_before_financing_and_taxes_total
   /checks/8/pointer: /value/years/0
   /checks/8/status: not_checked
@@ -76,8 +82,10 @@ expect_diagnostics:
   /checks/9/status: not_checked
   /checks/10/id: total_funds_invested_total
   /checks/10/pointer: /value/years/0
+  /checks/10/status: reconciled
   /checks/11/id: total_sources_total
   /checks/11/pointer: /value/years/0
+  /checks/11/status: reconciled
   /checks/12/id: value_added_total
   /checks/12/pointer: /value/years/0
   /checks/12/status: not_checked

@@ -8,8 +8,9 @@ source: 'Written by hand from the rules, not from the engine output. ADR 0012 (d
   zero is subtracted, with a warning), the warning catalogue of SPEC-0012 (codes, pointer roots) and
   R9, R14 (the analysis writes FM-W016 first, then the warnings of the base evaluation, input
   pointers under /base_input). Base value of operations: 100 / 1.09 + 110 / 1.09^2 + (110 × 1.02 /
-  (0.09 − 0.02)) / 1.09^2 = 91.743119266 + 92.584799933 + 1349.042841 = 1533.3707602 (to 7 places),
-  checked as the base of the table, not asserted here.'
+  (0.09 − 0.02)) / 1.09^2 = 91.743119266 + 92.584799259 + 1349.092789207 = 1533.420707732 (to 9
+  places), asserted as the base of the table; terms corrected and recomputed in Python decimal (50
+  digits) by the numerical audit of the branch.'
 input:
   method: dcf.fcff
   base_input:
@@ -33,6 +34,7 @@ expect:
   /output_pointer: /enterprise_value
   /rows/variable_pointer: /wacc
   /inner_method/id: dcf.fcff
+  /base: '1533.4207077326343381389252949'
 expect_diagnostics:
   /warnings/0/code: FM-W016
   /warnings/0/pointer: /method
