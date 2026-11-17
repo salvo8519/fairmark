@@ -22,6 +22,9 @@ required:
   - concepts/*.md
   - reference/*.md
   - disclaimer.md
+  # A project page that every reader of the Italian site should read in Italian; the
+  # English-only rule below does not apply to a page listed here.
+  - project/agentic-development.md
 # Pages kept in English only: the Italian site links to the English version
 english_only:
   - project/*.md

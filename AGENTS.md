@@ -111,6 +111,8 @@ changing anything: its principles override convenience.
   maintainers.
 
 ## Agents and skills
+The whole development system (roles, memory tiers, sprint lanes, gates) is described on one
+page: `docs/en/project/agentic-development.md`, published in the documentation site.
 Roles and workflows live in `.agents/` (see `.agents/README.md`): `architect`, `spec-writer`,
 `test-engineer`, `core-engineer`, `docs-writer`, `code-reviewer`, `numerical-auditor`,
 `security-reviewer`, `ci-investigator`, `release-manager`, `sprint-planner`, `translator`; skills

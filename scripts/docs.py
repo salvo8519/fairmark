@@ -53,7 +53,9 @@ def translate_nav(nav: list[Any], cfg: dict[str, Any], en_site: str) -> list[Any
                     out.append({label: children})
             else:
                 page = value
-                if any(fnmatch.fnmatch(page, p) for p in cfg["english_only"]):
+                required = any(fnmatch.fnmatch(page, p) for p in cfg.get("required", []))
+                english_only = any(fnmatch.fnmatch(page, p) for p in cfg["english_only"])
+                if english_only and not required:
                     url = en_site + page.removesuffix(".md") + "/"
                     out.append({f"{h1(DOCS / 'en' / page)} (English)": url})
                 elif (DOCS / "it" / page).exists():

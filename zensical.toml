@@ -95,6 +95,7 @@ nav = [
   ] },
   { "Project" = [
     "project/vision.md",
+    "project/agentic-development.md",
     "disclaimer.md",
     "project/brand.md",
     "project/roadmap.md",
