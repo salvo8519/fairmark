@@ -1740,27 +1740,47 @@ mod tests {
     }
 
     /// True when a property schema holds text: a string, or a list of strings (`null`
-    /// allowed). A list of objects that carry pointers is not a pointer field (SPEC-0012 AC10).
-    fn holds_text(property: &Value) -> bool {
-        let types = |s: &Value| -> Vec<String> {
-            match &s["type"] {
-                Value::String(t) => vec![t.clone()],
-                Value::Array(ts) => ts
-                    .iter()
-                    .filter_map(|t| t.as_str().map(str::to_owned))
-                    .collect(),
-                _ => Vec::new(),
+    /// allowed), following `$ref` into the `$defs` of `root` and the members of `anyOf` and
+    /// `oneOf`. A list of objects that carry pointers is not a pointer field (SPEC-0012 AC10).
+    fn holds_text(property: &Value, root: &Value) -> bool {
+        fn resolve<'a>(s: &'a Value, root: &'a Value) -> &'a Value {
+            match s["$ref"].as_str().and_then(|r| r.strip_prefix("#/$defs/")) {
+                Some(name) => resolve(&root["$defs"][name], root),
+                None => s,
             }
-        };
-        let own = types(property);
+        }
+        fn kinds(s: &Value, root: &Value, out: &mut Vec<String>) {
+            let s = resolve(s, root);
+            match &s["type"] {
+                Value::String(t) => out.push(t.clone()),
+                Value::Array(ts) => {
+                    out.extend(ts.iter().filter_map(|t| t.as_str().map(str::to_owned)))
+                }
+                _ => {}
+            }
+            for key in ["anyOf", "oneOf"] {
+                for member in s[key].as_array().into_iter().flatten() {
+                    kinds(member, root, out);
+                }
+            }
+        }
+        let s = resolve(property, root);
+        let mut own = Vec::new();
+        kinds(s, root, &mut own);
+        let mut items = Vec::new();
+        kinds(&s["items"], root, &mut items);
+        for key in ["anyOf", "oneOf"] {
+            for member in s[key].as_array().into_iter().flatten() {
+                kinds(&resolve(member, root)["items"], root, &mut items);
+            }
+        }
         own.iter().any(|t| t == "string")
-            || (own.iter().any(|t| t == "array")
-                && types(&property["items"]).iter().any(|t| t == "string"))
+            || (own.iter().any(|t| t == "array") && items.iter().any(|t| t == "string"))
     }
 
     /// Every property of `schema` (its `$defs` included) that holds text and whose description
     /// says it holds a JSON pointer ("JSON pointer" or "RFC 6901"), with its location.
-    fn pointer_properties(schema: &Value, at: &str, out: &mut Vec<(String, String)>) {
+    fn pointer_properties(schema: &Value, root: &Value, at: &str, out: &mut Vec<(String, String)>) {
         match schema {
             Value::Object(map) => {
                 for (key, sub) in map {
@@ -1773,22 +1793,24 @@ mod tests {
                                     .to_ascii_lowercase();
                                 let says = description.contains("json pointer")
                                     || description.contains("rfc 6901");
-                                if holds_text(property) && says {
+                                if holds_text(property, root) && says {
                                     out.push((format!("{at}/{name}"), name.clone()));
                                 }
-                                pointer_properties(property, &format!("{at}/{name}"), out);
+                                pointer_properties(property, root, &format!("{at}/{name}"), out);
                             }
                         }
                         "$defs" => {
                             for (name, def) in sub.as_object().into_iter().flatten() {
-                                pointer_properties(def, &format!("$defs/{name}"), out);
+                                pointer_properties(def, root, &format!("$defs/{name}"), out);
                             }
                         }
-                        _ => pointer_properties(sub, at, out),
+                        _ => pointer_properties(sub, root, at, out),
                     }
                 }
             }
-            Value::Array(items) => items.iter().for_each(|i| pointer_properties(i, at, out)),
+            Value::Array(items) => items
+                .iter()
+                .for_each(|i| pointer_properties(i, root, at, out)),
             _ => {}
         }
     }
@@ -1842,7 +1864,7 @@ mod tests {
                 ("result", result_schema(m.id).unwrap()),
             ] {
                 let mut found = Vec::new();
-                pointer_properties(&schema, "", &mut found);
+                pointer_properties(&schema, &schema, "", &mut found);
                 for (at, name) in found {
                     seen += 1;
                     if !is_pointer_name(&name) {
@@ -1854,6 +1876,101 @@ mod tests {
         misnamed.sort();
         misnamed.dedup();
         assert!(seen > 100, "{seen}");
+        assert!(misnamed.is_empty(), "{}", misnamed.join("\n"));
+    }
+
+    /// Every property named `name` anywhere in `schema`, with its schema.
+    fn properties_named<'a>(schema: &'a Value, out: &mut Vec<(&'a str, &'a Value)>) {
+        match schema {
+            Value::Object(map) => {
+                for (key, sub) in map {
+                    if key == "properties" {
+                        for (name, property) in sub.as_object().into_iter().flatten() {
+                            out.push((name.as_str(), property));
+                        }
+                    }
+                    properties_named(sub, out);
+                }
+            }
+            Value::Array(items) => items.iter().for_each(|i| properties_named(i, out)),
+            _ => {}
+        }
+    }
+
+    /// SPEC-0012 AC10, the reverse check: every property named `pointer`, `pointers`,
+    /// `*_pointer` or `*_pointers`, in every input schema and every result schema, says in its
+    /// description that it holds a JSON pointer, so the naming walk cannot miss it.
+    #[test]
+    fn every_pointer_name_is_described_as_a_json_pointer() {
+        let mut silent = Vec::new();
+        for m in METHODS {
+            for (side, schema) in [
+                ("input", input_schema(m.id).unwrap()),
+                ("result", result_schema(m.id).unwrap()),
+            ] {
+                let mut found = Vec::new();
+                properties_named(&schema, &mut found);
+                for (name, property) in found {
+                    if !is_pointer_name(name) || name == "missing_any_of" {
+                        continue;
+                    }
+                    let description = property["description"]
+                        .as_str()
+                        .unwrap_or("")
+                        .to_ascii_lowercase();
+                    if !(description.contains("json pointer") || description.contains("rfc 6901")) {
+                        silent.push(format!("{} {side} {name}: {description:?}", m.id));
+                    }
+                }
+            }
+        }
+        silent.sort();
+        silent.dedup();
+        assert!(silent.is_empty(), "{}", silent.join("\n"));
+    }
+
+    /// Text fields that may start with `/` without holding a pointer.
+    const TEXT_FIELDS: [&str; 5] = ["formula", "label", "conventions", "message", "reason"];
+
+    /// Every string value of `v` that starts with `/`, with the name of the property that
+    /// holds it (the nearest object key; an array keeps the key of its property).
+    fn slashed<'a>(v: &'a Value, key: &'a str, out: &mut Vec<(&'a str, &'a str)>) {
+        match v {
+            Value::String(s) if s.starts_with('/') => out.push((key, s)),
+            Value::Array(items) => items.iter().for_each(|i| slashed(i, key, out)),
+            Value::Object(map) => {
+                for (k, x) in map {
+                    if !TEXT_FIELDS.contains(&k.as_str()) {
+                        slashed(x, k, out);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// SPEC-0012 AC10, by value: on every golden input and its result, every string value that
+    /// starts with `/` (a JSON pointer) sits under a name of ADR 0014 G4, the inputs and outputs
+    /// of an evaluated method included (`base_input`, `solved_input`, `inner_value`).
+    #[test]
+    fn every_pointer_value_sits_under_a_g4_name() {
+        let mut misnamed = Vec::new();
+        let mut seen = 0u32;
+        for (name, id, input) in golden_results() {
+            let out = run(&id, &input.to_string()).unwrap();
+            let mut found = Vec::new();
+            slashed(&input, "", &mut found);
+            slashed(&out, "", &mut found);
+            for (key, value) in found {
+                seen += 1;
+                if !is_pointer_name(key) {
+                    misnamed.push(format!("{name}: {key} = {value}"));
+                }
+            }
+        }
+        misnamed.sort();
+        misnamed.dedup();
+        assert!(seen > 1000, "{seen}");
         assert!(misnamed.is_empty(), "{}", misnamed.join("\n"));
     }
 
