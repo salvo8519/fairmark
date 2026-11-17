@@ -41,6 +41,16 @@ labels:
   - { name: "golden-cases", color: "5319e7" }
   - { name: "maintenance", color: "fbca04" }
   - { name: "test-health", color: "c5def5" }
+  - { name: "area:project", color: "1d76db" }
+  - { name: "bug", color: "d73a4a" }
+  - { name: "numerical", color: "d93f0b" }
+  - { name: "method-request", color: "0e8a16" }
+  - { name: "dependencies", color: "0366d6" }
+  - { name: "github_actions", color: "000000" }
+  - { name: "question", color: "d876e3" }
+  - { name: "duplicate", color: "cfd3d7" }
+  - { name: "invalid", color: "e4e669" }
+  - { name: "wontfix", color: "ffffff" }
 
 milestones:
   - title: "M0 · Foundations"
