@@ -1048,17 +1048,8 @@ impl Scope {
         }
         let error = refine(error, &tokens, value, walk, &self.duplicates);
         let reason = error.details().reason;
-        // A choice given two keys or more is refused as a whole: nothing within it is read.
-        if reason == Some(Reason::Length) {
-            let at = tokens_of(&error.details().pointer.unwrap_or_default());
-            let node = value.pointer(&pointer(&at).unwrap_or_default());
-            if node
-                .and_then(Value::as_object)
-                .is_some_and(|m| m.len() >= 2)
-            {
-                self.poisoned.push(at);
-            }
-        }
+        // A choice given two keys or more is refused as a whole by the schema walk, which runs
+        // before any error of `serde` is located (`Finding::Keys`): nothing more to mark here.
         if matches!(reason, Some(Reason::Missing | Reason::Enum)) && walk.is_tag(&tokens, value) {
             if let Some((_, parent)) = tokens.split_last() {
                 self.poisoned.push(parent.to_vec());
@@ -1454,22 +1445,18 @@ fn choice_error(at: &[String], node: &Value, choices: Vec<String>) -> FairmarkEr
                 .expected(choices)
                 .fix("give exactly one of the keys in `expected`");
             }
-            let keys: Vec<String> = map
-                .keys()
-                .filter(|k| choices.contains(k))
-                .cloned()
-                .collect();
-            if keys.len() < 2 {
-                if let Some(key) = map.keys().find(|k| !choices.contains(k)) {
-                    return unknown_field_error(
-                        pointer(&join(at, key)).unwrap_or_default(),
-                        key,
-                        choices.clone(),
-                        &choices,
-                    );
-                }
+            // A key that is not one of the choices is an unknown field at the key; with two keys
+            // or more of the choice beside it, the schema walk, which runs first, adds the
+            // `length` entry at the choice and reports every other unknown key the same way.
+            if let Some(key) = map.keys().find(|k| !choices.contains(k)) {
+                return unknown_field_error(
+                    pointer(&join(at, key)).unwrap_or_default(),
+                    key,
+                    choices.clone(),
+                    &choices,
+                );
             }
-            keys_error(at, keys, choices)
+            keys_error(at, map.keys().cloned().collect(), choices)
         }
         other => at_error(at, format!("invalid type: {}, {list}", unexpected(other)))
             .because(Reason::Enum)

@@ -34,27 +34,3 @@ mutation = "replace && with || in check_stages"
 line = 713
 reason = "check_stages runs only on inputs whose defaults are filled in (registry, fcff, fcfe; compute_with_defaults requires it), and apply_defaults gives a projection to every stage with exactly one of flows and lines, so a stage without projection has both or neither, where && and || agree; Method::compute_with_defaults is public and its documented precondition is that the defaults were applied, so a caller that skips apply_defaults is outside its contract"
 reviewer = "salvo8519"
-
-[[equivalent]]
-file = "crates/fairmark-core/src/reading.rs"
-function = "Scope::locate"
-mutation = "replace == with != in Scope::locate"
-line = 1052
-reason = "a length error on an object of two keys or more is a single-key choice that the schema walk already refuses (Finding::Keys poisons it), and an error of another reason at an object leaves nothing within it to report: the walk finds nothing in an object of the wrong kind and the method errors within it are already refused by its pointer"
-reviewer = "pending"
-
-[[equivalent]]
-file = "crates/fairmark-core/src/reading.rs"
-function = "Scope::locate"
-mutation = "replace >= with < in Scope::locate"
-line = 1057
-reason = "with fewer than two keys a length error is an empty choice or a list, with nothing within it to hide, and a choice of two keys or more is already poisoned by the schema walk (Finding::Keys)"
-reviewer = "pending"
-
-[[equivalent]]
-file = "crates/fairmark-core/src/reading.rs"
-function = "choice_error"
-mutation = "replace < with <= in choice_error"
-line = 1462
-reason = "with exactly two keys of the choice and an unknown key, serde then reports the unknown key first, the same entry the schema walk reports for it, and the walk's Finding::Keys gives the length entry at the choice: the deduplicated report is identical"
-reviewer = "pending"
