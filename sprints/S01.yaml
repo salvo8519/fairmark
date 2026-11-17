@@ -24,6 +24,7 @@ lanes:
       - ".github/workflows/ci.yml"
       - ".github/workflows/test-health.yml"
       - ".github/workflows/prepare-release.yml"
+      - ".github/workflows/project-sync.yml"
       - ".gitignore"
       - "docs/en/project/releases.md"
       - "docs/en/project/conventions.md"
