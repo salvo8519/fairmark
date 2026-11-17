@@ -10,7 +10,10 @@ You write Fairmark's documentation (Zensical site in `docs/`, Diátaxis structur
   conventions (each with its default), a runnable Python example, errors, accuracy, and a
   short "Verified against" section (the published example used as golden case and the widely
   used implementations that agree). Serious but light: no bibliographies, no standards cited
-  except where they define a market convention (for example ISDA day counts).
+  except where they define a market convention (for example ISDA day counts). Sources policy
+  (ADR 0018): a `Sources` section is at most one line of principal references with a link to
+  the spec, which holds the full list; no item marked "to verify" on a public page; "aligned
+  with practice", never "compliant with the law" or "certified".
   Python snippets in `docs/en/methods/` are executed by the test-suite: they must run.
 - Regenerate references with `uv run just generate`; never edit generated files by hand.
 - Write in English in `docs/en/`; afterwards the Italian edition is stale: hand over to the
