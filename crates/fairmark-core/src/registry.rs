@@ -1806,6 +1806,19 @@ mod tests {
                 .any(|d| within(p, d))
     }
 
+    /// Inside an analysis, the input pointer `p` names, under `/base_input`, a field of the base
+    /// input or one the evaluated method fills in with its default.
+    fn resolves_in_base_input(input: &Value, p: &str) -> bool {
+        let (Some(rest), Some(inner), Some(base)) = (
+            p.strip_prefix("/base_input"),
+            input["method"].as_str(),
+            input.get("base_input"),
+        ) else {
+            return false;
+        };
+        run(inner, &base.to_string()).is_ok_and(|out| resolves_in_input(base, &out, rest))
+    }
+
     /// SPEC-0012 AC10 (R11): on every golden result, every pointer of the diagnostics resolves
     /// where its field says: `not_computed[].pointer` and `checks[].pointer` in the result, a
     /// warning in the result when it starts with `/value`, otherwise in the input sent (with
@@ -1844,7 +1857,7 @@ mod tests {
                 let ok = if p.starts_with("/value") {
                     out.pointer(p).is_some()
                 } else {
-                    resolves_in_input(&input, &out, p)
+                    resolves_in_input(&input, &out, p) || resolves_in_base_input(&input, p)
                 };
                 if !ok {
                     failures.push(format!(

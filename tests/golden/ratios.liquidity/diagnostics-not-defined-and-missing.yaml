@@ -1,0 +1,44 @@
+method: ratios.liquidity
+description: 'SPEC-0012 R5, R6, R13 (T16): current liabilities given as zero make the three ratios not
+  defined, each listed once in diagnostics.not_computed with reason_code not_defined and its reason;
+  the treasury margin lacks the inventories and is listed with reason_code missing_input; the entries
+  are ordered by pointer; value holds each ratio as {value} only'
+source: 'Written by hand from the rules, not from the engine output. SPEC-0007 R3 (a ratio over a
+  denominator given as zero is not defined, reason "<term> is zero"), R7 and R10 (a given term that
+  makes a ratio not defined decides before a missing one; an amount that lacks an input is listed with
+  the input pointers it lacks), the liquidity computability table (treasury margin: current assets,
+  inventories, current liabilities); SPEC-0012 R5, R6 (entry shape, missing_any_of [] for not_defined)
+  and R13 (order by pointer: cash_ratio, current_ratio, quick_ratio, treasury_margin). Net working
+  capital 2500 − 0 = 2500.'
+input:
+  balances: closing
+  closing:
+    current_assets: '2500'
+    current_liabilities: '0'
+expect:
+  /current_ratio/value: 'null'
+  /quick_ratio/value: 'null'
+  /cash_ratio/value: 'null'
+  /net_working_capital: '2500'
+  /treasury_margin: 'null'
+expect_diagnostics:
+  /not_computed/0/pointer: /value/cash_ratio
+  /not_computed/0/reason_code: not_defined
+  /not_computed/0/reason: current liabilities is zero
+  /not_computed/1/pointer: /value/current_ratio
+  /not_computed/1/reason_code: not_defined
+  /not_computed/1/reason: current liabilities is zero
+  /not_computed/2/pointer: /value/quick_ratio
+  /not_computed/2/reason_code: not_defined
+  /not_computed/2/reason: current liabilities is zero
+  /not_computed/3/pointer: /value/treasury_margin
+  /not_computed/3/reason_code: missing_input
+  /not_computed/3/missing_any_of/0/0: /closing/inventories
+expect_diagnostics_length:
+  /not_computed: '4'
+  /not_computed/0/missing_any_of: '0'
+  /not_computed/3/missing_any_of: '1'
+  /not_computed/3/permitted: '0'
+  /warnings: '0'
+  /checks: '0'
+tolerance: '0'

@@ -52,7 +52,7 @@ its approved files and `verify` in the same commit, so every commit passes `just
   pointer fields renamed on the input and the output side (decision 13), the four `VERSION` =
   "2", `uv run just generate`; golden migration of the `analysis.*` cases on the list [R12,
   R14, R18; AC10, AC12, AC15, AC16]
-- [ ] T16 Golden case for the envelope: one new case per bumped method family with
+- [x] T16 Golden case for the envelope: one new case per bumped method family with
   `expect_diagnostics`, source noted [R5 to R7; AC4 to AC6]
 - [ ] T17 Envelope snapshot `schemas/envelope/v1.json`, `envelope` entry in
   `schemas/index.json`, immutability check extended [R17; AC15]

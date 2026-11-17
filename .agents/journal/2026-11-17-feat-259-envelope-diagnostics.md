@@ -16,6 +16,7 @@
 - T13 ratios v3: `RatioValue {value}`, `NotComputedList` writes `NotComputed` (missing_input, not_defined; decision 14), six VERSION 3, snapshots v3, 34 ratios golden files migrated (verify: 34 checked, 34 migrated, 0 problems), `ratios_partial.rs` and the reference test read the diagnostics, ratio pages en/it updated and restamped (snippets use `r.raw["diagnostics"]` until T18).
 - T14 statements v2 (checks and not_computed into diagnostics, `NotComputedEntry::into_diagnostic`, pointer fields renamed by serde, VERSION 2, CheckStatus shared from diagnostics) and `DefaultApplied.pointer`; 84 golden files migrated (82 statements, 2 dcf.fcff); verify over the plan: 131 checked, 118 migrated, 0 problems (the 13 analysis files wait for T15). Tests use `year_checks`/`year_not_computed` helpers reading the diagnostics. Python docstrings of `ratios.py`/`statements.py` still name `not_computed` in `value`: fix in T18.
 - T15 analyses v2: pointer fields renamed by serde (`variable_pointer`, `output_pointer`, `output_pointers`) in and out, error locations follow, base-case warnings reported once (`report_base_warnings`), goal seek reports the solved evaluation's diagnostics under `/value/inner_value` and `/base_input`; VERSION 2, snapshots; 13 analysis golden files migrated; verify over the whole plan: 131 checked, 131 migrated, 0 problems. Python helpers keep their keyword names and send the new keys. Analysis pages en/it updated and restamped. Scratch files `/tmp/i259-*.rs` no longer needed.
+- T16 three new golden cases with `expect_diagnostics`, expectations written by hand from the rules (ratios.liquidity, statements.reorganise reclassified, analysis.sensitivity); resolution test accepts a defaulted field of the evaluated method under `/base_input`.
 
 ## State at the end of the session
 - In progress: tasks T5 to T23 of `specs/0012-envelope-diagnostics/tasks.md`, one commit each.
@@ -30,11 +31,11 @@
   files with the rename only migrate in the same commit).
 
 ## Open questions for the maintainer
-- The MCP server (`python/fairmark/mcp_server.py` `call_tool`) appends its own convention
+- Settled by the orchestrator on 2026-11-17: FM-W017, emitted by the core from a run option. Was: the MCP server (`python/fairmark/mcp_server.py` `call_tool`) appends its own convention
   `warning: \`<pointer>\` arrived as a binary floating-point number ...` to the core envelope.
   It is a seventeenth warning condition the spec inventory (core only) did not list, it has no
   code, and it contradicts R9 and R15 (adapter changes the envelope). Left unchanged; question
   for the maintainer: give it a code (FM-W017, emitted how?) or keep it as an adapter note.
 
 ## Next steps
-1. T16: one new golden case per bumped family (ratios, statements, analysis) with `expect_diagnostics`, independent source noted.
+1. FM-W017 (orchestrator decision of 2026-11-17): binary float pointers passed by the adapters as a run option, emitted by the core; spec, guides, tests. Then T17.
