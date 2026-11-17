@@ -3,6 +3,7 @@
 uv run python scripts/sprint.py validate sprints/S01.yaml
 uv run python scripts/sprint.py status sprints/S01.yaml [--repo owner/name]
 uv run python scripts/sprint.py state sprints/S01.yaml 42 [--step tests --pr 33 ...]
+uv run python scripts/sprint.py burndown sprints/S01.yaml [--json]
 uv run python scripts/sprint.py check-diff --branch sprint/S01/42-slug --base origin/main
 """
 
@@ -412,6 +413,40 @@ def read_state(sprint_file: Path, issue: int) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def ledger_path(sprint_file: Path) -> Path:
+    """The event ledger of a sprint, beside its state directory: one JSON line per checkpoint."""
+    return state_dir(sprint_file).parent / "ledger.jsonl"
+
+
+def append_ledger(sprint_file: Path, event: dict[str, Any]) -> None:
+    """Append one event as one line, in a single write of a file opened for appending, so
+    that checkpoints written at the same time by parallel lanes never interleave."""
+    path = ledger_path(sprint_file)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    line = (json.dumps(event, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
+    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
+    try:
+        os.write(fd, line)
+    finally:
+        os.close(fd)
+
+
+def read_ledger(sprint_file: Path) -> list[dict[str, Any]]:
+    """Every event of the sprint ledger, oldest first; a line that is not JSON is skipped."""
+    path = ledger_path(sprint_file)
+    if not path.exists():
+        return []
+    events = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(event, dict):
+            events.append(event)
+    return sorted(events, key=lambda e: str(e.get("at", "")))
+
+
 def write_atomic(path: Path, text: str) -> None:
     """Write a file so that a reader never sees it half written: temporary file, then rename."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -432,9 +467,12 @@ def write_state(
 ) -> dict[str, Any]:
     """Create or update the state file of one issue; returns what it wrote.
 
-    Every call is one orchestrator step on the issue: `agent_steps` counts them (the agent
-    cost of the issue), `updated` moves with each call, `started` is kept from the first one,
-    and the fields that no argument names are preserved. The file lives in the state
+    Every call is one orchestrator step on the issue: `agent_steps` counts them. It is the
+    agent cost of the issue, measured in orchestrator steps, not in tokens: the scripts cannot
+    see token usage. `updated` moves with each call, `started` is kept from the first one,
+    `blocked_since` records when the issue became blocked (null when it is not), and the
+    fields that no argument names are preserved. Each call also appends one event to the
+    sprint ledger (`ledger_path`), from which the burn-down is computed. The file lives in the state
     directory shared by every worktree and is never committed: it survives context resets
     and crashes, not git history (sprints/README.md).
     """
@@ -465,7 +503,24 @@ def write_state(
         state["blockers"] = list(state.get("blockers") or []) + blocker
     if clear_blockers:
         state["blockers"] = []
+    # When the issue became blocked; cleared when its blockers are.
+    if state["blockers"] and not state.get("blocked_since"):
+        state["blocked_since"] = state["updated"]
+    elif not state["blockers"]:
+        state["blocked_since"] = None
     write_atomic(state_path(sprint_file, issue), yaml.safe_dump(state, sort_keys=False))
+    append_ledger(
+        sprint_file,
+        {
+            "at": state["updated"],
+            "issue": issue,
+            "lane": state.get("lane"),
+            "step": state.get("step"),
+            "pull_request": state.get("pull_request"),
+            "blockers": len(state["blockers"]),
+            "agent_steps": state["agent_steps"],
+        },
+    )
     return state
 
 
@@ -524,6 +579,218 @@ def status(sprint: dict[str, Any], repo: str | None, sprint_file: Path) -> None:
     print(f"\n  Progress: {done}/{total} issues closed")
 
 
+# ------------------------------------------------------------------------------------------
+# Burn-down and loop metrics (issue #320), from the ledger and from GitHub.
+#
+# What each figure means (constitution IX, one meaning per name):
+# - per day, every issue of the sprint is in exactly one state: `done` (closed on GitHub that
+#   day or before), `in_review` (one of its pull requests open at the end of that day),
+#   `in_progress` (a ledger checkpoint that day or before), `open` (none of these);
+# - cycle time: from the first ledger checkpoint of the issue to its closing on GitHub, in
+#   hours; an issue closed without any checkpoint is counted as not measured, never guessed;
+# - failed gates: check runs that concluded `failure` on any commit of the pull requests of the
+#   issue (the pull requests opened from a branch of the issue), counted per lane;
+# - agent steps: orchestrator steps recorded in the ledger, not tokens.
+
+
+def _day(timestamp: str | None) -> dt.date | None:
+    return dt.datetime.fromisoformat(timestamp).date() if timestamp else None
+
+
+def issue_state_on(day: dt.date, first_checkpoint: str | None, facts: dict[str, Any]) -> str:
+    closed = _day(facts.get("closed_at"))
+    if closed and closed <= day:
+        return "done"
+    for pr in facts.get("pull_requests", []):
+        opened, shut = _day(pr.get("created_at")), _day(pr.get("closed_at"))
+        if opened and opened <= day and (shut is None or shut > day):
+            return "in_review"
+    started = _day(first_checkpoint)
+    if started and started <= day:
+        return "in_progress"
+    return "open"
+
+
+def burndown(
+    sprint: dict[str, Any],
+    events: list[dict[str, Any]],
+    facts: dict[int, dict[str, Any]],
+    today: dt.date,
+) -> dict[str, Any]:
+    """The burn-down of a sprint: computed from the ledger events and the GitHub facts of each
+    issue (`closed_at`, `pull_requests` with `created_at` and `closed_at`, `failed_checks`).
+    No I/O."""
+    lanes = {i: lane["name"] for lane in sprint["lanes"] for i in lane.get("issues", [])}
+    first: dict[int, str] = {}
+    last: dict[int, dict[str, Any]] = {}
+    steps: dict[int, int] = {}
+    for event in events:
+        issue = event.get("issue")
+        if not isinstance(issue, int) or issue not in lanes:
+            continue
+        first.setdefault(issue, str(event["at"]))
+        last[issue] = event
+        steps[issue] = max(steps.get(issue, 0), int(event.get("agent_steps") or 0))
+    start = (
+        sprint["start"]
+        if isinstance(sprint["start"], dt.date)
+        else dt.date.fromisoformat(str(sprint["start"]))
+    )
+    end = (
+        sprint["end"]
+        if isinstance(sprint["end"], dt.date)
+        else dt.date.fromisoformat(str(sprint["end"]))
+    )
+    days = []
+    day = start
+    while day <= min(end, today):
+        counts = {"open": 0, "in_progress": 0, "in_review": 0, "done": 0}
+        for issue in lanes:
+            counts[issue_state_on(day, first.get(issue), facts.get(issue, {}))] += 1
+        days.append({"day": day.isoformat(), **counts})
+        day += dt.timedelta(days=1)
+    cycle: dict[int, float] = {}
+    not_measured = []
+    for issue in lanes:
+        closed = facts.get(issue, {}).get("closed_at")
+        if not closed:
+            continue
+        if issue not in first:
+            not_measured.append(issue)
+            continue
+        hours = (
+            dt.datetime.fromisoformat(closed) - dt.datetime.fromisoformat(first[issue])
+        ).total_seconds() / 3600
+        cycle[issue] = round(hours, 1)
+    ordered = sorted(cycle.values())
+    median = None
+    if ordered:
+        mid = len(ordered) // 2
+        median = (
+            ordered[mid] if len(ordered) % 2 else round((ordered[mid - 1] + ordered[mid]) / 2, 1)
+        )
+    failed: dict[str, int] = {lane["name"]: 0 for lane in sprint["lanes"]}
+    for issue, lane in lanes.items():
+        failed[lane] += int(facts.get(issue, {}).get("failed_checks", 0))
+    blocked = {
+        issue: event["at"]
+        for issue, event in last.items()
+        if event.get("blockers") and not facts.get(issue, {}).get("closed_at")
+    }
+    return {
+        "sprint": sprint["id"],
+        "days": days,
+        "cycle_time_hours": {str(k): v for k, v in sorted(cycle.items())},
+        "cycle_time_median_hours": median,
+        "closed_without_checkpoint": sorted(not_measured),
+        "failed_gates_per_lane": failed,
+        "agent_steps": {str(k): v for k, v in sorted(steps.items())},
+        "blocked": {str(k): v for k, v in sorted(blocked.items())},
+    }
+
+
+def _gh(path: str) -> Any:
+    out = subprocess.run(
+        ["gh", "api", path], capture_output=True, text=True, check=True, encoding="utf-8"
+    )
+    return json.loads(out.stdout)
+
+
+def issue_branch(issue: int) -> re.Pattern[str]:
+    """The branches of an issue: `<type>/<issue>-<slug>` or `sprint/SNN/<issue>-<slug>`."""
+    return re.compile(rf"^(?:[a-z]+|sprint/S\d+)/{issue}-")
+
+
+def pull_requests_of(repo: str, issue: int, ledger_pr: int | None) -> list[dict[str, Any]]:
+    """The pull requests of an issue: the one recorded in the ledger, and every pull request
+    that cross-references the issue from a branch of that issue. A pull request that only
+    mentions the issue (a roadmap update, for example) is not one of its pull requests."""
+    numbers = {ledger_pr} if ledger_pr else set()
+    timeline = _gh(f"repos/{repo}/issues/{issue}/timeline?per_page=100")
+    numbers |= {
+        e["source"]["issue"]["number"]
+        for e in timeline
+        if e.get("event") == "cross-referenced"
+        and (e.get("source") or {}).get("issue", {}).get("pull_request")
+    }
+    branch = issue_branch(issue)
+    pulls = [_gh(f"repos/{repo}/pulls/{n}") for n in sorted(numbers)]
+    return [pr for pr in pulls if pr["number"] == ledger_pr or branch.match(pr["head"]["ref"])]
+
+
+def github_facts(
+    repo: str, sprint: dict[str, Any], events: list[dict[str, Any]]
+) -> dict[int, dict[str, Any]]:
+    """For each issue of the sprint: `closed_at` (not for issues closed as not planned) and its
+    pull requests: the first opening date, and the check runs that failed on their commits,
+    summed over every pull request of the issue (a closed attempt counts too)."""
+    recorded = {e["issue"]: e.get("pull_request") for e in events if e.get("pull_request")}
+    facts: dict[int, dict[str, Any]] = {}
+    for lane in sprint["lanes"]:
+        for issue in lane.get("issues", []):
+            info = _gh(f"repos/{repo}/issues/{issue}")
+            closed = info.get("closed_at") if info.get("state_reason") != "not_planned" else None
+            entry: dict[str, Any] = {"title": info["title"], "closed_at": closed}
+            pulls = pull_requests_of(repo, issue, recorded.get(issue))
+            if pulls:
+                # Two pull requests of one issue may share commits: each commit counts once.
+                shas = {
+                    c["sha"]
+                    for pr in pulls
+                    for c in _gh(f"repos/{repo}/pulls/{pr['number']}/commits?per_page=100")
+                }
+                failed = 0
+                for sha in sorted(shas):
+                    runs = _gh(f"repos/{repo}/commits/{sha}/check-runs?per_page=100")
+                    failed += sum(r["conclusion"] == "failure" for r in runs["check_runs"])
+                entry["pull_requests"] = [
+                    {
+                        "number": pr["number"],
+                        "created_at": pr["created_at"],
+                        "closed_at": pr["closed_at"],
+                    }
+                    for pr in pulls
+                ]
+                entry["failed_checks"] = failed
+            facts[issue] = entry
+    return facts
+
+
+def render_burndown(report: dict[str, Any]) -> str:
+    lines = [f"{report['sprint']} burn-down", "  day          open  progress  review  done"]
+    for d in report["days"]:
+        lines.append(
+            f"  {d['day']}  {d['open']:>4}  {d['in_progress']:>8}  {d['in_review']:>6}  "
+            f"{d['done']:>4}"
+        )
+    cycle = report["cycle_time_hours"]
+    if cycle:
+        per_issue = ", ".join(f"#{k} {v} h" for k, v in cycle.items())
+        lines.append(
+            f"  Cycle time (first checkpoint to close): {per_issue}; "
+            f"median {report['cycle_time_median_hours']} h over {len(cycle)} issues"
+        )
+    else:
+        lines.append("  Cycle time: no issue closed after a ledger checkpoint yet")
+    if report["closed_without_checkpoint"]:
+        listed = ", ".join(f"#{i}" for i in report["closed_without_checkpoint"])
+        lines.append(f"  Closed without a ledger checkpoint (cycle time not measured): {listed}")
+    gates = ", ".join(f"{lane} {n}" for lane, n in report["failed_gates_per_lane"].items())
+    lines.append(f"  Failed check runs per lane: {gates}")
+    steps = ", ".join(f"#{k} {v}" for k, v in report["agent_steps"].items()) or "none recorded"
+    lines.append(f"  Agent steps (orchestrator steps, not tokens): {steps}")
+    blocked = ", ".join(f"#{k} since {v}" for k, v in report["blocked"].items()) or "none"
+    lines.append(f"  Blocked now: {blocked}")
+    return "\n".join(lines)
+
+
+def burndown_command(sprint: dict[str, Any], args: argparse.Namespace) -> None:
+    events = read_ledger(args.file)
+    facts = github_facts(args.repo or origin_repo(), sprint, events)
+    report = burndown(sprint, events, facts, _now().date())
+    print(json.dumps(report, indent=2) if args.json else render_burndown(report))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
@@ -532,6 +799,10 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("status")
     s.add_argument("file", type=Path)
     s.add_argument("--repo")
+    bd = sub.add_parser("burndown", help="burn-down and loop metrics of a sprint")
+    bd.add_argument("file", type=Path)
+    bd.add_argument("--repo")
+    bd.add_argument("--json", action="store_true", help="machine-readable, for agents")
     st = sub.add_parser("state")
     st.add_argument("file", type=Path)
     st.add_argument("issue", type=int)
@@ -560,6 +831,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{args.file} is valid.")
     elif args.command == "status":
         status(sprint, args.repo, args.file)
+    elif args.command == "burndown":
+        burndown_command(sprint, args)
     else:
         state_command(args)
     return 0

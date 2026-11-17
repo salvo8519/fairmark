@@ -4,7 +4,7 @@ description: Come Fairmark viene costruito da agenti AI e da un maintainer — r
   memoria, corsie degli sprint e i controlli deterministici che fanno rispettare ogni
   regola.
 source: project/agentic-development.md
-source_hash: f22a88b74fb6
+source_hash: d18fa7b5451d
 ---
 # Sviluppo agentico
 
@@ -90,6 +90,8 @@ Nessun database: ogni livello è leggibile da qualsiasi agente di qualsiasi sist
 verificabile in un diff. Un crash o la perdita del contesto costano minuti:
 `scripts/project_state.py` mostra a che punto è il progetto, il diario dice dove si è fermata
 l'ultima sessione, e il branch su GitHub contiene il lavoro.
+`scripts/sprint.py burndown` ricava dal registro dello sprint e da GitHub il burn-down, i tempi
+di ciclo, i controlli falliti per corsia e i passaggi degli agenti per issue.
 `scripts/journal.py search <issue|area|data|testo>` trova le voci su una issue, prima le sue;
 `session-start` le cita per ogni issue che propone. L'indice è costruito dalle voci ogni volta
 che viene letto e non viene mai salvato nel repository, quindi le corsie parallele non vanno
@@ -154,7 +156,9 @@ leggono: nella spec, nella issue, nel diario o in un ADR.
 
 ## Cosa non è ancora verificato
 
-- Burn-down degli sprint e metriche del ciclo (tempo dal branch al merge, controlli falliti,
-  passaggi degli agenti per issue) sono pianificati nella #320; fino ad allora il costo del
-  processo non è misurato.
+- Il costo di una issue è misurato in passaggi dell'orchestratore (`scripts/sprint.py
+  burndown`), non in token: gli script non vedono il consumo di token.
+- La coda delle pull request non è ancora mantenuta in automatico (le pull request rimaste
+  indietro si aggiornano a mano), e i fallimenti intermittenti dei test non sono ancora contati
+  test per test; entrambi sono la seconda parte della #320.
 - Le copie per sistemi di agenti diversi da Claude Code sono pianificate nella #328.

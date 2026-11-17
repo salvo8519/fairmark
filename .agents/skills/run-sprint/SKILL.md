@@ -49,7 +49,8 @@ worktree (one worktree per session, AGENTS.md):
 For each issue: `gh issue comment N --body "@claude Implement this issue following
 .agents/skills/implement-spec/SKILL.md and AGENTS.md. Work test-first, run uv run just check,
 and open a pull request that closes this issue."` Issues of different lanes run in parallel
-on separate runners. Then track the resulting PRs with `scripts/sprint.py status`.
+on separate runners. Then track the resulting PRs with `scripts/sprint.py status`, and report the burn-down with
+`scripts/sprint.py burndown` at the end of each run.
 
 ## End of run
 Propose the merge order to the maintainer (sprints/README.md, Generated artifacts and the merge
