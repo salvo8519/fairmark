@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcfe.md
-source_hash: 8fb06e00faf7
+source_hash: 79d9f3fbd866
 ---
 # DCF, flussi di cassa disponibili per gli azionisti (`dcf.fcfe`)
 
@@ -104,7 +104,8 @@ dei periodi indica che il flusso è stato costruito dalle voci.
 ## Tecniche del valore terminale con approccio equity side
 
 L'oggetto `terminal` indica esattamente una tecnica con l'identificativo del suo metodo, come
-in [`dcf.fcff`](dcf-fcff.md#tecniche-del-valore-terminale), calcolata dal proprio metodo al
+in [`dcf.fcff`](dcf-fcff.md#tecniche-del-valore-terminale) (due o più opzioni sono un solo
+errore `length` su `/terminal`), calcolata dal proprio metodo al
 costo del capitale proprio della fase terminale. La tecnica deve seguire l'approccio equity
 side:
 
