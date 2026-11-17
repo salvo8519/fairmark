@@ -1,6 +1,6 @@
 ---
 source: guides/function-calling.md
-source_hash: 53d25361a0f9
+source_hash: f9ff32e849b9
 ---
 # Function calling
 
