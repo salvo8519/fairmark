@@ -20,9 +20,14 @@ The repository today:
 - The Italian glossary (`i18n/glossary.yaml`) already applies the maintainer's rule of
   2026-11-08 on terms: the term of international practice where no verified Italian term
   exists.
-- Public method pages differ: most have no source section, three have one of 7 to 18 lines
+- Public method pages carry two kinds of references. 44 of the 45 pages have a "Verified
+  against" section, as the `docs-writer` role asks: the published examples the golden cases
+  reproduce, with their figures, and the implementations that agree (median 5 lines, longest
+  40, `dcf-fcff.md`). Three pages also have a "Sources" section of 7 to 18 lines
   (`dates-schedule.md`, `series-project.md`, `statements-reorganise.md`), including items still
   marked "to verify".
+- The `spec-writer` role asks for no bibliographies in specs: one line naming the formulation,
+  the published worked example and the cross-check implementations.
 - Independent oracles used in tests (`pyxirr`, `numpy-financial`, QuantLib, python-dateutil)
   are cited in some places and not others.
 
@@ -39,7 +44,8 @@ how it is applied and checked.
    page is one line: the principal references by name (for example "CFA Institute curriculum;
    IFRS 13; Damodaran, Investment Valuation, 3rd ed.") and a link to the spec for the full
    list. A page never shows an item marked "to verify": an unverified source stays in the spec
-   until it is verified or removed.
+   until it is verified or removed. Whether the "Verified against" section counts as references
+   is open (below).
 3. **Vocabulary follows international practice where Italian practice is not settled.** The
    reference frameworks are CFA Institute, EBA, IFRS and IVS. Where no verified Italian term
    exists, or Italian sources conflict with each other or with those frameworks, the English
@@ -65,10 +71,12 @@ how it is applied and checked.
 
 - An auditor finds every source in one place per method (the spec), with the evidence per case
   in the golden files; a reader of the site sees a short, verified reference line.
-- Three pages shrink to one line and move their detail to their specs; their Italian editions
-  follow. Items marked "to verify" leave the public pages.
-- The spec template gains a `Sources` section; the `docs-writer` and `spec-writer` roles apply
-  the policy.
+- Three "Sources" sections shrink to one line and move their detail to their specs; their
+  Italian editions follow. Items marked "to verify" leave the public pages. If "Verified
+  against" counts as references, 44 pages change as well.
+- The spec template gains a `Sources` section; the `spec-writer` role changes from "no
+  bibliographies" to "every source used, with edition and section, in the `Sources` section";
+  the `docs-writer` role applies the one-line rule.
 - `scripts/docs_sync.py claims` gains two checks on public pages: a `Sources` section of at most
   one line, and none of the compliance phrases of decision 4 (English and Italian).
 
@@ -82,3 +90,12 @@ how it is applied and checked.
 | The two checks in `docs_sync.py claims` | process | `scripts/docs_sync.py`, its tests |
 
 The two checks merge last, after the pages comply, so CI stays green on `main`.
+
+## Open questions for the maintainer
+
+- The "Verified against" section of 44 pages: is it a list of references, limited to one line
+  by decision 2, or the evidence of principle VI that a reader checks, kept on the page? The
+  proposal is to keep it, as evidence: each line names a published example and the figures the
+  golden case reproduces, which is what an analyst verifies, and the one-line rule applies to
+  the bibliographic "Sources" line only. With this reading, three pages change; with the other,
+  44 pages move their verification detail to the specs.
