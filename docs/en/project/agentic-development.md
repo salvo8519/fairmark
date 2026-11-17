@@ -123,6 +123,7 @@ commit. The required ones block the merge.
 | The MCP server works for a real client, with portable tool schemas | `scripts/mcp_protocol_check.py` with the MCP Inspector |
 | Every action pinned to a commit; no icons in any file | `scripts/pin_actions.py --check`, `scripts/check_style.py` |
 | Every process script has a test | `python/tests/scripts/test_every_script_is_tested.py` |
+| A quarantined test has an issue, a reason and an expiry date | `scripts/test_failures.py quarantine-check` |
 
 ## Effort proportional to risk
 
@@ -149,7 +150,9 @@ in the issue, in the journal or in an ADR.
 
 - The cost of an issue is measured in orchestrator steps (`scripts/sprint.py burndown`), not in
   tokens: the scripts cannot see token usage.
-- The pull request queue is not yet maintained automatically (stale pull requests are rebased
-  by hand), and intermittent test failures are not yet counted per test; both are the second
-  part of #320.
+- Intermittent tests and stale pull requests are reported every weekday, not blocked
+  (`.github/workflows/test-health.yml`). Pull requests behind `main` are updated by a person or
+  a session with `scripts/pr_queue.py update --apply`, not by the scheduled workflow: GitHub
+  starts no checks for a push made with a workflow's own token. A dedicated token would remove
+  this step; none is configured.
 - Mirrors for agent systems other than Claude Code are planned in #328.

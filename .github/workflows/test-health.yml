@@ -1,0 +1,85 @@
+name: Test health and pull request queue
+
+# Early warning, never blocking (#320). Two reports:
+# - tests: the JUnit files uploaded by the Python jobs of ci.yml on `main` in the last 14 days,
+#   aggregated per test by scripts/test_failures.py. A test that failed in some runs and passed
+#   in others is intermittent: fix it, or quarantine it (python/tests/quarantine.yaml) with an
+#   issue and an expiry date. A test that failed in every run is a defect.
+# - queue: the open pull requests that are stale and in conflict or failing
+#   (scripts/pr_queue.py). Updating a branch that is only behind `main` is done with
+#   `scripts/pr_queue.py update --apply` and a personal token: GitHub does not start workflows
+#   for changes pushed with this workflow's token, so the updated branch would never be checked.
+# A problem opens (or updates) one issue labelled `test-health`.
+on:
+  schedule:
+    - cron: "41 6 * * 1-5"   # weekdays 06:41 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Intermittent and failing tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.13"
+          enable-cache: false
+      - name: Download the JUnit files of the CI runs on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          since=$(date -u -d '14 days ago' +%Y-%m-%d)
+          gh run list -R "$GITHUB_REPOSITORY" --workflow ci.yml --branch main --created ">=$since" \
+            --limit 100 --json databaseId,conclusion \
+            -q '.[] | select(.conclusion == "success" or .conclusion == "failure") | .databaseId' > runs.txt
+          while read -r id; do
+            gh run download "$id" -R "$GITHUB_REPOSITORY" -p 'junit-*' -D "junit-runs/$id" || true
+          done < runs.txt
+      - run: uv run --no-project --with pyyaml python scripts/test_failures.py collect junit-runs --out stats.json
+      - run: uv run --no-project --with pyyaml python scripts/test_failures.py report stats.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+  queue:
+    name: Stale pull requests in conflict or failing
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          python3 scripts/pr_queue.py list --repo "$GITHUB_REPOSITORY" --fail-on-stale | tee -a "$GITHUB_STEP_SUMMARY"
+
+  report:
+    name: Open or update the test health issue
+    needs: [tests, queue]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RESULTS: tests=${{ needs.tests.result }}, queue=${{ needs.queue.result }}
+        run: |
+          body="Test health found problems: ${RESULTS}. Details in the run summary: ${RUN}. Policy: sprints/README.md (Test health and the pull request queue)."
+          gh label create test-health -R "$GITHUB_REPOSITORY" --color C5DEF5 \
+            --description "Intermittent tests and blocked pull requests (test-health.yml)" --force
+          n=$(gh issue list -R "$GITHUB_REPOSITORY" --label test-health --state open --json number -q '.[0].number')
+          if [ -n "$n" ]; then gh issue comment "$n" -R "$GITHUB_REPOSITORY" --body "$body"
+          else gh issue create -R "$GITHUB_REPOSITORY" --title "Test health report" --label test-health --body "$body"; fi

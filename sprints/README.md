@@ -188,6 +188,41 @@ the branch the state names (it is still there, see the sections above) and conti
 the recorded step. The state directory and the work-in-progress note are local recovery
 state; the committed record stays the journal entry and the pull request of the issue.
 
+## Test health and the pull request queue
+
+Two scheduled reports keep the loop from stalling (`.github/workflows/test-health.yml`,
+weekdays). Both warn and never block a merge; a problem opens or updates one issue labelled
+`test-health`.
+
+**Intermittent tests.** Every Python job of CI writes a JUnit file and uploads it as an
+artifact (`junit-<os>-<python>`, kept 30 days). `scripts/test_failures.py collect` reads the
+files of the CI runs on `main` of the last 14 days and counts, per test, the runs and the
+failures; `report` lists the tests that failed at least once:
+
+| Kind | Meaning | What to do |
+| --- | --- | --- |
+| Intermittent | Failed in some runs, passed in others | Fix it, or quarantine it with an issue |
+| Always failing | Failed in every run where it ran | Fix it: a defect is never quarantined |
+
+A quarantined test is listed in `python/tests/quarantine.yaml` with its pytest node id, the
+issue that tracks the fix, the reason and an expiry date. It still runs; its failure is
+reported as `xfailed` and does not fail the suite, and a pass is reported as `xpassed`.
+`scripts/test_failures.py quarantine-check` runs in CI and fails on an entry without an issue,
+without a reason, past its date or naming a file that does not exist, so a quarantine never
+becomes permanent by neglect.
+
+**The pull request queue.** `uv run just pr-queue` (or `scripts/pr_queue.py list`) puts every
+open pull request that is not a draft in one state, in this order: `conflict` (a rebase by
+hand), `failing` (a check run failed on its head), `behind` (`main` has commits it lacks and
+it merges cleanly), `ready`. A pull request unchanged for three days is stale; the scheduled
+report fails when a stale pull request is in conflict or failing.
+
+`scripts/pr_queue.py update` merges `main` into the pull requests that are `behind`: a dry run
+by default, the change only with `--apply`, never on a fork or a pull request in conflict, and
+only if the head is still the commit that was read. It runs with your token or the session's,
+not in the scheduled workflow: GitHub starts no workflow for a push made with a workflow's own
+token, so the updated branch would never be checked again.
+
 ## Workflow
 1. **Plan** — `/plan-sprint`: the `sprint-planner` agent proposes `sprints/SNN.yaml` from the
    open issues of the current milestone. The maintainer edits and approves it.
