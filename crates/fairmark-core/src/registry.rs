@@ -350,7 +350,8 @@ pub fn output_schema(id: &str) -> Result<Value> {
 /// The schema also describes what the method returns when it fails (ADR 0014 G5):
 /// `$defs/FairmarkErrorResponse`, the `{"error": <report>}` document of every adapter, named at
 /// the root by `x-fairmark-error` (an RFC 6901 fragment of this schema). A client validates an
-/// error against `<this schema>#/$defs/FairmarkErrorResponse`.
+/// error against `<this schema>#/$defs/FairmarkErrorResponse`. The root states the envelope
+/// version, `x-fairmark-envelope-version` (SPEC-0012), snapshotted as `schemas/envelope/v<N>.json`.
 pub fn result_schema(id: &str) -> Result<Value> {
     let schema = result_schema_of(id).ok_or_else(|| FairmarkError::UnknownMethod(id.to_owned()))?;
     let mut result =
@@ -384,6 +385,11 @@ pub fn result_schema(id: &str) -> Result<Value> {
     root.insert(
         "x-fairmark-error".to_owned(),
         Value::from(format!("#/$defs/{ERROR_RESPONSE}")),
+    );
+    // The envelope follows its own version (SPEC-0012 R4, R17).
+    root.insert(
+        "x-fairmark-envelope-version".to_owned(),
+        Value::from(ENVELOPE_VERSION),
     );
     Ok(result)
 }

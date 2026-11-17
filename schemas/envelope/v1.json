@@ -1,0 +1,627 @@
+{
+  "$defs": {
+    "Check": {
+      "additionalProperties": false,
+      "description": "One relation the method verified.",
+      "properties": {
+        "id": {
+          "description": "The relation id, snake_case, documented on the methodology page of the method.",
+          "type": "string"
+        },
+        "pointer": {
+          "description": "JSON pointer of the result block the check belongs to, from the root of the result\nenvelope, for example `/value/years/0`.",
+          "type": "string"
+        },
+        "pointers": {
+          "description": "JSON pointers of the inputs on both sides of the relation, from the root of the input\nsent, as read; empty when the sides are computed outputs.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/CheckStatus",
+          "description": "`reconciled` or `not_checked`."
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "pointer",
+        "pointers"
+      ],
+      "type": "object"
+    },
+    "CheckStatus": {
+      "description": "The status of a relation. Values may be added, never renamed (ADR 0014 G8). A relation that\nfails is an error (`FM-E026`), never a check.",
+      "oneOf": [
+        {
+          "const": "reconciled",
+          "description": "Both sides given and equal.",
+          "type": "string"
+        },
+        {
+          "const": "not_checked",
+          "description": "A side is missing: the relation could not be checked.",
+          "type": "string"
+        }
+      ]
+    },
+    "DefaultApplied": {
+      "description": "A documented default filled in because the field was not given (SPEC-0001 R31). Listed in\n`meta.defaults_applied` and reported as a convention starting with \"default:\".",
+      "properties": {
+        "pointer": {
+          "description": "JSON pointer of the field filled in, for example `/timing` or `/stages/0/periods`, or of\nthe item given whose default destination applies, from the root of the input sent.",
+          "type": "string"
+        },
+        "reason": {
+          "description": "Why this value: one line, citing the practice or the rule it follows.",
+          "type": "string"
+        },
+        "value": {
+          "description": "The value filled in, as it would be written in the input."
+        }
+      },
+      "required": [
+        "pointer",
+        "value",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "Diagnostics": {
+      "additionalProperties": false,
+      "description": "What the result does not contain, what the reader could miss and what was verified (ADR\n0014 G4). Every list is always present, empty when there is nothing to report.",
+      "properties": {
+        "checks": {
+          "description": "Every relation the method verified or could not verify, ordered by result block, then by\n`id`; empty for a method without checks.",
+          "items": {
+            "$ref": "#/$defs/Check"
+          },
+          "type": "array"
+        },
+        "not_computed": {
+          "description": "The outputs not computed, one entry per output, ordered by `pointer` (array indices\ncompared as numbers); empty when every output is computed.",
+          "items": {
+            "$ref": "#/$defs/NotComputed"
+          },
+          "type": "array"
+        },
+        "warnings": {
+          "description": "The warnings of the catalogue (`docs/en/reference/warnings.md`), in the order of their\necho in `explain.conventions`; empty when nothing is warned.",
+          "items": {
+            "$ref": "#/$defs/Warning"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "not_computed",
+        "warnings",
+        "checks"
+      ],
+      "type": "object"
+    },
+    "Explain": {
+      "description": "How a result was obtained.",
+      "properties": {
+        "conventions": {
+          "description": "Conventions applied (timing, discounting of the terminal value, ...), the documented\ndefaults (`default: ...`) and the echo of every warning (`warning FM-Wnnn: ...`).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "formula": {
+          "description": "The method's formula in plain notation.",
+          "type": "string"
+        },
+        "steps": {
+          "description": "Ordered calculation steps.",
+          "items": {
+            "$ref": "#/$defs/Step"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "formula",
+        "steps",
+        "conventions"
+      ],
+      "type": "object"
+    },
+    "FairmarkErrorEntry": {
+      "description": "One error of a report (ADR 0014 G5): the stable code, the message in English, and what a\nclient needs to correct the input without reading the message.",
+      "properties": {
+        "code": {
+          "description": "Stable error code, for example `FM-E004` (see the errors reference).",
+          "type": "string"
+        },
+        "expected": {
+          "description": "What the field accepts. With `reason` `enum` or `unknown_field`, the literal values\n(the values of the enumeration, the fields of the object); with any other reason, short\ndescriptions of the accepted form, for example \"an amount greater than 0\". Empty when\nnot known.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "fix": {
+          "description": "One sentence that resolves the error; `null` when the message is the only guidance.\nIts wording may change between releases; `code`, `pointer` and `reason` do not.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "message": {
+          "description": "What is wrong and, where known, how to fix it.",
+          "type": "string"
+        },
+        "missing_any_of": {
+          "description": "`FM-E027` only: alternative sets of input pointers, any one of which lifts the input\nabove the minimum of the method. Omitted for every other code.",
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "pointer": {
+          "description": "JSON pointer (RFC 6901) of the field to correct, always from the root of the input the\nclient sent: an error of the method evaluated by an analysis is under `/base_input`,\nwhile its message keeps the pointer within `base_input`. `null` only for a text that is\nnot JSON (`reason` `syntax`) and for an error raised during the computation that no\nsingle field causes (and for `FM-E027`, which names its inputs in `missing_any_of`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pointers": {
+          "description": "JSON pointers of every field of a relation (both sides of an `FM-E026`\nreconciliation, both fields of a conflict); empty when the error concerns one field.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FairmarkErrorReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The sub-kind of the error, which tells apart the conditions that share a code; `null`\nwhen the code has one meaning only."
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "pointer",
+        "pointers",
+        "reason",
+        "expected",
+        "fix"
+      ],
+      "type": "object"
+    },
+    "FairmarkErrorReason": {
+      "description": "The sub-kind of an error (ADR 0014 G5): it tells apart the conditions that share a code,\nabove all `FM-E001`, without new codes. Values are added, never renamed or removed; a\nclient accepts a value it does not know.",
+      "oneOf": [
+        {
+          "const": "syntax",
+          "description": "The text is not JSON (a syntax error, a truncated input, trailing characters): there\nis no field to name, and the message keeps the line and column.",
+          "type": "string"
+        },
+        {
+          "const": "missing",
+          "description": "A required field, or one required by the other fields given, is absent.",
+          "type": "string"
+        },
+        {
+          "const": "unknown_field",
+          "description": "A field the input does not define.",
+          "type": "string"
+        },
+        {
+          "const": "duplicate",
+          "description": "A field given twice in the same object.",
+          "type": "string"
+        },
+        {
+          "const": "type",
+          "description": "A value of the wrong type: a text where a number is expected, an object where a list\nis expected, a date that is not a calendar date.",
+          "type": "string"
+        },
+        {
+          "const": "enum",
+          "description": "A value outside a closed list of values; `expected` lists them.",
+          "type": "string"
+        },
+        {
+          "const": "conflict",
+          "description": "Fields that exclude each other are given together, or contradict each other.",
+          "type": "string"
+        },
+        {
+          "const": "requires",
+          "description": "A field is given without the field it needs, or is not used by the choice made.",
+          "type": "string"
+        },
+        {
+          "const": "sign",
+          "description": "An amount with the wrong sign for its field.",
+          "type": "string"
+        },
+        {
+          "const": "blank",
+          "description": "A text that must say something is empty or blank.",
+          "type": "string"
+        },
+        {
+          "const": "range",
+          "description": "A number outside the domain of its field.",
+          "type": "string"
+        },
+        {
+          "const": "length",
+          "description": "A list with the wrong number of entries: empty, too long, or not one entry per period\nor year.",
+          "type": "string"
+        },
+        {
+          "const": "reconcile",
+          "description": "Two sides of a relation that must agree differ: a total and its parts (`FM-E026`).",
+          "type": "string"
+        }
+      ]
+    },
+    "FairmarkErrorReport": {
+      "description": "The report of an error (ADR 0014 G5): the first error found, and every error found.",
+      "properties": {
+        "code": {
+          "description": "Stable error code, for example `FM-E004` (see the errors reference).",
+          "type": "string"
+        },
+        "errors": {
+          "description": "Every error found, at least one, the first equal to the top level: the validation of\nthe input reports all the errors it finds, in the order of its checks; an error raised\nduring the computation stops it and is the only entry.",
+          "items": {
+            "$ref": "#/$defs/FairmarkErrorEntry"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "expected": {
+          "description": "What the field accepts. With `reason` `enum` or `unknown_field`, the literal values\n(the values of the enumeration, the fields of the object); with any other reason, short\ndescriptions of the accepted form, for example \"an amount greater than 0\". Empty when\nnot known.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "fix": {
+          "description": "One sentence that resolves the error; `null` when the message is the only guidance.\nIts wording may change between releases; `code`, `pointer` and `reason` do not.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "message": {
+          "description": "What is wrong and, where known, how to fix it.",
+          "type": "string"
+        },
+        "missing_any_of": {
+          "description": "`FM-E027` only: alternative sets of input pointers, any one of which lifts the input\nabove the minimum of the method. Omitted for every other code.",
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "pointer": {
+          "description": "JSON pointer (RFC 6901) of the field to correct, always from the root of the input the\nclient sent: an error of the method evaluated by an analysis is under `/base_input`,\nwhile its message keeps the pointer within `base_input`. `null` only for a text that is\nnot JSON (`reason` `syntax`) and for an error raised during the computation that no\nsingle field causes (and for `FM-E027`, which names its inputs in `missing_any_of`).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pointers": {
+          "description": "JSON pointers of every field of a relation (both sides of an `FM-E026`\nreconciliation, both fields of a conflict); empty when the error concerns one field.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FairmarkErrorReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The sub-kind of the error, which tells apart the conditions that share a code; `null`\nwhen the code has one meaning only."
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "pointer",
+        "pointers",
+        "reason",
+        "expected",
+        "fix",
+        "errors"
+      ],
+      "type": "object"
+    },
+    "FairmarkErrorResponse": {
+      "description": "What an adapter returns when a method fails: `{\"error\": <report>}`.",
+      "properties": {
+        "error": {
+          "$ref": "#/$defs/FairmarkErrorReport",
+          "description": "The report of the error."
+        }
+      },
+      "required": [
+        "error"
+      ],
+      "title": "FairmarkErrorResponse",
+      "type": "object"
+    },
+    "Meta": {
+      "description": "Reproducibility metadata attached to every result.",
+      "properties": {
+        "arithmetic": {
+          "description": "Arithmetic used for every operation.",
+          "type": "string"
+        },
+        "defaults_applied": {
+          "description": "Documented defaults filled in because their fields were not given, in input order;\nempty when none applies.",
+          "items": {
+            "$ref": "#/$defs/DefaultApplied"
+          },
+          "type": "array"
+        },
+        "engine_version": {
+          "description": "Version of the fairmark engine that produced the result.",
+          "type": "string"
+        },
+        "envelope_version": {
+          "description": "Version of the envelope, an integer: 1 for `{method, value, explain, diagnostics,\nmeta}` (ADR 0014 G4).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "evaluated_method_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Status"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Analysis methods only: status of the method they evaluated (ADR 0012)."
+        },
+        "input_hash": {
+          "description": "SHA-256 of the canonical input, with the documented defaults filled in: same hash +\nsame versions = same value.",
+          "type": "string"
+        },
+        "method_status": {
+          "$ref": "#/$defs/Status",
+          "description": "Status of the method that produced the result, `available` or `preview` (ADR 0012)."
+        },
+        "method_version": {
+          "description": "Version of the method implementation. Bumped on any numerical change.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "engine_version",
+        "envelope_version",
+        "method_version",
+        "method_status",
+        "input_hash",
+        "arithmetic",
+        "defaults_applied"
+      ],
+      "type": "object"
+    },
+    "NotComputed": {
+      "additionalProperties": false,
+      "description": "An output not computed, and why.",
+      "properties": {
+        "missing_any_of": {
+          "description": "Alternative sets of input pointers, from the root of the input sent: any one set given\nmakes the output computable. Empty for `not_defined` and `not_applicable`.",
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "permitted": {
+          "description": "The choices to make for `choice_required`; empty otherwise.",
+          "items": {
+            "$ref": "#/$defs/Permitted"
+          },
+          "type": "array"
+        },
+        "pointer": {
+          "description": "JSON pointer of the output, from the root of the result envelope (`/value/...`).",
+          "type": "string"
+        },
+        "reason": {
+          "description": "The reason in one sentence, in English; guidance, not contract.",
+          "type": "string"
+        },
+        "reason_code": {
+          "$ref": "#/$defs/ReasonCode",
+          "description": "Why it is not computed."
+        }
+      },
+      "required": [
+        "pointer",
+        "reason_code",
+        "reason",
+        "missing_any_of",
+        "permitted"
+      ],
+      "type": "object"
+    },
+    "Permitted": {
+      "additionalProperties": false,
+      "description": "A choice the analyst must make for an output to be computed.",
+      "properties": {
+        "pointer": {
+          "description": "JSON pointer of the input to give, from the root of the input sent.",
+          "type": "string"
+        },
+        "values": {
+          "description": "Its permitted values.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "pointer",
+        "values"
+      ],
+      "type": "object"
+    },
+    "ReasonCode": {
+      "description": "Why an output is not computed. Values may be added, never renamed (ADR 0014 G8).",
+      "oneOf": [
+        {
+          "const": "missing_input",
+          "description": "An input it needs is not given; `missing_any_of` lists the inputs that make it\ncomputable.",
+          "type": "string"
+        },
+        {
+          "const": "choice_required",
+          "description": "A treatment or a choice must be given; `permitted` lists the values to choose from.",
+          "type": "string"
+        },
+        {
+          "const": "not_defined",
+          "description": "A given term makes the output not defined, for example a ratio over a negative equity.",
+          "type": "string"
+        },
+        {
+          "const": "not_applicable",
+          "description": "No input could supply it in the form given, for example a statutory output of an entry\ngiven in reclassified form.",
+          "type": "string"
+        }
+      ]
+    },
+    "Status": {
+      "description": "How far a method has been verified (ADR 0012). Defined, with the promotion rule, in\n`docs/en/project/releases.md`; both statuses follow the versioning rules of ADR 0009.",
+      "oneOf": [
+        {
+          "const": "available",
+          "description": "Meets the promotion rule: approved spec, independent audit and review recorded.",
+          "type": "string"
+        },
+        {
+          "const": "preview",
+          "description": "Implemented, tested and documented, not yet promoted: tell users so.",
+          "type": "string"
+        }
+      ]
+    },
+    "Step": {
+      "description": "One auditable step of a calculation.",
+      "properties": {
+        "formula": {
+          "description": "The formula with the actual numbers substituted.",
+          "type": "string"
+        },
+        "label": {
+          "description": "Human-readable label, e.g. \"Present value of FCF, year 3\".",
+          "type": "string"
+        },
+        "value": {
+          "description": "The exact decimal result of this step.",
+          "pattern": "^-?\\d+(\\.\\d+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "formula",
+        "value"
+      ],
+      "type": "object"
+    },
+    "Warning": {
+      "additionalProperties": false,
+      "description": "A condition the reader could miss (ADR 0014 G4).",
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/WarningCode",
+          "description": "The code of the condition, documented in `docs/en/reference/warnings.md`."
+        },
+        "message": {
+          "description": "The warning in one sentence, in English; guidance, not contract.",
+          "type": "string"
+        },
+        "pointer": {
+          "description": "JSON pointer of the field the warning concerns, from the root its catalogue entry states:\nthe input sent, or the result envelope when it starts with `/value`; null only where the\ncatalogue entry says so.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "pointer",
+        "message"
+      ],
+      "type": "object"
+    },
+    "WarningCode": {
+      "description": "The code of a warning: FM-W and three digits, documented in docs/en/reference/warnings.md, never reused or renumbered. Clients accept codes they do not know.",
+      "pattern": "^FM-W[0-9]{3}$",
+      "type": "string"
+    }
+  },
+  "$id": "urn:fairmark:schema:envelope:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "The envelope every method returns (ADR 0014 G4). Its JSON Schema, with `value` described by\nthe method's output schema, is `registry::result_schema`.",
+  "properties": {
+    "diagnostics": {
+      "$ref": "#/$defs/Diagnostics",
+      "description": "What the result does not contain, what the reader could miss and what was verified."
+    },
+    "explain": {
+      "$ref": "#/$defs/Explain",
+      "description": "How the result was obtained: formula, steps and conventions."
+    },
+    "meta": {
+      "$ref": "#/$defs/Meta",
+      "description": "Reproducibility metadata: engine, envelope and method versions, status, input hash,\ndefaults."
+    },
+    "method": {
+      "description": "Id of the method that produced the result, for example `dcf.fcff`.",
+      "type": "string"
+    },
+    "value": {
+      "description": "The method's output, described by schemas/<method>/v<N>.output.json for the method and version named by `method` and `meta.method_version`.",
+      "type": "object"
+    }
+  },
+  "required": [
+    "method",
+    "value",
+    "explain",
+    "diagnostics",
+    "meta"
+  ],
+  "type": "object",
+  "x-fairmark-envelope-version": 1,
+  "x-fairmark-error": "#/$defs/FairmarkErrorResponse"
+}

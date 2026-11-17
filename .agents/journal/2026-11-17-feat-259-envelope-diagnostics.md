@@ -38,4 +38,4 @@
   for the maintainer: give it a code (FM-W017, emitted how?) or keep it as an adapter note.
 
 ## Next steps
-1. T17: `schemas/envelope/v1.json`, `envelope` entry in `schemas/index.json`, immutability check.
+1. T18: Python `Result.diagnostics` and the properties; `python/tests/test_envelope.py`; ratios.py/statements.py docstrings; doc snippets to `r.not_computed`.

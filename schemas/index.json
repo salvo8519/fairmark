@@ -1,4 +1,14 @@
 {
+  "envelope": {
+    "current": "1",
+    "versions": {
+      "1": {
+        "file": "envelope/v1.json",
+        "introduced_in": "unreleased",
+        "sha256": "6cc3fc5b1540ecf4299511c84ff1cf452f7be8a2fbb102a257400b925d7a7bf2"
+      }
+    }
+  },
   "format": 1,
   "methods": {
     "analysis.goal_seek": {

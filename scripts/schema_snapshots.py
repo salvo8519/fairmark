@@ -5,6 +5,9 @@ Layout (ADR 0009, ADR 0014 G8):
     schemas/index.json                 history: current version, files, hashes, release
     schemas/<method>/v<N>.json         the input schema of version N of <method>
     schemas/<method>/v<N>.output.json  the output schema (the result `value`) of version N
+    schemas/envelope/v<N>.json         the result envelope of envelope version N (SPEC-0012):
+                                       `{method, value, explain, diagnostics, meta}`, `value`
+                                       described by the output snapshot of each method
 
 Rules, the same for inputs and outputs:
 - the schemas of the current version are regenerated from the engine; files of earlier
@@ -36,6 +39,9 @@ Breaking for an output: a field removed or renamed, a field retyped (any change 
 constraint keyword, which includes becoming nullable: `null` added to `type` or an `anyOf`
 with `null`), a field that was always present and may now be absent (no longer `required`), a
 value removed from an enumeration; also inside `$defs`, `items`, `anyOf` and `oneOf`.
+The envelope snapshot follows the rules of an output, against the envelope version; it is
+recorded in the index under `envelope`.
+
 Additive for an output: a new field (required or not), a value added to an enumeration
 (maintainer decision of 2026-11-09, ADR 0014 G8: clients accept enumeration values they do
 not know), documentation. The output snapshot of a version is recorded in the index as `output_file`
@@ -108,6 +114,67 @@ def output_snapshot(method: str, version: str, schema: dict[str, Any]) -> dict[s
     }
 
 
+ENVELOPE = "envelope"
+# The method whose result schema gives the envelope: any method does, `value` is replaced.
+ENVELOPE_SOURCE = "tvm.npv"
+
+
+def envelope_file(version: str) -> str:
+    return f"{ENVELOPE}/v{version}.json"
+
+
+def refs(node: Any) -> set[str]:
+    """Names of the `$defs` a (sub)schema refers to."""
+    found: set[str] = set()
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if isinstance(ref, str) and ref.startswith("#/$defs/"):
+            found.add(ref.removeprefix("#/$defs/"))
+        for value in node.values():
+            found |= refs(value)
+    elif isinstance(node, list):
+        for value in node:
+            found |= refs(value)
+    return found
+
+
+def envelope_snapshot(result: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    """(envelope version, snapshot): a method's result schema with `value` replaced by an
+    object described by the method's output snapshot, and the definitions only `value` used
+    dropped; the error document of `x-fairmark-error` is kept."""
+    version = str(result["x-fairmark-envelope-version"])
+    schema = json.loads(json.dumps(result))
+    schema["properties"]["value"] = {
+        "type": "object",
+        "description": "The method's output, described by schemas/<method>/v<N>.output.json "
+        "for the method and version named by `method` and `meta.method_version`.",
+    }
+    defs = schema.get("$defs", {})
+    keep: set[str] = set()
+    todo = refs({k: v for k, v in schema.items() if k != "$defs"})
+    # The error document a client validates against, named at the root (ADR 0014 G5).
+    error = schema.get("x-fairmark-error")
+    if isinstance(error, str) and error.startswith("#/$defs/"):
+        todo.add(error.removeprefix("#/$defs/"))
+    while todo:
+        name = todo.pop()
+        if name in keep or name not in defs:
+            continue
+        keep.add(name)
+        todo |= refs(defs[name])
+    schema["$defs"] = {k: v for k, v in defs.items() if k in keep}
+    schema.pop("title", None)
+    return version, {"$id": f"urn:fairmark:schema:{ENVELOPE}:v{version}", **schema}
+
+
+def current_envelope() -> tuple[str, str]:
+    """(envelope version, snapshot text) for the engine as built."""
+    import fairmark as fm
+
+    version, schema = envelope_snapshot(fm.result_schema(ENVELOPE_SOURCE))
+    return version, dump(schema)
+
+
 def output_file(method: str, version: str) -> str:
     return f"{method}/v{version}.output.json"
 
@@ -139,8 +206,20 @@ def load_index(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"methods": {}}
 
 
-def build_index(schemas: dict[str, tuple[str, str, str]], index_path: Path) -> dict[str, Any]:
+def build_index(
+    schemas: dict[str, tuple[str, str, str]],
+    index_path: Path,
+    envelope: tuple[str, str] | None = None,
+) -> dict[str, Any]:
     index = load_index(index_path)
+    if envelope is not None:
+        version, text = envelope
+        entry = index.setdefault(ENVELOPE, {"versions": {}})
+        entry["current"] = version
+        record = entry["versions"].get(version, {"introduced_in": UNRELEASED})
+        record["file"] = envelope_file(version)
+        record["sha256"] = sha256(text)
+        entry["versions"][version] = record
     methods: dict[str, Any] = index.setdefault("methods", {})
     for method, (version, text, output_text) in schemas.items():
         entry = methods.setdefault(method, {"versions": {}})
@@ -302,6 +381,9 @@ def diff_against(base: Path) -> int:
                     output=is_output,
                 )
                 breaking += [f"v{version} {p}" for p in problems]
+    envelope_rewritten, envelope_breaking = diff_envelope(base)
+    rewritten += envelope_rewritten
+    breaking += envelope_breaking
     if rewritten:
         report("Schema history rewritten (published versions are immutable)", rewritten)
         return 4
@@ -321,6 +403,44 @@ def diff_against(base: Path) -> int:
         return 3
     print("Schema changes are additive, new versions, or none.")
     return 0
+
+
+def diff_envelope(base: Path) -> tuple[list[str], list[str]]:
+    """(history rewritten, breaking changes) of the envelope snapshots against the base."""
+    base_entry = load_index(base / "index.json").get(ENVELOPE)
+    if base_entry is None:
+        return [], []
+    head_entry = load_index(INDEX).get(ENVELOPE)
+    if head_entry is None:
+        return ["envelope: entry removed from the index"], []
+    rewritten, breaking = [], []
+    if int(head_entry["current"]) < int(base_entry["current"]):
+        rewritten.append("envelope: current version went back")
+    current_version = current_envelope()[0]
+    for version, record in base_entry.get("versions", {}).items():
+        name = record["file"]
+        head_record = head_entry.get("versions", {}).get(version)
+        if head_record is None or head_record["file"] != name:
+            rewritten.append(f"{name}: removed from the index or renamed")
+            continue
+        released, stamped = record["introduced_in"], head_record["introduced_in"]
+        if stamped != released and (released != UNRELEASED or not RELEASE.match(stamped)):
+            rewritten.append(f"{name}: introduced_in changed from {released} to {stamped}")
+        old_file, new_file = base / name, SCHEMAS / name
+        if not new_file.exists():
+            rewritten.append(f"{name}: removed")
+            continue
+        old_text, new_text = (f.read_text(encoding="utf-8") for f in (old_file, new_file))
+        if old_text == new_text:
+            if head_record.get("sha256") != record["sha256"]:
+                rewritten.append(f"{name}: hash changed in the index")
+            continue
+        if version != current_version:
+            rewritten.append(f"{name}: an earlier version changed")
+            continue
+        problems = classify("envelope", json.loads(old_text), json.loads(new_text), output=True)
+        breaking += [f"envelope v{version} {p}" for p in problems]
+    return rewritten, breaking
 
 
 def diff_against_flat(base: Path, schemas: dict[str, tuple[str, str, str]]) -> int:
@@ -354,11 +474,22 @@ def check() -> int:
         path = SCHEMAS / output_file(method, version)
         if not path.exists() or path.read_text(encoding="utf-8") != output_text:
             problems.append(f"{method} v{version}: output snapshot missing or stale")
+    envelope = current_envelope()
+    path = SCHEMAS / envelope_file(envelope[0])
+    if not path.exists() or path.read_text(encoding="utf-8") != envelope[1]:
+        problems.append(f"envelope v{envelope[0]}: snapshot missing or stale")
     if not INDEX.exists() or INDEX.read_text(encoding="utf-8") != dump_index(
-        build_index(schemas, INDEX)
+        build_index(schemas, INDEX, envelope)
     ):
         problems.append("schemas/index.json is stale")
     indexed = set()
+    for record in load_index(INDEX).get(ENVELOPE, {}).get("versions", {}).values():
+        indexed.add(record["file"])
+        path = SCHEMAS / record["file"]
+        if not path.exists():
+            problems.append(f"{record['file']}: listed in the index but missing")
+        elif sha256(path.read_text(encoding="utf-8")) != record.get("sha256"):
+            problems.append(f"{record['file']}: content does not match its recorded hash")
     for entry in load_index(INDEX).get("methods", {}).values():
         for record in entry.get("versions", {}).values():
             pairs = [("file", "sha256"), ("output_file", "output_sha256")]
@@ -404,6 +535,18 @@ def write() -> int:
             )
         ):
             refused.append(f"{method} v{version}: an earlier version would be overwritten")
+    envelope = current_envelope()
+    envelope_entry = load_index(INDEX).get(ENVELOPE)
+    if envelope_entry:
+        record = envelope_entry.get("versions", {}).get(envelope[0])
+        if int(envelope[0]) < int(envelope_entry["current"]):
+            refused.append(f"envelope: current version would go back to v{envelope[0]}")
+        elif (
+            record
+            and envelope_entry["current"] != envelope[0]
+            and record["sha256"] != sha256(envelope[1])
+        ):
+            refused.append(f"envelope v{envelope[0]}: an earlier version would be overwritten")
     if refused:
         report(
             "Refusing to rewrite schema history (bump the method version instead; to undo a "
@@ -417,7 +560,12 @@ def write() -> int:
         path.write_text(text, encoding="utf-8", newline="\n")
         out = SCHEMAS / output_file(method, version)
         out.write_text(output_text, encoding="utf-8", newline="\n")
-    INDEX.write_text(dump_index(build_index(schemas, INDEX)), encoding="utf-8", newline="\n")
+    path = SCHEMAS / envelope_file(envelope[0])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(envelope[1], encoding="utf-8", newline="\n")
+    INDEX.write_text(
+        dump_index(build_index(schemas, INDEX, envelope)), encoding="utf-8", newline="\n"
+    )
     return 0
 
 
@@ -425,7 +573,10 @@ def stamp_release(version: str) -> int:
     """Record the release that publishes every version still marked as unreleased."""
     index = load_index(INDEX)
     stamped = 0
-    for entry in index.get("methods", {}).values():
+    entries = [*index.get("methods", {}).values()]
+    if ENVELOPE in index:
+        entries.append(index[ENVELOPE])
+    for entry in entries:
         for record in entry.get("versions", {}).values():
             if record.get("introduced_in") == UNRELEASED:
                 record["introduced_in"] = version

@@ -186,10 +186,11 @@ def test_a_released_entry_of_the_index_is_immutable(repo: tuple[Path, Path]) -> 
 
 def test_stamping_a_release_is_allowed(repo: tuple[Path, Path]) -> None:
     base, _ = repo
+    index = json.loads((base / "index.json").read_text(encoding="utf-8"))
+    # Every method version and the envelope version (SPEC-0012 R17).
     assert snap.stamp_release("0.1.0") == sum(
-        len(e["versions"])
-        for e in json.loads((base / "index.json").read_text(encoding="utf-8"))["methods"].values()
-    )
+        len(e["versions"]) for e in index["methods"].values()
+    ) + len(index["envelope"]["versions"])
     assert snap.diff_against(base) == 0
 
 
@@ -348,3 +349,84 @@ def test_a_renamed_output_file_is_reported_and_the_input_still_checked(
     out = capsys.readouterr().out
     assert "tvm.npv/v2.output.json: file name changed in the index" in out
     assert "tvm.npv/v2.json: hash changed in the index" in out
+
+
+# ---- SPEC-0012: the envelope snapshot (R17, AC15)
+
+
+def test_the_envelope_has_its_snapshot() -> None:
+    index = snap.load_index(snap.INDEX)
+    entry = index["envelope"]
+    assert entry["current"] == "1"
+    record = entry["versions"]["1"]
+    assert record["file"] == "envelope/v1.json"
+    text = (snap.SCHEMAS / record["file"]).read_text(encoding="utf-8")
+    assert snap.sha256(text) == record["sha256"]
+    schema = json.loads(text)
+    assert schema["$id"] == "urn:fairmark:schema:envelope:v1"
+    assert schema["x-fairmark-envelope-version"] == 1
+    assert set(schema["properties"]) == {"method", "value", "explain", "diagnostics", "meta"}
+    assert schema["x-fairmark-error"].removeprefix("#/$defs/") in schema["$defs"]
+    # `value` is the method's output, described by its own snapshot.
+    assert schema["properties"]["value"]["type"] == "object"
+    assert "x-fairmark-method" not in schema
+    for name in ("Diagnostics", "NotComputed", "Warning", "Check", "Meta", "Explain"):
+        assert name in schema["$defs"], name
+
+
+def test_a_breaking_change_of_the_envelope_is_refused(repo: tuple[Path, Path]) -> None:
+    base, _ = repo
+    # The base envelope had a field the engine no longer writes.
+    edit(
+        base / "envelope/v1.json",
+        lambda d: d["$defs"]["Meta"]["properties"].__setitem__("legacy", {"type": "string"}),
+    )
+    assert snap.diff_against(base) == 3
+
+
+def test_a_new_envelope_field_is_additive(repo: tuple[Path, Path]) -> None:
+    base, _ = repo
+    edit(base / "envelope/v1.json", lambda d: d["$defs"]["Meta"]["properties"].pop("arithmetic"))
+    assert snap.diff_against(base) == 0
+
+
+def test_an_earlier_envelope_version_is_frozen(repo: tuple[Path, Path]) -> None:
+    base, head = repo
+    for root in (base, head):
+        shutil.copy(root / "envelope/v1.json", root / "envelope/v0.json")
+        record = {
+            "file": "envelope/v0.json",
+            "sha256": snap.sha256((root / "envelope/v0.json").read_text(encoding="utf-8")),
+            "introduced_in": "0.0.1",
+        }
+        edit(root / "index.json", lambda d, r=record: d["envelope"]["versions"].__setitem__("0", r))
+    edit(head / "envelope/v0.json", lambda d: d.__setitem__("description", "rewritten"))
+    assert snap.diff_against(base) == 4
+
+
+def test_a_stale_envelope_snapshot_fails_the_check(repo: tuple[Path, Path]) -> None:
+    _, head = repo
+    edit(head / "envelope/v1.json", lambda d: d.__setitem__("description", "stale"))
+    assert snap.check() == 1
+
+
+def fields(schema: Any) -> set[str]:
+    """Every property name of a schema, `$defs` included."""
+    found: set[str] = set()
+    if isinstance(schema, dict):
+        found |= set((schema.get("properties") or {}).keys())
+        for value in schema.values():
+            found |= fields(value)
+    elif isinstance(schema, list):
+        for value in schema:
+            found |= fields(value)
+    return found
+
+
+def test_no_current_output_schema_holds_a_diagnostic() -> None:
+    """AC15: `not_computed`, `checks` and `not_defined` live in the diagnostics only."""
+    index = snap.load_index(snap.INDEX)
+    for method, entry in index["methods"].items():
+        record = entry["versions"][entry["current"]]
+        schema = json.loads((snap.SCHEMAS / record["output_file"]).read_text(encoding="utf-8"))
+        assert not fields(schema) & {"not_computed", "checks", "not_defined"}, method
