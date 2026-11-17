@@ -25,7 +25,7 @@ They are enforced by `scripts/conventions.py`, locally (commit-msg hook) and in 
 | Epic | parent issue `#<n>` | `#9 DCF method family` | milestone |
 | Task | sub-issue `#<n>` | `#42 Mid-year discounting convention` | parent epic, spec |
 | Specification | `SPEC-<NNNN>`, requirement `R<k>` | `SPEC-0001 R3` | issue |
-| Branch | `<type>/<issue>-<slug>` | `feat/42-mid-year-discounting` | issue |
+| Branch | `<type>/<issue>-<slug>`, or `sprint/SNN/<issue>-<slug>` in a sprint lane | `feat/42-mid-year-discounting` | issue |
 | Commit | `<type>(<scope>): <subject>` | `feat(dcf): add mid-year discounting [SPEC-0001 R3]` | spec, issue (trailer) |
 | Pull request | same format as a commit | `feat(dcf): add mid-year discounting` | `Closes #42` |
 | Merge commit | pull request title and number | `feat(dcf): add mid-year discounting (#57)` | pull request |
@@ -84,6 +84,9 @@ lists an id that is not registered.
 `<type>/<issue>-<slug>`, lower case, words separated by hyphens, at most five words in the
 slug: `fix/61-irr-sign-change`, `docs/48-n8n-guide`. The type is the Conventional Commit type
 of the main change. One branch per issue; branches are short-lived and deleted after merge.
+An issue worked in a sprint lane uses `sprint/SNN/<issue>-<slug>` instead
+(`sprint/S01/327-journal-index`): on those branches CI also checks that the pull request
+changes only the files of the lane ([sprints](https://github.com/salvo8519/fairmark/blob/main/sprints/README.md)).
 Exempt: `dependabot/*`, `release/v*`.
 
 ## Commits

@@ -80,6 +80,10 @@ version:
 mcp-check:
     python scripts/mcp_protocol_check.py
 
+# Search the session journal: an issue, area:<name>, a date, or any text (#327)
+journal query:
+    python scripts/journal.py search "{{query}}"
+
 # Translation status (English is the source)
 i18n:
     python scripts/i18n.py status
