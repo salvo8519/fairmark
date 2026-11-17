@@ -46,7 +46,7 @@ base = {
 r = fm.analysis.scenarios(
     "dcf.fcff",
     base,
-    outputs=["/enterprise_value", "/equity_value"],
+    output_pointers=["/enterprise_value", "/equity_value"],
     cases={
         "downside": {"/wacc": "0.10", "/terminal/tv.gordon/growth": "0.01",
                      "/stages/0/flows/0": "90"},
@@ -102,7 +102,7 @@ import fairmark as fm
 npv = fm.analysis.scenarios(
     "tvm.npv",
     {"rate": "0.10", "cash_flows": [-100, 110]},
-    outputs=["/npv"],
+    output_pointers=["/npv"],
     cases={"lower rate": {"/rate": "0.05"}},
 )
 lower = npv.scenarios[0]["value"][0]

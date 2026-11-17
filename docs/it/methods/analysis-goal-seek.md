@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-goal-seek.md
-source_hash: 00713f5f305f
+source_hash: 9cfd7a3cd69c
 ---
 # Ricerca obiettivo (`analysis.goal_seek`)
 
@@ -92,8 +92,8 @@ base = {
 r = fm.analysis.goal_seek(
     "dcf.fcff",
     base,
-    variable="/wacc",
-    output="/enterprise_value",
+    variable_pointer="/wacc",
+    output_pointer="/enterprise_value",
     target="1300",
     bracket=("0.05", "0.5"),
 )

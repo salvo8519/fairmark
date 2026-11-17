@@ -122,8 +122,8 @@ def test_goal_seek_on_npv_agrees_with_irr_and_pyxirr() -> None:
     seek = fm.analysis.goal_seek(
         "tvm.npv",
         {"rate": "0.05", "cash_flows": flows},
-        variable="/rate",
-        output="/npv",
+        variable_pointer="/rate",
+        output_pointer="/npv",
         target="0",
         bracket=("0", "1"),
         tolerance="0.000000000000000001",
@@ -150,7 +150,7 @@ def test_sensitivity_table_agrees_with_numpy_financial() -> None:
             "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}},
             "net_financial_position": {"gross_debt": 300, "cash": 0},
         },
-        output="/value_of_operations",
+        output_pointer="/value_of_operations",
         rows=("/wacc", rates),
         columns=("/terminal/tv.gordon/growth", growths),
     )

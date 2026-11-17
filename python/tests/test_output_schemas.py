@@ -141,7 +141,7 @@ def test_numeric_looking_text_stays_text() -> None:
     r = fm.analysis.scenarios(
         "tvm.npv",
         {"rate": "0.1", "cash_flows": [-100, 60, 60]},
-        outputs=["/npv"],
+        output_pointers=["/npv"],
         cases=[("2025", {"/rate": "0.05"}), ("2026", {"/rate": "-1"})],
     )
     first, failed = r.value["scenarios"]
@@ -164,8 +164,8 @@ def test_inner_input_and_value_are_decoded_by_the_inner_methods_schemas() -> Non
     seek = fm.analysis.goal_seek(
         "tvm.npv",
         {"rate": "0.05", "cash_flows": [-1000, 300, 400, 500]},
-        variable="/rate",
-        output="/npv",
+        variable_pointer="/rate",
+        output_pointer="/npv",
         target="0",
         bracket=("0", "1"),
     )

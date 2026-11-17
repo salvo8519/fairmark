@@ -2,9 +2,9 @@
 
 The inner method is named by its id and receives ``base_input`` exactly as it would be passed
 to :func:`fairmark.run`. Variables and outputs are RFC 6901 JSON Pointers, for example
-``"/discount_rate"`` or ``"/enterprise_value"``. The keyword arguments ``variable``, ``output``
-and ``outputs`` are sent as the input fields ``variable_pointer``, ``output_pointer`` and
-``output_pointers`` of the analyses (version 2, SPEC-0012).
+``"/discount_rate"`` or ``"/enterprise_value"``. The keyword arguments that hold pointers have
+the names of the input fields of the analyses (version 2, SPEC-0012): ``variable_pointer``,
+``output_pointer`` and ``output_pointers``.
 """
 
 from __future__ import annotations
@@ -22,14 +22,14 @@ def goal_seek(
     method: str,
     base_input: Mapping[str, Any],
     *,
-    variable: str,
-    output: str,
+    variable_pointer: str,
+    output_pointer: str,
     target: Number,
     bracket: tuple[Number, Number],
     tolerance: Number | None = None,
     max_iterations: int | None = None,
 ) -> Result:
-    """Value of ``variable`` at which ``output`` equals ``target`` (Brent's method).
+    """Value of ``variable_pointer`` at which ``output_pointer`` equals ``target`` (Brent's method).
 
     The output minus the target must change sign between the two ends of ``bracket``;
     otherwise ``FairmarkError`` with code ``FM-E013`` is raised. The tolerance is absolute, in
@@ -39,15 +39,15 @@ def goal_seek(
 
         fm.analysis.goal_seek(
             "dcf.fcff", dcf_input,
-            variable="/wacc", output="/value_of_operations",
+            variable_pointer="/wacc", output_pointer="/value_of_operations",
             target="1300", bracket=("0.05", "0.5"),
         )
     """
     payload: dict[str, Any] = {
         "method": method,
         "base_input": dict(base_input),
-        "variable_pointer": variable,
-        "output_pointer": output,
+        "variable_pointer": variable_pointer,
+        "output_pointer": output_pointer,
         "target": target,
         "bracket": list(bracket),
     }
@@ -62,7 +62,7 @@ def sensitivity(
     method: str,
     base_input: Mapping[str, Any],
     *,
-    output: str,
+    output_pointer: str,
     rows: tuple[str, Sequence[Number]],
     columns: tuple[str, Sequence[Number]] | None = None,
 ) -> Result:
@@ -73,7 +73,7 @@ def sensitivity(
     goes on. Example, the table of a DCF by WACC and growth::
 
         fm.analysis.sensitivity(
-            "dcf.fcff", dcf_input, output="/value_of_operations",
+            "dcf.fcff", dcf_input, output_pointer="/value_of_operations",
             rows=("/wacc", ["0.08", "0.09", "0.10"]),
             columns=("/terminal/tv.gordon/growth", ["0.01", "0.02", "0.03"]),
         )
@@ -81,7 +81,7 @@ def sensitivity(
     payload: dict[str, Any] = {
         "method": method,
         "base_input": dict(base_input),
-        "output_pointer": output,
+        "output_pointer": output_pointer,
         "rows": {"variable_pointer": rows[0], "values": list(rows[1])},
     }
     if columns is not None:
@@ -93,10 +93,10 @@ def scenarios(
     method: str,
     base_input: Mapping[str, Any],
     *,
-    outputs: Sequence[str],
+    output_pointers: Sequence[str],
     cases: Mapping[str, Mapping[str, Number]] | Sequence[tuple[str, Mapping[str, Number]]],
 ) -> Result:
-    """The ``outputs`` of ``method`` under named cases, with deltas against the base case.
+    """The ``output_pointers`` of ``method`` under named cases, with deltas against the base case.
 
     ``cases`` maps each scenario name to the inputs it changes, as ``{pointer: value}``; it may
     also be a list of ``(name, changes)`` pairs. A repeated key in a Python dict literal
@@ -105,7 +105,7 @@ def scenarios(
     refuses holds its error; the others are returned. Example::
 
         fm.analysis.scenarios(
-            "dcf.fcff", dcf_input, outputs=["/value_of_operations", "/equity_value"],
+            "dcf.fcff", dcf_input, output_pointers=["/value_of_operations", "/equity_value"],
             cases={"downside": {"/wacc": "0.10", "/terminal/tv.gordon/growth": "0.01"},
                    "upside": {"/wacc": "0.08"}},
         )
@@ -113,7 +113,7 @@ def scenarios(
     payload = {
         "method": method,
         "base_input": dict(base_input),
-        "output_pointers": list(outputs),
+        "output_pointers": list(output_pointers),
         "scenarios": [
             {"name": name, "overrides": [{"pointer": p, "value": v} for p, v in changes.items()]}
             for name, changes in (cases.items() if isinstance(cases, Mapping) else cases)
@@ -126,10 +126,10 @@ def tornado(
     method: str,
     base_input: Mapping[str, Any],
     *,
-    output: str,
+    output_pointer: str,
     variables: Mapping[str, tuple[Number, Number]] | Sequence[tuple[str, tuple[Number, Number]]],
 ) -> Result:
-    """Which inputs move ``output`` the most: each varied alone between low and high.
+    """Which inputs move ``output_pointer`` the most: each varied alone between low and high.
 
     ``variables`` maps each pointer to its ``(low, high)`` values; it may also be a list of
     ``(pointer, (low, high))`` pairs, which keeps repeats visible to the engine (``FM-E001``).
@@ -137,14 +137,14 @@ def tornado(
     order given. Example::
 
         fm.analysis.tornado(
-            "dcf.fcff", dcf_input, output="/equity_value",
+            "dcf.fcff", dcf_input, output_pointer="/equity_value",
             variables={"/wacc": ("0.08", "0.10"), "/terminal/tv.gordon/growth": ("0.01", "0.03")},
         )
     """
     payload = {
         "method": method,
         "base_input": dict(base_input),
-        "output_pointer": output,
+        "output_pointer": output_pointer,
         "variables": [
             {"variable_pointer": p, "low": low, "high": high}
             for p, (low, high) in (

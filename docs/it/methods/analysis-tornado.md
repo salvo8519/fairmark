@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-tornado.md
-source_hash: 409db68e8a84
+source_hash: 073134a81e28
 ---
 # Tornado (`analysis.tornado`)
 
@@ -53,7 +53,7 @@ base = {
 t = fm.analysis.tornado(
     "dcf.fcff",
     base,
-    output="/equity_value",
+    output_pointer="/equity_value",
     variables={
         "/net_financial_position/gross_debt": ("250", "350"),
         "/stages/0/flows/0": ("90", "110"),

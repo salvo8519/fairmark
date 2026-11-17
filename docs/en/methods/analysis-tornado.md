@@ -45,7 +45,7 @@ base = {
 t = fm.analysis.tornado(
     "dcf.fcff",
     base,
-    output="/equity_value",
+    output_pointer="/equity_value",
     variables={
         "/net_financial_position/gross_debt": ("250", "350"),
         "/stages/0/flows/0": ("90", "110"),

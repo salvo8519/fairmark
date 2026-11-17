@@ -73,8 +73,8 @@ def test_engine_reproduces_the_textbook_brent_path(case: tuple) -> None:  # type
     result = fm.analysis.goal_seek(
         method,
         base,
-        variable=variable,
-        output=output,
+        variable_pointer=variable,
+        output_pointer=output,
         target=target,
         bracket=bracket,
         tolerance=tol,

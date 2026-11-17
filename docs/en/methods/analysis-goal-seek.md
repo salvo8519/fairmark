@@ -77,8 +77,8 @@ base = {
 r = fm.analysis.goal_seek(
     "dcf.fcff",
     base,
-    variable="/wacc",
-    output="/enterprise_value",
+    variable_pointer="/wacc",
+    output_pointer="/enterprise_value",
     target="1300",
     bracket=("0.05", "0.5"),
 )

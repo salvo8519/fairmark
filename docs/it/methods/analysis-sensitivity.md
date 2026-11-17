@@ -1,6 +1,6 @@
 ---
 source: methods/analysis-sensitivity.md
-source_hash: 31a3d345c9e2
+source_hash: b22bef28f308
 ---
 # Tabella di sensitività (`analysis.sensitivity`)
 
@@ -54,7 +54,7 @@ base = {
 table = fm.analysis.sensitivity(
     "dcf.fcff",
     base,
-    output="/enterprise_value",
+    output_pointer="/enterprise_value",
     rows=("/wacc", ["0.08", "0.09", "0.10"]),
     columns=("/terminal/tv.gordon/growth", ["0.01", "0.02", "0.08"]),
 )
@@ -78,7 +78,7 @@ assert table.cells[1][1]["value"] == table.base
 one_way = fm.analysis.sensitivity(
     "dcf.fcff",
     base,
-    output="/enterprise_value",
+    output_pointer="/enterprise_value",
     rows=("/wacc", ["0.08", "0.09", "0.10"]),
 )
 assert [row[0] for row in one_way.cells] == [row[1] for row in table.cells]
