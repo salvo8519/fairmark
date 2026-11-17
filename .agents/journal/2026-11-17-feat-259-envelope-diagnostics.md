@@ -15,7 +15,7 @@
 - T12 every warning site through `ex.warn` (FM-W002 to FM-W016, preview as FM-W016 via `Inner::warn_if_preview`), debug assertion in `Explain::convention`, T6 tests enabled; contract expectations in `tests/contracts/` carry the codes. AC8 test stays ignored until T14 (key rename).
 - T13 ratios v3: `RatioValue {value}`, `NotComputedList` writes `NotComputed` (missing_input, not_defined; decision 14), six VERSION 3, snapshots v3, 34 ratios golden files migrated (verify: 34 checked, 34 migrated, 0 problems), `ratios_partial.rs` and the reference test read the diagnostics, ratio pages en/it updated and restamped (snippets use `r.raw["diagnostics"]` until T18).
 - T14 statements v2 (checks and not_computed into diagnostics, `NotComputedEntry::into_diagnostic`, pointer fields renamed by serde, VERSION 2, CheckStatus shared from diagnostics) and `DefaultApplied.pointer`; 84 golden files migrated (82 statements, 2 dcf.fcff); verify over the plan: 131 checked, 118 migrated, 0 problems (the 13 analysis files wait for T15). Tests use `year_checks`/`year_not_computed` helpers reading the diagnostics. Python docstrings of `ratios.py`/`statements.py` still name `not_computed` in `value`: fix in T18.
-- T15 analyses v2: pointer fields renamed by serde (`variable_pointer`, `output_pointer`, `output_pointers`) in and out, error locations follow, base-case warnings reported once (`report_base_warnings`), goal seek reports the solved evaluation's diagnostics under `/value/inner_value` and `/base_input`; VERSION 2, snapshots; 13 analysis golden files migrated; verify over the whole plan: 131 checked, 131 migrated, 0 problems. Python helpers keep their keyword names and send the new keys. Analysis pages en/it updated and restamped. Scratch files `/tmp/i259-*.rs` no longer needed.
+- T15 analyses v2: pointer fields renamed by serde (`variable_pointer`, `output_pointer`, `output_pointers`) in and out, error locations follow, base-case warnings reported once (`report_base_warnings`), goal seek reports the solved evaluation's diagnostics under `/value/inner_value` and `/base_input`; VERSION 2, snapshots; 13 analysis golden files migrated; verify over the whole plan: 131 checked, 131 migrated, 0 problems. Python helpers send the new keys (their keywords were renamed to `variable_pointer`, `output_pointer`, `output_pointers` after the review, S4). Analysis pages en/it updated and restamped. Scratch files `/tmp/i259-*.rs` no longer needed.
 - T16 three new golden cases with `expect_diagnostics`, expectations written by hand from the rules (ratios.liquidity, statements.reorganise reclassified, analysis.sensitivity); resolution test accepts a defaulted field of the evaluated method under `/base_input`.
 
 ## State at the end of the session
@@ -40,3 +40,9 @@
 
 ## Next steps
 1. T24 (orchestrator): code-reviewer pass; numerical-auditor confirms AC16. Note for the auditor: the expectations of the three T16 golden cases were written by the same agent that wrote the engine, from the rules, not from an independent script.
+
+## Review and audit round (PR #361)
+- A1, A2 golden fixes (0ca5715); B1 roadmap (24e7d8e); S1 and N1 docs (0a092e6); maintainer
+  sweep and S5 (16b9d4f); S2 AC10 tests (fea2977); S3 FM-W017 limit (3ac5285); S6 warning order
+  (4641e73); S4 keywords (c63919e); N2 root rule (523157a); N3 to N6 (8740065); N7, N8 (fe0f559).
+- B2 (label) and B3 (mutation testing) are the orchestrator's.
