@@ -4,9 +4,15 @@ and take precedence over a field of `value` with the same name."""
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
+import pytest
+import yaml
+
 import fairmark as fm
+from fairmark import _engine, mcp_server, tools
 
 DEBT_SERVICE = {
     "balances": "closing",
@@ -57,3 +63,46 @@ def test_the_properties_take_precedence_over_a_value_field() -> None:
     object.__setattr__(r, "value", {**r.value, "warnings": "a value field"})
     assert r.warnings == []
     assert r.value["warnings"] == "a value field"
+
+
+# ---- R15, AC13: every adapter returns the envelope of the core unchanged
+
+GOLDEN = Path(__file__).resolve().parents[2] / "tests" / "golden"
+
+
+def one_case_per_theme() -> list[tuple[str, dict[str, Any]]]:
+    """The first golden case with a result of every theme (dates, series, rates, ...)."""
+    seen: dict[str, tuple[str, dict[str, Any]]] = {}
+    for path in sorted(GOLDEN.glob("*/*.yaml")):
+        theme = path.parent.name.split(".")[0]
+        if theme in seen:
+            continue
+        case = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if "expect_error" not in case:
+            seen[theme] = (case["method"], case["input"])
+    return list(seen.values())
+
+
+CASES = one_case_per_theme()
+
+
+@pytest.mark.parametrize(("method", "inputs"), CASES, ids=[m for m, _ in CASES])
+def test_every_adapter_returns_the_envelope_of_the_core(method: str, inputs: Any) -> None:
+    text = json.dumps(inputs)
+    core = json.loads(_engine.run(method, text))
+    assert fm.run_json(method, inputs) == core
+    name = tools.tool_name(method)
+    assert tools.dispatch(name, text) == core
+    assert tools.dispatch(name, json.loads(text)) == core
+    result = mcp_server.call_tool(name, json.loads(text))
+    assert not result.is_error
+    assert result.structured_content == core
+    assert json.loads(result.content[0].text) == core
+    r = fm.run(method, inputs)
+    assert r.diagnostics == core["diagnostics"]
+    assert r.defaults_applied == core["meta"]["defaults_applied"]
+
+
+def test_the_themes_are_all_covered() -> None:
+    themes = {m.split(".")[0] for m, _ in CASES}
+    assert themes >= {"analysis", "coc", "dcf", "loans", "ratios", "statements", "tv", "tvm"}

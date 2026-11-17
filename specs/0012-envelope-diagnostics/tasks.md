@@ -60,7 +60,7 @@ its approved files and `verify` in the same commit, so every commit passes `just
 ## Adapters and docs
 - [x] T18 [P] Python `Result.diagnostics` and the properties `not_computed`, `warnings`,
   `checks`, `defaults_applied`; `python/tests/test_envelope.py` [R15; AC13]
-- [ ] T19 [P] Pass-through tests: CLI `fairmark run`, function-calling dispatcher, MCP server
+- [x] T19 [P] Pass-through tests: CLI `fairmark run`, function-calling dispatcher, MCP server
   equal the core envelope [R15; AC13]
 - [ ] T20 [P] `docs/en/reference/warnings.md` with nav entry, envelope reference, methodology
   pages of the seven bumped methods, agent skill [R16, R17]

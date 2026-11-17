@@ -38,4 +38,4 @@
   for the maintainer: give it a code (FM-W017, emitted how?) or keep it as an adapter note.
 
 ## Next steps
-1. T19: pass-through tests (CLI, dispatcher, MCP equal the core envelope).
+1. T20: `docs/en/reference/warnings.md` (nav), envelope reference, methodology pages, agent skill; enable the catalogue test.
