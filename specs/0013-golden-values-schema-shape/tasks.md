@@ -12,7 +12,7 @@ approved, by name, the list in `golden-migration.md` (T9).
   `golden-migration.md`, `golden-migration.json`); spec, plan and tasks [decisions 1 to 10]
 
 ## Tests and runners
-- [ ] T2 [P] Tests of `scripts/golden_values_migration.py` on temporary trees and synthetic
+- [x] T2 [P] Tests of `scripts/golden_values_migration.py` on temporary trees and synthetic
   results (`python/tests/test_golden_values_migration.py`) [R13; AC13]
 - [ ] T3 [P] Rust runner: semantic sections, `expect_counts`, `#count`, null or absent,
   `/errors/` refused in `expect_error_report`; tests on temporary cases

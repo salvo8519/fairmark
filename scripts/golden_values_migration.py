@@ -33,7 +33,7 @@ import hashlib
 import json
 import re
 import sys
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -228,6 +228,10 @@ def engine_result(method: str, data: Any) -> dict[str, Any]:
         return {"error": e.report}
 
 
+# The engine the commands run; the tests replace it with results written by hand.
+ENGINE: Callable[[str, Any], dict[str, Any]] = engine_result
+
+
 # ---------------------------------------------------------------- inventory
 
 
@@ -369,7 +373,7 @@ def cmd_inventory(args: argparse.Namespace) -> int:
     cases = {}
     for path in golden_files(root):
         case = load(path)
-        cases[str(path.relative_to(root))] = (case, engine_result(case["method"], case["input"]))
+        cases[str(path.relative_to(root))] = (case, ENGINE(case["method"], case["input"]))
     empty = lists_never_filled(cases)
     rows: list[Assertion] = []
     for rel, (case, result) in cases.items():
@@ -571,7 +575,7 @@ def build_plan(root: Path) -> dict[str, Any]:
         case = load(path)
         if not set(case) & (set(PARTS) - {"expect"}):
             continue
-        result = engine_result(case["method"], case["input"])
+        result = ENGINE(case["method"], case["input"])
         changes = plan_case(case, result)
         if not changes:
             continue
@@ -778,7 +782,7 @@ def verify_file(old_text: str, new_text: str, entry: dict[str, Any]) -> list[str
     for section, content in entry["add"].items():
         if new.get(section) != content:
             problems.append(f"{section}: not the section of the plan")
-    result = engine_result(old["method"], old["input"])
+    result = ENGINE(old["method"], old["input"])
     try:
         paths = semantic_paths(new, result)
     except (KeyError, IndexError, TypeError) as e:
