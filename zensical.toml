@@ -127,6 +127,7 @@ nav = [
       "project/adr/0014-contract-guidelines-for-inputs-envelope-and-errors.md",
       "project/adr/0015-agent-memory-one-source-tiered-mirrors.md",
       "project/adr/0016-constitution-principle-unambiguous-and-transparent.md",
+      "project/adr/0017-per-method-schema-manifests.md",
     ] },
   ] },
 ]
