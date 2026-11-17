@@ -856,3 +856,36 @@ impl Method for Reorganise {
         out
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The fields filled in by default are named, the default destination of an item given is
+    /// not: an error never names a field the analyst did not give (final review of #279;
+    /// mutants of #361, `taken_by_default`).
+    #[test]
+    fn only_the_fields_filled_in_are_taken_by_default() {
+        let defaults = [
+            DefaultApplied::destination("/years/0/statutory/balance_sheet/cash", "cash", "r"),
+            DefaultApplied::new(
+                "/years/0/statutory/balance_sheet/subscribed_capital_unpaid",
+                serde_json::json!("0"),
+                "r",
+            ),
+            DefaultApplied::new(
+                "/treatments/write_downs_of_receivables",
+                serde_json::json!("operating"),
+                "r",
+            ),
+        ];
+        assert_eq!(
+            taken_by_default(&defaults),
+            [
+                "/years/0/statutory/balance_sheet/subscribed_capital_unpaid",
+                "/treatments/write_downs_of_receivables"
+            ]
+        );
+        assert!(taken_by_default(&defaults[..1]).is_empty());
+    }
+}

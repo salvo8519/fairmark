@@ -1195,6 +1195,30 @@ mod tests {
         assert_eq!(chained["value"]["xnpv"], by_hand["value"]["xnpv"]);
     }
 
+    /// R18, SPEC-0012: only a negative base value is warned (FM-W002); a positive base value
+    /// and a zero, `-0` included, carry no warning (mutants of #361).
+    #[test]
+    fn only_a_negative_base_value_is_warned() {
+        for base in ["200", "0", "-0"] {
+            let (_, ex) = run(json!({"base_value": base, "base_period": "period_0",
+                                     "growth": {"constant": {"growth": "0.10"}},
+                                     "timeline": periods(3, None)}))
+            .unwrap();
+            assert!(ex.diagnostics().warnings.is_empty(), "{base}");
+        }
+        let (_, ex) = run(json!({"base_value": "-200", "base_period": "period_0",
+                                 "growth": {"constant": {"growth": "0.10"}},
+                                 "timeline": periods(3, None)}))
+        .unwrap();
+        let codes: Vec<&str> = ex
+            .diagnostics()
+            .warnings
+            .iter()
+            .map(|w| w.code.code())
+            .collect();
+        assert_eq!(codes, ["FM-W002"]);
+    }
+
     /// R18: a negative base value is projected, with a warning.
     #[test]
     fn negative_base_value_is_projected_with_a_warning() {

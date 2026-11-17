@@ -2391,7 +2391,20 @@ mod tests {
 
     use serde_json::{json, Value};
 
+    use super::{DefaultApplied, Defaulted};
     use crate::registry::run;
+
+    /// Decision 24 of SPEC-0001: only the default of the first stage's projection marks the
+    /// projection as defaulted (mutants of #361, `Defaulted::of`).
+    #[test]
+    fn only_the_first_stage_projection_default_is_the_first_projection() {
+        let given = |p: &str| DefaultApplied::new(p, json!("given"), "r");
+        assert!(Defaulted::of(&[given("/stages/0/projection")]).first_projection);
+        for other in ["/stages/1/projection", "/timing", "/stages/0/periods"] {
+            assert!(!Defaulted::of(&[given(other)]).first_projection, "{other}");
+        }
+        assert!(!Defaulted::of(&[]).first_projection);
+    }
 
     fn base() -> Value {
         json!({

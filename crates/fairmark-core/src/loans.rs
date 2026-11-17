@@ -1382,6 +1382,21 @@ impl Method for NumberOfInstalments {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The balloon is compared with the principal only when the principal is valid and the
+    /// type accepts a balloon: a refused principal is the only error, not a second one about the
+    /// balloon (mutants of #361, `check_amortisation_schedule`).
+    #[test]
+    fn a_refused_principal_is_not_compared_with_the_balloon() {
+        let input = serde_json::json!({"principal": "-100", "balloon_amount": "50",
+            "rate": "0.05", "compounding": "annual", "payment_frequency": "annual",
+            "number_of_instalments": 6, "timing": "ordinary", "amortisation_type": "french"});
+        let errors = crate::run("loans.amortisation_schedule", &input.to_string())
+            .unwrap_err()
+            .into_errors();
+        let pointers: Vec<Option<String>> = errors.iter().map(|e| e.details().pointer).collect();
+        assert_eq!(pointers, [Some("/principal".to_owned())]);
+    }
     use std::str::FromStr;
 
     fn d(s: &str) -> Decimal {
