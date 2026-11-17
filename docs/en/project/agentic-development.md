@@ -84,6 +84,9 @@ place that fits how long it must live ([ADR 0015](adr/0015-agent-memory-one-sour
 No database: every tier is readable by any agent of any system, and auditable in a diff. A crash
 or a context reset costs minutes: `scripts/project_state.py` prints where the project stands,
 the journal says where the last session stopped, and the branch on GitHub carries the work.
+`scripts/journal.py search <issue|area|date|text>` finds the entries about an issue, its own
+first; `session-start` cites them for every issue it proposes. The index is built from the
+entries each time it is read and never committed, so parallel lanes never collide on it.
 
 ## Sprints and lanes
 
@@ -144,5 +147,4 @@ in the issue, in the journal or in an ADR.
 
 - Sprint burn-down and loop metrics (cycle time, failed gates, agent steps per issue) are
   planned in #320; until then the cost of the process is not measured.
-- The journal is indexed by date only; search by issue and area is planned in #327.
 - Mirrors for agent systems other than Claude Code are planned in #328.

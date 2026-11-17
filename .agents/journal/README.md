@@ -24,6 +24,14 @@ The journal complements, and never replaces, the other sources of project memory
   writes a new entry.
 - Entries older than two releases may be pruned by the `release` skill.
 
+## Search
+
+`uv run just journal <query>` (or `uv run python scripts/journal.py search <query>`) finds the
+entries about an issue (`327`: its own entries first, then the entries that mention it), an
+area (`area:mcp`, from the epics of the roadmap), a day or month (`2026-11-16`, `2026-11`), or
+any text. `journal.py index` lists every entry; `--json` gives agents the same data. The index
+is built from the entries each time and never committed (ADR 0015, amended by #327).
+
 ## Template
 
 Copy `_template.md`.

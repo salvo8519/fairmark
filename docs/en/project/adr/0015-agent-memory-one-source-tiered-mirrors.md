@@ -56,12 +56,14 @@ is already the shared contract of every harness.
    alone works in the main checkout; the worktree is created when work runs in parallel.
    The single session that shares a checkout with nobody keeps the simplest development
    experience (the IDE opened on one directory, warm caches).
-4. **Context is indexed by generated index, not by database.** A generated index of the
-   journal (date, branch, issues, areas, one-line summary) in the pattern of
-   `schemas/index.json`, searched by a small reader (`scripts/journal.py`, #327) that
-   `session-start` cites. Text indexed, never binary; SQLite full-text search is the
-   documented fallback if the journal grows past what text search serves, not a
-   dependency added now.
+4. **Context is indexed by generated index, not by database.** An index of the journal
+   (date, branch, issues, areas, one-line summary), searched by a small reader
+   (`scripts/journal.py`, #327) that `session-start` cites. Text indexed, never binary;
+   SQLite full-text search is the documented fallback if the journal grows past what text
+   search serves, not a dependency added now. Amended by #327: the index is built from the
+   entries each time it is read and never committed. Every session adds an entry, so a
+   committed index would be rewritten by every pull request and make parallel lanes collide,
+   the problem #335 removes for `schemas/index.json`; building it takes milliseconds.
 
 ## Consequences
 

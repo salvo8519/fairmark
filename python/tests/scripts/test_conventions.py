@@ -71,3 +71,18 @@ def test_commit_message_needs_sign_off() -> None:
     msg = "feat(core): add explain step\n\nBody.\n"
     assert any("Signed-off-by" in p for p in conventions.check_commit_message(msg))
     assert conventions.check_commit_message(msg + "\nSigned-off-by: A <a@example.org>\n") == []
+
+
+def test_sprint_branches_follow_the_conventions() -> None:
+    # run-sprint creates sprint/SNN/<issue>-<slug>; CI checks lanes on those branches (#334).
+    ok = conventions.check_pull_request(
+        "feat(agents): journal index", "sprint/S01/327-journal-index", "Closes #327", [], "x"
+    )
+    assert ok == []
+    mismatch = conventions.check_pull_request(
+        "feat(agents): journal index", "sprint/S01/327-journal-index", "Closes #320", [], "x"
+    )
+    assert any("#327" in p for p in mismatch)
+    for bad in ("sprint/327-journal-index", "sprint/S1x/327-a", "sprint/S01/journal"):
+        problems = conventions.check_pull_request("feat(agents): x", bad, "Closes #327", [], "x")
+        assert any(p.startswith("branch:") for p in problems), bad

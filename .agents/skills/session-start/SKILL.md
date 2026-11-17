@@ -15,6 +15,9 @@ file in this skill: it only reads and proposes.
 2. Read the context that the script points to:
    - the latest entry in `.agents/journal/` for the current branch, otherwise the latest
      overall; its "Next steps" are the default continuation;
+   - for the issue of the branch, and for every issue you will propose in step 4, the journal
+     entries about it: `uv run python scripts/journal.py search <issue>` (its own entries
+     first, then the entries that mention it). Cite them by file name in the plan;
    - the issue linked to the branch (`gh api repos/{owner}/{repo}/issues/<n>`) and its spec,
      if any (`specs/NNNN-*/`), with `plan.md` and `tasks.md`;
    - `CHANGELOG.md` section "Unreleased" and the fragments in `changes/`, for recent changes
@@ -31,10 +34,11 @@ file in this skill: it only reads and proposes.
    - **Start next**: up to three ready issues from the active sprint (or the current
      milestone), ordered by dependency. Mark which ones can run **in parallel**: different
      `area:` labels and disjoint files, no dependency between them. For each, say whether it
-     needs an `Approved` spec first.
+     needs an `Approved` spec first, and cite its journal entries found in step 2.
 5. Wait for the maintainer's choice. When a new issue is chosen:
    - create the branch `<type>/<issue>-<slug>` from an up-to-date `main`
-     (for example `feat/42-dcf-mid-year`);
+     (for example `feat/42-dcf-mid-year`), or `sprint/SNN/<issue>-<slug>` for an issue of
+     the active sprint, so that CI checks its lane;
    - label the issue `in-progress` and assign it:
      `gh api -X POST repos/{owner}/{repo}/issues/<n>/labels -f "labels[]=in-progress"`;
    - for parallel work, use one git worktree per issue
