@@ -71,11 +71,12 @@ def pairs(lang: str, cfg: dict[str, list[str]]) -> list[tuple[str, Path, Path, b
     out = []
     for src in sorted(EN.rglob("*.md")):
         rel = src.relative_to(EN).as_posix()
-        if any(
-            fnmatch.fnmatch(rel, p) for p in cfg.get("english_only", []) + cfg.get("generated", [])
-        ):
-            continue
         required = any(fnmatch.fnmatch(rel, p) for p in cfg.get("required", []))
+        if any(fnmatch.fnmatch(rel, p) for p in cfg.get("generated", [])):
+            continue
+        # A page listed as required is translated even inside an English-only section.
+        if not required and any(fnmatch.fnmatch(rel, p) for p in cfg.get("english_only", [])):
+            continue
         out.append((rel, src, ROOT / "docs" / lang / rel, required))
     for name in ROOT_DOCUMENTS:
         stem = name.removesuffix(".md")

@@ -1,6 +1,8 @@
 # .agents — the project's agent configuration
 
 This folder is the single, tool-agnostic source of truth for AI agents working on Fairmark.
+How the pieces fit together (roles, memory tiers, sprint lanes, gates) is described in
+[Agentic development](../docs/en/project/agentic-development.md).
 
 | Path | Content | Read by |
 | --- | --- | --- |

@@ -1,6 +1,8 @@
 # Sprints
 
-A sprint is a time-boxed set of GitHub issues with one goal. Sprint files in this folder are
+A sprint is a time-boxed set of GitHub issues with one goal. Sprints are one part of the
+development system described in
+[Agentic development](../docs/en/project/agentic-development.md). Sprint files in this folder are
 the source of truth for agents; the GitHub Project "Fairmark roadmap" shows the same sprint
 as an Iteration on the Kanban board.
 

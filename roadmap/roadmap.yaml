@@ -79,7 +79,7 @@ milestones:
           - { issue: 333, title: "Sprint runtime state shared by every worktree of the repository", status: done }
           - { issue: 334, title: "Sprint lanes declare their paths; overlaps fail validation and CI", status: done }
           - { issue: 335, title: "Per-method schema manifests instead of one shared index rewritten by every lane", tags: [maintainer], status: open }
-          - { issue: 346, title: "Agentic development architecture page in the documentation site", status: open }
+          - { issue: 346, title: "Agentic development architecture page in the documentation site", status: done }
           - { issue: 347, title: "Generated artifacts grouped by generator, one lane per group", status: done }
       - title: "CI/CD"
         issue: 10
