@@ -61,8 +61,9 @@ CI on every push, rejects a sprint when:
 
 On a pull request from a sprint branch (`sprint/SNN/<issue>-<slug>`), CI runs
 `scripts/sprint.py check-diff` and fails when a changed file is outside the paths of the
-issue's lane. Every lane may also change `roadmap/roadmap.yaml`, `.agents/journal/` and
-`changes/` (the roadmap line, the journal entry and the release note of the issue); the
+issue's lane. Every lane may also change `roadmap/roadmap.yaml`, `.agents/journal/`,
+`changes/` and `zensical.toml` (the roadmap line, the journal entry, the release note and the
+navigation entry of a new page of the issue: each lane adds its own lines); the
 lane may also change the artifacts of the groups it generates. A file that a lane really needs
 outside its paths is a planning change: update the sprint file in its own pull request, so
 that the overlap check runs on the new paths before the work continues.
