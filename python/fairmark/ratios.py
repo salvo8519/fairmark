@@ -9,7 +9,8 @@ Every amount is optional (version 2): give what you have. A ratio whose amounts 
 given has ``value`` ``None`` and is listed in ``result.not_computed`` (version 3, the
 diagnostics of the envelope) with the JSON pointers of the inputs it lacks; a missing amount is
 never taken as zero. A ratio that is not meaningful (a zero denominator, negative equity) has
-``value`` ``None`` and an entry ``not_defined`` with the reason in ``result.not_computed``. The
+``value`` ``None`` and an entry with ``reason_code`` ``not_defined``, with the reason, in
+``result.not_computed``. The
 other ratios of the group are still computed. Only the method choices are required:
 ``balances``, and ``operating_return_base`` or ``day_basis`` where the group uses them. At
 least one output must have every input it needs: otherwise the engine raises ``FM-E027``,

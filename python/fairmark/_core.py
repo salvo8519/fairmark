@@ -360,7 +360,7 @@ class Result:
     conventions: list[str]
     meta: dict[str, Any]
     raw: dict[str, Any] = field(repr=False)
-    diagnostics: dict[str, Any] = field(default_factory=dict)
+    diagnostics: dict[str, Any]
     """What the result does not contain (``not_computed``), what the reader could miss
     (``warnings``, each with a stable code ``FM-Wnnn``) and what was verified (``checks``), as
     the engine writes them: pointers and reasons are ``str``."""
@@ -370,24 +370,24 @@ class Result:
         """The outputs not computed: ``pointer`` (from the envelope root, ``/value/...``),
         ``reason_code`` (``missing_input``, ``choice_required``, ``not_defined``,
         ``not_applicable``), ``reason``, ``missing_any_of`` and ``permitted``."""
-        return list(self.diagnostics.get("not_computed", []))
+        return list(self.diagnostics["not_computed"])
 
     @property
     def warnings(self) -> list[dict[str, Any]]:
         """The warnings: ``code`` (``FM-Wnnn``, see the warning catalogue), ``pointer`` and
         ``message``; each is echoed in ``conventions``."""
-        return list(self.diagnostics.get("warnings", []))
+        return list(self.diagnostics["warnings"])
 
     @property
     def checks(self) -> list[dict[str, Any]]:
         """The relations verified: ``id``, ``status`` (``reconciled`` or ``not_checked``),
         ``pointer`` (the result block) and ``pointers`` (the inputs read)."""
-        return list(self.diagnostics.get("checks", []))
+        return list(self.diagnostics["checks"])
 
     @property
     def defaults_applied(self) -> list[dict[str, Any]]:
         """The documented defaults filled in: ``pointer``, ``value`` and ``reason``."""
-        return list(self.meta.get("defaults_applied", []))
+        return list(self.meta["defaults_applied"])
 
     @property
     def method_version(self) -> str:
