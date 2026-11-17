@@ -35,7 +35,8 @@ Changing one requires an ADR and the maintainer's approval.
 - Expected values in golden cases are changed only through a reviewed `numerical-change`.
 
 ## VII. Methodology is public
-- Every method has a documentation page with formula, conventions, example and sources.
+- Every method has a documentation page with formula, conventions, example and a one-line
+  reference to its sources; the full sources are in its spec and golden cases (ADR 0018).
 - Practice that varies across jurisdictions is modelled as explicit profiles, not hidden logic.
 
 ## VIII. Simple to use, hard to misuse
