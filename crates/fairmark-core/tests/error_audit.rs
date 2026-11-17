@@ -851,3 +851,28 @@ fn every_method_reports_every_type_error() {
     }
     assert!(with_three >= 5, "{with_three}");
 }
+
+/// Code review of #371, item 13 (ADR 0014 G5): a check that compares a field with a refused
+/// one is skipped. In `tv.compare` a shared rate of -5 is refused (by the techniques that
+/// check its range), so no technique compares its growth with it; the same holds in the DCF
+/// for a refused discount rate.
+#[test]
+fn no_growth_is_compared_with_a_refused_rate() {
+    let mut compare = golden_input("tv.compare/seven-techniques.yaml");
+    compare["rate"] = json!("-5");
+    let r = report("tv.compare", &compare);
+    assert_eq!(pointers_of(&r), ["/rate"], "{r:#}");
+    for (file, rate) in [
+        ("dcf.fcff/bridge-every-line.yaml", "wacc"),
+        (
+            "dcf.fcfe/bridge-negative-equity-value.yaml",
+            "cost_of_equity",
+        ),
+    ] {
+        let mut dcf = golden_input(file);
+        dcf[rate] = json!("-5");
+        let method = file.split('/').next().unwrap();
+        let r = report(method, &dcf);
+        assert_eq!(pointers_of(&r), [format!("/{rate}")], "{r:#}");
+    }
+}
