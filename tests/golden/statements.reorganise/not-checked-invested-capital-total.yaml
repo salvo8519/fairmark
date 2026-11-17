@@ -39,6 +39,9 @@ input:
         debt_like_items: []
         total_sources: '1610000'
 expect:
-  /years/0/checks/invested_capital_total/status: not_checked
   /years/0/form: reclassified
+expect_diagnostics:
+  /checks/2/status: not_checked
+  /checks/2/id: invested_capital_total
+  /checks/2/pointer: /value/years/0
 tolerance: '0'

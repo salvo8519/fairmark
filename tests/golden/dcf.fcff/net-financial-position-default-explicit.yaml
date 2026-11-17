@@ -18,7 +18,7 @@ expect:
   /equity_value: "563.3824336605614874662835655"
   /bridge/net_financial_position: "null"
 expect_meta:
-  /defaults_applied/0/field: "/net_financial_position"
+  /defaults_applied/0/pointer: "/net_financial_position"
   /defaults_applied/0/value: "0"
   /defaults_applied/0/reason: "net financial position not given"
 tolerance: "0.00000000000000000001"

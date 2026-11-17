@@ -877,7 +877,7 @@ fn defaults(out: &Value) -> Vec<String> {
         .as_array()
         .map(|d| {
             d.iter()
-                .map(|e| e["field"].as_str().unwrap().to_owned())
+                .map(|e| e["pointer"].as_str().unwrap().to_owned())
                 .collect()
         })
         .unwrap_or_default()

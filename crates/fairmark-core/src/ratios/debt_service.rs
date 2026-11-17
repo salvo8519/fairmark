@@ -351,7 +351,7 @@ pub fn debt_service(input: &DebtServiceInput) -> Result<(DebtServiceOutput, Expl
         Some(reserve) => ex.convention(format!(
             "reserve balance {reserve} added undiscounted to the LLCR numerator"
         )),
-        None if defaults.iter().any(|d| d.field == RESERVE_POINTER) => ex.warn(
+        None if defaults.iter().any(|d| d.pointer == RESERVE_POINTER) => ex.warn(
             WarningCode::NoReserveBalance,
             Some(RESERVE_POINTER.to_owned()),
             format!(

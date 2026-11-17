@@ -23,7 +23,7 @@ import fairmark as fm
 
 r = fm.dcf.fcff(flows=[120, 135, 150, 160, 170], wacc="0.09")
 print(r.value_of_operations)  # 563.38243366056148746628356553
-print([d["field"] for d in r.meta["defaults_applied"]])
+print([d["pointer"] for d in r.meta["defaults_applied"]])
 ```
 
 The same input in JSON, for the CLI, MCP or function calling:

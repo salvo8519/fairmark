@@ -48,27 +48,27 @@ expect:
   /years/0/income_statement/reconciliations/operating_profit/start: '266000'
   /years/0/income_statement/reconciliations/operating_profit/lines/0/label: B10 c, write-downs of fixed
     assets (investing result)
-  /years/0/income_statement/reconciliations/operating_profit/lines/0/sources/0: /years/0/statutory/income_statement/depreciation_and_write_downs/value_adjustments_of_fixed_assets
-  /years/0/income_statement/reconciliations/operating_profit/lines/0/sources/1: /years/0/statutory/income_statement/depreciation_and_write_downs/depreciation_and_amortisation
+  /years/0/income_statement/reconciliations/operating_profit/lines/0/source_pointers/0: /years/0/statutory/income_statement/depreciation_and_write_downs/value_adjustments_of_fixed_assets
+  /years/0/income_statement/reconciliations/operating_profit/lines/0/source_pointers/1: /years/0/statutory/income_statement/depreciation_and_write_downs/depreciation_and_amortisation
   /years/0/income_statement/reconciliations/operating_profit/lines/0/amount: '20000'
   /years/0/income_statement/reconciliations/operating_profit/end: '286000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/start: '266000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/label: C15, income
     from equity investments (investing result)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/sources/0: /years/0/statutory/income_statement/income_from_equity_investments
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/source_pointers/0: /years/0/statutory/income_statement/income_from_equity_investments
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/0/amount: '12000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/label: C16, other
     financial income (investing result)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/sources/0: /years/0/statutory/income_statement/other_financial_income
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/source_pointers/0: /years/0/statutory/income_statement/other_financial_income
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/1/amount: '3000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/label: D18 − D19,
     value adjustments of financial assets (investing result)
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/sources/0: /years/0/statutory/income_statement/revaluations_of_financial_assets
-  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/sources/1: /years/0/statutory/income_statement/write_downs_of_financial_assets
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/source_pointers/0: /years/0/statutory/income_statement/revaluations_of_financial_assets
+  /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/source_pointers/1: /years/0/statutory/income_statement/write_downs_of_financial_assets
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/lines/2/amount: '-6000'
   /years/0/income_statement/reconciliations/profit_before_financing_and_taxes/end: '275000'
   /years/0/assignments/17/reference: B10 c (B10 a to c less B10 a, b)
-  /years/0/assignments/17/aggregate: /years/0/statutory/income_statement/depreciation_and_write_downs/value_adjustments_of_fixed_assets
+  /years/0/assignments/17/aggregate_pointer: /years/0/statutory/income_statement/depreciation_and_write_downs/value_adjustments_of_fixed_assets
   /years/0/assignments/17/amount: '20000'
   /years/0/assignments/17/destination: investing_result
   /years/0/assignments/17/origin: analyst

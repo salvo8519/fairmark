@@ -230,7 +230,7 @@ def test_engine_matches_the_reference_on_random_partial_inputs(method: str) -> N
             continue
         out = run_json(method, data)
         value = out["value"]
-        applied = [d["field"] for d in out["meta"].get("defaults_applied", [])]
+        applied = [d["pointer"] for d in out["meta"].get("defaults_applied", [])]
         assert applied == expected["defaults"], context
         for pointer, want in expected["values"].items():
             path = pointer.strip("/").split("/")

@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: 4ad8d3440893
+source_hash: 0034c17f9c6b
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
@@ -29,7 +29,7 @@ import fairmark as fm
 
 r = fm.dcf.fcff(flows=[120, 135, 150, 160, 170], wacc="0.09")
 print(r.value_of_operations)  # 563.38243366056148746628356553
-print([d["field"] for d in r.meta["defaults_applied"]])
+print([d["pointer"] for d in r.meta["defaults_applied"]])
 ```
 
 Lo stesso input in JSON, per la CLI, MCP o il function calling:

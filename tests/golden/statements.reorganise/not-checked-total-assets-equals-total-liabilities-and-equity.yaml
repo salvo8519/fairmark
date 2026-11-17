@@ -67,6 +67,9 @@ input:
     shareholder_loans: financial_debt
     derivative_liabilities: financial_liability
 expect:
-  /years/0/checks/total_assets_equals_total_liabilities_and_equity/status: not_checked
   /years/0/form: statutory
+expect_diagnostics:
+  /checks/28/status: not_checked
+  /checks/28/id: total_assets_equals_total_liabilities_and_equity
+  /checks/28/pointer: /value/years/0
 tolerance: '0'

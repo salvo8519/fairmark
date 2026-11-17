@@ -12,6 +12,61 @@ use serde_json::{json, Value};
 
 const METHOD: &str = "statements.reorganise";
 
+/// The checks of year `i`, by relation id (`{id: {status, pointers}}`): the entries of
+/// `diagnostics.checks` located at `/value/years/<i>` (SPEC-0012 R7).
+fn year_checks(out: &Value, i: usize) -> Value {
+    let at = format!("/value/years/{i}");
+    Value::Object(
+        out["diagnostics"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|c| c["pointer"] == at.as_str())
+            .map(|c| {
+                (
+                    c["id"].as_str().unwrap().to_owned(),
+                    serde_json::json!({"status": c["status"], "pointers": c["pointers"]}),
+                )
+            })
+            .collect(),
+    )
+}
+
+/// The outputs not computed of year `i`, grouped by block (`balance_sheet`,
+/// `income_statement`, `current_non_current`): each entry of `diagnostics.not_computed` under
+/// `/value/years/<i>/<block>` (SPEC-0012 R5), with `output` its pointer into `value`, `missing`
+/// its one set of missing inputs (empty when not applicable) and its `reason_code` and
+/// `permitted` as written.
+fn year_not_computed(out: &Value, i: usize) -> Value {
+    let mut blocks = serde_json::json!({
+        "balance_sheet": [], "income_statement": [], "current_non_current": []
+    });
+    for e in out["diagnostics"]["not_computed"].as_array().unwrap() {
+        let output = e["pointer"]
+            .as_str()
+            .unwrap()
+            .strip_prefix("/value")
+            .unwrap();
+        let prefix = format!("/years/{i}/");
+        let Some(rest) = output.strip_prefix(&prefix) else {
+            continue;
+        };
+        let block = rest.split('/').next().unwrap();
+        let missing = e["missing_any_of"]
+            .get(0)
+            .cloned()
+            .unwrap_or(serde_json::json!([]));
+        blocks[block]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "output": output, "missing": missing, "reason_code": e["reason_code"],
+                "permitted": e["permitted"]
+            }));
+    }
+    blocks
+}
+
 /// The input of a golden case of this method, so the tests reuse the reviewed companies.
 fn golden_input(name: &str) -> Value {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -227,7 +282,7 @@ proptest! {
         ] {
             let pointer = format!("{base}/{key}");
             let sum: Decimal = y["assignments"].as_array().unwrap().iter()
-                .filter(|e| e["aggregate"].as_str().unwrap().starts_with(&pointer))
+                .filter(|e| e["aggregate_pointer"].as_str().unwrap().starts_with(&pointer))
                 .map(|e| dec(&e["amount"]))
                 .sum();
             prop_assert_eq!(sum, dec(&amount), "{}", key);
@@ -416,7 +471,7 @@ fn the_parts_beyond_one_year_reconcile_with_the_loans() {
              "beyond_one_year": b}]))
     };
     let out = run(&both("30000", "20000"));
-    let checks = &out["value"]["years"][0]["checks"];
+    let checks = &year_checks(&out, 0);
     assert_eq!(
         checks["shareholder_loans_split_beyond_one_year"]["status"],
         "reconciled"
@@ -444,7 +499,7 @@ fn the_parts_beyond_one_year_reconcile_with_the_loans() {
         {"destination": "quasi_equity", "amount": "40000", "label": "Subordinated"}]));
     let out = run(&mixed);
     assert_eq!(
-        out["value"]["years"][0]["checks"]["shareholder_loans_split_beyond_one_year"]["status"],
+        year_checks(&out, 0)["shareholder_loans_split_beyond_one_year"]["status"],
         "not_checked"
     );
     let over = split_loans(json!([
@@ -600,7 +655,8 @@ fn reclassified_outputs_of_the_statutory_form_are_explained_not_pointed_at() {
     let y = &out["value"]["years"][0];
     assert_eq!(y["current_non_current"]["inventories"], "400000");
     for block in ["balance_sheet", "current_non_current"] {
-        for entry in y["not_computed"][block].as_array().unwrap() {
+        let year_nc = year_not_computed(&out, 0);
+        for entry in year_nc[block].as_array().unwrap() {
             let missing = entry["missing"].as_array().unwrap();
             assert!(
                 missing
@@ -610,7 +666,8 @@ fn reclassified_outputs_of_the_statutory_form_are_explained_not_pointed_at() {
             );
         }
     }
-    let outputs: Vec<&str> = y["not_computed"]["current_non_current"]
+    let year_nc = year_not_computed(&out, 0);
+    let outputs: Vec<&str> = year_nc["current_non_current"]
         .as_array()
         .unwrap()
         .iter()
@@ -642,11 +699,11 @@ fn the_reclassified_net_financial_position_is_derived_from_its_parts() {
         "710000"
     );
     assert_eq!(
-        y["checks"]["net_financial_position_maturity"]["status"],
+        year_checks(&out, 0)["net_financial_position_maturity"]["status"],
         "not_checked"
     );
     assert_eq!(
-        y["checks"]["funds_invested_equals_sources"]["status"],
+        year_checks(&out, 0)["funds_invested_equals_sources"]["status"],
         "reconciled"
     );
     let s = step(&out, "Net financial position from its parts (2024)");
@@ -729,7 +786,7 @@ fn every_default_destination_is_listed_and_no_fixed_one() {
     let defaults = out["meta"]["defaults_applied"].as_array().unwrap();
     let fields: Vec<&str> = defaults
         .iter()
-        .map(|d| d["field"].as_str().unwrap())
+        .map(|d| d["pointer"].as_str().unwrap())
         .collect();
     let base = "/years/0/statutory/balance_sheet";
     for key in [
@@ -798,7 +855,7 @@ fn a_default_destination_of_an_aggregate_not_given_is_not_listed() {
         .collect();
     assert_eq!(destinations.len(), 1);
     assert_eq!(
-        destinations[0]["field"],
+        destinations[0]["pointer"],
         "/years/0/statutory/balance_sheet/cash"
     );
 }
@@ -819,7 +876,7 @@ fn a_node_without_its_aggregate_lists_no_default_destination() {
         .unwrap()
         .iter()
         .filter(|d| d["value"] != "0")
-        .map(|d| d["field"].as_str().unwrap())
+        .map(|d| d["pointer"].as_str().unwrap())
         .collect();
     assert_eq!(
         destinations,
@@ -841,7 +898,7 @@ fn items_taken_as_zero_are_listed_also_without_their_parent() {
         .iter()
         .map(|d| {
             (
-                d["field"].as_str().unwrap().to_owned(),
+                d["pointer"].as_str().unwrap().to_owned(),
                 d["value"].as_str().unwrap().to_owned(),
             )
         })
@@ -884,12 +941,15 @@ fn item_a_not_given_is_zero_everywhere() {
     let y = &out["value"]["years"][0];
     assert_eq!(y["balance_sheet"]["sources"]["equity"], "900000");
     assert_eq!(y["current_non_current"]["total_assets"], "2850000");
-    assert_eq!(y["checks"]["total_assets_total"]["status"], "not_checked");
+    assert_eq!(
+        year_checks(&out, 0)["total_assets_total"]["status"],
+        "not_checked"
+    );
     let fields: Vec<&str> = out["meta"]["defaults_applied"]
         .as_array()
         .unwrap()
         .iter()
-        .map(|d| d["field"].as_str().unwrap())
+        .map(|d| d["pointer"].as_str().unwrap())
         .collect();
     assert!(fields.contains(&"/years/0/statutory/balance_sheet/subscribed_capital_unpaid"));
 }
@@ -910,7 +970,7 @@ fn a_total_rebuilt_from_an_item_not_given_is_not_checked() {
     bs["receivables"]["prepayments_and_accrued_income"] = json!("30000");
     bs["current_assets"] = json!("1680000");
     let out = run(&input);
-    let checks = &out["value"]["years"][0]["checks"];
+    let checks = &year_checks(&out, 0);
     assert_eq!(checks["total_assets_total"]["status"], "not_checked");
     let relation = "total_assets_equals_total_liabilities_and_equity";
     assert_eq!(checks[relation]["status"], "reconciled");
@@ -922,7 +982,7 @@ fn a_total_rebuilt_from_an_item_not_given_is_not_checked() {
         .unwrap()
         .remove("subscribed_capital_unpaid");
     let out = run(&input);
-    let checks = &out["value"]["years"][0]["checks"];
+    let checks = &year_checks(&out, 0);
     assert_eq!(checks[relation]["status"], "not_checked");
     assert_eq!(
         out["value"]["years"][0]["balance_sheet"]["total_funds_invested"],
@@ -995,8 +1055,8 @@ fn a_reconciled_relation_names_only_items_given() {
             continue;
         }
         let out = run(&case["input"]);
-        for y in out["value"]["years"].as_array().unwrap() {
-            for (relation, check) in y["checks"].as_object().unwrap() {
+        for i in 0..out["value"]["years"].as_array().unwrap().len() {
+            for (relation, check) in year_checks(&out, i).as_object().unwrap() {
                 if check["status"] != "reconciled" {
                     continue;
                 }
@@ -1031,7 +1091,7 @@ fn the_income_statement_defaults_are_listed_and_no_fixed_one() {
             .iter()
             .map(|d| {
                 (
-                    d["field"].as_str().unwrap().to_owned(),
+                    d["pointer"].as_str().unwrap().to_owned(),
                     d["value"].as_str().unwrap().to_owned(),
                 )
             })
@@ -1112,9 +1172,8 @@ fn the_income_statement_defaults_are_listed_and_no_fixed_one() {
 #[test]
 fn not_computed_lists_exactly_the_outputs_that_need_the_missing_treatment() {
     let out = run(&golden_input("missing-treatment"));
-    let nc = out["value"]["years"][0]["not_computed"]["balance_sheet"]
-        .as_array()
-        .unwrap();
+    let year_nc = year_not_computed(&out, 0);
+    let nc = year_nc["balance_sheet"].as_array().unwrap();
     let outputs: Vec<&str> = nc.iter().map(|e| e["output"].as_str().unwrap()).collect();
     let b = "/years/0/balance_sheet";
     assert_eq!(
@@ -1132,12 +1191,11 @@ fn not_computed_lists_exactly_the_outputs_that_need_the_missing_treatment() {
             format!("{b}/total_funds_invested"),
         ]
     );
-    assert!(
-        out["value"]["years"][0]["not_computed"]["current_non_current"]
-            .as_array()
-            .unwrap()
-            .is_empty()
-    );
+    let year_nc = year_not_computed(&out, 0);
+    assert!(year_nc["current_non_current"]
+        .as_array()
+        .unwrap()
+        .is_empty());
 }
 
 /// Every null output is listed, and no listed output has a value (R6).
@@ -1147,9 +1205,10 @@ fn every_null_output_is_listed_and_none_is_zero_for_lack_of_input() {
         "inventories": "50"}}}]});
     let out = run(&input);
     let y = &out["value"]["years"][0];
+    let year_nc = year_not_computed(&out, 0);
     let listed: Vec<String> = ["balance_sheet", "current_non_current"]
         .iter()
-        .flat_map(|b| y["not_computed"][b].as_array().unwrap().iter())
+        .flat_map(|b| year_nc[b].as_array().unwrap().iter())
         .map(|e| e["output"].as_str().unwrap().to_owned())
         .collect();
     fn nulls(v: &Value, at: String, out: &mut Vec<String>) {
@@ -1627,14 +1686,15 @@ fn c15_waits_for_the_treatment_of_financial_fixed_assets() {
         "investing_result",
     ] {
         assert!(y["income_statement"][key].is_null(), "{key}");
-        let entry = y["not_computed"]["income_statement"]
+        let year_nc = year_not_computed(&out, 0);
+        let entry = year_nc["income_statement"]
             .as_array()
             .unwrap()
             .iter()
             .find(|e| e["output"] == format!("/years/0/income_statement/{key}"))
             .unwrap_or_else(|| panic!("{key} not listed"));
         assert_eq!(
-            entry["permitted"][0]["treatment"],
+            entry["permitted"][0]["pointer"],
             "/treatments/financial_fixed_assets"
         );
     }
@@ -1701,7 +1761,8 @@ fn income_statement_outputs_feed_the_methods_that_take_them() {
 fn few_totals_lists_every_income_statement_output_not_computed() {
     let out = run(&golden_input("few-totals"));
     let y = &out["value"]["years"][0];
-    let listed: Vec<String> = y["not_computed"]["income_statement"]
+    let year_nc = year_not_computed(&out, 0);
+    let listed: Vec<String> = year_nc["income_statement"]
         .as_array()
         .unwrap()
         .iter()
@@ -1825,7 +1886,8 @@ fn a_reclassified_income_statement_derives_and_explains_its_totals() {
         s["formula"],
         "profit before tax 214000 − income taxes 64000"
     );
-    for e in y["not_computed"]["income_statement"].as_array().unwrap() {
+    let year_nc = year_not_computed(&out, 0);
+    for e in year_nc["income_statement"].as_array().unwrap() {
         assert!(
             e["output"]
                 .as_str()
@@ -1890,7 +1952,8 @@ fn the_non_recurring_result_is_zero_or_null() {
     let out_without = run(&input);
     let y = &out_without["value"]["years"][0];
     assert!(y["income_statement"]["non_recurring_result"].is_null());
-    let entry = y["not_computed"]["income_statement"]
+    let year_nc = year_not_computed(&out_without, 0);
+    let entry = year_nc["income_statement"]
         .as_array()
         .unwrap()
         .iter()
@@ -1931,7 +1994,7 @@ fn reconciliation_lines_name_the_pointers_read() {
     let b = "/years/0/statutory/income_statement";
     let c_line = &r["operating_profit"]["lines"][0];
     assert_eq!(
-        c_line["sources"],
+        c_line["source_pointers"],
         json!([format!(
             "{b}/depreciation_and_write_downs/value_adjustments_of_fixed_assets"
         )])
@@ -1942,7 +2005,7 @@ fn reconciliation_lines_name_the_pointers_read() {
         .contains("give the B10 c part (Decision 8)"));
     let d_line = &r["profit_before_financing_and_taxes"]["lines"][2];
     assert_eq!(
-        d_line["sources"],
+        d_line["source_pointers"],
         json!([
             format!("{b}/revaluations_of_financial_assets"),
             format!("{b}/write_downs_of_financial_assets")
@@ -2047,7 +2110,8 @@ fn c15_follows_only_financial_fixed_assets_held() {
     let out = run(&golden_input(
         "operating-investments-c15-zero-missing-treatment",
     ));
-    let nc = out["value"]["years"][0]["not_computed"]["income_statement"].to_string();
+    let year_nc = year_not_computed(&out, 0);
+    let nc = year_nc["income_statement"].to_string();
     assert!(!nc.contains("/treatments/financial_fixed_assets"), "{nc}");
 }
 
@@ -2072,7 +2136,7 @@ fn a_derived_b10_c_is_explained_and_assigned() {
         .expect("assignment of the derived B10 c")
         .clone();
     assert_eq!(
-        a["aggregate"],
+        a["aggregate_pointer"],
         "/years/0/statutory/income_statement/depreciation_and_write_downs/value_adjustments_of_fixed_assets"
     );
     assert_eq!(a["amount"], "20000");
@@ -2130,7 +2194,8 @@ fn c15_not_given_names_the_treatment_it_would_need() {
         ) && conv.contains("will also need `/treatments/financial_fixed_assets`"),
         "{conv}"
     );
-    let nc = out["value"]["years"][0]["not_computed"]["income_statement"].to_string();
+    let year_nc = year_not_computed(&out, 0);
+    let nc = year_nc["income_statement"].to_string();
     assert!(
         !nc.contains("\"/treatments/financial_fixed_assets\""),
         "{nc}"

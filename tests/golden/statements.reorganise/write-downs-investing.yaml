@@ -113,6 +113,6 @@ expect:
   /years/0/income_statement/investing_result: '-26000'
   /years/0/income_statement/profit_before_financing_and_taxes: '275000'
 expect_meta:
-  /defaults_applied/11/field: /years/0/statutory/income_statement/other_operating_expenses
-  /defaults_applied/12/field: /years/0/statutory/balance_sheet/receivables/subscribed_capital_unpaid
+  /defaults_applied/11/pointer: /years/0/statutory/income_statement/other_operating_expenses
+  /defaults_applied/12/pointer: /years/0/statutory/balance_sheet/receivables/subscribed_capital_unpaid
 tolerance: '0'

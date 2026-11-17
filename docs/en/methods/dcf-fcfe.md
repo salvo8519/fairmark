@@ -20,7 +20,7 @@ import fairmark as fm
 
 r = fm.dcf.fcfe(flows=[80, 85, 92, 96, 101], cost_of_equity="0.11")
 print(r.equity_value)
-print([d["field"] for d in r.meta["defaults_applied"]])
+print([d["pointer"] for d in r.meta["defaults_applied"]])
 ```
 
 In JSON: `{"stages": [{"flows": ["80", "85", "92", "96", "101"]}], "cost_of_equity": "0.11"}`.

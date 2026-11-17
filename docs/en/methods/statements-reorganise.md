@@ -19,7 +19,7 @@ with A − B. The exact changes between consecutive years come with a later buil
 ## Best effort
 
 Every input is optional. An output is computed when the inputs it needs are given; otherwise it
-is `null` and listed in `not_computed` with the JSON pointers of the missing inputs. A missing
+is `null` and listed in `diagnostics.not_computed` with the JSON pointers of the missing inputs. A missing
 input is never taken as zero and never an error. An agent that reads a few totals from a text
 can pass them, receive what they allow and ask the user only for the pointers listed.
 
@@ -133,7 +133,7 @@ with, for a statutory year:
   operating profit + investing result;
 - non-recurring result = Σ non-recurring income − Σ non-recurring charges, from the
   `non_recurring` adjustments: zero, with the convention "no item labelled non-recurring", when
-  there are none; null, listed in `not_computed`, when the year gives no income statement (E6);
+  there are none; null, listed in `diagnostics.not_computed`, when the year gives no income statement (E6);
 - financing result = C17-bis − C17 (C17 plus lease interest, returned as
   `interest_and_other_financial_charges`) − the interest cost of a debt-like employee severance
   indemnity, when given (P2). C16, which includes the interest on cash and on the
@@ -178,7 +178,7 @@ B.III split between destinations for the year, the income of each part is not gi
 in the investing result and the conventions say so. With B.III given and not zero and its
 treatment missing, C15 waits for it only when C15 is given and not zero (A3): income from
 operating investments, operating profit, the investing result and the layers below are not
-computed and are listed in `not_computed` with the treatment pointer and its permitted
+computed and are listed in `diagnostics.not_computed` with the treatment pointer and its permitted
 destinations (R8). C15 given as zero waits for nothing; C15 not given is missing with its own
 pointer.
 
@@ -199,7 +199,7 @@ otherwise); above what remains of B9 it is `FM-E026`.
 `reconciliations.profit_before_financing_and_taxes` start from A − B of the statutory
 statement, list every amount moved (write-downs, investing and non-recurring parts, lease
 lines, interest costs of the employee severance indemnity, C15, C16 and D) with the pointers
-actually read (`sources`: both D18 and D19 when both are read; the B10 a to c group, with the
+actually read (`source_pointers`: both D18 and D19 when both are read; the B10 a to c group, with the
 fix, when B10 c is read as none; for an adjustment, the amount of the year it moves, for
 example `/adjustments/0/amounts/0/payments` or `/adjustments/1/interest_cost/0`), and end at the
 subtotal, exactly. Profit before tax equals A − B ± C ± D and net income equals item 21, except
@@ -368,7 +368,7 @@ the total with itself. Treatments and adjustments do not apply to a reclassified
 totals already adjusted.
 
 The current and non-current block and the composition of the net financial position need the
-statutory form: in a reclassified year they are listed in `not_computed` with no pointer to
+statutory form: in a reclassified year they are listed in `diagnostics.not_computed` with no pointer to
 give, and a convention says so. Inventories are taken from
 `operating_working_capital.inventories`.
 
@@ -416,14 +416,14 @@ amortisation − `other_charges_below_ebitda` + `income_from_operating_investmen
 `income_from_operating_investments` (zero or more) defined as in the statutory form (E1, E2,
 P2); to have operating profit derived, give `income_from_operating_investments`, zero when there
 is none. The
-reconciliations with A − B need the statutory form and are listed in `not_computed` with no
+reconciliations with A − B need the statutory form and are listed in `diagnostics.not_computed` with no
 pointer to give.
 
 ## Treatments
 
 Stated once in `treatments` and applied to every statutory year. A treatment is needed only
 when its aggregate is given and not zero; when it is needed and missing, the outputs that depend
-on the aggregate are not computed and `not_computed` names the treatment and its permitted
+on the aggregate are not computed and `diagnostics.not_computed` names the treatment and its permitted
 destinations.
 
 | Treatment | Values | Default |
@@ -494,10 +494,16 @@ Per year: `label`, `date`, `form`, `layout`, then:
 | `balance_sheet.excess_cash` | C.IV less operating cash |
 | `current_non_current` | `fixed_assets`, `current_assets`, `inventories`, `cash`, `total_assets` (less item A), `current_liabilities`, `non_current_liabilities`; from total B, total C and total assets when given |
 | `income_statement` | The layers of Appendix B.2 (see [Formula](#income-statement-appendix-b2)), `ebitda_definition` and `reconciliations`; items named after a statutory item (`revenue`, `purchases`, `materials_consumed`, `personnel_costs`, `depreciation_and_amortisation`, `interest_and_other_financial_charges`) are core amounts, after the adjustments |
-| `assignments` | Each aggregate given: reference, pointer, amount, destination, origin (`mapping` or `analyst`) |
-| `adjustments_applied` | Each adjustment: kind, label, amount, reason, source, target; for a lease, one entry per amount with its `line` |
-| `checks` | Each relation by id: `reconciled` or `not_checked`, with its pointers |
-| `not_computed` | Per block, each missing output with the pointers of its missing inputs and, for a missing treatment, the permitted destinations; the entry has the same shape as in the `ratios.*` methods (`output`, `missing`, `permitted`) |
+| `assignments` | Each aggregate given: reference, `aggregate_pointer`, amount, destination, origin (`mapping` or `analyst`) |
+| `adjustments_applied` | Each adjustment: kind, label, amount, reason, `source_pointer`, target; for a lease, one entry per amount with its `line` |
+
+The checks and the outputs not computed are not in `value` (version 2, SPEC-0012): they are in
+the `diagnostics` block of the result.
+
+| Field | Meaning |
+| --- | --- |
+| `diagnostics.checks` | Each relation of each year: `{"id", "status", "pointer", "pointers"}`, `status` `reconciled` or `not_checked`, `pointer` the year's block (`/value/years/<i>`), `pointers` the inputs on both sides; ordered by year, then by id |
+| `diagnostics.not_computed` | Each output not computed, `{"pointer", "reason_code", "reason", "missing_any_of", "permitted"}`, ordered by pointer: `missing_input` with the missing inputs in `missing_any_of`; `choice_required` for a missing treatment, with `permitted` `[{"pointer", "values"}]` (the treatment and its permitted destinations); `not_applicable` for an output the form given cannot supply |
 
 | Output | Feeds |
 | --- | --- |
@@ -541,7 +547,7 @@ Fixed destinations are not defaults and are not listed.
 | Convention | Options | Default |
 | --- | --- | --- |
 | Years | oldest first; dates checked when consecutive entries have them: the same month and day one calendar year later, 28 February after 29 February, or both month ends (28 February 2023, 29 February 2024) | order assumed and reported when a date is missing |
-| Missing input | output null, listed in `not_computed` | never zero, never an error |
+| Missing input | output null, listed in `diagnostics.not_computed` | never zero, never an error |
 | Checks | exact, only when both sides are given | `not_checked` otherwise |
 | Layout | `ordinary`, `abridged`, `micro_entity` | echoed; no number depends on it |
 | Provisions B, employee severance indemnity C | operating provisions; debt-like by adjustment | default |
@@ -596,7 +602,7 @@ within C.II or D): the result is `FM-E026` (maintainer approval of 2026-11-08), 
 only those lines and states the fix: an amount given differs, or one of these items taken as
 zero is not zero. An "of which" part taken as none moves an amount within one side and is not named. With
 every item given, a difference is a defect (`FM-E012`). This relation names no pointer in
-`checks`: its sides are computed outputs, and its status counts the items taken as zero.
+`diagnostics.checks`: its sides are computed outputs, and its status counts the items taken as zero.
 
 For statements filed in euro units, give the rounding reserve within other reserves (A.VI), so
 that the totals reconcile exactly.
@@ -660,7 +666,7 @@ Additions and subtractions of decimals only, exact; no multiplication, division 
   appendices of SPEC-0005 without reading the engine; its income statement section was written
   before the engine's.
 - `python/tests/test_reference_statements.py`: the engine against that reference on 400 seeded
-  random calls in both forms, every output, reconciliation, check, default and `not_computed`
+  random calls in both forms, every output, reconciliation, check, default and `diagnostics.not_computed`
   entry, including items taken as zero, splits of shareholder loans with maturities,
   reclassified net financial positions given by their parts, every adjustment kind and the
   lease double entry.

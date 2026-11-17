@@ -68,16 +68,19 @@ input:
         profit_or_loss_for_the_year: '150000'
       layout: ordinary
 expect:
-  /years/0/checks/funds_invested_equals_sources/status: not_checked
   /years/0/balance_sheet/total_funds_invested: '1610000'
   /years/0/balance_sheet/sources/total_sources: 'null'
   /years/0/balance_sheet/sources/equity: '930000'
   /years/0/form: statutory
 expect_meta:
-  /defaults_applied/9/field: /treatments/write_downs_of_receivables
+  /defaults_applied/9/pointer: /treatments/write_downs_of_receivables
   /defaults_applied/9/value: operating
-  /defaults_applied/10/field: /treatments/write_downs_of_fixed_assets
+  /defaults_applied/10/pointer: /treatments/write_downs_of_fixed_assets
   /defaults_applied/10/value: operating
-  /defaults_applied/11/field: /years/0/statutory/balance_sheet/subscribed_capital_unpaid
+  /defaults_applied/11/pointer: /years/0/statutory/balance_sheet/subscribed_capital_unpaid
   /defaults_applied/11/value: '0'
+expect_diagnostics:
+  /checks/11/status: not_checked
+  /checks/11/id: funds_invested_equals_sources
+  /checks/11/pointer: /value/years/0
 tolerance: '0'

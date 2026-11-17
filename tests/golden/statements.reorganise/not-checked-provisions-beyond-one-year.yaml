@@ -70,6 +70,9 @@ input:
     shareholder_loans: financial_debt
     derivative_liabilities: financial_liability
 expect:
-  /years/0/checks/provisions_beyond_one_year/status: not_checked
   /years/0/form: statutory
+expect_diagnostics:
+  /checks/19/status: not_checked
+  /checks/19/id: provisions_beyond_one_year
+  /checks/19/pointer: /value/years/0
 tolerance: '0'

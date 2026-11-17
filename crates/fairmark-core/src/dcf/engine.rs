@@ -462,13 +462,13 @@ pub(crate) struct Defaulted {
 
 impl Defaulted {
     pub(crate) fn of(defaults: &[DefaultApplied]) -> Self {
-        let has = |f: DefaultedField| defaults.iter().any(|d| d.field == f.pointer());
+        let has = |f: DefaultedField| defaults.iter().any(|d| d.pointer == f.pointer());
         Self {
             cash_flow_terms: has(DefaultedField::CashFlowTerms),
             discount_rate_terms: has(DefaultedField::DiscountRateTerms),
             timing: has(DefaultedField::Timing),
             terminal: has(DefaultedField::Terminal),
-            first_projection: defaults.iter().any(|d| d.field == "/stages/0/projection"),
+            first_projection: defaults.iter().any(|d| d.pointer == "/stages/0/projection"),
         }
     }
 }

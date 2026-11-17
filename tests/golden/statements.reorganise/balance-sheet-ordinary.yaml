@@ -105,77 +105,124 @@ expect:
     (B)
   /years/0/balance_sheet/sources/net_financial_position/position/other_items/1/amount: '10000'
   /years/0/balance_sheet/sources/net_financial_position/composition/0/label: Financial debt (D)
-  /years/0/balance_sheet/sources/net_financial_position/composition/0/source: /years/0/statutory/balance_sheet/payables/financial_debt
+  /years/0/balance_sheet/sources/net_financial_position/composition/0/source_pointer: /years/0/statutory/balance_sheet/payables/financial_debt
   /years/0/balance_sheet/sources/net_financial_position/composition/0/amount: '900000'
   /years/0/balance_sheet/sources/net_financial_position/composition/0/current: '350000'
   /years/0/balance_sheet/sources/net_financial_position/composition/0/non_current: '550000'
   /years/0/balance_sheet/sources/net_financial_position/composition/1/label: Shareholder loans (D)
-  /years/0/balance_sheet/sources/net_financial_position/composition/1/source: /years/0/statutory/balance_sheet/payables/shareholder_loans
+  /years/0/balance_sheet/sources/net_financial_position/composition/1/source_pointer: /years/0/statutory/balance_sheet/payables/shareholder_loans
   /years/0/balance_sheet/sources/net_financial_position/composition/1/amount: '100000'
   /years/0/balance_sheet/sources/net_financial_position/composition/1/current: '50000'
   /years/0/balance_sheet/sources/net_financial_position/composition/1/non_current: '50000'
   /years/0/balance_sheet/sources/net_financial_position/composition/2/label: Cash (C.IV)
-  /years/0/balance_sheet/sources/net_financial_position/composition/2/source: /years/0/statutory/balance_sheet/cash
+  /years/0/balance_sheet/sources/net_financial_position/composition/2/source_pointer: /years/0/statutory/balance_sheet/cash
   /years/0/balance_sheet/sources/net_financial_position/composition/2/amount: '-240000'
   /years/0/balance_sheet/sources/net_financial_position/composition/2/current: '-240000'
   /years/0/balance_sheet/sources/net_financial_position/composition/2/non_current: '0'
   /years/0/balance_sheet/sources/net_financial_position/composition/3/label: Current financial assets
     (C.III)
-  /years/0/balance_sheet/sources/net_financial_position/composition/3/source: /years/0/statutory/balance_sheet/current_financial_assets
+  /years/0/balance_sheet/sources/net_financial_position/composition/3/source_pointer: /years/0/statutory/balance_sheet/current_financial_assets
   /years/0/balance_sheet/sources/net_financial_position/composition/3/amount: '-60000'
   /years/0/balance_sheet/sources/net_financial_position/composition/3/current: '-60000'
   /years/0/balance_sheet/sources/net_financial_position/composition/3/non_current: '0'
   /years/0/balance_sheet/sources/net_financial_position/composition/4/label: Derivative liabilities (B)
-  /years/0/balance_sheet/sources/net_financial_position/composition/4/source: /years/0/statutory/balance_sheet/provisions/of_which_derivative_liabilities
+  /years/0/balance_sheet/sources/net_financial_position/composition/4/source_pointer: /years/0/statutory/balance_sheet/provisions/of_which_derivative_liabilities
   /years/0/balance_sheet/sources/net_financial_position/composition/4/amount: '10000'
   /years/0/balance_sheet/sources/net_financial_position/composition/4/current: '0'
   /years/0/balance_sheet/sources/net_financial_position/composition/4/non_current: '10000'
-  /years/0/checks/intangible_assets_net/status: reconciled
-  /years/0/checks/tangible_assets_net/status: reconciled
-  /years/0/checks/fixed_assets_total/status: reconciled
-  /years/0/checks/current_assets_total/status: reconciled
-  /years/0/checks/equity_total/status: reconciled
-  /years/0/checks/total_assets_total/status: reconciled
-  /years/0/checks/total_liabilities_and_equity_total/status: reconciled
-  /years/0/checks/total_assets_equals_total_liabilities_and_equity/status: reconciled
-  /years/0/checks/receivables_beyond_one_year/status: reconciled
-  /years/0/checks/receivables_of_which/status: reconciled
-  /years/0/checks/payables_beyond_one_year/status: reconciled
-  /years/0/checks/payables_of_which/status: reconciled
-  /years/0/checks/financial_debt_beyond_one_year/status: reconciled
-  /years/0/checks/shareholder_loans_beyond_one_year/status: reconciled
-  /years/0/checks/provisions_beyond_one_year/status: not_checked
-  /years/0/checks/provisions_of_which/status: reconciled
-  /years/0/checks/employee_severance_indemnity_beyond_one_year/status: not_checked
-  /years/0/checks/prepayments_and_accrued_income_beyond_one_year/status: not_checked
-  /years/0/checks/accruals_and_deferred_income_beyond_one_year/status: not_checked
-  /years/0/checks/profit_for_the_year/status: reconciled
-  /years/0/checks/financial_fixed_assets_split/status: not_checked
-  /years/0/checks/shareholder_loans_split/status: not_checked
-  /years/0/checks/funds_invested_equals_sources/status: reconciled
 expect_meta:
-  /defaults_applied/0/field: /years/0/statutory/balance_sheet/intangible_assets
+  /defaults_applied/0/pointer: /years/0/statutory/balance_sheet/intangible_assets
   /defaults_applied/0/value: operating_fixed_assets
-  /defaults_applied/1/field: /years/0/statutory/balance_sheet/tangible_assets
+  /defaults_applied/1/pointer: /years/0/statutory/balance_sheet/tangible_assets
   /defaults_applied/1/value: operating_fixed_assets
-  /defaults_applied/2/field: /years/0/statutory/balance_sheet/receivables
+  /defaults_applied/2/pointer: /years/0/statutory/balance_sheet/receivables
   /defaults_applied/2/value: operating_working_capital
-  /defaults_applied/3/field: /years/0/statutory/balance_sheet/current_financial_assets
+  /defaults_applied/3/pointer: /years/0/statutory/balance_sheet/current_financial_assets
   /defaults_applied/3/value: net_financial_position_other_financial_asset
-  /defaults_applied/4/field: /years/0/statutory/balance_sheet/cash
+  /defaults_applied/4/pointer: /years/0/statutory/balance_sheet/cash
   /defaults_applied/4/value: net_financial_position_cash
-  /defaults_applied/5/field: /years/0/statutory/balance_sheet/prepayments_and_accrued_income
+  /defaults_applied/5/pointer: /years/0/statutory/balance_sheet/prepayments_and_accrued_income
   /defaults_applied/5/value: operating_working_capital
-  /defaults_applied/6/field: /years/0/statutory/balance_sheet/provisions
+  /defaults_applied/6/pointer: /years/0/statutory/balance_sheet/provisions
   /defaults_applied/6/value: operating_provisions
-  /defaults_applied/7/field: /years/0/statutory/balance_sheet/employee_severance_indemnity
+  /defaults_applied/7/pointer: /years/0/statutory/balance_sheet/employee_severance_indemnity
   /defaults_applied/7/value: operating_provisions
-  /defaults_applied/8/field: /years/0/statutory/balance_sheet/payables
+  /defaults_applied/8/pointer: /years/0/statutory/balance_sheet/payables
   /defaults_applied/8/value: operating_working_capital
-  /defaults_applied/9/field: /years/0/statutory/balance_sheet/accruals_and_deferred_income
+  /defaults_applied/9/pointer: /years/0/statutory/balance_sheet/accruals_and_deferred_income
   /defaults_applied/9/value: operating_working_capital
-  /defaults_applied/10/field: /treatments/write_downs_of_receivables
+  /defaults_applied/10/pointer: /treatments/write_downs_of_receivables
   /defaults_applied/10/value: operating
-  /defaults_applied/11/field: /treatments/write_downs_of_fixed_assets
+  /defaults_applied/11/pointer: /treatments/write_downs_of_fixed_assets
   /defaults_applied/11/value: operating
+expect_diagnostics:
+  /checks/12/status: reconciled
+  /checks/27/status: reconciled
+  /checks/10/status: reconciled
+  /checks/2/status: reconciled
+  /checks/6/status: reconciled
+  /checks/29/status: reconciled
+  /checks/30/status: reconciled
+  /checks/28/status: reconciled
+  /checks/21/status: reconciled
+  /checks/22/status: reconciled
+  /checks/13/status: reconciled
+  /checks/14/status: reconciled
+  /checks/7/status: reconciled
+  /checks/23/status: reconciled
+  /checks/19/status: not_checked
+  /checks/20/status: reconciled
+  /checks/5/status: not_checked
+  /checks/15/status: not_checked
+  /checks/0/status: not_checked
+  /checks/17/status: reconciled
+  /checks/8/status: not_checked
+  /checks/24/status: not_checked
+  /checks/11/status: reconciled
+  /checks/12/id: intangible_assets_net
+  /checks/12/pointer: /value/years/0
+  /checks/27/id: tangible_assets_net
+  /checks/27/pointer: /value/years/0
+  /checks/10/id: fixed_assets_total
+  /checks/10/pointer: /value/years/0
+  /checks/2/id: current_assets_total
+  /checks/2/pointer: /value/years/0
+  /checks/6/id: equity_total
+  /checks/6/pointer: /value/years/0
+  /checks/29/id: total_assets_total
+  /checks/29/pointer: /value/years/0
+  /checks/30/id: total_liabilities_and_equity_total
+  /checks/30/pointer: /value/years/0
+  /checks/28/id: total_assets_equals_total_liabilities_and_equity
+  /checks/28/pointer: /value/years/0
+  /checks/21/id: receivables_beyond_one_year
+  /checks/21/pointer: /value/years/0
+  /checks/22/id: receivables_of_which
+  /checks/22/pointer: /value/years/0
+  /checks/13/id: payables_beyond_one_year
+  /checks/13/pointer: /value/years/0
+  /checks/14/id: payables_of_which
+  /checks/14/pointer: /value/years/0
+  /checks/7/id: financial_debt_beyond_one_year
+  /checks/7/pointer: /value/years/0
+  /checks/23/id: shareholder_loans_beyond_one_year
+  /checks/23/pointer: /value/years/0
+  /checks/19/id: provisions_beyond_one_year
+  /checks/19/pointer: /value/years/0
+  /checks/20/id: provisions_of_which
+  /checks/20/pointer: /value/years/0
+  /checks/5/id: employee_severance_indemnity_beyond_one_year
+  /checks/5/pointer: /value/years/0
+  /checks/15/id: prepayments_and_accrued_income_beyond_one_year
+  /checks/15/pointer: /value/years/0
+  /checks/0/id: accruals_and_deferred_income_beyond_one_year
+  /checks/0/pointer: /value/years/0
+  /checks/17/id: profit_for_the_year
+  /checks/17/pointer: /value/years/0
+  /checks/8/id: financial_fixed_assets_split
+  /checks/8/pointer: /value/years/0
+  /checks/24/id: shareholder_loans_split
+  /checks/24/pointer: /value/years/0
+  /checks/11/id: funds_invested_equals_sources
+  /checks/11/pointer: /value/years/0
 tolerance: '0'

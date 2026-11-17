@@ -45,7 +45,7 @@ its approved files and `verify` in the same commit, so every commit passes `just
 - [x] T13 Ratios v3: `RatioValue` with `value` only, `not_computed` into diagnostics, six
   `VERSION` = "3", `uv run just generate` (snapshots `v3.json`, `v3.output.json`, index), golden
   migration of `tests/golden/ratios.*` [R5, R6, R18; AC4, AC5, AC15, AC16]
-- [ ] T14 Statements v2: checks and not computed into diagnostics with `pointer`, pointer fields
+- [x] T14 Statements v2: checks and not computed into diagnostics with `pointer`, pointer fields
   renamed, `VERSION` = "2", `uv run just generate` (snapshots, index), golden migration of
   `tests/golden/statements.reorganise` [R5, R7, R12, R18; AC6, AC15, AC16]
 - [ ] T15 Analyses report nested diagnostics once; goal seek rebases the solved evaluation;

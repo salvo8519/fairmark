@@ -220,7 +220,7 @@ fn default_periods_reason_names_flows_or_lines() {
             .as_array()
             .unwrap()
             .iter()
-            .find(|d| d["field"] == "/stages/0/periods")
+            .find(|d| d["pointer"] == "/stages/0/periods")
             .unwrap()["reason"]
             .as_str()
             .unwrap()

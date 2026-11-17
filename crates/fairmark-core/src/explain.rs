@@ -109,8 +109,9 @@ impl Explain {
 /// `meta.defaults_applied` and reported as a convention starting with "default:".
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 pub struct DefaultApplied {
-    /// JSON pointer of the field filled in, for example `/timing` or `/stages/0/periods`.
-    pub field: String,
+    /// JSON pointer of the field filled in, for example `/timing` or `/stages/0/periods`, or of
+    /// the item given whose default destination applies, from the root of the input sent.
+    pub pointer: String,
     /// The value filled in, as it would be written in the input.
     pub value: serde_json::Value,
     /// Why this value: one line, citing the practice or the rule it follows.
@@ -133,9 +134,9 @@ enum DefaultKind {
 }
 
 impl DefaultApplied {
-    pub fn new(field: impl Into<String>, value: serde_json::Value, reason: &str) -> Self {
+    pub fn new(pointer: impl Into<String>, value: serde_json::Value, reason: &str) -> Self {
         Self {
-            field: field.into(),
+            pointer: pointer.into(),
             value,
             reason: reason.to_owned(),
             kind: DefaultKind::Field,
@@ -150,9 +151,9 @@ impl DefaultApplied {
 
     /// The default destination of an input item that was given, named by its pointer
     /// (SPEC-0005 R8, as clarified on 2026-11-08): `value` is the destination.
-    pub fn destination(field: impl Into<String>, destination: &str, reason: &str) -> Self {
+    pub fn destination(pointer: impl Into<String>, destination: &str, reason: &str) -> Self {
         Self {
-            field: field.into(),
+            pointer: pointer.into(),
             value: serde_json::Value::String(destination.to_owned()),
             reason: reason.to_owned(),
             kind: DefaultKind::Destination,
@@ -164,11 +165,11 @@ impl DefaultApplied {
         match self.kind {
             DefaultKind::Field => format!(
                 "default: `{}` not given, set to {}: {}",
-                self.field, self.value, self.reason
+                self.pointer, self.value, self.reason
             ),
             DefaultKind::Destination => format!(
                 "default: `{}` assigned to {}: {}",
-                self.field, self.value, self.reason
+                self.pointer, self.value, self.reason
             ),
         }
     }

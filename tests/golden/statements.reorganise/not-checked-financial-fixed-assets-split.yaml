@@ -78,6 +78,9 @@ input:
     shareholder_loans: financial_debt
     derivative_liabilities: financial_liability
 expect:
-  /years/0/checks/financial_fixed_assets_split/status: not_checked
   /years/0/form: statutory
+expect_diagnostics:
+  /checks/8/status: not_checked
+  /checks/8/id: financial_fixed_assets_split
+  /checks/8/pointer: /value/years/0
 tolerance: '0'

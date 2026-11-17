@@ -806,7 +806,7 @@ mod tests {
             });
             let out = run("dcf.fcff", &v.to_string()).unwrap();
             assert_eq!(
-                out["meta"]["defaults_applied"][0]["field"],
+                out["meta"]["defaults_applied"][0]["pointer"],
                 format!("/{field}"),
                 "{field}"
             );
@@ -953,7 +953,7 @@ mod tests {
         assert_eq!(
             defaults.as_slice(),
             [json!({
-                "field": "/net_financial_position",
+                "pointer": "/net_financial_position",
                 "value": "0",
                 "reason": "net financial position not given"
             })]

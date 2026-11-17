@@ -17,7 +17,7 @@ def test_minimal_call_works_and_reports_its_defaults() -> None:
     r = fm.dcf.fcff(flows=FLOWS, wacc="0.09")
     # tests/golden/dcf.fcff/flows-only-single-wacc.yaml (50-digit reference).
     assert r.value_of_operations == D("563.38243366056148746628356553")
-    fields = [d["field"] for d in r.meta["defaults_applied"]]
+    fields = [d["pointer"] for d in r.meta["defaults_applied"]]
     assert fields == [
         "/stages/0/projection",
         "/stages/0/periods",
@@ -50,7 +50,7 @@ def test_explicit_choices_prevail_and_hash_like_the_minimal_call() -> None:
         wacc="0.09",
     )
     # Only the net financial position, not given in either call, keeps its default.
-    assert [d["field"] for d in explicit.meta["defaults_applied"]] == ["/net_financial_position"]
+    assert [d["pointer"] for d in explicit.meta["defaults_applied"]] == ["/net_financial_position"]
     assert explicit.meta["input_hash"] == minimal.meta["input_hash"]
     assert explicit.value == minimal.value
 
@@ -58,7 +58,9 @@ def test_explicit_choices_prevail_and_hash_like_the_minimal_call() -> None:
 def test_net_financial_position_given_as_zero_is_a_true_zero() -> None:
     zero = {"gross_debt": "0", "cash": "0"}
     r = fm.dcf.fcff(flows=FLOWS, wacc="0.09", net_financial_position=zero)
-    assert "/net_financial_position" not in [d["field"] for d in r.meta.get("defaults_applied", [])]
+    assert "/net_financial_position" not in [
+        d["pointer"] for d in r.meta.get("defaults_applied", [])
+    ]
     assert not any("net financial position given" in c for c in r.conventions)
     assert r.equity_value == r.enterprise_value
 
@@ -72,7 +74,7 @@ def test_fcfe_minimal_call_and_given_terminal_value() -> None:
     # tests/golden/dcf.fcfe/terminal-given-equity-basis.yaml (50-digit reference).
     assert r.terminal["technique"] == "given"
     assert r.terminal["terminal_value"] == D("1500")
-    assert "/terminal" not in [d["field"] for d in r.meta["defaults_applied"]]
+    assert "/terminal" not in [d["pointer"] for d in r.meta["defaults_applied"]]
 
 
 def test_stages_and_flows_together_are_refused() -> None:

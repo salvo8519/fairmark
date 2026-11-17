@@ -796,14 +796,14 @@ pub(crate) fn other_items_defaults<'a>(
 /// The warning of every `other_items` default applied (G3, test 4: it determines the net
 /// financial position).
 pub(crate) fn warn_defaults(ex: &mut Explain, defaults: &[DefaultApplied], suffix: &str) {
-    for d in defaults.iter().filter(|d| d.field.ends_with(suffix)) {
+    for d in defaults.iter().filter(|d| d.pointer.ends_with(suffix)) {
         ex.warn(
             WarningCode::NoOtherItemsOfNetFinancialPosition,
-            Some(d.field.clone()),
+            Some(d.pointer.clone()),
             format!(
                 "no other items of the net financial position given (`{}`): the net financial \
                  position is gross debt less cash; list the other items, or give `[]` for none",
-                d.field
+                d.pointer
             ),
         );
     }

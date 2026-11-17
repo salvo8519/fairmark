@@ -608,7 +608,7 @@ mod tests {
             });
             let out = run("dcf.fcfe", &v.to_string()).unwrap();
             assert_eq!(
-                out["meta"]["defaults_applied"][0]["field"],
+                out["meta"]["defaults_applied"][0]["pointer"],
                 format!("/{field}"),
                 "{field}"
             );

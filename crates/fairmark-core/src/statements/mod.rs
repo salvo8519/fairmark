@@ -1,11 +1,11 @@
 //! Financial statements reorganised into an operating and financing view (SPEC-0005).
 //!
-//! One method, `statements.reorganise` version 1, preview (ADR 0012). It takes one or more
+//! One method, `statements.reorganise` version 2, preview (ADR 0012). It takes one or more
 //! financial years, each in the `statutory` form (aggregates of art. 2424 and 2425) or in the
 //! `reclassified` form (totals already reorganised), any subset of the totals, and returns per
-//! year what they allow: best effort, with every missing output listed in `not_computed` with
-//! the pointers of the missing inputs (R6), and every relation checked exactly when both sides
-//! are given (R7).
+//! year what they allow: best effort, with every missing output listed in
+//! `diagnostics.not_computed` with the pointers of the missing inputs (R6), and every relation
+//! checked exactly when both sides are given, listed in `diagnostics.checks` (R7; SPEC-0012).
 //!
 //! This build implements the balance sheet and the income statement (first and second pull
 //! requests of the plan): the reorganised balance sheet in both forms, the net financial
@@ -163,7 +163,8 @@ impl Origin {
 pub struct Assignment {
     /// Statutory reference, for example "B.III" or "liabilities D, remainder".
     pub reference: &'static str,
-    /// JSON pointer of the input aggregate.
+    /// JSON pointer of the input aggregate, from the root of the input sent.
+    #[serde(rename = "aggregate_pointer")]
     pub aggregate: String,
     /// Amount assigned, in currency units.
     pub amount: Decimal,
@@ -186,7 +187,8 @@ pub struct AppliedAdjustment {
     pub amount: Decimal,
     /// The adjustment's reason, as given.
     pub reason: String,
-    /// JSON pointer of the source aggregate.
+    /// JSON pointer of the source aggregate, from the root of the input sent.
+    #[serde(rename = "source_pointer")]
     pub source: String,
     /// Where the amount goes.
     pub target: Destination,
@@ -219,7 +221,9 @@ pub struct OperatingBlock {
 pub struct NfpComponent {
     /// What the component is, for example "Cash (C.IV)".
     pub label: String,
-    /// JSON pointer of the input it comes from (an aggregate or an adjustment).
+    /// JSON pointer of the input it comes from (an aggregate or an adjustment), from the root of
+    /// the input sent.
+    #[serde(rename = "source_pointer")]
     pub source: String,
     /// Amount added to the net financial position, in currency units, signed (negative for an
     /// asset).
@@ -311,8 +315,9 @@ pub struct CurrentNonCurrent {
 
 pub use crate::not_computed::{NotComputedEntry, Permitted};
 
-/// The outputs not computed, one list per block, sorted by output pointer.
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+/// The outputs not computed of one year, one list per block, sorted by output pointer; they
+/// become entries of `diagnostics.not_computed` (SPEC-0012 R5).
+#[derive(Debug, Clone)]
 pub struct NotComputed {
     /// Outputs of the balance sheet block.
     pub balance_sheet: Vec<NotComputedEntry>,
@@ -332,6 +337,7 @@ pub struct ReconciliationLine {
     /// B10 c is derived from them), or the amount of an adjustment for the year
     /// (`/adjustments/<k>/amounts/<i>`, its `payments` or `depreciation` for a lease,
     /// `/adjustments/<k>/interest_cost/<i>` for an interest cost).
+    #[serde(rename = "source_pointers")]
     pub sources: Vec<String>,
     /// Amount added to A − B, in currency units, signed.
     pub amount: Decimal,
@@ -443,13 +449,10 @@ pub struct YearOutput {
     pub assignments: Vec<Assignment>,
     /// Every adjustment applied to the year (R11).
     pub adjustments_applied: Vec<AppliedAdjustment>,
-    /// Every relation of R7 and R12, by id.
-    pub checks: BTreeMap<&'static str, Check>,
-    /// The outputs not computed, with the inputs they lack (R6).
-    pub not_computed: NotComputed,
 }
 
-/// Output of `statements.reorganise` (version 1).
+/// Output of `statements.reorganise` (version 2). The relations of R7 and R12 of every year are
+/// in `diagnostics.checks`, the outputs not computed in `diagnostics.not_computed` (SPEC-0012).
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct ReorganiseOutput {
     /// One entry per input year, in the same order.
@@ -498,7 +501,7 @@ fn taken_by_default(defaults: &[DefaultApplied]) -> Vec<String> {
     defaults
         .iter()
         .filter(|d| d.is_field())
-        .map(|d| d.field.clone())
+        .map(|d| d.pointer.clone())
         .collect()
 }
 
@@ -524,11 +527,11 @@ fn compute(input: &ReorganiseInput, stated: Stated) -> Result<(ReorganiseOutput,
     let statutory = input.years.iter().any(|y| y.statutory.is_some());
     ex.convention(
         "missing inputs are never taken as zero: an output whose inputs are missing is null and \
-         listed in `not_computed` with the pointers of the missing inputs (R6)",
+         listed in `diagnostics.not_computed` with the pointers of the missing inputs (R6)",
     );
     ex.convention(
-        "checks are exact, with no tolerance; a relation with a side missing is reported as \
-         `not_checked` (R7, Decision 2)",
+        "checks are exact, with no tolerance, listed in `diagnostics.checks`; a relation with a \
+         side missing is reported as `not_checked` (R7, Decision 2)",
     );
     if statutory {
         ex.convention(
@@ -593,7 +596,7 @@ fn compute(input: &ReorganiseInput, stated: Stated) -> Result<(ReorganiseOutput,
             Some(Form::Reclassified) => format!("year {name}: reclassified form"),
             None => format!(
                 "year {name}: no form given: nothing is computed; every output is listed in \
-                 `not_computed`"
+                 `diagnostics.not_computed`"
             ),
         });
         if y.date.is_none() {
@@ -632,6 +635,31 @@ fn compute(input: &ReorganiseInput, stated: Stated) -> Result<(ReorganiseOutput,
         body.adjustments_applied.sort_by_key(|a| a.index);
         body.checks.extend(income.checks);
         body.not_computed.income_statement = income.not_computed;
+        // SPEC-0012 R5, R7: the checks of the year, by relation id, located at the year's block;
+        // its outputs not computed, by pointer when the envelope is built.
+        let at = format!("/value/years/{i}");
+        ex.checks(
+            body.checks
+                .into_iter()
+                .map(|(id, c)| crate::diagnostics::Check {
+                    id: id.to_owned(),
+                    status: c.status,
+                    pointer: at.clone(),
+                    pointers: c.pointers,
+                }),
+        );
+        let NotComputed {
+            balance_sheet,
+            income_statement,
+            current_non_current,
+        } = body.not_computed;
+        ex.not_computed(
+            balance_sheet
+                .into_iter()
+                .chain(income_statement)
+                .chain(current_non_current)
+                .map(NotComputedEntry::into_diagnostic),
+        );
         years.push(YearOutput {
             label: y.label.clone(),
             date: y.date,
@@ -642,8 +670,6 @@ fn compute(input: &ReorganiseInput, stated: Stated) -> Result<(ReorganiseOutput,
             current_non_current: body.current_non_current,
             assignments: body.assignments,
             adjustments_applied: body.adjustments_applied,
-            checks: body.checks,
-            not_computed: body.not_computed,
         });
     }
     for text in later {
@@ -713,8 +739,9 @@ impl Method for Reorganise {
         taxes (subtotals aligned with IFRS 18), non-recurring and financing results, profit \
         before tax and net income, with its reconciliations with A − B; best effort: each \
         output is computed when its inputs are given, otherwise null and listed in \
-        `not_computed` with the missing input pointers; totals are checked exactly (FM-E026).";
-    const VERSION: &'static str = "1";
+        `diagnostics.not_computed` with the missing input pointers; totals are checked exactly \
+        (FM-E026), every relation listed in `diagnostics.checks`.";
+    const VERSION: &'static str = "2";
 
     type Input = ReorganiseInput;
     type Output = ReorganiseOutput;
@@ -739,7 +766,7 @@ impl Method for Reorganise {
         input: &ReorganiseInput,
         defaults: &[DefaultApplied],
     ) -> Result<(ReorganiseOutput, Explain)> {
-        let filled = |field: &str| defaults.iter().any(|d| d.field == field);
+        let filled = |field: &str| defaults.iter().any(|d| d.pointer == field);
         compute(
             input,
             Stated {

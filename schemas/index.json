@@ -401,7 +401,7 @@
       }
     },
     "statements.reorganise": {
-      "current": "1",
+      "current": "2",
       "versions": {
         "1": {
           "file": "statements.reorganise/v1.json",
@@ -409,6 +409,13 @@
           "output_file": "statements.reorganise/v1.output.json",
           "output_sha256": "264b34bc6cbe44358f17b52425634317abc01c9222a3ea5a77043fcec4ee85ac",
           "sha256": "32b1556dd4fc1f500ef72893282b39bc20a39eb544899b0ea0dac8be4f629776"
+        },
+        "2": {
+          "file": "statements.reorganise/v2.json",
+          "introduced_in": "unreleased",
+          "output_file": "statements.reorganise/v2.output.json",
+          "output_sha256": "54c1e445b80e70c6e89f3ce96cf884785c6eb6b2b7101d144b63ed330c8f1b5f",
+          "sha256": "2185fba08e10fa96f8499127710f78124ea614045da9ea09d8af657136a91825"
         }
       }
     },

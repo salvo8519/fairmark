@@ -11,6 +11,61 @@ use serde_json::{json, Value};
 
 const METHOD: &str = "statements.reorganise";
 
+/// The checks of year `i`, by relation id (`{id: {status, pointers}}`): the entries of
+/// `diagnostics.checks` located at `/value/years/<i>` (SPEC-0012 R7).
+fn year_checks(out: &Value, i: usize) -> Value {
+    let at = format!("/value/years/{i}");
+    Value::Object(
+        out["diagnostics"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|c| c["pointer"] == at.as_str())
+            .map(|c| {
+                (
+                    c["id"].as_str().unwrap().to_owned(),
+                    serde_json::json!({"status": c["status"], "pointers": c["pointers"]}),
+                )
+            })
+            .collect(),
+    )
+}
+
+/// The outputs not computed of year `i`, grouped by block (`balance_sheet`,
+/// `income_statement`, `current_non_current`): each entry of `diagnostics.not_computed` under
+/// `/value/years/<i>/<block>` (SPEC-0012 R5), with `output` its pointer into `value`, `missing`
+/// its one set of missing inputs (empty when not applicable) and its `reason_code` and
+/// `permitted` as written.
+fn year_not_computed(out: &Value, i: usize) -> Value {
+    let mut blocks = serde_json::json!({
+        "balance_sheet": [], "income_statement": [], "current_non_current": []
+    });
+    for e in out["diagnostics"]["not_computed"].as_array().unwrap() {
+        let output = e["pointer"]
+            .as_str()
+            .unwrap()
+            .strip_prefix("/value")
+            .unwrap();
+        let prefix = format!("/years/{i}/");
+        let Some(rest) = output.strip_prefix(&prefix) else {
+            continue;
+        };
+        let block = rest.split('/').next().unwrap();
+        let missing = e["missing_any_of"]
+            .get(0)
+            .cloned()
+            .unwrap_or(serde_json::json!([]));
+        blocks[block]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "output": output, "missing": missing, "reason_code": e["reason_code"],
+                "permitted": e["permitted"]
+            }));
+    }
+    blocks
+}
+
 fn golden_input(name: &str) -> Value {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/golden/statements.reorganise")
@@ -46,7 +101,12 @@ fn stated_treatments_are_assignments_of_analyst_origin() {
     let origin = |pointer_end: &str| {
         let a = assignments
             .iter()
-            .find(|a| a["aggregate"].as_str().unwrap().ends_with(pointer_end))
+            .find(|a| {
+                a["aggregate_pointer"]
+                    .as_str()
+                    .unwrap()
+                    .ends_with(pointer_end)
+            })
             .unwrap_or_else(|| panic!("no assignment of {pointer_end}"));
         a["origin"].as_str().unwrap().to_owned()
     };
@@ -82,7 +142,7 @@ fn split_beyond_one_year_equal_to_the_loans_is_not_refused() {
         json!("50000");
     let out = ok(&input);
     assert_eq!(
-        out["value"]["years"][0]["checks"]["shareholder_loans_split_beyond_one_year"]["status"],
+        year_checks(&out, 0)["shareholder_loans_split_beyond_one_year"]["status"],
         "not_checked"
     );
     input["years"][0]["treatment_overrides"]["shareholder_loans"]["split"][0]["beyond_one_year"] =
@@ -104,7 +164,7 @@ fn lease_prepayment_leaves_the_separate_line() {
         .find(|a| a["line"] == "prepayment")
         .expect("the prepayment line");
     assert_eq!(
-        prepayment["source"],
+        prepayment["source_pointer"],
         "/years/0/statutory/balance_sheet/prepayments_and_accrued_income"
     );
     assert!(
@@ -136,7 +196,7 @@ fn lease_prepayment_without_a_source_is_noted_and_not_computed() {
         "{:?}",
         conventions(&out)
     );
-    let not_computed = &out["value"]["years"][0]["not_computed"];
+    let not_computed = &year_not_computed(&out, 0);
     let outputs = |block: &str| -> Vec<String> {
         not_computed[block]
             .as_array()

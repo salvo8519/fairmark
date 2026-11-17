@@ -196,7 +196,7 @@ macro_rules! registry {
                 return match serde_json::from_str::<<$m as Method>::Input>(input_json) {
                     Ok(mut input) => <$m as Method>::apply_defaults(&mut input)
                         .into_iter()
-                        .map(|d| d.field)
+                        .map(|d| d.pointer)
                         .collect(),
                     Err(_) => Vec::new(),
                 };
@@ -1812,7 +1812,6 @@ mod tests {
     /// warning in the result when it starts with `/value`, otherwise in the input sent (with
     /// its defaults); the input pointers of a reconciled check in the input sent.
     #[test]
-    #[ignore = "SPEC-0012: enabled by T14, when every diagnostics array is written"]
     fn every_diagnostics_pointer_resolves() {
         let mut failures = Vec::new();
         let mut seen = 0u32;

@@ -69,6 +69,9 @@ input:
     shareholder_loans: financial_debt
     derivative_liabilities: financial_liability
 expect:
-  /years/0/checks/tangible_assets_net/status: not_checked
   /years/0/form: statutory
+expect_diagnostics:
+  /checks/27/status: not_checked
+  /checks/27/id: tangible_assets_net
+  /checks/27/pointer: /value/years/0
 tolerance: '0'

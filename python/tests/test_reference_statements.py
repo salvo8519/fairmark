@@ -4,8 +4,8 @@ Seeded random statements, deterministic and dependency-free, in the statutory fo
 treatments, overrides and adjustments of every kind, the lease double entry included, and random
 gaps in the inputs) and in the reclassified form: every balance sheet and income statement
 output, every reconciliation, every current and non-current amount, every check status, every
-`not_computed` entry and every default must equal the reference. The golden cases pin selected
-companies; this test covers the space between them.
+output not computed (from `diagnostics`, SPEC-0012) and every default must equal the reference.
+The golden cases pin selected companies; this test covers the space between them.
 """
 
 from __future__ import annotations
@@ -430,21 +430,65 @@ def call() -> dict[str, Any]:
     return {"years": years, "treatments": treatments, "adjustments": adjustments(n, years)}
 
 
-def engine_view(value: dict[str, Any], meta: dict[str, Any]) -> dict[str, Any]:
+# SPEC-0012 renamed the pointer fields of the output (R12); the reference writes the names of
+# version 1, the same values.
+V1_NAMES = {"source_pointer": "source", "source_pointers": "sources"}
+
+
+def v1_names(node: Any) -> Any:
+    if isinstance(node, dict):
+        return {V1_NAMES.get(k, k): v1_names(v) for k, v in node.items()}
+    if isinstance(node, list):
+        return [v1_names(v) for v in node]
+    return node
+
+
+def year_diagnostics(raw: dict[str, Any], i: int) -> tuple[dict[str, str], dict[str, Any]]:
+    """The checks and the outputs not computed of year `i`, from `diagnostics` (SPEC-0012 R5,
+    R7), in the shape the reference writes: checks by id, outputs not computed by block, each
+    `{output, missing}` with `permitted` `[{treatment, destinations}]` for a missing treatment,
+    sorted by output."""
+    at = f"/value/years/{i}"
+    checks = {c["id"]: c["status"] for c in raw["diagnostics"]["checks"] if c["pointer"] == at}
+    blocks: dict[str, list[dict[str, Any]]] = {
+        "balance_sheet": [],
+        "income_statement": [],
+        "current_non_current": [],
+    }
+    for e in raw["diagnostics"]["not_computed"]:
+        output = e["pointer"].removeprefix("/value")
+        if not output.startswith(f"/years/{i}/"):
+            continue
+        entry: dict[str, Any] = {
+            "output": output,
+            "missing": e["missing_any_of"][0] if e["missing_any_of"] else [],
+        }
+        if e["permitted"]:
+            entry["permitted"] = [
+                {"treatment": p["pointer"], "destinations": p["values"]} for p in e["permitted"]
+            ]
+        blocks[output.split("/")[3]].append(entry)
+    for block in blocks.values():
+        block.sort(key=lambda e: e["output"])
+    return checks, blocks
+
+
+def engine_view(raw: dict[str, Any]) -> dict[str, Any]:
     """The engine result reduced to what the reference computes."""
     years = []
-    for y in value["years"]:
+    for i, y in enumerate(raw["value"]["years"]):
+        checks, not_computed = year_diagnostics(raw, i)
         years.append(
             {
                 "form": y["form"],
-                "balance_sheet": y["balance_sheet"],
-                "income_statement": y["income_statement"],
+                "balance_sheet": v1_names(y["balance_sheet"]),
+                "income_statement": v1_names(y["income_statement"]),
                 "current_non_current": y["current_non_current"],
-                "checks": {k: c["status"] for k, c in y["checks"].items()},
-                "not_computed": y["not_computed"],
+                "checks": checks,
+                "not_computed": not_computed,
             }
         )
-    defaults = [(d["field"], d["value"]) for d in meta.get("defaults_applied", [])]
+    defaults = [(d["pointer"], d["value"]) for d in raw["meta"]["defaults_applied"]]
     return {"years": years, "defaults_applied": defaults}
 
 
@@ -476,8 +520,7 @@ def test_statements_match_the_reference(seed: int) -> None:
             fm.run("statements.reorganise", inp)
         assert err.value.code == e.code, (e.detail, err.value)
         return
-    result = fm.run("statements.reorganise", inp)
-    got = engine_view(result.value, result.meta)
+    got = engine_view(fm.run_json("statements.reorganise", inp))
     assert normalise(got) == normalise(expected)
 
 

@@ -159,7 +159,6 @@ const REACHED_BY_C15: [&str; 8] = [
 /// supply is not applicable, every relation of every year is a check located at its year, and
 /// the year holds neither list.
 #[test]
-#[ignore = "SPEC-0012: enabled by T14, statements v2"]
 fn statements_report_choices_checks_and_outputs_not_applicable() {
     let out = run_golden("statements.reorganise/operating-investments-missing-treatment.yaml");
     for pointer in REACHED_BY_C15 {
@@ -201,7 +200,6 @@ fn statements_report_choices_checks_and_outputs_not_applicable() {
 
 /// R7: the checks of every year, ordered by year, then by relation id.
 #[test]
-#[ignore = "SPEC-0012: enabled by T14, statements v2"]
 fn checks_are_ordered_by_year_then_id() {
     let out = run_golden("statements.reorganise/treatment-once-three-years.yaml");
     let checks: Vec<(String, String)> = out["diagnostics"]["checks"]
@@ -227,7 +225,6 @@ fn checks_are_ordered_by_year_then_id() {
 
 /// The renamed pointer fields of `statements.reorganise` v2 (R12).
 #[test]
-#[ignore = "SPEC-0012: enabled by T14, statements v2"]
 fn statements_pointer_fields_follow_g4() {
     let out = run_golden("statements.reorganise/adjustment-lease.yaml");
     let year = &out["value"]["years"][0];
@@ -258,7 +255,6 @@ fn dcf_without_nfp() -> Value {
 /// AC8 (R8, R10): the default zero of the net financial position is listed with its pointer
 /// and warned; a net financial position given as zero is neither.
 #[test]
-#[ignore = "SPEC-0012: enabled by T14, which renames the key field of the defaults"]
 fn the_default_net_financial_position_is_listed_and_warned() {
     let out = run("dcf.fcff", &dcf_without_nfp());
     let defaults = out["meta"]["defaults_applied"].as_array().unwrap();
@@ -291,7 +287,6 @@ fn the_default_net_financial_position_is_listed_and_warned() {
 /// AC9 (R10): no default of any golden result has the key `field`; each is `{pointer, value,
 /// reason}`.
 #[test]
-#[ignore = "SPEC-0012: enabled by T14, which renames the key with the statements migration"]
 fn defaults_name_their_field_pointer() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
     let mut seen = 0u32;

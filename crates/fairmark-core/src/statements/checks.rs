@@ -5,25 +5,17 @@
 use std::collections::BTreeMap;
 
 use rust_decimal::Decimal;
-use schemars::JsonSchema;
-use serde::Serialize;
 
 use super::input::{StatutoryBalanceSheet, StatutoryIncomeStatement};
 use crate::error::{FairmarkError, Reconciliation, Result};
 use crate::num;
 
-/// Outcome of one relation. A relation whose sides differ is not an outcome: it is `FM-E026`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum CheckStatus {
-    /// Both sides given and equal.
-    Reconciled,
-    /// A side is missing: the relation could not be checked.
-    NotChecked,
-}
+/// Outcome of one relation (SPEC-0012: shared with every method through the diagnostics). A
+/// relation whose sides differ is not an outcome: it is `FM-E026`.
+pub use crate::diagnostics::CheckStatus;
 
-/// One relation of R7 or R12 in the result.
-#[derive(Debug, Clone, Serialize, JsonSchema)]
+/// One relation of R7 or R12 of a year, before it becomes an entry of `diagnostics.checks`.
+#[derive(Debug, Clone)]
 pub struct Check {
     /// `reconciled` or `not_checked`.
     pub status: CheckStatus,

@@ -35,7 +35,7 @@ fn defaulted_fields(out: &Value) -> Vec<String> {
         .as_array()
         .map(|a| {
             a.iter()
-                .map(|d| d["field"].as_str().unwrap().to_owned())
+                .map(|d| d["pointer"].as_str().unwrap().to_owned())
                 .collect()
         })
         .unwrap_or_default()
@@ -73,7 +73,7 @@ fn minimal_input_reports_every_default() {
     let c = conventions(&out);
     for (i, d) in defaults.iter().enumerate() {
         assert!(c[i].starts_with("default: "), "{}", c[i]);
-        assert!(c[i].contains(d["field"].as_str().unwrap()), "{}", c[i]);
+        assert!(c[i].contains(d["pointer"].as_str().unwrap()), "{}", c[i]);
     }
     assert!(!c[defaults.len()].starts_with("default: "));
     // Texts are single-spaced (a broken string continuation shows as a run of spaces).
