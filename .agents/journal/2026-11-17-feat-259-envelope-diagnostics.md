@@ -10,6 +10,7 @@
 - T7 not computed, checks, defaults and decision 14 tests, `tests/diagnostics.rs`, ignored until T12 to T14.
 - T8 pointer naming walk (AC10, any field whose description says "JSON pointer" or "RFC 6901"), pointer resolution and determinism tests in `registry.rs`, ignored until T11, T14, T15.
 - T9 catalogue test `tests/warning_catalogue.rs` (text check: `Variant = "FM-Wnnn"` declared in `src/diagnostics.rs`, emitted as `WarningCode::Variant`, documented in `docs/en/reference/warnings.md`); main test ignored until T20, planted test active.
+- T10 analysis diagnostics tests `tests/analysis_diagnostics.rs` (v2 field names), ignored until T15.
 
 ## State at the end of the session
 - In progress: tasks T5 to T23 of `specs/0012-envelope-diagnostics/tasks.md`, one commit each.
@@ -27,4 +28,4 @@
 - none
 
 ## Next steps
-1. T10: analysis diagnostics tests (AC12).
+1. T11: `diagnostics.rs`, Explain without method, Meta with envelope_version, Valuation with diagnostics, FM-W001.

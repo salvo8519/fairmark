@@ -29,7 +29,7 @@ migrate the golden keys of their own changes, and T16 adds new cases.
   AC10, AC11]
 - [x] T9 [P] Catalogue test: every emitted code documented, every documented code emitted, no
   `warning` literal outside the warning API [R16; AC14]
-- [ ] T10 [P] Analysis diagnostics tests (sensitivity once under `/base_input`, goal seek under
+- [x] T10 [P] Analysis diagnostics tests (sensitivity once under `/base_input`, goal seek under
   `/value/inner_value`) [R14; AC12]
 
 ## Implementation
