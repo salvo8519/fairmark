@@ -79,7 +79,8 @@ position is computed only when all of them are given.
 
 `other_items` absent, with `gross_debt` and `cash` given, is a documented default: no other
 items. It is listed in `meta.defaults_applied` (`/closing/net_financial_position/other_items`,
-value `[]`) with a convention starting with "warning:"; `"other_items": []` states none
+value `[]`) with warning `FM-W013` in `diagnostics.warnings` at that pointer;
+`"other_items": []` states none
 explicitly, with no default entry and no warning, and the same `meta.input_hash`.
 
 ## Outputs

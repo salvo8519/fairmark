@@ -1,6 +1,6 @@
 ---
 source: methods/statements-reorganise.md
-source_hash: daf352c7042b
+source_hash: 7b1a3f2a99c2
 ---
 # Bilancio riclassificato (`statements.reorganise`)
 
@@ -563,8 +563,9 @@ quest'ordine:
    `operating` se non fornite, ciascuna elencata ogni volta che un esercizio civilistico fornisce
    il conto economico, perché decidono che cosa è calcolato (decisione A4 del 2026-11-09, che
    modifica F1); quando una di queste classificazioni predefinite colloca una B10 c o una B10 d
-   diversa da zero, una convenzione che inizia con "warning: " indica il valore predefinito e il
-   subtotale che sposta (ADR 0014, test 4 di ammissione dei valori predefiniti);
+   diversa da zero, l'avvertenza `FM-W015` in `diagnostics.warnings`, al pointer della
+   classificazione, indica il valore predefinito e il subtotale che sposta (ADR 0014, test 4 di
+   ammissione dei valori predefiniti);
 3. ogni voce considerata pari a zero perché non fornita ([Calcolo sui dati
    disponibili](#calcolo-sui-dati-disponibili)): `value` è `"0"` e la convenzione riporta "not
    given, set to".

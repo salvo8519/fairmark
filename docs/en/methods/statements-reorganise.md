@@ -535,8 +535,9 @@ order:
 2. `treatments.write_downs_of_receivables` and `treatments.write_downs_of_fixed_assets`,
    `operating` when not given, each listed whenever a statutory year gives an income statement,
    because they decide what is computed (decision A4 of 2026-11-09, amending F1); when such a
-   default places a B10 c or B10 d that is not zero, a convention beginning with "warning: "
-   names the default and the subtotal it moves (ADR 0014, default admission test 4);
+   default places a B10 c or B10 d that is not zero, warning `FM-W015` in
+   `diagnostics.warnings`, at the treatment's pointer, names the default and the subtotal it
+   moves (ADR 0014, default admission test 4);
 3. each item taken as zero because it is not given ([Best effort](#best-effort)): `value` is
    `"0"` and the convention reads "not given, set to".
 

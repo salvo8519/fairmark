@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-capital-structure.md
-source_hash: 41e14d871c18
+source_hash: 18bb8a8e90d7
 ---
 # Indici di struttura finanziaria (`ratios.capital_structure`)
 
@@ -85,8 +85,8 @@ facoltativi; la posizione finanziaria netta è calcolata solo quando sono tutti 
 
 `other_items` assente, con `gross_debt` e `cash` forniti, è un default documentato: nessuna
 altra voce. È elencato in `meta.defaults_applied` (`/closing/net_financial_position/other_items`,
-valore `[]`) con una convenzione che inizia con "warning:"; `"other_items": []` indica nessuna
-voce in modo esplicito, senza voce di default né avvertimento, e con lo stesso
+valore `[]`) con l'avvertenza `FM-W013` in `diagnostics.warnings` a quel pointer;
+`"other_items": []` indica nessuna voce in modo esplicito, senza voce di default né avvertenza, e con lo stesso
 `meta.input_hash`.
 
 ## Output

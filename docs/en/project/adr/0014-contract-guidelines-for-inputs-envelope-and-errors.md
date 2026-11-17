@@ -141,7 +141,7 @@ Every method returns:
   into the input starts at the input root. Every field that holds pointers is named
   `pointer` or `pointers`, or ends in `_pointer` (one pointer) or `_pointers` (a list),
   except `missing_any_of`, which is defined here (`_pointer` admitted by the maintainer
-  decision of 2026-11-16 below).
+  decision of 2026-11-16 above).
 - `explain.conventions` stays human text and may echo defaults and warnings; agents read
   `diagnostics` and `meta`.
 - `meta.envelope_version` is an integer, 1 for the envelope defined here. A change to `meta`,
@@ -247,6 +247,8 @@ read, half away from zero at the first digit that does not fit (the rule of the 
 for every method and adapter, and reported as a warning naming the field, the value given and
 the value used (maintainer decision of 2026-11-10, #279). Until the envelope gains
 `diagnostics.warnings` (#259), the warning is a `warning: ` convention, as every other warning.
+Note of 2026-11-17: #259 (SPEC-0012) delivered `diagnostics.warnings`; the rounding is warning
+`FM-W001`, echoed in the conventions as `warning FM-W001: ...` (see the warning codes).
 A value too large for a decimal is refused. A number the engine outputs always fits, so a
 result fed back as an input is read unchanged.
 

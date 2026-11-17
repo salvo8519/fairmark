@@ -1,6 +1,6 @@
 ---
 source: concepts/determinism.md
-source_hash: 71ae46acb5fb
+source_hash: d2a7393572ee
 ---
 # Il contratto di determinismo
 
@@ -17,7 +17,8 @@ metodo. Questo documento è il contratto; la CI lo verifica a ogni commit.
    decimali come stringhe, così nessun consumatore (JavaScript, fogli di calcolo) perde
    precisione senza accorgersene. Un valore con più cifre di quante un decimale ne contenga
    (più di 28 cifre decimali) è arrotondato alla lettura (le metà si arrotondano allontanandosi dallo zero), e il risultato
-   lo dichiara in una convenzione `warning: ` con il valore dato e il valore usato (vedi il
+   lo dichiara con l'avvertenza `FM-W001` in `diagnostics.warnings`, al pointer del campo, con il
+   valore dato e il valore usato (vedi i [codici delle avvertenze](../reference/warnings.md) e il
    riferimento degli errori, grammatica dei numeri).
 3. **Le potenze intere sono esatte.** I fattori di sconto con esponente intero usano la
    moltiplicazione ripetuta. Gli esponenti frazionari (convenzione di metà periodo) usano
