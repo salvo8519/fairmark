@@ -308,6 +308,7 @@ milestones:
           - { issue: 352, title: "One catalogue of error and warning codes, documentation and schema enums generated from it", status: open }
           - { issue: 353, title: "ADR: compatibility policy for method versions after v1.0", status: open }
           - { issue: 359, title: "Constitution principle IX: unambiguous and transparent", status: done }
+          - { issue: 370, title: "Error report order independent of input key order", status: open }
       - title: "Release readiness for v0.1"
         labels: []
         tasks:
