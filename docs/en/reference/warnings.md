@@ -47,7 +47,18 @@ entry. Read `diagnostics.warnings` rather than parsing the conventions.
 | `FM-W014` | No reserve balance given: the LLCR assumes no reserve account | `ratios.debt_service` | input: `/debt_schedule/reserve_balance` | `no reserve balance given (...): nothing is added to the present value of CFADS, ...` | 0.1.0 |
 | `FM-W015` | A non-zero B10 c or B10 d is placed below EBITDA by the default treatment `operating` | `statements.reorganise` | input: `/treatments/write_downs_of_fixed_assets` or `/treatments/write_downs_of_receivables` | `year {name}: {item} ({v}) is in {line}, below EBITDA, by the default ...` | 0.1.0 |
 | `FM-W016` | The method an analysis evaluates is `preview` (ADR 0012) | `analysis.*` | input: `/method` | `Evaluated method {id} is preview: its results have not been independently verified ...` | 0.1.0 |
-| `FM-W017` | A value of the input arrived at the adapter as a binary floating-point number: a client library read a JSON number as a float, so digits beyond about 17 may be lost | every method, through function calling with a dict, the MCP server and LangChain | input: the field | `` `{pointer}` arrived as a binary floating-point number ({value}): a JSON number may have lost digits before Fairmark read it; ... `` | 0.1.0 |
+| `FM-W017` | A value of the input arrived at the adapter as a binary floating-point number: a client library read a JSON number as a float, so digits beyond about 17 may be lost | every method, only where an outside library converts JSON numbers to floats: function calling with a dict, the MCP server, LangChain; never for a float given to the Python SDK (see below) | input: the field | `` `{pointer}` arrived as a binary floating-point number ({value}): a JSON number may have lost digits before Fairmark read it; ... `` | 0.1.0 |
+
+## Floats and the limit of FM-W017
+
+A Python `float` given to the SDK (`fairmark.run`, `fairmark.run_json`, the helpers) is sent as
+its shortest decimal representation, the literal the analyst typed: `0.095` stays `0.095`, with
+no warning. A float that is the result of a Python computation (for example `0.1 + 0.2`, which
+is `0.30000000000000004`) carries binary artifacts that Fairmark cannot detect: pass `Decimal`
+or strings for computed values. `FM-W017` is emitted only where an outside library converts
+JSON numbers to floats before Fairmark sees them: function calling with a dict
+(`fairmark.tools.dispatch`), the MCP server and LangChain, which pass the pointers of those
+values to the engine.
 
 ## Warnings inside an analysis
 

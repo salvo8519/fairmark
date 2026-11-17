@@ -1,6 +1,6 @@
 ---
 source: reference/warnings.md
-source_hash: 4dc5c7bc25f9
+source_hash: 98fa094f9409
 ---
 # Codici delle avvertenze
 
@@ -53,7 +53,18 @@ analizzare il testo delle convenzioni.
 | `FM-W014` | Saldo della riserva non fornito: il LLCR non considera alcun conto di riserva | `ratios.debt_service` | input: `/debt_schedule/reserve_balance` | `no reserve balance given (...): nothing is added to the present value of CFADS, ...` | 0.1.0 |
 | `FM-W015` | Un B10 c o un B10 d diverso da zero è collocato sotto l'EBITDA dalla classificazione predefinita `operating` | `statements.reorganise` | input: `/treatments/write_downs_of_fixed_assets` o `/treatments/write_downs_of_receivables` | `year {name}: {item} ({v}) is in {line}, below EBITDA, by the default ...` | 0.1.0 |
 | `FM-W016` | Il metodo valutato da un'analisi è in anteprima (`preview`, ADR 0012) | `analysis.*` | input: `/method` | `Evaluated method {id} is preview: its results have not been independently verified ...` | 0.1.0 |
-| `FM-W017` | Un valore dell'input è arrivato all'adapter come numero in virgola mobile binaria: una libreria client ha letto un numero JSON come float, quindi le cifre oltre circa 17 possono essere perse | tutti i metodi, tramite function calling con un dizionario, il server MCP e LangChain | input: il campo | `` `{pointer}` arrived as a binary floating-point number ({value}): a JSON number may have lost digits before Fairmark read it; ... `` | 0.1.0 |
+| `FM-W017` | Un valore dell'input è arrivato all'adapter come numero in virgola mobile binaria: una libreria client ha letto un numero JSON come float, quindi le cifre oltre circa 17 possono essere perse | tutti i metodi, solo dove una libreria esterna converte i numeri JSON in float: function calling con un dizionario, il server MCP, LangChain; mai per un float dato all'SDK Python (vedi sotto) | input: il campo | `` `{pointer}` arrived as a binary floating-point number ({value}): a JSON number may have lost digits before Fairmark read it; ... `` | 0.1.0 |
+
+## I float e il limite di FM-W017
+
+Un `float` Python dato all'SDK (`fairmark.run`, `fairmark.run_json`, gli helper) è inviato con la
+sua rappresentazione decimale più breve, il letterale scritto dall'analista: `0.095` resta
+`0.095`, senza avvertenza. Un float che è il risultato di un calcolo in Python (per esempio
+`0.1 + 0.2`, che vale `0.30000000000000004`) porta artefatti binari che Fairmark non può
+rilevare: per i valori calcolati passare `Decimal` o stringhe. `FM-W017` è emessa solo dove una
+libreria esterna converte i numeri JSON in float prima che Fairmark li veda: function calling
+con un dizionario (`fairmark.tools.dispatch`), il server MCP e LangChain, che passano al motore
+i pointer di quei valori.
 
 ## Avvertenze in un'analisi
 

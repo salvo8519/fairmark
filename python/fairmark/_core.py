@@ -436,6 +436,13 @@ def run_json(
     floating-point numbers (a client library read a JSON number as a float). The engine
     reports each as warning ``FM-W017``; the envelope is the engine's, unchanged. Function
     calling and the MCP server pass them (:func:`fairmark.tools.dispatch`).
+
+    A Python ``float`` in ``inputs`` is sent as its shortest decimal representation, the
+    literal the analyst typed (``0.095`` stays ``0.095``). A float that is the result of a
+    Python computation (for example ``0.1 + 0.2``, ``0.30000000000000004``) carries binary
+    artifacts that Fairmark cannot detect: pass ``Decimal`` or strings for computed values.
+    Warning ``FM-W017`` is emitted only where an outside library converts JSON numbers to
+    floats (function calling with a dict, MCP, LangChain), never for the floats given here.
     """
     out: dict[str, Any] = json.loads(_run_text(method, inputs, binary_floats))
     return out
@@ -447,6 +454,13 @@ def run(method: str, inputs: Mapping[str, Any] | str) -> Result:
     ``value`` is decoded by the method's output schema (:func:`output_schema`): every decimal
     is a ``Decimal``, every text (labels, ids, pointers, conventions) stays ``str``, integers
     stay ``int``.
+
+    A Python ``float`` in ``inputs`` is sent as its shortest decimal representation, the
+    literal the analyst typed (``0.095`` stays ``0.095``). A float that is the result of a
+    Python computation (for example ``0.1 + 0.2``, ``0.30000000000000004``) carries binary
+    artifacts that Fairmark cannot detect: pass ``Decimal`` or strings for computed values.
+    Warning ``FM-W017`` is emitted only where an outside library converts JSON numbers to
+    floats (function calling with a dict, MCP, LangChain), never for the floats given here.
     """
     text = _run_text(method, inputs)
     raw = json.loads(text)
