@@ -6,8 +6,12 @@ How the pieces fit together (roles, memory tiers, sprint lanes, gates) is descri
 
 | Path | Content | Read by |
 | --- | --- | --- |
-| `skills/<name>/SKILL.md` | Workflows packaged as Agent Skills (open standard) | Codex, Gemini CLI, Copilot and other agents natively; Claude Code via `.claude/skills` |
-| `agents/<name>.md` | Role definitions used as subagents | Claude Code via `.claude/agents`; any agent can load one as instructions |
+| `skills/<name>/SKILL.md` | Workflows packaged as Agent Skills (open standard) | Codex, Cursor, Gemini CLI, Copilot and other agents natively; Claude Code via `.claude/skills` |
+| `agents/<name>.md` | Role definitions used as subagents: front matter `name`, `description`, `tools` (Claude Code tool names), then the instructions | Claude Code via `.claude/agents`, Codex via `.codex/agents`, Cursor via `.cursor/agents`, Copilot via `.github/agents` |
+
+`scripts/sync_agents.py` (`uv run just generate`) writes every mirror; CI fails when one is
+stale or edited by hand. The table of agent systems is on the
+[Agentic development](../docs/en/project/agentic-development.md) page.
 
 Project-wide instructions live in `AGENTS.md` (all agents) and `CLAUDE.md` (Claude Code
 specifics, imports `AGENTS.md`).
@@ -33,7 +37,7 @@ specifics, imports `AGENTS.md`).
 
 `spec-new`, `implement-spec`, `add-method`, `golden-case`, `adr-new`, `pre-pr`, `fix-ci`,
 `release`, `plan-sprint`, `run-sprint`, `commit`, `explain-changes`, `translate`, `onboarding`,
-`session-start`, `session-end`, `pr-triage`.
+`session-start`, `session-end`, `pr-triage`, `roadmap-update`.
 
 ## Journal
 
