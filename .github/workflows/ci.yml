@@ -129,10 +129,18 @@ jobs:
           python-version: ${{ matrix.python }}
           enable-cache: true
       - run: uv sync --locked --all-extras --group oracles
-      - run: uv run pytest
+      - run: uv run pytest --junitxml=junit/pytest.xml
         env:
           # The oracle tests fail instead of skipping when an oracle cannot be imported.
           FAIRMARK_REQUIRE_ORACLES: "1"
+      # Per-test outcomes, aggregated across runs by test-health.yml (#320).
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: ${{ !cancelled() }}
+        with:
+          name: junit-${{ matrix.os }}-${{ matrix.python }}
+          path: junit/pytest.xml
+          retention-days: 30
+          if-no-files-found: ignore
 
   workflows:
     name: Quality · workflows, YAML, unused dependencies
@@ -184,6 +192,7 @@ jobs:
       - run: uv run typos
       - run: uv run python scripts/check_style.py
       - run: uv run python scripts/check_task_ids.py
+      - run: uv run python scripts/test_failures.py quarantine-check
       - run: uv run just check-generated
       - run: uv run python scripts/docs_sync.py coverage
       - run: uv run python scripts/docs_sync.py claims

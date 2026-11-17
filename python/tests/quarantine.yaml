@@ -1,0 +1,14 @@
+# Intermittent tests in quarantine (issue #320). A listed test still runs; its failure does not
+# fail the suite and is reported as xfailed (python/tests/conftest.py).
+#
+# Only an intermittent test may be listed: one that fails in some runs and passes in others
+# (scripts/test_failures.py report). A test that always fails is a defect to fix.
+#
+# Each entry:
+#   test:   pytest node id, from the repository root (python/tests/test_x.py::test_y)
+#   issue:  number of the issue that tracks the fix
+#   reason: what is intermittent and why, as far as known
+#   until:  YYYY-MM-DD; after it `scripts/test_failures.py quarantine-check` fails
+#
+# Checked in CI by `scripts/test_failures.py quarantine-check`.
+quarantine: []

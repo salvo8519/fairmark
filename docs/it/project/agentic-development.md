@@ -4,7 +4,7 @@ description: Come Fairmark viene costruito da agenti AI e da un maintainer — r
   memoria, corsie degli sprint e i controlli deterministici che fanno rispettare ogni
   regola.
 source: project/agentic-development.md
-source_hash: d18fa7b5451d
+source_hash: 620adfdaa044
 ---
 # Sviluppo agentico
 
@@ -131,6 +131,7 @@ di un commit. Quelli obbligatori bloccano il merge.
 | Il server MCP funziona per un client reale, con schemi dei tool portabili | `scripts/mcp_protocol_check.py` con l'MCP Inspector |
 | Ogni action fissata a un commit; nessuna icona in nessun file | `scripts/pin_actions.py --check`, `scripts/check_style.py` |
 | Ogni script di processo ha un test | `python/tests/scripts/test_every_script_is_tested.py` |
+| Un test in quarantena ha una issue, un motivo e una data di scadenza | `scripts/test_failures.py quarantine-check` |
 
 ## Sforzo proporzionato al rischio
 
@@ -158,7 +159,10 @@ leggono: nella spec, nella issue, nel diario o in un ADR.
 
 - Il costo di una issue è misurato in passaggi dell'orchestratore (`scripts/sprint.py
   burndown`), non in token: gli script non vedono il consumo di token.
-- La coda delle pull request non è ancora mantenuta in automatico (le pull request rimaste
-  indietro si aggiornano a mano), e i fallimenti intermittenti dei test non sono ancora contati
-  test per test; entrambi sono la seconda parte della #320.
+- I test intermittenti e le pull request ferme sono segnalati ogni giorno feriale, non
+  bloccati (`.github/workflows/test-health.yml`). Le pull request rimaste indietro rispetto a
+  `main` sono aggiornate da una persona o da una sessione con `scripts/pr_queue.py update
+  --apply`, non dal workflow pianificato: GitHub non avvia i controlli per un push fatto con il
+  token del workflow stesso. Un token dedicato eliminerebbe questo passaggio; nessuno è
+  configurato.
 - Le copie per sistemi di agenti diversi da Claude Code sono pianificate nella #328.

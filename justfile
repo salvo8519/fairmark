@@ -29,6 +29,7 @@ lint:
     python scripts/check_task_ids.py
     python scripts/pin_actions.py --check
     python scripts/mutants.py check-exclusions
+    python scripts/test_failures.py quarantine-check
     for f in sprints/S*.yaml; do [ ! -e "$f" ] || python scripts/sprint.py validate "$f" || exit 1; done
 
 # Run all tests (Rust incl. golden, Python incl. golden and docs snippets)
@@ -83,6 +84,10 @@ mcp-check:
 # Search the session journal: an issue, area:<name>, a date, or any text (#327)
 journal query:
     python scripts/journal.py search "{{query}}"
+
+# The pull request queue: behind main, in conflict or failing (#320)
+pr-queue:
+    python scripts/pr_queue.py list
 
 # Translation status (English is the source)
 i18n:
