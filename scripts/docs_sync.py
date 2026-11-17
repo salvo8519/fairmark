@@ -64,10 +64,12 @@ RULES: list[tuple[str, str, str]] = [
 # pages of the methods that use it, such as docs/en/methods/analysis-goal-seek.md; `frequency`
 # (the named frequencies of SPEC-0010 R20) on the pages of the methods whose inputs use them;
 # `not_computed` (the shared entry of outputs not computed, ADR 0014 G2) on the pages of the
-# methods that list them.
+# methods that list them; `diagnostics` (the diagnostics block and the warning codes, SPEC-0012)
+# in docs/en/reference/warnings.md and docs/en/concepts/audit-trail.md; `reading` (the reading of
+# an input and its number grammar, ADR 0014 G7) in docs/en/reference/errors.md.
 NON_METHOD_FILES = {
     "error", "explain", "registry", "types", "lib", "num", "method", "solver", "frequency",
-    "not_computed",
+    "not_computed", "diagnostics", "reading",
 }  # fmt: skip
 
 
