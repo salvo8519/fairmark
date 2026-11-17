@@ -466,17 +466,13 @@ pub(crate) const MISSING_CONVENTION: &str =
     "a missing input is never taken as zero: an output that lacks an input is null and listed in \
      diagnostics.not_computed with the input pointers it lacks";
 
-/// Reason given for every output not computed because an input is missing.
-pub(crate) const MISSING_REASON: &str =
-    "an input it needs is not given; a missing input is never taken as zero";
-
 impl NotComputedList {
     /// The output at `output` (a pointer into `value`) lacks the inputs `missing`.
     pub(crate) fn push(&mut self, output: impl AsRef<str>, missing: &Missing) {
         self.entries.push(NotComputed {
             pointer: format!("/value{}", output.as_ref()),
             reason_code: ReasonCode::MissingInput,
-            reason: MISSING_REASON.to_owned(),
+            reason: crate::diagnostics::MISSING_INPUT_REASON.to_owned(),
             missing_any_of: vec![ordered(missing)],
             permitted: Vec::new(),
         });

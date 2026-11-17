@@ -35,13 +35,6 @@ pub struct Diagnostics {
     pub checks: Vec<Check>,
 }
 
-impl Diagnostics {
-    /// True when the three lists are empty.
-    pub fn is_empty(&self) -> bool {
-        self.not_computed.is_empty() && self.warnings.is_empty() && self.checks.is_empty()
-    }
-}
-
 /// Why an output is not computed. Values may be added, never renamed (ADR 0014 G8).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -267,12 +260,20 @@ pub(crate) fn is_warning_text(text: &str) -> bool {
         .is_some_and(|head| head.eq_ignore_ascii_case("warning"))
 }
 
+/// The reason of every output not computed because an input it needs is not given, the same
+/// for every method (SPEC-0012 R5).
+pub(crate) const MISSING_INPUT_REASON: &str =
+    "an input it needs is not given; a missing input is never taken as zero";
+
 /// Order of JSON pointers in every list of the result (R13): token by token, array indices
-/// compared as numbers and before names (`/periods/2` before `/periods/10`).
+/// compared as numbers and before names (`/periods/2` before `/periods/10`). A token is an
+/// array index only as RFC 6901 writes one: `0`, or digits without a leading zero; `01` is a
+/// name.
 pub(crate) fn pointer_cmp(a: &str, b: &str) -> Ordering {
     fn key(t: &str) -> (u8, u64, &str) {
+        let index = t == "0" || (t.bytes().all(|c| c.is_ascii_digit()) && !t.starts_with('0'));
         match t.parse::<u64>() {
-            Ok(n) if !t.is_empty() && t.bytes().all(|c| c.is_ascii_digit()) => (0, n, ""),
+            Ok(n) if index && !t.is_empty() => (0, n, ""),
             _ => (1, 0, t),
         }
     }
@@ -397,6 +398,14 @@ mod tests {
         assert!(!is_warning_text("default: x"));
     }
 
+    /// Review nit N5: the guard holds in every build, not only in debug builds.
+    #[test]
+    #[should_panic(expected = "a warning was written as a convention")]
+    fn a_warning_written_as_a_convention_is_refused() {
+        let mut ex = crate::explain::Explain::new("f");
+        ex.convention("warning: free text");
+    }
+
     #[test]
     fn warnings_are_echoed_with_their_code() {
         assert_eq!(
@@ -440,5 +449,9 @@ mod tests {
         assert_eq!(pointer_cmp("/periods/2", "/periods/10"), Ordering::Less);
         assert_eq!(pointer_cmp("/periods/10", "/periods/a"), Ordering::Less);
         assert_eq!(pointer_cmp("/a", "/a"), Ordering::Equal);
+        // `01` is a name, not the index 1: an index sorts before it.
+        assert_eq!(pointer_cmp("/a/1", "/a/01"), Ordering::Less);
+        assert_ne!(pointer_cmp("/a/01", "/a/1"), Ordering::Equal);
+        assert_eq!(pointer_cmp("/a/0", "/a/00"), Ordering::Less);
     }
 }

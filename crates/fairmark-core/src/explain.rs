@@ -56,12 +56,14 @@ impl Explain {
     }
 
     /// A convention. A warning is never written here: [`Explain::warn`] writes it with its code
-    /// (SPEC-0012 R9, R16).
+    /// (SPEC-0012 R9, R16). A text that reads as a warning is a defect: the call panics, in
+    /// every build, and the registry reports it as `FM-E012`. The panic message carries no
+    /// input value.
     pub fn convention(&mut self, text: impl Into<String>) {
         let text = text.into();
-        debug_assert!(
+        assert!(
             !diagnostics::is_warning_text(&text),
-            "write a warning with Explain::warn, not as a convention: {text}"
+            "a warning was written as a convention: write it with Explain::warn"
         );
         self.conventions.push(text);
     }

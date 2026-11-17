@@ -26,9 +26,6 @@ pub struct NotComputedEntry {
     pub reason: Option<String>,
 }
 
-/// The reason of an output that lacks an input.
-const MISSING_INPUT: &str =
-    "an input it needs is not given; a missing input is never taken as zero";
 /// The reason of an output that waits for a treatment.
 const CHOICE_REQUIRED: &str =
     "a treatment it needs is not given: choose one of the permitted values; a missing treatment \
@@ -51,7 +48,7 @@ impl NotComputedEntry {
             match reason_code {
                 ReasonCode::ChoiceRequired => CHOICE_REQUIRED,
                 ReasonCode::NotApplicable => NOT_APPLICABLE,
-                _ => MISSING_INPUT,
+                _ => diagnostics::MISSING_INPUT_REASON,
             }
             .to_owned()
         });
