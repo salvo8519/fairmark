@@ -168,7 +168,7 @@ fn every_warning_code_is_documented_and_emitted() {
     assert!(found.is_empty(), "{}", found.join("\n"));
     let declared = declared(&sources().into_iter().find(|(n, _)| n == API).unwrap().1);
     let codes: Vec<&str> = declared.values().map(String::as_str).collect();
-    let expected: Vec<String> = (1..=16).map(|n| format!("FM-W{n:03}")).collect();
+    let expected: Vec<String> = (1..=17).map(|n| format!("FM-W{n:03}")).collect();
     let mut sorted = codes.clone();
     sorted.sort_unstable();
     assert_eq!(sorted, expected);

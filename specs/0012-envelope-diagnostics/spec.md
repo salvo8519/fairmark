@@ -100,6 +100,17 @@ exceptions; no number changes"), on the questions raised by T1 and T3.
     `missing_input`, with the missing pointers of today in `missing_any_of`: the missing input
     is the actionable cause, and an output not computed for lack of input has no defined or
     undefined status. The `not_defined` text of that output is dropped.
+15. **Binary floats reported by the engine (FM-W017).** The MCP server appended its own
+    convention `warning: ... arrived as a binary floating-point number` to the envelope, a
+    seventeenth condition the inventory of the core did not list. Under the rules "the engine
+    decides, adapters only transport" and "one rule, no exception": the condition becomes warning
+    FM-W017, emitted by the core through the warning API like every other. An adapter that
+    receives arguments already parsed by a client library (function calling with a dict, the MCP
+    server, LangChain, all through `fairmark.tools.dispatch`) passes the input pointers of the
+    values that arrived as Python floats as a run option (`RunOptions.binary_floats` of the core,
+    the `binary_floats` argument of the PyO3 `run` and of `fairmark.run_json`), not as an input
+    field: no method schema and no `meta.input_hash` changes. The adapter never writes to the
+    envelope.
 
 ## Inventory of the current code (main at the start of #259)
 Read from `crates/fairmark-core/src`. Task T1 of `tasks.md` re-runs the inventory with a script
@@ -108,7 +119,8 @@ and adds any site missed here before the code changes.
 ### Warnings emitted as `warning: ` conventions, and the preview convention
 Fifteen `warning: ` emission sites in production code (the other occurrences of the string are
 tests and the `/base_input` filter of goal seek in `registry.rs`), plus the preview convention of
-the analyses. One code per condition whatever the method. Pointer root: `input` is the root of
+the analyses, plus the note the MCP server wrote for a value that arrived as a binary float
+(`python/fairmark/mcp_server.py`, found during T16, FM-W017 by decision 15). One code per condition whatever the method. Pointer root: `input` is the root of
 the input the client sent (`/base_input/...` inside an analysis); `envelope` is the root of the
 result.
 
@@ -130,6 +142,7 @@ result.
 | FM-W014 | `ratios/debt_service.rs` | `reserve_balance` not given: the LLCR assumes no reserve account | `ratios.debt_service` | `/debt_schedule/reserve_balance` (input) | `no reserve balance given (...): nothing is added to the present value of CFADS, ...` |
 | FM-W015 | `statements/income_statement.rs` `write_down_warnings` | A non-zero B10 c or B10 d is placed below EBITDA by the default treatment `operating` (G3 test 4) | `statements.reorganise` | `/treatments/write_downs_of_fixed_assets` or `/treatments/write_downs_of_receivables` (input) | `year {name}: {item} ({v}) is in {line}, below EBITDA, by the default ...: it lowers operating_profit; ...` |
 | FM-W016 | the analyses (convention "Evaluated method ... is preview", ADR 0012) | The method an analysis evaluates is `preview` | `analysis.*` | `/method` (input) | `Evaluated method {id} is preview: ...` (text of today) |
+| FM-W017 | `registry.rs` `execute`, from the run option of the adapter (decision 15); formerly written by `mcp_server.py` `call_tool` | A value of the input arrived at the adapter as a binary floating-point number | every method, through function calling with a dict, the MCP server and LangChain | the field (input) | `` `{pointer}` arrived as a binary floating-point number ({value}): a JSON number may have lost digits before Fairmark read it; ... `` |
 
 ### Outputs not computed and checks inside `value`
 | Method (current version) | Field today | Shape today | Moves to |
@@ -269,8 +282,8 @@ Keys are serialised in this order (`meta.evaluated_method_status`, analyses only
   and SHALL list every relation of every year in `diagnostics.checks`, with `pointer`
   `/value/years/<i>`, ordered by year, then by relation id (decision 4).
 - **R8** — WHEN a condition of the warning catalogue occurs, THE ENGINE SHALL add one entry to
-  `diagnostics.warnings` with its code, pointer and message; the sixteen conditions of the
-  inventory take the codes FM-W001 to FM-W016. A code is never reused or renumbered; a new
+  `diagnostics.warnings` with its code, pointer and message; the seventeen conditions of the
+  inventory take the codes FM-W001 to FM-W017 (FM-W017 by decision 15). A code is never reused or renumbered; a new
   condition takes the next free code (decision 3).
 - **R9** — THE ENGINE SHALL echo every warning once in `explain.conventions`, as
   `warning FM-Wnnn: <message>`, in the same relative order as `diagnostics.warnings`; no
@@ -303,7 +316,10 @@ Keys are serialised in this order (`meta.evaluated_method_status`, analyses only
   dispatcher and the MCP server SHALL return the envelope of the core unchanged. THE Python
   `Result` SHALL expose `diagnostics` (the block, decoded by the result schema) and the
   properties `not_computed`, `warnings`, `checks` and `defaults_applied`, each a list, which take
-  precedence over a field of `value` with the same name.
+  precedence over a field of `value` with the same name. An adapter
+  that receives arguments already parsed by a client library SHALL pass the pointers of the values
+  that arrived as binary floats to the engine as a run option, and SHALL NOT write to the envelope
+  (decision 15).
 - **R16** — THE PROJECT SHALL keep `docs/en/reference/warnings.md` and its Italian edition, one
   row per code: code, condition, methods, pointer root, message pattern, the release that added
   it. A test SHALL fail when a code emitted by the engine is not in the catalogue, when a
@@ -376,7 +392,7 @@ Minimum input (G10): unchanged for every method; this spec adds no field to any 
   `not_applicable`; `diagnostics.checks` lists every relation of every year with `pointer`
   `/value/years/<i>`; `value.years[i]` has neither `checks` nor `not_computed`, and its
   assignments carry `aggregate_pointer`.
-- **AC7** (R8, R9) — One unit test per catalogue code, FM-W001 to FM-W016, on the input of the
+- **AC7** (R8, R9) — One unit test per catalogue code, FM-W001 to FM-W017, on the input of the
   existing test of that warning or convention: the entry has the code, the pointer of the
   catalogue and the message of today; the conventions contain `warning FM-Wnnn: <message>` once.
 - **AC8** (R8, R10) — `dcf.fcff` without `net_financial_position`: `meta.defaults_applied`
@@ -463,3 +479,6 @@ None: the questions of the draft were settled by the maintainer decisions of 202
 Raised by T1 and T3 (2026-11-17) and settled by decisions 13 and 14 of 2026-11-17: the
 analysis pointer fields and AC10 (decision 13); the three golden keys of an output both not
 defined and missing an input (decision 14).
+
+Raised during T16 (2026-11-17) and settled by decision 15 of 2026-11-17: the MCP note on values
+that arrived as binary floats becomes warning FM-W017, emitted by the core from a run option.

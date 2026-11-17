@@ -47,8 +47,8 @@ pub mod types;
 pub use error::{FairmarkError, Result};
 pub use method::Method;
 pub use registry::{
-    error_schema, input_schema, method, output_schema, result_schema, run, MethodInfo, Status,
-    METHODS,
+    error_schema, input_schema, method, output_schema, result_schema, run, run_with, MethodInfo,
+    RunOptions, Status, METHODS,
 };
 
 /// Version of the engine, stamped into every result.

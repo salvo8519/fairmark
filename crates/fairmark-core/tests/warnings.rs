@@ -328,3 +328,36 @@ fn every_warning_is_echoed_once_in_order() {
     assert!(warned > 50, "{warned}");
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+/// FM-W017 (decision 15 of SPEC-0012): a value the adapter received as a binary float is
+/// reported by the engine, at its pointer, from the run options; the input and its hash are
+/// those of a run without the option, and a pointer that names no value is ignored.
+#[test]
+fn fm_w017_a_value_that_arrived_as_a_binary_float() {
+    let input =
+        r#"{"payment": "2000", "rate": 0.009166666666666667, "periods": 35, "timing": "due"}"#;
+    let options = fairmark_core::RunOptions {
+        binary_floats: vec!["/rate".to_owned(), "/nope".to_owned(), "/rate".to_owned()],
+    };
+    let out = fairmark_core::run_with("tvm.future_value", input, &options).unwrap();
+    let plain = fairmark_core::run("tvm.future_value", input).unwrap();
+    assert_eq!(out["value"], plain["value"]);
+    assert_eq!(out["meta"]["input_hash"], plain["meta"]["input_hash"]);
+    let warnings = out["diagnostics"]["warnings"].as_array().unwrap();
+    assert_eq!(warnings.len(), 1, "{warnings:?}");
+    assert_eq!(warnings[0]["code"], "FM-W017");
+    assert_eq!(warnings[0]["pointer"], "/rate");
+    let message = warnings[0]["message"].as_str().unwrap();
+    assert_eq!(
+        message,
+        "`/rate` arrived as a binary floating-point number (0.009166666666666667): a JSON \
+         number may have lost digits before Fairmark read it; send decimals as strings, for \
+         example \"0.095\", to keep every digit"
+    );
+    let echo = format!("warning FM-W017: {message}");
+    assert_eq!(conventions(&out).iter().filter(|c| **c == echo).count(), 1);
+    assert!(plain["diagnostics"]["warnings"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+}

@@ -106,15 +106,33 @@ def test_tool_examples_follow_the_string_schema() -> None:
             assert '"rate": 0' not in json.dumps(sample), d["name"]
 
 
-# Finding 9: a float argument reaching the MCP server is reported (finding 6 (c)).
+# Finding 9: a float argument reaching the MCP server is reported (finding 6 (c)), by the engine
+# as warning FM-W017 (SPEC-0012, decision 15): the adapter passes the pointer, never a text.
+FLOAT_WARNING = (
+    "`/rate` arrived as a binary floating-point number (0.009166666666666667): a JSON number "
+    'may have lost digits before Fairmark read it; send decimals as strings, for example "0.095", '
+    "to keep every digit"
+)
+
+
 def test_mcp_reports_a_float_argument() -> None:
     name = tools.tool_name("tvm.future_value")
     arguments = {"payment": "2000", "rate": float(LONG), "periods": 35, "timing": "due"}
     result = mcp_server.call_tool(name, arguments)
     assert not result.is_error
-    warnings = _warnings(result.structured_content["explain"]["conventions"])
-    assert warnings == [
-        "warning: `/rate` arrived as a binary floating-point number (0.009166666666666667): a "
-        "JSON number may have lost digits before Fairmark read it; send decimals as strings, "
-        'for example "0.095", to keep every digit'
+    out = result.structured_content
+    assert _warnings(out["explain"]["conventions"]) == [f"warning FM-W017: {FLOAT_WARNING}"]
+    assert out["diagnostics"]["warnings"] == [
+        {"code": "FM-W017", "pointer": "/rate", "message": FLOAT_WARNING}
     ]
+    # Function calling with a dict (LangChain) reports it alike; the MCP result is its envelope.
+    assert tools.dispatch(name, arguments) == out
+    # The engine's envelope, unchanged: the same as the core run with the same option.
+    assert out == fm.run_json(
+        "tvm.future_value",
+        {"payment": "2000", "rate": float(LONG), "periods": 35, "timing": "due"},
+        binary_floats=["/rate"],
+    )
+    # Text arguments are read exactly: no float, no FM-W017.
+    text = '{"payment": "2000", "rate": 0.009166666666666667, "periods": 35, "timing": "due"}'
+    assert tools.dispatch(name, text)["diagnostics"]["warnings"] == []

@@ -83,6 +83,8 @@ financial values.
 - Decimals declared as strings in every tool schema (see
   [function calling](function-calling.md#schemas-the-model-sees)). A client that sends a JSON
   number with more than 17 significant digits loses digits in the MCP library, which reads it
-  as a binary float before Fairmark sees it. The result then carries a convention
-  ``warning: `/rate` arrived as a binary floating-point number (…)`` for every argument that
-  arrived as a float, naming its pointer.
+  as a binary float before Fairmark sees it. The server passes the pointer of every argument
+  that arrived as a float to the engine, which reports it as warning `FM-W017` in
+  `diagnostics.warnings`, at that pointer, echoed in the conventions as
+  ``warning FM-W017: `/rate` arrived as a binary floating-point number (…)``; the server never
+  changes the result.

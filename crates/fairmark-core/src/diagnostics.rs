@@ -196,6 +196,9 @@ warning_codes! {
     WriteDownBelowEbitdaByDefault = "FM-W015",
     /// `analysis.*`: the evaluated method is preview (ADR 0012).
     EvaluatedMethodPreview = "FM-W016",
+    /// A value of the input arrived as a binary floating-point number: an adapter read a JSON
+    /// number as a float before the engine saw it, so digits beyond about 17 may be lost.
+    ArrivedAsBinaryFloat = "FM-W017",
 }
 
 impl WarningCode {

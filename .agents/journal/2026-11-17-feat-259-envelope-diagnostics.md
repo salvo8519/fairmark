@@ -38,4 +38,4 @@
   for the maintainer: give it a code (FM-W017, emitted how?) or keep it as an adapter note.
 
 ## Next steps
-1. FM-W017 (orchestrator decision of 2026-11-17): binary float pointers passed by the adapters as a run option, emitted by the core; spec, guides, tests. Then T17.
+1. T17: `schemas/envelope/v1.json`, `envelope` entry in `schemas/index.json`, immutability check.

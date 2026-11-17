@@ -6,7 +6,7 @@ import copy
 import functools
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
@@ -384,18 +384,28 @@ def _raise(err: Exception) -> None:
     raise FairmarkError(code, message, report) from None
 
 
-def _run_text(method: str, inputs: Mapping[str, Any] | str) -> str:
+def _run_text(
+    method: str, inputs: Mapping[str, Any] | str, binary_floats: Sequence[str] = ()
+) -> str:
     payload = inputs if isinstance(inputs, str) else json.dumps(dict(inputs), default=_encode)
     try:
-        return _engine.run(method, payload)
+        return _engine.run(method, payload, list(binary_floats))
     except _engine.EngineError as err:
         _raise(err)
         raise  # unreachable
 
 
-def run_json(method: str, inputs: Mapping[str, Any] | str) -> dict[str, Any]:
-    """Run a method and return the raw JSON envelope as a dict (decimals as strings)."""
-    out: dict[str, Any] = json.loads(_run_text(method, inputs))
+def run_json(
+    method: str, inputs: Mapping[str, Any] | str, *, binary_floats: Sequence[str] = ()
+) -> dict[str, Any]:
+    """Run a method and return the raw JSON envelope as a dict (decimals as strings).
+
+    ``binary_floats``: JSON pointers of the input values that reached the caller as binary
+    floating-point numbers (a client library read a JSON number as a float). The engine
+    reports each as warning ``FM-W017``; the envelope is the engine's, unchanged. Function
+    calling and the MCP server pass them (:func:`fairmark.tools.dispatch`).
+    """
+    out: dict[str, Any] = json.loads(_run_text(method, inputs, binary_floats))
     return out
 
 

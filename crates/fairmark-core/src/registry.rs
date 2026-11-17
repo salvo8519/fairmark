@@ -204,9 +204,14 @@ macro_rules! registry {
             Vec::new()
         }
 
-        fn dispatch_to(id: &str, input_json: &str, source: Source) -> Option<Result<Value>> {
+        fn dispatch_to(
+            id: &str,
+            input_json: &str,
+            source: Source,
+            options: &RunOptions,
+        ) -> Option<Result<Value>> {
             $(if id == <$m as Method>::ID {
-                return Some(execute::<$m>(input_json, source));
+                return Some(execute::<$m>(input_json, source, options));
             })+
             None
         }
@@ -268,7 +273,12 @@ registry! {
 /// called from within a `run` (ADR 0010). The value is built by the engine from an input the
 /// method already checked ([`validate`]), so `serde` alone reads it (review of #279, S2).
 pub(crate) fn evaluate(id: &str, input: &Value) -> Result<Value> {
-    dispatch(id, &input.to_string(), Source::Engine)
+    dispatch(
+        id,
+        &input.to_string(),
+        Source::Engine,
+        &RunOptions::default(),
+    )
 }
 
 /// Every input error of method `id` on `input`, without computing anything (ADR 0014 G5): the
@@ -402,22 +412,39 @@ fn serialize_schema<T: JsonSchema>() -> schemars::Schema {
 /// Numbers in the input may be JSON numbers or strings; both are parsed
 /// exactly into decimals (no binary floating point is ever involved).
 pub fn run(id: &str, input_json: &str) -> Result<Value> {
+    run_with(id, input_json, &RunOptions::default())
+}
+
+/// What an adapter knows about the transport of an input and the engine reports (SPEC-0012,
+/// decision 15 of 2026-11-17). Not part of the input: it changes neither the method's schema
+/// nor `meta.input_hash`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RunOptions {
+    /// RFC 6901 JSON pointers, from the root of the input, of the values that reached the
+    /// adapter as binary floating-point numbers (a client library read a JSON number as a
+    /// float): each is reported as warning FM-W017. A pointer that names no value of the input
+    /// is ignored.
+    pub binary_floats: Vec<String>,
+}
+
+/// [`run`] with the transport facts of [`RunOptions`].
+pub fn run_with(id: &str, input_json: &str, options: &RunOptions) -> Result<Value> {
     // Last line of defence: all arithmetic is checked, so a panic is a defect. It must never
     // cross an adapter boundary (Python, CLI, MCP): it becomes `FM-E012` instead. This guard
     // has no effect where panics abort (for example WebAssembly targets); checked arithmetic
     // and the extreme-input contract cases (`tests/contracts/`) remain the primary defence there. Panic messages in
     // the core never contain input values.
-    std::panic::catch_unwind(|| dispatch(id, input_json, Source::Caller)).unwrap_or(Err(
+    std::panic::catch_unwind(|| dispatch(id, input_json, Source::Caller, options)).unwrap_or(Err(
         FairmarkError::Internal("unexpected panic in the engine"),
     ))
 }
 
-fn dispatch(id: &str, input_json: &str, source: Source) -> Result<Value> {
-    dispatch_to(id, input_json, source)
+fn dispatch(id: &str, input_json: &str, source: Source, options: &RunOptions) -> Result<Value> {
+    dispatch_to(id, input_json, source, options)
         .unwrap_or_else(|| Err(FairmarkError::UnknownMethod(id.to_owned())))
 }
 
-fn execute<M: Method>(input_json: &str, source: Source) -> Result<Value> {
+fn execute<M: Method>(input_json: &str, source: Source, options: &RunOptions) -> Result<Value> {
     let mut input: M::Input = crate::reading::parse::<M>(input_json, source)?;
     #[cfg(test)]
     if !M::ID.starts_with("analysis.") {
@@ -432,6 +459,9 @@ fn execute<M: Method>(input_json: &str, source: Source) -> Result<Value> {
     if source == Source::Caller {
         for (pointer, message) in rounded_on_reading(M::ID, input_json) {
             explain.warn(WarningCode::RoundedOnReading, Some(pointer), message);
+        }
+        for (pointer, message) in binary_floats(input_json, &options.binary_floats) {
+            explain.warn(WarningCode::ArrivedAsBinaryFloat, Some(pointer), message);
         }
     }
     let canonical =
@@ -496,6 +526,35 @@ fn rounded_on_reading(id: &str, input_json: &str) -> Vec<(String, String)> {
     }
     found.sort_by(|a, b| crate::diagnostics::pointer_cmp(&a.0, &b.0));
     found
+}
+
+/// `(pointer, message)` of warning FM-W017 for each pointer of `pointers` that names a value of
+/// the input, once, ordered by pointer (SPEC-0012 R13, decision 15 of 2026-11-17).
+fn binary_floats(input_json: &str, pointers: &[String]) -> Vec<(String, String)> {
+    if pointers.is_empty() {
+        return Vec::new();
+    }
+    let Ok(input) = serde_json::from_str::<Value>(input_json) else {
+        return Vec::new();
+    };
+    let mut sorted: Vec<&String> = pointers.iter().collect();
+    sorted.sort_by(|a, b| crate::diagnostics::pointer_cmp(a, b));
+    sorted.dedup();
+    sorted
+        .into_iter()
+        .filter_map(|p| {
+            input.pointer(p).map(|v| {
+                (
+                    p.clone(),
+                    format!(
+                        "`{p}` arrived as a binary floating-point number ({v}): a JSON number may \
+                         have lost digits before Fairmark read it; send decimals as strings, for \
+                         example \"0.095\", to keep every digit"
+                    ),
+                )
+            })
+        })
+        .collect()
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {

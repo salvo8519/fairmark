@@ -570,6 +570,22 @@ def langchain(*, compact: bool = False, areas: Iterable[str] | str | None = None
     ]
 
 
+def float_pointers(value: Any, at: str = "") -> list[str]:
+    """The JSON pointer of every Python float in tool arguments: a value that arrived as a
+    binary floating-point number."""
+    if isinstance(value, float):
+        return [at]
+    if isinstance(value, Mapping):
+        return [
+            found
+            for k, v in value.items()
+            for found in float_pointers(v, f"{at}/{str(k).replace('~', '~0').replace('/', '~1')}")
+        ]
+    if isinstance(value, list):
+        return [found for i, v in enumerate(value) for found in float_pointers(v, f"{at}/{i}")]
+    return []
+
+
 def dispatch(name: str, arguments: Mapping[str, Any] | str) -> dict[str, Any]:
     """Execute a tool call coming from an LLM.
 
@@ -584,12 +600,13 @@ def dispatch(name: str, arguments: Mapping[str, Any] | str) -> dict[str, Any]:
     """
     try:
         # A JSON number in text arguments is read exactly (ADR 0014 G7), never as a binary float.
-        args = (
-            json.loads(arguments, parse_float=Decimal)
-            if isinstance(arguments, str)
-            else dict(arguments)
-        )
-        return run_json(method_id(name), args)
+        if isinstance(arguments, str):
+            return run_json(method_id(name), json.loads(arguments, parse_float=Decimal))
+        # Arguments already parsed by a client library (MCP, LangChain): a Python float is a
+        # JSON number read as a binary float. Its pointer goes to the engine, which reports it
+        # as warning FM-W017 (SPEC-0012, decision 15); the envelope is passed through unchanged.
+        args = dict(arguments)
+        return run_json(method_id(name), args, binary_floats=float_pointers(args))
     except FairmarkError as err:
         return {"error": err.report}
     except json.JSONDecodeError as err:

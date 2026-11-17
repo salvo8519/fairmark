@@ -1,6 +1,6 @@
 ---
 source: guides/function-calling.md
-source_hash: aaec633f127f
+source_hash: 53d25361a0f9
 ---
 # Function calling
 
@@ -93,7 +93,10 @@ Invia i decimali come stringhe. Il motore accetta anche i numeri JSON, ma la mag
 delle librerie client legge un numero JSON negli argomenti di un tool come un numero in
 virgola mobile binaria, che conserva circa 17 cifre significative: le cifre oltre si perdono
 prima che Fairmark veda il valore, e nessun avviso può recuperarle. `fm.tools.dispatch` legge
-in modo esatto gli argomenti dati come testo JSON. Una stringa con più cifre di quante un
+in modo esatto gli argomenti dati come testo JSON. Con un dizionario già letto dalla libreria
+client (LangChain, il server MCP), passa al motore il puntatore di ogni valore arrivato come
+float Python, e il motore segnala ciascuno con l'avviso `FM-W017` in `diagnostics.warnings`;
+l'envelope è quello del motore, invariato. Una stringa con più cifre di quante un
 decimale ne contenga è arrotondata e segnalata (vedi il
 [riferimento degli errori](../reference/errors.md), grammatica dei numeri).
 
