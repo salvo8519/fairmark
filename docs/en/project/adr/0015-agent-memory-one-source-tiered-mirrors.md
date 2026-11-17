@@ -37,6 +37,11 @@ is already the shared contract of every harness.
    `scripts/sync_agents.py` (`.claude/` today, the layouts of the other harnesses in #328),
    and `uv run just generate` keeps every mirror current or fails. Adding a harness is a
    generator change, never a copy by hand.
+   Implemented by #328: role mirrors for Codex (`.codex/agents/*.toml`), Cursor
+   (`.cursor/agents/`) and GitHub Copilot (`.github/agents/*.agent.md`). Skills get no mirror
+   where a harness reads `.agents/skills/` natively (Codex, Cursor, Gemini CLI, Copilot); a
+   duplicate would only add a second copy to keep current. Instructions get no mirror either:
+   those harnesses read `AGENTS.md`. Gemini CLI roles wait for a stable subagent format.
 2. **Memory is tiered, each tier with the store that fits it.**
    - *Runtime* (seconds to hours): the per-issue state files of #318, stored since #333 in
      the git directory shared by every worktree

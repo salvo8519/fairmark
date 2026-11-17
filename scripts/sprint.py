@@ -49,8 +49,8 @@ GENERATED_GROUPS: dict[str, tuple[str, ...]] = {
         "README.it.md",
         "python/fairmark/tool_examples.json",
     ),
-    # scripts/sync_agents.py: the mirror of .agents/
-    "agents": (".claude/**",),
+    # scripts/sync_agents.py: the mirrors of .agents/, one per agent system (#328)
+    "agents": (".claude/**", ".codex/agents/**", ".cursor/agents/**", ".github/agents/**"),
 }
 GENERATED = tuple(p for group in GENERATED_GROUPS.values() for p in group)
 # Files every pull request of a sprint may change, whatever its lane: the roadmap line of the

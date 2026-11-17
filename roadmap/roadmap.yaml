@@ -75,7 +75,7 @@ milestones:
           - { issue: 320, title: "Sprint burn-down, loop metrics and pull request queue automation", tags: [parallel], status: done }
           - { issue: 323, title: "Session journal for 2026-11-14 (agent loop roadmap)", status: done }
           - { issue: 327, title: "Journal index and search of the agent session memory", tags: [parallel], status: done }
-          - { issue: 328, title: "Generated mirrors of .agents/ for other agent systems", tags: [parallel], status: open }
+          - { issue: 328, title: "Generated mirrors of .agents/ for other agent systems", tags: [parallel], status: done }
           - { issue: 329, title: "Agent loop planning update of 2026-11-14: ADR 0015", status: done }
           - { issue: 333, title: "Sprint runtime state shared by every worktree of the repository", status: done }
           - { issue: 334, title: "Sprint lanes declare their paths; overlaps fail validation and CI", status: done }

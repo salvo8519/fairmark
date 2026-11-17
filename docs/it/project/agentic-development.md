@@ -4,7 +4,7 @@ description: Come Fairmark viene costruito da agenti AI e da un maintainer — r
   memoria, corsie degli sprint e i controlli deterministici che fanno rispettare ogni
   regola.
 source: project/agentic-development.md
-source_hash: 529c476333d6
+source_hash: 11e832b4e35b
 ---
 # Sviluppo agentico
 
@@ -38,16 +38,32 @@ flowchart LR
 
 I ruoli e le skill degli agenti sono scritti una volta sola, in
 [`.agents/`](https://github.com/salvo8519/fairmark/tree/main/.agents), in formati aperti (Agent
-Skills, definizioni dei ruoli in Markdown). Ogni sistema di agenti legge una copia generata da
-quella fonte: oggi `.claude/`, e le strutture degli altri sistemi man mano che vengono aggiunte
-(#328). Il contratto comune a tutti gli agenti è
-[`AGENTS.md`](https://github.com/salvo8519/fairmark/blob/main/AGENTS.md), che Codex, Cursor,
-Copilot e altri leggono in modo nativo.
+Skills, definizioni dei ruoli in Markdown). Il contratto comune a tutti gli agenti è
+[`AGENTS.md`](https://github.com/salvo8519/fairmark/blob/main/AGENTS.md). Dove un sistema di
+agenti legge una struttura diversa, `scripts/sync_agents.py` la genera dalla stessa fonte:
+
+| Sistema di agenti | Istruzioni | Skill | Ruoli (subagent) |
+| --- | --- | --- | --- |
+| Claude Code | `CLAUDE.md`, che importa `AGENTS.md` | `.claude/skills/` (generate) | `.claude/agents/` (generati) |
+| Codex | `AGENTS.md` | `.agents/skills/` (lettura nativa) | `.codex/agents/*.toml` (generati) |
+| Cursor | `AGENTS.md` | `.agents/skills/` (lettura nativa) | `.cursor/agents/` (generati) |
+| GitHub Copilot | `AGENTS.md` | `.agents/skills/` (lettura nativa) | `.github/agents/*.agent.md` (generati) |
+| Gemini CLI | `AGENTS.md` se configurato per leggerlo | `.agents/skills/` (lettura nativa) | non generati |
+
+Un ruolo che non ha `Write` o `Edit` tra i suoi strumenti resta in sola lettura in ogni sistema:
+la sandbox in sola lettura in Codex, `readonly: true` in Cursor, nessuno strumento `edit` in
+Copilot. Un ruolo che il generatore non sa tradurre (uno strumento sconosciuto, un campo
+mancante) fa fallire la generazione invece di essere indovinato. I ruoli per Gemini CLI non sono
+generati: i suoi subagent sono sperimentali, vanno abilitati nelle sue impostazioni e i nomi
+dei loro strumenti non sono ancora in un riferimento stabile. I formati seguono la
+documentazione di ciascun sistema a novembre 2026; il progetto non ha ancora eseguito i ruoli
+generati in Codex, Cursor o Copilot.
 
 | Regola | Fatta rispettare da |
 | --- | --- |
 | Le copie non si modificano mai a mano | `scripts/sync_agents.py --check` nella CI (file generati aggiornati) |
 | Un nuovo sistema di agenti è una modifica del generatore, non una copia | lo stesso controllo: un file in una copia senza fonte fa fallire la CI |
+| Le copie appartengono alla corsia di processo | il gruppo `agents` dei file generati in `scripts/sprint.py` |
 
 ## Ruoli e skill
 

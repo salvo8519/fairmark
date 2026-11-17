@@ -35,16 +35,31 @@ flowchart LR
 
 The roles and skills of the agents are written once, in
 [`.agents/`](https://github.com/salvo8519/fairmark/tree/main/.agents), in open formats (Agent
-Skills, Markdown role definitions). Every agent system reads a mirror generated from that
-source: `.claude/` today, the layouts of other systems as they are added (#328). The shared
-contract of every agent is
-[`AGENTS.md`](https://github.com/salvo8519/fairmark/blob/main/AGENTS.md), which Codex, Cursor,
-Copilot and others read natively.
+Skills, Markdown role definitions). The shared contract of every agent is
+[`AGENTS.md`](https://github.com/salvo8519/fairmark/blob/main/AGENTS.md). Where an agent system
+reads another layout, `scripts/sync_agents.py` generates it from the same source:
+
+| Agent system | Instructions | Skills | Roles (subagents) |
+| --- | --- | --- | --- |
+| Claude Code | `CLAUDE.md`, which imports `AGENTS.md` | `.claude/skills/` (generated) | `.claude/agents/` (generated) |
+| Codex | `AGENTS.md` | `.agents/skills/` (native) | `.codex/agents/*.toml` (generated) |
+| Cursor | `AGENTS.md` | `.agents/skills/` (native) | `.cursor/agents/` (generated) |
+| GitHub Copilot | `AGENTS.md` | `.agents/skills/` (native) | `.github/agents/*.agent.md` (generated) |
+| Gemini CLI | `AGENTS.md` when configured to read it | `.agents/skills/` (native) | not generated |
+
+A role without `Write` or `Edit` among its tools stays read-only in every system: the read-only
+sandbox in Codex, `readonly: true` in Cursor, no `edit` tool in Copilot. A role the generator
+cannot translate (an unknown tool, a missing field) fails the generation instead of being
+guessed. Gemini CLI roles are not generated: its subagents are experimental, must be enabled
+in its settings, and their tool names are not yet in a stable reference. The formats follow
+each system's documentation of November 2026; the project has not yet run the generated roles
+in Codex, Cursor or Copilot.
 
 | Rule | Enforced by |
 | --- | --- |
 | Mirrors are never edited by hand | `scripts/sync_agents.py --check` in CI (generated files current) |
 | A new agent system is a generator change, not a copy | the same check: a file in a mirror without a source fails |
+| Mirrors belong to the process lane | the `agents` group of generated files in `scripts/sprint.py` |
 
 ## Roles and skills
 
