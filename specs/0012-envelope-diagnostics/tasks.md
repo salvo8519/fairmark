@@ -64,7 +64,7 @@ its approved files and `verify` in the same commit, so every commit passes `just
   equal the core envelope [R15; AC13]
 - [x] T20 [P] `docs/en/reference/warnings.md` with nav entry, envelope reference, methodology
   pages of the seven bumped methods, agent skill [R16, R17]
-- [ ] T21 Italian edition via `/translate`: `docs/it/reference/warnings.md` and every page of
+- [x] T21 Italian edition via `/translate`: `docs/it/reference/warnings.md` and every page of
   T20, glossary terms [R16]
 - [ ] T22 [P] Release notes `changes/259.breaking.md` and `changes/259.feature.md`
 

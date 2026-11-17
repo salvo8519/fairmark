@@ -174,7 +174,7 @@ conduce.
 | Data dei valori | `end_of_period`, `beginning_of_period` | obbligatoria con uno `schedule` |
 | Proiezione | $V_k = V_{k-1}(1 + g_k)$, periodo per periodo, senza arrotondamento | fissa |
 
-Un base value negativo viene proiettato, con un avviso: una crescita positiva rende i valori
+Un base value negativo viene proiettato, con un'avvertenza: una crescita positiva rende i valori
 più negativi. `explain` riporta la ricorrenza, il base value e il base period, la growth rule
 con i suoi parametri, la base e la crescita annua effettiva che ne deriva, la
 conversione del primo tasso con i numeri sostituiti, il primo e l'ultimo valore e, con uno

@@ -38,4 +38,4 @@
   for the maintainer: give it a code (FM-W017, emitted how?) or keep it as an adapter note.
 
 ## Next steps
-1. T21: glossary terms (diagnostics, warning, warning code, envelope) and Italian wording aligned (avvertenza).
+1. T22: release notes `changes/259.breaking.md`, `changes/259.feature.md`.

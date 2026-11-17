@@ -209,8 +209,8 @@ L'ultima convenzione riportata è il numero di valutazioni del metodo interno.
 dell'intervallo, dalla sola validazione del metodo interno (ogni controllo del suo input,
 nessun calcolo); i suoi errori di input sono riportati sotto `/base_input` con gli altri
 errori della richiesta. Il valore della variabile in `base_input` è sostituito e mai usato: un
-decimale con più cifre di quante un decimale ne contenga non dà lì nessun avviso di
-arrotondamento, mentre ogni altro campo di `base_input` lo dà (vedi il riferimento degli
+decimale con più cifre di quante un decimale ne contenga non dà lì nessuna avvertenza di
+arrotondamento, mentre ogni altro campo di `base_input` la dà (vedi il riferimento degli
 errori, grammatica dei numeri). Un errore del
 metodo interno in qualsiasi valutazione è restituito invariato, con il proprio codice: ad
 esempio `FM-E004` quando un tasso di attualizzazione nell'intervallo di ricerca è pari o
