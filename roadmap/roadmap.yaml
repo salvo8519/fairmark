@@ -412,3 +412,8 @@ milestones:
           - { issue: 86, title: "Market comparison approach with explicit adjustments", tags: [parallel, needs-methodology], status: open }
           - { issue: 207, title: "Lease-based income: passing rent, ERV, reversion and lease expiries", tags: [needs-methodology], status: open }
           - { issue: 228, title: "Build-up approach for property discount rates", tags: [needs-methodology], status: open }
+      - title: "Agent framework integrations and cookbook"
+        labels: []
+        tasks:
+          - { issue: 362, title: "Cookbook: Fairmark with the OpenAI Agents SDK, Google ADK, Pydantic AI and CrewAI", status: open }
+          - { issue: 363, title: "Live provider and framework checks against real models, outside the PR gates", status: open }
