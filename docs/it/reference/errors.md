@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: 0c75c2c8ea0b
+source_hash: 86a22181f18d
 ---
 # Codici di errore
 
@@ -55,7 +55,8 @@ chiavi dell'input non cambia nulla nel report (ADR 0014 G5, decisione del mainta
 2026-11-17): prima le voci senza `pointer`; poi per `pointer`, token per token come lo scrive
 la RFC 6901, con un indice di array confrontato come numero e prima di un nome (`/periods/2`
 prima di `/periods/10` e prima di `/periods/total`; `01` è un nome, non un indice); poi per
-`code`; poi per `message`. Il primo livello è la prima voce. L'ordine in cui il metodo
+`code`; poi per `message`; le voci uguali su questi tre per `reason`, poi `pointers`,
+`expected`, `fix` e `missing_any_of`, così l'ordine è totale. Il primo livello è la prima voce. L'ordine in cui il metodo
 controlla l'input decide quali errori vengono trovati, mai dove sono elencati: la prima voce
 non è necessariamente l'errore a cui si sarebbe fermato un singolo controllo.
 

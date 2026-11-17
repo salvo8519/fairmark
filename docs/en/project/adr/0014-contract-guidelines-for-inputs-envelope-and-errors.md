@@ -233,8 +233,9 @@ checks; item 2 was approved later the same day, with the review of the pull requ
    order, which the order of the keys of the input does not change (principle I): the entries
    without a `pointer` first; then by `pointer`, token by token as RFC 6901 writes it, an array
    index compared as a number and before a name (`/periods/2` before `/periods/10`; `01` is a
-   name, not an index); then by `code`; then by `message`. The top level equals the first
-   entry. The order of the checks still decides which errors are found, never where they are
+   name, not an index); then by `code`; then by `message`. Entries equal on these three are
+   ordered by `reason`, then `pointers`, `expected`, `fix` and `missing_any_of`, so the order is
+   total. The top level equals the first entry. The order of the checks still decides which errors are found, never where they are
    listed, so the first entry is no longer the error a single report would give. G5 above
    states the rule as amended.
 2. **Single-key choices given two keys, and replaced values (amends G5).** A choice written as

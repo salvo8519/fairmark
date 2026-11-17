@@ -50,7 +50,8 @@ of the keys of the input changes nothing in the report (ADR 0014 G5, maintainer 
 2026-11-17): the entries without a `pointer` first; then by `pointer`, token by token as RFC
 6901 writes it, an array index compared as a number and before a name (`/periods/2` before
 `/periods/10` and before `/periods/total`; `01` is a name, not an index); then by `code`; then
-by `message`. The top level is the first entry. The order in which the method checks its input
+by `message`; entries equal on these three by `reason`, then `pointers`, `expected`, `fix` and
+`missing_any_of`, so the order is total. The top level is the first entry. The order in which the method checks its input
 decides which errors are found, never where they are listed: the first entry is not
 necessarily the error a single check would have stopped at.
 
