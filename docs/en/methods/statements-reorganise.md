@@ -528,7 +528,7 @@ order:
    B.II, C.II, C.III, C.IV, assets D, provisions B, employee severance indemnity C, payables D,
    liabilities E; then A5 to `value_of_production`, B14 to `external_costs`, B10 c to
    `depreciation_and_amortisation` and B10 d to `other_charges_below_ebitda`, each while its
-   treatment is not given): `field` is
+   treatment is not given): `pointer` is
    the pointer of the item, `value` the destination, and the convention reads "assigned to". An
    aggregate counts as given when its amount is: a node holding only a part of it (for example
    `receivables.trade`) does not;

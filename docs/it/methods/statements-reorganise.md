@@ -1,6 +1,6 @@
 ---
 source: methods/statements-reorganise.md
-source_hash: 7b1a3f2a99c2
+source_hash: c1a6a4ff9dbd
 ---
 # Bilancio riclassificato (`statements.reorganise`)
 
@@ -555,7 +555,7 @@ quest'ordine:
    trattamento di fine rapporto C, debiti D, voce E del passivo; poi A5 verso
    `value_of_production`, B14 verso `external_costs`, B10 c verso
    `depreciation_and_amortisation` e B10 d verso `other_charges_below_ebitda`, ciascuna finché la
-   sua classificazione non è fornita): `field` è il pointer della voce,
+   sua classificazione non è fornita): `pointer` è il pointer della voce,
    `value` la destinazione, e la convenzione riporta "assigned to". Un aggregato è fornito quando
    è fornito il suo importo: un nodo che ne contiene solo una parte (per esempio
    `receivables.trade`) non basta;

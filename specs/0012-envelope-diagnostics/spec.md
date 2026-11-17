@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Status | Approved (maintainer, 2026-11-16) |
+| Status | Approved (maintainer, 2026-11-16; decisions 13 to 15 confirmed 2026-11-17) |
 | Milestone | M3 · Agent layer and v0.1 release |
 | Owner | @salvo8519 |
 | Formula basis | No formula: a contract change that alters no computed number. Basis: ADR 0014 G2, G3, G4, G5, G8 and G10, the maintainer decisions of 2026-11-09 and those of 2026-11-16 below; RFC 6901 for every pointer; JSON Schema 2020-12 for the result schema. |
