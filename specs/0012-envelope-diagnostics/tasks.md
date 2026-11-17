@@ -58,7 +58,7 @@ its approved files and `verify` in the same commit, so every commit passes `just
   `schemas/index.json`, immutability check extended [R17; AC15]
 
 ## Adapters and docs
-- [ ] T18 [P] Python `Result.diagnostics` and the properties `not_computed`, `warnings`,
+- [x] T18 [P] Python `Result.diagnostics` and the properties `not_computed`, `warnings`,
   `checks`, `defaults_applied`; `python/tests/test_envelope.py` [R15; AC13]
 - [ ] T19 [P] Pass-through tests: CLI `fairmark run`, function-calling dispatcher, MCP server
   equal the core envelope [R15; AC13]

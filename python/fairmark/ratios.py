@@ -6,9 +6,10 @@ closing balance sheet in ``closing`` and, for average balances, the opening bala
 13%), multiples or days, as each field states.
 
 Every amount is optional (version 2): give what you have. A ratio whose amounts are not all
-given has ``value`` ``None`` and is listed in ``not_computed`` with the JSON pointers of the
-inputs it lacks; a missing amount is never taken as zero. A ratio that is not meaningful (a zero
-denominator, negative equity) has ``value`` ``None`` and the reason in ``not_defined``. The
+given has ``value`` ``None`` and is listed in ``result.not_computed`` (version 3, the
+diagnostics of the envelope) with the JSON pointers of the inputs it lacks; a missing amount is
+never taken as zero. A ratio that is not meaningful (a zero denominator, negative equity) has
+``value`` ``None`` and an entry ``not_defined`` with the reason in ``result.not_computed``. The
 other ratios of the group are still computed. Only the method choices are required:
 ``balances``, and ``operating_return_base`` or ``day_basis`` where the group uses them. At
 least one output must have every input it needs: otherwise the engine raises ``FM-E027``,
@@ -71,10 +72,11 @@ def profitability(
 
     >>> r = profitability(balances="closing", operating_return_base="total_assets",
     ...     income_statement={"net_income": 260}, closing={"equity": 2000})
-    >>> r.roe["value"], r.roa["value"], r.not_computed[1]["output"]
-    (Decimal('0.13'), None, '/roa')
-    >>> r.not_computed[1]["missing"]
-    ['/closing/total_assets', '/income_statement/ebit']
+    >>> roa = next(e for e in r.not_computed if e["pointer"] == "/value/roa")
+    >>> r.roe["value"], r.roa["value"], roa["reason_code"]
+    (Decimal('0.13'), None, 'missing_input')
+    >>> roa["missing_any_of"]
+    [['/closing/total_assets', '/income_statement/ebit']]
     """
     return run(
         "ratios.profitability",
@@ -203,8 +205,8 @@ def covenants(*, covenants: Sequence[Mapping[str, Any]]) -> Result:
     negative on the breach side), ``headroom_relative`` (headroom / threshold),
     ``not_tested_code`` (``"denominator_not_positive"``, ``"overflow"`` or
     ``"missing_input"``) and ``not_tested_reason``. An ``amount`` may be omitted: the covenant is
-    then not tested (``"missing_input"``) and listed in ``not_computed``, unless a denominator
-    given zero or negative decides it by its rule.
+    then not tested (``"missing_input"``) and listed in ``result.not_computed``, unless a
+    denominator given zero or negative decides it by its rule.
 
     >>> r = covenants(covenants=[{"name": "net leverage", "test_date": "2026-12-31",
     ...     "numerator": {"definition": "net debt", "amount": 3504},

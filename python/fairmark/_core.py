@@ -344,9 +344,13 @@ class Step:
 
 @dataclass(frozen=True)
 class Result:
-    """A valuation result: exact values, the audit trail and reproducibility metadata.
+    """A valuation result: exact values, the audit trail, the diagnostics and reproducibility
+    metadata (the envelope of ADR 0014 G4).
 
-    Value fields are reachable as attributes: ``result.enterprise_value``.
+    Value fields are reachable as attributes: ``result.enterprise_value``. The diagnostics are
+    ``result.diagnostics`` and the lists ``result.not_computed``, ``result.warnings``,
+    ``result.checks`` and ``result.defaults_applied``, which take precedence over a value field
+    with the same name.
     """
 
     method: str
@@ -356,6 +360,34 @@ class Result:
     conventions: list[str]
     meta: dict[str, Any]
     raw: dict[str, Any] = field(repr=False)
+    diagnostics: dict[str, Any] = field(default_factory=dict)
+    """What the result does not contain (``not_computed``), what the reader could miss
+    (``warnings``, each with a stable code ``FM-Wnnn``) and what was verified (``checks``), as
+    the engine writes them: pointers and reasons are ``str``."""
+
+    @property
+    def not_computed(self) -> list[dict[str, Any]]:
+        """The outputs not computed: ``pointer`` (from the envelope root, ``/value/...``),
+        ``reason_code`` (``missing_input``, ``choice_required``, ``not_defined``,
+        ``not_applicable``), ``reason``, ``missing_any_of`` and ``permitted``."""
+        return list(self.diagnostics.get("not_computed", []))
+
+    @property
+    def warnings(self) -> list[dict[str, Any]]:
+        """The warnings: ``code`` (``FM-Wnnn``, see the warning catalogue), ``pointer`` and
+        ``message``; each is echoed in ``conventions``."""
+        return list(self.diagnostics.get("warnings", []))
+
+    @property
+    def checks(self) -> list[dict[str, Any]]:
+        """The relations verified: ``id``, ``status`` (``reconciled`` or ``not_checked``),
+        ``pointer`` (the result block) and ``pointers`` (the inputs read)."""
+        return list(self.diagnostics.get("checks", []))
+
+    @property
+    def defaults_applied(self) -> list[dict[str, Any]]:
+        """The documented defaults filled in: ``pointer``, ``value`` and ``reason``."""
+        return list(self.meta.get("defaults_applied", []))
 
     @property
     def method_version(self) -> str:
@@ -430,6 +462,7 @@ def run(method: str, inputs: Mapping[str, Any] | str) -> Result:
         conventions=list(explain["conventions"]),
         meta=dict(raw["meta"]),
         raw=raw,
+        diagnostics=dict(raw["diagnostics"]),
     )
 
 

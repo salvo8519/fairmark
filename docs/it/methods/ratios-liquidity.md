@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-liquidity.md
-source_hash: c50b0f831b73
+source_hash: f4cb3f319d51
 ---
 # Indici di liquidità (`ratios.liquidity`)
 
@@ -96,7 +96,7 @@ r = fm.ratios.liquidity(
 )
 assert r.current_ratio["value"] == Decimal("1.25")
 assert r.quick_ratio["value"] is None  # rimanenze non fornite
-assert r.raw["diagnostics"]["not_computed"][0] == {
+assert r.not_computed[0] == {
     "pointer": "/value/quick_ratio",
     "reason_code": "missing_input",
     "reason": "an input it needs is not given; a missing input is never taken as zero",

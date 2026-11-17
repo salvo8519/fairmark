@@ -1,6 +1,6 @@
 ---
 source: methods/ratios-profitability.md
-source_hash: 3bd689ecab89
+source_hash: b205ca0206ce
 ---
 # Indici di redditività (`ratios.profitability`)
 
@@ -92,7 +92,7 @@ n = fm.ratios.profitability(
     closing={"equity": -100, "total_assets": 6000},
 )
 assert n.roe["value"] is None
-reasons = {e["pointer"]: e["reason"] for e in n.raw["diagnostics"]["not_computed"]}
+reasons = {e["pointer"]: e["reason"] for e in n.not_computed}
 print(reasons["/value/roe"])  # equity is negative (-100)
 
 # Forma con leva finanziaria, D sulla posizione finanziaria netta: coincide con il ROE quando
@@ -177,7 +177,7 @@ r = fm.ratios.profitability(
 )
 assert r.roe["value"] == Decimal("0.13")  # 260 / 2000
 assert r.roa["value"] is None
-roa = next(e for e in r.raw["diagnostics"]["not_computed"] if e["pointer"] == "/value/roa")
+roa = next(e for e in r.not_computed if e["pointer"] == "/value/roa")
 assert roa["missing_any_of"] == [["/closing/total_assets", "/income_statement/ebit"]]
 ```
 

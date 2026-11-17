@@ -58,7 +58,7 @@ s = fm.ratios.debt_service(
     closing={"net_financial_position": {"gross_debt": 2200, "cash": 300}},
 )
 assert s.llcr["value"] is None
-llcr = next(e for e in s.raw["diagnostics"]["not_computed"] if e["pointer"] == "/value/llcr")
+llcr = next(e for e in s.not_computed if e["pointer"] == "/value/llcr")
 assert llcr["missing_any_of"] == [["/debt_schedule"]]
 assert s.interest_cover_ebitda["value"] == Decimal("8")
 ```

@@ -198,7 +198,7 @@ r = fm.ratios.covenants(covenants=[
      "if_denominator_not_positive": "breached"}])
 c = r.covenants[0]
 assert (c["outcome"], c["not_tested_code"]) == ("not_tested", "missing_input")
-assert r.raw["diagnostics"]["not_computed"][0]["missing_any_of"] == [["/covenants/0/numerator/amount"]]
+assert r.not_computed[0]["missing_any_of"] == [["/covenants/0/numerator/amount"]]
 assert r.covenants[1]["outcome"] == "passed"  # 1000 / 200 = 5, at least 4
 # With the first covenant alone the input would be below the floor (FM-E027).
 ```

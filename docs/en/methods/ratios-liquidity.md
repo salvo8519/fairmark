@@ -90,7 +90,7 @@ r = fm.ratios.liquidity(
 )
 assert r.current_ratio["value"] == Decimal("1.25")
 assert r.quick_ratio["value"] is None  # inventories not given
-assert r.raw["diagnostics"]["not_computed"][0] == {
+assert r.not_computed[0] == {
     "pointer": "/value/quick_ratio",
     "reason_code": "missing_input",
     "reason": "an input it needs is not given; a missing input is never taken as zero",

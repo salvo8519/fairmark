@@ -86,7 +86,7 @@ n = fm.ratios.profitability(
     closing={"equity": -100, "total_assets": 6000},
 )
 assert n.roe["value"] is None
-reasons = {e["pointer"]: e["reason"] for e in n.raw["diagnostics"]["not_computed"]}
+reasons = {e["pointer"]: e["reason"] for e in n.not_computed}
 print(reasons["/value/roe"])  # equity is negative (-100)
 
 # Leverage form, D on the net financial position: equals ROE when capital = E + D.
@@ -170,7 +170,7 @@ r = fm.ratios.profitability(
 )
 assert r.roe["value"] == Decimal("0.13")  # 260 / 2000
 assert r.roa["value"] is None
-roa = next(e for e in r.raw["diagnostics"]["not_computed"] if e["pointer"] == "/value/roa")
+roa = next(e for e in r.not_computed if e["pointer"] == "/value/roa")
 assert roa["missing_any_of"] == [["/closing/total_assets", "/income_statement/ebit"]]
 ```
 
