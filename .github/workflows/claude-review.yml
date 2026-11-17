@@ -1,6 +1,8 @@
 # Automatic AI review of every pull request, using the project's own reviewer
-# instructions. Requires the ANTHROPIC_API_KEY repository secret (or swap in
-# claude_code_oauth_token). Skipped silently when the secret is not configured.
+# instructions. Requires the ANTHROPIC_API_KEY secret of the environment `anthropic`: every run
+# waits for the maintainer's approval (#376, docs/en/project/maintainers.md); after the
+# approval the review is skipped when the secret is not configured. Pull requests from forks
+# never receive the key, so they are not reviewed and ask for no approval.
 name: Claude review
 
 on:
@@ -15,9 +17,11 @@ permissions: {}
 
 jobs:
   review:
-    if: github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # The key is a secret of this environment; each run waits for the maintainer's approval.
+    environment: anthropic
     permissions:
       contents: read
       pull-requests: write

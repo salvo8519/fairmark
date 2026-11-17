@@ -142,25 +142,28 @@ Every finding of a review is fixed in the same pull request. A defect is never d
 ## Credentials
 
 Agents work on branches. The credentials of the development process are kept out of reach of a
-branch, with one exception written down below.
+branch: each lives in an environment whose rules a branch cannot change, except
+`PROJECT_TOKEN` (below). A test guards against a job that reads a credential outside its
+environment; it runs on the branch it checks, so it catches mistakes, not attacks. The
+environments' settings are checked weekly by the maintenance workflow, and a Claude Code hook
+stops agents from approving runs or changing secrets, variables, environments and rulesets.
 
 - Fairmark itself uses no credential and sends no data anywhere (constitution, principle V).
 - The automation that must start checks (the release pull request, the update of pull
   requests behind `main`) uses the project's GitHub App. Its key is a secret of the
   environment `fairmark-app`, which only `main` can use; a branch that changes a workflow
   cannot read it. Each job creates a token valid one hour, with only the permissions it needs,
-  revoked at the end of the job. A test fails if a job that can run on content written by
-  others (pull requests, issues, comments) names that environment.
+  revoked at the end of the job. A test guards against a job that can run on content written
+  by others (pull requests, issues, comments) naming that environment.
 - The project board token (`PROJECT_TOKEN`) is read only by a workflow that always runs as it
   is on `main` (`pull_request_target`, no checkout).
 - Publishing uses trusted publishing (OIDC) from a protected tag. The only stored token is the
   crates.io token of the very first release, a secret of the `crates-io` environment; the
   maintainer deletes it after that release, and the job refuses it once the crates exist.
-- Exception: the key of the AI review (`ANTHROPIC_API_KEY`) is a repository secret, because
-  the review runs on every pull request. A branch that edits `claude-review.yml` or
-  `claude-docs.yml` could read it. Pull requests from forks never receive it. Its exposure is
-  limited to API usage on the project's account; use a key of a separate workspace with a
-  spending limit.
+- The key of the AI workflows (`ANTHROPIC_API_KEY`) is a secret of the environment
+  `anthropic`: every run of the AI review, the documentation sync or an `@claude` mention
+  waits for the maintainer's approval
+  ([Maintainer guide](maintainers.md#ai-workflows-one-approval-per-run)).
 - `.env` files and `.pem` keys are ignored by git; secret scanning with push protection
   rejects a credential pushed by mistake.
 
@@ -182,5 +185,9 @@ in the issue, in the journal or in an ADR.
   project's GitHub App once the maintainer has set it up; until then, by hand with
   `scripts/pr_queue.py update --apply`.
 - Whether secret scanning with push protection is on, and whether the App key lives only in
-  the environment `fairmark-app`, are repository settings that CI does not verify.
+  the environment `fairmark-app`, are repository settings that CI does not verify. The rules
+  of the environments are checked weekly; the list of repository secrets and the permissions
+  of the token agents use are checked by hand.
+- A workflow added by a branch can request an OIDC token without any environment. Whether the
+  Claude GitHub App would exchange it for a token of its own has not been verified.
 - Mirrors for agent systems other than Claude Code are planned in #328.
