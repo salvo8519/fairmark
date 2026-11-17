@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Status | Draft design for the maintainer's review (issue #351). Not a spec: no requirement here is approved. |
+| Status | Approved with its ten recommendations (maintainer, 2026-11-17); the requirements are in [`spec.md`](spec.md) |
 | Issue | #351, decided by the maintainer on 2026-11-17 |
 | Related | #259 and #361 (one envelope, 131 golden files migrated), #266 (null equals absent, one number grammar), #263 (statements contract), #352 (one catalogue of codes), ADR 0014 G4, G5, G8, SPEC-0012 |
 | Base | `main` at `e9669cb`; 666 golden files, 44 methods |
