@@ -56,8 +56,8 @@ necessarily the error a single check would have stopped at.
 
 **Every input error, in one call.** Every method validates its whole input before it computes
 anything: the validation goes on after a refusal and reports every error it finds. A check that
-needs a refused input is skipped (for example the count of the rates when a DCF stage is refused, the
-comparison of a growth with a rate that is itself refused, or the rest of an adjustment whose
+needs a refused input is skipped (for example the count of the rates when a DCF stage is refused,
+the comparison of a growth with a rate that is itself refused, or the rest of an adjustment whose
 amounts are not one per year); a check that does not is still made (a refused `wacc` does not
 hide a refused terminal growth, a refused `principal` does not hide a rate out of range).
 
@@ -121,15 +121,15 @@ hide a refused terminal growth, a refused `principal` does not hide a rate out o
   array) are refused in every method: they would be read with the last value or by position.
 - **Choices written as an object with one key** (`terminal` of the DCF, the techniques of
   `tv.compare`, `growth` and `timeline` of `series.project`, `destination` and `split` in the
-  `treatment_overrides` of `statements.reorganise`), one rule in every method (rule of #370): a key
-  that is not one of the choices is `unknown_field` at the key, with the message of any unknown
-  field, the choices and the closest one, also next to one or two keys of the choice; when it is
-  the only key (`{"tv.godon": {...}}`), that is the only entry, with no
+  `treatment_overrides` of `statements.reorganise`), one rule in every method (maintainer decision
+  of 2026-11-17, ADR 0014): a key that is not one of the choices is `unknown_field` at the key, with
+  the message of any unknown field, the choices and the closest one, also next to one or two keys of
+  the choice; when it is the only key (`{"tv.godon": {...}}`), that is the only entry, with no
   `length` for the choice it leaves empty. No key is `length` at the object, with the choices in
-  `expected`. Two keys or more of the choices are one entry, `length` at the object, whose
-  message names the keys found in alphabetical order (for example `(got 2 keys: tv.gordon,
-  tv.h_model)`), with the choices in `expected`, whatever the keys hold: the choice is refused as
-  a whole and nothing within it is reported, in any order of the keys.
+  `expected`. Two keys or more of the choices are one entry, `length` at the object, whose message
+  names the keys found in alphabetical order (for example `(got 2 keys: tv.gordon, tv.h_model)`),
+  with the choices in `expected`, whatever the keys hold: the choice is refused as a whole and
+  nothing within it is reported, in any order of the keys.
 - **Analyses.** The fields of the analysis and its `base_input` are checked in one pass:
   `base_input` is checked by the method it names, through the validation alone of that method
   (every check of its input, nothing computed), and its input errors are reported under

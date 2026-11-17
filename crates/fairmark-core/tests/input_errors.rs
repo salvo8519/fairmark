@@ -446,7 +446,7 @@ fn compare_errors_inside_a_technique_entry() {
         "basis": "enterprise",
         "techniques": [{"tv.gordon": {"growth": "0.02", "next_flow": "100"}, "tv.h_model": {}}]
     });
-    // One entry, at the entry, naming the keys (rule of #370).
+    // One entry, at the entry, naming the keys (maintainer decision of 2026-11-17, ADR 0014).
     let m = only_entry(&two_keys, "/techniques/0");
     assert!(m.contains("exactly one key"), "{m}");
     assert!(m.contains("got 2 keys: tv.gordon, tv.h_model"), "{m}");

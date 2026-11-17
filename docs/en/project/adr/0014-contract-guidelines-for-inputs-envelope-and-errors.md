@@ -226,7 +226,8 @@ with `missing_any_of` for `FM-E027` and `errors` at the top level:
   are reported alone, like a computation error.
 
 #### Maintainer decision of 2026-11-17
-Recorded with issue #370. It replaces the rule that `errors` follows the order of the checks.
+Recorded with issue #370. Item 1 replaces the rule that `errors` follows the order of the
+checks; item 2 was approved later the same day, with the review of the pull request.
 
 1. **Canonical order of the report (amends G5).** The entries of `errors` are in a canonical
    order, which the order of the keys of the input does not change (principle I): the entries
@@ -236,6 +237,20 @@ Recorded with issue #370. It replaces the rule that `errors` follows the order o
    entry. The order of the checks still decides which errors are found, never where they are
    listed, so the first entry is no longer the error a single report would give. G5 above
    states the rule as amended.
+2. **Single-key choices given two keys, and replaced values (amends G5).** A choice written as
+   an object with one key (an object of optional fields with `maxProperties` 1, such as the DCF
+   `terminal`, or an externally tagged choice, such as the techniques of `tv.compare`, `growth`
+   and `timeline` of `series.project`, `destination` and `split` of `statements.reorganise`)
+   that is given two keys or more of the choice is one entry, `length` at the choice, whose
+   message names the keys found in alphabetical order, with the choices in `expected`, whatever
+   the keys hold. The choice is refused as a whole: nothing within it is reported. Each key that
+   is not one of the choices is its own `unknown_field` entry at the key, with the message of
+   any unknown field. The same in every method and in any order of the keys; the DCF `terminal`
+   reported `conflict` before. Every location where the reading puts a value in place of a
+   refused one counts as refused, also when the error is located elsewhere; an error found
+   before the reading knows that its object is refused is dropped like one found after. A check
+   that compares a field with a refused one is skipped, also when the refusal comes from another
+   check of the same method (the shared rate of `tv.compare`).
 
 A new meaning gets a new code; a new location keeps the code of its condition (ADR 0013).
 Python, the CLI, MCP and function calling pass the whole report. The cells of an analysis table

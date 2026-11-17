@@ -68,7 +68,7 @@ fn a_single_key_choice_with_two_keys_names_the_keys() {
     let mut input = series();
     input["growth"]["per_period"] = json!({"growth_rates": ["0.1"]});
     let r = report("series.project", &input);
-    // Rule of #370: one entry at the choice, naming the keys found.
+    // Maintainer decision of 2026-11-17 (ADR 0014): one entry at the choice, naming the keys.
     assert_eq!(pointers_of(&r), ["/growth"], "{r:#}");
     assert_eq!(r["reason"], "length");
     assert!(
@@ -189,8 +189,9 @@ fn technique_entries_name_their_keys() {
     let mut two = base.clone();
     two["techniques"][0]["tv.liquidation"] = base["techniques"][6]["tv.liquidation"].clone();
     let r = report("tv.compare", &two);
-    // One entry, `length` at the entry, naming the keys found (rule of #370). The entry is refused as a whole: the value read in its place decides no error,
-    // so the terms of `tv.gordon`, valid as given, are not reported (G5, declared reads).
+    // One entry, `length` at the entry, naming the keys found (maintainer decision of 2026-11-17,
+    // ADR 0014). The entry is refused as a whole: the value read in its place decides no error, so
+    // the terms of `tv.gordon`, valid as given, are not reported (G5, declared reads).
     assert_eq!(pointers_of(&r), ["/techniques/0"], "{r:#}");
     assert_eq!(r["reason"], "length");
     assert!(

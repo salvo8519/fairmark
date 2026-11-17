@@ -97,7 +97,8 @@ impl<'de> serde::de::Visitor<'de> for EntryVisitor {
             0 => return Err(A::Error::custom(format!("{ONE_KEY} (got an empty object)"))),
             1 => entries.remove(0),
             n => {
-                // In alphabetical order, never in the order of the input (rule of #370).
+                // In alphabetical order, never in the order of the input (maintainer decision of
+                // 2026-11-17, ADR 0014).
                 let mut keys: Vec<&str> = entries.iter().map(|(k, _)| k.as_str()).collect();
                 keys.sort_unstable();
                 return Err(A::Error::custom(format!(

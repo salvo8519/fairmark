@@ -1294,7 +1294,8 @@ fn refine(
                     _ => None,
                 };
                 if let Some(key_at) = key_at {
-                    // The message of any unknown key, as the walk gives it (rule of #370).
+                    // The message of any unknown key, as the walk gives it (maintainer decision of
+                    // 2026-11-17, ADR 0014).
                     return unknown_field_error(
                         pointer(&key_at).unwrap_or_default(),
                         variant,
@@ -1318,10 +1319,10 @@ fn refine(
             }
             error
         }
-        // Two keys or more where one is expected (rule of #370): two keys or more of the choice
-        // are one entry at the choice, whatever else the object holds; otherwise a key that is
-        // not one of the choices is an unknown field, like any other (audit 8b). The walk
-        // reports every unknown key the same way.
+        // Two keys or more where one is expected (maintainer decision of 2026-11-17, ADR 0014): two
+        // keys or more of the choice are one entry at the choice, whatever else the object holds;
+        // otherwise a key that is not one of the choices is an unknown field, like any other (audit
+        // 8b). The walk reports every unknown key the same way.
         Some(Reason::Length) => match node {
             Some(Value::Object(map)) if map.len() >= 2 => {
                 let choices = walk
@@ -1478,7 +1479,7 @@ fn choice_error(at: &[String], node: &Value, choices: Vec<String>) -> FairmarkEr
 }
 
 /// A choice written as an object with one key, given two keys or more of the choice (ADR 0014
-/// G5, rule of #370): one entry, `length` at the choice, naming the keys
+/// G5, maintainer decision of 2026-11-17): one entry, `length` at the choice, naming the keys
 /// found in alphabetical order, so that the order of the keys of the input changes nothing.
 /// The same in every method, whatever the keys hold; nothing within the choice is reported.
 pub(crate) fn keys_error(
@@ -2002,9 +2003,10 @@ impl UnknownKeys<'_> {
         map: &serde_json::Map<String, Value>,
         at: &mut Vec<String>,
     ) {
-        // A choice written as an object with one key (rule of #370), in every method alike:
-        // each key that is not a choice is an unknown field at the key, with the choices; two
-        // keys or more of the choice refuse it as a whole, without reading what they hold.
+        // A choice written as an object with one key (maintainer decision of 2026-11-17, ADR 0014),
+        // in every method alike: each key that is not a choice is an unknown field at the key, with
+        // the choices; two keys or more of the choice refuse it as a whole, without reading what
+        // they hold.
         let choices = self.single_key_choices(schema);
         if let Some(choices) = &choices {
             for key in map.keys().filter(|k| !choices.contains(k)) {

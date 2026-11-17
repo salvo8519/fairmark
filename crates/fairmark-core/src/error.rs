@@ -260,12 +260,12 @@ impl Several {
     }
 }
 
-/// The canonical order of the entries of an error report (rule of #370): by `pointer`, the
-/// entries without one first, then token by token as RFC 6901 writes them, array indices
-/// compared as numbers and before names ([`pointer_cmp`], where `01` is a name); then by code;
-/// then by message; then, so that the order is total, by reason, pointers, expected, fix and
-/// alternative sets. The order of the keys of the input therefore changes nothing in the
-/// report (principle I).
+/// The canonical order of the entries of an error report (maintainer decision of 2026-11-17, ADR
+/// 0014): by `pointer`, the entries without one first, then token by token as RFC 6901 writes them,
+/// array indices compared as numbers and before names ([`pointer_cmp`], where `01` is a name); then
+/// by code; then by message; then, so that the order is total, by reason, pointers, expected, fix
+/// and alternative sets. The order of the keys of the input therefore changes nothing in the report
+/// (principle I).
 pub(crate) fn entry_cmp(a: &ErrorEntry, b: &ErrorEntry) -> std::cmp::Ordering {
     fn optional(a: Option<&str>, b: Option<&str>) -> std::cmp::Ordering {
         match (a, b) {
@@ -1020,9 +1020,9 @@ impl FairmarkError {
         }
     }
 
-    /// JSON-friendly representation used by every adapter (CLI, Python, MCP): every error
-    /// found in `errors`, in the canonical order of [`entry_cmp`] (rule of #370), and the first
-    /// of them at the top level (ADR 0014 G5).
+    /// JSON-friendly representation used by every adapter (CLI, Python, MCP): every error found in
+    /// `errors`, in the canonical order of [`entry_cmp`] (maintainer decision of 2026-11-17, ADR
+    /// 0014), and the first of them at the top level (ADR 0014 G5).
     pub fn to_report(&self) -> ErrorReport {
         let mut errors: Vec<ErrorEntry> = match self {
             Self::Several(s) => s.errors().iter().map(Self::entry).collect(),
