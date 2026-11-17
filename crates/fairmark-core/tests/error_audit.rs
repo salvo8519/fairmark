@@ -863,6 +863,14 @@ fn no_growth_is_compared_with_a_refused_rate() {
     compare["rate"] = json!("-5");
     let r = report("tv.compare", &compare);
     assert_eq!(pointers_of(&r), ["/rate"], "{r:#}");
+    // An error that does not compare with the rate is still reported beside it.
+    compare["techniques"][6]["tv.liquidation"]["tax_on_gains"] = json!("-1");
+    let r = report("tv.compare", &compare);
+    assert_eq!(
+        pointers_of(&r),
+        ["/rate", "/techniques/6/tv.liquidation/tax_on_gains"],
+        "{r:#}"
+    );
     for (file, rate) in [
         ("dcf.fcff/bridge-every-line.yaml", "wacc"),
         (
@@ -876,4 +884,26 @@ fn no_growth_is_compared_with_a_refused_rate() {
         let r = report(method, &dcf);
         assert_eq!(pointers_of(&r), [format!("/{rate}")], "{r:#}");
     }
+}
+
+/// Mutation testing of #371: with a valid shared rate, a growth at or above it is still
+/// reported, alone and beside an error of another technique; only a refused rate skips the
+/// comparison.
+#[test]
+fn a_growth_above_a_valid_rate_is_reported() {
+    let mut compare = golden_input("tv.compare/seven-techniques.yaml");
+    compare["techniques"][0]["tv.gordon"]["growth"] = json!("0.2");
+    let r = report("tv.compare", &compare);
+    assert_eq!(pointers_of(&r), ["/techniques/0/tv.gordon/growth"], "{r:#}");
+    assert_eq!(r["code"], "FM-E004");
+    compare["techniques"][6]["tv.liquidation"]["tax_on_gains"] = json!("-1");
+    let r = report("tv.compare", &compare);
+    assert_eq!(
+        pointers_of(&r),
+        [
+            "/techniques/0/tv.gordon/growth",
+            "/techniques/6/tv.liquidation/tax_on_gains"
+        ],
+        "{r:#}"
+    );
 }

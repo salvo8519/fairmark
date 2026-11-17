@@ -2475,6 +2475,39 @@ fn pointer(tokens: &[String]) -> Option<String> {
 mod tests {
     use super::*;
 
+    /// Mutation testing of #371: a choice is a single-key choice only when every branch is an
+    /// object of exactly one property, the one it requires. Branches with more properties (an
+    /// object with one required field and optional ones) are not a choice of keys, whichever
+    /// property comes first.
+    #[test]
+    fn single_key_choices_need_one_property_per_branch() {
+        let schema = serde_json::json!({});
+        let walk = UnknownKeys {
+            root: &schema,
+            found: Vec::new(),
+        };
+        let keyed = serde_json::json!({"oneOf": [
+            {"type": "object", "properties": {"a": {}}, "required": ["a"]},
+            {"type": "object", "properties": {"b": {}}, "required": ["b"]}
+        ]});
+        assert_eq!(
+            walk.single_key_choices(&keyed),
+            Some(vec!["a".to_owned(), "b".to_owned()])
+        );
+        // The required property first, with an optional one beside it.
+        let wider = serde_json::json!({"oneOf": [
+            {"type": "object", "properties": {"a": {}, "x": {}}, "required": ["a"]},
+            {"type": "object", "properties": {"b": {}, "y": {}}, "required": ["b"]}
+        ]});
+        assert_eq!(walk.single_key_choices(&wider), None);
+        // One property, but not the one required.
+        let other = serde_json::json!({"oneOf": [
+            {"type": "object", "properties": {"a": {}}, "required": ["z"]},
+            {"type": "object", "properties": {"b": {}}, "required": ["b"]}
+        ]});
+        assert_eq!(walk.single_key_choices(&other), None);
+    }
+
     /// The pointers (as tokens) of every finding of the walk: unknown keys and positional
     /// arrays.
     fn unknown_keys(schema: &Value, value: &Value) -> Vec<(Vec<String>, ())> {
