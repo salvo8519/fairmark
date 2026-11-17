@@ -27,6 +27,17 @@ Each warning is also echoed once in `explain.conventions`, as `warning FM-Wnnn: 
 the same order as `diagnostics.warnings`. No convention starts with `warning` without its
 entry. Read `diagnostics.warnings` rather than parsing the conventions.
 
+## Order of the warnings
+
+`diagnostics.warnings` lists the warnings in the order the engine writes them, the same order
+as their echo in `explain.conventions`. The warnings of the method come first, in the order of
+its computation; in an analysis these are its own `FM-W016`, then the warnings of the
+evaluation of `base_input` (or, for goal seek, of the solved evaluation). The warnings about the
+input as it was read come last: every `FM-W001` (a decimal rounded on reading) ordered by
+pointer, then every `FM-W017` (a value that arrived as a binary float) ordered by pointer,
+array indices compared as numbers. The order does not depend on the order of the keys of the
+input.
+
 ## Catalogue
 
 | Code | Condition | Methods | Pointer root | Message pattern | Added in |

@@ -109,3 +109,33 @@ fn goal_seek_reports_the_warnings_of_the_solved_evaluation() {
     assert_eq!(fm_w012.len(), 1, "{fm_w012:?}");
     assert_eq!(fm_w012[0]["pointer"], "/base_input/net_financial_position");
 }
+
+/// The order of the warnings (catalogue, "Order of the warnings"): the analysis's FM-W016, the
+/// warnings of the base evaluation, then the warnings about the input as read (FM-W001), and
+/// FM-W017 from the run options last.
+#[test]
+fn warnings_are_ordered_method_first_then_reading() {
+    let mut base = dcf_without_nfp();
+    base["stages"][0]["flows"][0] = json!("100.00000000000000000000000000001");
+    let request = json!({"method": "dcf.fcff", "base_input": base,
+        "output_pointer": "/enterprise_value",
+        "rows": {"variable_pointer": "/wacc", "values": ["0.08", "0.09"]}});
+    let options = fairmark_core::RunOptions {
+        binary_floats: vec!["/rows/values/0".to_owned()],
+    };
+    let out =
+        fairmark_core::run_with("analysis.sensitivity", &request.to_string(), &options).unwrap();
+    let order: Vec<(&str, &str)> = warnings(&out)
+        .iter()
+        .map(|w| (w["code"].as_str().unwrap(), w["pointer"].as_str().unwrap()))
+        .collect();
+    assert_eq!(
+        order,
+        [
+            ("FM-W016", "/method"),
+            ("FM-W012", "/base_input/net_financial_position"),
+            ("FM-W001", "/base_input/stages/0/flows/0"),
+            ("FM-W017", "/rows/values/0"),
+        ]
+    );
+}

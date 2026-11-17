@@ -1,6 +1,6 @@
 ---
 source: reference/warnings.md
-source_hash: 98fa094f9409
+source_hash: 99ddc3ecc244
 ---
 # Codici delle avvertenze
 
@@ -32,6 +32,17 @@ Ogni avvertenza è riportata una sola volta anche in `explain.conventions`, come
 `warning FM-Wnnn: <message>`, nello stesso ordine di `diagnostics.warnings`. Nessuna
 convenzione inizia con `warning` senza la sua voce. Leggere `diagnostics.warnings` invece di
 analizzare il testo delle convenzioni.
+
+## Ordine delle avvertenze
+
+`diagnostics.warnings` elenca le avvertenze nell'ordine in cui il motore le scrive, lo stesso
+della loro eco in `explain.conventions`. Vengono prima le avvertenze del metodo, nell'ordine del
+calcolo; in un'analisi sono la sua `FM-W016`, poi le avvertenze della valutazione di
+`base_input` (o, per il goal seek, della valutazione risolta). Vengono per ultime le avvertenze
+sull'input così come è stato letto: ogni `FM-W001` (un decimale arrotondato alla lettura) in
+ordine di pointer, poi ogni `FM-W017` (un valore arrivato come float binario) in ordine di
+pointer, con gli indici degli array confrontati come numeri. L'ordine non dipende dall'ordine
+delle chiavi dell'input.
 
 ## Catalogo
 
