@@ -1,10 +1,11 @@
 method: statements.reorganise
 description: 'ADR 0014 G5 (issue #258): three sign errors in one balance sheet (inventories -5, cash -1,
-  negative reserve for own shares 3) are all reported in `errors`, in the order of the statutory layout'
+  negative reserve for own shares 3) are all reported in `errors`, in the canonical order of their pointers'
 source: Input of error-negative-unsigned-amount.yaml with two more sign errors; SPEC-0005 R3 (signs as
-  presented in the statutory layouts) and ADR 0014 G5 (every input error in `errors`). The order is that
-  of the layout (C.I before C.IV, assets before equity). Written from the spec and the ADR, not from the
-  engine's output.
+  presented in the statutory layouts) and ADR 0014 G5 (every input error in `errors`). The order is the
+  canonical order of the maintainer decision of 2026-11-17 under ADR 0014 G5 (by pointer, token by token,
+  then code, then message), so cash before equity before inventories. Written from the spec and the ADR,
+  not from the engine's output.
 input:
   years:
   - label: '2024'
@@ -72,11 +73,11 @@ input:
     derivative_liabilities: financial_liability
 expect_error: FM-E001
 expect_error_report:
-  /pointer: /years/0/statutory/balance_sheet/inventories
+  /pointer: /years/0/statutory/balance_sheet/cash
   /reason: sign
-  /errors/0/pointer: /years/0/statutory/balance_sheet/inventories
-  /errors/1/pointer: /years/0/statutory/balance_sheet/cash
-  /errors/2/pointer: /years/0/statutory/balance_sheet/equity/negative_reserve_for_own_shares
-  /errors/2/expected/0: zero or less
+  /errors/0/pointer: /years/0/statutory/balance_sheet/cash
+  /errors/1/pointer: /years/0/statutory/balance_sheet/equity/negative_reserve_for_own_shares
+  /errors/1/expected/0: zero or less
+  /errors/2/pointer: /years/0/statutory/balance_sheet/inventories
 expect_length:
   /errors: '3'

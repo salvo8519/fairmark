@@ -435,20 +435,35 @@ fn terminal_option_details() {
     );
 }
 
-/// Code review of #197: two terminal options, one of them `given` or `none`, are named as
-/// terminal options with the three choices.
+/// Code review of #197, and the maintainer decision of 2026-11-17 (ADR 0014): two terminal options
+/// are one entry, `length` at `/terminal`, naming the keys found and listing the options, whatever
+/// the keys hold; nothing within the terminal is reported (ADR 0014 G5).
 #[test]
 fn two_terminal_options_name_the_choices() {
-    let mut v = minimal();
-    v["terminal"] = json!({"given": {"value": "1"}, "none": {}});
-    let e = run("dcf.fcff", &v.to_string()).unwrap_err();
-    assert_eq!(e.code(), "FM-E001");
-    let m = e.to_string();
-    assert!(m.contains("names 2 terminal options (given, none)"), "{m}");
-    assert!(
-        m.contains("`given` (a terminal value at N) or `none`"),
-        "{m}"
-    );
+    for (terminal, keys) in [
+        (json!({"given": {"value": "1"}, "none": {}}), "given, none"),
+        (
+            json!({"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"},
+                   "tv.h_model": {}}),
+            "tv.gordon, tv.h_model",
+        ),
+        (
+            json!({"tv.h_model": 1, "tv.gordon": {"growth": "0.02",
+                   "first_flow": "last_flow_grown"}}),
+            "tv.gordon, tv.h_model",
+        ),
+    ] {
+        let mut v = minimal();
+        v["terminal"] = terminal;
+        let e = run("dcf.fcff", &v.to_string()).unwrap_err();
+        let r = serde_json::to_value(e.to_report()).unwrap();
+        assert_eq!(r["errors"].as_array().unwrap().len(), 1, "{r:#}");
+        assert_eq!(r["pointer"], "/terminal", "{r:#}");
+        assert_eq!(r["reason"], "length");
+        let m = e.to_string();
+        assert!(m.contains(&format!("(got 2 keys: {keys})")), "{m}");
+        assert!(m.contains("`given`") && m.contains("`none`"), "{m}");
+    }
 }
 
 /// Numerical audit of #197 (Decisions 17 and 24): a given terminal value discounted at

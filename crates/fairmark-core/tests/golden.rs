@@ -511,3 +511,325 @@ fn diagnostics_expectations_read_diagnostics_not_value() {
     );
     assert_eq!(check_result("temporary.yaml", &case, &result).len(), 2);
 }
+
+/// `v` with the keys of every object, at every depth, put in the order `order` gives for the
+/// number of keys and the depth-first position of the object; arrays keep their order.
+fn permuted_keys(
+    v: &serde_json::Value,
+    order: &mut dyn FnMut(usize) -> Vec<usize>,
+) -> serde_json::Value {
+    match v {
+        serde_json::Value::Object(map) => {
+            let entries: Vec<_> = map.iter().collect();
+            let positions = order(entries.len());
+            serde_json::Value::Object(
+                positions
+                    .into_iter()
+                    .map(|i| (entries[i].0.clone(), permuted_keys(entries[i].1, order)))
+                    .collect(),
+            )
+        }
+        serde_json::Value::Array(items) => {
+            serde_json::Value::Array(items.iter().map(|x| permuted_keys(x, order)).collect())
+        }
+        other => other.clone(),
+    }
+}
+
+/// The text a client receives for `input`: the envelope, or `{"error": <report>}`. For an
+/// error, the code, the message and the pointer of the error itself (the typed API, the
+/// compact report of an analysis cell) must be those of the first entry of the report (code
+/// review of #371, S6); a mismatch is returned as the text instead.
+fn received(method: &str, input: &serde_json::Value) -> String {
+    match fairmark_core::run(method, &input.to_string()) {
+        Ok(envelope) => envelope.to_string(),
+        Err(e) => {
+            let report = e.to_report();
+            let first = &report.errors[0];
+            if e.code() != first.code
+                || e.to_string() != first.message
+                || e.details().pointer != first.pointer
+            {
+                return format!(
+                    "the error starts from {} {} {:?}, the report from {} {} {:?}",
+                    e.code(),
+                    e,
+                    e.details().pointer,
+                    first.code,
+                    first.message,
+                    first.pointer
+                );
+            }
+            serde_json::json!({ "error": report }).to_string()
+        }
+    }
+}
+
+/// Issue #370 (principle I): the order of the keys of the input changes nothing a client
+/// receives. For every golden input, results and errors alike, the keys of every object are
+/// reversed, and shuffled with a fixed seed, at every depth: the envelope or the error report
+/// is byte-identical to that of the input as written.
+#[test]
+fn key_order_changes_neither_envelope_nor_error_report() {
+    // SplitMix64 with a fixed seed: the same shuffles on every run and platform.
+    let mut state: u64 = 0x5EED_0370;
+    let mut next = move || {
+        state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    };
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
+    let mut files = Vec::new();
+    golden_files(&root, &mut files);
+    files.sort();
+    let (mut checked, mut errors) = (0, 0);
+    let mut failures = Vec::new();
+    for file in &files {
+        let case: Case = serde_norway::from_str(&std::fs::read_to_string(file).unwrap()).unwrap();
+        let written = received(&case.method, &case.input);
+        let reversed = permuted_keys(&case.input, &mut |n| (0..n).rev().collect());
+        let shuffled = permuted_keys(&case.input, &mut |n| {
+            // Fisher-Yates.
+            let mut p: Vec<usize> = (0..n).collect();
+            for i in (1..n).rev() {
+                let j = usize::try_from(next() % (i as u64 + 1)).unwrap();
+                p.swap(i, j);
+            }
+            p
+        });
+        for (how, input) in [("reversed", &reversed), ("shuffled", &shuffled)] {
+            if received(&case.method, input) != written {
+                failures.push(format!("{} ({how})", file.display()));
+            }
+        }
+        checked += 1;
+        errors += usize::from(case.expect_error.is_some());
+    }
+    assert!(
+        checked > 300 && errors > 50,
+        "{checked} cases, {errors} errors"
+    );
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// The key sets of every choice written as an object with one key in `schema`: an object with
+/// `maxProperties` 1, or a `oneOf` / `anyOf` whose branches are objects of one property.
+fn single_key_choices(schema: &serde_json::Value) -> Vec<Vec<String>> {
+    fn resolve<'a>(root: &'a serde_json::Value, n: &'a serde_json::Value) -> &'a serde_json::Value {
+        match n["$ref"].as_str().and_then(|r| r.strip_prefix("#/$defs/")) {
+            Some(name) => &root["$defs"][name],
+            None => n,
+        }
+    }
+    fn walk(root: &serde_json::Value, n: &serde_json::Value, out: &mut Vec<Vec<String>>) {
+        match n {
+            serde_json::Value::Object(map) => {
+                if map.get("maxProperties").and_then(serde_json::Value::as_u64) == Some(1) {
+                    if let Some(props) = map.get("properties").and_then(|p| p.as_object()) {
+                        out.push(props.keys().cloned().collect());
+                    }
+                }
+                for k in ["oneOf", "anyOf"] {
+                    let Some(branches) = map.get(k).and_then(|b| b.as_array()) else {
+                        continue;
+                    };
+                    let keys: Vec<String> = branches
+                        .iter()
+                        .map(|b| resolve(root, b))
+                        .filter_map(|b| {
+                            let props = b["properties"].as_object()?;
+                            (props.len() == 1).then(|| props.keys().next().unwrap().clone())
+                        })
+                        .collect();
+                    if keys.len() > 1 && keys.len() == branches.len() {
+                        out.push(keys);
+                    }
+                }
+                map.values().for_each(|v| walk(root, v, out));
+            }
+            serde_json::Value::Array(items) => items.iter().for_each(|v| walk(root, v, out)),
+            _ => {}
+        }
+    }
+    let mut out = Vec::new();
+    walk(schema, schema, &mut out);
+    out
+}
+
+/// The pointers of the objects of `v` written with one key that is a key of a choice, with the
+/// key and another key of the same choice.
+fn choice_objects(
+    v: &serde_json::Value,
+    at: String,
+    choices: &[Vec<String>],
+    out: &mut Vec<(String, String, String)>,
+) {
+    match v {
+        serde_json::Value::Object(map) => {
+            if map.len() == 1 {
+                let key = map.keys().next().unwrap();
+                if let Some(other) = choices
+                    .iter()
+                    .filter(|c| c.contains(key))
+                    .find_map(|c| c.iter().find(|k| *k != key))
+                {
+                    out.push((at.clone(), key.clone(), other.clone()));
+                }
+            }
+            for (k, x) in map {
+                let token = k.replace('~', "~0").replace('/', "~1");
+                choice_objects(x, format!("{at}/{token}"), choices, out);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for (i, x) in items.iter().enumerate() {
+                choice_objects(x, format!("{at}/{i}"), choices, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// ADR 0014 G5 (declared reads; found with issue #370): a choice written as an object with one
+/// key and given two is reported the same way in every method, whatever its keys contain: one
+/// entry, `length` at the choice, whose message names the keys found; nothing within the
+/// choice is reported, since the value read in its place decides nothing. On every golden input
+/// that succeeds, each such choice (the DCF terminal, the techniques of `tv.compare`, growth and
+/// timeline of `series.project`, destination and split of `statements.reorganise`; for an
+/// analysis, those of its `base_input`) is given a second key of the same choice, holding an
+/// empty object, the terms of the first key or a number: the report is that entry alone, and
+/// the same with the keys of every object reversed. With an unknown key beside the two keys,
+/// before or after them, the unknown key is one more entry, at the key, with the message of any
+/// unknown field.
+#[test]
+fn a_choice_with_two_keys_is_one_length_entry() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
+    let mut files = Vec::new();
+    golden_files(&root, &mut files);
+    files.sort();
+    let (mut checked, mut failures) = (0, Vec::new());
+    let mut methods = std::collections::BTreeSet::new();
+    for file in &files {
+        let case: Case = serde_norway::from_str(&std::fs::read_to_string(file).unwrap()).unwrap();
+        if case.expect_error.is_some() {
+            continue;
+        }
+        let (inner, base) = if case.method.starts_with("analysis.") {
+            (case.input["method"].as_str().unwrap(), "/base_input")
+        } else {
+            (case.method.as_str(), "")
+        };
+        let choices = single_key_choices(&fairmark_core::input_schema(inner).unwrap());
+        let mut objects = Vec::new();
+        choice_objects(
+            case.input.pointer(base).unwrap(),
+            base.to_owned(),
+            &choices,
+            &mut objects,
+        );
+        for (at, key, other) in objects {
+            let terms = case.input.pointer(&at).unwrap()[key.as_str()].clone();
+            let variants = [
+                (serde_json::json!({}), false),
+                (terms, false),
+                (serde_json::json!(1), false),
+                (serde_json::json!({}), true),
+            ];
+            for (content, unknown) in variants {
+                let mut input = case.input.clone();
+                let choice = input.pointer_mut(&at).unwrap();
+                if unknown {
+                    // An unknown key before the two keys of the choice (code review of #371,
+                    // B1); the reversed order below puts it after them.
+                    let mut with: serde_json::Map<String, serde_json::Value> =
+                        serde_json::Map::new();
+                    with.insert("bogus".to_owned(), serde_json::json!(1));
+                    with.extend(choice.as_object().unwrap().clone());
+                    *choice = serde_json::Value::Object(with);
+                }
+                choice[other.as_str()] = content.clone();
+                let entries = match fairmark_core::run(&case.method, &input.to_string()) {
+                    Ok(_) => vec!["accepted".to_owned()],
+                    Err(e) => e
+                        .to_report()
+                        .errors
+                        .iter()
+                        .map(|x| format!("{:?} {:?} {}", x.pointer, x.reason, x.message))
+                        .collect(),
+                };
+                checked += 1;
+                methods.insert(inner.to_owned());
+                // The order of the keys, of the choice and of every other object, changes
+                // nothing (principle I).
+                let reversed = permuted_keys(&input, &mut |n| (0..n).rev().collect());
+                if received(&case.method, &reversed) != received(&case.method, &input) {
+                    failures.push(format!("{} {at}: depends on the key order", file.display()));
+                }
+                let mut keys = [key.as_str(), other.as_str()];
+                keys.sort_unstable();
+                let one = entries.len() == 1 + usize::from(unknown)
+                    && entries[0].starts_with(&format!("Some({at:?}) Some(Length) "))
+                    && entries[0].contains(&format!("(got 2 keys: {})", keys.join(", ")))
+                    && (!unknown
+                        || entries[1].starts_with(&format!(
+                            "Some(\"{at}/bogus\") Some(UnknownField) invalid input at \
+                             `{inner_at}/bogus`: unknown field `bogus`",
+                            inner_at = at.strip_prefix(base).unwrap_or(&at)
+                        )));
+                if !one {
+                    failures.push(format!(
+                        "{} {at} ({key} + {other}: {content}):\n  {}",
+                        file.display(),
+                        entries.join("\n  ")
+                    ));
+                }
+            }
+        }
+    }
+    for m in [
+        "dcf.fcff",
+        "dcf.fcfe",
+        "tv.compare",
+        "series.project",
+        "statements.reorganise",
+    ] {
+        assert!(methods.contains(m), "no choice of {m} checked: {methods:?}");
+    }
+    assert!(checked > 30, "{checked}");
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// Code review of #371, S6: a cell of an analysis whose inner input has two errors records the
+/// first entry of the inner method's report, whatever the order of the keys of the request.
+#[test]
+fn an_analysis_cell_records_the_first_entry_of_its_report() {
+    let request = serde_json::json!({
+        "method": "tvm.annuity",
+        "base_input": {"payment": "100", "rate": "0.05", "periods": 3, "growth": "0.01",
+                       "timing": "ordinary"},
+        "output_pointers": ["/present_value"],
+        "scenarios": [{"name": "both refused", "overrides": [
+            {"pointer": "/rate", "value": "-1"},
+            {"pointer": "/growth", "value": "-1"}
+        ]}]
+    });
+    let inner = serde_json::json!({"payment": "100", "rate": "-1", "periods": 3,
+                                   "growth": "-1", "timing": "ordinary"});
+    let report = fairmark_core::run("tvm.annuity", &inner.to_string())
+        .unwrap_err()
+        .to_report();
+    assert!(report.errors.len() >= 2, "{:?}", report.errors);
+    let written = received("analysis.scenarios", &request);
+    let out: serde_json::Value = serde_json::from_str(&written).expect(&written);
+    let cell = &out["value"]["scenarios"][0]["error"];
+    assert_eq!(cell["code"], report.errors[0].code, "{out:#}");
+    assert_eq!(
+        cell["message"],
+        report.errors[0].message.as_str(),
+        "{out:#}"
+    );
+    let reversed = permuted_keys(&request, &mut |n| (0..n).rev().collect());
+    assert_eq!(received("analysis.scenarios", &reversed), written);
+}

@@ -59,7 +59,7 @@ fn a_wrong_kind_of_value_for_a_choice_is_named_with_its_values() {
 }
 
 #[test]
-fn a_single_key_choice_with_two_keys_names_the_extra_key() {
+fn a_single_key_choice_with_two_keys_names_the_keys() {
     let mut input = series();
     input["growth"]["x"] = json!(1);
     let r = report("series.project", &input);
@@ -68,8 +68,16 @@ fn a_single_key_choice_with_two_keys_names_the_extra_key() {
     let mut input = series();
     input["growth"]["per_period"] = json!({"growth_rates": ["0.1"]});
     let r = report("series.project", &input);
-    assert_eq!(r["pointer"], "/growth/per_period", "{r:#}");
+    // Maintainer decision of 2026-11-17 (ADR 0014): one entry at the choice, naming the keys.
+    assert_eq!(pointers_of(&r), ["/growth"], "{r:#}");
     assert_eq!(r["reason"], "length");
+    assert!(
+        r["message"]
+            .as_str()
+            .unwrap()
+            .contains("(got 2 keys: constant, per_period)"),
+        "{r:#}"
+    );
 }
 
 #[test]
@@ -181,8 +189,22 @@ fn technique_entries_name_their_keys() {
     let mut two = base.clone();
     two["techniques"][0]["tv.liquidation"] = base["techniques"][6]["tv.liquidation"].clone();
     let r = report("tv.compare", &two);
-    assert_eq!(r["pointer"], "/techniques/0/tv.liquidation", "{r:#}");
+    // One entry, `length` at the entry, naming the keys found (maintainer decision of 2026-11-17,
+    // ADR 0014). The entry is refused as a whole: the value read in its place decides no error, so
+    // the terms of `tv.gordon`, valid as given, are not reported (G5, declared reads).
+    assert_eq!(pointers_of(&r), ["/techniques/0"], "{r:#}");
     assert_eq!(r["reason"], "length");
+    assert!(
+        r["message"]
+            .as_str()
+            .unwrap()
+            .contains("(got 2 keys: tv.gordon, tv.liquidation)"),
+        "{r:#}"
+    );
+    let mut gordon = base.clone();
+    gordon["techniques"][0]["tv.h_model"] = json!({});
+    let r = report("tv.compare", &gordon);
+    assert_eq!(pointers_of(&r), ["/techniques/0"], "{r:#}");
 }
 
 /// Audit 9: a misspelt key of a single-key choice is an unknown field at the key, with the
@@ -436,12 +458,12 @@ fn analysis_checks_and_base_input_are_reported_together() {
     assert_eq!(
         pointers_of(&r),
         [
-            "/bracket",
-            "/tolerance",
-            "/max_iterations",
-            "/base_input/payment",
             "/base_input/bogus",
+            "/base_input/payment",
             "/base_input/timng",
+            "/bracket",
+            "/max_iterations",
+            "/tolerance",
         ],
         "{r:#}"
     );
@@ -452,7 +474,7 @@ fn analysis_checks_and_base_input_are_reported_together() {
     let r = report("analysis.goal_seek", &input);
     assert_eq!(
         pointers_of(&r),
-        ["/tolerance", "/base_input/bogus", "/base_input/timng"],
+        ["/base_input/bogus", "/base_input/timng", "/tolerance"],
         "{r:#}"
     );
 }
@@ -483,10 +505,10 @@ fn every_analysis_collects_its_request_errors() {
     assert_eq!(
         pointers_of(&r),
         [
+            "/base_input/bogus",
             "/output_pointers/1",
             "/scenarios/0/name",
-            "/scenarios/2/name",
-            "/base_input/bogus"
+            "/scenarios/2/name"
         ],
         "{r:#}"
     );
@@ -503,9 +525,9 @@ fn every_analysis_collects_its_request_errors() {
     assert_eq!(
         pointers_of(&r),
         [
+            "/base_input/bogus",
             "/variables/0/low",
-            "/variables/1/variable_pointer",
-            "/base_input/bogus"
+            "/variables/1/variable_pointer"
         ],
         "{r:#}"
     );
@@ -518,7 +540,7 @@ fn every_analysis_collects_its_request_errors() {
     let r = report("analysis.sensitivity", &sensitivity);
     assert_eq!(
         pointers_of(&r),
-        ["/rows/values", "/output_pointer", "/base_input/bogus"],
+        ["/base_input/bogus", "/output_pointer", "/rows/values"],
         "{r:#}"
     );
 }
@@ -555,7 +577,7 @@ fn dcf_reports_every_rate_and_the_terminal_terms() {
     let r = report("dcf.fcff", &input);
     assert_eq!(
         pointers_of(&r),
-        ["/wacc", "/terminal/tv.gordon/growth"],
+        ["/terminal/tv.gordon/growth", "/wacc"],
         "{r:#}"
     );
 }
@@ -746,7 +768,7 @@ fn decimal_strings_follow_the_schema_grammar() {
         "tvm.npv",
         &json!({"rate": "+0.1", "cash_flows": ["-100", "6_0", "60"]}),
     );
-    assert_eq!(pointers_of(&r), ["/rate", "/cash_flows/1"], "{r:#}");
+    assert_eq!(pointers_of(&r), ["/cash_flows/1", "/rate"], "{r:#}");
     for good in ["0.1", "-0.1", "1e2", "10", "0"] {
         assert!(
             run(
@@ -829,4 +851,59 @@ fn every_method_reports_every_type_error() {
         }
     }
     assert!(with_three >= 5, "{with_three}");
+}
+
+/// Code review of #371, item 13 (ADR 0014 G5): a check that compares a field with a refused
+/// one is skipped. In `tv.compare` a shared rate of -5 is refused (by the techniques that
+/// check its range), so no technique compares its growth with it; the same holds in the DCF
+/// for a refused discount rate.
+#[test]
+fn no_growth_is_compared_with_a_refused_rate() {
+    let mut compare = golden_input("tv.compare/seven-techniques.yaml");
+    compare["rate"] = json!("-5");
+    let r = report("tv.compare", &compare);
+    assert_eq!(pointers_of(&r), ["/rate"], "{r:#}");
+    // An error that does not compare with the rate is still reported beside it.
+    compare["techniques"][6]["tv.liquidation"]["tax_on_gains"] = json!("-1");
+    let r = report("tv.compare", &compare);
+    assert_eq!(
+        pointers_of(&r),
+        ["/rate", "/techniques/6/tv.liquidation/tax_on_gains"],
+        "{r:#}"
+    );
+    for (file, rate) in [
+        ("dcf.fcff/bridge-every-line.yaml", "wacc"),
+        (
+            "dcf.fcfe/bridge-negative-equity-value.yaml",
+            "cost_of_equity",
+        ),
+    ] {
+        let mut dcf = golden_input(file);
+        dcf[rate] = json!("-5");
+        let method = file.split('/').next().unwrap();
+        let r = report(method, &dcf);
+        assert_eq!(pointers_of(&r), [format!("/{rate}")], "{r:#}");
+    }
+}
+
+/// Mutation testing of #371: with a valid shared rate, a growth at or above it is still
+/// reported, alone and beside an error of another technique; only a refused rate skips the
+/// comparison.
+#[test]
+fn a_growth_above_a_valid_rate_is_reported() {
+    let mut compare = golden_input("tv.compare/seven-techniques.yaml");
+    compare["techniques"][0]["tv.gordon"]["growth"] = json!("0.2");
+    let r = report("tv.compare", &compare);
+    assert_eq!(pointers_of(&r), ["/techniques/0/tv.gordon/growth"], "{r:#}");
+    assert_eq!(r["code"], "FM-E004");
+    compare["techniques"][6]["tv.liquidation"]["tax_on_gains"] = json!("-1");
+    let r = report("tv.compare", &compare);
+    assert_eq!(
+        pointers_of(&r),
+        [
+            "/techniques/0/tv.gordon/growth",
+            "/techniques/6/tv.liquidation/tax_on_gains"
+        ],
+        "{r:#}"
+    );
 }

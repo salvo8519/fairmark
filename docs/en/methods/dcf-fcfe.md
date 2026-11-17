@@ -95,7 +95,8 @@ the flow was built up from line items.
 ## Terminal techniques on the equity basis
 
 The `terminal` object names exactly one technique by its method id, as in
-[`dcf.fcff`](dcf-fcff.md#terminal-techniques), computed by its own method at the terminal cost
+[`dcf.fcff`](dcf-fcff.md#terminal-techniques) (two options or more are one `length` error at
+`/terminal`), computed by its own method at the terminal cost
 of equity. The technique must be on the equity basis:
 
 | Technique | On the equity basis |

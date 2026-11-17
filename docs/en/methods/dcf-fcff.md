@@ -136,7 +136,10 @@ significant digit at long horizons; the discount factors are reported as compute
 ## Terminal techniques
 
 The `terminal` object names exactly one terminal option: a technique by its method id, a
-terminal value given by the analyst, or none.
+terminal value given by the analyst, or none. Two options or more are one error, `FM-E001`
+with reason `length` at `/terminal`, whose message lists the options given in alphabetical
+order, whatever they hold; nothing within `terminal` is reported (ADR 0014 G5, maintainer
+decision of 2026-11-17).
 
 | Option | Written | Terminal value at N |
 | --- | --- | --- |

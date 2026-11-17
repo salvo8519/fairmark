@@ -281,7 +281,7 @@
           "type": "string"
         },
         "errors": {
-          "description": "Every error found, at least one, the first equal to the top level: the validation of\nthe input reports all the errors it finds, in the order of its checks; an error raised\nduring the computation stops it and is the only entry.",
+          "description": "Every error found, at least one, the first equal to the top level: the validation of\nthe input reports all the errors it finds, in a canonical order (by pointer, the entries\nwithout one first and array indices compared as numbers, then by code, then by\nmessage), which the order of the keys of the input does not change; an error raised\nduring the computation stops it and is the only entry.",
           "items": {
             "$ref": "#/$defs/FairmarkErrorEntry"
           },

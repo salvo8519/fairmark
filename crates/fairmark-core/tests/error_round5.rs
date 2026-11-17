@@ -81,9 +81,10 @@ fn reading_errors_do_not_hide_the_checks_of_the_method() {
         ["/debt_to_equity", "/pre_tax_cost_of_debt", "/tax_rate"],
         "{r:#}"
     );
+    // Canonical order (issue #370): by pointer, not serde's first error first.
     assert_eq!(
-        r["pointer"], "/pre_tax_cost_of_debt",
-        "serde's first error stays first"
+        r["pointer"], "/debt_to_equity",
+        "the first pointer is first"
     );
 
     let mut loan = golden_input("loans.instalment/annual-rate-form.yaml");
@@ -226,7 +227,7 @@ fn goal_seek_never_checks_the_value_its_variable_replaces() {
     // An independent error of base_input is still reported with it.
     input["base_input"]["timing"] = json!("sometimes");
     let r = report("analysis.goal_seek", &input);
-    assert_eq!(pointers(&r), ["/tolerance", "/base_input/timing"], "{r:#}");
+    assert_eq!(pointers(&r), ["/base_input/timing", "/tolerance"], "{r:#}");
 }
 
 #[test]

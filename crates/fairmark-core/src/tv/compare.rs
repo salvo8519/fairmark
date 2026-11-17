@@ -97,7 +97,10 @@ impl<'de> serde::de::Visitor<'de> for EntryVisitor {
             0 => return Err(A::Error::custom(format!("{ONE_KEY} (got an empty object)"))),
             1 => entries.remove(0),
             n => {
-                let keys: Vec<&str> = entries.iter().map(|(k, _)| k.as_str()).collect();
+                // In alphabetical order, never in the order of the input (maintainer decision of
+                // 2026-11-17, ADR 0014).
+                let mut keys: Vec<&str> = entries.iter().map(|(k, _)| k.as_str()).collect();
+                keys.sort_unstable();
                 return Err(A::Error::custom(format!(
                     "{ONE_KEY} (got {n} keys: {})",
                     keys.join(", ")
@@ -329,12 +332,32 @@ fn check_compare(input: &CompareInput) -> Result<()> {
         return Err(invalid("give at least one technique to compare")
             .at("/techniques", crate::error::Reason::Length));
     }
-    let mut found = crate::error::Found::new();
+    let mut errors = Vec::new();
     for (k, t) in input.techniques.iter().enumerate() {
-        found.check(
-            check_technique(&t.0, input.rate, input.growth_cap, input.basis, k + 1)
-                .map_err(|e| in_technique(e, k, &t.0)),
-        );
+        if let Err(e) = check_technique(&t.0, input.rate, input.growth_cap, input.basis, k + 1)
+            .map_err(|e| in_technique(e, k, &t.0))
+        {
+            errors.extend(e.into_errors());
+        }
+    }
+    finish(errors)
+}
+
+/// The errors of the techniques, collected: the shared rate refused by a technique that checks
+/// its range is refused for all, so a check that compares a term with it is skipped (ADR 0014
+/// G5, a check that needs a refused input; code review of #371).
+fn finish(errors: Vec<FairmarkError>) -> Result<()> {
+    let rate_refused = errors
+        .iter()
+        .any(|e| e.is_input_error() && e.details().pointer.as_deref() == Some("/rate"));
+    let mut found = crate::error::Found::new();
+    for e in errors {
+        let d = e.details();
+        let compares =
+            d.pointer.as_deref() != Some("/rate") && d.declared().iter().any(|p| p == "/rate");
+        if !(rate_refused && compares) {
+            found.push(e);
+        }
     }
     found.finish()
 }
@@ -472,13 +495,15 @@ pub fn compare(input: &CompareInput) -> Result<(CompareOutput, Explain)> {
     }
     // Every technique is run before any is reported: the errors of all of them are reported
     // together (ADR 0014 G5), each located at its technique.
-    let mut found = crate::error::Found::new();
+    let mut errors = Vec::new();
     let mut runs = Vec::with_capacity(input.techniques.len());
     for (k, t) in input.techniques.iter().enumerate() {
-        let run = run_one(&t.0, r, cap, basis, k + 1).map_err(|e| in_technique(e, k, &t.0));
-        runs.extend(found.take(run));
+        match run_one(&t.0, r, cap, basis, k + 1).map_err(|e| in_technique(e, k, &t.0)) {
+            Ok(run) => runs.push(run),
+            Err(e) => errors.extend(e.into_errors()),
+        }
     }
-    found.finish()?;
+    finish(errors)?;
     let mut results = Vec::with_capacity(input.techniques.len());
     for (k, (id, version, tv, output, inner)) in runs.into_iter().enumerate() {
         let position = k + 1;
@@ -595,7 +620,14 @@ mod tests {
             {"tv.gordon": {"growth": "0", "next_flow": 1}, "tv.h_model": {}}]}"#;
         let err = crate::run("tv.compare", json).unwrap_err();
         assert_eq!(err.code(), "FM-E001");
-        assert!(err.to_string().contains("exactly one key"), "{err}");
+        let report = err.to_report();
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|e| e.message.contains("exactly one key")),
+            "{err}"
+        );
     }
 
     #[test]

@@ -28,6 +28,20 @@ fn assert_error(method: &str, input: &Value, code: &str, pointer: &str, parts: &
     );
 }
 
+/// The message of the only entry of the `tv.compare` report on `input`, at `pointer`.
+fn only_entry(input: &Value, pointer: &str) -> String {
+    let err = run("tv.compare", &input.to_string()).expect_err("the input must be refused");
+    let report = err.to_report();
+    assert_eq!(report.errors.len(), 1, "{report:?}");
+    assert_eq!(
+        report.errors[0].pointer.as_deref(),
+        Some(pointer),
+        "{report:?}"
+    );
+    assert_eq!(err.code(), "FM-E001", "{err}");
+    report.errors[0].message.clone()
+}
+
 fn dcf() -> Value {
     json!({
         "stages": [{"periods": 2, "projection": "given", "flows": [100, 110]}],
@@ -432,13 +446,10 @@ fn compare_errors_inside_a_technique_entry() {
         "basis": "enterprise",
         "techniques": [{"tv.gordon": {"growth": "0.02", "next_flow": "100"}, "tv.h_model": {}}]
     });
-    assert_error(
-        "tv.compare",
-        &two_keys,
-        "FM-E001",
-        "/techniques/0",
-        &["exactly one key", "got 2 keys: tv.gordon, tv.h_model"],
-    );
+    // One entry, at the entry, naming the keys (maintainer decision of 2026-11-17, ADR 0014).
+    let m = only_entry(&two_keys, "/techniques/0");
+    assert!(m.contains("exactly one key"), "{m}");
+    assert!(m.contains("got 2 keys: tv.gordon, tv.h_model"), "{m}");
     let unknown = json!({
         "rate": "0.09",
         "basis": "enterprise",
@@ -450,7 +461,7 @@ fn compare_errors_inside_a_technique_entry() {
         &unknown,
         "FM-E001",
         "/techniques/0/tv.gordo",
-        &["unknown variant `tv.gordo`", "`tv.gordon`"],
+        &["unknown field `tv.gordo`", "`tv.gordon`"],
     );
     let missing = json!({
         "rate": "0.09",
@@ -499,14 +510,10 @@ fn compare_entries_have_exactly_one_key() {
         "{m}"
     );
 
-    let err = run(
-        "tv.compare",
-        &text(r#"{"tv.gordon": {"growth": "x"}, "tv.h_model": {}}"#),
-    )
-    .unwrap_err();
-    assert_eq!(err.code(), "FM-E001");
-    let m = err.to_string();
-    assert!(m.contains("`/techniques/1`"), "{m}");
+    let input: Value =
+        serde_json::from_str(&text(r#"{"tv.gordon": {"growth": "x"}, "tv.h_model": {}}"#)).unwrap();
+    let m = only_entry(&input, "/techniques/1");
+    assert!(m.contains("exactly one key"), "{m}");
     assert!(m.contains("got 2 keys: tv.gordon, tv.h_model"), "{m}");
 }
 

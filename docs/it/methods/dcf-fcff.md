@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: cb453efd4d6b
+source_hash: b74e3c178c6a
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
@@ -144,7 +144,11 @@ calcolati da [`tvm.present_value`](tvm-present-value.md).
 ## Tecniche del valore terminale
 
 L'oggetto `terminal` indica esattamente un'opzione per il valore terminale: una tecnica con
-l'identificativo del suo metodo, un valore terminale fornito dall'analista, oppure nessuno.
+l'identificativo del suo metodo, un valore terminale fornito dall'analista, oppure nessuno. Due
+o più opzioni sono un solo errore, `FM-E001` con reason `length` su `/terminal`, il cui
+messaggio elenca le opzioni indicate in ordine alfabetico, qualunque sia il loro contenuto;
+nulla all'interno di `terminal` è riportato (ADR 0014 G5, decisione del maintainer del
+2026-11-17).
 
 | Opzione | Forma | Valore terminale in N |
 | --- | --- | --- |

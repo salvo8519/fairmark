@@ -1,6 +1,6 @@
 ---
 source: methods/tv-compare.md
-source_hash: 0e86154aef87
+source_hash: 22771e088d0e
 ---
 # Confronto tra tecniche di valore terminale (`tv.compare`)
 
@@ -31,8 +31,13 @@ risultato di quel metodo eseguito da solo. Passaggi e convenzioni di ciascuna te
 in `explain`, preceduti dalla posizione e dall'id, ad esempio
 `[1] tv.gordon: Terminal value at N`. La prima tecnica che fallisce restituisce il proprio
 errore; non ci sono risultati parziali. Una tecnica deve avere esattamente una chiave, l'id
-del metodo; una voce con più chiavi è rifiutata con un messaggio che le elenca, e sono
-rifiutate anche una voce vuota e una chiave ripetuta nella stessa voce.
+del metodo. Una voce con due o più chiavi tra le tecniche è un solo errore, `length` sulla
+voce, il cui messaggio elenca le chiavi in ordine alfabetico; nulla all'interno della voce è
+riportato, e una chiave che non è una tecnica è riportata a parte, sulla chiave. Sono
+rifiutate anche una voce vuota e una chiave ripetuta nella stessa voce. Quando il tasso
+comune `rate` è rifiutato (da una tecnica che ne controlla l'intervallo), nessuna tecnica
+confronta la propria crescita con esso (ADR 0014 G5, decisione del maintainer del
+2026-11-17).
 
 Versione del metodo: 2. La versione 2 rifiuta una chiave ripetuta nella stessa voce
 (`{"tv.gordon": {...}, "tv.gordon": {...}}`) con `FM-E001`; la versione 1 la accettava e ne
@@ -109,7 +114,7 @@ except fm.FairmarkError as err:
 
 | Codice | Quando |
 | --- | --- |
-| `FM-E001` | L'elenco delle tecniche è vuoto, una voce è vuota, ha più di una chiave distinta o ripete una chiave, l'id di una tecnica è sconosciuto, oppure un campo manca o è sconosciuto; il messaggio indica il campo con il suo JSON Pointer, per esempio `/techniques/1/tv.gordon/next_flow`, `/techniques/0/tv.gordo` per un id sconosciuto, oppure ``invalid input at `/techniques/0`: duplicate key `tv.gordon`; keep one`` |
+| `FM-E001` | L'elenco delle tecniche è vuoto, una voce è vuota, ha più di una chiave distinta (`length` sulla voce, per esempio `/techniques/0`) o ripete una chiave, l'id di una tecnica è sconosciuto, oppure un campo manca o è sconosciuto; il messaggio indica il campo con il suo JSON Pointer, per esempio `/techniques/1/tv.gordon/next_flow`, `/techniques/0/tv.gordo` per un id sconosciuto, oppure ``invalid input at `/techniques/0`: duplicate key `tv.gordon`; keep one`` |
 | `FM-E019` | Un multiplo di uscita, un reddito normalizzato o una liquidazione è sull'approccio diverso da quello dichiarato |
 | Qualsiasi codice di una tecnica | La prima tecnica che fallisce restituisce il proprio errore (ad esempio `FM-E004`, `FM-E018`) |
 

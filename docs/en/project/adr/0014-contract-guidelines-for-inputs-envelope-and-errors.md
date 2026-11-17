@@ -187,11 +187,12 @@ with `missing_any_of` for `FM-E027` and `errors` at the top level:
   at most 2, ignoring case).
 - `errors` lists every error found, at least one, the first equal to the top level. Every
   method validates its whole input before computing and reports every error it finds, in the
-  order of its checks; a check is skipped only when it needs an input already refused. An
+  canonical order of the maintainer decision of 2026-11-17 below; a check is skipped only when
+  it needs an input already refused. An
   analysis checks its own fields and its `base_input` in the same pass; `base_input` is
   checked by the validation alone of the method it names (the `validate` of the `Method`
   trait: every input check, nothing computed), so checking it adds no evaluation. Reading the
-  input reports the first field `serde` cannot read as `serde` reports it (ADR 0013), then
+  input reports the first field `serde` cannot read as `serde` reports it (ADR 0013), and
   every other wrong type, missing field and unknown enumeration value, each as `serde` would
   report it alone; a decimal string outside the number grammar of G7 is a wrong type. The
   input is also walked against the method's schema, and every unknown key, every key repeated
@@ -223,6 +224,34 @@ with `missing_any_of` for `FM-E027` and `errors` at the top level:
   top-level error of such an input differs from the one reported before this rule.
   The few input conditions that only the computation can find (listed in the error reference)
   are reported alone, like a computation error.
+
+#### Maintainer decision of 2026-11-17
+Recorded with issue #370. Item 1 replaces the rule that `errors` follows the order of the
+checks; item 2 was approved later the same day, with the review of the pull request.
+
+1. **Canonical order of the report (amends G5).** The entries of `errors` are in a canonical
+   order, which the order of the keys of the input does not change (principle I): the entries
+   without a `pointer` first; then by `pointer`, token by token as RFC 6901 writes it, an array
+   index compared as a number and before a name (`/periods/2` before `/periods/10`; `01` is a
+   name, not an index); then by `code`; then by `message`. Entries equal on these three are
+   ordered by `reason`, then `pointers`, `expected`, `fix` and `missing_any_of`, so the order is
+   total. The top level equals the first entry. The order of the checks still decides which errors are found, never where they are
+   listed, so the first entry is no longer the error a single report would give. G5 above
+   states the rule as amended.
+2. **Single-key choices given two keys, and replaced values (amends G5).** A choice written as
+   an object with one key (an object of optional fields with `maxProperties` 1, such as the DCF
+   `terminal`, or an externally tagged choice, such as the techniques of `tv.compare`, `growth`
+   and `timeline` of `series.project`, `destination` and `split` of `statements.reorganise`)
+   that is given two keys or more of the choice is one entry, `length` at the choice, whose
+   message names the keys found in alphabetical order, with the choices in `expected`, whatever
+   the keys hold. The choice is refused as a whole: nothing within it is reported. Each key that
+   is not one of the choices is its own `unknown_field` entry at the key, with the message of
+   any unknown field. The same in every method and in any order of the keys; the DCF `terminal`
+   reported `conflict` before. Every location where the reading puts a value in place of a
+   refused one counts as refused, also when the error is located elsewhere; an error found
+   before the reading knows that its object is refused is dropped like one found after. A check
+   that compares a field with a refused one is skipped, also when the refusal comes from another
+   check of the same method (the shared rate of `tv.compare`).
 
 A new meaning gets a new code; a new location keeps the code of its condition (ADR 0013).
 Python, the CLI, MCP and function calling pass the whole report. The cells of an analysis table

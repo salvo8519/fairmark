@@ -1,6 +1,6 @@
 ---
 source: reference/errors.md
-source_hash: 5af9f96574ca
+source_hash: 86a22181f18d
 ---
 # Codici di errore
 
@@ -20,20 +20,20 @@ Una chiamata rifiutata restituisce `{"error": <report>}` (ADR 0014 G5):
 ```json
 {"error": {
   "code": "FM-E001",
-  "message": "invalid input: `principal` must be greater than 0 (got 0)",
-  "pointer": "/principal",
+  "message": "invalid input: `number_of_instalments` must be between 1 and 10000 (got 0)",
+  "pointer": "/number_of_instalments",
   "pointers": [],
   "reason": "range",
-  "expected": ["an amount greater than 0"],
+  "expected": ["a whole number from 1 to 10000"],
   "fix": null,
   "errors": [
-    {"code": "FM-E001", "message": "invalid input: `principal` must be greater than 0 (got 0)",
-     "pointer": "/principal", "pointers": [], "reason": "range",
-     "expected": ["an amount greater than 0"], "fix": null},
     {"code": "FM-E001",
      "message": "invalid input: `number_of_instalments` must be between 1 and 10000 (got 0)",
      "pointer": "/number_of_instalments", "pointers": [], "reason": "range",
-     "expected": ["a whole number from 1 to 10000"], "fix": null}
+     "expected": ["a whole number from 1 to 10000"], "fix": null},
+    {"code": "FM-E001", "message": "invalid input: `principal` must be greater than 0 (got 0)",
+     "pointer": "/principal", "pointers": [], "reason": "range",
+     "expected": ["an amount greater than 0"], "fix": null}
   ]
 }}
 ```
@@ -48,19 +48,28 @@ Una chiamata rifiutata restituisce `{"error": <report>}` (ADR 0014 G5):
 | `expected` | Una lista di stringhe. Quando i valori ammessi formano un elenco chiuso, i valori letterali: i valori di un'enumerazione (`reason` `enum`, e gli id dei metodi di `FM-E007`), i campi che un oggetto accetta (`unknown_field`, compreso il tag di un oggetto etichettato internamente), le chiavi di una scelta scritta come oggetto con una sola chiave (`length`, `unknown_field`). Altrimenti brevi descrizioni della forma ammessa in parole semplici, per esempio `"an amount greater than 0"` o `"a whole number of 0 or more"`, mai il nome di un tipo Rust. Vuota quando non sono noti. Quando anche il messaggio cita i valori ammessi, l'elenco completo è `expected`, non il messaggio. |
 | `fix` | Una frase che risolve l'errore; `null` quando il messaggio è l'unica indicazione. La formulazione è un'indicazione e può cambiare tra un rilascio e l'altro; fai affidamento su `code`, `pointer` e `reason`. |
 | `missing_any_of` | Solo `FM-E027`: insiemi alternativi di pointer dell'input, ciascuno dei quali basta a portare l'input sopra il minimo del metodo, per esempio `[["/closing/cash"], ["/closing/current_assets"]]`. |
-| `errors` | Tutti gli errori trovati, almeno uno (`minItems` 1); il primo è il report di primo livello stesso. Le voci non hanno un proprio `errors`. |
+| `errors` | Tutti gli errori trovati, almeno uno (`minItems` 1), nell'ordine canonico descritto sotto; il primo è il report di primo livello stesso. Le voci non hanno un proprio `errors`. |
+
+**Ordine delle voci.** Le voci di `errors` sono in un ordine canonico, così l'ordine delle
+chiavi dell'input non cambia nulla nel report (ADR 0014 G5, decisione del maintainer del
+2026-11-17): prima le voci senza `pointer`; poi per `pointer`, token per token come lo scrive
+la RFC 6901, con un indice di array confrontato come numero e prima di un nome (`/periods/2`
+prima di `/periods/10` e prima di `/periods/total`; `01` è un nome, non un indice); poi per
+`code`; poi per `message`; le voci uguali su questi tre per `reason`, poi `pointers`,
+`expected`, `fix` e `missing_any_of`, così l'ordine è totale. Il primo livello è la prima voce. L'ordine in cui il metodo
+controlla l'input decide quali errori vengono trovati, mai dove sono elencati: la prima voce
+non è necessariamente l'errore a cui si sarebbe fermato un singolo controllo.
 
 **Tutti gli errori dell'input, in una chiamata.** Ogni metodo valida tutto l'input prima di
 calcolare qualsiasi cosa: la validazione prosegue dopo un rifiuto e riporta tutti gli errori che
-trova, nell'ordine in cui li controlla, quindi il primo errore è quello che darebbe un report
-singolo. Un controllo che dipende da un input rifiutato viene saltato (per esempio il conteggio
+trova. Un controllo che dipende da un input rifiutato viene saltato (per esempio il conteggio
 dei tassi quando uno stadio del DCF è rifiutato, il confronto di una crescita con un tasso a sua
 volta rifiutato, o il resto di una rettifica i cui importi non sono uno per esercizio); un
 controllo che non ne dipende viene comunque fatto (un `wacc` rifiutato non nasconde una crescita
 terminale rifiutata, un `principal` rifiutato non nasconde un tasso fuori intervallo).
 
 - **Lettura dell'input.** Viene riportato ogni campo che non si riesce a leggere: il primo
-  come lo riporta `serde` (ADR 0013), poi ogni altro valore di tipo errato, campo obbligatorio
+  come lo riporta `serde` (ADR 0013), e ogni altro valore di tipo errato, campo obbligatorio
   mancante e valore sconosciuto di un'enumerazione, ciascuno con il messaggio, il pointer, la
   reason, `expected` e `fix` che avrebbe se fosse l'unico errore. Il testo viene anche letto
   come JSON e percorso secondo lo schema del metodo, e vengono riportate tutte le chiavi
@@ -75,9 +84,11 @@ terminale rifiutata, un `principal` rifiutato non nasconde un tasso fuori interv
   indicata direttamente.
 - **Errori di lettura e controlli del metodo.** Quando l'input non si riesce a leggere, i
   controlli del metodo vengono eseguiti comunque sui campi letti, e i loro errori sono
-  riportati dopo quelli di lettura: un `"+0.1"` in un tasso non nasconde un'aliquota di -1.
+  riportati insieme a quelli di lettura: un `"+0.1"` in un tasso non nasconde un'aliquota di -1.
   Ogni valore rifiutato è sostituito da uno che lo schema accetta solo per poter leggere
-  l'input, e quel valore non decide mai un errore riportato. Ogni errore dipende da campi
+  l'input, e quel valore non decide mai un errore riportato: il valore è rifiutato dove viene
+  messo (una tecnica di `tv.compare` con due chiavi è sostituita per intero, quindi nulla al suo
+  interno è riportato oltre alla sua voce `length`). Ogni errore dipende da campi
   noti: il suo `pointer`, i suoi `pointers` e i campi che il suo controllo ha letto in altro
   modo (per esempio la proiezione di uno stadio, che decide i campi che lo stadio accetta).
   Viene riportato solo quando nessuno di essi è un campo rifiutato, un campo al suo interno o
@@ -123,11 +134,17 @@ terminale rifiutata, un `principal` rifiutato non nasconde un tasso fuori interv
   sull'array; `""` per un input che è un array) sono rifiutati in tutti i metodi: verrebbero
   letti con l'ultimo valore o per posizione.
 - **Scelte scritte come oggetto con una sola chiave** (`terminal` del DCF, le tecniche di
-  `tv.compare`, `growth` e `timeline` di `series.project`): una chiave che non è tra le scelte è
-  `unknown_field` sulla chiave, con le scelte e la più vicina, anche accanto a una chiave
-  valida; quando è l'unica chiave (`{"tv.godon": {...}}`), è l'unica voce, senza `length` per
-  la scelta che lascia vuota. Nessuna chiave, o una seconda chiave che è tra le scelte, è
-  `length` (sull'oggetto, o sulla seconda chiave), con le scelte in `expected`.
+  `tv.compare`, `growth` e `timeline` di `series.project`, `destination` e `split` nei
+  `treatment_overrides` di `statements.reorganise`), con una sola regola in tutti i metodi
+  (decisione del maintainer del 2026-11-17, ADR 0014): una chiave che non è tra le scelte è
+  `unknown_field` sulla chiave, con il messaggio di qualsiasi campo sconosciuto, le scelte e la più
+  vicina, anche accanto a una o due chiavi della scelta; quando è l'unica chiave (`{"tv.godon":
+  {...}}`), è l'unica voce, senza `length` per la scelta che lascia vuota. Nessuna chiave è `length`
+  sull'oggetto, con le scelte in `expected`. Due o più chiavi tra le scelte sono una sola voce,
+  `length` sull'oggetto, il cui messaggio indica le chiavi trovate in ordine alfabetico (per esempio
+  `(got 2 keys: tv.gordon, tv.h_model)`), con le scelte in `expected`, qualunque sia il loro
+  contenuto: la scelta è rifiutata per intero e nulla al suo interno è riportato, in qualsiasi
+  ordine delle chiavi.
 - **Analisi.** I campi dell'analisi e il suo `base_input` sono controllati in un solo
   passaggio: `base_input` è controllato dal metodo che indica, con la sola validazione di quel
   metodo (ogni controllo del suo input, nessun calcolo), e i suoi errori di input sono
