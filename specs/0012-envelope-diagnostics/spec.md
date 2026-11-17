@@ -369,63 +369,63 @@ SPEC-0007), unchanged by this spec.
 Minimum input (G10): unchanged for every method; this spec adds no field to any input.
 
 ## Acceptance criteria
-- **AC1** (R1, R4) — Property over every golden input of every method: the result has exactly
+- [x] **AC1** (R1, R4) — Property over every golden input of every method: the result has exactly
   the keys `method`, `value`, `explain`, `diagnostics`, `meta` in order, and
   `meta.envelope_version` is the integer 1.
-- **AC2** (R2) — Unit test: no result has `explain.method`; `explain` has exactly `formula`,
+- [x] **AC2** (R2) — Unit test: no result has `explain.method`; `explain` has exactly `formula`,
   `steps`, `conventions`.
-- **AC3** (R3) — `tvm.npv` on `{"rate": "0.1", "cash_flows": [-100, 60, 60]}` returns
+- [x] **AC3** (R3) — `tvm.npv` on `{"rate": "0.1", "cash_flows": [-100, 60, 60]}` returns
   `diagnostics` `{"not_computed": [], "warnings": [], "checks": []}` and
   `meta.defaults_applied` `[]`; the result schema of every method lists the four as required.
-- **AC4** (R5, R6) — `ratios.debt_service` with `balances: closing` and only
+- [x] **AC4** (R5, R6) — `ratios.debt_service` with `balances: closing` and only
   `income_statement.ebit` and `interest` with `interest_definition`: `value` has no
   `not_computed`; `diagnostics.not_computed` has an entry `/value/nfp_to_ebitda` with
   `reason_code` `missing_input` and `missing_any_of` naming the missing EBITDA, its definition and
   the net financial position inputs, as today's list does.
-- **AC5** (R5, R6) — A `ratios.profitability` input with negative equity: `/value/roe/value` is
+- [x] **AC5** (R5, R6) — A `ratios.profitability` input with negative equity: `/value/roe/value` is
   null, `value.roe` has only `value`, and `diagnostics.not_computed` has `/value/roe` with
   `reason_code` `not_defined`, the reason of today and `missing_any_of` `[]`.
-- **AC6** (R5, R7, R12) — A `statements.reorganise` case with a missing treatment of B.III and a
+- [x] **AC6** (R5, R7, R12) — A `statements.reorganise` case with a missing treatment of B.III and a
   non-zero C15: the entry of each output C15 reaches has `reason_code` `choice_required` and
   `permitted` `[{"pointer": "/treatments/financial_fixed_assets", "values": ["operating",
   "non_operating", "financial_asset"]}]`; a reclassified entry lists a statutory-only output as
   `not_applicable`; `diagnostics.checks` lists every relation of every year with `pointer`
   `/value/years/<i>`; `value.years[i]` has neither `checks` nor `not_computed`, and its
   assignments carry `aggregate_pointer`.
-- **AC7** (R8, R9) — One unit test per catalogue code, FM-W001 to FM-W017, on the input of the
+- [x] **AC7** (R8, R9) — One unit test per catalogue code, FM-W001 to FM-W017, on the input of the
   existing test of that warning or convention: the entry has the code, the pointer of the
   catalogue and the message of today; the conventions contain `warning FM-Wnnn: <message>` once.
-- **AC8** (R8, R10) — `dcf.fcff` without `net_financial_position`: `meta.defaults_applied`
+- [x] **AC8** (R8, R10) — `dcf.fcff` without `net_financial_position`: `meta.defaults_applied`
   contains `{"pointer": "/net_financial_position", "value": "0", "reason": ...}` and
   `diagnostics.warnings` contains FM-W012 at `/net_financial_position`; with
   `{"gross_debt": 0, "cash": 0}` neither appears (maintainer decision 2 of 2026-11-09).
-- **AC9** (R10) — No `meta.defaults_applied` entry of any golden result has a key `field`.
-- **AC10** (R11, R12, R20) — Schema test over every input schema and every result schema of
+- [x] **AC9** (R10) — No `meta.defaults_applied` entry of any golden result has a key `field`.
+- [x] **AC10** (R11, R12, R20) — Schema test over every input schema and every result schema of
   every method, with no exemption (decision 13): every property that holds a JSON pointer (a
   string, or a list of strings, whose description says it is a JSON pointer) is named
   `pointer`, `pointers`, `*_pointer`, `*_pointers` or `missing_any_of`; a property that holds
   objects carrying pointers (for example `Scenario.overrides`) is not itself a pointer field.
   Property test over golden results: every envelope pointer resolves in the result
   (`/value/...`) or in the input sent, as its field states.
-- **AC11** (R13) — Two runs of every golden input give byte-identical `diagnostics`; reversing
+- [x] **AC11** (R13) — Two runs of every golden input give byte-identical `diagnostics`; reversing
   the order of the keys of the input changes nothing.
-- **AC12** (R14) — `analysis.sensitivity` of a `dcf.fcff` without a net financial position:
+- [x] **AC12** (R14) — `analysis.sensitivity` of a `dcf.fcff` without a net financial position:
   FM-W012 appears once, at `/base_input/net_financial_position`; `analysis.goal_seek` on a
   `ratios.*` method with a ratio not computed reports it under `/value/inner_value/...`.
-- **AC13** (R15) — Cross-adapter test on one golden input per theme: the JSON of
+- [x] **AC13** (R15) — Cross-adapter test on one golden input per theme: the JSON of
   `fairmark run`, `fairmark.run_json`, the function-calling dispatcher and the MCP tool result
   equals the core result; `fairmark.run(...).diagnostics`, `.warnings`, `.not_computed`,
   `.checks` and `.defaults_applied` equal the corresponding JSON.
-- **AC14** (R16) — The catalogue test of R16 passes, and fails on a planted undocumented code and
+- [x] **AC14** (R16) — The catalogue test of R16 passes, and fails on a planted undocumented code and
   on a planted `warning:` literal outside the warning API.
-- **AC15** (R17, R18) — The schema check passes: `schemas/envelope/v1.json` exists and is
+- [x] **AC15** (R17, R18) — The schema check passes: `schemas/envelope/v1.json` exists and is
   listed; `statements.reorganise` v2, the six `ratios.*` v3 and the four `analysis.*` v2 have
   input and output snapshots and index entries; no current output schema has `not_computed`, `checks` or `not_defined`; the
   snapshots of earlier versions are byte-identical to `origin/main`.
-- **AC16** (R19) — Every `expect` value of every golden case, read at its new location, equals
+- [x] **AC16** (R19) — Every `expect` value of every golden case, read at its new location, equals
   the value on `origin/main` (no numerical change); every `expect_error` case keeps its code and
   report.
-- **AC17** (R5, decision 14) — Unit test: `ratios.debt_service` without a debt schedule, and
+- [x] **AC17** (R5, decision 14) — Unit test: `ratios.debt_service` without a debt schedule, and
   `ratios.profitability` with negative invested capital and no leverage inputs (the inputs of
   the golden cases `no-debt-schedule` and `negative-invested-capital`): `/value/llcr`,
   `/value/roe_leverage/roe` and `/value/roe_leverage/cost_of_debt` each have exactly one entry in

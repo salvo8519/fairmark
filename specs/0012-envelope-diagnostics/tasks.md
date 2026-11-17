@@ -69,7 +69,7 @@ its approved files and `verify` in the same commit, so every commit passes `just
 - [x] T22 [P] Release notes `changes/259.breaking.md` and `changes/259.feature.md`
 
 ## Verification
-- [ ] T23 `uv run just generate`, `uv run just check`, `uv run just docs` green; every AC ticked
+- [x] T23 `uv run just generate`, `uv run just check`, `uv run just docs` green; every AC ticked
   in `spec.md`
 - [ ] T24 `code-reviewer` pass on the branch; `numerical-auditor` confirms AC16 (no value
   changed, golden keys moved only)

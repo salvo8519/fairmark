@@ -19,7 +19,8 @@
 - T16 three new golden cases with `expect_diagnostics`, expectations written by hand from the rules (ratios.liquidity, statements.reorganise reclassified, analysis.sensitivity); resolution test accepts a defaulted field of the evaluated method under `/base_input`.
 
 ## State at the end of the session
-- In progress: tasks T5 to T23 of `specs/0012-envelope-diagnostics/tasks.md`, one commit each.
+- T5 to T23 done and pushed, one commit each (plus the FM-W017 commit of decision 15). T24
+  (code review and numerical audit) is the orchestrator's.
 - Test-first commits (T5 to T10) mark the new tests `#[ignore = "SPEC-0012: enabled by
   T<n>"]`, so that every commit passes `just check`; the implementation task removes the
   marker.
@@ -38,4 +39,4 @@
   for the maintainer: give it a code (FM-W017, emitted how?) or keep it as an adapter note.
 
 ## Next steps
-1. T23: generate, check, docs; tick every AC in `spec.md`.
+1. T24 (orchestrator): code-reviewer pass; numerical-auditor confirms AC16. Note for the auditor: the expectations of the three T16 golden cases were written by the same agent that wrote the engine, from the rules, not from an independent script.
