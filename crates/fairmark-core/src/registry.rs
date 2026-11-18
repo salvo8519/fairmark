@@ -795,6 +795,13 @@ mod tests {
                 "/timing"
             ]
         );
+        // Two defaults are sorted too (mutants of #394: the early return is for fewer than two).
+        let mut two = vec![default("/timing"), default("/cash_flow_terms")];
+        in_input_order("dcf.fcff", &mut two);
+        assert_eq!(two[0].pointer, "/cash_flow_terms");
+        let mut one = vec![default("/timing")];
+        in_input_order("dcf.fcff", &mut one);
+        assert_eq!(one[0].pointer, "/timing");
         let mut unknown = vec![default("/b"), default("/a")];
         in_input_order("no.such_method", &mut unknown);
         assert_eq!(unknown[0].pointer, "/b");
