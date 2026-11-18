@@ -37,7 +37,8 @@ description: Author a golden test case for a Fairmark method with expected value
    - An error case has `expect_error` (the code), may add `expect_error_report` for the
      top-level fields of the report (`/pointer`, `/reason`, `/expected/0`) and
      `expect_errors` for its entries.
-   - Do not assert wording: `message`, `fix`, or a `reason` outside an error. Do not assert
+   - Do not assert wording: `message`, `fix`, or a `reason` outside `expect_errors` and
+     `expect_error_report`. Never use the empty pointer `""` as a key. Do not assert
      envelope structure or `meta` bookkeeping.
 
 3. Use only anonymised or synthetic data.

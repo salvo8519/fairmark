@@ -77,7 +77,12 @@ def resolve(value: Any, field: str) -> Any:
 
 
 def unmet_expectations(case: dict[str, Any], envelope: dict[str, Any]) -> list[str]:
-    """The golden expectations a result envelope does not meet, as in python/tests/test_golden."""
+    """The golden expectations a result envelope does not meet, as in python/tests/test_golden.
+
+    Reads `expect` (pointers into `value`, `null` meaning null or absent under an existing
+    object) and `expect_defaults` (entries of `meta.defaults_applied` named by their input
+    pointer); the other sections assert diagnostics and errors, which this check does not
+    exercise (SPEC-0013)."""
     tolerance = Decimal(str(case["tolerance"]))
     checks = [(envelope["value"], f, e) for f, e in case["expect"].items()]
     problems = []
@@ -92,13 +97,13 @@ def unmet_expectations(case: dict[str, Any], envelope: dict[str, Any]) -> list[s
     for part, field, expected in checks:
         try:
             raw = resolve(part, field)
-        except (KeyError, IndexError):
+        except (KeyError, IndexError, TypeError):
             # `null` means not computed: the last token may be absent under an existing
             # object (SPEC-0013 R4).
             parent_field = field.rsplit("/", 1)[0] if field.startswith("/") else ""
             try:
                 parent = resolve(part, parent_field) if parent_field else part
-            except (KeyError, IndexError):
+            except (KeyError, IndexError, TypeError):
                 parent = None
             if expected != "null" or not isinstance(parent, dict):
                 problems.append(f"{field}: not in the result")

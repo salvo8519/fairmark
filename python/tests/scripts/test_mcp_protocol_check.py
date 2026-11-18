@@ -169,3 +169,9 @@ def test_unmet_expectations_read_defaults_by_pointer_and_null_as_absent() -> Non
     assert check.unmet_expectations({"expect": {"/x/y": "null"}, "tolerance": "0"}, envelope) == [
         "/x/y: not in the result"
     ]
+
+
+def test_unmet_expectations_report_a_key_through_a_text_value() -> None:
+    # Code review of #394, N12: indexing into a text raises TypeError; it is a missing key.
+    case = {"expect": {"/a/b": "1"}, "tolerance": "0"}
+    assert check.unmet_expectations(case, {"value": {"a": "text"}}) == ["/a/b: not in the result"]

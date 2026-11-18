@@ -232,12 +232,15 @@ def nodes_at(root: dict[str, Any], parts: list[str], data: Any) -> list[dict[str
     return nodes
 
 
-def undeclared_keys(case: dict[str, Any], value: Any, envelope_version: str) -> list[str]:
-    """Assertion keys of `case` the schemas do not declare: the guard against a typo once a
-    `null` expectation passes on an absent key (SPEC-0013 R4, R8)."""
+def undeclared_keys(
+    case: dict[str, Any], value: Any, envelope_version: str, method_version: str
+) -> list[str]:
+    """Assertion keys of `case` the schemas do not declare, in the method version the result
+    declares: the guard against a typo once a `null` expectation passes on an absent key
+    (SPEC-0013 R4, R8)."""
     method = case["method"]
     found = []
-    version = str(history()["methods"][method]["current"])
+    version = method_version
     output = output_snapshot(method, version) or {}
     envelope = envelope_snapshot(envelope_version) or {"$defs": {}}
 
@@ -284,17 +287,30 @@ def test_golden_result_conforms_to_the_committed_snapshots(path: Path) -> None:
     envelope_version = str(history()["envelope"]["current"])
     if raw is not None:
         found = result_problems(case["method"], raw)
-        envelope_version = str(raw.get("meta", {}).get("envelope_version", envelope_version))
-        found += undeclared_keys(case, raw.get("value"), envelope_version)
+        meta = raw.get("meta", {})
+        envelope_version = str(meta.get("envelope_version", envelope_version))
+        found += undeclared_keys(
+            case, raw.get("value"), envelope_version, str(meta.get("method_version"))
+        )
     else:
         assert report is not None
         found = error_problems(report, envelope_version)
-        found += undeclared_keys(case, None, envelope_version)
+        current = str(history()["methods"][case["method"]]["current"])
+        found += undeclared_keys(case, None, envelope_version, current)
     assert not found, found[:5]
 
 
-def test_every_golden_case_was_checked() -> None:
-    assert len(CASES) > 600
+def test_every_golden_file_is_a_parametrized_case() -> None:
+    # Code review of #394, N9: the parametrized cases are exactly the golden files, each with
+    # its own id (no file hidden by a duplicate id).
+    for test in (
+        test_golden_result_conforms_to_the_committed_snapshots,
+        test_envelope_lists_follow_their_documented_order,
+    ):
+        mark = next(m for m in test.pytestmark if m.name == "parametrize")  # type: ignore[attr-defined]
+        assert list(mark.args[1]) == sorted(GOLDEN.rglob("*.yaml")) == CASES
+        ids = [mark.kwargs["ids"](p) for p in CASES]
+        assert len(set(ids)) == len(CASES) > 600
 
 
 # ---------------------------------------------------------------- the test catches defects
@@ -402,7 +418,8 @@ def test_a_misspelt_key_is_caught_even_when_null_is_expected(key: str, declared:
     # AC8: a `null` expectation passes on an absent key (R4); the schema catches the typo.
     method, raw = npv()
     case = {"method": method, "expect": {key: "null"}}
-    assert (undeclared_keys(case, raw["value"], "1") == []) is declared
+    version = str(raw["meta"]["method_version"])
+    assert (undeclared_keys(case, raw["value"], "1", version) == []) is declared
 
 
 # ---------------------------------------------------------------- documented orders (R9)
@@ -658,3 +675,10 @@ def test_a_sensitivity_cell_with_an_unknown_field_is_caught() -> None:
     assert result_problems(method, raw) == []
     raw["value"]["cells"][0][0]["surprise"] = "1"
     assert any("surprise" in p for p in result_problems(method, raw))
+
+
+def test_declared_keys_are_read_in_the_version_the_result_declares() -> None:
+    # Code review of #394, N8: `/not_computed` is an output of ratios.profitability v2 only.
+    case = {"method": "ratios.profitability", "expect": {"/not_computed": "null"}}
+    assert undeclared_keys(case, {}, "1", "2") == []
+    assert undeclared_keys(case, {}, "1", "3") != []

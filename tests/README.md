@@ -29,7 +29,8 @@ A golden case does not assert:
   presentation rule (defaults applied, diagnostics, errors);
 - the presence of keys, the envelope structure or `meta` bookkeeping (`envelope_version`,
   `engine_version`, `input_hash`);
-- wording: `message`, `fix`, or a `reason` outside an error entry. The cases migrated by
+- wording: `message`, `fix`, or a `reason` outside `expect_errors` and `expect_error_report`
+  (there `reason` is an enumerated code). The cases migrated by
   SPEC-0013 keep the wording they asserted; when a change of wording touches one, the
   assertion is removed with the maintainer's approval, not updated.
 
@@ -49,7 +50,7 @@ migrated by SPEC-0013. It is never extended; every other case follows the rules.
 | `expect_errors` | `errors` of the error report | `code`, one space, `pointer` (`-` when null) |
 | `expect_counts` | a list | `errors`, `warnings`, `not_computed`, `checks`, or a pointer into `value` |
 | `expect_error` | the error raised | its code |
-| `expect_error_report` | the error report | a top-level field: the first error, as the typed API raises it |
+| `expect_error_report` | the error report | a pointer into the report outside `/errors` (the first error, as the typed API raises it) |
 
 In the five sections keyed by an entry, each key maps to RFC 6901 pointers relative to the
 entry, compared like `expect`; `{}` asserts only that the entry exists. A key that names no
@@ -73,7 +74,10 @@ expect_counts:
 - `null` means not computed: it passes when the value is `null` or when the last token of the
   key is absent under an existing object. Every other expectation fails on an absent key. The
   conformance test fails a key the schema does not declare, so a typo never passes.
-- A decimal is compared within `tolerance`; any other text exactly.
+- No key is the empty pointer `""`: it would name the whole part. Assert the fields of the root
+  instead (`/npv`, `/years/0/total`); both runners and `test_golden_case_shape` refuse it.
+- A decimal is compared within `tolerance`; any other text exactly, and only against a JSON
+  string.
 - A new case that asserts entries of `errors`, `warnings` or `not_computed` states their count
   in `expect_counts` (`test_golden_case_shape` checks it).
 - If two error entries ever share a code and a pointer, the key is extended with `reason` by a

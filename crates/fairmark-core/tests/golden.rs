@@ -85,7 +85,8 @@ impl Case {
             "expect_not_computed" => &self.expect_not_computed,
             "expect_warnings" => &self.expect_warnings,
             "expect_checks" => &self.expect_checks,
-            _ => &self.expect_errors,
+            "expect_errors" => &self.expect_errors,
+            other => unreachable!("no semantic section named {other}"),
         }
     }
 }
@@ -285,14 +286,23 @@ fn count_named(
     list: Option<&serde_json::Value>,
     count: &str,
 ) -> Option<String> {
+    if name.is_empty() {
+        return Some(format!(
+            "{prefix} expect_counts: an empty key names nothing (empty key)"
+        ));
+    }
     let Some(list) = list else {
         return Some(format!(
             "{prefix} expect_counts {name}: not a list of this result"
         ));
     };
     let got = list.as_array().map(Vec::len);
-    (got.map(|n| n.to_string()).as_deref() != Some(count))
-        .then(|| format!("{prefix} expect_counts {name}: length {got:?}, want {count}"))
+    (got.map(|n| n.to_string()).as_deref() != Some(count)).then(|| {
+        format!(
+            "{prefix} expect_counts {name}: length {}, want {count}",
+            shown(got)
+        )
+    })
 }
 
 /// A failure when the array at `field` of `container` does not hold `count` entries.
@@ -302,7 +312,12 @@ fn count_at(container: &serde_json::Value, field: &str, count: &str) -> Option<S
         .and_then(|v| v.as_array())
         .map(Vec::len);
     (got.map(|n| n.to_string()).as_deref() != Some(count))
-        .then(|| format!("length {got:?}, want {count}"))
+        .then(|| format!("length {}, want {count}", shown(got)))
+}
+
+/// A length as both runners write it: the number, or `none` when there is no list.
+fn shown(got: Option<usize>) -> String {
+    got.map_or_else(|| "none".to_owned(), |n| n.to_string())
 }
 
 /// The failure of one expectation: `field` (an RFC 6901 pointer, or a top-level field) of
@@ -316,6 +331,9 @@ fn compare_at(
     expected: &str,
     tolerance: Option<&str>,
 ) -> Option<String> {
+    if field.is_empty() {
+        return Some("an empty key names the whole part: assert its fields (empty key)".to_owned());
+    }
     let found = if field.starts_with('/') {
         container.pointer(field)
     } else {
@@ -593,6 +611,26 @@ fn a_positional_error_entry_is_refused() {
     );
 }
 
+/// Code review of #394, N11 and N13: a count of a missing list reads `length none`, as in the
+/// Python runner; an empty key, which would name the whole part, is refused everywhere.
+#[test]
+fn a_missing_list_and_an_empty_key_fail_with_the_python_messages() {
+    let mut case = temporary_case(
+        "expect_not_computed:\n  /value/roe: {\"/nope#count\": \"1\", \"\": x}\n\
+         expect_counts:\n  \"\": \"1\"\n",
+    );
+    case.expect.insert(String::new(), "1".to_owned());
+    let failures = check_result("temporary.yaml", &case, &semantic_result());
+    let text = failures.join("\n");
+    assert_eq!(failures.len(), 4, "{text}");
+    assert!(text.contains("/nope#count: length none, want 1"), "{text}");
+    let empty = failures
+        .iter()
+        .filter(|f| f.ends_with("(empty key)"))
+        .count();
+    assert_eq!(empty, 3, "{text}");
+}
+
 /// SPEC-0013: a result with every envelope list filled, for the semantic sections.
 fn semantic_result() -> serde_json::Value {
     serde_json::json!({
@@ -684,11 +722,11 @@ fn semantic_sections_fail_on_a_wrong_value_a_wrong_key_or_a_wrong_count() {
         "expect_checks /value/years/1 a_total /status: got \"not_checked\", want reconciled",
         "expect_defaults /timing /value: got \"end_of_period\", want mid_period",
         "expect_not_computed /value/roi: 0 entries named it",
-        "expect_not_computed /value/ros /missing_any_of#count: length Some(2), want 1",
+        "expect_not_computed /value/ros /missing_any_of#count: length 2, want 1",
         "expect_warnings FM-W005 -: 2 entries named it",
         "expect_warnings /value/roe: 0 entries named it",
-        "expect_counts warnings: length Some(3), want 2",
-        "expect_counts /present_values: length Some(3), want 4",
+        "expect_counts warnings: length 3, want 2",
+        "expect_counts /present_values: length 3, want 4",
         "expect_counts errors: not a list of this result",
     ] {
         assert!(text.contains(want), "missing {want:?} in\n{text}");
@@ -741,7 +779,7 @@ fn error_sections_name_entries_and_refuse_positional_keys() {
         "expect_errors FM-E001 /rat /reason: got \"unknown_field\", want missing",
         "expect_errors FM-E001 /rate: 0 entries named it",
         "expect_warnings: needs expect, not expect_error",
-        "expect_counts errors: length Some(3), want 2",
+        "expect_counts errors: length 3, want 2",
         "expect_counts warnings: not a list of this result",
     ] {
         assert!(text.contains(want), "missing {want:?} in\n{text}");

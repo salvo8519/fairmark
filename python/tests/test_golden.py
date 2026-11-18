@@ -56,6 +56,7 @@ def check_result(case: dict[str, Any], parts: dict[str, Any]) -> None:
         compare(lookup(parts, "value", field, expected), field, expected, tolerance)
     check_sections(case, parts, tolerance)
     for name, count in case.get("expect_counts", {}).items():
+        assert name != "", "expect_counts: an empty key names nothing (empty key)"
         if name.startswith("/"):
             items = lookup(parts, "value", name)
         elif name in COUNTED_LISTS and "diagnostics" in parts:
@@ -103,7 +104,7 @@ def check_sections(case: dict[str, Any], doc: dict[str, Any], tolerance: Decimal
             for field, expected in (expectations or {}).items():
                 where = f"{section} {key} {field}"
                 if field.endswith("#count"):
-                    count_is(resolve(named[0], field.removesuffix("#count")), where, expected)
+                    count_is(present_at(named[0], field.removesuffix("#count")), where, expected)
                 else:
                     compare(value_at(named[0], field, expected), where, expected, tolerance)
 
@@ -114,8 +115,10 @@ def entry_key(entry: dict[str, Any], fields: tuple[str, ...]) -> str:
 
 
 def count_is(items: Any, where: str, count: Any) -> None:
+    """The same message as the Rust runner: `length 2, want 3`, `length none, want 1`."""
     got = len(items) if isinstance(items, list) else None
-    assert got == int(count), f"{where}: length {got}, want {count}"
+    shown = "none" if got is None else got
+    assert got == int(count), f"{where}: length {shown}, want {count}"
 
 
 def lookup(parts: dict[str, Any], part: str, field: str, expected: Any = None) -> Any:
@@ -126,9 +129,18 @@ def lookup(parts: dict[str, Any], part: str, field: str, expected: Any = None) -
     return value_at(parts[part], field, expected)
 
 
+def present_at(container: Any, field: str) -> Any:
+    """`field` of `container`, or None when it is absent (a count then fails, not raises)."""
+    try:
+        return value_at(container, field)
+    except AssertionError:
+        return None
+
+
 def value_at(container: Any, field: str, expected: Any = None) -> Any:
     """`field` of `container`; `ABSENT` when `expected` is `null` and only the last token is
     missing under an existing object; any other missing field fails."""
+    assert field != "", "an empty key names the whole part: assert its fields (empty key)"
     try:
         return resolve(container, field)
     except (KeyError, IndexError, TypeError):
@@ -220,6 +232,13 @@ def test_golden_case_shape(path: Path) -> None:
     for key in ("expect_error_report", "expect_errors"):
         if key in case:
             assert "expect_error" in case, f"{key} needs expect_error"
+    keyed = [
+        k for sec in ("expect", "expect_error_report", "expect_counts") for k in case.get(sec, {})
+    ]
+    for section in SECTIONS:
+        for name, entry in (case.get(section) or {}).items():
+            keyed += [name, *(entry or {})]
+    assert "" not in keyed, "an empty key names the whole part: assert its fields (empty key)"
     for field in case.get("expect_error_report", {}):
         assert not field.startswith("/errors/"), (
             f"expect_error_report {field}: name the entry in expect_errors"
@@ -551,3 +570,30 @@ def test_text_is_compared_only_with_text() -> None:
         case = ERROR_CASE | {"expect_errors": {"FM-E001 /rat": {field: expected}}}
         with pytest.raises(AssertionError):
             check_error(case, report)
+
+
+def test_a_count_of_a_missing_list_fails_like_the_rust_runner() -> None:
+    # Code review of #394, N11: the same message in both runners.
+    case = TEMPORARY_CASE | {"expect_not_computed": {"/value/roe": {"/nope#count": "1"}}}
+    with pytest.raises(AssertionError, match=re.escape("/nope#count: length none, want 1")):
+        check_result(case, semantic_parts())
+    case = TEMPORARY_CASE | {"expect_counts": {"warnings": "3"}}
+    with pytest.raises(AssertionError, match=re.escape("expect_counts warnings: length 2, want 3")):
+        check_result(case, semantic_parts())
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"expect": {"": "1"}},
+        {"expect_not_computed": {"/value/roe": {"": "x"}}, "expect_counts": {"not_computed": "1"}},
+        {"expect_counts": {"": "1"}},
+    ],
+)
+def test_an_empty_key_is_refused(tmp_path: Path, extra: dict[str, Any]) -> None:
+    # Code review of #394, N13: the empty pointer names the whole part; assert its fields.
+    case = TEMPORARY_CASE | {"source": "temporary"} | extra
+    with pytest.raises(AssertionError, match="empty key"):
+        test_golden_case_shape(write_case(tmp_path, case))
+    with pytest.raises(AssertionError, match="empty key"):
+        check_result(case, semantic_parts())
