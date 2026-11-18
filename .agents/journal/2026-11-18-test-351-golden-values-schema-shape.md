@@ -1,7 +1,7 @@
 # 2026-11-18 — test/351-golden-values-schema-shape
 
 - Issue: #351 Golden cases assert values, schema snapshots assert shape
-- Pull request: to be opened after T10
+- Pull request: #394 (ready)
 - Spec: SPEC-0013 (approved 2026-11-17); migration list approved 2026-11-18 on condition that
   the list regenerated on current `main` is identical (recorded on #351)
 
@@ -23,7 +23,7 @@
   119 checked, 0 problems.
 - T10 retired sections and `/errors/N` keys of `expect_error_report` refused by both runners
   and the case shape test; `scripts/mcp_protocol_check.py` reads `expect_defaults`.
-- Working: pull request; T11 (review and audit) is the coordinator's.
+- PR #394 opened; T11 (review and audit) is the coordinator's.
 
 ## Decisions taken
 - `check_golden_changes.py` protected only some sections: the diagnostics sections of
@@ -40,5 +40,5 @@
 - None.
 
 ## Next steps
-1. Open the pull request (tier substantial plus golden migration, `Closes #351`); the
-   maintainer adds the `numerical-change` label for `check_golden_changes.py` (no value changes).
+1. T11 on #394: `code-reviewer` pass and `numerical-auditor` on the migration; the maintainer
+   adds the `numerical-change` label for `check_golden_changes.py` (no value changes).
