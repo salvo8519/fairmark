@@ -1,6 +1,6 @@
 ---
 source: methods/statements-reorganise.md
-source_hash: c1a6a4ff9dbd
+source_hash: 412f2ea7bd04
 ---
 # Bilancio riclassificato (`statements.reorganise`)
 
@@ -547,10 +547,13 @@ blocco `diagnostics` del risultato.
 
 ## Valori predefiniti
 
-Ogni valore predefinito è elencato in `meta.defaults_applied` e in `explain.conventions`, in
-quest'ordine:
+Ogni valore predefinito è elencato in `meta.defaults_applied` e in `explain.conventions`
+nell'ordine dell'input: una visita in profondità dell'input, nell'ordine dei campi dello schema
+di input (prima gli esercizi, in ciascuno lo stato patrimoniale prima del conto economico, poi
+`treatments`), la stessa regola per ogni metodo ([tracciabilità del
+calcolo](../concepts/audit-trail.md)). I valori predefiniti sono:
 
-1. per esercizio, ogni aggregato civilistico fornito la cui destinazione è una predefinita
+- per esercizio, ogni aggregato civilistico fornito la cui destinazione è una predefinita
    dell'Appendice A (B.I, B.II, C.II, C.III, C.IV, voce D dell'attivo, fondi per rischi e oneri B,
    trattamento di fine rapporto C, debiti D, voce E del passivo; poi A5 verso
    `value_of_production`, B14 verso `external_costs`, B10 c verso
@@ -559,14 +562,14 @@ quest'ordine:
    `value` la destinazione, e la convenzione riporta "assigned to". Un aggregato è fornito quando
    è fornito il suo importo: un nodo che ne contiene solo una parte (per esempio
    `receivables.trade`) non basta;
-2. `treatments.write_downs_of_receivables` e `treatments.write_downs_of_fixed_assets`,
+- `treatments.write_downs_of_receivables` e `treatments.write_downs_of_fixed_assets`,
    `operating` se non fornite, ciascuna elencata ogni volta che un esercizio civilistico fornisce
    il conto economico, perché decidono che cosa è calcolato (decisione A4 del 2026-11-09, che
    modifica F1); quando una di queste classificazioni predefinite colloca una B10 c o una B10 d
    diversa da zero, l'avvertenza `FM-W015` in `diagnostics.warnings`, al pointer della
    classificazione, indica il valore predefinito e il subtotale che sposta (ADR 0014, test 4 di
    ammissione dei valori predefiniti);
-3. ogni voce considerata pari a zero perché non fornita ([Calcolo sui dati
+- ogni voce considerata pari a zero perché non fornita ([Calcolo sui dati
    disponibili](#calcolo-sui-dati-disponibili)): `value` è `"0"` e la convenzione riporta "not
    given, set to".
 
