@@ -42,6 +42,12 @@ In Python, `fm.FairmarkError` carries the same fields as attributes: `err.pointe
 `err.pointers`, `err.reason`, `err.expected`, `err.fix`, `err.missing_any_of` and
 `err.errors`.
 
+## Reading results
+
+Clients ignore fields they do not know; a new field is an additive change. A result can gain a field within a method version, in `value` or in the
+envelope; read the fields you need and pass over the rest (see
+[method versions](../project/releases.md#method-versions)).
+
 ## Preview methods
 
 Every method has a status, `available` or `preview`, reported by `fm.methods()`

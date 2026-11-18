@@ -36,6 +36,9 @@ print(r.conventions)
 
 `r.to_json()` returns the whole envelope as JSON. To show the steps as a table or as Markdown, use your own tools (for example pandas).
 
+If your code parses the JSON: Clients ignore fields they do not know; a new field is an additive change. A later release may add fields to `value` or
+to the envelope; read the fields you need and pass over the rest.
+
 ## Reproduce a result later
 
 ```python

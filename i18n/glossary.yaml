@@ -37,6 +37,8 @@ terms:
   not computed: non calcolato
   not defined: non definito
   check (relation verified): controllo
+  additive change: modifica additiva
+  breaking change: modifica incompatibile
   financial statements: bilancio d'esercizio
   business plan: business plan
   spec: specifica
