@@ -39,7 +39,7 @@ gvm = importlib.util.module_from_spec(_spec)
 sys.modules["golden_values_migration"] = gvm
 _spec.loader.exec_module(gvm)
 
-APPLICATORS = ("anyOf", "oneOf", "allOf")
+APPLICATORS = ("anyOf", "oneOf", "allOf")  # choices first: `closed` reads [:2]
 # The `$defs` of the envelope snapshot that describe one entry of each semantic section.
 ENTRY_DEFS = {
     "expect_defaults": "DefaultApplied",
@@ -87,17 +87,21 @@ def envelope_snapshot(version: str) -> dict[str, Any] | None:
     return read(entry["file"]) if entry else None
 
 
-def closed(node: Any, branch: bool = False) -> Any:
-    """`node` with `unevaluatedProperties: false` on every object schema that declares
-    `properties` and is not a direct branch of `anyOf`, `oneOf` or `allOf` (its parent closes
-    it, so the fields a branch shares with its parent stay allowed)."""
+def closed(node: Any, branch: bool = False, root: Any = None) -> Any:
+    """`node` with `unevaluatedProperties: false` on every object schema that is not a direct
+    branch of `anyOf`, `oneOf` or `allOf` and either declares `properties` or is a choice
+    whose branches declare them (its parent closes a branch, so the fields a branch shares
+    with its parent stay allowed)."""
+    root = node if root is None else root
     if isinstance(node, list):
-        return [closed(x, branch) for x in node]
+        return [closed(x, branch, root) for x in node]
     if not isinstance(node, dict):
         return node
-    out = {k: closed(v, k in APPLICATORS) for k, v in node.items()}
+    out = {k: closed(v, k in APPLICATORS, root) for k, v in node.items()}
+    branches = [b for k in APPLICATORS[:2] for b in node.get(k, [])]
+    choice = any("properties" in gvm._deref(root, b) for b in branches)
     if (
-        "properties" in out
+        ("properties" in out or choice)
         and not branch
         and "additionalProperties" not in out
         and "unevaluatedProperties" not in out
@@ -645,3 +649,12 @@ def test_error_entries_follow_pointer_then_code_then_message() -> None:
         swapped = [*entries]
         swapped[i], swapped[i + 1] = swapped[i + 1], swapped[i]
         assert error_order_problems({"errors": swapped}), i
+
+
+def test_a_sensitivity_cell_with_an_unknown_field_is_caught() -> None:
+    # Code review of #394, S3: a cell is a choice (`anyOf` of `value` and `error`) whose node
+    # declares no property of its own; closed mode closes it too.
+    method, raw = golden_result("analysis.sensitivity")
+    assert result_problems(method, raw) == []
+    raw["value"]["cells"][0][0]["surprise"] = "1"
+    assert any("surprise" in p for p in result_problems(method, raw))

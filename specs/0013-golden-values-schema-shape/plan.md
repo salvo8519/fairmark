@@ -71,9 +71,11 @@ needed. No release note: nothing a user sees changes (label `no-release-note`).
   plan: T9 starts by running `list` again; a different list is approved again.
 - **ADR 0017 lands first.** `schemas/index.json` disappears; the script and the conformance
   test already read the history through `schema_history()` when present.
-- **Closed mode too strict for a future schema** (a flattened enum whose parent declares no
-  `properties`). The rule closes only objects that declare `properties`; a branch is closed by
-  its parent. A failure is fixed in the snapshot generator, not by loosening the test.
+- **Closed mode and choices.** A choice whose node declares no `properties` of its own (an
+  `anyOf` or `oneOf` of objects, such as a cell of `analysis.sensitivity`) is closed at the
+  node, like an object that declares `properties`; a branch is never closed itself, so the
+  fields it shares with its parent stay allowed (code review of #394, S3). A future schema the
+  rule rejects wrongly is fixed in the snapshot generator, not by loosening the test.
 - **`null` or absent weakens typo detection in the runners.** R8 moves the guard to the
   conformance test, which runs on every case.
 - Rejected: selectors inside `value` (decision 1); the Rust `jsonschema` crate (decision 6,

@@ -121,8 +121,8 @@ Shape
   - an analysis result: each value marked `x-fairmark-output-of` against the output snapshot
     of the inner method at the version the result names;
   - in closed mode: `unevaluatedProperties: false` added at test time to every object schema
-    that declares `properties` and is not a direct branch of `anyOf`, `oneOf` or `allOf`; the
-    committed snapshots are not changed;
+    that is not a direct branch of `anyOf`, `oneOf` or `allOf` and declares `properties` or
+    is a choice whose branches declare them; the committed snapshots are not changed;
   - with formats asserted (`FormatChecker`, at least `date`).
 - **R8** — THE CONFORMANCE TEST SHALL fail a golden case whose assertion key, in `expect` or
   inside an entry of a semantic section, is not declared by the schema of the part it reads
@@ -194,7 +194,7 @@ Not applicable: no method output is added or changed.
   test fails on: a field added to `value`, a field renamed, a required envelope key missing, a
   decimal written as a JSON number, an enumerated value not in the schema, a `date` that is not
   a date, an error report with an extra field, an inner analysis value with an unknown field,
-  and a result whose `meta.method_version` names a snapshot it does not match.
+  a cell of `analysis.sensitivity` with an unknown field, and a result whose `meta.method_version` names a snapshot it does not match.
 - **AC7** (R7) — The test reads no schema from the engine (`fm.result_schema`,
   `fm.output_schema` are not called); `test_golden_results_match_their_result_schema` is
   removed from `test_output_schemas.py`.
