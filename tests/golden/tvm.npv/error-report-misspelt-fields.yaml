@@ -15,16 +15,17 @@ input:
 expect_error: FM-E001
 expect_error_report:
   /pointer: /cash_flows
-  /errors/0/pointer: /cash_flows
-  /errors/1/pointer: /cashflows
-  /errors/1/reason: unknown_field
-  /errors/1/fix: rename `cashflows` to `cash_flows`
-  /errors/2/pointer: /rat
-  /errors/2/reason: unknown_field
-  /errors/2/expected/0: rate
-  /errors/2/expected/1: cash_flows
-  /errors/2/fix: rename `rat` to `rate`
-  /errors/3/pointer: /rate
-  /errors/3/reason: missing
-expect_length:
-  /errors: '4'
+expect_counts:
+  errors: '4'
+expect_errors:
+  FM-E001 /cash_flows: {}
+  FM-E001 /cashflows:
+    /fix: rename `cashflows` to `cash_flows`
+    /reason: unknown_field
+  FM-E001 /rat:
+    /expected/0: rate
+    /expected/1: cash_flows
+    /fix: rename `rat` to `rate`
+    /reason: unknown_field
+  FM-E001 /rate:
+    /reason: missing

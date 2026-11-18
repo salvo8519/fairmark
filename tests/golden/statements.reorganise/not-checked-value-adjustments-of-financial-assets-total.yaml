@@ -48,8 +48,7 @@ expect:
   /years/0/form: statutory
   /years/0/income_statement/operating_profit: '266000'
   /years/0/income_statement/net_income: '150000'
-expect_diagnostics:
-  /checks/31/status: not_checked
-  /checks/31/id: value_adjustments_of_financial_assets_total
-  /checks/31/pointer: /value/years/0
 tolerance: '0'
+expect_checks:
+  /value/years/0 value_adjustments_of_financial_assets_total:
+    /status: not_checked

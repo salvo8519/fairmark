@@ -39,8 +39,7 @@ input:
         debt_like_items: []
 expect:
   /years/0/form: reclassified
-expect_diagnostics:
-  /checks/1/status: not_checked
-  /checks/1/id: funds_invested_equals_sources
-  /checks/1/pointer: /value/years/0
 tolerance: '0'
+expect_checks:
+  /value/years/0 funds_invested_equals_sources:
+    /status: not_checked

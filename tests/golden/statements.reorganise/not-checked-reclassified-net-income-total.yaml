@@ -32,8 +32,7 @@ input:
         income_taxes: '64000'
 expect:
   /years/0/income_statement/net_income: '150000'
-expect_diagnostics:
-  /checks/3/status: not_checked
-  /checks/3/id: net_income_total
-  /checks/3/pointer: /value/years/0
 tolerance: '0'
+expect_checks:
+  /value/years/0 net_income_total:
+    /status: not_checked

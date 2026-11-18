@@ -40,8 +40,7 @@ input:
         total_sources: '1610000'
 expect:
   /years/0/form: reclassified
-expect_diagnostics:
-  /checks/7/status: not_checked
-  /checks/7/id: operating_working_capital_total
-  /checks/7/pointer: /value/years/0
 tolerance: '0'
+expect_checks:
+  /value/years/0 operating_working_capital_total:
+    /status: not_checked

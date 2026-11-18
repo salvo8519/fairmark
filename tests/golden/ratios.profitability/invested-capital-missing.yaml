@@ -36,23 +36,23 @@ expect:
   /roe_leverage/pre_tax_roe/value: 'null'
   /roe_leverage/tax_rate/value: 'null'
   /roe_leverage/roe/value: 'null'
-expect_diagnostics:
-  /not_computed/8/pointer: /value/roi
-  /not_computed/8/missing_any_of/0/0: '/closing/invested_capital'
-  /not_computed/0/pointer: /value/capital_turnover
-  /not_computed/0/missing_any_of/0/0: '/closing/invested_capital'
-  /not_computed/6/pointer: /value/roe_leverage/roi
-  /not_computed/6/missing_any_of/0/0: '/leverage'
-  /not_computed/1/pointer: /value/roe_leverage/cost_of_debt
-  /not_computed/1/missing_any_of/0/0: '/leverage'
-  /not_computed/2/pointer: /value/roe_leverage/debt_to_equity
-  /not_computed/2/missing_any_of/0/0: '/leverage'
-  /not_computed/3/pointer: /value/roe_leverage/leverage_effect
-  /not_computed/3/missing_any_of/0/0: '/leverage'
-  /not_computed/4/pointer: /value/roe_leverage/pre_tax_roe
-  /not_computed/4/missing_any_of/0/0: '/leverage'
-  /not_computed/7/pointer: /value/roe_leverage/tax_rate
-  /not_computed/7/missing_any_of/0/0: '/leverage'
-  /not_computed/5/pointer: /value/roe_leverage/roe
-  /not_computed/5/missing_any_of/0/0: '/leverage'
 tolerance: '0.00000000000000000001'
+expect_not_computed:
+  /value/capital_turnover:
+    /missing_any_of/0/0: /closing/invested_capital
+  /value/roe_leverage/cost_of_debt:
+    /missing_any_of/0/0: /leverage
+  /value/roe_leverage/debt_to_equity:
+    /missing_any_of/0/0: /leverage
+  /value/roe_leverage/leverage_effect:
+    /missing_any_of/0/0: /leverage
+  /value/roe_leverage/pre_tax_roe:
+    /missing_any_of/0/0: /leverage
+  /value/roe_leverage/roe:
+    /missing_any_of/0/0: /leverage
+  /value/roe_leverage/roi:
+    /missing_any_of/0/0: /leverage
+  /value/roe_leverage/tax_rate:
+    /missing_any_of/0/0: /leverage
+  /value/roi:
+    /missing_any_of/0/0: /closing/invested_capital

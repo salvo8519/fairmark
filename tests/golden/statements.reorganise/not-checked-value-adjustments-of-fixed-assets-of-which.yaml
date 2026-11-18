@@ -41,8 +41,7 @@ input:
 expect:
   /years/0/income_statement/depreciation_and_amortisation: 'null'
   /years/0/income_statement/investing_result: '9000'
-expect_diagnostics:
-  /checks/32/status: not_checked
-  /checks/32/id: value_adjustments_of_fixed_assets_of_which
-  /checks/32/pointer: /value/years/0
 tolerance: '0'
+expect_checks:
+  /value/years/0 value_adjustments_of_fixed_assets_of_which:
+    /status: not_checked

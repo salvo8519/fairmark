@@ -82,45 +82,45 @@ expect:
   /years/0/balance_sheet/sources/total_sources: 'null'
   /years/0/balance_sheet/excess_cash: '240000'
   /years/0/form: statutory
-expect_diagnostics:
-  /not_computed/0/pointer: /value/years/0/balance_sheet/sources/net_financial_position/composition
-  /not_computed/0/missing_any_of/0/0: /treatments/shareholder_loans
-  /not_computed/0/permitted/0/pointer: /treatments/shareholder_loans
-  /not_computed/0/permitted/0/values/0: financial_debt
-  /not_computed/0/permitted/0/values/1: quasi_equity
-  /not_computed/1/pointer: /value/years/0/balance_sheet/sources/net_financial_position/current
-  /not_computed/1/missing_any_of/0/0: /treatments/shareholder_loans
-  /not_computed/1/permitted/0/pointer: /treatments/shareholder_loans
-  /not_computed/1/permitted/0/values/0: financial_debt
-  /not_computed/1/permitted/0/values/1: quasi_equity
-  /not_computed/2/pointer: /value/years/0/balance_sheet/sources/net_financial_position/non_current
-  /not_computed/2/missing_any_of/0/0: /treatments/shareholder_loans
-  /not_computed/2/permitted/0/pointer: /treatments/shareholder_loans
-  /not_computed/2/permitted/0/values/0: financial_debt
-  /not_computed/2/permitted/0/values/1: quasi_equity
-  /not_computed/3/pointer: /value/years/0/balance_sheet/sources/net_financial_position/position
-  /not_computed/3/missing_any_of/0/0: /treatments/shareholder_loans
-  /not_computed/3/permitted/0/pointer: /treatments/shareholder_loans
-  /not_computed/3/permitted/0/values/0: financial_debt
-  /not_computed/3/permitted/0/values/1: quasi_equity
-  /not_computed/4/pointer: /value/years/0/balance_sheet/sources/net_financial_position/total
-  /not_computed/4/missing_any_of/0/0: /treatments/shareholder_loans
-  /not_computed/4/permitted/0/pointer: /treatments/shareholder_loans
-  /not_computed/4/permitted/0/values/0: financial_debt
-  /not_computed/4/permitted/0/values/1: quasi_equity
-  /not_computed/5/pointer: /value/years/0/balance_sheet/sources/quasi_equity_items
-  /not_computed/5/missing_any_of/0/0: /treatments/shareholder_loans
-  /not_computed/5/permitted/0/pointer: /treatments/shareholder_loans
-  /not_computed/5/permitted/0/values/0: financial_debt
-  /not_computed/5/permitted/0/values/1: quasi_equity
-  /not_computed/6/pointer: /value/years/0/balance_sheet/sources/quasi_equity_items_total
-  /not_computed/6/missing_any_of/0/0: /treatments/shareholder_loans
-  /not_computed/6/permitted/0/pointer: /treatments/shareholder_loans
-  /not_computed/6/permitted/0/values/0: financial_debt
-  /not_computed/6/permitted/0/values/1: quasi_equity
-  /not_computed/7/pointer: /value/years/0/balance_sheet/sources/total_sources
-  /not_computed/7/missing_any_of/0/0: /treatments/shareholder_loans
-  /not_computed/7/permitted/0/pointer: /treatments/shareholder_loans
-  /not_computed/7/permitted/0/values/0: financial_debt
-  /not_computed/7/permitted/0/values/1: quasi_equity
 tolerance: '0'
+expect_not_computed:
+  /value/years/0/balance_sheet/sources/net_financial_position/composition:
+    /missing_any_of/0/0: /treatments/shareholder_loans
+    /permitted/0/pointer: /treatments/shareholder_loans
+    /permitted/0/values/0: financial_debt
+    /permitted/0/values/1: quasi_equity
+  /value/years/0/balance_sheet/sources/net_financial_position/current:
+    /missing_any_of/0/0: /treatments/shareholder_loans
+    /permitted/0/pointer: /treatments/shareholder_loans
+    /permitted/0/values/0: financial_debt
+    /permitted/0/values/1: quasi_equity
+  /value/years/0/balance_sheet/sources/net_financial_position/non_current:
+    /missing_any_of/0/0: /treatments/shareholder_loans
+    /permitted/0/pointer: /treatments/shareholder_loans
+    /permitted/0/values/0: financial_debt
+    /permitted/0/values/1: quasi_equity
+  /value/years/0/balance_sheet/sources/net_financial_position/position:
+    /missing_any_of/0/0: /treatments/shareholder_loans
+    /permitted/0/pointer: /treatments/shareholder_loans
+    /permitted/0/values/0: financial_debt
+    /permitted/0/values/1: quasi_equity
+  /value/years/0/balance_sheet/sources/net_financial_position/total:
+    /missing_any_of/0/0: /treatments/shareholder_loans
+    /permitted/0/pointer: /treatments/shareholder_loans
+    /permitted/0/values/0: financial_debt
+    /permitted/0/values/1: quasi_equity
+  /value/years/0/balance_sheet/sources/quasi_equity_items:
+    /missing_any_of/0/0: /treatments/shareholder_loans
+    /permitted/0/pointer: /treatments/shareholder_loans
+    /permitted/0/values/0: financial_debt
+    /permitted/0/values/1: quasi_equity
+  /value/years/0/balance_sheet/sources/quasi_equity_items_total:
+    /missing_any_of/0/0: /treatments/shareholder_loans
+    /permitted/0/pointer: /treatments/shareholder_loans
+    /permitted/0/values/0: financial_debt
+    /permitted/0/values/1: quasi_equity
+  /value/years/0/balance_sheet/sources/total_sources:
+    /missing_any_of/0/0: /treatments/shareholder_loans
+    /permitted/0/pointer: /treatments/shareholder_loans
+    /permitted/0/values/0: financial_debt
+    /permitted/0/values/1: quasi_equity

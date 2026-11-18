@@ -121,33 +121,33 @@ expect:
   /years/0/balance_sheet/sources/net_financial_position/total: '710000'
   /years/0/balance_sheet/total_funds_invested: '1610000'
   /years/0/balance_sheet/sources/total_sources: '1610000'
-expect_meta:
-  /defaults_applied/0/pointer: /years/0/statutory/balance_sheet/intangible_assets
-  /defaults_applied/0/value: operating_fixed_assets
-  /defaults_applied/1/pointer: /years/0/statutory/balance_sheet/tangible_assets
-  /defaults_applied/1/value: operating_fixed_assets
-  /defaults_applied/2/pointer: /years/0/statutory/balance_sheet/receivables
-  /defaults_applied/2/value: operating_working_capital
-  /defaults_applied/3/pointer: /years/0/statutory/balance_sheet/current_financial_assets
-  /defaults_applied/3/value: net_financial_position_other_financial_asset
-  /defaults_applied/4/pointer: /years/0/statutory/balance_sheet/cash
-  /defaults_applied/4/value: net_financial_position_cash
-  /defaults_applied/5/pointer: /years/0/statutory/balance_sheet/provisions
-  /defaults_applied/5/value: operating_provisions
-  /defaults_applied/6/pointer: /years/0/statutory/balance_sheet/employee_severance_indemnity
-  /defaults_applied/6/value: operating_provisions
-  /defaults_applied/7/pointer: /years/0/statutory/balance_sheet/payables
-  /defaults_applied/7/value: operating_working_capital
-  /defaults_applied/8/pointer: /years/0/statutory/income_statement/other_revenue_and_income
-  /defaults_applied/8/value: value_of_production
-  /defaults_applied/9/pointer: /years/0/statutory/income_statement/other_operating_expenses
-  /defaults_applied/9/value: external_costs
-  /defaults_applied/10/pointer: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_fixed_assets
-  /defaults_applied/10/value: depreciation_and_amortisation
-  /defaults_applied/11/pointer: /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_receivables
-  /defaults_applied/11/value: other_charges_below_ebitda
-  /defaults_applied/12/pointer: /treatments/write_downs_of_receivables
-  /defaults_applied/12/value: operating
-  /defaults_applied/13/pointer: /treatments/write_downs_of_fixed_assets
-  /defaults_applied/13/value: operating
 tolerance: '0'
+expect_defaults:
+  /treatments/write_downs_of_fixed_assets:
+    /value: operating
+  /treatments/write_downs_of_receivables:
+    /value: operating
+  /years/0/statutory/balance_sheet/cash:
+    /value: net_financial_position_cash
+  /years/0/statutory/balance_sheet/current_financial_assets:
+    /value: net_financial_position_other_financial_asset
+  /years/0/statutory/balance_sheet/employee_severance_indemnity:
+    /value: operating_provisions
+  /years/0/statutory/balance_sheet/intangible_assets:
+    /value: operating_fixed_assets
+  /years/0/statutory/balance_sheet/payables:
+    /value: operating_working_capital
+  /years/0/statutory/balance_sheet/provisions:
+    /value: operating_provisions
+  /years/0/statutory/balance_sheet/receivables:
+    /value: operating_working_capital
+  /years/0/statutory/balance_sheet/tangible_assets:
+    /value: operating_fixed_assets
+  /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_fixed_assets:
+    /value: depreciation_and_amortisation
+  /years/0/statutory/income_statement/depreciation_and_write_downs/write_downs_of_receivables:
+    /value: other_charges_below_ebitda
+  /years/0/statutory/income_statement/other_operating_expenses:
+    /value: external_costs
+  /years/0/statutory/income_statement/other_revenue_and_income:
+    /value: value_of_production

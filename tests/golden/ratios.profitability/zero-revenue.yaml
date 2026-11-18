@@ -35,20 +35,20 @@ expect:
   /roe_leverage/pre_tax_roe/value: 'null'
   /roe_leverage/tax_rate/value: 'null'
   /roe_leverage/roe/value: 'null'
-expect_diagnostics:
-  /not_computed/11/reason: revenue is zero
-  /not_computed/1/reason: revenue is zero
-  /not_computed/0/reason: revenue is zero
-  /not_computed/9/reason: revenue is zero
-  /not_computed/10/reason: net margin is not defined
-  /not_computed/11/pointer: /value/ros
-  /not_computed/11/reason_code: not_defined
-  /not_computed/1/pointer: /value/ebitda_margin
-  /not_computed/1/reason_code: not_defined
-  /not_computed/0/pointer: /value/ebit_margin
-  /not_computed/0/reason_code: not_defined
-  /not_computed/9/pointer: /value/roe_three_factor/net_margin
-  /not_computed/9/reason_code: not_defined
-  /not_computed/10/pointer: /value/roe_three_factor/roe
-  /not_computed/10/reason_code: not_defined
 tolerance: '0.00000000000000000001'
+expect_not_computed:
+  /value/ebit_margin:
+    /reason: revenue is zero
+    /reason_code: not_defined
+  /value/ebitda_margin:
+    /reason: revenue is zero
+    /reason_code: not_defined
+  /value/roe_three_factor/net_margin:
+    /reason: revenue is zero
+    /reason_code: not_defined
+  /value/roe_three_factor/roe:
+    /reason: net margin is not defined
+    /reason_code: not_defined
+  /value/ros:
+    /reason: revenue is zero
+    /reason_code: not_defined

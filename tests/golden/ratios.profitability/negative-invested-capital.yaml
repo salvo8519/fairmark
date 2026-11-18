@@ -35,8 +35,8 @@ expect:
   /roe_leverage/pre_tax_roe/value: 'null'
   /roe_leverage/tax_rate/value: 'null'
   /roe_leverage/roe/value: 'null'
-expect_diagnostics:
-  /not_computed/7/reason: invested capital is negative (-500)
-  /not_computed/7/pointer: /value/roi
-  /not_computed/7/reason_code: not_defined
 tolerance: '0.00000000000000000001'
+expect_not_computed:
+  /value/roi:
+    /reason: invested capital is negative (-500)
+    /reason_code: not_defined

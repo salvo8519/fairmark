@@ -33,8 +33,7 @@ input:
         total_sources: '1610000'
 expect:
   /years/0/form: reclassified
-expect_diagnostics:
-  /checks/4/status: not_checked
-  /checks/4/id: net_financial_position_total
-  /checks/4/pointer: /value/years/0
 tolerance: '0'
+expect_checks:
+  /value/years/0 net_financial_position_total:
+    /status: not_checked

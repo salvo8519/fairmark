@@ -71,8 +71,7 @@ input:
     derivative_liabilities: financial_liability
 expect:
   /years/0/form: statutory
-expect_diagnostics:
-  /checks/5/status: not_checked
-  /checks/5/id: employee_severance_indemnity_beyond_one_year
-  /checks/5/pointer: /value/years/0
 tolerance: '0'
+expect_checks:
+  /value/years/0 employee_severance_indemnity_beyond_one_year:
+    /status: not_checked

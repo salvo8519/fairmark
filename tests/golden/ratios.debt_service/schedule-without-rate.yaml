@@ -30,13 +30,13 @@ expect:
   /dscr/1/value: '1.1063829787234042553191489361702127659574468085106'
   /pv_cfads: 'null'
   /llcr/value: 'null'
-expect_diagnostics_length:
-  /not_computed: '3'
-expect_diagnostics:
-  /not_computed/0/pointer: /value/interest_cover_ebit
-  /not_computed/0/missing_any_of/0/0: '/income_statement/ebit'
-  /not_computed/2/pointer: /value/pv_cfads
-  /not_computed/2/missing_any_of/0/0: '/debt_schedule/discount_rate'
-  /not_computed/1/pointer: /value/llcr
-  /not_computed/1/missing_any_of/0/0: '/debt_schedule/discount_rate'
 tolerance: '0.00000000000000000001'
+expect_counts:
+  not_computed: '3'
+expect_not_computed:
+  /value/interest_cover_ebit:
+    /missing_any_of/0/0: /income_statement/ebit
+  /value/llcr:
+    /missing_any_of/0/0: /debt_schedule/discount_rate
+  /value/pv_cfads:
+    /missing_any_of/0/0: /debt_schedule/discount_rate

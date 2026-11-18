@@ -14,9 +14,10 @@ expect_error: FM-E001
 expect_error_report:
   /pointer: /debt_to_equity
   /reason: type
-  /errors/1/pointer: /pre_tax_cost_of_debt
-  /errors/1/reason: type
-  /errors/2/pointer: /tax_rate
-  /errors/2/reason: range
-expect_length:
-  /errors: '3'
+expect_counts:
+  errors: '3'
+expect_errors:
+  FM-E001 /pre_tax_cost_of_debt:
+    /reason: type
+  FM-E001 /tax_rate:
+    /reason: range

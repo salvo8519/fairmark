@@ -15,10 +15,13 @@
 - T6 `python/tests/test_golden_conformance.py`: 666 golden results conform, closed mode.
 - T7 order test of every envelope list and error report on every golden result.
 - T8 rule in the skill and `tests/README.md`; new-case rules; the new sections are
-  protected by `scripts/check_golden_changes.py`, which now skips the README.
+  protected by `scripts/check_golden_changes.py`, which now reads only YAML files.
 
 ## State at the end of the session
-- Working: T9 (migration) next.
+- T9 rebased on `origin/main` at `31dbefa`; `list` identical to the approved plan (119 files,
+  1,437 keys); `apply` on the 119 files; `verify --base-root` (archive of `origin/main`):
+  119 checked, 0 problems.
+- Working: T10 (retired keys refused) next.
 
 ## Decisions taken
 - `check_golden_changes.py` protected only some sections: the diagnostics sections of
@@ -35,6 +38,5 @@
 - None.
 
 ## Next steps
-1. T9: rebase on `origin/main`, `list` again, compare with the approved plan (119 files,
-   1,437 keys); identical -> `apply` on the approved files, `verify --base-root` a checkout of
-   `origin/main`; different -> stop and report.
+1. T10: refuse `expect_meta`, `expect_diagnostics`, `expect_diagnostics_length`, `expect_length`
+   and `/errors/` keys of `expect_error_report` in both runners and in the case shape test.

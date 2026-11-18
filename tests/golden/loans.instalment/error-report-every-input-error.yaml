@@ -19,11 +19,12 @@ expect_error: FM-E001
 expect_error_report:
   /pointer: /number_of_instalments
   /reason: range
-  /errors/0/pointer: /number_of_instalments
-  /errors/1/pointer: /periodic_rate
-  /errors/1/reason: conflict
-  /errors/1/pointers/1: /rate
-  /errors/2/pointer: /principal
-  /errors/3/pointer: /rounding/decimal_places
-expect_length:
-  /errors: '4'
+expect_counts:
+  errors: '4'
+expect_errors:
+  FM-E001 /number_of_instalments: {}
+  FM-E001 /periodic_rate:
+    /pointers/1: /rate
+    /reason: conflict
+  FM-E001 /principal: {}
+  FM-E001 /rounding/decimal_places: {}

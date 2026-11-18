@@ -48,8 +48,7 @@ expect:
   /years/0/form: statutory
   /years/0/income_statement/operating_profit: '266000'
   /years/0/income_statement/net_income: '150000'
-expect_diagnostics:
-  /checks/1/status: not_checked
-  /checks/1/id: costs_of_production_total
-  /checks/1/pointer: /value/years/0
 tolerance: '0'
+expect_checks:
+  /value/years/0 costs_of_production_total:
+    /status: not_checked

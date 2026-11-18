@@ -13,5 +13,5 @@ expect_error: FM-E001
 expect_error_report:
   /pointer: /growth
   /reason: type
-expect_length:
-  /errors: '1'
+expect_counts:
+  errors: '1'

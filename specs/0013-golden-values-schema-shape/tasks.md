@@ -33,7 +33,7 @@ approved, by name, the list in `golden-migration.md` (T9).
   `uv run just generate`; new-case rules in `test_golden_case_shape` [R11, R12; AC11, AC12]
 
 ## Migration (after the maintainer's named approval)
-- [ ] T9 `list` again on `main`; if the list differs from the approved one, stop for a new
+- [x] T9 `list` again on `main`; if the list differs from the approved one, stop for a new
   approval; `apply` on the approved files; `verify` against `origin/main` [R14; AC14]
 - [ ] T10 Retired keys, and `/errors/...` keys of `expect_error_report`, refused by both
   runners and by `test_golden_case_shape` [R5, R6; AC4, AC5]. The refusal of R5 waits for
