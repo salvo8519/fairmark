@@ -223,8 +223,16 @@ def test_golden_case_shape(path: Path) -> None:
         assert not field.startswith("/errors/"), (
             f"expect_error_report {field}: name the entry in expect_errors"
         )
-    if str(path.resolve().relative_to(GOLDEN.parents[1], walk_up=True)) not in MIGRATED:
+    if repository_path(path) not in MIGRATED:
         new_case_rules(case)
+
+
+def repository_path(path: Path) -> str:
+    """`path` relative to the repository, with `/` on every platform; '' outside it."""
+    try:
+        return path.resolve().relative_to(GOLDEN.parents[1].resolve()).as_posix()
+    except ValueError:
+        return ""
 
 
 # SPEC-0013 R12: the cases of the approved migration list keep their assertions as they were;
@@ -502,7 +510,7 @@ def test_a_new_value_case_follows_the_rules(
 def test_new_case_rules_spare_the_migrated_cases() -> None:
     # A case of the approved migration list keeps its wording assertions (decision 2).
     path = GOLDEN / "tvm.npv" / "error-report-misspelt-fields.yaml"
-    assert str(path.relative_to(GOLDEN.parents[1])) in MIGRATED
+    assert repository_path(path) in MIGRATED
     test_golden_case_shape(path)
 
 

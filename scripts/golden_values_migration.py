@@ -373,7 +373,7 @@ def cmd_inventory(args: argparse.Namespace) -> int:
     cases = {}
     for path in golden_files(root):
         case = load(path)
-        cases[str(path.relative_to(root))] = (case, ENGINE(case["method"], case["input"]))
+        cases[path.relative_to(root).as_posix()] = (case, ENGINE(case["method"], case["input"]))
     empty = lists_never_filled(cases)
     rows: list[Assertion] = []
     for rel, (case, result) in cases.items():
@@ -580,7 +580,7 @@ def build_plan(root: Path) -> dict[str, Any]:
         if not changes:
             continue
         text = path.read_text(encoding="utf-8")
-        files[str(path.relative_to(root))] = {
+        files[path.relative_to(root).as_posix()] = {
             "sha256": sha(text),
             "sections": sorted({c.section for c in changes}),
             "add": new_sections(changes),
@@ -699,7 +699,7 @@ def cmd_apply(args: argparse.Namespace) -> int:
     root = Path(args.root)
     failed = 0
     for name in args.files:
-        rel = str(Path(name))
+        rel = Path(name).as_posix()
         entry = plan["files"].get(rel)
         if entry is None:
             print(f"{rel}: not in the plan", file=sys.stderr)
