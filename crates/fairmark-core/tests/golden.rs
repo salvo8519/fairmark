@@ -17,32 +17,16 @@ struct Case {
     source: Option<String>,
     input: serde_json::Value,
     /// Expected value fields (a key starting with `/` is a JSON Pointer into `value`), or
-    /// `expect_error` with a stable error code.
+    /// `expect_error` with a stable error code. The envelope lists are asserted by the
+    /// semantic sections below (SPEC-0013); `expect_meta`, `expect_length`,
+    /// `expect_diagnostics` and `expect_diagnostics_length` are retired and refused.
     #[serde(default)]
     expect: std::collections::BTreeMap<String, String>,
-    /// Expected fields of `meta` (keys are JSON Pointers into `meta`, for example
-    /// `/defaults_applied/0/field`), compared like `expect`; optional.
-    #[serde(default)]
-    expect_meta: std::collections::BTreeMap<String, String>,
-    /// Expected lengths of arrays of `value` (keys are JSON Pointers, values counts), so that a
-    /// list such as `/not_computed` has no entry beyond those asserted; optional. In an error
-    /// case, the pointers are into the error report, for example `/errors`.
-    #[serde(default)]
-    expect_length: std::collections::BTreeMap<String, String>,
-    /// Expected fields of `diagnostics` (keys are JSON Pointers into `diagnostics`, for example
-    /// `/not_computed/0/reason_code` or `/warnings/1/code`), compared like `expect`; optional,
-    /// for cases of SPEC-0012.
-    #[serde(default)]
-    expect_diagnostics: std::collections::BTreeMap<String, String>,
-    /// Expected lengths of arrays of `diagnostics` (keys are JSON Pointers into `diagnostics`,
-    /// for example `/warnings`, values counts), so that a list has no entry beyond those
-    /// asserted; optional, for cases of SPEC-0012.
-    #[serde(default)]
-    expect_diagnostics_length: std::collections::BTreeMap<String, String>,
     #[serde(default)]
     expect_error: Option<String>,
-    /// Expected fields of the error report, with `expect_error` only (keys are JSON Pointers
-    /// into the report, for example `/pointer` or `/errors/1/reason`; values compared exactly,
+    /// Expected top-level fields of the error report, with `expect_error` only (keys are JSON
+    /// Pointers into the report, for example `/pointer` or `/reason`; an entry of `errors` is
+    /// asserted in `expect_errors`, SPEC-0013 R5; values compared exactly,
     /// `null` for a null field); optional, for cases added with issue #258.
     #[serde(default)]
     expect_error_report: std::collections::BTreeMap<String, String>,
@@ -133,13 +117,6 @@ fn golden_cases() {
         }
         let result = fairmark_core::run(&case.method, &case.input.to_string());
         if let Some(code) = &case.expect_error {
-            if !case.expect_diagnostics.is_empty() || !case.expect_diagnostics_length.is_empty() {
-                failures.push(format!(
-                    "{}: expect_diagnostics and expect_diagnostics_length need expect, not \
-                     expect_error",
-                    file.display()
-                ));
-            }
             match result {
                 Err(e) if e.code() == code => {
                     let report = serde_json::to_value(e.to_report()).unwrap();
@@ -180,36 +157,9 @@ fn check_result(file: &str, case: &Case, out: &serde_json::Value) -> Vec<String>
     {
         failures.push(format!("{file}: no conventions reported"));
     }
-    let lengths = case
-        .expect_length
-        .iter()
-        .map(|(f, c)| ("value", f, c))
-        .chain(
-            case.expect_diagnostics_length
-                .iter()
-                .map(|(f, c)| ("diagnostics", f, c)),
-        );
-    for (part, field, count) in lengths {
-        if let Some(problem) = count_at(&out[part], field, count) {
-            failures.push(format!(
-                "{} [{}] {field}: {problem}",
-                file, case.description
-            ));
-        }
-    }
     let tolerance = case.tolerance.as_deref().expect("tolerance");
-    let expectations = case
-        .expect
-        .iter()
-        .map(|(f, e)| ("value", f, e))
-        .chain(case.expect_meta.iter().map(|(f, e)| ("meta", f, e)))
-        .chain(
-            case.expect_diagnostics
-                .iter()
-                .map(|(f, e)| ("diagnostics", f, e)),
-        );
-    for (part, field, expected) in expectations {
-        if let Some(problem) = compare_at(&out[part], field, expected, Some(tolerance)) {
+    for (field, expected) in &case.expect {
+        if let Some(problem) = compare_at(&out["value"], field, expected, Some(tolerance)) {
             failures.push(format!(
                 "{} [{}] {field}: {problem}",
                 file, case.description
@@ -236,15 +186,14 @@ fn check_result(file: &str, case: &Case, out: &serde_json::Value) -> Vec<String>
 fn check_error(file: &str, case: &Case, report: &serde_json::Value) -> Vec<String> {
     let prefix = format!("{} [{}]", file, case.description);
     let mut failures = Vec::new();
-    for (field, count) in &case.expect_length {
-        if let Some(problem) = count_at(report, field, count) {
-            failures.push(format!(
-                "{} [{}] error report {field}: {problem}",
-                file, case.description
-            ));
-        }
-    }
     for (field, expected) in &case.expect_error_report {
+        // R5: an entry of `errors` is named by its code and pointer, never by its position.
+        if field.starts_with("/errors/") {
+            failures.push(format!(
+                "{prefix} expect_error_report {field}: name the entry in expect_errors"
+            ));
+            continue;
+        }
         if let Some(problem) = compare_at(report, field, expected, None) {
             failures.push(format!(
                 "{} [{}] error report {field}: {problem}",
@@ -594,8 +543,8 @@ fn exact_comparison_does_not_round_the_expected_value() {
     assert!(within("100", "100.0", "0"));
 }
 
-/// A temporary case with the diagnostics keys of SPEC-0012, checked against a result written
-/// here (the engine does not write `diagnostics` before task T11).
+/// A temporary value case of `tvm.npv` with the sections `extra`, checked against a result
+/// written in the test.
 fn temporary_case(extra: &str) -> Case {
     serde_norway::from_str(&format!(
         "method: tvm.npv\ndescription: temporary\ninput: {{}}\ntolerance: \"0.01\"\n\
@@ -604,78 +553,44 @@ fn temporary_case(extra: &str) -> Case {
     .unwrap()
 }
 
-fn temporary_result() -> serde_json::Value {
-    serde_json::json!({
-        "method": "tvm.npv",
-        "value": {"npv": "4.132"},
-        "explain": {"formula": "NPV", "steps": [], "conventions": ["end of period"]},
-        "diagnostics": {
-            "not_computed": [{"pointer": "/value/roe", "reason_code": "not_defined"}],
-            "warnings": [
-                {"code": "FM-W012", "pointer": "/net_financial_position", "message": "m"},
-                {"code": "FM-W005", "pointer": null, "message": "m"}
-            ],
-            "checks": []
-        },
-        "meta": {"envelope_version": 1}
-    })
+/// SPEC-0013 AC5 (R6): the sections retired by the migration are refused as unknown fields.
+#[test]
+fn retired_sections_are_refused() {
+    for extra in [
+        "expect_meta:\n  /defaults_applied/0/pointer: /timing\n",
+        "expect_diagnostics:\n  /warnings/0/code: FM-W001\n",
+        "expect_diagnostics_length:\n  /warnings: \"1\"\n",
+        "expect_length:\n  /present_values: \"3\"\n",
+    ] {
+        let text = format!(
+            "method: tvm.npv\ndescription: t\ninput: {{}}\ntolerance: \"0\"\nexpect:\n  /npv: \"1\"\n{extra}"
+        );
+        let refused = serde_norway::from_str::<Case>(&text)
+            .err()
+            .map(|e| e.to_string());
+        assert!(
+            refused
+                .as_deref()
+                .is_some_and(|e| e.contains("unknown field")),
+            "{extra}: {refused:?}"
+        );
+    }
 }
 
+/// SPEC-0013 AC4 (R5): an entry of the error report is named by its code and pointer, never by
+/// its position; the top-level fields are still read.
 #[test]
-fn diagnostics_expectations_pass_on_a_matching_result() {
-    let case = temporary_case(
-        "expect_diagnostics:\n  /warnings/0/code: FM-W012\n  \
-         /warnings/0/pointer: /net_financial_position\n  /warnings/1/pointer: \"null\"\n  \
-         /not_computed/0/reason_code: not_defined\n\
-         expect_diagnostics_length:\n  /warnings: \"2\"\n  /checks: \"0\"\n",
+fn a_positional_error_entry_is_refused() {
+    let case = error_case(
+        "expect_error_report:\n  /pointer: /cash_flows\n  /errors/1/reason: unknown_field\n",
     );
-    assert_eq!(case.expect_diagnostics.len(), 4);
-    assert_eq!(case.expect_diagnostics_length.len(), 2);
-    let failures = check_result("temporary.yaml", &case, &temporary_result());
-    assert!(failures.is_empty(), "{failures:?}");
-}
-
-#[test]
-fn diagnostics_expectations_fail_on_a_wrong_value_a_missing_key_or_a_wrong_length() {
-    let case = temporary_case(
-        "expect_diagnostics:\n  /warnings/0/code: FM-W013\n  /warnings/2/code: FM-W005\n  \
-         /warnings/0/pointer: \"null\"\n\
-         expect_diagnostics_length:\n  /warnings: \"1\"\n  /not_computed/0: \"1\"\n",
-    );
-    let failures = check_result("temporary.yaml", &case, &temporary_result());
-    let text = failures.join("\n");
-    assert_eq!(failures.len(), 5, "{text}");
-    assert!(
-        text.contains("/warnings/0/code: got \"FM-W012\", want FM-W013"),
-        "{text}"
-    );
-    assert!(
-        text.contains("/warnings/2/code: not in the result"),
-        "{text}"
-    );
-    assert!(text.contains("/warnings/0/pointer: got \"/net_financial_position\", want null"));
-    assert!(text.contains("/warnings: length Some(2), want 1"), "{text}");
-    assert!(
-        text.contains("/not_computed/0: length None, want 1"),
-        "{text}"
-    );
-}
-
-#[test]
-fn diagnostics_expectations_read_diagnostics_not_value() {
-    // The same pointer in `value` must not satisfy an expectation on `diagnostics`.
-    let case = temporary_case("expect_diagnostics:\n  /npv: \"4.13\"\n");
-    let failures = check_result("temporary.yaml", &case, &temporary_result());
+    let failures = check_error("temporary.yaml", &case, &semantic_report());
     assert_eq!(failures.len(), 1, "{failures:?}");
-    assert!(failures[0].contains("/npv: not in the result"));
-    // A result without `diagnostics` fails every expectation on it.
-    let mut result = temporary_result();
-    result.as_object_mut().unwrap().remove("diagnostics");
-    let case = temporary_case(
-        "expect_diagnostics:\n  /warnings/0/code: FM-W012\n\
-         expect_diagnostics_length:\n  /warnings: \"2\"\n",
+    assert!(
+        failures[0]
+            .contains("expect_error_report /errors/1/reason: name the entry in expect_errors"),
+        "{failures:?}"
     );
-    assert_eq!(check_result("temporary.yaml", &case, &result).len(), 2);
 }
 
 /// SPEC-0013: a result with every envelope list filled, for the semantic sections.

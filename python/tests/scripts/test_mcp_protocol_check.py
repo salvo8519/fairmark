@@ -147,3 +147,25 @@ def test_list_fails_on_a_warning_line_without_a_summary() -> None:
 def test_list_fails_on_portability_errors() -> None:
     with pytest.raises(check.Failure, match="error-severity"):
         check.check_list(Listing("1 error, 0 warnings", code=6), [])
+
+
+def test_unmet_expectations_read_defaults_by_pointer_and_null_as_absent() -> None:
+    # SPEC-0013: defaults are named by their input pointer; `null` passes on an absent key.
+    case = {
+        "expect": {"b": "null", "/c/d": "null"},
+        "expect_defaults": {"/timing": {"/value": "end_of_period"}},
+        "tolerance": "0",
+    }
+    envelope = {
+        "value": {"c": {}},
+        "meta": {"defaults_applied": [{"pointer": "/timing", "value": "end_of_period"}]},
+    }
+    assert check.unmet_expectations(case, envelope) == []
+    envelope["meta"]["defaults_applied"][0]["value"] = "mid_period"
+    assert len(check.unmet_expectations(case, envelope)) == 1
+    envelope["meta"]["defaults_applied"] = []
+    assert check.unmet_expectations(case, envelope) == ["expect_defaults /timing: 0 entries"]
+    # An absent parent is not an output not computed: the key is wrong.
+    assert check.unmet_expectations({"expect": {"/x/y": "null"}, "tolerance": "0"}, envelope) == [
+        "/x/y: not in the result"
+    ]

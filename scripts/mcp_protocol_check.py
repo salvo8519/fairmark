@@ -80,10 +80,29 @@ def unmet_expectations(case: dict[str, Any], envelope: dict[str, Any]) -> list[s
     """The golden expectations a result envelope does not meet, as in python/tests/test_golden."""
     tolerance = Decimal(str(case["tolerance"]))
     checks = [(envelope["value"], f, e) for f, e in case["expect"].items()]
-    checks += [(envelope.get("meta", {}), f, e) for f, e in case.get("expect_meta", {}).items()]
     problems = []
+    # Defaults applied, named by their input pointer (SPEC-0013 R1).
+    defaults = envelope.get("meta", {}).get("defaults_applied", [])
+    for pointer, fields in (case.get("expect_defaults") or {}).items():
+        named = [d for d in defaults if d.get("pointer") == pointer]
+        if len(named) != 1:
+            problems.append(f"expect_defaults {pointer}: {len(named)} entries")
+            continue
+        checks += [(named[0], f, e) for f, e in (fields or {}).items()]
     for part, field, expected in checks:
-        raw = resolve(part, field)
+        try:
+            raw = resolve(part, field)
+        except (KeyError, IndexError):
+            # `null` means not computed: the last token may be absent under an existing
+            # object (SPEC-0013 R4).
+            parent_field = field.rsplit("/", 1)[0] if field.startswith("/") else ""
+            try:
+                parent = resolve(part, parent_field) if parent_field else part
+            except (KeyError, IndexError):
+                parent = None
+            if expected != "null" or not isinstance(parent, dict):
+                problems.append(f"{field}: not in the result")
+            continue
         try:
             want = Decimal(str(expected))
             if not want.is_finite():

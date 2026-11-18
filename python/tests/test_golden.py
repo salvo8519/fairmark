@@ -31,11 +31,8 @@ def test_golden(path: Path) -> None:
     check_result(case, parts)
 
 
-# Where each kind of expectation reads: `expect` and `expect_length` into `value`,
-# `expect_meta` into `meta`, `expect_diagnostics` and `expect_diagnostics_length` into
-# `diagnostics` (SPEC-0012).
-EXPECT_PARTS = {"expect": "value", "expect_meta": "meta", "expect_diagnostics": "diagnostics"}
-LENGTH_PARTS = {"expect_length": "value", "expect_diagnostics_length": "diagnostics"}
+# SPEC-0013 R6: sections retired by the migration of SPEC-0013; refused in every case.
+RETIRED = ("expect_meta", "expect_length", "expect_diagnostics", "expect_diagnostics_length")
 # SPEC-0013 R1: each semantic section, the part of the result and the list it reads, and the
 # fields whose values, joined by one space (`-` for null), name an entry. When an envelope
 # version moves a list, this table changes and the golden files do not.
@@ -53,14 +50,10 @@ ABSENT = object()
 
 def check_result(case: dict[str, Any], parts: dict[str, Any]) -> None:
     """Assert the expectations of a value case against the parts of its result envelope."""
-    for key, part in LENGTH_PARTS.items():
-        for field, count in case.get(key, {}).items():
-            items = lookup(parts, part, field)
-            assert isinstance(items, list) and len(items) == int(count), f"{field}: length"
+    refuse_retired(case)
     tolerance = Decimal(case["tolerance"])
-    for key, part in EXPECT_PARTS.items():
-        for field, expected in case.get(key, {}).items():
-            compare(lookup(parts, part, field, expected), field, expected, tolerance)
+    for field, expected in case.get("expect", {}).items():
+        compare(lookup(parts, "value", field, expected), field, expected, tolerance)
     check_sections(case, parts, tolerance)
     for name, count in case.get("expect_counts", {}).items():
         if name.startswith("/"):
@@ -74,16 +67,22 @@ def check_result(case: dict[str, Any], parts: dict[str, Any]) -> None:
 
 def check_error(case: dict[str, Any], report: dict[str, Any]) -> None:
     """Assert the expectations of an error case against its error report (SPEC-0013 R1 to R5)."""
-    for field, count in case.get("expect_length", {}).items():
-        items = resolve(report, field)
-        assert isinstance(items, list) and len(items) == int(count), f"{field}: length"
+    refuse_retired(case)
     for field, expected in case.get("expect_error_report", {}).items():
+        assert not field.startswith("/errors/"), (
+            f"expect_error_report {field}: name the entry in expect_errors"
+        )
         compare(value_at(report, field, expected), field, expected, None)
     check_sections(case, {"error": report}, None)
     for name, count in case.get("expect_counts", {}).items():
         if name != "errors":
             raise AssertionError(f"expect_counts {name}: not a list of this result")
         count_is(report["errors"], f"expect_counts {name}", count)
+
+
+def refuse_retired(case: dict[str, Any]) -> None:
+    for key in RETIRED:
+        assert key not in case, f"{key} is retired: use the sections of SPEC-0013"
 
 
 def check_sections(case: dict[str, Any], doc: dict[str, Any], tolerance: Decimal | None) -> None:
@@ -188,10 +187,6 @@ NEW_CASE_KEYS = {
     "source",
     "input",
     "expect",
-    "expect_meta",
-    "expect_length",
-    "expect_diagnostics",
-    "expect_diagnostics_length",
     "expect_error",
     "expect_error_report",
     "tolerance",
@@ -204,9 +199,6 @@ NEW_CASE_KEYS = {
 }
 # Sections that read a result (`expect` needed) or an error report (`expect_error` needed).
 VALUE_ONLY = (
-    "expect_meta",
-    "expect_diagnostics",
-    "expect_diagnostics_length",
     "expect_defaults",
     "expect_not_computed",
     "expect_warnings",
@@ -227,6 +219,10 @@ def test_golden_case_shape(path: Path) -> None:
     for key in ("expect_error_report", "expect_errors"):
         if key in case:
             assert "expect_error" in case, f"{key} needs expect_error"
+    for field in case.get("expect_error_report", {}):
+        assert not field.startswith("/errors/"), (
+            f"expect_error_report {field}: name the entry in expect_errors"
+        )
     if str(path.resolve().relative_to(GOLDEN.parents[1], walk_up=True)) not in MIGRATED:
         new_case_rules(case)
 
@@ -257,7 +253,7 @@ def new_case_rules(case: dict[str, Any]) -> None:
             counts = case.get("expect_counts", {})
             assert name in counts, f"{section} needs expect_counts {name}"
     keys: list[tuple[str, str]] = []
-    for section in ("expect", "expect_meta", "expect_diagnostics", "expect_error_report"):
+    for section in ("expect", "expect_error_report"):
         keys += [(section, k) for k in case.get(section, {})]
     for section in SECTIONS:
         for entry in (case.get(section) or {}).values():
@@ -270,8 +266,7 @@ def new_case_rules(case: dict[str, Any]) -> None:
         )
 
 
-# The diagnostics keys of SPEC-0012, on a temporary case and a result written here (the engine
-# does not write `diagnostics` before task T11 of SPEC-0012).
+# A temporary value case of `tvm.npv`; each test adds the sections it checks.
 TEMPORARY_CASE: dict[str, Any] = {
     "method": "tvm.npv",
     "description": "temporary",
@@ -279,75 +274,6 @@ TEMPORARY_CASE: dict[str, Any] = {
     "tolerance": "0.01",
     "expect": {"/npv": "4.13"},
 }
-
-
-def temporary_parts() -> dict[str, Any]:
-    return {
-        "value": {"npv": Decimal("4.132")},
-        "meta": {"envelope_version": 1},
-        "diagnostics": {
-            "not_computed": [{"pointer": "/value/roe", "reason_code": "not_defined"}],
-            "warnings": [
-                {"code": "FM-W012", "pointer": "/net_financial_position", "message": "m"},
-                {"code": "FM-W005", "pointer": None, "message": "m"},
-            ],
-            "checks": [],
-        },
-    }
-
-
-def test_diagnostics_expectations_pass_on_a_matching_result() -> None:
-    case = TEMPORARY_CASE | {
-        "expect_diagnostics": {
-            "/warnings/0/code": "FM-W012",
-            "/warnings/0/pointer": "/net_financial_position",
-            "/warnings/1/pointer": "null",
-            "/not_computed/0/reason_code": "not_defined",
-        },
-        "expect_diagnostics_length": {"/warnings": "2", "/checks": "0"},
-    }
-    check_result(case, temporary_parts())
-
-
-@pytest.mark.parametrize(
-    ("key", "field", "expected", "message"),
-    [
-        ("expect_diagnostics", "/warnings/0/code", "FM-W013", "'FM-W012'"),
-        ("expect_diagnostics", "/warnings/2/code", "FM-W005", "not in the result"),
-        ("expect_diagnostics", "/warnings/0/pointer", "null", "is not null"),
-        ("expect_diagnostics", "/npv", "4.13", "not in the result"),
-        ("expect_diagnostics_length", "/warnings", "1", "length"),
-        ("expect_diagnostics_length", "/not_computed/0", "1", "length"),
-    ],
-)
-def test_diagnostics_expectations_fail(key: str, field: str, expected: str, message: str) -> None:
-    case = TEMPORARY_CASE | {key: {field: expected}}
-    with pytest.raises(AssertionError, match=re.escape(message)):
-        check_result(case, temporary_parts())
-
-
-def test_diagnostics_expectations_fail_without_diagnostics() -> None:
-    parts = temporary_parts()
-    del parts["diagnostics"]
-    for key in ("expect_diagnostics", "expect_diagnostics_length"):
-        case = TEMPORARY_CASE | {key: {"/warnings": "2"}}
-        with pytest.raises(AssertionError, match="no diagnostics in the result"):
-            check_result(case, parts)
-
-
-def test_case_shape_accepts_the_diagnostics_keys_with_expect_only(tmp_path: Path) -> None:
-    case = TEMPORARY_CASE | {
-        "source": "temporary",
-        "expect_diagnostics": {"/warnings/0/code": "FM-W012"},
-        "expect_diagnostics_length": {"/warnings": "1"},
-    }
-    path = tmp_path / "case.yaml"
-    path.write_text(yaml.safe_dump(case), encoding="utf-8")
-    test_golden_case_shape(path)
-    error_case = {k: v for k, v in case.items() if k not in ("expect", "tolerance")}
-    path.write_text(yaml.safe_dump(error_case | {"expect_error": "FM-E004"}), encoding="utf-8")
-    with pytest.raises(AssertionError, match="needs expect"):
-        test_golden_case_shape(path)
 
 
 # ---- SPEC-0013: semantic sections, counts and `null` (AC1 to AC3), on results written here
@@ -578,3 +504,31 @@ def test_new_case_rules_spare_the_migrated_cases() -> None:
     path = GOLDEN / "tvm.npv" / "error-report-misspelt-fields.yaml"
     assert str(path.relative_to(GOLDEN.parents[1])) in MIGRATED
     test_golden_case_shape(path)
+
+
+# ---- SPEC-0013 R5, R6 (AC4, AC5): retired sections and positional error entries are refused
+
+
+@pytest.mark.parametrize("retired", RETIRED)
+def test_a_retired_section_is_refused(tmp_path: Path, retired: str) -> None:
+    case = TEMPORARY_CASE | {"source": "temporary", retired: {"/x": "1"}}
+    with pytest.raises(AssertionError, match="unknown keys"):
+        test_golden_case_shape(write_case(tmp_path, case))
+    with pytest.raises(AssertionError, match=f"{retired} is retired"):
+        check_result(case, semantic_parts())
+
+
+def test_a_positional_error_entry_is_refused(tmp_path: Path) -> None:
+    case = ERROR_CASE | {
+        "source": "temporary",
+        "expect_error_report": {"/pointer": "/cash_flows", "/errors/1/reason": "unknown_field"},
+    }
+    with pytest.raises(AssertionError, match="name the entry in expect_errors"):
+        check_error(case, SEMANTIC_REPORT)
+    with pytest.raises(AssertionError, match="name the entry in expect_errors"):
+        test_golden_case_shape(write_case(tmp_path, case))
+
+
+def test_no_golden_file_holds_a_retired_section() -> None:
+    held = [p for p in CASES if set(yaml.safe_load(p.read_text(encoding="utf-8"))) & set(RETIRED)]
+    assert held == []

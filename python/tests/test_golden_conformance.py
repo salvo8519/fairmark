@@ -47,13 +47,8 @@ ENTRY_DEFS = {
     "expect_checks": "Check",
     "expect_errors": "FairmarkErrorEntry",
 }
-# Where the other sections read: a part of the result, by its `$defs` in the envelope.
-PART_DEFS = {
-    "expect_meta": "Meta",
-    "expect_diagnostics": "Diagnostics",
-    "expect_diagnostics_length": "Diagnostics",
-    "expect_error_report": "FairmarkErrorReport",
-}
+# Where `expect_error_report` reads: the error report, by its `$defs` in the envelope.
+PART_DEFS = {"expect_error_report": "FairmarkErrorReport"}
 
 
 # ---------------------------------------------------------------- snapshots
@@ -249,7 +244,7 @@ def undeclared_keys(case: dict[str, Any], value: Any, envelope_version: str) -> 
         if not nodes_at(root, parts, data):
             found.append(f"{section} {key}: not declared by the schema")
 
-    value_keys = list(case.get("expect", {})) + list(case.get("expect_length", {}))
+    value_keys = list(case.get("expect", {}))
     if "expect_error" not in case:
         for key in value_keys:
             check("expect", output, key, value)
@@ -259,9 +254,6 @@ def undeclared_keys(case: dict[str, Any], value: Any, envelope_version: str) -> 
     for section, name in PART_DEFS.items():
         for key in case.get(section, {}):
             check(section, defs_root(name), key, None)
-    if "expect_error" in case:
-        for key in case.get("expect_length", {}):
-            check("expect_length", defs_root("FairmarkErrorReport"), key, None)
     for section, name in ENTRY_DEFS.items():
         for entry in (case.get(section) or {}).values():
             for key in entry or {}:
