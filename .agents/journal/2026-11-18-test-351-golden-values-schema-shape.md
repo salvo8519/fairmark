@@ -9,11 +9,14 @@
 - Design, spec, plan, tasks and the dry-run list (119 files, 1,437 keys) committed earlier.
 - Rebased on `origin/main` at `df4d11f`; `list` regenerated: identical to the approved list.
 - T2 tests of `scripts/golden_values_migration.py` (`python/tests/scripts/`).
+- T3 Rust runner: semantic sections, counts, null or absent.
 
 ## State at the end of the session
-- Working: T3 (Rust runner) next.
+- Working: T4 (Python runner) next.
 
 ## Decisions taken
+- The refusal of `/errors/N` keys in `expect_error_report` (R5) moves from T3/T4 to T10:
+  five golden files hold such keys until the migration (T9).
 - The migration is applied only through `scripts/golden_values_migration.py apply` on the
   approved files, never by editing golden files by hand (maintainer approval of 2026-11-18).
 
@@ -21,4 +24,4 @@
 - None.
 
 ## Next steps
-1. T3: semantic sections in `crates/fairmark-core/tests/golden.rs`, tests on temporary cases.
+1. T4: semantic sections in `python/tests/test_golden.py`, the same rules as `golden.rs`.

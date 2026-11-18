@@ -14,11 +14,10 @@ approved, by name, the list in `golden-migration.md` (T9).
 ## Tests and runners
 - [x] T2 [P] Tests of `scripts/golden_values_migration.py` on temporary trees and synthetic
   results (`python/tests/test_golden_values_migration.py`) [R13; AC13]
-- [ ] T3 [P] Rust runner: semantic sections, `expect_counts`, `#count`, null or absent,
-  `/errors/` refused in `expect_error_report`; tests on temporary cases
-  (`crates/fairmark-core/tests/golden.rs`) [R1 to R5; AC1 to AC4]
+- [x] T3 [P] Rust runner: semantic sections, `expect_counts`, `#count`, null or absent; tests
+  on temporary cases (`crates/fairmark-core/tests/golden.rs`) [R1 to R4; AC1 to AC3]
 - [ ] T4 [P] Python runner: the same, and `NEW_CASE_KEYS` (`python/tests/test_golden.py`)
-  [R1 to R5; AC1 to AC4]
+  [R1 to R4; AC1 to AC3]
 - [ ] T5 [P] `jsonschema` declared in the `dev` group; lock unchanged (`pyproject.toml`,
   `uv.lock`) [R10; AC10]
 
@@ -36,7 +35,9 @@ approved, by name, the list in `golden-migration.md` (T9).
 ## Migration (after the maintainer's named approval)
 - [ ] T9 `list` again on `main`; if the list differs from the approved one, stop for a new
   approval; `apply` on the approved files; `verify` against `origin/main` [R14; AC14]
-- [ ] T10 Retired keys refused by both runners and by `test_golden_case_shape` [R6; AC5]
+- [ ] T10 Retired keys, and `/errors/...` keys of `expect_error_report`, refused by both
+  runners and by `test_golden_case_shape` [R5, R6; AC4, AC5]. The refusal of R5 waits for
+  the migration: before T9, five golden files still hold `/errors/N` keys.
 
 ## Verification
 - [ ] T11 `code-reviewer` pass on the branch and `numerical-auditor` on the migration (golden

@@ -48,6 +48,62 @@ struct Case {
     expect_error_report: std::collections::BTreeMap<String, String>,
     #[serde(default)]
     tolerance: Option<String>,
+    /// SPEC-0013 R3: expected counts, keyed by a list name (`errors` in an error case;
+    /// `not_computed`, `warnings`, `checks` in a value case) or by a pointer into `value`.
+    #[serde(default)]
+    expect_counts: std::collections::BTreeMap<String, String>,
+    /// SPEC-0013 R1: entries of `meta.defaults_applied`, keyed by `pointer`.
+    #[serde(default)]
+    expect_defaults: Entries,
+    /// SPEC-0013 R1: entries of `diagnostics.not_computed`, keyed by `pointer`.
+    #[serde(default)]
+    expect_not_computed: Entries,
+    /// SPEC-0013 R1: entries of `diagnostics.warnings`, keyed by `code` and `pointer`.
+    #[serde(default)]
+    expect_warnings: Entries,
+    /// SPEC-0013 R1: entries of `diagnostics.checks`, keyed by `pointer` and `id`.
+    #[serde(default)]
+    expect_checks: Entries,
+    /// SPEC-0013 R1: entries of the `errors` of the error report, keyed by `code` and `pointer`.
+    #[serde(default)]
+    expect_errors: Entries,
+}
+
+/// A semantic section: the key of an entry, then pointers relative to the entry and their
+/// expected values (SPEC-0013 R1).
+type Entries = std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>;
+
+/// SPEC-0013 R1: each semantic section, the part of the result and the list it reads, and the
+/// fields whose values, joined by one space (`-` for null), name an entry. When an envelope
+/// version moves a list, this table changes and the golden files do not.
+const SECTIONS: [(&str, &str, &str, &[&str]); 5] = [
+    ("expect_defaults", "meta", "defaults_applied", &["pointer"]),
+    (
+        "expect_not_computed",
+        "diagnostics",
+        "not_computed",
+        &["pointer"],
+    ),
+    (
+        "expect_warnings",
+        "diagnostics",
+        "warnings",
+        &["code", "pointer"],
+    ),
+    ("expect_checks", "diagnostics", "checks", &["pointer", "id"]),
+    ("expect_errors", "error", "errors", &["code", "pointer"]),
+];
+
+impl Case {
+    fn section(&self, name: &str) -> &Entries {
+        match name {
+            "expect_defaults" => &self.expect_defaults,
+            "expect_not_computed" => &self.expect_not_computed,
+            "expect_warnings" => &self.expect_warnings,
+            "expect_checks" => &self.expect_checks,
+            _ => &self.expect_errors,
+        }
+    }
 }
 
 fn golden_files(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -87,34 +143,7 @@ fn golden_cases() {
             match result {
                 Err(e) if e.code() == code => {
                     let report = serde_json::to_value(e.to_report()).unwrap();
-                    for (field, count) in &case.expect_length {
-                        let got = report
-                            .pointer(field)
-                            .and_then(|v| v.as_array())
-                            .map(Vec::len);
-                        if got.map(|n| n.to_string()).as_deref() != Some(count.as_str()) {
-                            failures.push(format!(
-                                "{} [{}] error report {field}: length {got:?}, want {count}",
-                                file.display(),
-                                case.description
-                            ));
-                        }
-                    }
-                    for (field, expected) in &case.expect_error_report {
-                        let got = report.pointer(field);
-                        let matches = match got {
-                            Some(v) if expected == "null" => v.is_null(),
-                            Some(v) => v.as_str() == Some(expected.as_str()),
-                            None => false,
-                        };
-                        if !matches {
-                            failures.push(format!(
-                                "{} [{}] error report {field}: got {got:?}, want {expected}",
-                                file.display(),
-                                case.description
-                            ));
-                        }
-                    }
+                    failures.extend(check_error(&file.display().to_string(), &case, &report));
                 }
                 Err(e) => failures.push(format!(
                     "{}: got {} ({e}), want {code}",
@@ -161,13 +190,9 @@ fn check_result(file: &str, case: &Case, out: &serde_json::Value) -> Vec<String>
                 .map(|(f, c)| ("diagnostics", f, c)),
         );
     for (part, field, count) in lengths {
-        let got = out[part]
-            .pointer(field)
-            .and_then(|v| v.as_array())
-            .map(Vec::len);
-        if got.map(|n| n.to_string()).as_deref() != Some(count.as_str()) {
+        if let Some(problem) = count_at(&out[part], field, count) {
             failures.push(format!(
-                "{} [{}] {field}: length {got:?}, want {count}",
+                "{} [{}] {field}: {problem}",
                 file, case.description
             ));
         }
@@ -184,59 +209,200 @@ fn check_result(file: &str, case: &Case, out: &serde_json::Value) -> Vec<String>
                 .map(|(f, e)| ("diagnostics", f, e)),
         );
     for (part, field, expected) in expectations {
-        // A key starting with '/' is an RFC 6901 pointer into `value` (`meta` for
-        // `expect_meta`, `diagnostics` for `expect_diagnostics`); any other key is a top-level
-        // field.
-        let found = if field.starts_with('/') {
-            out[part].pointer(field)
-        } else {
-            out[part].get(field.as_str())
-        };
-        // A missing field always fails, even when null is expected: a typo in a key must
-        // never pass.
-        let Some(raw) = found else {
+        if let Some(problem) = compare_at(&out[part], field, expected, Some(tolerance)) {
             failures.push(format!(
-                "{} [{}] {field}: not in the result",
-                file, case.description
-            ));
-            continue;
-        };
-        // Expectations that are not decimals are compared exactly: `null` (an undefined
-        // value, such as a relative delta on a zero base), error codes, names.
-        let Ok(want) = Decimal::from_str(expected) else {
-            let matches = if expected == "null" {
-                raw.is_null()
-            } else {
-                raw.as_str() == Some(expected.as_str())
-            };
-            if !matches {
-                failures.push(format!(
-                    "{} [{}] {field}: got {raw}, want {expected}",
-                    file, case.description
-                ));
-            }
-            continue;
-        };
-        let got = raw
-            .as_str()
-            .and_then(|v| Decimal::from_str(v).ok())
-            .or_else(|| raw.as_u64().map(Decimal::from))
-            .or_else(|| raw.as_i64().map(Decimal::from));
-        let Some(got) = got else {
-            failures.push(format!(
-                "{} [{}] {field}: got {raw}, want the number {want}",
-                file, case.description
-            ));
-            continue;
-        };
-        if !within(&got.to_string(), expected, tolerance) {
-            failures.push(format!(
-                "{} [{}] {field}: got {got}, want {expected}",
+                "{} [{}] {field}: {problem}",
                 file, case.description
             ));
         }
     }
+    let prefix = format!("{} [{}]", file, case.description);
+    failures.extend(check_sections(&prefix, case, out, Some(tolerance)));
+    for (name, count) in &case.expect_counts {
+        let list = if name.starts_with('/') {
+            out["value"].pointer(name)
+        } else if ["not_computed", "warnings", "checks"].contains(&name.as_str()) {
+            out["diagnostics"].get(name)
+        } else {
+            None
+        };
+        failures.extend(count_named(&prefix, name, list, count));
+    }
     failures
+}
+
+/// The failures of an error report `report` against the expectations of the error case
+/// `case`; `file` names the case in the messages (SPEC-0013 R1 to R5).
+fn check_error(file: &str, case: &Case, report: &serde_json::Value) -> Vec<String> {
+    let prefix = format!("{} [{}]", file, case.description);
+    let mut failures = Vec::new();
+    for (field, count) in &case.expect_length {
+        if let Some(problem) = count_at(report, field, count) {
+            failures.push(format!(
+                "{} [{}] error report {field}: {problem}",
+                file, case.description
+            ));
+        }
+    }
+    for (field, expected) in &case.expect_error_report {
+        if let Some(problem) = compare_at(report, field, expected, None) {
+            failures.push(format!(
+                "{} [{}] error report {field}: {problem}",
+                file, case.description
+            ));
+        }
+    }
+    let doc = serde_json::json!({ "error": report });
+    failures.extend(check_sections(&prefix, case, &doc, None));
+    for (name, count) in &case.expect_counts {
+        let list = (name == "errors").then(|| &report["errors"]);
+        failures.extend(count_named(&prefix, name, list, count));
+    }
+    failures
+}
+
+/// The failures of the semantic sections of `case` against `doc`: a result envelope, or
+/// `{"error": <report>}` (SPEC-0013 R1, R2).
+fn check_sections(
+    prefix: &str,
+    case: &Case,
+    doc: &serde_json::Value,
+    tolerance: Option<&str>,
+) -> Vec<String> {
+    let mut failures = Vec::new();
+    for (section, part, list, names) in SECTIONS {
+        let entries = case.section(section);
+        if entries.is_empty() {
+            continue;
+        }
+        let Some(items) = doc
+            .get(part)
+            .and_then(|p| p.get(list))
+            .and_then(|l| l.as_array())
+        else {
+            let needs = if part == "error" {
+                "needs expect_error, not expect"
+            } else {
+                "needs expect, not expect_error"
+            };
+            failures.push(format!("{prefix} {section}: {needs}"));
+            continue;
+        };
+        for (key, fields) in entries {
+            let named: Vec<&serde_json::Value> = items
+                .iter()
+                .filter(|e| entry_key(e, names) == *key)
+                .collect();
+            let [entry] = named[..] else {
+                failures.push(format!(
+                    "{prefix} {section} {key}: {} entries named it",
+                    named.len()
+                ));
+                continue;
+            };
+            for (field, expected) in fields {
+                let problem = match field.strip_suffix("#count") {
+                    Some(list) => count_at(entry, list, expected),
+                    None => compare_at(entry, field, expected, tolerance),
+                };
+                if let Some(problem) = problem {
+                    failures.push(format!("{prefix} {section} {key} {field}: {problem}"));
+                }
+            }
+        }
+    }
+    failures
+}
+
+/// The name of an entry: the values of `names`, joined by one space, `-` for a null or absent
+/// value (SPEC-0013 R1).
+fn entry_key(entry: &serde_json::Value, names: &[&str]) -> String {
+    names
+        .iter()
+        .map(|n| match entry.get(*n) {
+            None | Some(serde_json::Value::Null) => "-".to_owned(),
+            Some(serde_json::Value::String(s)) => s.clone(),
+            Some(other) => other.to_string(),
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// A failure when `list` (absent when the name is not a list of this result) does not hold
+/// `count` entries.
+fn count_named(
+    prefix: &str,
+    name: &str,
+    list: Option<&serde_json::Value>,
+    count: &str,
+) -> Option<String> {
+    let Some(list) = list else {
+        return Some(format!(
+            "{prefix} expect_counts {name}: not a list of this result"
+        ));
+    };
+    let got = list.as_array().map(Vec::len);
+    (got.map(|n| n.to_string()).as_deref() != Some(count))
+        .then(|| format!("{prefix} expect_counts {name}: length {got:?}, want {count}"))
+}
+
+/// A failure when the array at `field` of `container` does not hold `count` entries.
+fn count_at(container: &serde_json::Value, field: &str, count: &str) -> Option<String> {
+    let got = container
+        .pointer(field)
+        .and_then(|v| v.as_array())
+        .map(Vec::len);
+    (got.map(|n| n.to_string()).as_deref() != Some(count))
+        .then(|| format!("length {got:?}, want {count}"))
+}
+
+/// The failure of one expectation: `field` (an RFC 6901 pointer, or a top-level field) of
+/// `container` against `expected`. A decimal is compared within `tolerance` (exactly without
+/// one); other text exactly; `null` passes on a null value or on an absent last token under
+/// an existing object (SPEC-0013 R4). Any other missing field fails: a typo in a key must
+/// never pass.
+fn compare_at(
+    container: &serde_json::Value,
+    field: &str,
+    expected: &str,
+    tolerance: Option<&str>,
+) -> Option<String> {
+    let found = if field.starts_with('/') {
+        container.pointer(field)
+    } else {
+        container.get(field)
+    };
+    let Some(raw) = found else {
+        let parent = match field.rfind('/') {
+            Some(at) if field.starts_with('/') => container.pointer(&field[..at]),
+            _ => Some(container),
+        };
+        let absent_ok = expected == "null" && parent.is_some_and(serde_json::Value::is_object);
+        return (!absent_ok).then(|| "not in the result".to_owned());
+    };
+    // Expectations that are not decimals are compared exactly: `null` (an undefined value,
+    // such as a relative delta on a zero base), error codes, names.
+    let want = Decimal::from_str(expected)
+        .ok()
+        .filter(|_| tolerance.is_some());
+    let Some(want) = want else {
+        let matches = if expected == "null" {
+            raw.is_null()
+        } else {
+            raw.as_str() == Some(expected)
+        };
+        return (!matches).then(|| format!("got {raw}, want {expected}"));
+    };
+    let got = raw
+        .as_str()
+        .and_then(|v| Decimal::from_str(v).ok())
+        .or_else(|| raw.as_u64().map(Decimal::from))
+        .or_else(|| raw.as_i64().map(Decimal::from));
+    let Some(got) = got else {
+        return Some(format!("got {raw}, want the number {want}"));
+    };
+    let tolerance = tolerance.expect("checked above");
+    (!within(&got.to_string(), expected, tolerance)).then(|| format!("got {got}, want {expected}"))
 }
 
 /// SPEC-0008 AC14 and AC20 for every analysis golden case: two runs are byte-identical, the
@@ -510,6 +676,162 @@ fn diagnostics_expectations_read_diagnostics_not_value() {
          expect_diagnostics_length:\n  /warnings: \"2\"\n",
     );
     assert_eq!(check_result("temporary.yaml", &case, &result).len(), 2);
+}
+
+/// SPEC-0013: a result with every envelope list filled, for the semantic sections.
+fn semantic_result() -> serde_json::Value {
+    serde_json::json!({
+        "method": "tvm.npv",
+        "value": {"npv": "4.132", "present_values": ["1", "2", "3"], "roe": null},
+        "explain": {"formula": "NPV", "steps": [], "conventions": ["end of period"]},
+        "diagnostics": {
+            "not_computed": [
+                {"pointer": "/value/roe", "reason_code": "not_defined",
+                 "missing_any_of": [], "permitted": []},
+                {"pointer": "/value/ros", "reason_code": "missing_input",
+                 "missing_any_of": [["/revenue"], ["/sales", "/margin"]], "permitted": []}
+            ],
+            "warnings": [
+                {"code": "FM-W012", "pointer": "/net_financial_position", "message": "m"},
+                {"code": "FM-W005", "pointer": null, "message": "m"}
+            ],
+            "checks": [
+                {"id": "a_total", "status": "reconciled", "pointer": "/value/years/0", "pointers": []},
+                {"id": "a_total", "status": "not_checked", "pointer": "/value/years/1", "pointers": []}
+            ]
+        },
+        "meta": {"envelope_version": 1, "defaults_applied": [
+            {"pointer": "/timing", "value": "end_of_period", "reason": "r"},
+            {"pointer": "/periods", "value": 5, "reason": "r"}
+        ]}
+    })
+}
+
+fn semantic_report() -> serde_json::Value {
+    serde_json::json!({
+        "code": "FM-E001", "pointer": "/cash_flows", "reason": "missing",
+        "errors": [
+            {"code": "FM-E001", "pointer": "/cash_flows", "reason": "missing"},
+            {"code": "FM-E001", "pointer": "/rat", "reason": "unknown_field", "expected": ["rate"]},
+            {"code": "FM-E027", "pointer": null, "reason": "requires"}
+        ]
+    })
+}
+
+fn error_case(extra: &str) -> Case {
+    serde_norway::from_str(&format!(
+        "method: tvm.npv\ndescription: temporary\ninput: {{}}\nexpect_error: FM-E001\n{extra}"
+    ))
+    .unwrap()
+}
+
+/// SPEC-0013 AC1 to AC3: every semantic section, `expect_counts`, `#count` and `null` passes
+/// on a matching result.
+#[test]
+fn semantic_sections_pass_on_a_matching_result() {
+    let case = temporary_case(
+        "  /roe: \"null\"\n  /irr: \"null\"\n\
+         expect_defaults:\n  /timing: {/value: end_of_period}\n  /periods: {/value: \"5\"}\n\
+         expect_not_computed:\n  /value/roe: {/reason_code: not_defined}\n  \
+         /value/ros: {/missing_any_of/1/0: /sales, \"/missing_any_of#count\": \"2\"}\n\
+         expect_warnings:\n  FM-W012 /net_financial_position: {}\n  FM-W005 -: {/message: m}\n\
+         expect_checks:\n  /value/years/1 a_total: {/status: not_checked}\n\
+         expect_counts:\n  not_computed: \"2\"\n  warnings: \"2\"\n  checks: \"2\"\n  \
+         /present_values: \"3\"\n",
+    );
+    let failures = check_result("temporary.yaml", &case, &semantic_result());
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
+/// SPEC-0013 AC1 and AC2: a wrong value, a key naming no entry or two entries, a key of
+/// another list and a wrong count fail, each with its own message.
+#[test]
+fn semantic_sections_fail_on_a_wrong_value_a_wrong_key_or_a_wrong_count() {
+    let mut result = semantic_result();
+    result["diagnostics"]["warnings"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({"code": "FM-W005", "pointer": null, "message": "m"}));
+    let case = temporary_case(
+        "expect_defaults:\n  /timing: {/value: mid_period}\n\
+         expect_not_computed:\n  /value/roi: {}\n  \
+         /value/ros: {\"/missing_any_of#count\": \"1\"}\n\
+         expect_warnings:\n  FM-W005 -: {}\n  /value/roe: {}\n\
+         expect_counts:\n  warnings: \"2\"\n  /present_values: \"4\"\n  errors: \"0\"\n",
+    );
+    let failures = check_result("temporary.yaml", &case, &result);
+    let text = failures.join("\n");
+    assert_eq!(failures.len(), 8, "{text}");
+    for want in [
+        "expect_defaults /timing /value: got \"end_of_period\", want mid_period",
+        "expect_not_computed /value/roi: 0 entries named it",
+        "expect_not_computed /value/ros /missing_any_of#count: length Some(2), want 1",
+        "expect_warnings FM-W005 -: 2 entries named it",
+        "expect_warnings /value/roe: 0 entries named it",
+        "expect_counts warnings: length Some(3), want 2",
+        "expect_counts /present_values: length Some(3), want 4",
+        "expect_counts errors: not a list of this result",
+    ] {
+        assert!(text.contains(want), "missing {want:?} in\n{text}");
+    }
+}
+
+/// SPEC-0013 AC3 (R4): `null` passes on a null value and on an absent last token, fails on an
+/// absent parent; any other expectation fails on an absent key.
+#[test]
+fn null_means_null_or_absent_under_an_existing_parent() {
+    let case = temporary_case(
+        "  /roe: \"null\"\n  /absent: \"null\"\n  /missing/deeper: \"null\"\n  \
+         /present_values/7: \"null\"\n  /other: \"1\"\n",
+    );
+    let failures = check_result("temporary.yaml", &case, &semantic_result());
+    let text = failures.join("\n");
+    assert_eq!(failures.len(), 3, "{text}");
+    assert!(
+        text.contains("/missing/deeper: not in the result"),
+        "{text}"
+    );
+    assert!(
+        text.contains("/present_values/7: not in the result"),
+        "{text}"
+    );
+    assert!(text.contains("/other: not in the result"), "{text}");
+}
+
+/// SPEC-0013 AC1 and AC2: error entries by code and pointer, the count of the report, the
+/// top-level fields still read, and sections of a value case refused in an error case.
+#[test]
+fn error_sections_name_entries_and_refuse_positional_keys() {
+    let ok = error_case(
+        "expect_error_report:\n  /pointer: /cash_flows\n  /reason: missing\n\
+         expect_errors:\n  FM-E001 /rat: {/reason: unknown_field, /expected/0: rate}\n  \
+         FM-E027 -: {}\n\
+         expect_counts:\n  errors: \"3\"\n",
+    );
+    let failures = check_error("temporary.yaml", &ok, &semantic_report());
+    assert!(failures.is_empty(), "{failures:?}");
+    let bad = error_case(
+        "expect_errors:\n  FM-E001 /rat: {/reason: missing}\n  FM-E001 /rate: {}\n\
+         expect_warnings:\n  FM-W005 -: {}\n\
+         expect_counts:\n  errors: \"2\"\n  warnings: \"0\"\n",
+    );
+    let failures = check_error("temporary.yaml", &bad, &semantic_report());
+    let text = failures.join("\n");
+    assert_eq!(failures.len(), 5, "{text}");
+    for want in [
+        "expect_errors FM-E001 /rat /reason: got \"unknown_field\", want missing",
+        "expect_errors FM-E001 /rate: 0 entries named it",
+        "expect_warnings: needs expect, not expect_error",
+        "expect_counts errors: length Some(3), want 2",
+        "expect_counts warnings: not a list of this result",
+    ] {
+        assert!(text.contains(want), "missing {want:?} in\n{text}");
+    }
+    // A value case cannot name error entries.
+    let case = temporary_case("expect_errors:\n  FM-E001 /rat: {}\n");
+    let failures = check_result("temporary.yaml", &case, &semantic_result());
+    assert_eq!(failures.len(), 1, "{failures:?}");
+    assert!(failures[0].contains("expect_errors: needs expect_error, not expect"));
 }
 
 /// `v` with the keys of every object, at every depth, put in the order `order` gives for the
