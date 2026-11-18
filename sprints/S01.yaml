@@ -24,7 +24,6 @@ lanes:
       - ".github/workflows/ci.yml"
       - ".github/workflows/test-health.yml"
       - ".github/workflows/prepare-release.yml"
-      - ".github/workflows/project-sync.yml"
       - ".github/workflows/claude.yml"
       - ".github/workflows/claude-review.yml"
       - ".github/workflows/claude-docs.yml"

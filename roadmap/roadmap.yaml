@@ -119,7 +119,7 @@ milestones:
         labels: ["area:infra"]
         tasks:
           - { issue: 16, title: "Issue forms: bug, method request, numerical discrepancy", tags: [gfi], status: done }
-          - { issue: 17, title: "Labels, GitHub Project board, Discussions", tags: [parallel], status: open }
+          - { issue: 17, title: "Labels and Discussions", tags: [parallel], status: open }
       - title: "Documentation"
         labels: []
         tasks:

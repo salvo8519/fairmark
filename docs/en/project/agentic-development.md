@@ -157,9 +157,8 @@ Every finding of a review is fixed in the same pull request. A defect is never d
 ## Credentials
 
 Agents work on branches. The credentials of the development process are kept out of reach of a
-branch: each lives in an environment whose rules a branch cannot change, except
-`PROJECT_TOKEN` (below). A test guards against a job that reads a credential outside its
-environment; it runs on the branch it checks, so it catches mistakes, not attacks. The
+branch: each lives in an environment whose rules a branch cannot change. A test guards
+against a job that reads a credential outside its environment; it runs on the branch it checks, so it catches mistakes, not attacks. The
 environments' settings are checked weekly by the maintenance workflow, and a Claude Code hook
 stops agents from approving runs or changing secrets, variables, environments and rulesets.
 
@@ -170,8 +169,6 @@ stops agents from approving runs or changing secrets, variables, environments an
   cannot read it. Each job creates a token valid one hour, with only the permissions it needs,
   revoked at the end of the job. A test guards against a job that can run on content written
   by others (pull requests, issues, comments) naming that environment.
-- The project board token (`PROJECT_TOKEN`) is read only by a workflow that always runs as it
-  is on `main` (`pull_request_target`, no checkout).
 - Publishing uses trusted publishing (OIDC) from a protected tag. The only stored token is the
   crates.io token of the very first release, a secret of the `crates-io` environment; the
   maintainer deletes it after that release, and the job refuses it once the crates exist.

@@ -8,5 +8,4 @@ description: Plan the next Fairmark sprint from open GitHub issues into sprints/
 2. Show the maintainer the proposed goal and lanes, with the `paths` of each lane and the
    generator groups each lane regenerates (`generates`); apply their changes. `uv run python scripts/sprint.py validate
    sprints/SNN.yaml` must pass: lanes with overlapping paths cannot run in parallel.
-3. When approved, set `status: active`, commit `chore(sprint): plan SNN` (signed off) and
-   remind the maintainer to set the Iteration field of these issues in the GitHub Project.
+3. When approved, set `status: active` and commit `chore(sprint): plan SNN` (signed off).

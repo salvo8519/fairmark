@@ -76,8 +76,9 @@ lists an id that is not registered.
   linked from them. `scripts/docs_sync.py claims` fails on plans written in prose (planned,
   coming next, milestone references) and on method ids that are not registered; the README
   methods table is generated from the registry.
-- **Status**: the project board columns, plus the labels `in-progress` (claimed, a branch
-  exists) and `blocked` (with a comment that says on what).
+- **Status**: open or closed, the milestone of the release, and the labels `in-progress`
+  (claimed, a branch exists) and `blocked` (with a comment that says on what). The project uses
+  no project board.
 
 ## Branches
 

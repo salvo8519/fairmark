@@ -7,8 +7,7 @@ content written by others; a job of such a workflow must never name the environm
 Every stored credential is read only by jobs of the environment that holds it, so a branch that
 adds or edits a workflow cannot read it without the environment's rules: `main` only for the
 App key, an approval per run for the AI key (#376), a protected tag for the crates.io token.
-`PROJECT_TOKEN` stays a repository secret, read only by a workflow that always runs as it is on
-`main` (`pull_request_target`, no checkout).
+No credential is a repository secret.
 
 These tests are a regression guard against honest mistakes: they run on the branch they check,
 so a malicious branch can edit them. The protection itself is the environments' settings,
@@ -65,7 +64,7 @@ SECRET_ENVIRONMENTS = {
     "ANTHROPIC_API_KEY": "anthropic",
     "CARGO_REGISTRY_TOKEN": "crates-io",
 }
-REPOSITORY_SECRETS = {"PROJECT_TOKEN": "project-sync.yml"}
+REPOSITORY_SECRETS: dict[str, str] = {}  # secret name -> the only workflow allowed to read it
 
 
 SECRET_NAME = re.compile(r"secrets\s*\.\s*([A-Za-z0-9_]+)", re.IGNORECASE)

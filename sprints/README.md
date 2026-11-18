@@ -3,8 +3,8 @@
 A sprint is a time-boxed set of GitHub issues with one goal. Sprints are one part of the
 development system described in
 [Agentic development](../docs/en/project/agentic-development.md). Sprint files in this folder are
-the source of truth for agents; the GitHub Project "Fairmark roadmap" shows the same sprint
-as an Iteration on the Kanban board.
+the source of truth for agents. The plan itself is followed through milestones: one per
+release, generated from `roadmap/roadmap.yaml`; this project uses no project board.
 
 ## Files
 `sprints/SNN.yaml`, validated by `scripts/sprint.py`:
@@ -231,12 +231,10 @@ logged, the others go on, and the command exits with 1.
 ## Workflow
 1. **Plan** — `/plan-sprint`: the `sprint-planner` agent proposes `sprints/SNN.yaml` from the
    open issues of the current milestone. The maintainer edits and approves it.
-2. **Board** — in the GitHub Project, set the Iteration field of the sprint's issues (one
-   bulk edit). The Iteration field is created once in the Project settings (two-week cycle).
-3. **Run** — `/run-sprint SNN`: the main Claude Code session acts as orchestrator and
+2. **Run** — `/run-sprint SNN`: the main Claude Code session acts as orchestrator and
    delegates each issue to the specialised agents, lane by lane, or dispatches issues to
    Claude in GitHub Actions. Every issue ends as a pull request; nothing is merged without
    the maintainer.
-4. **Track** — `uv run python scripts/sprint.py status sprints/SNN.yaml` shows progress from
+3. **Track** — `uv run python scripts/sprint.py status sprints/SNN.yaml` shows progress from
    GitHub; `scripts/sprint.py burndown sprints/SNN.yaml` the burn-down and loop metrics.
-5. **Close** — set `status: done`; unfinished issues move to the next sprint.
+4. **Close** — set `status: done`; unfinished issues move to the next sprint.
