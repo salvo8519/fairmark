@@ -63,7 +63,8 @@ Approved at 23:33 Europe/Rome, with the design: the ten recommendations of
    values only.
 7. **Inner values of analysis results** are validated against the snapshot of the inner method.
 8. **Plan files are committed** (`golden-migration.json`, `golden-migration.md`), as SPEC-0012
-   did; they may be removed after the migration if the maintainer asks.
+   did. `golden-migration.json` stays as the permanent list of the cases exempt from the
+   new-case rules of R12 (code review of #394, S6): it is not removed after the migration.
 9. **Identifiers the schemas do not enumerate** (467 assertions) are left to #352.
 10. **This spec** turns the design into requirements and acceptance criteria, so the tests are
     written first.

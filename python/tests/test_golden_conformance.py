@@ -32,12 +32,12 @@ GOLDEN = ROOT / "tests" / "golden"
 CASES = sorted(GOLDEN.rglob("*.yaml"))
 
 _spec = importlib.util.spec_from_file_location(
-    "golden_values_migration", ROOT / "scripts" / "golden_values_migration.py"
+    "golden_schema", ROOT / "scripts" / "golden_schema.py"
 )
 assert _spec and _spec.loader
-gvm = importlib.util.module_from_spec(_spec)
-sys.modules["golden_values_migration"] = gvm
-_spec.loader.exec_module(gvm)
+gs = importlib.util.module_from_spec(_spec)
+sys.modules["golden_schema"] = gs
+_spec.loader.exec_module(gs)
 
 APPLICATORS = ("anyOf", "oneOf", "allOf")  # choices first: `closed` reads [:2]
 # The `$defs` of the envelope snapshot that describe one entry of each semantic section.
@@ -58,7 +58,7 @@ PART_DEFS = {"expect_error_report": "FairmarkErrorReport"}
 @functools.cache
 def history() -> dict[str, Any]:
     """The schema history, read the way ADR 0017 requires (`schema_history()` once present)."""
-    return gvm.schema_history(ROOT)
+    return gs.schema_history(ROOT)
 
 
 def read(relative: str) -> dict[str, Any]:
@@ -99,7 +99,7 @@ def closed(node: Any, branch: bool = False, root: Any = None) -> Any:
         return node
     out = {k: closed(v, k in APPLICATORS, root) for k, v in node.items()}
     branches = [b for k in APPLICATORS[:2] for b in node.get(k, [])]
-    choice = any("properties" in gvm._deref(root, b) for b in branches)
+    choice = any("properties" in gs.deref(root, b) for b in branches)
     if (
         ("properties" in out or choice)
         and not branch
@@ -151,13 +151,13 @@ def inner_values(root: dict[str, Any], node: Any, data: Any, holder: Any) -> Ite
     """(kind, method, version, value) of every value of `data` whose schema node carries
     `x-fairmark-output-of` or `x-fairmark-input-of`: a pointer, relative to the object holding
     the value, to the inner method id; the version is the `version` beside that id."""
-    nodes = gvm._branches(root, node)
+    nodes = gs.branches(root, node)
     for marker, kind in (("x-fairmark-output-of", "output"), ("x-fairmark-input-of", "input")):
         pointer = next((n[marker] for n in nodes if marker in n), None)
         if pointer is not None:
-            parts = gvm.tokens(pointer)
-            method = gvm.resolve(holder, parts)
-            version = gvm.resolve(holder, [*parts[:-1], "version"])
+            parts = gs.tokens(pointer)
+            method = gs.resolve(holder, parts)
+            version = gs.resolve(holder, [*parts[:-1], "version"])
             yield kind, method, str(version), data
             return
     if isinstance(data, dict):
@@ -199,30 +199,30 @@ def error_problems(report: dict[str, Any], envelope_version: str) -> list[str]:
 def nodes_at(root: dict[str, Any], parts: list[str], data: Any) -> list[dict[str, Any]]:
     """The schema nodes at `parts` from `root`, switching to the inner method's output
     snapshot where a node carries `x-fairmark-output-of` (resolved against `data`)."""
-    nodes = gvm._branches(root, root)
+    nodes = gs.branches(root, root)
     holder: Any = None
     for t in parts:
         marker = next(
             (n["x-fairmark-output-of"] for n in nodes if "x-fairmark-output-of" in n), None
         )
         if marker is not None and holder is not None:
-            ptr = gvm.tokens(marker)
+            ptr = gs.tokens(marker)
             inner = output_snapshot(
-                gvm.resolve(holder, ptr), str(gvm.resolve(holder, [*ptr[:-1], "version"]))
+                gs.resolve(holder, ptr), str(gs.resolve(holder, [*ptr[:-1], "version"]))
             )
             if inner is None:
                 return []
-            root, nodes = inner, gvm._branches(inner, inner)
+            root, nodes = inner, gs.branches(inner, inner)
         nxt: list[dict[str, Any]] = []
         for n in nodes:
             if t.isdigit() and "items" in n:
-                nxt.extend(gvm._branches(root, n["items"]))
+                nxt.extend(gs.branches(root, n["items"]))
             props = n.get("properties", {})
             if t in props:
-                nxt.extend(gvm._branches(root, props[t]))
+                nxt.extend(gs.branches(root, props[t]))
             extra = n.get("additionalProperties")
             if isinstance(extra, dict) and t not in props and not t.isdigit():
-                nxt.extend(gvm._branches(root, extra))
+                nxt.extend(gs.branches(root, extra))
         nodes = nxt
         holder = data
         try:
@@ -245,7 +245,7 @@ def undeclared_keys(case: dict[str, Any], value: Any, envelope_version: str) -> 
         return {"$defs": envelope["$defs"], "$ref": f"#/$defs/{name}"}
 
     def check(section: str, root: dict[str, Any], key: str, data: Any) -> None:
-        parts = gvm.tokens(key.removesuffix("#count"))
+        parts = gs.tokens(key.removesuffix("#count"))
         if not nodes_at(root, parts, data):
             found.append(f"{section} {key}: not declared by the schema")
 
@@ -429,12 +429,12 @@ def input_order_key(root: dict[str, Any], pointer: str) -> list[tuple[Any, ...]]
     """The place of `pointer` in a depth-first walk of the input, objects in the property order
     of the input schema `root`, arrays by index (R9: input order, the input taken with its
     defaults). A token the schema does not declare sorts after every declared one."""
-    nodes = gvm._branches(root, root)
+    nodes = gs.branches(root, root)
     key: list[tuple[Any, ...]] = []
-    for t in gvm.tokens(pointer):
+    for t in gs.tokens(pointer):
         if INDEX.fullmatch(t) and any("items" in n for n in nodes):
             key.append((0, int(t)))
-            nodes = [b for n in nodes if "items" in n for b in gvm._branches(root, n["items"])]
+            nodes = [b for n in nodes if "items" in n for b in gs.branches(root, n["items"])]
             continue
         position = next(
             (list(n["properties"]).index(t) for n in nodes if t in n.get("properties", {})), None
@@ -444,7 +444,7 @@ def input_order_key(root: dict[str, Any], pointer: str) -> list[tuple[Any, ...]]
             b
             for n in nodes
             if t in n.get("properties", {})
-            for b in gvm._branches(root, n["properties"][t])
+            for b in gs.branches(root, n["properties"][t])
         ]
     return key
 

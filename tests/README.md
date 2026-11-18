@@ -30,9 +30,12 @@ A golden case does not assert:
 - the presence of keys, the envelope structure or `meta` bookkeeping (`envelope_version`,
   `engine_version`, `input_hash`);
 - wording: `message`, `fix`, or a `reason` outside an error entry. The cases migrated by
-  SPEC-0013 (`specs/0013-golden-values-schema-shape/golden-migration.json`) keep the wording
-  they asserted; when a change of wording touches one, the assertion is removed with the
-  maintainer's approval, not updated.
+  SPEC-0013 keep the wording they asserted; when a change of wording touches one, the
+  assertion is removed with the maintainer's approval, not updated.
+
+`specs/0013-golden-values-schema-shape/golden-migration.json` is the permanent list of the
+cases exempt from the rules for new cases (counts with entries, no wording): the 119 cases
+migrated by SPEC-0013. It is never extended; every other case follows the rules.
 
 ## Sections
 

@@ -86,69 +86,28 @@ RANKED_LISTS = {"ranking"}
 # ---------------------------------------------------------------- pointers and schemas
 
 
-def tokens(pointer: str) -> list[str]:
-    """RFC 6901 tokens of `pointer`; a key without a leading '/' is one top-level field."""
-    if not pointer.startswith("/"):
-        return [pointer]
-    return [t.replace("~1", "/").replace("~0", "~") for t in pointer[1:].split("/")]
+def _schema_helpers() -> Any:
+    """`scripts/golden_schema.py`, loaded from beside this file however this file was loaded."""
+    import importlib.util
+
+    if "golden_schema" in sys.modules:
+        return sys.modules["golden_schema"]
+    spec = importlib.util.spec_from_file_location(
+        "golden_schema", Path(__file__).with_name("golden_schema.py")
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["golden_schema"] = module
+    spec.loader.exec_module(module)
+    return module
 
 
-def pointer_of(parts: list[str | int]) -> str:
-    return "".join("/" + str(p).replace("~", "~0").replace("/", "~1") for p in parts)
-
-
-def resolve(data: Any, parts: list[str]) -> Any:
-    """The node of `data` at `parts`; KeyError when it does not exist."""
-    for t in parts:
-        if isinstance(data, list):
-            if not re.fullmatch(r"0|[1-9][0-9]*", t) or int(t) >= len(data):
-                raise KeyError(t)
-            data = data[int(t)]
-        elif isinstance(data, dict):
-            if t not in data:
-                raise KeyError(t)
-            data = data[t]
-        else:
-            raise KeyError(t)
-    return data
-
-
-def _deref(root: dict[str, Any], node: Any) -> Any:
-    seen = 0
-    while isinstance(node, dict) and isinstance(node.get("$ref"), str) and seen < 20:
-        name = node["$ref"].removeprefix("#/$defs/")
-        node = root.get("$defs", {}).get(name, {})
-        seen += 1
-    return node
-
-
-def _branches(root: dict[str, Any], node: Any) -> list[Any]:
-    node = _deref(root, node)
-    if not isinstance(node, dict):
-        return []
-    out = [node]
-    for k in ("anyOf", "oneOf", "allOf"):
-        for b in node.get(k, []):
-            out.extend(_branches(root, b))
-    return out
-
-
-def schema_at(root: dict[str, Any], parts: list[str]) -> list[dict[str, Any]]:
-    """Every schema node that can describe the data at `parts` (all branches kept)."""
-    nodes = _branches(root, root)
-    for t in parts:
-        nxt: list[dict[str, Any]] = []
-        for n in nodes:
-            if t.isdigit() and "items" in n:
-                nxt.extend(_branches(root, n["items"]))
-            props = n.get("properties", {})
-            if t in props:
-                nxt.extend(_branches(root, props[t]))
-            ap = n.get("additionalProperties")
-            if isinstance(ap, dict) and t not in props and not t.isdigit():
-                nxt.extend(_branches(root, ap))
-        nodes = nxt
-    return nodes
+gs = _schema_helpers()
+tokens = gs.tokens
+pointer_of = gs.pointer_of
+resolve = gs.resolve
+schema_at = gs.schema_at
+schema_history = gs.schema_history
 
 
 def is_enum(nodes: list[dict[str, Any]]) -> bool:
@@ -168,27 +127,9 @@ def item_props(nodes: list[dict[str, Any]], root: dict[str, Any]) -> set[str]:
     props: set[str] = set()
     for n in nodes:
         if "items" in n:
-            for b in _branches(root, n["items"]):
+            for b in gs.branches(root, n["items"]):
                 props |= set(b.get("properties", {}))
     return props
-
-
-def schema_history(repo: Path) -> dict[str, Any]:
-    """The schema history: through `schema_history()` of `scripts/schema_snapshots.py` once
-    ADR 0017 provides it (the only reader allowed then), else the committed index."""
-    import importlib.util
-
-    spec = importlib.util.spec_from_file_location(
-        "schema_snapshots", repo / "scripts/schema_snapshots.py"
-    )
-    if spec and spec.loader:
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        if hasattr(module, "schema_history"):
-            history: dict[str, Any] = module.schema_history()
-            return history
-    index: dict[str, Any] = json.loads((repo / "schemas/index.json").read_text(encoding="utf-8"))
-    return index
 
 
 class Schemas:

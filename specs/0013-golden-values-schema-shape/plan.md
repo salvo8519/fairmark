@@ -31,9 +31,9 @@ result. `closed(schema)` adds `unevaluatedProperties: false` as in R7; validator
 once per snapshot (`functools.cache`). Inner analysis values: walk the output schema, and for
 each node with `x-fairmark-output-of` resolve the relative pointer to the inner method id in
 the result and validate against that method's snapshot at the version named next to it
-(`inner_method.version`). The key-declared check (R8) reuses the schema walk of the migration
-script (`_branches`, `tokens`, `resolve`, `schema_history`), which the test loads as a module:
-one walk, one reader of the schema history.
+(`inner_method.version`). The key-declared check (R8) and the migration script share one
+schema walk, `scripts/golden_schema.py` (`tokens`, `resolve`, `deref`, `branches`,
+`schema_at`, `schema_history`): one walk, one reader of the schema history.
 
 **Order test.** In the same module: one function per list returning the sort key of R9, and a
 check that each list equals itself sorted by it. Input order of defaults: the place of the
