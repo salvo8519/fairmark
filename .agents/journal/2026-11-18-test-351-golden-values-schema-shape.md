@@ -23,7 +23,10 @@
   119 checked, 0 problems.
 - T10 retired sections and `/errors/N` keys of `expect_error_report` refused by both runners
   and the case shape test; `scripts/mcp_protocol_check.py` reads `expect_defaults`.
-- PR #394 opened; T11 (review and audit) is the coordinator's.
+- PR #394 opened. Code review (request changes) fixed in this PR: B2 order checks against
+  the documented order (`7b57341`), S3 closed choices (`11a6e4f`), S5 exact text (`7df5c5c`),
+  S6 shared schema walk `scripts/golden_schema.py` (`a1f81b8`), nits N8 to N13 (`5029771`),
+  S4 tolerant-reader rule in the docs (`6497666`). Audit: sound.
 
 ## Decisions taken
 - `check_golden_changes.py` protected only some sections: the diagnostics sections of
@@ -37,7 +40,9 @@
   approved files, never by editing golden files by hand (maintainer approval of 2026-11-18).
 
 ## Open questions for the maintainer
-- None.
+- R9 (pending sign-off): the engine departs from the input order of defaults in eight places
+  (`KNOWN_DEFAULT_ORDER_DEPARTURES` in `python/tests/test_golden_conformance.py`). Change the
+  engine (its own issue) or restate the rule.
 
 ## Next steps
 1. T11 on #394: `code-reviewer` pass and `numerical-auditor` on the migration; the maintainer
