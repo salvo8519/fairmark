@@ -127,13 +127,23 @@ Shape
 - **R8** — THE CONFORMANCE TEST SHALL fail a golden case whose assertion key, in `expect` or
   inside an entry of a semantic section, is not declared by the schema of the part it reads
   (array indices excepted).
-- **R9** — THE ORDER TEST SHALL check, on every golden result, the documented order of every
-  envelope list: `meta.defaults_applied` in input order, checked as the order of their
-  `default:` echo in `explain.conventions` (input order is defined by each method, and the
-  echo is its observable form; clarified in T7), `diagnostics.not_computed` by
-  `pointer` with array indices compared as numbers, `diagnostics.checks` by result block then
-  `id`, `diagnostics.warnings` in the order of their echo in `explain.conventions`, the
-  `errors` of a report by `pointer`, then `code`, then `message`.
+- **R9** (pending maintainer sign-off; wording of the code review of #394) — THE ORDER TEST
+  SHALL check, on every golden result, the documented order of every envelope list:
+  - `meta.defaults_applied` in input order: a depth-first walk of the input taken with its
+    defaults, objects in the property order of the method's input schema, arrays by index;
+  - `diagnostics.warnings`: the warnings of the method first, in the order the method emits
+    them; then every `FM-W001` ordered by pointer; then every `FM-W017` ordered by pointer; no
+    warning of the method after them;
+  - `diagnostics.not_computed` by `pointer`, array indices compared as numbers;
+  - `diagnostics.checks` by result block, then `id`;
+  - the `errors` of a report by `pointer` (none first), then `code`, then `message`.
+
+  Each check SHALL fail on a reversed list. The engine departs from the input order of
+  defaults in eight known places (`/stages/N/projection` before `/stages/N/periods` in
+  `dcf.fcff` and `dcf.fcfe`; six pairs in `statements.reorganise`), listed in
+  `KNOWN_DEFAULT_ORDER_DEPARTURES` of `python/tests/test_golden_conformance.py`; any other
+  departure fails. The maintainer decides whether the engine follows the rule (a change of
+  output order, its own issue) or the rule is restated; the list is then emptied.
 - **R10** — `jsonschema` SHALL be declared in the `dev` dependency group of `pyproject.toml`
   with a lower bound the locked version satisfies, and the set of packages in `uv.lock` SHALL
   not change.
@@ -190,8 +200,9 @@ Not applicable: no method output is added or changed.
   removed from `test_output_schemas.py`.
 - **AC8** (R8) — A temporary case with a misspelt key whose expectation is `null` fails the
   conformance test; the same key spelt right passes.
-- **AC9** (R9) — Every golden result passes the order test; a synthetic result with two entries
-  of each list swapped fails it, list by list.
+- **AC9** (R9) — Every golden result passes the order test (with the known departures of R9);
+  a reversed list of each kind, a method warning after the reading warnings, reading warnings
+  out of pointer order and a default out of input order fail it.
 - **AC10** (R10) — `pyproject.toml` declares `jsonschema` in `dev`; `uv lock --check` passes and
   the package names in `uv.lock` are the same as on `main`.
 - **AC11** (R11) — The skill and `tests/README.md` state the rule; `uv run just generate`

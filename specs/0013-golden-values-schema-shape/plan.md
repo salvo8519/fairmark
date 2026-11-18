@@ -36,8 +36,11 @@ script (`_branches`, `tokens`, `resolve`, `schema_history`), which the test load
 one walk, one reader of the schema history.
 
 **Order test.** In the same module: one function per list returning the sort key of R9, and a
-check that each list equals itself sorted by it. Input order of defaults: the position of the
-default's pointer in a depth-first walk of the input as sent.
+check that each list equals itself sorted by it. Input order of defaults: the place of the
+default's pointer in a depth-first walk of the input taken with its defaults, objects in the
+property order of the input schema (read from the engine: the committed snapshots sort their
+keys), arrays by index. Warnings: method warnings first, then `FM-W001`, then `FM-W017`, each
+of the last two by pointer.
 
 ## Schema changes
 None. No method version bump. The envelope snapshot is unchanged.

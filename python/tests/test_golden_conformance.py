@@ -12,6 +12,7 @@ from __future__ import annotations
 import copy
 import functools
 import importlib.util
+import itertools
 import json
 import re
 import sys
@@ -413,28 +414,121 @@ def pointer_key(pointer: str) -> list[tuple[int, int, str]]:
     return out
 
 
-def echoed(conventions: list[str], pattern: str) -> list[str]:
-    return [m.group(1) for c in conventions if (m := re.match(pattern, c))]
-
-
 def unsorted(name: str, keys: list[Any]) -> list[str]:
     return [] if keys == sorted(keys) else [f"{name}: not in its documented order"]
 
 
+INDEX = re.compile(r"0|[1-9][0-9]*")
+
+
+def input_order_key(root: dict[str, Any], pointer: str) -> list[tuple[Any, ...]]:
+    """The place of `pointer` in a depth-first walk of the input, objects in the property order
+    of the input schema `root`, arrays by index (R9: input order, the input taken with its
+    defaults). A token the schema does not declare sorts after every declared one."""
+    nodes = gvm._branches(root, root)
+    key: list[tuple[Any, ...]] = []
+    for t in gvm.tokens(pointer):
+        if INDEX.fullmatch(t) and any("items" in n for n in nodes):
+            key.append((0, int(t)))
+            nodes = [b for n in nodes if "items" in n for b in gvm._branches(root, n["items"])]
+            continue
+        position = next(
+            (list(n["properties"]).index(t) for n in nodes if t in n.get("properties", {})), None
+        )
+        key.append((1, len(root) if position is None else position, t))
+        nodes = [
+            b
+            for n in nodes
+            if t in n.get("properties", {})
+            for b in gvm._branches(root, n["properties"][t])
+        ]
+    return key
+
+
+# R9 (pending maintainer sign-off): the engine departs from the input order of defaults in
+# these places, found when the check was written (code review of #394). Each pair is
+# (method, earlier pointer, later pointer) with array indices written `N`. A departure not
+# listed here fails; the list is emptied by the decision the maintainer takes on R9.
+KNOWN_DEFAULT_ORDER_DEPARTURES = {
+    ("dcf.fcff", "/stages/N/projection", "/stages/N/periods"),
+    ("dcf.fcfe", "/stages/N/projection", "/stages/N/periods"),
+    (
+        "statements.reorganise",
+        "/treatments/write_downs_of_fixed_assets",
+        "/years/N/statutory/balance_sheet/receivables/subscribed_capital_unpaid",
+    ),
+    (
+        "statements.reorganise",
+        "/treatments/write_downs_of_fixed_assets",
+        "/years/N/statutory/balance_sheet/subscribed_capital_unpaid",
+    ),
+    (
+        "statements.reorganise",
+        "/treatments/write_downs_of_fixed_assets",
+        "/years/N/statutory/balance_sheet/receivables/prepayments_and_accrued_income",
+    ),
+    (
+        "statements.reorganise",
+        "/years/N/statutory/income_statement/other_operating_expenses",
+        "/years/N/statutory/income_statement/depreciation_and_write_downs/write_downs_of_fixed_assets",
+    ),
+    (
+        "statements.reorganise",
+        "/years/N/statutory/income_statement/other_operating_expenses",
+        "/years/N/statutory/income_statement/depreciation_and_write_downs/write_downs_of_receivables",
+    ),
+    (
+        "statements.reorganise",
+        "/years/N/statutory/income_statement/other_operating_expenses",
+        "/years/N/statutory/balance_sheet/receivables/subscribed_capital_unpaid",
+    ),
+}
+
+
+def generic(pointer: str) -> str:
+    return re.sub(r"/(0|[1-9][0-9]*)(?=/|$)", "/N", pointer)
+
+
+@functools.cache
+def input_order_schema(method: str) -> dict[str, Any]:
+    """The input schema with its property order. The committed snapshots sort their keys
+    (`scripts/schema_snapshots.py`), so the order of the input is read from the engine; the
+    shape is still validated against the snapshots only (AC7)."""
+    schema: dict[str, Any] = fm.input_schema(method)
+    return schema
+
+
+def default_order_problems(method: str, version: str, pointers: list[str]) -> list[str]:
+    if str(history()["methods"][method]["current"]) != version:
+        return [f"defaults_applied: {method} v{version} is not the version the engine runs"]
+    root = input_order_schema(method)
+    found = []
+    for a, b in itertools.pairwise(pointers):
+        known = (method, generic(a), generic(b)) in KNOWN_DEFAULT_ORDER_DEPARTURES
+        if input_order_key(root, a) > input_order_key(root, b) and not known:
+            found.append(f"defaults_applied: {a} before {b}, against the input order")
+    return found
+
+
+def warning_order_key(warning: dict[str, Any]) -> tuple[Any, ...]:
+    """Method warnings first, in the order the method emits them; then every FM-W001 by
+    pointer; then every FM-W017 by pointer (R9)."""
+    rank = {"FM-W001": 1, "FM-W017": 2}.get(warning["code"], 0)
+    return (rank, pointer_key(warning.get("pointer") or "") if rank else [])
+
+
 def order_problems(raw: dict[str, Any]) -> list[str]:
     """The envelope lists of a result that depart from their documented order (SPEC-0013 R9):
-    defaults applied in input order, which is the order of their `default:` echo in
-    `explain.conventions`; outputs not computed by pointer; checks by result block, then id;
-    warnings in the order of their echo in `explain.conventions`."""
-    conventions = raw["explain"]["conventions"]
+    defaults applied in input order; warnings of the method first, then FM-W001 and FM-W017 by
+    pointer; outputs not computed by pointer; checks by result block, then id."""
     diagnostics = raw["diagnostics"]
-    found = []
-    defaults = [d["pointer"] for d in raw["meta"]["defaults_applied"]]
-    if defaults != echoed(conventions, r"default: `([^`]*)`"):
-        found.append("defaults_applied: not in the order of their echo in explain.conventions")
-    warnings = [w["code"] for w in diagnostics["warnings"]]
-    if warnings != echoed(conventions, r"warning (FM-W\d{3}):"):
-        found.append("warnings: not in the order of their echo in explain.conventions")
+    meta = raw["meta"]
+    found = default_order_problems(
+        raw["method"],
+        str(meta["method_version"]),
+        [d["pointer"] for d in meta["defaults_applied"]],
+    )
+    found += unsorted("warnings", [warning_order_key(w) for w in diagnostics["warnings"]])
     found += unsorted(
         "not_computed", [pointer_key(n["pointer"]) for n in diagnostics["not_computed"]]
     )
@@ -463,19 +557,33 @@ def test_envelope_lists_follow_their_documented_order(path: Path) -> None:
 
 
 def ordered_result() -> dict[str, Any]:
+    """A `dcf.fcff` result whose envelope lists follow their documented orders (R9)."""
+    version = str(history()["methods"]["dcf.fcff"]["current"])
     return {
-        "explain": {
-            "conventions": [
-                "default: `/timing` not given, set to x",
-                "warning FM-W005: w",
-                "default: `/stages/10/periods` not given, set to y",
-                "warning FM-W012: w",
-            ]
+        "method": "dcf.fcff",
+        "meta": {
+            "method_version": version,
+            # Input schema order: `stages` (its `periods` before `projection`), then
+            # `cash_flow_terms`, then `timing`.
+            "defaults_applied": [
+                {"pointer": "/stages/0/periods"},
+                {"pointer": "/stages/0/projection"},
+                {"pointer": "/stages/1/periods"},
+                {"pointer": "/cash_flow_terms"},
+                {"pointer": "/timing"},
+            ],
         },
-        "meta": {"defaults_applied": [{"pointer": "/timing"}, {"pointer": "/stages/10/periods"}]},
         "diagnostics": {
             "not_computed": [{"pointer": "/value/periods/2"}, {"pointer": "/value/periods/10"}],
-            "warnings": [{"code": "FM-W005"}, {"code": "FM-W012"}],
+            # Method warnings first, then FM-W001 by pointer, then FM-W017 by pointer.
+            "warnings": [
+                {"code": "FM-W012", "pointer": "/net_financial_position"},
+                {"code": "FM-W005", "pointer": None},
+                {"code": "FM-W001", "pointer": "/stages/2/flows"},
+                {"code": "FM-W001", "pointer": "/stages/10/flows"},
+                {"code": "FM-W017", "pointer": "/rate"},
+                {"code": "FM-W017", "pointer": "/wacc"},
+            ],
             "checks": [
                 {"pointer": "/value/years/0", "id": "b"},
                 {"pointer": "/value/years/1", "id": "a"},
@@ -497,10 +605,31 @@ def test_an_ordered_result_has_no_order_problem() -> None:
         ("diagnostics", "checks"),
     ],
 )
-def test_two_swapped_entries_are_caught(part: str, name: str) -> None:
+def test_a_reversed_list_is_caught(part: str, name: str) -> None:
     raw = ordered_result()
     raw[part][name].reverse()
-    assert any(name in p for p in order_problems(raw)), name
+    assert any(p.startswith(name) for p in order_problems(raw)), name
+
+
+def test_a_method_warning_after_the_reading_warnings_is_caught() -> None:
+    raw = ordered_result()
+    warnings = raw["diagnostics"]["warnings"]
+    warnings.append(warnings.pop(0))  # FM-W012 after the FM-W017 entries
+    assert any(p.startswith("warnings") for p in order_problems(raw))
+
+
+def test_reading_warnings_out_of_pointer_order_are_caught() -> None:
+    raw = ordered_result()
+    warnings = raw["diagnostics"]["warnings"]
+    warnings[2], warnings[3] = warnings[3], warnings[2]  # FM-W001 /stages/10 before /stages/2
+    assert any(p.startswith("warnings") for p in order_problems(raw))
+
+
+def test_a_default_out_of_input_schema_order_is_caught() -> None:
+    raw = ordered_result()
+    defaults = raw["meta"]["defaults_applied"]
+    defaults[3], defaults[4] = defaults[4], defaults[3]  # `timing` before `cash_flow_terms`
+    assert any(p.startswith("defaults_applied") for p in order_problems(raw))
 
 
 def test_error_entries_follow_pointer_then_code_then_message() -> None:
