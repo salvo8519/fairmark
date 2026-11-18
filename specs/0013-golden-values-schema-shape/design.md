@@ -231,7 +231,7 @@ Yes for the envelope sections and the `null` rule; no for selectors in `value`.
 
 | | Cost | Benefit |
 | --- | --- | --- |
-| Envelope sections | about 150 lines in each runner, one migration of 119 files, the skill and `tests/golden/README.md` | #361 in retrospect: 53 files instead of 131; #263: 13 fewer files (section 5) |
+| Envelope sections | about 150 lines in each runner, one migration of 119 files, the skill and `tests/README.md` | #361 in retrospect: 53 files instead of 131; #263: 13 fewer files (section 5) |
 | `null` rule | about 30 lines in each runner, plus the schema check of keys | #266, second reading: 0 files instead of 67 |
 | Conformance test | one Python test module (section 3) | catches every layout defect the golden cases stop catching |
 | Selectors in `value` | section 2.3 | none foreseen |
@@ -365,7 +365,7 @@ reported. `list` run again on the migrated copy finds 0 files to change.
    `test_golden_envelope_migration.py` does.
 2. `test_golden_conformance.py` and the order invariants; `jsonschema` declared in `dev`.
 3. The rule in `.agents/skills/golden-case/SKILL.md` (then `uv run just generate`) and a new
-   `tests/golden/README.md`.
+   `tests/README.md`.
 4. `apply` on the 119 files the maintainer approves by name; `verify` against `origin/main`.
 
 ## 5. Estimates for #266 and #263

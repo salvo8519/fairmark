@@ -16,22 +16,28 @@ description: Author a golden test case for a Fairmark method with expected value
    expect: { field: "value" }
    tolerance: "0.000000001"
    ```
-   Keys of `expect` are top-level fields or JSON Pointers (`/years/0/total`) into the result
-   `value`. To assert documented defaults, add `expect_meta` with JSON Pointers into `meta`,
-   for example `/defaults_applied/0/field`; it is compared like `expect` and protected like it.
-   To assert that a list has no entry beyond those asserted, add `expect_length` with JSON
-   Pointers into `value` and the expected count, for example `/not_computed: "3"`.
-   To assert the diagnostics of the result (SPEC-0012), add `expect_diagnostics` with JSON
-   Pointers into `diagnostics`, for example `/warnings/0/code: FM-W012` or
-   `/not_computed/1/reason_code: not_defined`, compared like `expect`, and
-   `expect_diagnostics_length` with the expected count of a list, for example `/warnings: "1"`;
-   both need `expect` and are protected like it.
-   An error case (`expect_error`) may add `expect_error_report` with JSON Pointers into the
-   error report (ADR 0014 G5), for example `/pointer`, `/reason`, `/pointers/1` or
-   `/errors/2/pointer`; values are compared exactly (`null` for a null field) and protected
-   like `expect`. In an error case, `expect_length` counts arrays of the error report, for
-   example `/errors: "3"`, so that no error beyond those asserted is reported. Do not assert
-   `/fix`: its wording is not part of the contract.
+   Golden cases assert values; the schema snapshots and
+   `python/tests/test_golden_conformance.py` assert shape (SPEC-0013). The full rule is in
+   `tests/README.md`; in short:
+   - `expect`: top-level fields or JSON Pointers (`/years/0/total`) relative to `value`.
+     Positions in `value` are allowed: there they are results (period, year, rank).
+     `null` means not computed: the value is `null` or the key is absent; the key must be
+     declared by the output schema.
+   - Envelope lists are asserted by the identity of the entry, never by position, each entry
+     a mapping of pointers relative to it (`{}` asserts only that it exists):
+     `expect_defaults` (key: input `pointer`), `expect_not_computed` (key: result `pointer`),
+     `expect_warnings` (key: `code pointer`, `-` for a null pointer), `expect_checks`
+     (key: `pointer id`), `expect_errors` (key: `code pointer`). A count inside an entry is
+     written `/missing_any_of#count`.
+   - `expect_counts`: `errors`, `warnings`, `not_computed` or `checks`, or a pointer into
+     `value`, with the expected count. Required whenever entries of `errors`, `warnings` or
+     `not_computed` are asserted.
+   - An error case has `expect_error` (the code), may add `expect_error_report` for the
+     top-level fields of the report (`/pointer`, `/reason`, `/expected/0`) and
+     `expect_errors` for its entries.
+   - Do not assert wording: `message`, `fix`, or a `reason` outside an error. Do not assert
+     envelope structure or `meta` bookkeeping.
+
 3. Use only anonymised or synthetic data.
 4. Run `cargo test -p fairmark-core --test golden` and `uv run pytest python/tests/test_golden.py`.
 5. Existing golden files are protected by a hook: never edit them; propose a

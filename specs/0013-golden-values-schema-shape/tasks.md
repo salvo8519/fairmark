@@ -29,7 +29,7 @@ approved, by name, the list in `golden-migration.md` (T9).
   (same module) [R9; AC9]
 
 ## Rule
-- [ ] T8 Rule in `.agents/skills/golden-case/SKILL.md` and new `tests/golden/README.md`;
+- [x] T8 Rule in `.agents/skills/golden-case/SKILL.md` and new `tests/README.md`;
   `uv run just generate`; new-case rules in `test_golden_case_shape` [R11, R12; AC11, AC12]
 
 ## Migration (after the maintainer's named approval)

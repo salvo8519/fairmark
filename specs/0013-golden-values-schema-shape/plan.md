@@ -2,7 +2,7 @@
 
 ## Design
 No engine code changes. The work is in the two golden runners, two Python test modules, the
-golden-case skill, `tests/golden/README.md`, `pyproject.toml` and the migration script.
+golden-case skill, `tests/README.md`, `pyproject.toml` and the migration script.
 
 **Semantic resolver, one per runner.** Both runners gain the same small function: given the
 part of the result (`meta`, `diagnostics`, or the error report), the list name, the identity
@@ -59,7 +59,7 @@ makes it pass, and the task is one green commit.
 | `verify` against `origin/main` | AC14 |
 
 ## Documentation
-`tests/golden/README.md` (new) and the golden-case skill; `uv run just generate` mirrors the
+`tests/README.md` (new) and the golden-case skill; `uv run just generate` mirrors the
 skill to `.claude/`. No page of `docs/` describes the golden format, so no translation is
 needed. No release note: nothing a user sees changes (label `no-release-note`).
 

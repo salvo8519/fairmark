@@ -1,5 +1,6 @@
 """Runs the shared golden cases (tests/golden) through the Python API."""
 
+import json
 import re
 from decimal import Decimal
 from pathlib import Path
@@ -226,6 +227,47 @@ def test_golden_case_shape(path: Path) -> None:
     for key in ("expect_error_report", "expect_errors"):
         if key in case:
             assert "expect_error" in case, f"{key} needs expect_error"
+    if str(path.resolve().relative_to(GOLDEN.parents[1], walk_up=True)) not in MIGRATED:
+        new_case_rules(case)
+
+
+# SPEC-0013 R12: the cases of the approved migration list keep their assertions as they were;
+# every other case follows the rules of decisions 2 and 4.
+MIGRATED = set(
+    json.loads(
+        (
+            GOLDEN.parents[1] / "specs/0013-golden-values-schema-shape/golden-migration.json"
+        ).read_text(encoding="utf-8")
+    )["files"]
+)
+# Lists whose entries, once asserted, need their count (decision 4).
+COUNTED_SECTIONS = {
+    "expect_errors": "errors",
+    "expect_warnings": "warnings",
+    "expect_not_computed": "not_computed",
+}
+WORDING = ("message", "fix")
+
+
+def new_case_rules(case: dict[str, Any]) -> None:
+    """Decision 4: asserted entries of errors, warnings and outputs not computed come with their
+    count. Decision 2: no wording (`message`, `fix`, or `reason` outside an error)."""
+    for section, name in COUNTED_SECTIONS.items():
+        if case.get(section):
+            counts = case.get("expect_counts", {})
+            assert name in counts, f"{section} needs expect_counts {name}"
+    keys: list[tuple[str, str]] = []
+    for section in ("expect", "expect_meta", "expect_diagnostics", "expect_error_report"):
+        keys += [(section, k) for k in case.get(section, {})]
+    for section in SECTIONS:
+        for entry in (case.get(section) or {}).values():
+            keys += [(section, k) for k in entry or {}]
+    for section, key in keys:
+        last = key.rsplit("/", 1)[-1]
+        error = section in ("expect_errors", "expect_error_report")
+        assert last not in WORDING and (last != "reason" or error), (
+            f"{section} {key}: wording is not asserted (SPEC-0013 decision 2)"
+        )
 
 
 # The diagnostics keys of SPEC-0012, on a temporary case and a result written here (the engine
@@ -468,9 +510,71 @@ def test_case_shape_accepts_the_semantic_sections(tmp_path: Path) -> None:
     path = tmp_path / "case.yaml"
     path.write_text(yaml.safe_dump(case), encoding="utf-8")
     test_golden_case_shape(path)
-    error = ERROR_CASE | {"source": "temporary", "expect_errors": {"FM-E001 /rat": {}}}
+    error = ERROR_CASE | {
+        "source": "temporary",
+        "expect_errors": {"FM-E001 /rat": {}},
+        "expect_counts": {"errors": "3"},
+    }
     path.write_text(yaml.safe_dump(error), encoding="utf-8")
     test_golden_case_shape(path)
     path.write_text(yaml.safe_dump(error | {"expect_checks": {"/value a": {}}}), encoding="utf-8")
     with pytest.raises(AssertionError, match="needs expect"):
         test_golden_case_shape(path)
+
+
+# ---- SPEC-0013 R12: rules for new cases (decisions 2 and 4), on temporary files
+
+
+def write_case(tmp_path: Path, case: dict[str, Any]) -> Path:
+    path = tmp_path / "case.yaml"
+    path.write_text(yaml.safe_dump(case), encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize(
+    ("extra", "message"),
+    [
+        ({"expect_errors": {"FM-E001 /rat": {}}}, "needs expect_counts errors"),
+        (
+            {"expect_errors": {"FM-E001 /rat": {"/fix": "x"}}, "expect_counts": {"errors": "1"}},
+            "/fix",
+        ),
+        ({"expect_error_report": {"/message": "m"}}, "/message"),
+    ],
+)
+def test_a_new_error_case_follows_the_rules(
+    tmp_path: Path, extra: dict[str, Any], message: str
+) -> None:
+    case = ERROR_CASE | {"source": "temporary"} | extra
+    with pytest.raises(AssertionError, match=re.escape(message)):
+        test_golden_case_shape(write_case(tmp_path, case))
+
+
+@pytest.mark.parametrize(
+    ("extra", "message"),
+    [
+        ({"expect_warnings": {"FM-W005 -": {}}}, "needs expect_counts warnings"),
+        ({"expect_not_computed": {"/value/roe": {}}}, "needs expect_counts not_computed"),
+        (
+            {
+                "expect_not_computed": {"/value/roe": {"/reason": "r"}},
+                "expect_counts": {"not_computed": "1"},
+            },
+            "/reason",
+        ),
+        ({"expect": {"/npv": "4.13", "/note/reason": "r"}}, "/reason"),
+    ],
+)
+def test_a_new_value_case_follows_the_rules(
+    tmp_path: Path, extra: dict[str, Any], message: str
+) -> None:
+    case = TEMPORARY_CASE | {"source": "temporary"} | extra
+    with pytest.raises(AssertionError, match=re.escape(message)):
+        test_golden_case_shape(write_case(tmp_path, case))
+
+
+def test_new_case_rules_spare_the_migrated_cases() -> None:
+    # A case of the approved migration list keeps its wording assertions (decision 2).
+    path = GOLDEN / "tvm.npv" / "error-report-misspelt-fields.yaml"
+    assert str(path.relative_to(GOLDEN.parents[1])) in MIGRATED
+    test_golden_case_shape(path)

@@ -30,7 +30,7 @@ values by what they are.
   analysis results.
 - A test of the documented order of every envelope list.
 - `jsonschema` declared in the `dev` dependency group.
-- The rule in the golden-case skill and in a new `tests/golden/README.md`.
+- The rule in the golden-case skill and in a new `tests/README.md`.
 - Tests of `scripts/golden_values_migration.py`, then the migration of the files the maintainer
   approves by name, then the refusal of the retired keys.
 
@@ -58,7 +58,7 @@ Approved at 23:33 Europe/Rome, with the design: the ten recommendations of
    entries of that list are asserted; not required for `expect_defaults`.
 5. **Identity of an error entry** is its `code` and `pointer`. If a case ever needs two entries
    with the same code and pointer, the key is extended with `reason` by a decision recorded in
-   `tests/golden/README.md`.
+   `tests/README.md`.
 6. **The conformance test runs in Python only**, with `jsonschema`. The Rust runner asserts
    values only.
 7. **Inner values of analysis results** are validated against the snapshot of the inner method.
@@ -140,7 +140,8 @@ Shape
 
 Rule and tooling
 
-- **R11** — `.agents/skills/golden-case/SKILL.md` and a new `tests/golden/README.md` SHALL state
+- **R11** — `.agents/skills/golden-case/SKILL.md` and a new `tests/README.md` (not inside
+  `tests/golden/`, whose readers take every entry as a method folder; moved in T8) SHALL state
   the rule of decisions 1 to 5: what a golden case may and may not assert, the sections of R1
   to R5, the meaning of `null`, and the identity keys.
 - **R12** — `test_golden_case_shape` SHALL refuse, in a case not listed in
@@ -193,7 +194,7 @@ Not applicable: no method output is added or changed.
   of each list swapped fails it, list by list.
 - **AC10** (R10) — `pyproject.toml` declares `jsonschema` in `dev`; `uv lock --check` passes and
   the package names in `uv.lock` are the same as on `main`.
-- **AC11** (R11) — The skill and `tests/golden/README.md` state the rule; `uv run just generate`
+- **AC11** (R11) — The skill and `tests/README.md` state the rule; `uv run just generate`
   leaves no difference in `.claude/`.
 - **AC12** (R12) — A temporary new case with an `expect_errors` entry and no `errors` count is
   refused; one asserting `/fix` is refused; a file listed in the plan is not.

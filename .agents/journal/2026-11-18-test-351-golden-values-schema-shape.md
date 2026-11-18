@@ -14,11 +14,15 @@
 - T5 `jsonschema>=4.23` in the `dev` group; `uv.lock` gains two lines, no package (104).
 - T6 `python/tests/test_golden_conformance.py`: 666 golden results conform, closed mode.
 - T7 order test of every envelope list and error report on every golden result.
+- T8 rule in the skill and `tests/README.md`; new-case rules; the new sections are
+  protected by `scripts/check_golden_changes.py`, which now skips the README.
 
 ## State at the end of the session
-- Working: T8 (rule in the skill and tests/golden/README.md) next.
+- Working: T9 (migration) next.
 
 ## Decisions taken
+- `check_golden_changes.py` protected only some sections: the diagnostics sections of
+  SPEC-0012 and the new ones are added (found in T8, fixed in the same task).
 - R9: the input order of `meta.defaults_applied` is checked as the order of their `default:`
   echo in `explain.conventions` (spec clarified in T7); it holds on all 111 results with defaults.
 - `uv.lock` keeps `revision = 3`: the local uv (0.13.7) wrote 5; `uv lock --check` accepts 3.
@@ -31,5 +35,6 @@
 - None.
 
 ## Next steps
-1. T8: rule in `.agents/skills/golden-case/SKILL.md`, new `tests/golden/README.md`, new-case
-   rules in `test_golden_case_shape`, then `uv run just generate`.
+1. T9: rebase on `origin/main`, `list` again, compare with the approved plan (119 files,
+   1,437 keys); identical -> `apply` on the approved files, `verify --base-root` a checkout of
+   `origin/main`; different -> stop and report.
