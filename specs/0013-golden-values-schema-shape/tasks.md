@@ -22,7 +22,7 @@ approved, by name, the list in `golden-migration.md` (T9).
   `uv.lock`) [R10; AC10]
 
 ## Shape
-- [ ] T6 Conformance test against the committed snapshots of the declared versions, success
+- [x] T6 Conformance test against the committed snapshots of the declared versions, success
   and error, closed mode, formats, inner analysis values, declared keys; old test removed from
   `test_output_schemas.py` (`python/tests/test_golden_conformance.py`) [R7, R8; AC6 to AC8]
 - [ ] T7 Order test of every envelope list on every golden result and on synthetic results

@@ -12,9 +12,10 @@
 - T3 Rust runner: semantic sections, counts, null or absent.
 - T4 Python runner: the same rules; case shape accepts the new sections.
 - T5 `jsonschema>=4.23` in the `dev` group; `uv.lock` gains two lines, no package (104).
+- T6 `python/tests/test_golden_conformance.py`: 666 golden results conform, closed mode.
 
 ## State at the end of the session
-- Working: T6 (conformance test) next.
+- Working: T7 (order test) next.
 
 ## Decisions taken
 - `uv.lock` keeps `revision = 3`: the local uv (0.13.7) wrote 5; `uv lock --check` accepts 3.
@@ -27,4 +28,4 @@
 - None.
 
 ## Next steps
-1. T6: `python/tests/test_golden_conformance.py`, closed mode, snapshots read from disk.
+1. T7: order test in `test_golden_conformance.py`; defaults follow their `default:` echo.

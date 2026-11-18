@@ -7,7 +7,6 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-import jsonschema
 import pytest
 import yaml
 
@@ -65,13 +64,8 @@ def test_decimal_patterns_are_the_engines() -> None:
     assert fm.input_schema("tvm.npv")["properties"]["rate"]["pattern"] in _core._DECIMAL_PATTERNS
 
 
-@pytest.mark.parametrize("path", VALUE_CASES, ids=lambda p: f"{p.parent.name}/{p.stem}")
-def test_golden_results_match_their_result_schema(path: Path) -> None:
-    case = case_of(path)
-    raw = fm.run_json(case["method"], case["input"])
-    validator = jsonschema.Draft202012Validator(fm.result_schema(case["method"]))
-    errors = [f"{list(e.absolute_path)}: {e.message}" for e in validator.iter_errors(raw)]
-    assert not errors, errors[:3]
+# The golden results are validated against the committed snapshots, success and error, in
+# closed mode, by `test_golden_conformance.py` (SPEC-0013 R7).
 
 
 def same_leaves(raw: Any, decoded: Any, path: str, text: list[str]) -> None:
