@@ -1,6 +1,6 @@
 ---
 source: concepts/audit-trail.md
-source_hash: 82c0e4abd803
+source_hash: cc2fbb1e59b7
 ---
 # La tracciabilità del calcolo (audit trail)
 
@@ -56,7 +56,9 @@ dell'envelope 1):
   `diagnostics` o `meta` segue le regole di versionamento rispetto a essa, non rispetto alla
   versione del metodo (snapshot `schemas/envelope/v1.json`).
 - **`meta.defaults_applied`** elenca i valori predefiniti documentati che il motore ha
-  assegnato perché i relativi campi non erano forniti, nell'ordine dell'input: per ciascuno,
+  assegnato perché i relativi campi non erano forniti, nell'ordine dell'input (una visita in
+  profondità dell'input, con gli oggetti nell'ordine delle proprietà dello schema di input del
+  metodo e gli array per indice, uguale per ogni metodo): per ciascuno,
   `pointer` (il suo JSON pointer, per esempio `/timing`), `value` (il valore assegnato, come
   sarebbe scritto nell'input) e `reason` (una riga). Ciascuno compare anche tra le prime voci di
   `explain.conventions`, con il prefisso "default:". L'elenco è vuoto quando non si applica
