@@ -672,12 +672,16 @@ fn semantic_sections_fail_on_a_wrong_value_a_wrong_key_or_a_wrong_count() {
          expect_not_computed:\n  /value/roi: {}\n  \
          /value/ros: {\"/missing_any_of#count\": \"1\"}\n\
          expect_warnings:\n  FM-W005 -: {}\n  /value/roe: {}\n\
+         expect_checks:\n  /value/years/0 b_total: {}\n  \
+         /value/years/1 a_total: {/status: reconciled}\n\
          expect_counts:\n  warnings: \"2\"\n  /present_values: \"4\"\n  errors: \"0\"\n",
     );
     let failures = check_result("temporary.yaml", &case, &result);
     let text = failures.join("\n");
-    assert_eq!(failures.len(), 8, "{text}");
+    assert_eq!(failures.len(), 10, "{text}");
     for want in [
+        "expect_checks /value/years/0 b_total: 0 entries named it",
+        "expect_checks /value/years/1 a_total /status: got \"not_checked\", want reconciled",
         "expect_defaults /timing /value: got \"end_of_period\", want mid_period",
         "expect_not_computed /value/roi: 0 entries named it",
         "expect_not_computed /value/ros /missing_any_of#count: length Some(2), want 1",

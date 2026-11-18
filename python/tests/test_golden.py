@@ -156,7 +156,8 @@ def compare(raw: Any, field: str, expected: Any, tolerance: Decimal | None) -> N
         if expected == "null":
             assert raw is None, f"{field}: {raw!r} is not null"
         else:
-            assert raw is not None and str(raw) == str(expected), f"{field}: {raw!r}"
+            # Text matches a JSON string only, as in the Rust runner (code review of #394, S5).
+            assert isinstance(raw, str) and raw == str(expected), f"{field}: {raw!r}"
         return
     got = Decimal(str(raw))
     assert abs(got - want) <= tolerance, f"{field}: {got} != {expected}"
@@ -540,3 +541,13 @@ def test_a_positional_error_entry_is_refused(tmp_path: Path) -> None:
 def test_no_golden_file_holds_a_retired_section() -> None:
     held = [p for p in CASES if set(yaml.safe_load(p.read_text(encoding="utf-8"))) & set(RETIRED)]
     assert held == []
+
+
+def test_text_is_compared_only_with_text() -> None:
+    # Code review of #394, S5: as in the Rust runner, a non-decimal expectation (or any
+    # expectation without a tolerance) matches a JSON string only, never `str()` of a number.
+    report = {"errors": [{"code": "FM-E001", "pointer": "/rat", "limit": 5, "flag": True}]}
+    for field, expected in (("/limit", "5"), ("/flag", "True")):
+        case = ERROR_CASE | {"expect_errors": {"FM-E001 /rat": {field: expected}}}
+        with pytest.raises(AssertionError):
+            check_error(case, report)
