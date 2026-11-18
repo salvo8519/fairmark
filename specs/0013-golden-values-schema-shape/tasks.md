@@ -16,7 +16,7 @@ approved, by name, the list in `golden-migration.md` (T9).
   results (`python/tests/test_golden_values_migration.py`) [R13; AC13]
 - [x] T3 [P] Rust runner: semantic sections, `expect_counts`, `#count`, null or absent; tests
   on temporary cases (`crates/fairmark-core/tests/golden.rs`) [R1 to R4; AC1 to AC3]
-- [ ] T4 [P] Python runner: the same, and `NEW_CASE_KEYS` (`python/tests/test_golden.py`)
+- [x] T4 [P] Python runner: the same, and `NEW_CASE_KEYS` (`python/tests/test_golden.py`)
   [R1 to R4; AC1 to AC3]
 - [ ] T5 [P] `jsonschema` declared in the `dev` group; lock unchanged (`pyproject.toml`,
   `uv.lock`) [R10; AC10]
