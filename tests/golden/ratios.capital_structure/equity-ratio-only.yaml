@@ -17,25 +17,25 @@ expect:
   /secondary_structure_margin: 'null'
   /primary_fixed_asset_coverage/value: 'null'
   /secondary_fixed_asset_coverage/value: 'null'
-expect_diagnostics_length:
-  /not_computed: '7'
-expect_diagnostics:
-  /not_computed/1/pointer: /value/net_financial_position
-  /not_computed/1/missing_any_of/0/0: '/closing/net_financial_position/cash'
-  /not_computed/1/missing_any_of/0/1: '/closing/net_financial_position/gross_debt'
-  /not_computed/0/pointer: /value/debt_to_equity
-  /not_computed/0/missing_any_of/0/0: '/closing/net_financial_position/gross_debt'
-  /not_computed/2/pointer: /value/nfp_to_equity
-  /not_computed/2/missing_any_of/0/0: '/closing/net_financial_position/cash'
-  /not_computed/2/missing_any_of/0/1: '/closing/net_financial_position/gross_debt'
-  /not_computed/4/pointer: /value/primary_structure_margin
-  /not_computed/4/missing_any_of/0/0: '/closing/fixed_assets'
-  /not_computed/6/pointer: /value/secondary_structure_margin
-  /not_computed/6/missing_any_of/0/0: '/closing/fixed_assets'
-  /not_computed/6/missing_any_of/0/1: '/closing/non_current_liabilities'
-  /not_computed/3/pointer: /value/primary_fixed_asset_coverage
-  /not_computed/3/missing_any_of/0/0: '/closing/fixed_assets'
-  /not_computed/5/pointer: /value/secondary_fixed_asset_coverage
-  /not_computed/5/missing_any_of/0/0: '/closing/fixed_assets'
-  /not_computed/5/missing_any_of/0/1: '/closing/non_current_liabilities'
 tolerance: '0.00000000000000000001'
+expect_counts:
+  not_computed: '7'
+expect_not_computed:
+  /value/debt_to_equity:
+    /missing_any_of/0/0: /closing/net_financial_position/gross_debt
+  /value/net_financial_position:
+    /missing_any_of/0/0: /closing/net_financial_position/cash
+    /missing_any_of/0/1: /closing/net_financial_position/gross_debt
+  /value/nfp_to_equity:
+    /missing_any_of/0/0: /closing/net_financial_position/cash
+    /missing_any_of/0/1: /closing/net_financial_position/gross_debt
+  /value/primary_fixed_asset_coverage:
+    /missing_any_of/0/0: /closing/fixed_assets
+  /value/primary_structure_margin:
+    /missing_any_of/0/0: /closing/fixed_assets
+  /value/secondary_fixed_asset_coverage:
+    /missing_any_of/0/0: /closing/fixed_assets
+    /missing_any_of/0/1: /closing/non_current_liabilities
+  /value/secondary_structure_margin:
+    /missing_any_of/0/0: /closing/fixed_assets
+    /missing_any_of/0/1: /closing/non_current_liabilities

@@ -55,23 +55,17 @@ expect:
   /years/0/income_statement/net_income: '150000'
   /years/0/form: reclassified
   /years/0/income_statement/reconciliations/operating_profit: 'null'
-expect_diagnostics:
-  /checks/10/status: reconciled
-  /checks/0/status: reconciled
-  /checks/4/status: reconciled
-  /checks/6/status: reconciled
-  /checks/7/status: reconciled
-  /checks/3/status: reconciled
-  /checks/10/id: value_added_total
-  /checks/10/pointer: /value/years/0
-  /checks/0/id: ebitda_total
-  /checks/0/pointer: /value/years/0
-  /checks/4/id: operating_profit_total
-  /checks/4/pointer: /value/years/0
-  /checks/6/id: profit_before_financing_and_taxes_total
-  /checks/6/pointer: /value/years/0
-  /checks/7/id: profit_before_tax_total
-  /checks/7/pointer: /value/years/0
-  /checks/3/id: net_income_total
-  /checks/3/pointer: /value/years/0
 tolerance: '0'
+expect_checks:
+  /value/years/0 ebitda_total:
+    /status: reconciled
+  /value/years/0 net_income_total:
+    /status: reconciled
+  /value/years/0 operating_profit_total:
+    /status: reconciled
+  /value/years/0 profit_before_financing_and_taxes_total:
+    /status: reconciled
+  /value/years/0 profit_before_tax_total:
+    /status: reconciled
+  /value/years/0 value_added_total:
+    /status: reconciled

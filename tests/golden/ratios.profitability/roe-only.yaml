@@ -29,50 +29,50 @@ expect:
   /roe_leverage/pre_tax_roe/value: 'null'
   /roe_leverage/tax_rate/value: 'null'
   /roe_leverage/roe/value: 'null'
-expect_diagnostics_length:
-  /not_computed: '17'
-expect_diagnostics:
-  /not_computed/15/pointer: /value/roi
-  /not_computed/15/missing_any_of/0/0: '/closing/total_assets'
-  /not_computed/15/missing_any_of/0/1: '/income_statement/ebit'
-  /not_computed/3/pointer: /value/roa
-  /not_computed/3/missing_any_of/0/0: '/closing/total_assets'
-  /not_computed/3/missing_any_of/0/1: '/income_statement/ebit'
-  /not_computed/16/pointer: /value/ros
-  /not_computed/16/missing_any_of/0/0: '/income_statement/ebit'
-  /not_computed/16/missing_any_of/0/1: '/income_statement/revenue'
-  /not_computed/2/pointer: /value/ebitda_margin
-  /not_computed/2/missing_any_of/0/0: '/ebitda_definition'
-  /not_computed/2/missing_any_of/0/1: '/income_statement/ebitda'
-  /not_computed/2/missing_any_of/0/2: '/income_statement/revenue'
-  /not_computed/1/pointer: /value/ebit_margin
-  /not_computed/1/missing_any_of/0/0: '/income_statement/ebit'
-  /not_computed/1/missing_any_of/0/1: '/income_statement/revenue'
-  /not_computed/0/pointer: /value/capital_turnover
-  /not_computed/0/missing_any_of/0/0: '/closing/total_assets'
-  /not_computed/0/missing_any_of/0/1: '/income_statement/revenue'
-  /not_computed/13/pointer: /value/roe_three_factor/net_margin
-  /not_computed/13/missing_any_of/0/0: '/income_statement/revenue'
-  /not_computed/11/pointer: /value/roe_three_factor/asset_turnover
-  /not_computed/11/missing_any_of/0/0: '/closing/total_assets'
-  /not_computed/11/missing_any_of/0/1: '/income_statement/revenue'
-  /not_computed/12/pointer: /value/roe_three_factor/equity_multiplier
-  /not_computed/12/missing_any_of/0/0: '/closing/total_assets'
-  /not_computed/14/pointer: /value/roe_three_factor/roe
-  /not_computed/14/missing_any_of/0/0: '/closing/total_assets'
-  /not_computed/14/missing_any_of/0/1: '/income_statement/revenue'
-  /not_computed/9/pointer: /value/roe_leverage/roi
-  /not_computed/9/missing_any_of/0/0: '/leverage'
-  /not_computed/4/pointer: /value/roe_leverage/cost_of_debt
-  /not_computed/4/missing_any_of/0/0: '/leverage'
-  /not_computed/5/pointer: /value/roe_leverage/debt_to_equity
-  /not_computed/5/missing_any_of/0/0: '/leverage'
-  /not_computed/6/pointer: /value/roe_leverage/leverage_effect
-  /not_computed/6/missing_any_of/0/0: '/leverage'
-  /not_computed/7/pointer: /value/roe_leverage/pre_tax_roe
-  /not_computed/7/missing_any_of/0/0: '/leverage'
-  /not_computed/10/pointer: /value/roe_leverage/tax_rate
-  /not_computed/10/missing_any_of/0/0: '/leverage'
-  /not_computed/8/pointer: /value/roe_leverage/roe
-  /not_computed/8/missing_any_of/0/0: '/leverage'
 tolerance: '0.00000000000000000001'
+expect_counts:
+  not_computed: '17'
+expect_not_computed:
+  /value/capital_turnover:
+    /missing_any_of/0/0: /closing/total_assets
+    /missing_any_of/0/1: /income_statement/revenue
+  /value/ebit_margin:
+    /missing_any_of/0/0: /income_statement/ebit
+    /missing_any_of/0/1: /income_statement/revenue
+  /value/ebitda_margin:
+    /missing_any_of/0/0: /ebitda_definition
+    /missing_any_of/0/1: /income_statement/ebitda
+    /missing_any_of/0/2: /income_statement/revenue
+  /value/roa:
+    /missing_any_of/0/0: /closing/total_assets
+    /missing_any_of/0/1: /income_statement/ebit
+  /value/roe_leverage/cost_of_debt:
+    /missing_any_of/0/0: /leverage
+  /value/roe_leverage/debt_to_equity:
+    /missing_any_of/0/0: /leverage
+  /value/roe_leverage/leverage_effect:
+    /missing_any_of/0/0: /leverage
+  /value/roe_leverage/pre_tax_roe:
+    /missing_any_of/0/0: /leverage
+  /value/roe_leverage/roe:
+    /missing_any_of/0/0: /leverage
+  /value/roe_leverage/roi:
+    /missing_any_of/0/0: /leverage
+  /value/roe_leverage/tax_rate:
+    /missing_any_of/0/0: /leverage
+  /value/roe_three_factor/asset_turnover:
+    /missing_any_of/0/0: /closing/total_assets
+    /missing_any_of/0/1: /income_statement/revenue
+  /value/roe_three_factor/equity_multiplier:
+    /missing_any_of/0/0: /closing/total_assets
+  /value/roe_three_factor/net_margin:
+    /missing_any_of/0/0: /income_statement/revenue
+  /value/roe_three_factor/roe:
+    /missing_any_of/0/0: /closing/total_assets
+    /missing_any_of/0/1: /income_statement/revenue
+  /value/roi:
+    /missing_any_of/0/0: /closing/total_assets
+    /missing_any_of/0/1: /income_statement/ebit
+  /value/ros:
+    /missing_any_of/0/0: /income_statement/ebit
+    /missing_any_of/0/1: /income_statement/revenue

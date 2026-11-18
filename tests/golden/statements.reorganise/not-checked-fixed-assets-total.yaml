@@ -70,8 +70,7 @@ input:
     derivative_liabilities: financial_liability
 expect:
   /years/0/form: statutory
-expect_diagnostics:
-  /checks/10/status: not_checked
-  /checks/10/id: fixed_assets_total
-  /checks/10/pointer: /value/years/0
 tolerance: '0'
+expect_checks:
+  /value/years/0 fixed_assets_total:
+    /status: not_checked

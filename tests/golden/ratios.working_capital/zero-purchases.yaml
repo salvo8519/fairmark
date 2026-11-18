@@ -18,11 +18,11 @@ expect:
   /days_inventory_outstanding/value: '73'
   /days_payable_outstanding/value: 'null'
   /cash_conversion_cycle/value: 'null'
-expect_diagnostics:
-  /not_computed/1/reason: purchases is zero
-  /not_computed/0/reason: days payable outstanding is not defined
-  /not_computed/1/pointer: /value/days_payable_outstanding
-  /not_computed/1/reason_code: not_defined
-  /not_computed/0/pointer: /value/cash_conversion_cycle
-  /not_computed/0/reason_code: not_defined
 tolerance: '0.00000000000000000001'
+expect_not_computed:
+  /value/cash_conversion_cycle:
+    /reason: days payable outstanding is not defined
+    /reason_code: not_defined
+  /value/days_payable_outstanding:
+    /reason: purchases is zero
+    /reason_code: not_defined

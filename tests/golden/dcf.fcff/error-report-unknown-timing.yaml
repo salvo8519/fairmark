@@ -28,4 +28,5 @@ expect_error_report:
   /reason: enum
   /expected/0: end_of_period
   /expected/1: mid_period
-  /errors/0/pointer: /timing
+expect_errors:
+  FM-E001 /timing: {}

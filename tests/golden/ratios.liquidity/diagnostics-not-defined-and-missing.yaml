@@ -21,24 +21,24 @@ expect:
   /cash_ratio/value: 'null'
   /net_working_capital: '2500'
   /treasury_margin: 'null'
-expect_diagnostics:
-  /not_computed/0/pointer: /value/cash_ratio
-  /not_computed/0/reason_code: not_defined
-  /not_computed/0/reason: current liabilities is zero
-  /not_computed/1/pointer: /value/current_ratio
-  /not_computed/1/reason_code: not_defined
-  /not_computed/1/reason: current liabilities is zero
-  /not_computed/2/pointer: /value/quick_ratio
-  /not_computed/2/reason_code: not_defined
-  /not_computed/2/reason: current liabilities is zero
-  /not_computed/3/pointer: /value/treasury_margin
-  /not_computed/3/reason_code: missing_input
-  /not_computed/3/missing_any_of/0/0: /closing/inventories
-expect_diagnostics_length:
-  /not_computed: '4'
-  /not_computed/0/missing_any_of: '0'
-  /not_computed/3/missing_any_of: '1'
-  /not_computed/3/permitted: '0'
-  /warnings: '0'
-  /checks: '0'
 tolerance: '0'
+expect_counts:
+  checks: '0'
+  not_computed: '4'
+  warnings: '0'
+expect_not_computed:
+  /value/cash_ratio:
+    /missing_any_of#count: '0'
+    /reason: current liabilities is zero
+    /reason_code: not_defined
+  /value/current_ratio:
+    /reason: current liabilities is zero
+    /reason_code: not_defined
+  /value/quick_ratio:
+    /reason: current liabilities is zero
+    /reason_code: not_defined
+  /value/treasury_margin:
+    /missing_any_of#count: '1'
+    /missing_any_of/0/0: /closing/inventories
+    /permitted#count: '0'
+    /reason_code: missing_input

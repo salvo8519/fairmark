@@ -1,6 +1,6 @@
 ---
 source: methods/dcf-fcff.md
-source_hash: b74e3c178c6a
+source_hash: 34bcbe100f6a
 ---
 # DCF, flussi di cassa operativi (`dcf.fcff`)
 
@@ -51,7 +51,8 @@ volta, prima del calcolo:
 | `net_financial_position` | zero, con un'avvertenza | la valutazione è sempre calcolata; fornire la posizione finanziaria netta per valutare l'equity |
 
 Ogni valore predefinito applicato è elencato in `meta.defaults_applied` (il JSON pointer del
-campo, il valore assegnato e il motivo) e indicato per primo in `explain.conventions`, con il
+campo, il valore assegnato e il motivo), nell'ordine dell'input (in una fase, `periods` prima di
+`projection`), e indicato per primo in `explain.conventions`, con il
 prefisso "default:". Un campo fornito esplicitamente prevale sempre e non è elencato. Il valore
 predefinito si ottiene omettendo il campo: un `null` esplicito per uno di questi campi è
 rifiutato con `FM-E001`. Senza

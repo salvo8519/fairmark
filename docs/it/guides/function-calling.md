@@ -1,6 +1,6 @@
 ---
 source: guides/function-calling.md
-source_hash: f9ff32e849b9
+source_hash: 133cfedc3a7f
 ---
 # Function calling
 
@@ -47,6 +47,13 @@ out = fm.tools.dispatch("fairmark_loans_instalment",
 In Python, `fm.FairmarkError` ha gli stessi campi come attributi: `err.pointer`,
 `err.pointers`, `err.reason`, `err.expected`, `err.fix`, `err.missing_any_of` e
 `err.errors`.
+
+## Leggere i risultati
+
+I client ignorano i campi che non conoscono; un campo nuovo è una modifica additiva. Un risultato può acquisire un campo nuovo senza cambiare versione del metodo,
+in `value` o nell'envelope; leggi i campi che ti servono e tralascia gli altri (vedi
+[versioni dei metodi](https://salvo8519.github.io/fairmark/project/releases/#method-versions),
+in inglese).
 
 ## Metodi in anteprima
 

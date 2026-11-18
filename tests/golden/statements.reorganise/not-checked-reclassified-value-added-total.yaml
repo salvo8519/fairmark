@@ -32,8 +32,7 @@ input:
         net_income: '150000'
 expect:
   /years/0/income_statement/value_added: '1496000'
-expect_diagnostics:
-  /checks/10/status: not_checked
-  /checks/10/id: value_added_total
-  /checks/10/pointer: /value/years/0
 tolerance: '0'
+expect_checks:
+  /value/years/0 value_added_total:
+    /status: not_checked

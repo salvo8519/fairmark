@@ -42,11 +42,11 @@ expect:
   /dscr/2/value: '1.25'
   /dscr/3/value: '1.25'
   /dscr/4/value: '1.25'
-expect_diagnostics:
-  /not_computed/0/reason: interest is negative (-20)
-  /not_computed/1/reason: interest is negative (-20)
-  /not_computed/0/pointer: /value/interest_cover_ebit
-  /not_computed/0/reason_code: not_defined
-  /not_computed/1/pointer: /value/interest_cover_ebitda
-  /not_computed/1/reason_code: not_defined
 tolerance: '0.00000000000000000001'
+expect_not_computed:
+  /value/interest_cover_ebit:
+    /reason: interest is negative (-20)
+    /reason_code: not_defined
+  /value/interest_cover_ebitda:
+    /reason: interest is negative (-20)
+    /reason_code: not_defined

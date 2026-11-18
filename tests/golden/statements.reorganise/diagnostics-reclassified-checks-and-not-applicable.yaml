@@ -49,63 +49,51 @@ input:
         total_sources: '1610000'
 expect:
   /years/0/form: reclassified
-expect_diagnostics:
-  /checks/0/id: ebitda_total
-  /checks/0/pointer: /value/years/0
-  /checks/0/status: not_checked
-  /checks/1/id: funds_invested_equals_sources
-  /checks/1/pointer: /value/years/0
-  /checks/1/status: reconciled
-  /checks/2/id: invested_capital_total
-  /checks/2/pointer: /value/years/0
-  /checks/2/status: reconciled
-  /checks/3/id: net_financial_position_maturity
-  /checks/3/pointer: /value/years/0
-  /checks/3/status: reconciled
-  /checks/4/id: net_financial_position_total
-  /checks/4/pointer: /value/years/0
-  /checks/4/status: reconciled
-  /checks/5/id: net_income_total
-  /checks/5/pointer: /value/years/0
-  /checks/5/status: not_checked
-  /checks/6/id: operating_profit_total
-  /checks/6/pointer: /value/years/0
-  /checks/6/status: not_checked
-  /checks/7/id: operating_working_capital_total
-  /checks/7/pointer: /value/years/0
-  /checks/7/status: reconciled
-  /checks/8/id: profit_before_financing_and_taxes_total
-  /checks/8/pointer: /value/years/0
-  /checks/8/status: not_checked
-  /checks/9/id: profit_before_tax_total
-  /checks/9/pointer: /value/years/0
-  /checks/9/status: not_checked
-  /checks/10/id: total_funds_invested_total
-  /checks/10/pointer: /value/years/0
-  /checks/10/status: reconciled
-  /checks/11/id: total_sources_total
-  /checks/11/pointer: /value/years/0
-  /checks/11/status: reconciled
-  /checks/12/id: value_added_total
-  /checks/12/pointer: /value/years/0
-  /checks/12/status: not_checked
-  /not_computed/1/pointer: /value/years/0/current_non_current/cash
-  /not_computed/1/reason_code: not_applicable
-  /not_computed/2/pointer: /value/years/0/current_non_current/current_assets
-  /not_computed/2/reason_code: not_applicable
-  /not_computed/3/pointer: /value/years/0/current_non_current/current_liabilities
-  /not_computed/3/reason_code: not_applicable
-  /not_computed/4/pointer: /value/years/0/current_non_current/fixed_assets
-  /not_computed/4/reason_code: not_applicable
-  /not_computed/5/pointer: /value/years/0/current_non_current/non_current_liabilities
-  /not_computed/5/reason_code: not_applicable
-  /not_computed/6/pointer: /value/years/0/current_non_current/total_assets
-  /not_computed/6/reason_code: not_applicable
-  /not_computed/0/pointer: /value/years/0/balance_sheet/sources/net_financial_position/composition
-  /not_computed/0/reason_code: not_applicable
-expect_diagnostics_length:
-  /checks: '13'
-  /not_computed/0/missing_any_of: '0'
-  /not_computed/1/missing_any_of: '0'
-  /warnings: '0'
 tolerance: '0'
+expect_checks:
+  /value/years/0 ebitda_total:
+    /status: not_checked
+  /value/years/0 funds_invested_equals_sources:
+    /status: reconciled
+  /value/years/0 invested_capital_total:
+    /status: reconciled
+  /value/years/0 net_financial_position_maturity:
+    /status: reconciled
+  /value/years/0 net_financial_position_total:
+    /status: reconciled
+  /value/years/0 net_income_total:
+    /status: not_checked
+  /value/years/0 operating_profit_total:
+    /status: not_checked
+  /value/years/0 operating_working_capital_total:
+    /status: reconciled
+  /value/years/0 profit_before_financing_and_taxes_total:
+    /status: not_checked
+  /value/years/0 profit_before_tax_total:
+    /status: not_checked
+  /value/years/0 total_funds_invested_total:
+    /status: reconciled
+  /value/years/0 total_sources_total:
+    /status: reconciled
+  /value/years/0 value_added_total:
+    /status: not_checked
+expect_counts:
+  checks: '13'
+  warnings: '0'
+expect_not_computed:
+  /value/years/0/balance_sheet/sources/net_financial_position/composition:
+    /missing_any_of#count: '0'
+    /reason_code: not_applicable
+  /value/years/0/current_non_current/cash:
+    /missing_any_of#count: '0'
+    /reason_code: not_applicable
+  /value/years/0/current_non_current/current_assets:
+    /reason_code: not_applicable
+  /value/years/0/current_non_current/current_liabilities:
+    /reason_code: not_applicable
+  /value/years/0/current_non_current/fixed_assets:
+    /reason_code: not_applicable
+  /value/years/0/current_non_current/non_current_liabilities:
+    /reason_code: not_applicable
+  /value/years/0/current_non_current/total_assets:
+    /reason_code: not_applicable

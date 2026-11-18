@@ -16,5 +16,5 @@ expect_error_report:
   /reason: enum
   /expected/0: hamada
   /expected/1: harris_pringle
-expect_length:
-  /errors: '1'
+expect_counts:
+  errors: '1'

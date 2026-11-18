@@ -521,10 +521,12 @@ the `diagnostics` block of the result.
 
 ## Defaults
 
-Every default is listed in `meta.defaults_applied` and in `explain.conventions`, in this
-order:
+Every default is listed in `meta.defaults_applied` and in `explain.conventions`, in input
+order: a depth-first walk of the input, in the order of the fields of the input schema (the
+years first, each balance sheet before its income statement, then `treatments`), the same rule
+for every method ([audit trail](../concepts/audit-trail.md)). The defaults are:
 
-1. by year, each statutory aggregate given whose destination is a default of Appendix A (B.I,
+- by year, each statutory aggregate given whose destination is a default of Appendix A (B.I,
    B.II, C.II, C.III, C.IV, assets D, provisions B, employee severance indemnity C, payables D,
    liabilities E; then A5 to `value_of_production`, B14 to `external_costs`, B10 c to
    `depreciation_and_amortisation` and B10 d to `other_charges_below_ebitda`, each while its
@@ -532,13 +534,13 @@ order:
    the pointer of the item, `value` the destination, and the convention reads "assigned to". An
    aggregate counts as given when its amount is: a node holding only a part of it (for example
    `receivables.trade`) does not;
-2. `treatments.write_downs_of_receivables` and `treatments.write_downs_of_fixed_assets`,
+- `treatments.write_downs_of_receivables` and `treatments.write_downs_of_fixed_assets`,
    `operating` when not given, each listed whenever a statutory year gives an income statement,
    because they decide what is computed (decision A4 of 2026-11-09, amending F1); when such a
    default places a B10 c or B10 d that is not zero, warning `FM-W015` in
    `diagnostics.warnings`, at the treatment's pointer, names the default and the subtotal it
    moves (ADR 0014, default admission test 4);
-3. each item taken as zero because it is not given ([Best effort](#best-effort)): `value` is
+- each item taken as zero because it is not given ([Best effort](#best-effort)): `value` is
    `"0"` and the convention reads "not given, set to".
 
 Fixed destinations are not defaults and are not listed.

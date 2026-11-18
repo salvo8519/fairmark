@@ -113,8 +113,7 @@ expect:
   /years/0/income_statement/ebitda: 'null'
   /years/0/income_statement/financing_result: '-65000'
   /years/0/income_statement/interest_and_other_financial_charges: '60000'
-expect_diagnostics:
-  /checks/13/status: not_checked
-  /checks/13/id: interest_cost_within_personnel_costs
-  /checks/13/pointer: /value/years/0
 tolerance: '0'
+expect_checks:
+  /value/years/0 interest_cost_within_personnel_costs:
+    /status: not_checked

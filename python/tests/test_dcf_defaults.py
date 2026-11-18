@@ -18,9 +18,9 @@ def test_minimal_call_works_and_reports_its_defaults() -> None:
     # tests/golden/dcf.fcff/flows-only-single-wacc.yaml (50-digit reference).
     assert r.value_of_operations == D("563.38243366056148746628356553")
     fields = [d["pointer"] for d in r.meta["defaults_applied"]]
-    assert fields == [
-        "/stages/0/projection",
+    assert fields == [  # input order (SPEC-0013 R9): `periods` before `projection`
         "/stages/0/periods",
+        "/stages/0/projection",
         "/cash_flow_terms",
         "/discount_rate_terms",
         "/timing",

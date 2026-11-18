@@ -45,7 +45,8 @@ calculation:
 | `net_financial_position` | zero, with a warning | the valuation is always computed; give the net financial position to value the equity |
 
 Each default applied is listed in `meta.defaults_applied` (the field's JSON pointer, the value
-filled in and the reason) and stated first in `explain.conventions`, starting with "default:".
+filled in and the reason), in input order (within a stage, `periods` before `projection`), and
+stated first in `explain.conventions`, starting with "default:".
 A field given explicitly always prevails and is not listed. A default is asked for by leaving
 the field out: an explicit `null` for one of these fields is refused with `FM-E001`. With no
 terminal value the

@@ -23,6 +23,7 @@ expect_error: FM-E001
 expect_error_report:
   /pointer: /base_input/bogus
   /reason: unknown_field
-  /errors/0/pointer: /base_input/bogus
-expect_length:
-  /errors: '1'
+expect_counts:
+  errors: '1'
+expect_errors:
+  FM-E001 /base_input/bogus: {}

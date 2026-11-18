@@ -72,15 +72,14 @@ expect:
   /years/0/balance_sheet/sources/total_sources: 'null'
   /years/0/balance_sheet/sources/equity: '930000'
   /years/0/form: statutory
-expect_meta:
-  /defaults_applied/9/pointer: /treatments/write_downs_of_receivables
-  /defaults_applied/9/value: operating
-  /defaults_applied/10/pointer: /treatments/write_downs_of_fixed_assets
-  /defaults_applied/10/value: operating
-  /defaults_applied/11/pointer: /years/0/statutory/balance_sheet/subscribed_capital_unpaid
-  /defaults_applied/11/value: '0'
-expect_diagnostics:
-  /checks/11/status: not_checked
-  /checks/11/id: funds_invested_equals_sources
-  /checks/11/pointer: /value/years/0
 tolerance: '0'
+expect_checks:
+  /value/years/0 funds_invested_equals_sources:
+    /status: not_checked
+expect_defaults:
+  /treatments/write_downs_of_fixed_assets:
+    /value: operating
+  /treatments/write_downs_of_receivables:
+    /value: operating
+  /years/0/statutory/balance_sheet/subscribed_capital_unpaid:
+    /value: '0'

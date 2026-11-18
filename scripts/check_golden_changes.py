@@ -34,6 +34,8 @@ def main() -> None:
     for line in changes.splitlines():
         status, *paths = line.split("\t")
         path = paths[-1]
+        if not path.endswith(".yaml"):
+            continue  # only YAML files are golden cases
         if status.startswith("A"):
             added = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
             if not str(added.get("source", "")).strip():
@@ -52,6 +54,14 @@ def main() -> None:
             "expect_length",
             "expect_error",
             "expect_error_report",
+            "expect_diagnostics",
+            "expect_diagnostics_length",
+            "expect_counts",
+            "expect_defaults",
+            "expect_not_computed",
+            "expect_warnings",
+            "expect_checks",
+            "expect_errors",
             "tolerance",
         ):
             if before.get(key) != after.get(key):

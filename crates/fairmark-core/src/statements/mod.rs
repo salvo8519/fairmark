@@ -787,7 +787,7 @@ impl Method for Reorganise {
     /// then the input defaults `write_downs_of_receivables = operating` and
     /// `write_downs_of_fixed_assets = operating`, each filled in and listed only when a
     /// statutory year gives its aggregate (F1), then every item taken as zero because it is not
-    /// given.
+    /// given. `Method::run_typed` then lists them in input order (SPEC-0013 R9).
     fn apply_defaults(input: &mut ReorganiseInput) -> Vec<DefaultApplied> {
         let mut out = Vec::new();
         // A4 of 2026-11-09 (amends F1): the write-down treatments decide what is computed

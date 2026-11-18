@@ -47,6 +47,9 @@ dev = [
   "git-cliff>=2.6",
   "tomli-w>=1.0",
   "towncrier>=24.8",
+  # JSON Schema 2020-12 validation of the golden results against the committed snapshots
+  # (SPEC-0013 R7, R10); also used by the tool-definition and error-report tests.
+  "jsonschema>=4.23",
 ]
 # Independent oracles for cross-checking results in tests only (never shipped to users).
 oracles = [

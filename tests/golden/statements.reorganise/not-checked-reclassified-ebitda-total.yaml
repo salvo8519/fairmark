@@ -32,8 +32,7 @@ input:
         net_income: '150000'
 expect:
   /years/0/income_statement/ebitda: '496000'
-expect_diagnostics:
-  /checks/0/status: not_checked
-  /checks/0/id: ebitda_total
-  /checks/0/pointer: /value/years/0
 tolerance: '0'
+expect_checks:
+  /value/years/0 ebitda_total:
+    /status: not_checked

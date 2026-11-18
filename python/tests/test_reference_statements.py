@@ -22,6 +22,14 @@ import pytest
 
 import fairmark as fm
 
+_gs_spec = importlib.util.spec_from_file_location(
+    "golden_schema", Path(__file__).resolve().parents[2] / "scripts" / "golden_schema.py"
+)
+assert _gs_spec and _gs_spec.loader
+gs = importlib.util.module_from_spec(_gs_spec)
+_gs_spec.loader.exec_module(gs)
+INPUT_SCHEMA = fm.input_schema("statements.reorganise")
+
 ROOT = Path(__file__).resolve().parents[2]
 _spec = importlib.util.spec_from_file_location(
     "ref_statements", ROOT / "scripts/reference_statements.py"
@@ -521,6 +529,9 @@ def test_statements_match_the_reference(seed: int) -> None:
         assert err.value.code == e.code, (e.detail, err.value)
         return
     got = engine_view(fm.run_json("statements.reorganise", inp))
+    # The reference lists its defaults in the order it fills them in; the result lists them in
+    # input order (SPEC-0013 R9), which only reorders the same entries.
+    expected["defaults_applied"].sort(key=lambda d: gs.input_order_key(INPUT_SCHEMA, d[0]))
     assert normalise(got) == normalise(expected)
 
 

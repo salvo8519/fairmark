@@ -77,3 +77,41 @@ def test_a_new_sourced_case_and_a_description_change_pass(
     commit(branch)
     run(monkeypatch)
     assert "No existing golden case changed." in capsys.readouterr().out
+
+
+SECTIONS = {
+    "expect_diagnostics": "{/warnings/0/code: FM-W001}",
+    "expect_diagnostics_length": "{/warnings: '1'}",
+    "expect_counts": "{warnings: '1'}",
+    "expect_defaults": "{/timing: {/value: end_of_period}}",
+    "expect_not_computed": "{/value/roe: {/reason_code: not_defined}}",
+    "expect_warnings": "{'FM-W001 -': {}}",
+    "expect_checks": "{'/value a': {/status: reconciled}}",
+    "expect_errors": "{'FM-E001 /rate': {/reason: missing}}",
+}
+
+
+@pytest.mark.parametrize("section", sorted(SECTIONS))
+def test_every_assertion_section_is_protected(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, section: str
+) -> None:
+    # SPEC-0013: the semantic sections, and the diagnostics sections of SPEC-0012, are
+    # expectations like `expect`.
+    write(repo, {"tests/golden/tvm.npv/a.yaml": CASE + f"{section}: {SECTIONS[section]}\n"})
+    git(repo, "add", ".")
+    git(repo, "commit", "-q", "-m", "base")
+    git(repo, "switch", "-q", "-c", "work")
+    write(repo, {"tests/golden/tvm.npv/a.yaml": CASE + f"{section}: {{}}\n"})
+    commit(repo)
+    with pytest.raises(SystemExit, match="numerical-change"):
+        run(monkeypatch)
+
+
+def test_a_file_that_is_not_yaml_is_not_a_case(
+    branch: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Only YAML files under tests/golden are golden cases.
+    write(branch, {"tests/golden/notes.md": "# Notes\n"})
+    commit(branch)
+    run(monkeypatch)
+    assert "No existing golden case changed." in capsys.readouterr().out

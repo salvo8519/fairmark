@@ -1,6 +1,6 @@
 ---
 source: guides/mcp.md
-source_hash: 6d4d7b6ace32
+source_hash: d76be18da7eb
 ---
 # Server MCP
 
@@ -77,6 +77,8 @@ finanziari.
   pagina sullo
   [stato dei metodi](https://salvo8519.github.io/fairmark/project/releases/#method-status)
   (in inglese) definisce i due stati.
+- Risultati che possono acquisire campi nuovi senza cambiare versione del metodo: i client
+  ignorano i campi che non conoscono; un campo nuovo è una modifica additiva.
 - Risultati che possono acquisire nuovi valori enumerati all'interno di una versione del
   metodo: un valore aggiunto a un'enumerazione di output non è una modifica incompatibile,
   quindi un client accetta un valore che non conosce (per esempio mostrandolo come testo)

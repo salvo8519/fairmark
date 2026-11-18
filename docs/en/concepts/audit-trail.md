@@ -48,7 +48,9 @@ Every result is an envelope with five parts, in this order (ADR 0014 G4; envelop
   `diagnostics` or `meta` follows the versioning rules against it, not against the method
   version (snapshot `schemas/envelope/v1.json`).
 - **`meta.defaults_applied`** lists the documented defaults the engine filled in because their
-  fields were not given, in input order: for each, `pointer` (its JSON pointer, for example
+  fields were not given, in input order (a depth-first walk of the input, objects in the
+  property order of the method's input schema, arrays by index, the same for every method):
+  for each, `pointer` (its JSON pointer, for example
   `/timing`), `value` (the value filled in, as it would be written in the input) and `reason`
   (one line). Each is also the first entries of `explain.conventions`, starting with
   "default:". The list is empty when no default applies, as for every method without

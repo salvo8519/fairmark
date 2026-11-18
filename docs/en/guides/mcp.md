@@ -68,6 +68,8 @@ financial values.
   The description of a preview tool has "(preview)" after the title and a sentence starting
   "Status: preview", so a model sees it before calling. The
   [method status](../project/releases.md#method-status) page defines both statuses.
+- Results that may gain new fields within a method version: clients ignore fields they do
+  not know; a new field is an additive change.
 - Results that may gain new enumeration values within a method version: a value added to an
   output enumeration is not a breaking change, so a client accepts a value it does not know
   (for example by showing it as text) instead of rejecting the result.

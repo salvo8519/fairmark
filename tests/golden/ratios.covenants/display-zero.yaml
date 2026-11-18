@@ -28,8 +28,8 @@ expect:
   /summary/passed: '1'
   /summary/breached: '0'
   /summary/not_tested: '0'
-expect_diagnostics:
-  /not_computed/0/reason: threshold is zero
-  /not_computed/0/pointer: /value/covenants/0/headroom_relative
-  /not_computed/0/reason_code: not_defined
 tolerance: '0.00000000000000000001'
+expect_not_computed:
+  /value/covenants/0/headroom_relative:
+    /reason: threshold is zero
+    /reason_code: not_defined

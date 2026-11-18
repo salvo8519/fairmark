@@ -16,22 +16,22 @@ expect:
   /nfp_to_ebitda/value: 'null'
   /pv_cfads: 'null'
   /llcr/value: 'null'
-expect_diagnostics_length:
-  /not_computed: '5'
-expect_diagnostics:
-  /not_computed/2/pointer: /value/net_financial_position
-  /not_computed/2/missing_any_of/0/0: '/closing/net_financial_position/cash'
-  /not_computed/2/missing_any_of/0/1: '/closing/net_financial_position/gross_debt'
-  /not_computed/0/pointer: /value/interest_cover_ebitda
-  /not_computed/0/missing_any_of/0/0: '/ebitda_definition'
-  /not_computed/0/missing_any_of/0/1: '/income_statement/ebitda'
-  /not_computed/3/pointer: /value/nfp_to_ebitda
-  /not_computed/3/missing_any_of/0/0: '/closing/net_financial_position/cash'
-  /not_computed/3/missing_any_of/0/1: '/closing/net_financial_position/gross_debt'
-  /not_computed/3/missing_any_of/0/2: '/ebitda_definition'
-  /not_computed/3/missing_any_of/0/3: '/income_statement/ebitda'
-  /not_computed/4/pointer: /value/pv_cfads
-  /not_computed/4/missing_any_of/0/0: '/debt_schedule'
-  /not_computed/1/pointer: /value/llcr
-  /not_computed/1/missing_any_of/0/0: '/debt_schedule'
 tolerance: '0.00000000000000000001'
+expect_counts:
+  not_computed: '5'
+expect_not_computed:
+  /value/interest_cover_ebitda:
+    /missing_any_of/0/0: /ebitda_definition
+    /missing_any_of/0/1: /income_statement/ebitda
+  /value/llcr:
+    /missing_any_of/0/0: /debt_schedule
+  /value/net_financial_position:
+    /missing_any_of/0/0: /closing/net_financial_position/cash
+    /missing_any_of/0/1: /closing/net_financial_position/gross_debt
+  /value/nfp_to_ebitda:
+    /missing_any_of/0/0: /closing/net_financial_position/cash
+    /missing_any_of/0/1: /closing/net_financial_position/gross_debt
+    /missing_any_of/0/2: /ebitda_definition
+    /missing_any_of/0/3: /income_statement/ebitda
+  /value/pv_cfads:
+    /missing_any_of/0/0: /debt_schedule

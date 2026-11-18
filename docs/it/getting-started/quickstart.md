@@ -1,6 +1,6 @@
 ---
 source: getting-started/quickstart.md
-source_hash: e6a8b30fd4a6
+source_hash: 1d91f87cadec
 ---
 # Guida rapida
 
@@ -42,6 +42,9 @@ print(r.conventions)
 
 `r.to_json()` restituisce l'intero envelope in JSON. Per presentare i passaggi come tabella o in
 Markdown, usa i tuoi strumenti (per esempio pandas).
+
+Se il tuo codice legge il JSON: I client ignorano i campi che non conoscono; un campo nuovo è una modifica additiva. Una release successiva può aggiungere campi a
+`value` o all'envelope; leggi i campi che ti servono e tralascia gli altri.
 
 ## Riprodurre un risultato in seguito
 

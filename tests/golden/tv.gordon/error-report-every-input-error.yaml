@@ -13,8 +13,9 @@ expect_error: FM-E001
 expect_error_report:
   /pointer: /growth
   /reason: range
-  /errors/1/pointer: /next_flow
-  /errors/1/reason: conflict
-  /errors/1/pointers/1: /last_flow
-expect_length:
-  /errors: '2'
+expect_counts:
+  errors: '2'
+expect_errors:
+  FM-E001 /next_flow:
+    /pointers/1: /last_flow
+    /reason: conflict

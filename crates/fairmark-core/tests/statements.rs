@@ -907,14 +907,15 @@ fn items_taken_as_zero_are_listed_also_without_their_parent() {
     let zero = |k: &str| (format!("{b}/{k}"), "0".to_owned());
     assert_eq!(
         fields,
+        // Input order (SPEC-0013 R9): the order of the balance sheet in the input schema.
         [
+            zero("subscribed_capital_unpaid"),
+            zero("receivables/subscribed_capital_unpaid"),
+            zero("receivables/prepayments_and_accrued_income"),
             (
                 format!("{b}/cash"),
                 "net_financial_position_cash".to_owned()
             ),
-            zero("subscribed_capital_unpaid"),
-            zero("receivables/subscribed_capital_unpaid"),
-            zero("receivables/prepayments_and_accrued_income"),
             zero("provisions/of_which_derivative_liabilities"),
             zero("payables/accruals_and_deferred_income"),
         ]
@@ -1106,13 +1107,14 @@ fn the_income_statement_defaults_are_listed_and_no_fixed_one() {
                 &format!("{base}/other_revenue_and_income"),
                 "value_of_production"
             ),
-            s(
-                &format!("{base}/other_operating_expenses"),
-                "external_costs"
-            ),
+            // Input order (SPEC-0013 R9): B10 before B14, as in the input schema.
             s(
                 &format!("{base}/depreciation_and_write_downs/write_downs_of_receivables"),
                 "other_charges_below_ebitda"
+            ),
+            s(
+                &format!("{base}/other_operating_expenses"),
+                "external_costs"
             ),
             s("/treatments/write_downs_of_receivables", "operating"),
             s("/treatments/write_downs_of_fixed_assets", "operating"),

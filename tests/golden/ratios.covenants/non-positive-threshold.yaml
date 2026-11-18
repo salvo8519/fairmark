@@ -48,12 +48,11 @@ expect:
   /summary/not_tested: '0'
   /covenants/0/outcome_basis: tested_value
   /covenants/1/outcome_basis: tested_value
-expect_diagnostics:
-  /not_computed/0/reason: threshold is zero
-  /not_computed/1/reason: threshold is negative (-0.25); the relative headroom on
-    a negative threshold is not specified
-  /not_computed/0/pointer: /value/covenants/0/headroom_relative
-  /not_computed/0/reason_code: not_defined
-  /not_computed/1/pointer: /value/covenants/1/headroom_relative
-  /not_computed/1/reason_code: not_defined
 tolerance: '0.00000000000000000001'
+expect_not_computed:
+  /value/covenants/0/headroom_relative:
+    /reason: threshold is zero
+    /reason_code: not_defined
+  /value/covenants/1/headroom_relative:
+    /reason: threshold is negative (-0.25); the relative headroom on a negative threshold is not specified
+    /reason_code: not_defined

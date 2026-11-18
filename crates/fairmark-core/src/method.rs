@@ -74,7 +74,10 @@ pub trait Method {
     /// whichever way it was obtained; after the call `input` is the input with its defaults,
     /// the one `meta.input_hash` covers.
     fn run_typed(input: &mut Self::Input) -> Result<(Self::Output, Explain, Vec<DefaultApplied>)> {
-        let defaults = Self::apply_defaults(input);
+        let mut defaults = Self::apply_defaults(input);
+        // ADR 0014 G4 and SPEC-0013 R9: `meta.defaults_applied`, and their echoes, follow the
+        // input order, whatever order the method fills them in.
+        crate::registry::in_input_order(Self::ID, &mut defaults);
         let (output, mut explain) = Self::compute_with_defaults(input, &defaults)?;
         explain
             .conventions

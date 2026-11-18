@@ -35,13 +35,11 @@ expect:
   /rows/variable_pointer: /wacc
   /inner_method/id: dcf.fcff
   /base: '1533.4207077326343381389252949'
-expect_diagnostics:
-  /warnings/0/code: FM-W016
-  /warnings/0/pointer: /method
-  /warnings/1/code: FM-W012
-  /warnings/1/pointer: /base_input/net_financial_position
-expect_diagnostics_length:
-  /warnings: '2'
-  /not_computed: '0'
-  /checks: '0'
 tolerance: '0'
+expect_counts:
+  checks: '0'
+  not_computed: '0'
+  warnings: '2'
+expect_warnings:
+  FM-W012 /base_input/net_financial_position: {}
+  FM-W016 /method: {}

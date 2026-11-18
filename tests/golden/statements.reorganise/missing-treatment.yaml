@@ -93,58 +93,58 @@ expect:
   /years/0/current_non_current/current_liabilities: '1100000'
   /years/0/current_non_current/non_current_liabilities: '850000'
   /years/0/form: statutory
-expect_meta:
-  /defaults_applied/0/pointer: /years/0/statutory/balance_sheet/intangible_assets
-  /defaults_applied/0/value: operating_fixed_assets
-  /defaults_applied/1/pointer: /years/0/statutory/balance_sheet/tangible_assets
-  /defaults_applied/1/value: operating_fixed_assets
-  /defaults_applied/2/pointer: /years/0/statutory/balance_sheet/receivables
-  /defaults_applied/2/value: operating_working_capital
-  /defaults_applied/3/pointer: /years/0/statutory/balance_sheet/current_financial_assets
-  /defaults_applied/3/value: net_financial_position_other_financial_asset
-  /defaults_applied/4/pointer: /years/0/statutory/balance_sheet/cash
-  /defaults_applied/4/value: net_financial_position_cash
-  /defaults_applied/5/pointer: /years/0/statutory/balance_sheet/prepayments_and_accrued_income
-  /defaults_applied/5/value: operating_working_capital
-  /defaults_applied/6/pointer: /years/0/statutory/balance_sheet/provisions
-  /defaults_applied/6/value: operating_provisions
-  /defaults_applied/7/pointer: /years/0/statutory/balance_sheet/employee_severance_indemnity
-  /defaults_applied/7/value: operating_provisions
-  /defaults_applied/8/pointer: /years/0/statutory/balance_sheet/payables
-  /defaults_applied/8/value: operating_working_capital
-  /defaults_applied/9/pointer: /years/0/statutory/balance_sheet/accruals_and_deferred_income
-  /defaults_applied/9/value: operating_working_capital
-  /defaults_applied/10/pointer: /treatments/write_downs_of_receivables
-  /defaults_applied/10/value: operating
-  /defaults_applied/11/pointer: /treatments/write_downs_of_fixed_assets
-  /defaults_applied/11/value: operating
-expect_diagnostics:
-  /not_computed/0/pointer: /value/years/0/balance_sheet/non_operating_assets
-  /not_computed/0/missing_any_of/0/0: /treatments/financial_fixed_assets
-  /not_computed/1/pointer: /value/years/0/balance_sheet/non_operating_assets_total
-  /not_computed/1/missing_any_of/0/0: /treatments/financial_fixed_assets
-  /not_computed/2/pointer: /value/years/0/balance_sheet/operating/invested_capital
-  /not_computed/2/missing_any_of/0/0: /treatments/financial_fixed_assets
-  /not_computed/2/permitted/0/pointer: /treatments/financial_fixed_assets
-  /not_computed/2/permitted/0/values/0: operating
-  /not_computed/2/permitted/0/values/1: non_operating
-  /not_computed/2/permitted/0/values/2: financial_asset
-  /not_computed/3/pointer: /value/years/0/balance_sheet/operating/operating_fixed_assets
-  /not_computed/3/missing_any_of/0/0: /treatments/financial_fixed_assets
-  /not_computed/4/pointer: /value/years/0/balance_sheet/sources/net_financial_position/composition
-  /not_computed/4/missing_any_of/0/0: /treatments/financial_fixed_assets
-  /not_computed/5/pointer: /value/years/0/balance_sheet/sources/net_financial_position/non_current
-  /not_computed/5/missing_any_of/0/0: /treatments/financial_fixed_assets
-  /not_computed/6/pointer: /value/years/0/balance_sheet/sources/net_financial_position/position
-  /not_computed/6/missing_any_of/0/0: /treatments/financial_fixed_assets
-  /not_computed/7/pointer: /value/years/0/balance_sheet/sources/net_financial_position/total
-  /not_computed/7/missing_any_of/0/0: /treatments/financial_fixed_assets
-  /not_computed/7/permitted/0/pointer: /treatments/financial_fixed_assets
-  /not_computed/7/permitted/0/values/0: operating
-  /not_computed/7/permitted/0/values/1: non_operating
-  /not_computed/7/permitted/0/values/2: financial_asset
-  /not_computed/8/pointer: /value/years/0/balance_sheet/sources/total_sources
-  /not_computed/8/missing_any_of/0/0: /treatments/financial_fixed_assets
-  /not_computed/9/pointer: /value/years/0/balance_sheet/total_funds_invested
-  /not_computed/9/missing_any_of/0/0: /treatments/financial_fixed_assets
 tolerance: '0'
+expect_defaults:
+  /treatments/write_downs_of_fixed_assets:
+    /value: operating
+  /treatments/write_downs_of_receivables:
+    /value: operating
+  /years/0/statutory/balance_sheet/accruals_and_deferred_income:
+    /value: operating_working_capital
+  /years/0/statutory/balance_sheet/cash:
+    /value: net_financial_position_cash
+  /years/0/statutory/balance_sheet/current_financial_assets:
+    /value: net_financial_position_other_financial_asset
+  /years/0/statutory/balance_sheet/employee_severance_indemnity:
+    /value: operating_provisions
+  /years/0/statutory/balance_sheet/intangible_assets:
+    /value: operating_fixed_assets
+  /years/0/statutory/balance_sheet/payables:
+    /value: operating_working_capital
+  /years/0/statutory/balance_sheet/prepayments_and_accrued_income:
+    /value: operating_working_capital
+  /years/0/statutory/balance_sheet/provisions:
+    /value: operating_provisions
+  /years/0/statutory/balance_sheet/receivables:
+    /value: operating_working_capital
+  /years/0/statutory/balance_sheet/tangible_assets:
+    /value: operating_fixed_assets
+expect_not_computed:
+  /value/years/0/balance_sheet/non_operating_assets:
+    /missing_any_of/0/0: /treatments/financial_fixed_assets
+  /value/years/0/balance_sheet/non_operating_assets_total:
+    /missing_any_of/0/0: /treatments/financial_fixed_assets
+  /value/years/0/balance_sheet/operating/invested_capital:
+    /missing_any_of/0/0: /treatments/financial_fixed_assets
+    /permitted/0/pointer: /treatments/financial_fixed_assets
+    /permitted/0/values/0: operating
+    /permitted/0/values/1: non_operating
+    /permitted/0/values/2: financial_asset
+  /value/years/0/balance_sheet/operating/operating_fixed_assets:
+    /missing_any_of/0/0: /treatments/financial_fixed_assets
+  /value/years/0/balance_sheet/sources/net_financial_position/composition:
+    /missing_any_of/0/0: /treatments/financial_fixed_assets
+  /value/years/0/balance_sheet/sources/net_financial_position/non_current:
+    /missing_any_of/0/0: /treatments/financial_fixed_assets
+  /value/years/0/balance_sheet/sources/net_financial_position/position:
+    /missing_any_of/0/0: /treatments/financial_fixed_assets
+  /value/years/0/balance_sheet/sources/net_financial_position/total:
+    /missing_any_of/0/0: /treatments/financial_fixed_assets
+    /permitted/0/pointer: /treatments/financial_fixed_assets
+    /permitted/0/values/0: operating
+    /permitted/0/values/1: non_operating
+    /permitted/0/values/2: financial_asset
+  /value/years/0/balance_sheet/sources/total_sources:
+    /missing_any_of/0/0: /treatments/financial_fixed_assets
+  /value/years/0/balance_sheet/total_funds_invested:
+    /missing_any_of/0/0: /treatments/financial_fixed_assets

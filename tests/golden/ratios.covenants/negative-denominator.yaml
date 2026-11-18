@@ -86,9 +86,9 @@ expect:
   /covenants/1/outcome_basis: if_denominator_not_positive
   /covenants/2/outcome_basis: if_denominator_not_positive
   /covenants/3/outcome_basis: if_denominator_not_positive
-expect_diagnostics:
-  /not_computed/0/reason: 'no tested value: denominator is negative (-600): consolidated
-    EBITDA for the 12 months ending on the test date'
-  /not_computed/0/pointer: /value/covenants/0/headroom_relative
-  /not_computed/0/reason_code: not_defined
 tolerance: '0.00000000000000000001'
+expect_not_computed:
+  /value/covenants/0/headroom_relative:
+    /reason: 'no tested value: denominator is negative (-600): consolidated EBITDA for the 12 months ending
+      on the test date'
+    /reason_code: not_defined
