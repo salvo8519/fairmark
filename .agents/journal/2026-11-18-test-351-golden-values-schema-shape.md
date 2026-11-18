@@ -26,13 +26,16 @@
 - PR #394 opened. Code review (request changes) fixed in this PR: B2 order checks against
   the documented order (`7b57341`), S3 closed choices (`11a6e4f`), S5 exact text (`7df5c5c`),
   S6 shared schema walk `scripts/golden_schema.py` (`a1f81b8`), nits N8 to N13 (`5029771`),
-  S4 tolerant-reader rule in the docs (`6497666`). Audit: sound.
+  S4 tolerant-reader rule in the docs (`6497666`). Audit: sound. The maintainer confirmed the
+  119 files and R9 on 2026-11-18; the engine now emits defaults in input order (no golden
+  changes) and `KNOWN_DEFAULT_ORDER_DEPARTURES` is removed.
 
 ## Decisions taken
 - `check_golden_changes.py` protected only some sections: the diagnostics sections of
   SPEC-0012 and the new ones are added (found in T8, fixed in the same task).
-- R9: the input order of `meta.defaults_applied` is checked as the order of their `default:`
-  echo in `explain.conventions` (spec clarified in T7); it holds on all 111 results with defaults.
+- R9 (signed off by the maintainer on 2026-11-18): defaults in input order (a depth-first walk
+  of the input in the property order of its schema), warnings of the method first, then
+  FM-W001 and FM-W017 by pointer. The engine sorts the defaults once, in `Method::run_typed`.
 - `uv.lock` keeps `revision = 3`: the local uv (0.13.7) wrote 5; `uv lock --check` accepts 3.
 - The refusal of `/errors/N` keys in `expect_error_report` (R5) moves from T3/T4 to T10:
   five golden files hold such keys until the migration (T9).
@@ -40,9 +43,7 @@
   approved files, never by editing golden files by hand (maintainer approval of 2026-11-18).
 
 ## Open questions for the maintainer
-- R9 (pending sign-off): the engine departs from the input order of defaults in eight places
-  (`KNOWN_DEFAULT_ORDER_DEPARTURES` in `python/tests/test_golden_conformance.py`). Change the
-  engine (its own issue) or restate the rule.
+- None. The R9 question is resolved: the engine follows the input order; no exception list.
 
 ## Next steps
 1. T11 on #394: `code-reviewer` pass and `numerical-auditor` on the migration; the maintainer

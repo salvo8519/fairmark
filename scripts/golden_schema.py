@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -95,3 +96,31 @@ def schema_history(repo: Path) -> dict[str, Any]:
             return history
     index: dict[str, Any] = json.loads((repo / "schemas/index.json").read_text(encoding="utf-8"))
     return index
+
+
+INDEX = re.compile(r"0|[1-9][0-9]*")
+
+
+def input_order_key(root: dict[str, Any], pointer: str) -> list[tuple[Any, ...]]:
+    """The place of `pointer` in a depth-first walk of the input, objects in the property order
+    of the input schema `root`, arrays by index (R9: input order, the input taken with its
+    defaults; SPEC-0013 R9). A token the schema does not declare sorts after every declared
+    one. The engine sorts `meta.defaults_applied` by the same rule (`registry::in_input_order`)."""
+    nodes = branches(root, root)
+    key: list[tuple[Any, ...]] = []
+    for t in tokens(pointer):
+        if INDEX.fullmatch(t) and any("items" in n for n in nodes):
+            key.append((0, int(t)))
+            nodes = [b for n in nodes if "items" in n for b in branches(root, n["items"])]
+            continue
+        position = next(
+            (list(n["properties"]).index(t) for n in nodes if t in n.get("properties", {})), None
+        )
+        key.append((1, sys.maxsize if position is None else position, t))
+        nodes = [
+            b
+            for n in nodes
+            if t in n.get("properties", {})
+            for b in branches(root, n["properties"][t])
+        ]
+    return key

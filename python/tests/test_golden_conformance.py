@@ -439,77 +439,6 @@ def unsorted(name: str, keys: list[Any]) -> list[str]:
     return [] if keys == sorted(keys) else [f"{name}: not in its documented order"]
 
 
-INDEX = re.compile(r"0|[1-9][0-9]*")
-
-
-def input_order_key(root: dict[str, Any], pointer: str) -> list[tuple[Any, ...]]:
-    """The place of `pointer` in a depth-first walk of the input, objects in the property order
-    of the input schema `root`, arrays by index (R9: input order, the input taken with its
-    defaults). A token the schema does not declare sorts after every declared one."""
-    nodes = gs.branches(root, root)
-    key: list[tuple[Any, ...]] = []
-    for t in gs.tokens(pointer):
-        if INDEX.fullmatch(t) and any("items" in n for n in nodes):
-            key.append((0, int(t)))
-            nodes = [b for n in nodes if "items" in n for b in gs.branches(root, n["items"])]
-            continue
-        position = next(
-            (list(n["properties"]).index(t) for n in nodes if t in n.get("properties", {})), None
-        )
-        key.append((1, len(root) if position is None else position, t))
-        nodes = [
-            b
-            for n in nodes
-            if t in n.get("properties", {})
-            for b in gs.branches(root, n["properties"][t])
-        ]
-    return key
-
-
-# R9 (pending maintainer sign-off): the engine departs from the input order of defaults in
-# these places, found when the check was written (code review of #394). Each pair is
-# (method, earlier pointer, later pointer) with array indices written `N`. A departure not
-# listed here fails; the list is emptied by the decision the maintainer takes on R9.
-KNOWN_DEFAULT_ORDER_DEPARTURES = {
-    ("dcf.fcff", "/stages/N/projection", "/stages/N/periods"),
-    ("dcf.fcfe", "/stages/N/projection", "/stages/N/periods"),
-    (
-        "statements.reorganise",
-        "/treatments/write_downs_of_fixed_assets",
-        "/years/N/statutory/balance_sheet/receivables/subscribed_capital_unpaid",
-    ),
-    (
-        "statements.reorganise",
-        "/treatments/write_downs_of_fixed_assets",
-        "/years/N/statutory/balance_sheet/subscribed_capital_unpaid",
-    ),
-    (
-        "statements.reorganise",
-        "/treatments/write_downs_of_fixed_assets",
-        "/years/N/statutory/balance_sheet/receivables/prepayments_and_accrued_income",
-    ),
-    (
-        "statements.reorganise",
-        "/years/N/statutory/income_statement/other_operating_expenses",
-        "/years/N/statutory/income_statement/depreciation_and_write_downs/write_downs_of_fixed_assets",
-    ),
-    (
-        "statements.reorganise",
-        "/years/N/statutory/income_statement/other_operating_expenses",
-        "/years/N/statutory/income_statement/depreciation_and_write_downs/write_downs_of_receivables",
-    ),
-    (
-        "statements.reorganise",
-        "/years/N/statutory/income_statement/other_operating_expenses",
-        "/years/N/statutory/balance_sheet/receivables/subscribed_capital_unpaid",
-    ),
-}
-
-
-def generic(pointer: str) -> str:
-    return re.sub(r"/(0|[1-9][0-9]*)(?=/|$)", "/N", pointer)
-
-
 @functools.cache
 def input_order_schema(method: str) -> dict[str, Any]:
     """The input schema with its property order. The committed snapshots sort their keys
@@ -525,8 +454,7 @@ def default_order_problems(method: str, version: str, pointers: list[str]) -> li
     root = input_order_schema(method)
     found = []
     for a, b in itertools.pairwise(pointers):
-        known = (method, generic(a), generic(b)) in KNOWN_DEFAULT_ORDER_DEPARTURES
-        if input_order_key(root, a) > input_order_key(root, b) and not known:
+        if gs.input_order_key(root, a) > gs.input_order_key(root, b):
             found.append(f"defaults_applied: {a} before {b}, against the input order")
     return found
 

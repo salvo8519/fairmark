@@ -48,3 +48,13 @@ def test_schema_at_reaches_through_items_and_refs() -> None:
 def test_schema_history_names_every_method_and_the_envelope() -> None:
     history = gs.schema_history(ROOT)
     assert "envelope" in history and "tvm.npv" in history["methods"]
+
+
+def test_input_order_key_follows_the_property_order_and_indices() -> None:
+    schema = {
+        "properties": {"b": {}, "rows": {"type": "array", "items": {"$ref": "#/$defs/Row"}}},
+        "$defs": {"Row": {"properties": {"z": {}, "y": {}}}},
+    }
+    pointers = ["/rows/10/y", "/zz", "/rows/2/y", "/rows/2/z", "/b"]
+    ordered = sorted(pointers, key=lambda p: gs.input_order_key(schema, p))
+    assert ordered == ["/b", "/rows/2/z", "/rows/2/y", "/rows/10/y", "/zz"]

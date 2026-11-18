@@ -49,8 +49,8 @@ fn minimal_input_reports_every_default() {
     assert_eq!(
         defaulted_fields(&out),
         [
-            "/stages/0/projection",
             "/stages/0/periods",
+            "/stages/0/projection",
             "/cash_flow_terms",
             "/discount_rate_terms",
             "/timing",
@@ -59,8 +59,8 @@ fn minimal_input_reports_every_default() {
         ]
     );
     let defaults = out["meta"]["defaults_applied"].as_array().unwrap();
-    assert_eq!(defaults[0]["value"], "given");
-    assert_eq!(defaults[1]["value"], 5);
+    assert_eq!(defaults[0]["value"], 5);
+    assert_eq!(defaults[1]["value"], "given");
     assert_eq!(defaults[2]["value"], "nominal");
     assert_eq!(defaults[4]["value"], "end_of_period");
     assert_eq!(defaults[5]["value"], json!({"none": {}}));
@@ -393,7 +393,9 @@ fn defaulted_timing_is_named_in_the_message() {
 fn typed_call_lists_the_defaults_first() {
     let input: fairmark_core::dcf::DcfFcffInput = serde_json::from_value(minimal()).unwrap();
     let (out, ex) = fairmark_core::dcf::fcff(&input).unwrap();
-    assert!(ex.conventions[0].starts_with("default: `/stages/0/projection`"));
+    // SPEC-0013 R9: input order, `periods` before `projection` as in the input schema.
+    assert!(ex.conventions[0].starts_with("default: `/stages/0/periods`"));
+    assert!(ex.conventions[1].starts_with("default: `/stages/0/projection`"));
     assert!(ex.conventions[5].starts_with("default: `/terminal`"));
     assert!(ex.conventions[6].starts_with("default: `/net_financial_position`"));
     assert!(!ex.conventions[7].starts_with("default: "));

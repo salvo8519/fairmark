@@ -486,7 +486,8 @@ const NOMINAL_REASON: &str = "business plans and discount rates (WACC, cost of e
     commonly stated in nominal terms, at current prices";
 
 /// SPEC-0001 Decision 24, R31: fills in, once, every documented default of the DCF input and
-/// returns one entry per field filled, in input order. A field given is never changed. A
+/// returns one entry per field filled (`Method::run_typed` lists them in input order, SPEC-0013
+/// R9). A field given is never changed. A
 /// stage whose default cannot be decided (no `flows` or `lines`, both, or none of them
 /// non-empty) is left as it is, and the checks of the engine name the field to give.
 pub fn apply_defaults(d: Defaultable<'_>) -> Vec<DefaultApplied> {

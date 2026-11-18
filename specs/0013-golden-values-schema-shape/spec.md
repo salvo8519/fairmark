@@ -128,7 +128,7 @@ Shape
 - **R8** — THE CONFORMANCE TEST SHALL fail a golden case whose assertion key, in `expect` or
   inside an entry of a semantic section, is not declared by the schema of the part it reads
   (array indices excepted).
-- **R9** (pending maintainer sign-off; wording of the code review of #394) — THE ORDER TEST
+- **R9** (signed off by the maintainer on 2026-11-18, recorded on #394) — THE ORDER TEST
   SHALL check, on every golden result, the documented order of every envelope list:
   - `meta.defaults_applied` in input order: a depth-first walk of the input taken with its
     defaults, objects in the property order of the method's input schema, arrays by index;
@@ -139,12 +139,10 @@ Shape
   - `diagnostics.checks` by result block, then `id`;
   - the `errors` of a report by `pointer` (none first), then `code`, then `message`.
 
-  Each check SHALL fail on a reversed list. The engine departs from the input order of
-  defaults in eight known places (`/stages/N/projection` before `/stages/N/periods` in
-  `dcf.fcff` and `dcf.fcfe`; six pairs in `statements.reorganise`), listed in
-  `KNOWN_DEFAULT_ORDER_DEPARTURES` of `python/tests/test_golden_conformance.py`; any other
-  departure fails. The maintainer decides whether the engine follows the rule (a change of
-  output order, its own issue) or the rule is restated; the list is then emptied.
+  Each check SHALL fail on a reversed list. No exception is listed: the engine puts
+  `meta.defaults_applied`, and their `default:` echoes, in input order for every method
+  (`registry::in_input_order`, called once in `Method::run_typed`), whatever order a method
+  fills them in.
 - **R10** — `jsonschema` SHALL be declared in the `dev` dependency group of `pyproject.toml`
   with a lower bound the locked version satisfies, and the set of packages in `uv.lock` SHALL
   not change.
@@ -201,7 +199,7 @@ Not applicable: no method output is added or changed.
   removed from `test_output_schemas.py`.
 - **AC8** (R8) — A temporary case with a misspelt key whose expectation is `null` fails the
   conformance test; the same key spelt right passes.
-- **AC9** (R9) — Every golden result passes the order test (with the known departures of R9);
+- **AC9** (R9) — Every golden result passes the order test, with no exception listed;
   a reversed list of each kind, a method warning after the reading warnings, reading warnings
   out of pointer order and a default out of input order fail it.
 - **AC10** (R10) — `pyproject.toml` declares `jsonschema` in `dev`; `uv lock --check` passes and

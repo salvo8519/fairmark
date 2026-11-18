@@ -434,6 +434,108 @@ pub struct RunOptions {
     pub binary_floats: Vec<String>,
 }
 
+/// Puts `defaults` in the input order of method `id` (SPEC-0013 R9): a depth-first walk of
+/// the input taken with its defaults, objects in the property order of the input schema,
+/// arrays by index; a name the schema does not declare sorts after every declared one. The
+/// sort is stable and changes no entry.
+pub(crate) fn in_input_order(id: &str, defaults: &mut [crate::explain::DefaultApplied]) {
+    if defaults.len() < 2 {
+        return;
+    }
+    let Some(schema) = cached_input_schema(id) else {
+        return;
+    };
+    defaults.sort_by_cached_key(|d| input_order_key(&schema, &d.pointer));
+}
+
+/// The input schema of `id`, built once per method and process (schemas are pure functions of
+/// the types: the cache changes no result).
+fn cached_input_schema(id: &str) -> Option<std::sync::Arc<Value>> {
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex, OnceLock};
+    static CACHE: OnceLock<Mutex<HashMap<String, Arc<Value>>>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Some(schema) = cache.lock().ok()?.get(id) {
+        return Some(Arc::clone(schema));
+    }
+    let schema = Arc::new(input_schema(id).ok()?);
+    cache
+        .lock()
+        .ok()?
+        .insert(id.to_owned(), Arc::clone(&schema));
+    Some(schema)
+}
+
+/// The place of `pointer` in the input order of `root` (see [`in_input_order`]).
+fn input_order_key(root: &Value, pointer: &str) -> Vec<(u8, u64, String)> {
+    fn branches<'a>(root: &'a Value, node: &'a Value, out: &mut Vec<&'a Value>) {
+        let mut node = node;
+        for _ in 0..20 {
+            match node
+                .get("$ref")
+                .and_then(Value::as_str)
+                .and_then(|r| r.strip_prefix("#/$defs/"))
+            {
+                Some(name) => match root.get("$defs").and_then(|d| d.get(name)) {
+                    Some(target) => node = target,
+                    None => return,
+                },
+                None => break,
+            }
+        }
+        out.push(node);
+        for key in ["anyOf", "oneOf", "allOf"] {
+            for b in node
+                .get(key)
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                branches(root, b, out);
+            }
+        }
+    }
+    let mut nodes = Vec::new();
+    branches(root, root, &mut nodes);
+    let mut key = Vec::new();
+    let tokens = pointer
+        .strip_prefix('/')
+        .map(|p| {
+            p.split('/')
+                .map(|t| t.replace("~1", "/").replace("~0", "~"))
+                .collect::<Vec<String>>()
+        })
+        .unwrap_or_default();
+    for t in tokens {
+        let index = t == "0"
+            || (!t.is_empty() && !t.starts_with('0') && t.bytes().all(|b| b.is_ascii_digit()));
+        let arrays: Vec<&Value> = nodes.iter().filter_map(|n| n.get("items")).collect();
+        if index && !arrays.is_empty() {
+            key.push((0, t.parse().unwrap_or(u64::MAX), String::new()));
+            let mut next = Vec::new();
+            for items in arrays {
+                branches(root, items, &mut next);
+            }
+            nodes = next;
+            continue;
+        }
+        let position = nodes.iter().find_map(|n| {
+            n.get("properties")
+                .and_then(Value::as_object)
+                .and_then(|p| p.keys().position(|k| *k == t))
+        });
+        let mut next = Vec::new();
+        for n in &nodes {
+            if let Some(sub) = n.get("properties").and_then(|p| p.get(&t)) {
+                branches(root, sub, &mut next);
+            }
+        }
+        key.push((1, position.map_or(u64::MAX, |p| p as u64), t));
+        nodes = next;
+    }
+    key
+}
+
 /// [`run`] with the transport facts of [`RunOptions`].
 pub fn run_with(id: &str, input_json: &str, options: &RunOptions) -> Result<Value> {
     // Last line of defence: all arithmetic is checked, so a panic is a defect. It must never
@@ -633,6 +735,93 @@ mod tests {
 
     /// A two-period dcf.fcff version 3 input, valued with a Gordon terminal value.
     const DCF_V3: &str = r#"{"stages": [{"periods": 2, "projection": "given", "flows": [100, 110]}], "cash_flow_terms": "nominal", "discount_rate_terms": "nominal", "wacc": "0.09", "timing": "end_of_period", "terminal": {"tv.gordon": {"growth": "0.02", "first_flow": "last_flow_grown"}}, "net_financial_position": {"gross_debt": 0, "cash": 0}}"#;
+
+    /// SPEC-0013 R9: the place of a pointer in the input order follows `$ref`, choices and
+    /// arrays; an index sorts by number, a name by its place in the schema, an unknown name
+    /// last; `~1` and `~0` are unescaped.
+    #[test]
+    fn input_order_key_walks_the_schema() {
+        let schema = serde_json::json!({
+            "properties": {
+                "b": {"type": "string"},
+                "rows": {"type": "array", "items": {"$ref": "#/$defs/Row"}},
+                "a/c": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/Row"}]}
+            },
+            "$defs": {"Row": {"properties": {"z": {}, "y": {}}}}
+        });
+        let key = |p: &str| input_order_key(&schema, p);
+        assert_eq!(key("/b"), vec![(1, 0, "b".to_owned())]);
+        assert_eq!(
+            key("/rows/10/y"),
+            vec![
+                (1, 1, "rows".to_owned()),
+                (0, 10, String::new()),
+                (1, 1, "y".to_owned())
+            ]
+        );
+        assert_eq!(
+            key("/a~1c/z"),
+            vec![(1, 2, "a/c".to_owned()), (1, 0, "z".to_owned())]
+        );
+        assert_eq!(key("/x~0"), vec![(1, u64::MAX, "x~".to_owned())]);
+        // `01` is a name, not an index; an index under a node without items is a name too.
+        assert_eq!(key("/rows/01")[1], (1, u64::MAX, "01".to_owned()));
+        assert_eq!(key("/b/0")[1], (1, u64::MAX, "0".to_owned()));
+        assert!(key("/rows/2") < key("/rows/10"));
+        assert!(key("/rows/0/z") < key("/rows/0/y") && key("/rows/9") < key("/a~1c"));
+        assert!(key("").is_empty());
+    }
+
+    /// SPEC-0013 R9: defaults leave in input order, whatever order a method fills them in, and
+    /// their echoes in `explain.conventions` follow; a single default and an unknown method
+    /// are left as they are.
+    #[test]
+    fn defaults_are_reported_in_input_order() {
+        let default = |p: &str| crate::explain::DefaultApplied::new(p, serde_json::json!(1), "r");
+        let mut defaults = vec![
+            default("/timing"),
+            default("/stages/0/projection"),
+            default("/stages/0/periods"),
+            default("/cash_flow_terms"),
+        ];
+        in_input_order("dcf.fcff", &mut defaults);
+        let order: Vec<&str> = defaults.iter().map(|d| d.pointer.as_str()).collect();
+        assert_eq!(
+            order,
+            [
+                "/stages/0/periods",
+                "/stages/0/projection",
+                "/cash_flow_terms",
+                "/timing"
+            ]
+        );
+        let mut unknown = vec![default("/b"), default("/a")];
+        in_input_order("no.such_method", &mut unknown);
+        assert_eq!(unknown[0].pointer, "/b");
+        // A whole result: a stage left to its defaults lists `periods` before `projection`.
+        let out = run(
+            "dcf.fcff",
+            r#"{"stages": [{"flows": [100, 110]}], "wacc": "0.09", "net_financial_position": {"gross_debt": 0, "cash": 0}}"#,
+        )
+        .unwrap();
+        let pointers: Vec<&str> = out["meta"]["defaults_applied"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| d["pointer"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            &pointers[..2],
+            ["/stages/0/periods", "/stages/0/projection"]
+        );
+        let echoes: Vec<&str> = out["explain"]["conventions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|c| c.as_str()?.strip_prefix("default: `")?.split('`').next())
+            .collect();
+        assert_eq!(echoes, pointers);
+    }
 
     /// ADR 0012: every result states the status of the method that produced it.
     #[test]
