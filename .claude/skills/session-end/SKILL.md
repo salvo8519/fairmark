@@ -43,7 +43,7 @@ to GitHub is in English, without icons. Never merge: merging is the maintainer's
    - **Checklist**: ticked honestly; leave unticked what is not done and say why.
    Use `gh api repos/{owner}/{repo}/pulls` (POST to create, PATCH to update) with the body in
    a file. Open as draft if the gate failed or tasks remain.
-9. **Labels and board.** Add labels that the labeler cannot infer (`numerical-change`,
+9. **Labels.** Add labels that the labeler cannot infer (`numerical-change`,
    `breaking-change`, `no-release-note`). Remove `in-progress` from the issue only when the
    pull request is ready for review.
 10. **Disk.** Check disk usage with `uv run just workspace-report` (read-only) and include

@@ -105,7 +105,7 @@ secret when the environment has none.
 2. In the environment, Environment secrets: `ANTHROPIC_API_KEY`. Use a key of a separate
    workspace of the Anthropic Console with a monthly spending limit.
 3. Delete the repository secret `ANTHROPIC_API_KEY` (Secrets and variables, Actions). Check
-   that `PROJECT_TOKEN` is then the only repository secret.
+   that no repository secret is left.
 4. Agent sessions on your computer use a GitHub token that cannot approve runs or change
    settings: a fine-grained token limited to this repository, with Contents, Pull requests,
    Issues and Actions (read) and without Administration, Environments, Deployments, Secrets or

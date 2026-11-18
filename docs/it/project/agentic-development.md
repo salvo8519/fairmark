@@ -4,7 +4,7 @@ description: Come Fairmark viene costruito da agenti AI e da un maintainer — r
   memoria, corsie degli sprint e i controlli deterministici che fanno rispettare ogni
   regola.
 source: project/agentic-development.md
-source_hash: 199c00624d00
+source_hash: 3cadb87b42e4
 ---
 # Sviluppo agentico
 
@@ -167,9 +167,8 @@ mai.
 ## Credenziali
 
 Gli agenti lavorano sui branch. Le credenziali del processo di sviluppo sono tenute fuori dalla
-portata di un branch: ognuna sta in un environment le cui regole un branch non può cambiare,
-tranne `PROJECT_TOKEN` (sotto). Un test protegge da un job che legge una credenziale fuori dal
-suo environment; gira sul branch che controlla, quindi intercetta errori, non attacchi. Le
+portata di un branch: ognuna sta in un environment le cui regole un branch non può cambiare.
+Un test protegge da un job che legge una credenziale fuori dal suo environment; gira sul branch che controlla, quindi intercetta errori, non attacchi. Le
 impostazioni degli environment sono verificate ogni settimana dal workflow di manutenzione, e un
 hook di Claude Code impedisce agli agenti di approvare esecuzioni o di modificare secret,
 variabili, environment e ruleset.
@@ -181,8 +180,6 @@ variabili, environment e ruleset.
   che modifica un workflow non può leggerla. Ogni job crea un token valido un'ora, con i soli
   permessi che gli servono, revocato alla fine del job. Un test protegge da un job che può
   girare su contenuti scritti da altri (pull request, issue, commenti) e usa quell'environment.
-- Il token della board di progetto (`PROJECT_TOKEN`) è letto solo da un workflow che gira
-  sempre nella versione di `main` (`pull_request_target`, senza checkout).
 - La pubblicazione usa il trusted publishing (OIDC) da un tag protetto. L'unico token salvato è
   quello di crates.io per il primissimo rilascio, un secret dell'environment `crates-io`; il
   maintainer lo cancella dopo quel rilascio, e il job lo rifiuta appena i crate esistono.
