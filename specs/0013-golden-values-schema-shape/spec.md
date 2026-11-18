@@ -128,7 +128,9 @@ Shape
   inside an entry of a semantic section, is not declared by the schema of the part it reads
   (array indices excepted).
 - **R9** — THE ORDER TEST SHALL check, on every golden result, the documented order of every
-  envelope list: `meta.defaults_applied` in input order, `diagnostics.not_computed` by
+  envelope list: `meta.defaults_applied` in input order, checked as the order of their
+  `default:` echo in `explain.conventions` (input order is defined by each method, and the
+  echo is its observable form; clarified in T7), `diagnostics.not_computed` by
   `pointer` with array indices compared as numbers, `diagnostics.checks` by result block then
   `id`, `diagnostics.warnings` in the order of their echo in `explain.conventions`, the
   `errors` of a report by `pointer`, then `code`, then `message`.

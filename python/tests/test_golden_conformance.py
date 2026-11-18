@@ -13,6 +13,7 @@ import copy
 import functools
 import importlib.util
 import json
+import re
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -405,3 +406,121 @@ def test_a_misspelt_key_is_caught_even_when_null_is_expected(key: str, declared:
     method, raw = npv()
     case = {"method": method, "expect": {key: "null"}}
     assert (undeclared_keys(case, raw["value"], "1") == []) is declared
+
+
+# ---------------------------------------------------------------- documented orders (R9)
+
+
+def pointer_key(pointer: str) -> list[tuple[int, int, str]]:
+    """The order of pointers in every list of the result: token by token, array indices
+    (`0`, or digits without a leading zero) as numbers and before names (SPEC-0012 R13)."""
+    out = []
+    for t in pointer.split("/"):
+        index = re.fullmatch(r"0|[1-9][0-9]*", t) is not None
+        out.append((0, int(t), "") if index else (1, 0, t))
+    return out
+
+
+def echoed(conventions: list[str], pattern: str) -> list[str]:
+    return [m.group(1) for c in conventions if (m := re.match(pattern, c))]
+
+
+def unsorted(name: str, keys: list[Any]) -> list[str]:
+    return [] if keys == sorted(keys) else [f"{name}: not in its documented order"]
+
+
+def order_problems(raw: dict[str, Any]) -> list[str]:
+    """The envelope lists of a result that depart from their documented order (SPEC-0013 R9):
+    defaults applied in input order, which is the order of their `default:` echo in
+    `explain.conventions`; outputs not computed by pointer; checks by result block, then id;
+    warnings in the order of their echo in `explain.conventions`."""
+    conventions = raw["explain"]["conventions"]
+    diagnostics = raw["diagnostics"]
+    found = []
+    defaults = [d["pointer"] for d in raw["meta"]["defaults_applied"]]
+    if defaults != echoed(conventions, r"default: `([^`]*)`"):
+        found.append("defaults_applied: not in the order of their echo in explain.conventions")
+    warnings = [w["code"] for w in diagnostics["warnings"]]
+    if warnings != echoed(conventions, r"warning (FM-W\d{3}):"):
+        found.append("warnings: not in the order of their echo in explain.conventions")
+    found += unsorted(
+        "not_computed", [pointer_key(n["pointer"]) for n in diagnostics["not_computed"]]
+    )
+    found += unsorted(
+        "checks", [(pointer_key(c["pointer"]), c["id"]) for c in diagnostics["checks"]]
+    )
+    return found
+
+
+def error_order_problems(report: dict[str, Any]) -> list[str]:
+    """The entries of an error report out of the canonical order: by pointer (none first),
+    then code, then message (issue #370)."""
+    keys = [
+        (e.get("pointer") is not None, pointer_key(e.get("pointer") or ""), e["code"], e["message"])
+        for e in report.get("errors", [])
+    ]
+    return unsorted("errors", keys)
+
+
+@pytest.mark.parametrize("path", CASES, ids=lambda p: f"{p.parent.name}/{p.stem}")
+def test_envelope_lists_follow_their_documented_order(path: Path) -> None:
+    case = yaml.safe_load(path.read_text(encoding="utf-8"))
+    raw, report = run_case(case)
+    found = order_problems(raw) if raw is not None else error_order_problems(report or {})
+    assert not found, found
+
+
+def ordered_result() -> dict[str, Any]:
+    return {
+        "explain": {
+            "conventions": [
+                "default: `/timing` not given, set to x",
+                "warning FM-W005: w",
+                "default: `/stages/10/periods` not given, set to y",
+                "warning FM-W012: w",
+            ]
+        },
+        "meta": {"defaults_applied": [{"pointer": "/timing"}, {"pointer": "/stages/10/periods"}]},
+        "diagnostics": {
+            "not_computed": [{"pointer": "/value/periods/2"}, {"pointer": "/value/periods/10"}],
+            "warnings": [{"code": "FM-W005"}, {"code": "FM-W012"}],
+            "checks": [
+                {"pointer": "/value/years/0", "id": "b"},
+                {"pointer": "/value/years/1", "id": "a"},
+            ],
+        },
+    }
+
+
+def test_an_ordered_result_has_no_order_problem() -> None:
+    assert order_problems(ordered_result()) == []
+
+
+@pytest.mark.parametrize(
+    ("part", "name"),
+    [
+        ("meta", "defaults_applied"),
+        ("diagnostics", "not_computed"),
+        ("diagnostics", "warnings"),
+        ("diagnostics", "checks"),
+    ],
+)
+def test_two_swapped_entries_are_caught(part: str, name: str) -> None:
+    raw = ordered_result()
+    raw[part][name].reverse()
+    assert any(name in p for p in order_problems(raw)), name
+
+
+def test_error_entries_follow_pointer_then_code_then_message() -> None:
+    entries = [
+        {"pointer": None, "code": "FM-E027", "message": "m"},
+        {"pointer": "/a/2", "code": "FM-E001", "message": "m"},
+        {"pointer": "/a/10", "code": "FM-E001", "message": "m"},
+        {"pointer": "/a/10", "code": "FM-E004", "message": "a"},
+        {"pointer": "/a/10", "code": "FM-E004", "message": "b"},
+    ]
+    assert error_order_problems({"errors": entries}) == []
+    for i in range(len(entries) - 1):
+        swapped = [*entries]
+        swapped[i], swapped[i + 1] = swapped[i + 1], swapped[i]
+        assert error_order_problems({"errors": swapped}), i

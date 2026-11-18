@@ -13,11 +13,14 @@
 - T4 Python runner: the same rules; case shape accepts the new sections.
 - T5 `jsonschema>=4.23` in the `dev` group; `uv.lock` gains two lines, no package (104).
 - T6 `python/tests/test_golden_conformance.py`: 666 golden results conform, closed mode.
+- T7 order test of every envelope list and error report on every golden result.
 
 ## State at the end of the session
-- Working: T7 (order test) next.
+- Working: T8 (rule in the skill and tests/golden/README.md) next.
 
 ## Decisions taken
+- R9: the input order of `meta.defaults_applied` is checked as the order of their `default:`
+  echo in `explain.conventions` (spec clarified in T7); it holds on all 111 results with defaults.
 - `uv.lock` keeps `revision = 3`: the local uv (0.13.7) wrote 5; `uv lock --check` accepts 3.
 - The refusal of `/errors/N` keys in `expect_error_report` (R5) moves from T3/T4 to T10:
   five golden files hold such keys until the migration (T9).
@@ -28,4 +31,5 @@
 - None.
 
 ## Next steps
-1. T7: order test in `test_golden_conformance.py`; defaults follow their `default:` echo.
+1. T8: rule in `.agents/skills/golden-case/SKILL.md`, new `tests/golden/README.md`, new-case
+   rules in `test_golden_case_shape`, then `uv run just generate`.

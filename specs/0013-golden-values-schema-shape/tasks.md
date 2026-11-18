@@ -25,7 +25,7 @@ approved, by name, the list in `golden-migration.md` (T9).
 - [x] T6 Conformance test against the committed snapshots of the declared versions, success
   and error, closed mode, formats, inner analysis values, declared keys; old test removed from
   `test_output_schemas.py` (`python/tests/test_golden_conformance.py`) [R7, R8; AC6 to AC8]
-- [ ] T7 Order test of every envelope list on every golden result and on synthetic results
+- [x] T7 Order test of every envelope list on every golden result and on synthetic results
   (same module) [R9; AC9]
 
 ## Rule
