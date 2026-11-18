@@ -451,6 +451,7 @@ mcp = [
 [package.dev-dependencies]
 dev = [
     { name = "git-cliff" },
+    { name = "jsonschema" },
     { name = "maturin" },
     { name = "mypy" },
     { name = "pre-commit" },
@@ -485,6 +486,7 @@ provides-extras = ["langchain", "mcp"]
 [package.metadata.requires-dev]
 dev = [
     { name = "git-cliff", specifier = ">=2.6" },
+    { name = "jsonschema", specifier = ">=4.23" },
     { name = "maturin", specifier = ">=1.9,<2" },
     { name = "mypy", specifier = ">=1.10" },
     { name = "pre-commit", specifier = ">=4" },

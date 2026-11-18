@@ -18,7 +18,7 @@ approved, by name, the list in `golden-migration.md` (T9).
   on temporary cases (`crates/fairmark-core/tests/golden.rs`) [R1 to R4; AC1 to AC3]
 - [x] T4 [P] Python runner: the same, and `NEW_CASE_KEYS` (`python/tests/test_golden.py`)
   [R1 to R4; AC1 to AC3]
-- [ ] T5 [P] `jsonschema` declared in the `dev` group; lock unchanged (`pyproject.toml`,
+- [x] T5 [P] `jsonschema` declared in the `dev` group; lock unchanged (`pyproject.toml`,
   `uv.lock`) [R10; AC10]
 
 ## Shape
