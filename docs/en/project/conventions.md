@@ -137,6 +137,45 @@ Signed-off-by: Name Surname <email>
   failure is external, and the merge proceeds. An analysis that is not a required check
   never blocks a merge on its own; CodeQL is not a required check today.
 
+## Code quality
+
+Problems are fixed where they appear, without the maintainer watching for them.
+
+- **Agents**: the Claude Code hook `.claude/hooks/quality-gate.sh` runs when the session and
+  when a subagent stop. It checks the files changed against `HEAD` (staged, unstaged and
+  untracked) with the fast checks: `rustfmt --check` (edition of the workspace) and
+  `cargo clippy -p <crate> --all-targets -- -D warnings` for each touched crate
+  (`fairmark-core`, `fairmark-cli`, `fairmark-py`); `ruff check` and `ruff format --check` for
+  changed Python; `mypy` for changed files inside the scope of `[tool.mypy]` in
+  `pyproject.toml` (the package `python/fairmark`). Findings block the end of the turn, so the
+  agent fixes them first. The same findings never block twice in a row, and a session is
+  blocked at most three times. The checks share a budget of 60 seconds
+  (`FAIRMARK_QUALITY_BUDGET`); a check that does not finish in time, or a missing tool, is
+  reported without blocking. The full gate is still `uv run just check`.
+- **Commits**: pre-commit checks the format of the staged files and the commit message. CI runs
+  the same tools on the whole repository.
+
+## Failures
+
+A failure on `main` is a defect, and defects are never deferred (`AGENTS.md`).
+
+- A failure of a workflow that runs on `main` or on a schedule (*CI*, *Docs*, *Security*,
+  *Roadmap sync*) opens one issue labelled `bug` per workflow, titled
+  `<workflow> passes again on main`, with the jobs that failed and the link to the log
+  (workflow *Failure issues*, `scripts/failure_issue.py`). A second failure updates the same
+  issue; the next successful run closes it. Runs of pull requests, of other branches and of
+  other events are ignored.
+- *Weekly maintenance*, *Mutation testing* and *Test health and pull request queue* report
+  through the same script in their own issue (*Weekly maintenance report* and
+  *Weekly mutation testing report*, labelled `maintenance`; *Test health report*, labelled
+  `test-health`), and their next green scheduled run closes it.
+- The script edits and closes only issues that the automation opened (author
+  `github-actions`); an issue opened by a person is never touched. A test checks that every
+  workflow that runs on `main` or on a schedule reports its failures in exactly one way.
+- A fix references such an issue with `Refs #<issue>`, not `Closes`: the green run closes it.
+- The session briefing (`scripts/project_state.py`) lists open `bug` and `maintenance` issues
+  before anything else.
+
 ## Authorship
 
 Authorship is recorded by git and GitHub (commit author, `Signed-off-by`, `Co-authored-by`,

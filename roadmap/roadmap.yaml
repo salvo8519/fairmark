@@ -116,6 +116,7 @@ milestones:
           - { issue: 339, title: "Workspace report test runs without background git maintenance", status: done }
           - { issue: 345, title: "Every process script tested; a script without a test fails the suite", status: done }
           - { issue: 397, title: "Roadmap sync reports only real differences", status: done }
+          - { issue: 399, title: "Quality problems surface and are fixed without the maintainer watching", status: done }
       - title: "Community infrastructure"
         issue: 15
         labels: ["area:infra"]

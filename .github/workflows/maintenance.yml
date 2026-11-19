@@ -1,8 +1,10 @@
 name: Weekly maintenance
 
 # Early warning, never blocking: tests against the newest compatible dependencies, security
-# advisories, broken links and the required checks of the ruleset. A failure opens (or updates)
-# one issue labelled `maintenance`. Mutation testing has its own workflow (mutants.yml).
+# advisories, broken links, the required checks of the ruleset and the protection of the App
+# environment. A failure opens (or updates) one issue labelled `maintenance`; the next green
+# scheduled run closes it (scripts/failure_issue.py). Mutation testing has its own workflow and
+# its own issue (mutants.yml).
 # Policy: docs/en/project/dependencies.md.
 on:
   schedule:
@@ -111,23 +113,39 @@ jobs:
           exit "$fail"
 
   report:
-    name: Open or update the maintenance issue
+    name: Open, update or close the maintenance issue
     needs: [latest-deps, audit, links, required-checks, environments]
-    if: failure() && github.event_name == 'schedule'
+    if: always() && github.event_name == 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
+      contents: read
       issues: write
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      # The standard library only: no dependency is installed in a job that holds a write token.
       - env:
           GH_TOKEN: ${{ github.token }}
-          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RESULTS: >-
             latest-deps=${{ needs.latest-deps.result }}, audit=${{ needs.audit.result }},
             links=${{ needs.links.result }},
             required-checks=${{ needs.required-checks.result }},
             environments=${{ needs.environments.result }}
         run: |
-          body="Weekly maintenance found problems: ${RESULTS}. Run: ${RUN}. Triage with the dependency policy (docs/en/project/dependencies.md)."
-          n=$(gh issue list -R "$GITHUB_REPOSITORY" --label maintenance --state open --json number -q '.[0].number')
-          if [ -n "$n" ]; then gh issue comment "$n" -R "$GITHUB_REPOSITORY" --body "$body"
-          else gh issue create -R "$GITHUB_REPOSITORY" --title "Weekly maintenance report" --label maintenance --body "$body"; fi
+          case "$RESULTS" in
+            *=failure*) conclusion=failure ;;
+            *=cancelled*) conclusion=cancelled ;;
+            *) conclusion=success ;;
+          esac
+          # Only the jobs that did not succeed go into the issue.
+          jobs=$(printf '%s' "$RESULTS" | tr ',' '\n' | sed 's/^ *//' \
+            | grep -v -E '^$|=(success|skipped)$' | paste -sd, -) || jobs=""
+          echo "Triage with the dependency policy (docs/en/project/dependencies.md)." > details.md
+          # The title is the one of the issue already open, so that issue is updated and closed.
+          python3 scripts/failure_issue.py report --repo "$GITHUB_REPOSITORY" \
+            --workflow "Weekly maintenance" --run-id "$GITHUB_RUN_ID" --run-url "$RUN_URL" \
+            --conclusion "$conclusion" --event schedule --branch main --label maintenance \
+            --title "Weekly maintenance report" --jobs "$jobs" --details details.md

@@ -193,7 +193,7 @@ state; the committed record stays the journal entry and the pull request of the 
 
 Two scheduled reports keep the loop from stalling (`.github/workflows/test-health.yml`,
 weekdays). Both warn and never block a merge; a problem opens or updates one issue labelled
-`test-health`.
+`test-health`, and the next green scheduled run closes it (`scripts/failure_issue.py`).
 
 **Intermittent tests.** Every Python job of CI writes a JUnit file and uploads it as an
 artifact (`junit-<os>-<python>`, kept 30 days). `scripts/test_failures.py collect` reads the

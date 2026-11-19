@@ -66,6 +66,14 @@ uv run zensical serve                    # live preview at http://localhost:8000
 Before opening a PR: `cargo fmt --all`, `cargo clippy --workspace -- -D warnings`,
 `uv run ruff check python && uv run ruff format python`, `uv run mypy`.
 
+If you work with Claude Code, the project settings (`.claude/settings.json`) run the fast
+checks on the files you changed (rustfmt, clippy on the touched crates, ruff, mypy) when the
+agent or a subagent stops, and send the findings back to the agent; a missing tool is reported
+and never blocks. A failure on `main` or of a scheduled workflow opens an issue labelled `bug`
+or `maintenance` that closes itself when the workflow is green again: reference it with
+`Refs #<issue>` in the fix. See
+[Code quality and Failures](docs/en/project/conventions.md#code-quality).
+
 ## Branches, commits and pull requests
 
 Names follow [the conventions](docs/en/project/conventions.md) and are checked automatically:
