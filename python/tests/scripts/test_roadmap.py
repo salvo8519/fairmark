@@ -166,3 +166,58 @@ def test_issue_closed_by_an_open_pull_request_is_pending() -> None:
 def test_closed_by_reads_the_closing_keywords() -> None:
     body = "Closes #12\nfixes #7\n  Resolves #3\nSee #99\nRelated: closes #5 later"
     assert roadmap.closed_by(body) == {12, 7, 3}
+
+
+def _unplanned(created_at: str) -> tuple[list[tuple[int, str]], dict[int, dict[str, Any]]]:
+    main = data()
+    issues = github_view(main)
+    issues[99997] = {
+        "number": 99997,
+        "title": "Just created",
+        "state": "open",
+        "milestone": {"title": main["milestones"][0]["title"]},
+        "created_at": created_at,
+    }
+    drift, _ = roadmap.differences(copy.deepcopy(main), issues)
+    return drift, issues
+
+
+def test_issue_created_moments_ago_is_within_the_grace_period() -> None:
+    now = roadmap.parse_time("2026-11-19T22:00:00Z")
+    drift, issues = _unplanned("2026-11-19T21:55:00Z")
+    assert [n for n, _ in drift] == [99997]
+    assert roadmap.recently_created(drift, issues, now) == {99997}
+
+
+def test_issue_created_hours_ago_is_a_difference() -> None:
+    now = roadmap.parse_time("2026-11-19T22:00:00Z")
+    drift, issues = _unplanned("2026-11-19T20:00:00Z")
+    assert roadmap.recently_created(drift, issues, now) == set()
+
+
+def test_an_issue_without_a_creation_time_is_never_in_the_grace_period() -> None:
+    now = roadmap.parse_time("2026-11-19T22:00:00Z")
+    drift, issues = _unplanned("2026-11-19T21:55:00Z")
+    del issues[99997]["created_at"]
+    assert roadmap.recently_created(drift, issues, now) == set()
+
+
+def _open_issue(n: int, login: str, labels: list[str]) -> dict[str, Any]:
+    return {
+        "number": n,
+        "title": f"Issue {n}",
+        "state": "open",
+        "milestone": None,
+        "user": {"login": login},
+        "labels": [{"name": label} for label in labels],
+    }
+
+
+def test_reports_of_the_automation_are_not_untriaged() -> None:
+    d = data()
+    issues = github_view(d)
+    issues[99990] = _open_issue(99990, "github-actions[bot]", ["bug"])
+    issues[99991] = _open_issue(99991, "github-actions[bot]", ["maintenance"])
+    issues[99992] = _open_issue(99992, "someone", ["bug"])
+    _, untriaged = roadmap.differences(copy.deepcopy(d), issues)
+    assert [u.split()[0] for u in untriaged] == ["#99992"]

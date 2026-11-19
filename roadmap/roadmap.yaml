@@ -76,7 +76,7 @@ milestones:
           - { issue: 183, title: "Required status checks recorded and kept in step with the ruleset", status: done }
           - { issue: 173, title: "Agents stop when an approved change reaches golden cases outside its scope", status: done }
           - { issue: 193, title: "Ruff rule PLW1514: explicit encoding on every file open", status: done }
-          - { issue: 208, title: "ADR on the sources policy (constitution VII)", status: open }
+          - { issue: 208, title: "ADR on the sources policy (constitution VII)", status: done }
           - { issue: 211, title: "Unique task ids in tasks.md files, checked in CI", status: done }
           - { issue: 249, title: "Computability table in specs and partial-input audits", status: done }
           - { issue: 297, title: "Smaller debug builds and a read-only workspace report", status: done }
@@ -115,6 +115,7 @@ milestones:
           - { issue: 239, title: "Pin release build and smoke images by digest", status: done }
           - { issue: 339, title: "Workspace report test runs without background git maintenance", status: done }
           - { issue: 345, title: "Every process script tested; a script without a test fails the suite", status: done }
+          - { issue: 397, title: "Roadmap sync reports only real differences", status: done }
       - title: "Community infrastructure"
         issue: 15
         labels: ["area:infra"]
