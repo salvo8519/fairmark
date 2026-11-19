@@ -12,7 +12,8 @@ name: Test health and pull request queue
 #   the checks for a push made with an App token, never for one made with this workflow's own
 #   token. The App key is a secret of the environment `fairmark-app`, usable only from `main`
 #   (#372); without the App the job is skipped and branches are updated by hand.
-# A problem opens (or updates) one issue labelled `test-health`.
+# A problem in a scheduled run opens (or updates) one issue labelled `test-health`, and the next
+# green scheduled run closes it (scripts/failure_issue.py).
 on:
   schedule:
     - cron: "41 6 * * 1-5"   # weekdays 06:41 UTC
@@ -101,21 +102,35 @@ jobs:
           python3 scripts/pr_queue.py update --repo "$GITHUB_REPOSITORY" --apply | tee -a "$GITHUB_STEP_SUMMARY"
 
   report:
-    name: Open or update the test health issue
+    name: Open, update or close the test health issue
     needs: [tests, queue, update]
-    if: failure() && github.event_name == 'schedule'
+    if: always() && github.event_name == 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
+      contents: read
       issues: write
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      # The standard library only: no dependency is installed in a job that holds a write token.
       - env:
           GH_TOKEN: ${{ github.token }}
-          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RESULTS: tests=${{ needs.tests.result }}, queue=${{ needs.queue.result }}, update=${{ needs.update.result }}
         run: |
-          body="Test health found problems: ${RESULTS}. Details in the run summary: ${RUN}. Policy: sprints/README.md (Test health and the pull request queue)."
+          case "$RESULTS" in
+            *=failure*) conclusion=failure ;;
+            *=cancelled*) conclusion=cancelled ;;
+            *) conclusion=success ;;
+          esac
+          jobs=$(printf '%s' "$RESULTS" | tr ',' '\n' | sed 's/^ *//' \
+            | grep -v -E '^$|=(success|skipped)$' | paste -sd, -) || jobs=""
+          echo "Details in the run summary. Policy: sprints/README.md (Test health and the pull request queue)." > details.md
           gh label create test-health -R "$GITHUB_REPOSITORY" --color C5DEF5 \
             --description "Intermittent tests and blocked pull requests (test-health.yml)" --force
-          n=$(gh issue list -R "$GITHUB_REPOSITORY" --label test-health --state open --json number -q '.[0].number')
-          if [ -n "$n" ]; then gh issue comment "$n" -R "$GITHUB_REPOSITORY" --body "$body"
-          else gh issue create -R "$GITHUB_REPOSITORY" --title "Test health report" --label test-health --body "$body"; fi
+          python3 scripts/failure_issue.py report --repo "$GITHUB_REPOSITORY" \
+            --workflow "Test health and pull request queue" --run-id "$GITHUB_RUN_ID" \
+            --run-url "$RUN_URL" --conclusion "$conclusion" --event schedule --branch main \
+            --label test-health --title "Test health report" --jobs "$jobs" --details details.md

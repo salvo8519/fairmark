@@ -37,7 +37,7 @@ holds all financial logic. Adapters translate and never compute, so they are not
 | Locally, the whole core | `uv run just mutants` | All of `fairmark-core` (about 3,000 mutants; more than a day on 2 cores) | No |
 | Locally, before a pull request | `uv run just mutants-diff` | Lines of `crates/fairmark-core/src` changed since the merge base with `origin/main` | Exit 1 on a missed mutant not recorded as equivalent |
 | Every pull request | CI job *Mutation testing · changed lines of the core* | Changed lines of `crates/fairmark-core/src` (`--in-diff`), in as many shards as the time budget needs; finishes in seconds when the core is not touched | Reported: the job fails on a missed mutant not recorded as equivalent and on incomplete coverage, but it is not yet a required check. It becomes one once the triage debt is closed (the maintainer changes the ruleset) |
-| Weekly (Sunday) and on demand | Workflow *Mutation testing* (`.github/workflows/mutants.yml`) | One slice of the core per week; the whole core once per cycle of 15 weeks | Report only for missed mutants; a scheduled run that fails (incomplete coverage, failing plan or baseline, tool failure) opens or updates the issue labelled `maintenance`. The v1.0 release gate on missed mutants is issue #283 |
+| Weekly (Sunday) and on demand | Workflow *Mutation testing* (`.github/workflows/mutants.yml`) | One slice of the core per week; the whole core once per cycle of 15 weeks | Report only for missed mutants; a scheduled run that fails (incomplete coverage, failing plan or baseline, tool failure) opens or updates its own issue labelled `maintenance` (*Weekly mutation testing report*), which the next green scheduled run closes. The v1.0 release gate on missed mutants is issue #283 |
 
 Local runs write to `target/mutants/`, `target/mutants-slice/` and `target/mutants-diff/`. Both
 CI paths use one reusable workflow, `.github/workflows/mutants-run.yml`: a plan job, the shards,
@@ -223,5 +223,5 @@ test output.
 The workflows run with `contents: read`, use no secrets, do not persist credentials and pin
 every action to a commit. The summary job also has `actions: read`, to read the jobs and logs
 of its own run. The only write permission is `issues: write`, on the job of the weekly workflow
-that opens or updates the `maintenance` issue after a failed scheduled run. The pull-request job runs the tests of the pull request, as the
+that opens, updates or closes its `maintenance` issue after a scheduled run. The pull-request job runs the tests of the pull request, as the
 *Rust* job already does, with no more privileges than it.

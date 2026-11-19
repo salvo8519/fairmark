@@ -1,0 +1,52 @@
+name: Failure issues
+
+# A failure on main of a workflow that runs on push to main or on a schedule opens or updates one
+# issue labelled `bug` per workflow, with the jobs that failed and the link to the log; the next
+# successful run of the same workflow closes it (scripts/failure_issue.py). Runs of pull
+# requests, of other branches and of other events are ignored. Weekly maintenance, Mutation
+# testing and Test health report through the same script in their own issue, so they are not
+# listed here (python/tests/scripts/test_failure_issue.py checks both lists).
+on:  # zizmor: ignore[dangerous-triggers] runs main's own code; nothing of the triggering run is checked out or executed
+  workflow_run:
+    workflows: [CI, Docs, Security, Roadmap sync]
+    types: [completed]
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  # One report at a time per workflow: two runs never open two issues for the same workflow.
+  group: failure-issue-${{ github.event.workflow_run.workflow_id }}
+  cancel-in-progress: false
+
+jobs:
+  report:
+    name: Open, update or close the failure issue
+    # Only runs of this repository (never of a fork) on a push or a schedule; the script checks
+    # the branch and the event again.
+    if: >-
+      github.event.workflow_run.head_repository.full_name == github.repository
+      && (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'schedule')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read  # the jobs of the completed run
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      # The standard library only: no dependency is installed in a job that holds a write token.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          EVENT: ${{ github.event.workflow_run.event }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          python3 scripts/failure_issue.py report --repo "$GITHUB_REPOSITORY" \
+            --workflow "$WORKFLOW" --run-id "$RUN_ID" --run-url "$RUN_URL" \
+            --conclusion "$CONCLUSION" --event "$EVENT" --branch "$BRANCH" --label bug
