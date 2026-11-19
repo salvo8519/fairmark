@@ -65,7 +65,7 @@ These cannot be set from the code and are listed here so that they are not forgo
 | General, Features | Discussions: on, with the categories Q&A, Ideas, Methodology and Announcements (Announcements: maintainers only). `GOVERNANCE.md`, `CONTRIBUTING.md` and the telemetry proposal send readers there |
 | Labels | Only the labels declared in `roadmap/roadmap.yaml`; delete any other (see Labels below) |
 | Actions, General | Workflow permissions: read repository contents; allow Actions to create pull requests only if needed |
-| Environments | `anthropic` for the AI workflows (below); `fairmark-app`, `pypi` and `crates-io` as described in [Releases](releases.md) |
+| Environments | `fairmark-app`, `pypi` and `crates-io` as described in [Releases](releases.md) |
 
 ### Labels
 
@@ -76,65 +76,13 @@ that names one would silently do nothing, so a test (`python/tests/scripts/test_
 fails when a label named in `.github/` is not declared. A label on GitHub that is not declared
 is deleted by the maintainer.
 
-### AI workflows: one approval per run
+### Agents and settings
 
-The AI review (`claude-review.yml`), the documentation sync (`claude-docs.yml`) and the
-`@claude` mentions (`claude.yml`) use the key `ANTHROPIC_API_KEY`. It is a secret of the
-environment `anthropic`, never a repository secret: GitHub gives repository secrets to every
-pull request workflow of a branch of this repository, and a branch can add or edit a
-workflow. In the environment, the key reaches a run only after a required reviewer approves
-it. That holds under two conditions: the repository secret has been deleted (step 3), and no
-agent holds a token that can approve a run or change the environment (step 4).
-
-Required reviewers on environments are available on public repositories; a private
-repository needs a paid plan.
-
-Setup, once. Until it is complete the protection is not active: a run that names an
-environment that does not exist creates it without any rule, and a job reads the repository
-secret when the environment has none.
-
-1. Repository settings, Environments, `anthropic` (New environment, or open it if a run has
-   already created it):
-   - Required reviewers: the maintainer;
-   - "Prevent self-review": off, because the maintainer opens most pull requests and must be
-     able to approve their runs;
-   - "Allow administrators to bypass configured protection rules": off;
-   - Deployment branches and tags: No restriction. The branch name is chosen by whoever
-     pushes, so a branch rule cannot tell a trusted run from another; the approval is the
-     protection.
-2. In the environment, Environment secrets: `ANTHROPIC_API_KEY`. Use a key of a separate
-   workspace of the Anthropic Console with a monthly spending limit.
-3. Delete the repository secret `ANTHROPIC_API_KEY` (Secrets and variables, Actions). Check
-   that no repository secret is left.
-4. Agent sessions on your computer use a GitHub token that cannot approve runs or change
-   settings: a fine-grained token limited to this repository, with Contents, Pull requests,
-   Issues and Actions (read) and without Administration, Environments, Deployments, Secrets or
-   Variables. The owner's own login can do all of that. A Claude Code hook
-   (`.claude/hooks/protect_settings.py`) also blocks those commands, but it guards against a
-   misled agent, not against a token that allows them.
-5. The ruleset "Protect main" does not use "Require deployments to succeed" for `anthropic`.
-
-The weekly maintenance workflow checks the rules of `anthropic` (a required reviewer,
-self-review allowed, no administrator bypass) and of `fairmark-app`. Repository secrets cannot
-be listed with its token: check step 3 by hand after any change.
-
-What an approval gives. The run executes the workflow and the code as the branch wrote them,
-with the key and the job's permissions (`contents: write`, `pull-requests: write`,
-`id-token: write`). Before approving:
-
-- every run: the pull request does not change `.github/workflows/` or `.github/actions/`;
-- the documentation sync: every file of the branch is trusted, because the job installs and
-  builds the project (`pyproject.toml`, `uv.lock`, `Cargo.toml`, `Cargo.lock`, `build.rs`,
-  `justfile`, `scripts/`, the docs configuration) before the agent runs. It builds the commit
-  that was approved, not later pushes;
-- an `@claude` mention on a pull request: the agent reads the branch, so its content is input
-  to an agent that holds the key and can push.
-
-A waiting run shows as a pending check on the pull request; "Review deployments" is on the run
-page. A run that is not approved blocks no merge (none of these jobs is a required check),
-fails after 30 days, and shows as failed if it is rejected. A new push cancels a waiting review
-run, so only the latest commit asks for approval. Pull requests from forks are not reviewed:
-they never receive the key.
+Agent sessions on your computer use a GitHub token that cannot change settings: a fine-grained
+token limited to this repository, with Contents, Pull requests, Issues and Actions (read) and
+without Administration, Environments, Deployments, Secrets or Variables. The owner's own login
+can do all of that. A Claude Code hook (`.claude/hooks/protect_settings.py`) also blocks those
+commands, but it guards against a misled agent, not against a token that allows them.
 
 ### Required status checks
 

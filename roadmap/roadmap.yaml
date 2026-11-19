@@ -95,6 +95,7 @@ milestones:
           - { issue: 372, title: "Secrets in protected environments and branch updates through the GitHub App", status: done }
           - { issue: 376, title: "AI workflow key behind an environment with approval per run", status: done }
           - { issue: 391, title: "Freeze the agentic development process after sprint S01", status: done }
+          - { issue: 395, title: "Remove the Claude workflows that never ran in GitHub Actions", status: done }
       - title: "CI/CD"
         issue: 10
         labels: ["area:infra"]

@@ -6,7 +6,7 @@ content written by others; a job of such a workflow must never name the environm
 
 Every stored credential is read only by jobs of the environment that holds it, so a branch that
 adds or edits a workflow cannot read it without the environment's rules: `main` only for the
-App key, an approval per run for the AI key (#376), a protected tag for the crates.io token.
+App key, a protected tag for the crates.io token.
 No credential is a repository secret.
 
 These tests are a regression guard against honest mistakes: they run on the branch they check,
@@ -61,7 +61,6 @@ def test_only_scheduled_or_manual_workflows_on_main_use_the_app_environment() ->
 
 SECRET_ENVIRONMENTS = {
     "FAIRMARK_APP_PRIVATE_KEY": APP_ENVIRONMENT,
-    "ANTHROPIC_API_KEY": "anthropic",
     "CARGO_REGISTRY_TOKEN": "crates-io",
 }
 REPOSITORY_SECRETS: dict[str, str] = {}  # secret name -> the only workflow allowed to read it
@@ -99,7 +98,7 @@ def test_every_secret_is_read_only_inside_its_environment() -> None:
                     continue
                 assert name in SECRET_ENVIRONMENTS, f"{where} reads {name}, not in any environment"
                 assert environment_name(job) == SECRET_ENVIRONMENTS[name], f"{where} reads {name}"
-    assert {"FAIRMARK_APP_PRIVATE_KEY", "ANTHROPIC_API_KEY"} <= seen
+    assert "FAIRMARK_APP_PRIVATE_KEY" in seen
 
 
 def test_no_workflow_reads_secrets_in_a_form_the_test_cannot_follow() -> None:
@@ -110,13 +109,7 @@ def test_no_workflow_reads_secrets_in_a_form_the_test_cannot_follow() -> None:
 
 
 def test_the_guard_sees_every_evasion() -> None:
-    assert secrets_read({"run": "echo ${{ secrets.anthropic_api_key }}"}) == {"ANTHROPIC_API_KEY"}
+    assert secrets_read({"run": "echo ${{ secrets.some_api_key }}"}) == {"SOME_API_KEY"}
     assert secrets_read({"run": "echo ${{ secrets . X }}"}) == {"X"}
     for text in ("${{ secrets['A'] }}", "${{ toJSON(secrets) }}", "secrets: inherit"):
         assert any(p.search(text) for p, _ in FORBIDDEN), text
-
-
-def test_the_ai_environment_is_used_by_every_ai_workflow() -> None:
-    for name in ("claude.yml", "claude-review.yml", "claude-docs.yml"):
-        data = yaml.safe_load((WORKFLOWS / name).read_text(encoding="utf-8"))
-        assert {environment_name(j) for j in data["jobs"].values()} == {"anthropic"}, name

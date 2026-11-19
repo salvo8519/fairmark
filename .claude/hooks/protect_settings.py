@@ -1,8 +1,8 @@
 """PreToolUse hook on Bash: agents never approve runs or change secrets and environments (#376).
 
-The environment `anthropic` gives the AI key to a run only after the maintainer approves it.
-An agent session often uses the maintainer's GitHub login, and that login can approve a
-waiting run through the API, or change the environment's rules. This hook blocks every
+Environments keep credentials away from branches (`fairmark-app`, `crates-io`, `pypi`). An
+agent session often uses the maintainer's GitHub login, and that login can approve a waiting
+deployment through the API, or change an environment's rules. This hook blocks every
 command that would do so: the approval and the settings stay a human act in the GitHub web
 interface.
 

@@ -1,19 +1,19 @@
 ---
 name: run-sprint
-description: Orchestrate an approved sprint — delegate every issue to the specialised agents lane by lane (locally) or dispatch issues to Claude in GitHub Actions (remotely), ending each issue as a pull request. Use when the maintainer asks to run or continue a sprint.
+description: Orchestrate an approved sprint — delegate every issue to the specialised agents lane by lane, ending each issue as a pull request. Use when the maintainer asks to run or continue a sprint.
 ---
 
 <!-- Generated from .agents/skills/run-sprint/SKILL.md by scripts/sync_agents.py. Edit the source, not this file. -->
 
 The main session is the orchestrator: subagents cannot start other subagents, so you
-delegate and keep the overview. Ask the maintainer which mode to use if not stated.
+delegate and keep the overview.
 
 ## Preconditions
 - `sprints/SNN.yaml` exists with `status: active` and passes
   `uv run python scripts/sprint.py validate`.
 - `main` is green.
 
-## Local mode (subagents, parallel lanes)
+## Lanes (subagents, parallel)
 For each lane, in parallel where the agents tool supports isolated worktrees, otherwise one
 lane after the other. For each issue of the lane, in order:
 1. Read the issue (`gh issue view N`) and its spec. Create branch `sprint/SNN/N-<slug>`.
@@ -46,13 +46,6 @@ worktree (one worktree per session, AGENTS.md):
 - a lane other than the generate lane never runs `uv run just generate`;
 - when a lane needs generated artifacts, it becomes the generate lane of the sprint, the
   only one (sprints/README.md).
-
-## Remote mode (Claude in GitHub Actions)
-For each issue: `gh issue comment N --body "@claude Implement this issue following
-.agents/skills/implement-spec/SKILL.md and AGENTS.md. Work test-first, run uv run just check,
-and open a pull request that closes this issue."` Issues of different lanes run in parallel
-on separate runners. Then track the resulting PRs with `scripts/sprint.py status`, and report the burn-down with
-`scripts/sprint.py burndown` at the end of each run.
 
 ## End of run
 Propose the merge order to the maintainer (sprints/README.md, Generated artifacts and the merge

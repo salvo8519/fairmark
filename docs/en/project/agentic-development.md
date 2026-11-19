@@ -158,9 +158,10 @@ Every finding of a review is fixed in the same pull request. A defect is never d
 
 Agents work on branches. The credentials of the development process are kept out of reach of a
 branch: each lives in an environment whose rules a branch cannot change. A test guards
-against a job that reads a credential outside its environment; it runs on the branch it checks, so it catches mistakes, not attacks. The
-environments' settings are checked weekly by the maintenance workflow, and a Claude Code hook
-stops agents from approving runs or changing secrets, variables, environments and rulesets.
+against a job that reads a credential outside its environment; it runs on the branch it
+checks, so it catches mistakes, not attacks. The settings of the App environment are checked
+weekly by the maintenance workflow, and a Claude Code hook stops agents from approving runs or
+changing secrets, variables, environments and rulesets.
 
 - Fairmark itself uses no credential and sends no data anywhere (constitution, principle V).
 - The automation that must start checks (the release pull request, the update of pull
@@ -172,10 +173,6 @@ stops agents from approving runs or changing secrets, variables, environments an
 - Publishing uses trusted publishing (OIDC) from a protected tag. The only stored token is the
   crates.io token of the very first release, a secret of the `crates-io` environment; the
   maintainer deletes it after that release, and the job refuses it once the crates exist.
-- The key of the AI workflows (`ANTHROPIC_API_KEY`) is a secret of the environment
-  `anthropic`: every run of the AI review, the documentation sync or an `@claude` mention
-  waits for the maintainer's approval
-  ([Maintainer guide](maintainers.md#ai-workflows-one-approval-per-run)).
 - `.env` files and `.pem` keys are ignored by git; secret scanning with push protection
   rejects a credential pushed by mistake.
 
