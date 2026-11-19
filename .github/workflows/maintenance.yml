@@ -90,23 +90,20 @@ jobs:
         run: uv run --no-project --with pyyaml python scripts/required_checks.py remote --repo "$GITHUB_REPOSITORY"
 
   environments:
-    name: Environments keep the documented protection
+    name: The App environment keeps its protection
     runs-on: ubuntu-latest
     permissions:
       actions: read
     steps:
-      # The settings that keep credentials away from branches (#372, #376): the AI key behind
-      # an approval per run, the App key usable from main only. Repository secrets cannot be
-      # listed with this token; the maintainer checks them (docs/en/project/maintainers.md).
+      # The setting that keeps the App key away from branches (#372): the environment
+      # fairmark-app is usable from main only. Repository secrets cannot be listed with this
+      # token; the maintainer checks them (docs/en/project/maintainers.md).
       - env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           api() { gh api -H "Accept: application/vnd.github+json" "repos/$GITHUB_REPOSITORY/$1"; }
           fail=0
-          ai=$(api environments/anthropic)
-          echo "$ai" | jq -e '.can_admins_bypass == false' >/dev/null || { echo "::error::anthropic: administrators can bypass"; fail=1; }
-          echo "$ai" | jq -e '[.protection_rules[] | select(.type == "required_reviewers" and .prevent_self_review == false and (.reviewers | length) > 0)] | length == 1' >/dev/null || { echo "::error::anthropic: no required reviewer, or self-review prevented"; fail=1; }
           app=$(api environments/fairmark-app)
           echo "$app" | jq -e '.can_admins_bypass == false and .deployment_branch_policy.custom_branch_policies == true' >/dev/null || { echo "::error::fairmark-app: not limited to selected branches, or administrators can bypass"; fail=1; }
           branches=$(api environments/fairmark-app/deployment-branch-policies | jq -c '[.branch_policies[] | {name, type}]')

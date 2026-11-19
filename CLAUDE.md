@@ -48,8 +48,8 @@ language they prefer: read `CLAUDE.local.md` if it exists. Prepare commits with 
 
 ### Sprints and orchestration
 Subagents cannot start other subagents: the main session is the orchestrator. `/run-sprint`
-delegates each issue of `sprints/SNN.yaml` to the agents above (locally, lane by lane) or to
-Claude in GitHub Actions (remotely, via `@claude` on the issue). Every issue ends as a PR;
+delegates each issue of `sprints/SNN.yaml` to the agents above, lane by lane. Every issue
+ends as a PR;
 nothing is merged without the maintainer.
 
 ### Documentation

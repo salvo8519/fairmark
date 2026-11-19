@@ -232,8 +232,8 @@ logged, the others go on, and the command exits with 1.
 1. **Plan** — `/plan-sprint`: the `sprint-planner` agent proposes `sprints/SNN.yaml` from the
    open issues of the current milestone. The maintainer edits and approves it.
 2. **Run** — `/run-sprint SNN`: the main Claude Code session acts as orchestrator and
-   delegates each issue to the specialised agents, lane by lane, or dispatches issues to
-   Claude in GitHub Actions. Every issue ends as a pull request; nothing is merged without
+   delegates each issue to the specialised agents, lane by lane. Every issue ends as a pull
+   request; nothing is merged without
    the maintainer.
 3. **Track** — `uv run python scripts/sprint.py status sprints/SNN.yaml` shows progress from
    GitHub; `scripts/sprint.py burndown sprints/SNN.yaml` the burn-down and loop metrics.

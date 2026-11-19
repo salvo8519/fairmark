@@ -4,7 +4,7 @@ description: Come Fairmark viene costruito da agenti AI e da un maintainer — r
   memoria, corsie degli sprint e i controlli deterministici che fanno rispettare ogni
   regola.
 source: project/agentic-development.md
-source_hash: 3cadb87b42e4
+source_hash: 3f45fd1695a1
 ---
 # Sviluppo agentico
 
@@ -168,10 +168,11 @@ mai.
 
 Gli agenti lavorano sui branch. Le credenziali del processo di sviluppo sono tenute fuori dalla
 portata di un branch: ognuna sta in un environment le cui regole un branch non può cambiare.
-Un test protegge da un job che legge una credenziale fuori dal suo environment; gira sul branch che controlla, quindi intercetta errori, non attacchi. Le
-impostazioni degli environment sono verificate ogni settimana dal workflow di manutenzione, e un
-hook di Claude Code impedisce agli agenti di approvare esecuzioni o di modificare secret,
-variabili, environment e ruleset.
+Un test protegge da un job che legge una credenziale fuori dal suo environment; gira sul branch
+che controlla, quindi intercetta errori, non attacchi. Le impostazioni dell'environment della
+App sono verificate ogni settimana dal workflow di manutenzione, e un hook di Claude Code
+impedisce agli agenti di approvare esecuzioni o di modificare secret, variabili, environment e
+ruleset.
 
 - Fairmark non usa credenziali e non invia dati da nessuna parte (costituzione, principio V).
 - L'automazione che deve avviare i controlli (la pull request di rilascio, l'aggiornamento
@@ -183,11 +184,6 @@ variabili, environment e ruleset.
 - La pubblicazione usa il trusted publishing (OIDC) da un tag protetto. L'unico token salvato è
   quello di crates.io per il primissimo rilascio, un secret dell'environment `crates-io`; il
   maintainer lo cancella dopo quel rilascio, e il job lo rifiuta appena i crate esistono.
-- La chiave dei workflow AI (`ANTHROPIC_API_KEY`) è un secret dell'environment `anthropic`:
-  ogni esecuzione della revisione AI, della sincronizzazione della documentazione o di una
-  menzione `@claude` attende l'approvazione del maintainer
-  ([guida del maintainer](https://salvo8519.github.io/fairmark/project/maintainers/#ai-workflows-one-approval-per-run),
-  in inglese).
 - I file `.env` e le chiavi `.pem` sono ignorati da git; la scansione dei secret con protezione
   dei push rifiuta una credenziale inviata per errore.
 
