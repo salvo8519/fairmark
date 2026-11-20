@@ -42,7 +42,8 @@ Without an agent, the same state is available with
 
 - Merge the grouped Dependabot pull requests that are green; read the changelog of any major
   version ([dependency policy](dependencies.md)).
-- Read the issue labelled `maintenance` if the weekly run opened one.
+- Read the open issues labelled `bug` or `maintenance`: a failure on `main` or of a scheduled
+  workflow opened them, and a green run closes them (conventions, Failures).
 - Look at the Security tab: CodeQL alerts, Dependabot alerts, Scorecard.
 - Triage new issues: type, area, milestone, `good first issue` where it fits.
 

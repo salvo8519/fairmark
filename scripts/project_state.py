@@ -2,7 +2,9 @@
 
 Reads git and GitHub (REST, through the GitHub CLI) and prints a Markdown briefing:
 current branch and its issue, uncommitted work, recent session journal, open pull requests
-with CI and review state, the active sprint, issues in progress and issues ready to start.
+with CI and review state, the active sprint, issues in progress and issues ready to start. Open
+issues labelled `bug` or `maintenance` (failures on main, scheduled reports) come first: they are
+fixed before new work starts.
 
     uv run python scripts/project_state.py            # briefing in Markdown
     uv run python scripts/project_state.py --json     # the same data, for agents
@@ -65,6 +67,35 @@ def gh(path: str) -> Any:
     return json.loads(text) if text else None
 
 
+def gh_pages(path: str, fetch: Any = None, per_page: int = 100) -> list[Any]:
+    """Every item of a paginated list endpoint, not only the first page."""
+    fetch = fetch or gh
+    sep = "&" if "?" in path else "?"
+    items: list[Any] = []
+    page = 1
+    while True:
+        batch = fetch(f"{path}{sep}per_page={per_page}&page={page}") or []
+        items.extend(batch)
+        if len(batch) < per_page:
+            return items
+        page += 1
+
+
+ATTENTION = ("bug", "maintenance")
+
+
+def attention_issues(issues: list[dict[str, Any]]) -> list[str]:
+    """Open bug issues, then maintenance issues, each by number: they go before new work."""
+    lines: list[str] = []
+    seen: set[int] = set()
+    for label in ATTENTION:
+        for i in sorted(issues, key=lambda i: int(i["number"])):
+            if i["number"] not in seen and label in {lbl["name"] for lbl in i["labels"]}:
+                seen.add(i["number"])
+                lines.append(f"#{i['number']} {i['title']} ({label})")
+    return lines
+
+
 def repo() -> str:
     url = sh("git", "remote", "get-url", "origin")
     return re.sub(r"(\.git)?$", "", re.split(r"github\.com[:/]", url)[-1])
@@ -114,15 +145,13 @@ def collect() -> dict[str, Any]:
         }
         for p in prs
     ]
-    issues = [
-        i
-        for i in (gh(f"repos/{r}/issues?state=open&per_page=100") or [])
-        if "pull_request" not in i
-    ]
+    # More than 100 issues are open: every page is read, or the briefing misses some.
+    issues = [i for i in gh_pages(f"repos/{r}/issues?state=open") if "pull_request" not in i]
 
     def labels(i: dict[str, Any]) -> set[str]:
         return {lbl["name"] for lbl in i["labels"]}
 
+    state["attention"] = attention_issues(issues)
     state["in_progress"] = [
         f"#{i['number']} {i['title']}" for i in issues if "in-progress" in labels(i)
     ]
@@ -173,6 +202,9 @@ def render(s: dict[str, Any]) -> str:
         + (f", issue #{s['branch_issue']}" if s["branch_issue"] else "")
         + f"; {s['ahead_of_main']} commit(s) ahead of main, {s['behind_main']} behind; "
         f"{len(s['uncommitted_files'])} uncommitted file(s).",
+        "",
+        "## Bugs and maintenance first",
+        *([f"- {x}" for x in s.get("attention") or []] or ["- none"]),
         "",
         "## Recent commits",
         *[f"- {c}" for c in s["recent_commits"]],
