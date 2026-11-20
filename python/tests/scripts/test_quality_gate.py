@@ -256,7 +256,18 @@ def test_a_staged_rename_and_a_non_ascii_name_are_checked(project: Path) -> None
     (project / "scripts" / "résumé.py").write_text("import sys\n", encoding="utf-8")
     result = run(project)
     assert result.returncode == 2
-    assert "scripts/renamed.py" in result.stderr
+    # The linters print paths with the platform's separator (a backslash on Windows).
+    findings = result.stderr.replace("\\", "/")
+    assert "scripts/renamed.py" in findings
+    assert "scripts/résumé.py" in findings
+
+
+@needs_tools
+def test_findings_are_written_in_utf8_whatever_the_locale(project: Path) -> None:
+    """On Windows the streams default to the code page; the hook must still write UTF-8."""
+    (project / "scripts" / "résumé.py").write_text("import sys\n", encoding="utf-8")
+    result = run(project, PYTHONIOENCODING="cp1252")
+    assert result.returncode == 2
     assert "résumé.py" in result.stderr
 
 
