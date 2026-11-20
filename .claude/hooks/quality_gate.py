@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import io
 import json
 import os
 import re
@@ -257,6 +258,11 @@ def report(notes: list[str]) -> int:
 
 
 def main() -> int:
+    # Claude Code exchanges UTF-8 with hooks. On Windows the standard streams default to the
+    # locale code page, which would garble or reject a non-ASCII file name in the findings.
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(encoding="utf-8")
     try:
         payload = json.load(sys.stdin)
     except json.JSONDecodeError:
