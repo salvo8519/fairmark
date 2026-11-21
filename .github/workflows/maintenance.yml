@@ -26,7 +26,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: stable
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
       - name: Upgrade lock files (not committed)
         run: |
           cargo update --verbose 2>&1 | tee cargo-update.txt
@@ -44,7 +44,7 @@ jobs:
       # cargo-deny 0.20.2: install-action downloads it with retries and checks its SHA-256.
       # If the download still fails (GitHub outage on release assets), the next step builds the
       # same version from crates.io with its published lockfile (#181).
-      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         id: deny-install
         continue-on-error: true
         timeout-minutes: 5
@@ -56,7 +56,7 @@ jobs:
         run: cargo install --locked cargo-deny@0.20.2
       - name: cargo deny check advisories
         run: cargo deny --locked --all-features check advisories
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
       - name: pip-audit on the locked Python dependencies
         run: |
           uv export --frozen --all-extras --all-groups --no-emit-project --no-hashes -o requirements.txt
@@ -81,7 +81,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
           python-version: "3.13"
           enable-cache: false
