@@ -14,6 +14,9 @@
 Your agent reads the documents and writes the report. Fairmark does the math —<br/>
 exactly, reproducibly, with every step on the record.
 
+<sub><b>Status:</b> in active development. The first release (v0.1) is being prepared; until it is
+published, install from source. Methods are marked <code>preview</code> until their evidence is complete.</sub>
+
 [![CI](https://github.com/salvo8519/fairmark/actions/workflows/ci.yml/badge.svg)](https://github.com/salvo8519/fairmark/actions/workflows/ci.yml)
 [![Docs](https://github.com/salvo8519/fairmark/actions/workflows/docs.yml/badge.svg)](https://salvo8519.github.io/fairmark/)
 [![PyPI](https://img.shields.io/pypi/v/fairmark?color=0B1F3A&label=PyPI)](https://pypi.org/project/fairmark/)
@@ -250,7 +253,8 @@ flowchart TB
 1. Decimal arithmetic only — no `f64` in any calculation path.
 2. Fixed algorithms; tolerances and iteration counts are reported in the result.
 3. No silent defaults: unknown or missing inputs are typed errors with stable codes.
-4. Every result carries `meta.input_hash`: same hash + same versions = same result.
+4. Every result carries `meta.input_hash`: same hash + same versions = same result. Error
+   reports are deterministic too: the same input gives the same report, in any key order.
 5. Any change to a golden result is a reviewed, versioned `numerical-change`.
 
 Golden cases in [`tests/golden`](tests/golden) run against both Rust and Python on every
@@ -264,6 +268,17 @@ contributors**: every feature starts as a spec with numbered requirements and ac
 criteria ([`specs/`](specs/README.md)); every acceptance criterion becomes a test; every PR is
 checked by CI for determinism, schema contracts and golden cases, and reviewed by humans and
 by AI reviewers with the project's own standards ([`AGENTS.md`](AGENTS.md)).
+
+How the project keeps itself honest:
+
+- **One contract for every method.** Each result is the same envelope: `value`, `explain`,
+  `diagnostics` and `meta`; errors and warnings carry stable codes and JSON pointers, so an
+  agent can correct its input without guessing ([ADR 0014](docs/en/project/adr/)).
+- **Checked by machines, not by memory.** Golden cases from independent sources, schema
+  conformance of every result, property tests and mutation testing run in CI.
+- **Decisions are written down.** Architecture decisions are recorded as ADRs in
+  [`docs/en/project/adr`](docs/en/project/adr/); the [constitution](specs/constitution.md)
+  states the nine principles every change is checked against.
 
 - Start with [CONTRIBUTING.md](CONTRIBUTING.md) and issues labelled
   [`good first issue`](https://github.com/salvo8519/fairmark/labels/good%20first%20issue).

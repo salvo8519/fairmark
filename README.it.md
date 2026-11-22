@@ -1,4 +1,4 @@
-<!-- i18n source: README.md source_hash: 0b30aa90d35c -->
+<!-- i18n source: README.md source_hash: 192de63f7b13 -->
 <div align="center">
 
 <a href="https://salvo8519.github.io/fairmark/it/">
@@ -14,6 +14,9 @@
 
 Il tuo agente legge i documenti e scrive il report. Fairmark fa i conti:<br/>
 in modo esatto, riproducibile, con ogni passaggio documentato.
+
+<sub><b>Stato:</b> in sviluppo attivo. La prima release (v0.1) è in preparazione; finché non è
+pubblicata, si installa dal sorgente. I metodi sono marcati <code>preview</code> finché le loro prove non sono complete.</sub>
 
 [![CI](https://github.com/salvo8519/fairmark/actions/workflows/ci.yml/badge.svg)](https://github.com/salvo8519/fairmark/actions/workflows/ci.yml)
 [![Docs](https://github.com/salvo8519/fairmark/actions/workflows/docs.yml/badge.svg)](https://salvo8519.github.io/fairmark/it/)
@@ -254,6 +257,8 @@ flowchart TB
 3. Nessun valore predefinito implicito: input sconosciuti o mancanti sono errori tipizzati con
    codici stabili.
 4. Ogni risultato contiene `meta.input_hash`: stesso hash e stesse versioni, stesso risultato.
+   Anche i rapporti di errore sono deterministici: lo stesso input dà lo stesso rapporto, con
+   qualunque ordine delle chiavi.
 5. Ogni modifica a un risultato di riferimento è una `numerical-change` revisionata e
    versionata.
 
@@ -269,6 +274,17 @@ criteri di accettazione ([`specs/`](specs/README.md)); ogni criterio diventa un 
 verificata dalla CI su determinismo, contratti degli schemi e casi di riferimento, e
 revisionata da persone e da revisori AI con gli standard del progetto
 ([`AGENTS.md`](AGENTS.md)).
+
+Come il progetto si mantiene affidabile:
+
+- **Un solo contratto per ogni metodo.** Ogni risultato ha la stessa busta: `value`, `explain`,
+  `diagnostics` e `meta`; errori e avvertenze hanno codici stabili e puntatori JSON, così un agente
+  può correggere il suo input senza tirare a indovinare ([ADR 0014](docs/en/project/adr/)).
+- **Verificato dalle macchine, non dalla memoria.** Casi di riferimento da fonti indipendenti,
+  conformità agli schemi di ogni risultato, test di proprietà e mutation testing girano in CI.
+- **Le decisioni sono scritte.** Le decisioni di architettura sono registrate come ADR in
+  [`docs/en/project/adr`](docs/en/project/adr/); la [costituzione](specs/constitution.md)
+  fissa i nove principi con cui ogni modifica viene verificata.
 
 - Inizia da [CONTRIBUTING.md](CONTRIBUTING.md) e dalle issue con etichetta
   [`good first issue`](https://github.com/salvo8519/fairmark/labels/good%20first%20issue).
