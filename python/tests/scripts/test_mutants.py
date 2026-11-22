@@ -481,3 +481,15 @@ def test_stale_entries_are_checked_only_in_the_files_given(
     assert "match no missed mutant" not in capsys.readouterr().out
     assert mt.main(["summary", str(out), "--stale-in", RATES]) == 0
     assert "match no missed mutant" in capsys.readouterr().out
+
+
+def test_colour_codes_of_a_listing_are_ignored(tmp_path: Path) -> None:
+    """With CARGO_TERM_COLOR=always, `cargo mutants --list` colours the names; outcomes.json
+    does not (first pull-request run of #368)."""
+    coloured = f"{RATES}:1:5: replace \x1b[38;5;13mf\x1b[0m a\n"
+    expected = tmp_path / "shard-0.txt"
+    expected.write_text(coloured, encoding="utf-8")
+    assert mt.listed_names(expected) == [f"{RATES}:1:5: replace f a"]
+    out = write_run(tmp_path / "run", [outcome(RATES, 1, "f", "replace f a", "CaughtMutant")])
+    args = ["coverage", str(expected), str(out), "--exit-status", "0", "--run-minutes", "30"]
+    assert mt.main(args) == 0

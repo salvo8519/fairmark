@@ -101,7 +101,9 @@ jobs:
         run: |
           mapfile -t select < plan/select.args
           part=$(cat plan/part)
-          base=(--package fairmark-core --no-shuffle "${select[@]}")
+          # --colors never: the lists must hold the plain names that outcomes.json records
+          # (CARGO_TERM_COLOR=always would otherwise colour them).
+          base=(--package fairmark-core --no-shuffle --colors never "${select[@]}")
           if [ -n "$part" ]; then
             cargo mutants "${base[@]}" --list --sharding round-robin --shard "$part" > plan/all.txt
             python3 scripts/mutants.py plan --kind "$KIND" --list plan/all.txt --part "$part" \

@@ -576,10 +576,19 @@ def slice_command(args: argparse.Namespace) -> int:
     return 0
 
 
+# Colour codes (ANSI escape sequences), present in `cargo mutants --list` when colours are on.
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def listed_names(path: Path) -> list[str]:
+    """The names of a `cargo mutants --list` output, one per line, without colour codes."""
+    text = ANSI.sub("", path.read_text(encoding="utf-8"))
+    return [line for line in text.splitlines() if line.strip()]
+
+
 def plan(args: argparse.Namespace) -> int:
     budget = load_budget(args.kind)
-    listed = [line for line in Path(args.list).read_text(encoding="utf-8").splitlines() if line]
-    n = len(listed)
+    n = len(listed_names(Path(args.list)))
     per = budget.per_shard
     shards = math.ceil(n / per)
     values: dict[str, Any] = {
@@ -644,10 +653,6 @@ def tested_names(directory: Path) -> set[str]:
     }
 
 
-def expected_names(path: Path) -> list[str]:
-    return [line for line in path.read_text(encoding="utf-8").splitlines() if line]
-
-
 def stop_reason(status: int, run_minutes: int) -> str:
     if status == TIMEOUT_EXIT:
         return f"timeout: the time budget of {run_minutes} minutes was reached"
@@ -667,7 +672,7 @@ def incomplete_lines(title: str, reason: str, untested: list[str], total: int) -
 
 
 def coverage(args: argparse.Namespace) -> int:
-    expected = expected_names(Path(args.expected))
+    expected = listed_names(Path(args.expected))
     directory = Path(args.dir)
     tested = tested_names(directory)
     untested = [name for name in expected if name not in tested]
@@ -711,7 +716,7 @@ def completeness(args: argparse.Namespace) -> int:
     rows = ["| Shard | Mutants | Tested | Result |", "| --- | --- | --- | --- |"]
     sections: list[str] = []
     for shard in range(planned["shards"]):
-        expected = expected_names(plan_dir / f"shard-{shard}.txt")
+        expected = listed_names(plan_dir / f"shard-{shard}.txt")
         directory = shards_dir / f"mutants-shard-{shard}"
         status_path = next(iter(sorted(directory.rglob(STATUS_FILE))), None)
         outcomes = next(iter(sorted(directory.rglob("outcomes.json"))), None)
