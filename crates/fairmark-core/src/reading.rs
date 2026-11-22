@@ -730,8 +730,9 @@ const RUST_DECIMAL_REFUSALS: [&str; 6] = [
 const UNSIGNED: &str = "a whole number of 0 or more";
 
 /// The form `serde` expects, in plain words: no Rust type names (ADR 0014 G5). No input
-/// type has a binary floating-point field (decimals only), so `serde` never expects `f32` or
-/// `f64` and there is no arm for them.
+/// type has a binary floating-point field (decimals only, constitution principle I; enforced by
+/// `registry::tests::no_input_schema_has_a_floating_point_field`), so `serde` never expects
+/// `f32` or `f64` and there is no arm for them.
 fn plain(form: &str) -> String {
     match form {
         "u8" | "u16" | "u32" | "u64" | "u128" | "usize" => return UNSIGNED.to_owned(),

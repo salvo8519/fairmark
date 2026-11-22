@@ -2038,6 +2038,48 @@ mod tests {
         }
     }
 
+    /// Constitution, principle I: no input has a binary floating-point field. `schemars`
+    /// writes `"format": "double"` for `f64` and `"format": "float"` for `f32`; no input
+    /// schema of any method holds either, so `serde` never expects `f32` or `f64` and
+    /// `reading::plain` needs no words for them (issue #368).
+    #[test]
+    fn no_input_schema_has_a_floating_point_field() {
+        fn formats(v: &Value, at: String, out: &mut Vec<String>) {
+            match v {
+                Value::Object(m) => {
+                    if let Some(Value::String(f)) = m.get("format") {
+                        if f == "double" || f == "float" {
+                            out.push(format!("{at}: {f}"));
+                        }
+                    }
+                    for (k, x) in m {
+                        formats(x, format!("{at}/{k}"), out);
+                    }
+                }
+                Value::Array(a) => {
+                    for (i, x) in a.iter().enumerate() {
+                        formats(x, format!("{at}/{i}"), out);
+                    }
+                }
+                _ => {}
+            }
+        }
+        let mut found = Vec::new();
+        for m in METHODS {
+            formats(&input_schema(m.id).unwrap(), m.id.to_owned(), &mut found);
+        }
+        assert!(METHODS.len() > 30, "{}", METHODS.len());
+        assert!(found.is_empty(), "{}", found.join("\n"));
+        // The walk finds the format schemars gives to a floating-point field.
+        let mut probe = Vec::new();
+        formats(
+            &serde_json::json!({"properties": {"x": {"type": "number", "format": "double"}}}),
+            String::new(),
+            &mut probe,
+        );
+        assert_eq!(probe, ["/properties/x: double"]);
+    }
+
     /// SPEC-0012 AC10 (R11, R12, R20): every property of every input schema and every result
     /// schema that holds a JSON pointer is named per ADR 0014 G4 as amended, with no exemption.
     #[test]
