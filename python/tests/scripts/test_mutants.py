@@ -492,3 +492,26 @@ def test_colour_codes_of_a_listing_are_ignored(tmp_path: Path) -> None:
     out = write_run(tmp_path / "run", [outcome(RATES, 1, "f", "replace f a", "CaughtMutant")])
     args = ["coverage", str(expected), str(out), "--exit-status", "0", "--run-minutes", "30"]
     assert mt.main(args) == 0
+
+
+def test_an_output_with_a_line_break_is_refused(tmp_path: Path) -> None:
+    """Security review of #414, L1: a line break would inject another $GITHUB_OUTPUT line."""
+    out = tmp_path / "out"
+    for values in ({"title": "a\nshards=99"}, {"title": "a\rb"}, {"x\ny": "1"}):
+        with pytest.raises(SystemExit, match="line break"):
+            mt.github_output(str(out), values)
+    assert not out.exists()
+    mt.github_output(str(out), {"title": "slice 1 of 15: tvm", "matrix": [{"index": 0}]})
+    assert out.read_text(encoding="utf-8") == ('title=slice 1 of 15: tvm\nmatrix=[{"index": 0}]\n')
+
+
+def test_a_slice_name_with_control_characters_is_refused(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "lib.rs").write_text("", encoding="utf-8")
+    for name in ("a\\nshards=99", "a\\tb", "a\\u007fb"):
+        path = budget_file(tmp_path, f'[[slice]]\nname = "{name}"\nfiles = ["lib.rs"]\n')
+        problems = mt.budget_problems(path, src)
+        assert any("control characters" in p for p in problems), (name, problems)
+    ok = budget_file(tmp_path, '[[slice]]\nname = "a b"\nfiles = ["lib.rs"]\n')
+    assert mt.budget_problems(ok, src) == []

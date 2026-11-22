@@ -493,6 +493,8 @@ def budget_problems(path: Path | None = None, src: Path | None = None) -> list[s
         name = str(raw.get("name", "")).strip()
         if not name:
             problems.append(f"{where}: name is required")
+        if any(ord(c) < 32 or ord(c) == 127 for c in str(raw.get("name", ""))):
+            problems.append(f"{where}: name must not contain control characters")
         if name in names:
             problems.append(f"{where}: duplicate name {name!r}")
         names.add(name)
@@ -524,13 +526,21 @@ def week_number(day: dt.date) -> int:
 
 
 def github_output(path: str | None, values: dict[str, Any]) -> None:
-    """Append `values` to a GitHub Actions output file, one `key=value` line each."""
+    """Append `values` to a GitHub Actions output file, one `key=value` line each.
+
+    A line break in a key or a value would start a new line of the file and so set another
+    output (injection): it is refused, before anything is written.
+    """
     if not path:
         return
+    lines = []
+    for key, value in values.items():
+        text = value if isinstance(value, str) else json.dumps(value)
+        if any(c in f"{key}{text}" for c in "\n\r"):
+            raise SystemExit(f"Output {key!r} holds a line break: refused ($GITHUB_OUTPUT).")
+        lines.append(f"{key}={text}\n")
     with Path(path).open("a", encoding="utf-8") as f:
-        for key, value in values.items():
-            text = value if isinstance(value, str) else json.dumps(value)
-            f.write(f"{key}={text}\n")
+        f.writelines(lines)
 
 
 def check_slices(_: argparse.Namespace) -> int:
