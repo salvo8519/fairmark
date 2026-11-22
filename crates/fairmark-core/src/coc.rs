@@ -835,7 +835,9 @@ fn check_wacc(input: &WaccInput) -> Result<()> {
 }
 
 pub fn wacc(input: &WaccInput) -> Result<(WaccOutput, Explain)> {
-    // Every input check of the weights is in `check_wacc`: the arms below need none.
+    // `check_wacc` refuses every invalid input first (form of the weights, debt weight in
+    // [0, 1), leverage not negative), so the arms below only compute; the one error they can
+    // still raise, an equity weight rounded to zero, depends on the computation.
     check_wacc(input)?;
     let mut ex = Explain::new("WACC = E/V × ke + D/V × kd × (1 − t)");
     ex.convention(ANNUAL);
