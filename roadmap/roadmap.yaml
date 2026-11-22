@@ -346,6 +346,7 @@ milestones:
           - { issue: 368, title: "Mutation testing completes in CI or fails explicitly", status: done }
           - { issue: 387, title: "Method pages and spec template follow the sources policy", status: open }
           - { issue: 388, title: "Checks of the sources policy in docs_sync claims", status: open }
+          - { issue: 418, title: "Mutation summary fails on pull requests without core changes", status: done }
 
   - title: "M4 · Traditional European methods"
     gate: "Golden cases green for every method."

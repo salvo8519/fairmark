@@ -282,7 +282,8 @@ jobs:
           STALE_IN: ${{ needs.plan.outputs.stale-in }}
         run: |
           set -o pipefail
-          dirs=$(find shards -name outcomes.json -printf '%h\n' 2>/dev/null | sort)
+          mkdir -p shards  # no shard ran when the pull request changes nothing in the core
+          dirs=$(find shards -name outcomes.json -printf '%h\n' | sort)
           args=(--allow-empty --title "$TITLE")
           # Pull requests: missed mutants not recorded as equivalent fail the check. The
           # weekly run reports them for triage.
