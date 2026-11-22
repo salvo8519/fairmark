@@ -584,3 +584,16 @@ def test_a_shard_killed_after_its_budget_is_a_timeout(
     assert "timeout: the time budget of 45 minutes was reached and cargo-mutants did not" in text
     assert "within 2 minutes of it (killed)" in text
     assert mt.stop_reason(1, 45).startswith("tool failure")
+
+
+def test_jobs_are_read_from_every_page(tmp_path: Path) -> None:
+    """Code review of #414, N6: `gh api --paginate --slurp` writes a list of pages."""
+    path = tmp_path / "jobs.json"
+    pages = [
+        {"jobs": [{"id": 1, "name": "x / Shard 0 of 2", "conclusion": "success"}]},
+        {"jobs": [{"id": 2, "name": "x / Shard 1 of 2", "conclusion": "failure"}]},
+    ]
+    path.write_text(json.dumps(pages), encoding="utf-8")
+    assert sorted(mt.shard_jobs(path, 2)) == [0, 1]
+    path.write_text(json.dumps(pages[1]), encoding="utf-8")
+    assert sorted(mt.shard_jobs(path)) == [1]

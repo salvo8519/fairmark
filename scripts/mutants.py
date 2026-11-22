@@ -659,9 +659,15 @@ SHARD_JOB = re.compile(r"shard (\d+) of (\d+)$", re.IGNORECASE)
 
 
 def shard_jobs(path: Path, shards: int | None = None) -> dict[int, dict[str, Any]]:
-    """The shard jobs of a run (GitHub REST API, jobs of a run attempt), by shard index."""
+    """The shard jobs of a run (GitHub REST API, jobs of a run attempt), by shard index.
+
+    The file holds one page (`{"jobs": [...]}`) or every page (`gh api --paginate --slurp`:
+    a list of such objects).
+    """
+    data = json.loads(path.read_text(encoding="utf-8"))
+    pages = data if isinstance(data, list) else [data]
     jobs: dict[int, dict[str, Any]] = {}
-    for job in json.loads(path.read_text(encoding="utf-8")).get("jobs", []):
+    for job in (j for page in pages for j in page.get("jobs", [])):
         m = SHARD_JOB.search(job.get("name", ""))
         if m and (shards is None or int(m.group(2)) == shards):
             jobs[int(m.group(1))] = job
