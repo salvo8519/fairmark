@@ -1,7 +1,7 @@
 # 2026-11-22 — ci/368-mutation-testing-completes
 
 - Issue: #368 Mutation testing completes in CI or fails explicitly
-- Pull request: opened at the end of the session (see the branch on GitHub)
+- Pull request: #414 (ready; CI green)
 - Spec: none (tooling and tests; no computed number changes)
 
 ## Done
@@ -24,9 +24,18 @@
 - Documentation: `docs/en/project/mutation-testing.md`, `docs/en/project/dependencies.md`.
   Roadmap: #368 done.
 
+- First CI runs of the new job found three defects, fixed on the branch: `--sharding` without
+  `--shard` is refused by cargo-mutants 27.1.0; `CARGO_TERM_COLOR=always` coloured the names of
+  `--list` (now `--colors never`, and the script strips colour codes); a single downloaded
+  artifact has no directory of its own (shards now write `out/shard-<n>/mutants.out`). One more
+  missed mutant on a changed line (signed integer arm of `reading::plain`) is killed by a unit
+  test.
+- CI of #414: plan 9 s, one shard of 6 mutants in 4 minutes, summary complete; mean time per
+  mutant 29 s (build 21 s, test 8 s), baseline test run 16 to 26 s.
+
 ## State at the end of the session
-- The per-mutant time on GitHub runners in the mutants profile is an estimate (30 s) until the
-  first run prints "Mean time per mutant"; adjust `seconds_per_mutant` from it.
+- Nothing half done. The weekly workflow has not run yet with the new design: the first
+  scheduled run after the merge tests the slice of that week.
 
 ## Decisions taken
 - Mechanism: one environment variable set through cargo `--config env.*` by cargo-mutants only,
@@ -45,5 +54,6 @@
   not part of #368 and will be listed again by the weekly slices.
 
 ## Next steps
-1. After the first pull request run, read "Mean time per mutant" in the summary and update
-   `seconds_per_mutant` in `tests/mutants/budget.toml` if it differs by more than 20 per cent.
+1. After the first weekly run, read "Mean time per mutant" in its summary and update
+   `seconds_per_mutant` in `tests/mutants/budget.toml` if it differs by more than 20 per cent
+   (pull request #414 measured 29 s on 6 mutants).
