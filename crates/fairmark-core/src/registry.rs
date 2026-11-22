@@ -2360,7 +2360,7 @@ mod tests {
                 }
             }
         }
-        assert!(checked > pick(100, 700), "{checked}");
+        assert!(checked > pick(1700, 700), "{checked}");
         assert!(failures.is_empty(), "{}", failures.join("\n"));
     }
 }

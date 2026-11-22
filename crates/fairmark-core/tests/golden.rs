@@ -1100,7 +1100,7 @@ fn a_choice_with_two_keys_is_one_length_entry() {
     ] {
         assert!(methods.contains(m), "no choice of {m} checked: {methods:?}");
     }
-    assert!(checked > test_profile::pick(30, 80), "{checked}");
+    assert!(checked > test_profile::pick(450, 80), "{checked}");
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
