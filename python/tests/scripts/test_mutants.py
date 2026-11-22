@@ -18,6 +18,19 @@ sys.modules["mutants"] = mt  # dataclasses resolve types through sys.modules
 _spec.loader.exec_module(mt)
 
 RATES = "crates/fairmark-core/src/rates.rs"
+REAL_EXCLUSIONS = mt.EXCLUSIONS
+REAL_CODEOWNERS = mt.CODEOWNERS
+
+
+@pytest.fixture(autouse=True)
+def hermetic(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tests read their own CODEOWNERS (owners x and salvo8519) and an empty exclusions file,
+    not the committed ones, whose state depends on reviews in progress."""
+    d = tmp_path_factory.mktemp("repo")
+    (d / "CODEOWNERS").write_text("/crates/ @x @salvo8519\n", encoding="utf-8")
+    (d / "equivalent.toml").write_text("", encoding="utf-8")
+    monkeypatch.setattr(mt, "CODEOWNERS", d / "CODEOWNERS")
+    monkeypatch.setattr(mt, "EXCLUSIONS", d / "equivalent.toml")
 
 
 def outcome(file: str, line: int, function: str, mutation: str, summary: str) -> dict[str, Any]:
@@ -57,8 +70,9 @@ def test_module_names() -> None:
     assert mt.module_of("crates/fairmark-core/src/tvm.rs") == "tvm"
 
 
-def test_committed_exclusions_file_is_valid() -> None:
-    entries, problems = mt.load_exclusions()
+def test_committed_exclusions_file_is_valid(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mt, "CODEOWNERS", REAL_CODEOWNERS)
+    entries, problems = mt.load_exclusions(REAL_EXCLUSIONS)
     assert problems == []
     assert all(e.reason and e.reviewer for e in entries)
 
@@ -94,10 +108,13 @@ def test_entry_outside_the_core_is_rejected(
     ("reviewer", "valid"),
     [
         ("salvo8519", True),
-        ("a-b-1", True),
+        ("x", True),
+        ("a-b-1", False),  # a valid login, but not a maintainer
+        ("pending", False),
         ("coordinator review pending", False),
         ("pending: maintainer", False),
         ("@salvo8519", False),
+        ("", False),
     ],
 )
 def test_reviewer_must_be_a_github_login(
@@ -110,7 +127,20 @@ def test_reviewer_must_be_a_github_login(
         f'mutation = "replace + with - in f"\nline = 1\nreason = "r"\nreviewer = "{reviewer}"\n',
     )
     _, problems = mt.load_exclusions()
-    assert any("reviewer must be the GitHub login" in p for p in problems) is not valid
+    rejected = any(
+        "reviewer must be the GitHub login" in p or "missing or empty" in p for p in problems
+    )
+    assert rejected is not valid
+
+
+def test_maintainers_are_the_owners_in_codeowners(tmp_path: Path) -> None:
+    assert "salvo8519" in mt.maintainers(REAL_CODEOWNERS)
+    path = tmp_path / "CODEOWNERS"
+    path.write_text(
+        "# Owners\n/src/  @alice @org/team  # @mallory in a comment\n/docs/ @bob\n",
+        encoding="utf-8",
+    )
+    assert mt.maintainers(path) == {"alice", "bob"}
 
 
 def test_gate_fails_on_missed_and_passes_when_recorded_as_equivalent(

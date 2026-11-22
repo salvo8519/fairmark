@@ -191,7 +191,10 @@ Every missed mutant ends in exactly one of two ways:
    name its function (it ends with `in <function>`, or starts with `replace <function> ->` or
    `replace <function> with` when the whole body is replaced), or that repeats an earlier
    entry. When the code moves, the line is updated in the same pull request. The entry is
-   approved by a maintainer in the pull request that adds it.
+   approved by a maintainer in the pull request that adds it: `reviewer` is the GitHub login of
+   that maintainer, one of the owners named in `.github/CODEOWNERS` (the one list of
+   maintainers); a placeholder such as `pending` fails `check-exclusions`, so an entry cannot
+   pass before its approval.
 
 Not accepted: exclusions of whole files, functions or modules; `#[mutants::skip]` attributes
 on financial code; raising the timeout to hide a timeout; deleting or weakening a test.

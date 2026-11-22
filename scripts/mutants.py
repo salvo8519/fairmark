@@ -76,8 +76,25 @@ SUMMARY_TO_OUTCOME = {
 }
 REQUIRED_KEYS = ("file", "function", "mutation", "line", "reason", "reviewer")
 # The reviewer is the GitHub login of the maintainer who approved the entry, nothing else: a
-# placeholder such as "pending review" is rejected, so an entry cannot pass unapproved.
+# placeholder such as "pending" is rejected, so an entry cannot pass unapproved. The
+# maintainers are the owners named in CODEOWNERS (one source of truth).
 GITHUB_LOGIN = re.compile(r"^[A-Za-z0-9-]+$")
+CODEOWNERS = ROOT / ".github" / "CODEOWNERS"
+
+
+def maintainers(path: Path | None = None) -> set[str]:
+    """The GitHub logins that own paths in CODEOWNERS (`@login`; teams `@org/team` excluded)."""
+    path = path or CODEOWNERS
+    out: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].split()
+        for owner in line[1:]:
+            login = owner.removeprefix("@")
+            if owner.startswith("@") and GITHUB_LOGIN.match(login):
+                out.add(login)
+    return out
+
+
 ALLOWED_KEYS = set(REQUIRED_KEYS)
 
 
@@ -145,6 +162,9 @@ def load_exclusions(path: Path | None = None) -> tuple[list[Equivalent], list[st
     path = path or EXCLUSIONS
     data = tomllib.loads(path.read_text(encoding="utf-8"))
     problems: list[str] = []
+    owners = maintainers()
+    if not owners:
+        problems.append("no maintainer login in .github/CODEOWNERS: no entry can be approved")
     unknown = set(data) - {"equivalent"}
     if unknown:
         problems.append(f"unknown top-level keys: {sorted(unknown)}")
@@ -172,10 +192,12 @@ def load_exclusions(path: Path | None = None) -> tuple[list[Equivalent], list[st
             problems.append(f"{where}: mutation must be the text cargo-mutants prints")
         if not belongs_to(mutation, function):
             problems.append(f"{where}: mutation does not belong to function {function}")
-        if not GITHUB_LOGIN.match(str(raw["reviewer"]).strip()):
+        reviewer = str(raw["reviewer"]).strip()
+        if reviewer not in owners:
             problems.append(
                 f"{where}: reviewer must be the GitHub login of the maintainer who approved the "
-                "entry (letters, digits and hyphens)"
+                f"entry, one of the owners in .github/CODEOWNERS ({', '.join(sorted(owners))}); "
+                f"found {reviewer!r}"
             )
         line = raw["line"]
         if not isinstance(line, int) or isinstance(line, bool) or line < 1:
