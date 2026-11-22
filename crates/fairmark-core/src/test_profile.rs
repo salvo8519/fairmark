@@ -11,7 +11,8 @@
 //! so that a typing error never silently selects a profile.
 //!
 //! This file is compiled only into tests: `lib.rs` declares it under `#[cfg(test)]` and the
-//! integration tests include it with `#[path]`, so one definition serves both.
+//! integration tests include it with `#[path]`, so one definition serves both. Its own test is
+//! in `lib.rs`, so that it runs once, in the library.
 
 /// The variable that selects the profile.
 pub const VARIABLE: &str = "FAIRMARK_TEST_PROFILE";
@@ -99,29 +100,4 @@ pub fn sample<T, K: PartialEq>(items: Vec<T>, group: impl Fn(&T) -> K) -> Vec<T>
         .filter(|(_, (g, i))| kept(*g, *i))
         .map(|(item, _)| item)
         .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_sample_spreads_over_each_group_and_keeps_the_order() {
-        let items = vec![
-            ("a", 0),
-            ("a", 1),
-            ("b", 0),
-            ("a", 2),
-            ("a", 3),
-            ("b", 1),
-            ("c", 0),
-        ];
-        let got = sample(items.clone(), |x| x.0);
-        match profile() {
-            Profile::Full => assert_eq!(got, items),
-            Profile::Mutants => {
-                assert_eq!(got, vec![("a", 0), ("b", 0), ("a", 2), ("b", 1), ("c", 0)]);
-            }
-        }
-    }
 }
