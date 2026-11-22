@@ -56,8 +56,11 @@ BUDGET = ROOT / "tests" / "mutants" / "budget.toml"
 CORE_SRC = "crates/fairmark-core/src/"
 # The weeks of the rotation are counted from this Monday (ISO weeks, Monday to Sunday, UTC).
 EPOCH_MONDAY = dt.date(1970, 1, 5)
-# Exit status of `timeout` when it stopped cargo-mutants at the end of the time budget.
+# Exit status of `timeout` when it stopped cargo-mutants at the end of the time budget (SIGINT),
+# and when cargo-mutants did not stop and was killed (`--kill-after`: SIGKILL, 128 + 9).
 TIMEOUT_EXIT = 124
+KILLED_EXIT = 137
+KILL_AFTER_MINUTES = 2
 # The status file a shard writes beside outcomes.json.
 STATUS_FILE = "shard-status.json"
 # How a lost runner and a job time limit appear in the log of a GitHub Actions job.
@@ -688,6 +691,11 @@ def tested_names(directory: Path) -> set[str]:
 def stop_reason(status: int, run_minutes: int) -> str:
     if status == TIMEOUT_EXIT:
         return f"timeout: the time budget of {run_minutes} minutes was reached"
+    if status == KILLED_EXIT:
+        return (
+            f"timeout: the time budget of {run_minutes} minutes was reached and cargo-mutants "
+            f"did not stop within {KILL_AFTER_MINUTES} minutes of it (killed)"
+        )
     if status in (0, 2, 3):
         return "cargo-mutants finished without an outcome for every mutant"
     return f"tool failure: cargo-mutants exited with status {status}"

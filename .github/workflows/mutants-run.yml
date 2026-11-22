@@ -199,9 +199,11 @@ jobs:
           STATUS: ${{ steps.run.outputs.status }}
         run: |
           # 0 = all caught, 2 = missed mutants, 3 = timeouts: reported by the summary job.
-          # 124 = stopped at the time budget: reported by the coverage step above.
+          # 124 = stopped at the time budget, 137 = killed 2 minutes later because it did not
+          # stop (--kill-after, scripts/mutants.py KILL_AFTER_MINUTES): reported by the coverage
+          # step above as a timeout.
           case "$STATUS" in
-            0|2|3|124) ;;
+            0|2|3|124|137) ;;
             *) echo "cargo-mutants failed with status $STATUS (usage error, failing baseline or internal error): see the log." >&2
                exit 1 ;;
           esac

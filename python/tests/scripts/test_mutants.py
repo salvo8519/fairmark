@@ -568,3 +568,19 @@ def test_a_cancelled_job_is_a_timeout_only_with_the_time_limit_marker() -> None:
     assert mt.job_reason(job, limit) == "timeout: the job time limit was reached"
     assert mt.job_reason(job, "The operation was canceled.") == "cancelled: the run was cancelled"
     assert mt.job_reason(None, "").startswith("no result")
+
+
+def test_a_shard_killed_after_its_budget_is_a_timeout(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Code review of #414, S2: `timeout --kill-after=2m` exits 137 when cargo-mutants did
+    not stop on SIGINT; that is a timeout, not a tool failure."""
+    expected = tmp_path / "shard-0.txt"
+    expected.write_text(name(1) + "\n", encoding="utf-8")
+    out = tmp_path / "out"
+    args = ["coverage", str(expected), str(out), "--run-minutes", "45", "--exit-status", "137"]
+    assert mt.main(args) == 1
+    text = capsys.readouterr().out
+    assert "timeout: the time budget of 45 minutes was reached and cargo-mutants did not" in text
+    assert "within 2 minutes of it (killed)" in text
+    assert mt.stop_reason(1, 45).startswith("tool failure")
