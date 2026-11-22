@@ -35,8 +35,16 @@ fn the_recurrence_adds_the_instalment_the_logarithms_miss() {
     assert_eq!(v["number_of_instalments"], 361);
     let last = Decimal::from_str(v["final_instalment"].as_str().unwrap()).unwrap();
     assert!(
-        last >= Decimal::ZERO && last < Decimal::from_str("1e-14").unwrap(),
+        last > Decimal::ZERO && last < Decimal::from_str("1e-14").unwrap(),
         "{last}"
+    );
+    let formula = step(&out, "Final instalment (amount owed on its payment date)")["formula"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert!(
+        formula.contains("for k = 2 to 361; final = b_361"),
+        "{formula}"
     );
 }
 
