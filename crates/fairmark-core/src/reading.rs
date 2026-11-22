@@ -2463,6 +2463,19 @@ fn pointer(tokens: &[String]) -> Option<String> {
 mod tests {
     use super::*;
 
+    /// `plain` names every integer form of `serde` in words, never as a Rust type (ADR 0014
+    /// G5). No input has a signed integer field today, but the rules allow one (unlike a binary
+    /// floating-point field), so the signed arm is checked here directly (issue #368).
+    #[test]
+    fn plain_names_integer_forms_in_words() {
+        for form in ["i8", "i16", "i32", "i64", "i128", "isize"] {
+            assert_eq!(plain(form), "a whole number", "{form}");
+        }
+        for form in ["u8", "u16", "u32", "u64", "u128", "usize"] {
+            assert_eq!(plain(form), UNSIGNED, "{form}");
+        }
+    }
+
     /// Mutation testing of #371: a choice is a single-key choice only when every branch is an
     /// object of exactly one property, the one it requires. Branches with more properties (an
     /// object with one required field and optional ones) are not a choice of keys, whichever
