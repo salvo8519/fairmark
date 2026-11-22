@@ -104,8 +104,19 @@ docs-serve lang="en":
     python scripts/docs.py serve --lang {{lang}}
 
 # The full local gate: run before every PR
-check: lint test check-generated docs
+check: check-test-profile lint test check-generated docs
     @echo "All checks passed."
+
+# The gate runs every test in full: the mutants test profile samples the golden sweeps
+# (crates/fairmark-core/src/test_profile.rs) and is set only by cargo-mutants
+check-test-profile:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "${FAIRMARK_TEST_PROFILE-full}" in
+      full) ;;
+      *) echo "FAIRMARK_TEST_PROFILE=${FAIRMARK_TEST_PROFILE} would sample the golden sweeps: unset it to run the full gate." >&2
+         exit 1 ;;
+    esac
 
 # Dependencies with newer versions available (nothing is changed)
 deps-outdated:
