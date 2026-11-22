@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from typing import Any
 
 import anyio
@@ -12,6 +13,19 @@ import fairmark as fm
 from fairmark import mcp_server
 
 METHODS = sorted(m["id"] for m in fm.methods())
+
+
+@pytest.mark.parametrize("argv", [[], ["--http"]])
+@pytest.mark.parametrize("missing", ["mcp", "anyio", "uvicorn"])
+def test_mcp_without_the_extra_says_how_to_install_it(
+    monkeypatch: pytest.MonkeyPatch, argv: list[str], missing: str
+) -> None:
+    # `pip install fairmark` installs the `fairmark-mcp` command without the `mcp` extra.
+    # Both transports stop with the install command, never with a traceback.
+    monkeypatch.setitem(sys.modules, missing, None)
+    with pytest.raises(SystemExit) as stop:
+        mcp_server.main(argv)
+    assert stop.value.code == 'The MCP server needs the extra: pip install "fairmark[mcp]"'
 
 
 def test_mcp_lists_all_tools_by_default() -> None:

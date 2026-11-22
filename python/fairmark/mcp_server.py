@@ -97,12 +97,26 @@ def call_tool(name: str, arguments: Any) -> Any:
     )
 
 
-def _build_server(areas: Iterable[str] | None = None, compact: bool = False) -> Any:
+MISSING_EXTRA = 'The MCP server needs the extra: pip install "fairmark[mcp]"'
+
+
+def _require_extra() -> None:
+    """Stop with the install command when a module of the `mcp` extra is missing.
+
+    `pip install fairmark` installs the `fairmark-mcp` command without the extra; one check
+    before either transport starts replaces a traceback with the command that fixes it.
+    """
     try:
-        from mcp import types
-        from mcp.server.lowlevel import Server
-    except ImportError as err:  # pragma: no cover
-        raise SystemExit('The MCP server needs the extra: pip install "fairmark[mcp]"') from err
+        import anyio  # noqa: F401
+        import mcp  # noqa: F401
+        import uvicorn  # noqa: F401
+    except ImportError as err:
+        raise SystemExit(MISSING_EXTRA) from err
+
+
+def _build_server(areas: Iterable[str] | None = None, compact: bool = False) -> Any:
+    from mcp import types
+    from mcp.server.lowlevel import Server
 
     async def on_list_tools(ctx: Any, params: Any) -> Any:
         return types.ListToolsResult(tools=await list_tools(areas=areas, compact=compact))
@@ -171,6 +185,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
+    _require_extra()
     configure(args.log_format, args.log_level)
 
     if args.http:

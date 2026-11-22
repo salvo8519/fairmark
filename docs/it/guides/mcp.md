@@ -1,6 +1,6 @@
 ---
 source: guides/mcp.md
-source_hash: d76be18da7eb
+source_hash: 2d2f3f777e39
 ---
 # Server MCP
 
@@ -18,7 +18,9 @@ espone il trasporto Streamable HTTP, per n8n e per gli altri client che si colle
 }
 ```
 
-In alternativa, installalo in un ambiente e usa `"command": "fairmark-mcp"`.
+In alternativa, installalo in un ambiente con l'extra `mcp`, `pip install "fairmark[mcp]"`, e
+usa `"command": "fairmark-mcp"`. Anche un semplice `pip install fairmark` installa il comando,
+ma senza l'extra si ferma subito indicando il comando di installazione qui sopra.
 
 ## Modalità HTTP (n8n e client remoti)
 

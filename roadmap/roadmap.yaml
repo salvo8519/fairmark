@@ -274,6 +274,7 @@ milestones:
           - { issue: 331, title: "MCP server verified end to end with the MCP Inspector in CI", tags: [parallel], status: done }
           - { issue: 343, title: "Tool schemas with one type per keyword, portable to every client", status: done }
           - { issue: 409, title: "Schemas portable at the source, one type per keyword", status: open }
+          - { issue: 423, title: "fairmark-mcp without the mcp extra stops with the install command", status: done }
       - title: "Agent skills and docs"
         issue: 56
         labels: ["area:docs"]
