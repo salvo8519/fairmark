@@ -96,6 +96,7 @@ milestones:
           - { issue: 376, title: "AI workflow key behind an environment with approval per run", status: done }
           - { issue: 391, title: "Freeze the agentic development process after sprint S01", status: done }
           - { issue: 395, title: "Remove the Claude workflows that never ran in GitHub Actions", status: done }
+          - { issue: 406, title: "Shared helpers for the process scripts", status: open }
       - title: "CI/CD"
         issue: 10
         labels: ["area:infra"]
@@ -179,6 +180,8 @@ milestones:
           - { issue: 32, title: "Golden YAML runner shared by Rust and Python", status: done }
           - { issue: 33, title: "Property tests with proptest (NPV at IRR = 0, monotonicity)", tags: [parallel], status: done }
           - { issue: 148, title: "Golden runners compare expected values exactly in Rust and Python", status: done }
+          - { issue: 408, title: "Shared test helpers in Rust and Python", status: open }
+          - { issue: 410, title: "Reference oracles leave the global decimal context unchanged", status: open }
 
   - title: "M2 · Complete DCF"
     gate: "DCF passes every golden case provided by practitioners."
@@ -251,6 +254,7 @@ milestones:
           - { issue: 306, title: "Results and inputs as tables for notebooks, JSON unchanged", status: dropped }
           - { issue: 307, title: "Cookbook for notebooks, scripts and agent loops", status: open }
           - { issue: 310, title: "Remove explain_markdown: the JSON envelope is the only output", status: done }
+          - { issue: 407, title: "One payload helper for the Python adapters", status: open }
       - title: "CLI"
         issue: 49
         labels: ["area:cli"]
@@ -268,6 +272,7 @@ milestones:
           - { issue: 219, title: "Agent evaluation suite with success rates per release", status: open }
           - { issue: 331, title: "MCP server verified end to end with the MCP Inspector in CI", tags: [parallel], status: done }
           - { issue: 343, title: "Tool schemas with one type per keyword, portable to every client", status: done }
+          - { issue: 409, title: "Schemas portable at the source, one type per keyword", status: open }
       - title: "Agent skills and docs"
         issue: 56
         labels: ["area:docs"]
@@ -323,6 +328,10 @@ milestones:
           - { issue: 353, title: "ADR: compatibility policy for method versions after v1.0", status: open }
           - { issue: 359, title: "Constitution principle IX: unambiguous and transparent", status: done }
           - { issue: 370, title: "Error report order independent of input key order", status: done }
+          - { issue: 402, title: "Core input checks defined once", status: open }
+          - { issue: 403, title: "Terminal value techniques described once", status: open }
+          - { issue: 404, title: "Statement helpers and checks that return resolved data", status: open }
+          - { issue: 405, title: "Error report shape owned by the core, not rebuilt by adapters", status: open }
       - title: "Release readiness for v0.1"
         labels: []
         tasks:
