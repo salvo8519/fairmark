@@ -835,13 +835,13 @@ fn check_wacc(input: &WaccInput) -> Result<()> {
 }
 
 pub fn wacc(input: &WaccInput) -> Result<(WaccOutput, Explain)> {
+    // Every input check of the weights is in `check_wacc`: the arms below need none.
     check_wacc(input)?;
     let mut ex = Explain::new("WACC = E/V × ke + D/V × kd × (1 − t)");
     ex.convention(ANNUAL);
     ex.convention(format!("tax rate of the tax shield {}", input.tax_rate));
     let (we, wd) = match (input.debt_to_equity, input.debt_weight) {
         (Some(de), None) => {
-            check_leverage(de, "debt_to_equity")?;
             ex.convention(format!("target weights from D/E {de}"));
             // E/V = 1 / (1 + D/E) keeps full precision for large ratios.
             let we = div(Decimal::ONE, add(Decimal::ONE, de)?)?;
@@ -857,9 +857,6 @@ pub fn wacc(input: &WaccInput) -> Result<(WaccOutput, Explain)> {
             (we, wd)
         }
         (None, Some(w)) => {
-            if w < Decimal::ZERO || w >= Decimal::ONE {
-                return Err(debt_weight_error(w));
-            }
             ex.convention(format!("target weights from D/(D + E) {w}"));
             ex.step("Debt weight", "given", w);
             let we = sub(Decimal::ONE, w)?;

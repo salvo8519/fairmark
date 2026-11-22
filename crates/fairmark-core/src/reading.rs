@@ -729,12 +729,13 @@ const RUST_DECIMAL_REFUSALS: [&str; 6] = [
 /// What a count of the input accepts, in the words of an analyst.
 const UNSIGNED: &str = "a whole number of 0 or more";
 
-/// The form `serde` expects, in plain words: no Rust type names (ADR 0014 G5).
+/// The form `serde` expects, in plain words: no Rust type names (ADR 0014 G5). No input
+/// type has a binary floating-point field (decimals only), so `serde` never expects `f32` or
+/// `f64` and there is no arm for them.
 fn plain(form: &str) -> String {
     match form {
         "u8" | "u16" | "u32" | "u64" | "u128" | "usize" => return UNSIGNED.to_owned(),
         "i8" | "i16" | "i32" | "i64" | "i128" | "isize" => return "a whole number".to_owned(),
-        "f32" | "f64" => return "a number".to_owned(),
         _ => {}
     }
     let words: Vec<&str> = form.split(' ').collect();
