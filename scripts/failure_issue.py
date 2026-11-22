@@ -13,8 +13,11 @@ standard library and the GitHub CLI (`gh`, authenticated through `GH_TOKEN`).
 
 The issue of a workflow is found among the open issues with the label that the workflow itself
 opened (author `app/github-actions`), by a marker in its body or by its exact title (issues
-opened before the marker existed). Issues opened by people are never edited or closed. A run
-already linked in the body is not reported twice.
+opened before the marker existed, and only when they carry no marker of another workflow).
+Issues opened by people are never edited or closed. A run already linked in the body is not
+reported twice, and a run older than the newest completed run of the same workflow on `main`
+changes nothing when that newer run already says the opposite: a slow failure never reopens an
+issue that a faster, newer green run closed.
 
     python3 scripts/failure_issue.py report --repo OWNER/NAME --workflow CI --run-id 1 \\
         --run-url URL --conclusion failure --event push --branch main [--label bug] \\
@@ -52,8 +55,11 @@ def gh_cli(args: list[str], stdin: str | None = None) -> str:
     return done.stdout
 
 
+MARKER_PREFIX = "<!-- failure-issue: "
+
+
 def marker(workflow: str) -> str:
-    return f"<!-- failure-issue: {workflow} -->"
+    return f"{MARKER_PREFIX}{workflow} -->"
 
 
 def find_issue(gh: Gh, repo: str, label: str, workflow: str, title: str) -> dict[str, Any] | None:
@@ -70,8 +76,35 @@ def find_issue(gh: Gh, repo: str, label: str, workflow: str, title: str) -> dict
         if marker(workflow) in (issue.get("body") or ""):
             return issue
     for issue in issues:
-        if issue.get("title") == title:
+        # The title only identifies issues opened before the marker existed.
+        if issue.get("title") == title and MARKER_PREFIX not in (issue.get("body") or ""):
             return issue
+    return None
+
+
+def newest_run(gh: Gh, repo: str, workflow: str) -> dict[str, Any] | None:
+    """The newest completed run of the workflow on main, or None when none is listed."""
+    listed = gh(
+        [
+            "run", "list", "--repo", repo, "--workflow", workflow, "--branch", BRANCH,
+            "--status", "completed", "--limit", "1", "--json", "databaseId,conclusion",
+        ],
+        None,
+    )  # fmt: skip
+    runs: list[dict[str, Any]] = json.loads(listed or "[]")
+    return runs[0] if runs else None
+
+
+def superseded(gh: Gh, repo: str, workflow: str, run_id: int, conclusion: str) -> str | None:
+    """Why this run must not act: a newer run of the workflow concluded the other way."""
+    newest = newest_run(gh, repo, workflow)
+    if not newest or int(newest.get("databaseId") or 0) <= run_id:
+        return None
+    other = str(newest.get("conclusion"))
+    if conclusion == "success" and other in FAILED:
+        return f"superseded: the newer run {newest['databaseId']} failed"
+    if conclusion in FAILED and other == "success":
+        return f"superseded: the newer run {newest['databaseId']} succeeded"
     return None
 
 
@@ -134,6 +167,9 @@ def report(
     if conclusion != "success" and conclusion not in FAILED:
         return f"ignored: conclusion {conclusion}"
     title = title or f"{workflow} passes again on {BRANCH}"
+    reason = superseded(gh, repo, workflow, run_id, conclusion)
+    if reason:
+        return reason
     issue = find_issue(gh, repo, label, workflow, title)
     number = int(issue["number"]) if issue else None
     if conclusion == "success":

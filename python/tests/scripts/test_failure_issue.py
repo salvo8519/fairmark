@@ -29,6 +29,7 @@ class FakeGh:
         self.comments: dict[int, list[str]] = {}
         self.failed_jobs = failed_jobs or []
         self.calls: list[list[str]] = []
+        self.runs: list[dict[str, Any]] = []  # newest completed run first, as gh run list
 
     @staticmethod
     def flag(args: list[str], name: str) -> str:
@@ -75,6 +76,9 @@ class FakeGh:
                 return ""
             case ["api", path] if path.endswith("/jobs?per_page=100"):
                 return "\n".join(self.failed_jobs)
+            case ["run", "list"]:
+                assert self.flag(args, "--branch") == "main"
+                return json.dumps(self.runs[:1])
         pytest.fail(f"unexpected gh call: {args}")
 
 
@@ -132,7 +136,7 @@ def test_a_success_closes_the_issue_and_a_later_failure_opens_a_new_one() -> Non
 def test_a_success_without_an_open_issue_changes_nothing() -> None:
     gh = FakeGh()
     assert report(gh, "success", 13) == "nothing to close"
-    assert all(call[:2] == ["issue", "list"] for call in gh.calls)
+    assert all(call[:2] in (["issue", "list"], ["run", "list"]) for call in gh.calls)  # reads only
 
 
 def test_each_workflow_has_its_own_issue() -> None:
@@ -351,3 +355,33 @@ def test_the_failure_workflow_runs_only_for_this_repository_with_minimal_permiss
     assert "github.event.workflow_run.event == 'push'" in condition
     assert "github.event.workflow_run.event == 'schedule'" in condition
     assert job["permissions"] == {"actions": "read", "contents": "read", "issues": "write"}
+
+
+def test_a_slow_failure_never_reopens_after_a_newer_green_run() -> None:
+    gh = FakeGh(failed_jobs=["Build"])
+    report(gh, "failure", 11)
+    assert report(gh, "success", 13) == "closed #1"
+    gh.runs = [{"databaseId": 13, "conclusion": "success"}]
+    assert report(gh, "failure", 12) == "superseded: the newer run 13 succeeded"
+    assert open_issues(gh) == []
+
+
+def test_a_slow_success_never_closes_after_a_newer_failure() -> None:
+    gh = FakeGh(failed_jobs=["Build"])
+    report(gh, "failure", 14)
+    gh.runs = [{"databaseId": 14, "conclusion": "failure"}]
+    assert report(gh, "success", 13) == "superseded: the newer run 14 failed"
+    assert len(open_issues(gh)) == 1
+    # The run itself, or an older one, being the newest changes nothing.
+    gh.runs = [{"databaseId": 13, "conclusion": "success"}]
+    assert report(gh, "success", 13) == "closed #1"
+
+
+def test_the_title_never_adopts_an_issue_marked_for_another_workflow() -> None:
+    gh = FakeGh(failed_jobs=["Mutants"])
+    report(gh, "failure", 21, workflow="Mutation testing", title="Weekly maintenance report")
+    assert (
+        report(gh, "success", 22, workflow="Weekly maintenance", title="Weekly maintenance report")
+        == "nothing to close"
+    )
+    assert len(open_issues(gh)) == 1

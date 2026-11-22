@@ -108,6 +108,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      actions: read  # the newest run of the workflow (scripts/failure_issue.py)
       contents: read
       issues: write
     steps:

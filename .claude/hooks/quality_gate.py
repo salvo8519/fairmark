@@ -13,9 +13,19 @@ The edition passed to rustfmt is the one of the workspace manifest, as `cargo fm
 Findings block the end of the turn (exit status 2, findings on stderr), so the agent fixes
 them first. A session is never blocked twice by the same findings, nor more than `MAX_BLOCKS`
 times: the fingerprint of the last blocking findings and the number of blocks are kept per
-session in the git directory. Findings that are not blocking, a check stopped by the time
-budget (`FAIRMARK_QUALITY_BUDGET` seconds, default 60) and a missing tool are reported in a
-`systemMessage` on stdout and never block.
+session (and per hook event and subagent, so subagents do not spend the main session's blocks)
+in the git directory. Findings that are not blocking, a check stopped by the time budget and a
+missing tool are reported in a `systemMessage` on stdout and never block.
+
+Time: `FAIRMARK_QUALITY_BUDGET` seconds (default 60, at most 75, under the 90 s limit that
+`.claude/settings.json` gives the hook) cover everything, the tool probes included. A check that
+runs out of time is stopped with its whole process group; so is the running check when the hook
+itself is terminated.
+
+Side effects are kept out: `uv run --no-sync` never installs or builds the environment, and
+`cargo clippy --locked` never updates `Cargo.lock`. Note that clippy compiles the touched crates,
+so their build scripts and procedural macros run, without a permission prompt: an agent that may
+edit files but not run commands could still get workspace code executed by ending its turn.
 """
 
 from __future__ import annotations
@@ -24,6 +34,7 @@ import contextlib
 import hashlib
 import io
 import json
+import math
 import os
 import re
 import shutil
@@ -38,6 +49,9 @@ from typing import Any
 MAX_LINES = 40
 MAX_BLOCKS = 3
 DEFAULT_BUDGET = 60.0
+MAX_BUDGET = 75.0  # below the hook timeout of 90 s in .claude/settings.json
+PROBE_TIMEOUT = 20.0
+_active: subprocess.Popen[str] | None = None  # the running check, stopped if the hook is killed
 
 
 def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -112,27 +126,32 @@ def python_tool(root: Path, name: str) -> list[str] | None:
     if found:
         return [found]
     if shutil.which("uv"):
-        return ["uv", "run", "--quiet", name]
+        return ["uv", "run", "--no-sync", "--quiet", name]
     return None
 
 
-def works(command: list[str], root: Path) -> bool:
+def works(command: list[str], root: Path, deadline: float) -> bool:
     """True when the probe command runs and succeeds (a rustup component may be missing)."""
+    remaining = min(PROBE_TIMEOUT, deadline - time.monotonic())
+    if remaining <= 0:
+        return False
     try:
-        done = subprocess.run(command, cwd=root, capture_output=True, timeout=20, check=False)
+        done = subprocess.run(
+            command, cwd=root, capture_output=True, timeout=remaining, check=False
+        )
     except (OSError, subprocess.TimeoutExpired):
         return False
     return done.returncode == 0
 
 
-def plan(root: Path, files: list[str]) -> list[tuple[str, list[str] | None]]:
+def plan(root: Path, files: list[str], deadline: float) -> list[tuple[str, list[str] | None]]:
     """The checks to run, cheapest first: a label and a command (None when the tool is missing)."""
     checks: list[tuple[str, list[str] | None]] = []
     rust = [f for f in files if f.endswith(".rs")]
     python = [f for f in files if f.endswith(".py")]
     if rust:
         rustfmt = shutil.which("rustfmt")
-        ok = bool(rustfmt) and works([str(rustfmt), "--version"], root)
+        ok = bool(rustfmt) and works([str(rustfmt), "--version"], root, deadline)
         edition = rust_edition(root)
         command = [str(rustfmt), "--check", "--color", "never", "--edition", edition, "--", *rust]
         checks.append(("rustfmt --check", command if ok else None))
@@ -150,10 +169,10 @@ def plan(root: Path, files: list[str]) -> list[tuple[str, list[str] | None]]:
     crates = sorted({c for c in (crate_of(root, f) for f in rust) if c})
     if crates:
         cargo = shutil.which("cargo")
-        ok = bool(cargo) and works([str(cargo), "clippy", "--version"], root)
+        ok = bool(cargo) and works([str(cargo), "clippy", "--version"], root, deadline)
         selected = [arg for c in crates for arg in ("-p", c)]
         label = "cargo clippy " + " ".join(selected)
-        lint = ["clippy", "--quiet", *selected, "--all-targets", "--", "-D", "warnings"]
+        lint = ["clippy", "--quiet", "--locked", *selected, "--all-targets", "--", "-D", "warnings"]
         checks.append((label, [str(cargo), *lint] if ok else None))
     return checks
 
@@ -167,6 +186,7 @@ def tail(text: str) -> str:
 
 def run_one(command: list[str], root: Path, timeout: float) -> tuple[int, str] | None:
     """Exit status and output of the command; None when it ran out of time (group killed)."""
+    global _active
     with subprocess.Popen(
         command,
         cwd=root,
@@ -177,26 +197,40 @@ def run_one(command: list[str], root: Path, timeout: float) -> tuple[int, str] |
         errors="replace",
         start_new_session=True,
     ) as proc:
+        _active = proc
         try:
             out, _ = proc.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
-            with contextlib.suppress(ProcessLookupError):
-                if os.name == "posix":
-                    os.killpg(proc.pid, signal.SIGKILL)  # cargo and its rustc children too
-                else:
-                    proc.kill()
+            stop(proc)
             proc.communicate()
             return None
+        finally:
+            _active = None
         return proc.returncode, out
 
 
+def stop(proc: subprocess.Popen[str]) -> None:
+    """Kill the check and, on POSIX, its whole process group (cargo and its rustc children)."""
+    with contextlib.suppress(ProcessLookupError):
+        if os.name == "posix":
+            os.killpg(proc.pid, signal.SIGKILL)
+        else:
+            proc.kill()
+
+
+def on_terminate(signum: int, _frame: object) -> None:
+    """The hook is being killed (its own timeout): never leave a check running behind it."""
+    if _active is not None:
+        stop(_active)
+    raise SystemExit(128 + signum)
+
+
 def run_checks(
-    root: Path, checks: list[tuple[str, list[str] | None]], budget: float
+    root: Path, checks: list[tuple[str, list[str] | None]], deadline: float, budget: float
 ) -> tuple[list[str], list[str]]:
     """Findings that block, and notes that do not (missing tools, time budget spent)."""
     findings: list[str] = []
     notes: list[str] = []
-    deadline = time.monotonic() + budget
     for label, command in checks:
         if command is None:
             notes.append(f"{label}: tool not found, check skipped.")
@@ -214,12 +248,25 @@ def run_checks(
 
 
 def budget_from_env() -> float:
-    """Seconds for all the checks; an invalid or negative value falls back to the default."""
+    """Seconds for the whole hook: invalid, negative or infinite values fall back to the default,
+    larger ones are capped at MAX_BUDGET."""
     try:
         value = float(os.environ.get("FAIRMARK_QUALITY_BUDGET", DEFAULT_BUDGET))
     except ValueError:
         return DEFAULT_BUDGET
-    return value if value >= 0 else DEFAULT_BUDGET
+    if not math.isfinite(value) or value < 0:
+        return DEFAULT_BUDGET
+    return min(value, MAX_BUDGET)
+
+
+def state_key(payload: object) -> str:
+    """Session, hook event and subagent: a subagent has its own blocks, not the session's."""
+    if not isinstance(payload, dict):
+        return "default"
+    parts = [payload.get("session_id") or "default", payload.get("hook_event_name") or "Stop"]
+    if payload.get("agent_id"):
+        parts.append(payload["agent_id"])
+    return "-".join(str(p) for p in parts)
 
 
 def state_file(root: Path, session: str) -> Path | None:
@@ -267,17 +314,21 @@ def main() -> int:
         payload = json.load(sys.stdin)
     except json.JSONDecodeError:
         payload = {}
-    session = str(payload.get("session_id") or "default") if isinstance(payload, dict) else ""
+    session = state_key(payload)
+    budget = budget_from_env()
+    deadline = time.monotonic() + budget
     root = Path(os.environ.get("CLAUDE_PROJECT_DIR") or ".").resolve()
     if shutil.which("git") is None:
         return report(["git not found, check skipped."])
     files = changed_files(root)
     if not files:
         return 0
-    checks = plan(root, files)
+    if hasattr(signal, "SIGTERM"):
+        signal.signal(signal.SIGTERM, on_terminate)
+    checks = plan(root, files, deadline)
     if not checks:
         return 0
-    findings, notes = run_checks(root, checks, budget_from_env())
+    findings, notes = run_checks(root, checks, deadline, budget)
     path = state_file(root, session)
     state = load_state(path)
     blocks = state.get("blocks", 0)
