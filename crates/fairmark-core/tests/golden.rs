@@ -7,6 +7,12 @@ use std::str::FromStr;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
+// The test profile (issue #368): the sweeps below check a sample per method under mutation
+// testing. Shared with the unit tests of the library.
+#[allow(dead_code)]
+#[path = "../src/test_profile.rs"]
+mod test_profile;
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Case {
@@ -863,6 +869,7 @@ fn key_order_changes_neither_envelope_nor_error_report() {
     let mut files = Vec::new();
     golden_files(&root, &mut files);
     files.sort();
+    let files = test_profile::sample(files, |f| f.parent().map(Path::to_path_buf));
     let (mut checked, mut errors) = (0, 0);
     let mut failures = Vec::new();
     for file in &files {
@@ -887,7 +894,7 @@ fn key_order_changes_neither_envelope_nor_error_report() {
         errors += usize::from(case.expect_error.is_some());
     }
     assert!(
-        checked > 300 && errors > 50,
+        checked > test_profile::pick(300, 80) && errors > test_profile::pick(50, 20),
         "{checked} cases, {errors} errors"
     );
     assert!(failures.is_empty(), "{}", failures.join("\n"));
@@ -988,26 +995,43 @@ fn a_choice_with_two_keys_is_one_length_entry() {
     let mut files = Vec::new();
     golden_files(&root, &mut files);
     files.sort();
+    // Inputs that succeed and hold a choice, with their choice objects; in the mutants
+    // profile, a sample of them per method.
+    let cases: Vec<_> = files
+        .into_iter()
+        .filter_map(|file| {
+            let case: Case =
+                serde_norway::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+            if case.expect_error.is_some() {
+                return None;
+            }
+            let (inner, base) = if case.method.starts_with("analysis.") {
+                (case.input["method"].as_str().unwrap(), "/base_input")
+            } else {
+                (case.method.as_str(), "")
+            };
+            let choices = single_key_choices(&fairmark_core::input_schema(inner).unwrap());
+            let mut objects = Vec::new();
+            choice_objects(
+                case.input.pointer(base).unwrap(),
+                base.to_owned(),
+                &choices,
+                &mut objects,
+            );
+            let inner = inner.to_owned();
+            (!objects.is_empty()).then_some((file, case, inner, objects))
+        })
+        .collect();
+    let cases = test_profile::sample(cases, |(_, case, _, _)| case.method.clone());
     let (mut checked, mut failures) = (0, Vec::new());
     let mut methods = std::collections::BTreeSet::new();
-    for file in &files {
-        let case: Case = serde_norway::from_str(&std::fs::read_to_string(file).unwrap()).unwrap();
-        if case.expect_error.is_some() {
-            continue;
-        }
-        let (inner, base) = if case.method.starts_with("analysis.") {
-            (case.input["method"].as_str().unwrap(), "/base_input")
+    for (file, case, inner, objects) in cases {
+        let inner = inner.as_str();
+        let base = if case.method.starts_with("analysis.") {
+            "/base_input"
         } else {
-            (case.method.as_str(), "")
+            ""
         };
-        let choices = single_key_choices(&fairmark_core::input_schema(inner).unwrap());
-        let mut objects = Vec::new();
-        choice_objects(
-            case.input.pointer(base).unwrap(),
-            base.to_owned(),
-            &choices,
-            &mut objects,
-        );
         for (at, key, other) in objects {
             let terms = case.input.pointer(&at).unwrap()[key.as_str()].clone();
             let variants = [
@@ -1076,7 +1100,7 @@ fn a_choice_with_two_keys_is_one_length_entry() {
     ] {
         assert!(methods.contains(m), "no choice of {m} checked: {methods:?}");
     }
-    assert!(checked > 30, "{checked}");
+    assert!(checked > test_profile::pick(30, 80), "{checked}");
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 

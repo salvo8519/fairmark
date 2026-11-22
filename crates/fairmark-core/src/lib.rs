@@ -40,6 +40,8 @@ pub mod registry;
 pub mod series;
 pub mod solver;
 pub mod statements;
+#[cfg(test)]
+mod test_profile;
 pub mod tv;
 pub mod tvm;
 pub mod types;

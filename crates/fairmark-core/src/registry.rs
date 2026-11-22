@@ -680,6 +680,7 @@ fn sha256_hex(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_profile::{count, pick, sample};
 
     /// ADR 0009: ids are unique `<theme>.<name>`, versions are integers, and every method type
     /// is defined in the module of its theme (`fairmark_core::<theme>::<Type>`).
@@ -1089,6 +1090,7 @@ mod tests {
                 .map(|f| f.unwrap().path())
                 .collect();
             files.sort();
+            let files = sample(files, |_| ());
             for (position, file) in files.into_iter().enumerate() {
                 let case: Value =
                     serde_norway::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
@@ -1156,7 +1158,7 @@ mod tests {
                 }
             }
         }
-        assert!(checked > 1500, "{checked}");
+        assert!(checked > pick(1500, 800), "{checked}");
         assert!(
             failures.is_empty(),
             "{}\n{}",
@@ -1358,14 +1360,8 @@ mod tests {
     /// default 4) widen the search.
     #[test]
     fn every_error_declares_the_fields_it_reads() {
-        let setting = |name: &str, default: usize| -> usize {
-            std::env::var(name)
-                .ok()
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(default)
-        };
-        let per_method = setting("FAIRMARK_SOUNDNESS_FILES", 3);
-        let singles_per_file = setting("FAIRMARK_SOUNDNESS_SINGLES", 4);
+        let per_method = count("FAIRMARK_SOUNDNESS_FILES", 3, 1);
+        let singles_per_file = count("FAIRMARK_SOUNDNESS_SINGLES", 4, 2);
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
         let key = |e: &FairmarkError| (e.code(), e.details().pointer, e.to_string());
         let mut failures: Vec<String> = Vec::new();
@@ -1468,7 +1464,7 @@ mod tests {
         }
         failures.sort();
         failures.dedup();
-        assert!(compared > 1000, "{compared}");
+        assert!(compared > pick(1000, 300), "{compared}");
         assert!(
             failures.is_empty(),
             "{}\n{}",
@@ -1491,14 +1487,8 @@ mod tests {
     /// widen the search.
     #[test]
     fn every_pointer_an_error_names_is_declared_and_actionable() {
-        let setting = |name: &str, default: usize| -> usize {
-            std::env::var(name)
-                .ok()
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(default)
-        };
-        let per_method = setting("FAIRMARK_ACTIONABLE_FILES", 4);
-        let leaves_per_file = setting("FAIRMARK_ACTIONABLE_LEAVES", 16);
+        let per_method = count("FAIRMARK_ACTIONABLE_FILES", 4, 1);
+        let leaves_per_file = count("FAIRMARK_ACTIONABLE_LEAVES", 16, 8);
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
         let mut failures: Vec<String> = Vec::new();
         let mut checked = 0u32;
@@ -1611,7 +1601,7 @@ mod tests {
         }
         failures.sort();
         failures.dedup();
-        assert!(checked > 1000, "{checked}");
+        assert!(checked > pick(1000, 900), "{checked}");
         assert!(
             failures.is_empty(),
             "{}\n{}",
@@ -1677,14 +1667,8 @@ mod tests {
     /// 8; every value of a line field of the seed is tried) widen the search.
     #[test]
     fn no_refusal_hides_an_independent_one() {
-        let setting = |name: &str, default: usize| -> usize {
-            std::env::var(name)
-                .ok()
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(default)
-        };
-        let per_method = setting("FAIRMARK_PAIRWISE_FILES", 2);
-        let singles_per_input = setting("FAIRMARK_PAIRWISE_SINGLES", 8);
+        let per_method = count("FAIRMARK_PAIRWISE_FILES", 2, 1);
+        let singles_per_input = count("FAIRMARK_PAIRWISE_SINGLES", 8, 4);
         let key = |e: &FairmarkError| (e.code(), e.details().pointer, e.to_string());
         let mut failures: Vec<String> = Vec::new();
         let mut compared = 0u32;
@@ -1752,7 +1736,7 @@ mod tests {
         }
         failures.sort();
         failures.dedup();
-        assert!(compared > 300, "{compared}");
+        assert!(compared > pick(300, 250), "{compared}");
         assert!(
             failures.is_empty(),
             "{}\n{}",
@@ -1799,6 +1783,7 @@ mod tests {
                 .map(|f| f.unwrap().path())
                 .collect();
             files.sort();
+            let files = sample(files, |_| ());
             for file in files {
                 let case: Value =
                     serde_norway::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
@@ -1876,7 +1861,7 @@ mod tests {
                 ));
             }
         }
-        assert!(checked > 300, "{checked}");
+        assert!(checked > pick(300, 50), "{checked}");
         assert!(failures.is_empty(), "{}", failures.join("\n"));
     }
 
@@ -2171,7 +2156,7 @@ mod tests {
         }
         misnamed.sort();
         misnamed.dedup();
-        assert!(seen > 1000, "{seen}");
+        assert!(seen > pick(1000, 350), "{seen}");
         assert!(misnamed.is_empty(), "{}", misnamed.join("\n"));
     }
 
@@ -2250,7 +2235,7 @@ mod tests {
                 }
             }
         }
-        assert!(seen > 1000, "{seen}");
+        assert!(seen > pick(1000, 80), "{seen}");
         assert!(failures.is_empty(), "{}", failures.join("\n"));
     }
 
@@ -2303,7 +2288,7 @@ mod tests {
         ];
         let mut failures = Vec::new();
         let mut checked = 0u32;
-        for (name, id, input) in property_inputs(2) {
+        for (name, id, input) in property_inputs(pick(2, 1)) {
             let mut all = Vec::new();
             leaves(&input, String::new(), &mut all);
             let decimal: Vec<String> = all
@@ -2333,7 +2318,7 @@ mod tests {
                 }
             }
         }
-        assert!(checked > 100, "{checked}");
+        assert!(checked > pick(100, 700), "{checked}");
         assert!(failures.is_empty(), "{}", failures.join("\n"));
     }
 }

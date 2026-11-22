@@ -2554,6 +2554,9 @@ mod tests {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
         let mut all = Vec::new();
         files(&root, &mut all);
+        all.sort();
+        let all =
+            crate::test_profile::sample(all, |f| f.parent().map(std::path::Path::to_path_buf));
         let mut checked = 0;
         for file in all {
             let case: Value =
@@ -2592,7 +2595,7 @@ mod tests {
             }
             checked += 1;
         }
-        assert!(checked > 600, "{checked}");
+        assert!(checked > crate::test_profile::pick(600, 80), "{checked}");
     }
 
     #[test]
