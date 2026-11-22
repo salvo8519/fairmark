@@ -61,6 +61,11 @@ To change an agent or a skill, edit `.agents/` and run `uv run just generate`; n
 
 ### Hooks (`.claude/settings.json`)
 - Edited `.rs` / `.py` files are formatted automatically after each edit.
+- When the session or a subagent stops, `.claude/hooks/quality-gate.sh` runs rustfmt, clippy on
+  the touched crates, ruff and mypy on the changed files; findings are sent back to fix before
+  the turn ends (never twice the same, at most three times per session and per subagent). It
+  never installs or updates anything (`uv run --no-sync`, `cargo clippy --locked`), but clippy
+  compiles the touched crates, so their build scripts and procedural macros run.
 - Edits to golden cases that already exist on `origin/main` are blocked in every git worktree
   (`.claude/hooks/protect_golden.py`): ask the maintainer. Cases added on the branch stay editable.
 - Every request is read with the roadmap in mind (`UserPromptSubmit` reminder): propose the

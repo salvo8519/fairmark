@@ -282,7 +282,10 @@ jobs:
           STALE_IN: ${{ needs.plan.outputs.stale-in }}
         run: |
           set -o pipefail
-          dirs=$(find shards -name outcomes.json -printf '%h\n' 2>/dev/null | sort)
+          # No shard ran when the change has no mutable line of the core: without this folder,
+          # find fails, pipefail fails the assignment and bash -e ends the step with exit 1.
+          mkdir -p shards
+          dirs=$(find shards -name outcomes.json -printf '%h\n' | sort)
           args=(--allow-empty --title "$TITLE")
           # Pull requests: missed mutants not recorded as equivalent fail the check. The
           # weekly run reports them for triage.
