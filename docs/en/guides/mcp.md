@@ -14,7 +14,9 @@ Streamable HTTP transport, for n8n and other clients that connect over HTTP.
 }
 ```
 
-Or install it in an environment and use `"command": "fairmark-mcp"`.
+Or install it in an environment with the `mcp` extra, `pip install "fairmark[mcp]"`, and use
+`"command": "fairmark-mcp"`. A plain `pip install fairmark` also installs the command, but
+without the extra it stops at once with the install command above.
 
 ## HTTP mode (n8n and remote clients)
 
