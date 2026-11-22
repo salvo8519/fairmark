@@ -87,7 +87,7 @@ jobs:
           - { platform: linux-x86_64-musllinux, os: ubuntu-latest, target: x86_64-unknown-linux-musl, manylinux: musllinux_1_2, build-image: rust-musl-cross-x86_64, smoke: alpine }
           - { platform: linux-aarch64-musllinux, os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, manylinux: musllinux_1_2, build-image: rust-musl-cross-aarch64, smoke: alpine }
           - { platform: macos-x86_64, os: macos-15-intel, target: x86_64-apple-darwin, manylinux: auto, smoke: host }
-          - { platform: macos-arm64, os: macos-14, target: aarch64-apple-darwin, manylinux: auto, smoke: host }
+          - { platform: macos-arm64, os: macos-15, target: aarch64-apple-darwin, manylinux: auto, smoke: host }
           - { platform: windows-x86_64, os: windows-latest, target: x86_64-pc-windows-msvc, manylinux: auto, smoke: host }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

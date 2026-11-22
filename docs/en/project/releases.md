@@ -260,7 +260,7 @@ later version (tag `cp312-abi3`). Each wheel is built on a runner of its own arc
 | Linux x86_64, musl (Alpine) | `musllinux_1_2_x86_64` | `ubuntu-latest` |
 | Linux arm64, musl (Alpine) | `musllinux_1_2_aarch64` | `ubuntu-24.04-arm` |
 | macOS Intel | `macosx_*_x86_64` | `macos-15-intel` |
-| macOS Apple silicon | `macosx_*_arm64` | `macos-14` |
+| macOS Apple silicon | `macosx_*_arm64` | `macos-15` |
 | Windows x86_64 | `win_amd64` | `windows-latest` |
 
 The source distribution (sdist) serves every other platform; installing it needs a Rust
