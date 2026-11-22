@@ -41,4 +41,4 @@ function = "amortisation_schedule"
 mutation = "replace > with >= in amortisation_schedule"
 line = 1197
 reason = "g (principal_grace_periods) is a u32, so g >= 0 differs from g > 0 only at g = 0, where k == g + 1 is k == 1, already the first operand of the || (k == 1 || (g > 0 && k == g + 1 && ...)): the first-period steps are written for the same periods either way"
-reviewer = "pending"
+reviewer = "salvo8519"
