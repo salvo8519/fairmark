@@ -302,7 +302,7 @@ milestones:
           - { issue: 171, title: "Disclaimer: a calculation tool, decisions belong to the user", status: done }
           - { issue: 144, title: "Documentation site meets WCAG AA contrast for the active navigation item", tags: [parallel], status: done }
           - { issue: 332, title: "Fairmark listed on the official MCP Registry at each release", tags: [maintainer], status: open }
-          - { issue: 421, title: "Release wheels for macOS Apple silicon built on macos-15 (macos-14 retired)", status: open }
+          - { issue: 421, title: "Release wheels for macOS Apple silicon built on macos-15 (macos-14 retired)", status: done }
       - title: "Distribution to analysts"
         labels: []
         tasks:
