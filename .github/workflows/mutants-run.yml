@@ -101,9 +101,9 @@ jobs:
         run: |
           mapfile -t select < plan/select.args
           part=$(cat plan/part)
-          base=(--package fairmark-core --no-shuffle --sharding round-robin "${select[@]}")
+          base=(--package fairmark-core --no-shuffle "${select[@]}")
           if [ -n "$part" ]; then
-            cargo mutants "${base[@]}" --list --shard "$part" > plan/all.txt
+            cargo mutants "${base[@]}" --list --sharding round-robin --shard "$part" > plan/all.txt
             python3 scripts/mutants.py plan --kind "$KIND" --list plan/all.txt --part "$part" \
               --shards-file plan/shards.txt --github-output "$GITHUB_OUTPUT" > plan/plan.json
           else
@@ -114,7 +114,8 @@ jobs:
           # The list of each shard, as cargo-mutants selects it: the summary compares it with
           # the outcomes, even for a shard whose runner was lost.
           while read -r index shard; do
-            cargo mutants "${base[@]}" --list --shard "$shard" > "plan/shard-$index.txt"
+            cargo mutants "${base[@]}" --list --sharding round-robin --shard "$shard" \
+              > "plan/shard-$index.txt"
           done < plan/shards.txt
           {
             echo "### Plan"

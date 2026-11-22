@@ -157,8 +157,8 @@ mutants-slice index="":
     mapfile -t select < target/mutants-slice/select.args
     part=$(cat target/mutants-slice/part)
     status=0
-    cargo mutants --package fairmark-core --no-shuffle --sharding round-robin "${select[@]}" \
-      ${part:+--shard "$part"} --output target/mutants-slice || status=$?
+    cargo mutants --package fairmark-core --no-shuffle "${select[@]}" \
+      ${part:+--sharding round-robin --shard "$part"} --output target/mutants-slice || status=$?
     python scripts/mutants.py summary target/mutants-slice
     exit "$status"
 
