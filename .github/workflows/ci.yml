@@ -65,7 +65,7 @@ jobs:
           toolchain: stable
           components: llvm-tools-preview
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
-      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         id: llvm-cov-install
         continue-on-error: true
         timeout-minutes: 5
@@ -94,7 +94,7 @@ jobs:
       # Tools are installed at pinned versions: install-action downloads them with retries and
       # checks their SHA-256 for at most 5 minutes; if that fails (GitHub outage on release
       # assets), the next step builds the same version from crates.io with its lockfile (#181).
-      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         id: deny-install
         continue-on-error: true
         timeout-minutes: 5
@@ -124,7 +124,7 @@ jobs:
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
-      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true
@@ -149,7 +149,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.13.7"
       # Security audit of the workflows: injections, permissions, credentials, pins.
@@ -158,7 +158,7 @@ jobs:
       - run: uvx --from actionlint-py@1.7.12.25 actionlint
       - run: python3 scripts/pin_actions.py --check
       - run: uv run --frozen --only-group dev python scripts/check_yaml.py
-      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         id: machete-install
         continue-on-error: true
         timeout-minutes: 5
@@ -181,7 +181,7 @@ jobs:
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
-      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           python-version: "3.13"
           enable-cache: true
@@ -232,7 +232,7 @@ jobs:
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
-      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           python-version: "3.13"
           enable-cache: true
@@ -245,64 +245,18 @@ jobs:
   mutants-diff:
     name: Mutation testing · changed lines of the core
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    # About 20 seconds per mutant after a 2-minute baseline: room for about 150 mutants, that is
-    # a pull request that changes several functions of the core.
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      # Path filter inside the job, so that the check always reports and can be made required:
-      # without a change under crates/fairmark-core/src the remaining steps are skipped.
-      - name: Changed lines of fairmark-core
-        id: diff
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          git diff "origin/$BASE_REF...HEAD" -- crates/fairmark-core/src > core.diff
-          if [ -s core.diff ]; then echo "changed=true" >> "$GITHUB_OUTPUT"
-          else echo "No change in crates/fairmark-core/src: nothing to mutate."; fi
-      - if: steps.diff.outputs.changed == 'true'
-        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
-        with:
-          toolchain: stable
-      - if: steps.diff.outputs.changed == 'true'
-        uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
-        id: mutants-install
-        continue-on-error: true
-        timeout-minutes: 5
-        with:
-          tool: cargo-mutants@27.1.0
-          fallback: none
-      - name: Build cargo-mutants from crates.io (download failed)
-        if: steps.diff.outputs.changed == 'true' && steps.mutants-install.outcome == 'failure'
-        run: cargo install --locked cargo-mutants@27.1.0
-      - name: cargo mutants --in-diff (configuration in .cargo/mutants.toml)
-        if: steps.diff.outputs.changed == 'true'
-        run: |
-          status=0
-          cargo mutants --package fairmark-core --no-shuffle --in-diff core.diff --output . \
-            || status=$?
-          # 2 = missed, 3 = timeout: decided by the gate below, which applies the reviewed
-          # equivalent mutants (tests/mutants/equivalent.toml). Anything else fails here.
-          if [ "$status" -ne 0 ] && [ "$status" -ne 2 ] && [ "$status" -ne 3 ]; then
-            exit "$status"
-          fi
-      - name: Gate on missed mutants not recorded as equivalent
-        if: steps.diff.outputs.changed == 'true'
-        run: |
-          set -o pipefail
-          python3 scripts/mutants.py summary mutants.out --gate --allow-empty \
-            --title "Mutation testing of the changed lines" | tee -a "$GITHUB_STEP_SUMMARY"
-      - if: always() && steps.diff.outputs.changed == 'true'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: mutants-diff
-          path: mutants.out
-          if-no-files-found: warn
-          retention-days: 14
+    # The mutants of the lines changed in crates/fairmark-core/src, in as many shards as the
+    # time budget needs (tests/mutants/budget.toml, issue #368). The check always reports:
+    # without a change in the core the plan finds nothing to mutate. Missed mutants not
+    # recorded as equivalent, and a shard that did not test every mutant, fail it.
+    # The pinned actionlint (1.7.12) rejects the self-repository form $/ that zizmor suggests.
+    uses: ./.github/workflows/mutants-run.yml  # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+      actions: read
+    with:
+      kind: pr
+      base-ref: ${{ github.base_ref }}
 
   contracts:
     name: Contracts · schema changes and golden cases
@@ -317,7 +271,7 @@ jobs:
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
-      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           python-version: "3.13"
           enable-cache: true

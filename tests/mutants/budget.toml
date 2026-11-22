@@ -1,0 +1,121 @@
+# Time budget and weekly rotation of mutation testing (issue #368).
+#
+# Read by `python scripts/mutants.py` (subcommands plan, slice, check-slices) and by the
+# workflows that run cargo-mutants (.github/workflows/mutants-run.yml). Rules and measured
+# times: docs/en/project/mutation-testing.md.
+#
+# A run is split into shards. The number of shards is computed from the number of mutants
+# (`cargo mutants --list`), so that each shard fits its time budget:
+#   mutants per shard = floor((run_minutes - baseline_minutes) × 60 / seconds_per_mutant)
+#   shards            = ceil(mutants / mutants per shard), at most max_shards
+# cargo-mutants is stopped after run_minutes; the job limit is run_minutes + setup_minutes.
+# A shard stopped before its last mutant fails with "mutation coverage incomplete" and the
+# list of the mutants it did not test.
+
+[estimate]
+# Mean time of one mutant (incremental build and test run, mutants test profile) on a
+# GitHub-hosted ubuntu-latest runner, rounded up. Unviable mutants (build only) are faster.
+seconds_per_mutant = 30
+# Unmutated baseline in the scratch directory: full build and one test run.
+baseline_minutes = 3
+# Checkout, toolchain, cargo-mutants and the upload of the results.
+setup_minutes = 10
+
+[pr]
+# Job "Mutation testing · changed lines of the core" in ci.yml: the mutants of the lines a
+# pull request changes in crates/fairmark-core/src.
+run_minutes = 30
+max_shards = 8
+
+[weekly]
+# Workflow "Mutation testing" (mutants.yml): one slice of the core per week.
+run_minutes = 45
+max_shards = 4
+
+# Weekly rotation. The slice of a week is slices[w mod n], where w counts the ISO weeks
+# (Monday to Sunday, UTC) since Monday 5 January 1970 and n is the number of slices after
+# the parts are expanded: every mutant of the core is tested once per cycle of n weeks.
+# `files` are globs relative to crates/fairmark-core/src; every source file of the core is in
+# exactly one slice (`python scripts/mutants.py check-slices`, run by `just lint`). A slice
+# with `parts = m` is tested over m consecutive weeks, part k being the mutants k, k + m,
+# k + 2m, ... of its list (round-robin). Each slice must fit max_shards shards of the weekly
+# budget; the plan of the run fails, naming the slice, when it no longer does.
+
+[[slice]]
+name = "reading"
+files = ["reading.rs"]
+parts = 3
+
+[[slice]]
+name = "dcf engine"
+files = ["dcf/engine.rs"]
+
+[[slice]]
+name = "tvm"
+files = ["tvm.rs"]
+
+[[slice]]
+name = "dates and rates"
+files = ["dates.rs", "rates.rs"]
+
+[[slice]]
+name = "errors, diagnostics and shared types"
+files = [
+  "error.rs",
+  "diagnostics.rs",
+  "explain.rs",
+  "method.rs",
+  "num.rs",
+  "not_computed.rs",
+  "types.rs",
+  "lib.rs",
+  "test_profile.rs",
+]
+
+[[slice]]
+name = "loans and solver"
+files = ["loans.rs", "solver.rs"]
+
+[[slice]]
+name = "covenants and debt service"
+files = ["ratios/covenants.rs", "ratios/debt_service.rs"]
+
+[[slice]]
+name = "ratios, series and frequency"
+files = [
+  "frequency.rs",
+  "ratios/mod.rs",
+  "ratios/profitability.rs",
+  "ratios/capital_structure.rs",
+  "ratios/working_capital.rs",
+  "ratios/liquidity.rs",
+  "series.rs",
+]
+
+[[slice]]
+name = "income statement and balance sheet"
+files = ["statements/income_statement.rs", "statements/balance_sheet.rs"]
+
+[[slice]]
+name = "statements and registry"
+files = [
+  "statements/validate.rs",
+  "statements/mod.rs",
+  "statements/checks.rs",
+  "statements/input.rs",
+  "statements/partial.rs",
+  "statements/reclassified.rs",
+  "registry.rs",
+]
+
+[[slice]]
+name = "cost of capital and DCF building blocks"
+files = ["coc.rs", "dcf/terminal.rs", "dcf/free_cash_flows.rs"]
+
+[[slice]]
+name = "terminal value and DCF methods"
+files = ["tv/*.rs", "dcf.rs", "dcf/bridge.rs", "dcf/fcfe.rs", "dcf/fcff.rs"]
+
+[[slice]]
+name = "analyses"
+files = ["analysis/*.rs"]

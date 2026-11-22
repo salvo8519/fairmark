@@ -1,0 +1,280 @@
+name: Mutation testing run
+
+# One cargo-mutants run of fairmark-core within the time budget of tests/mutants/budget.toml
+# (issue #368), called by ci.yml (kind pr: the lines a pull request changes) and mutants.yml
+# (kind weekly: the slice of the week).
+#
+# 1. Plan: list the mutants (`cargo mutants --list`) and split them into as many shards as
+#    the budget needs; the list of each shard is kept in the plan artifact.
+# 2. Shards: cargo-mutants is stopped after `run_minutes`; a shard that did not test every
+#    mutant of its list fails with "mutation coverage incomplete" and the untested mutants.
+# 3. Summary: completeness of the whole run (a shard without results is classified from the
+#    REST API: runner lost, job time limit, cancelled), then the table per module; for pull
+#    requests, the gate on missed mutants not recorded as equivalent.
+# Rules: docs/en/project/mutation-testing.md.
+on:
+  workflow_call:
+    inputs:
+      kind:
+        description: "pr (changed lines of a pull request) or weekly (one slice of the core)"
+        type: string
+        required: true
+      base-ref:
+        description: "kind pr: the branch the pull request merges into"
+        type: string
+        default: ""
+      slice:
+        description: "kind weekly: index of the slice; empty for the slice of the current week"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      mutants: ${{ steps.plan.outputs.mutants || '0' }}
+      shards: ${{ steps.plan.outputs.shards || '0' }}
+      matrix: ${{ steps.plan.outputs.matrix || '[]' }}
+      run-minutes: ${{ steps.plan.outputs.run_minutes || '0' }}
+      timeout-minutes: ${{ steps.plan.outputs.timeout_minutes || '10' }}
+      title: ${{ steps.select.outputs.title }}
+      stale-in: ${{ steps.select.outputs.stale_in }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          # The pull request diff needs the base branch.
+          fetch-depth: 0
+      - name: Select the mutants (changed lines, or the slice of the week)
+        id: select
+        env:
+          KIND: ${{ inputs.kind }}
+          BASE_REF: ${{ inputs.base-ref }}
+          SLICE: ${{ inputs.slice }}
+        run: |
+          mkdir -p plan
+          if [ "$KIND" = pr ]; then
+            git diff "origin/$BASE_REF...HEAD" -- crates/fairmark-core/src > plan/core.diff
+            printf '%s\n' --in-diff plan/core.diff > plan/select.args
+            : > plan/part
+            echo "title=Mutation testing of the changed lines" >> "$GITHUB_OUTPUT"
+            if [ -s plan/core.diff ]; then echo "list=true" >> "$GITHUB_OUTPUT"
+            else echo "No change in crates/fairmark-core/src: nothing to mutate."; fi
+          elif [ "$KIND" = weekly ]; then
+            python3 scripts/mutants.py slice ${SLICE:+--index "$SLICE"} \
+              --args-file plan/select.args --part-file plan/part --github-output "$GITHUB_OUTPUT"
+            echo "list=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Unknown kind $KIND (pr or weekly)." >&2
+            exit 1
+          fi
+      - if: steps.select.outputs.list == 'true'
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      # cargo-mutants 27.1.0: install-action downloads it with retries and checks its SHA-256;
+      # if that fails, the next step builds the same version from crates.io with its lockfile.
+      - if: steps.select.outputs.list == 'true'
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        id: mutants-install
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          tool: cargo-mutants@27.1.0
+          fallback: none
+      - name: Build cargo-mutants from crates.io (download failed)
+        if: steps.select.outputs.list == 'true' && steps.mutants-install.outcome == 'failure'
+        run: cargo install --locked cargo-mutants@27.1.0
+      - name: Shards within the time budget (tests/mutants/budget.toml)
+        id: plan
+        if: steps.select.outputs.list == 'true'
+        env:
+          KIND: ${{ inputs.kind }}
+        run: |
+          mapfile -t select < plan/select.args
+          part=$(cat plan/part)
+          base=(--package fairmark-core --no-shuffle --sharding round-robin "${select[@]}")
+          if [ -n "$part" ]; then
+            cargo mutants "${base[@]}" --list --shard "$part" > plan/all.txt
+            python3 scripts/mutants.py plan --kind "$KIND" --list plan/all.txt --part "$part" \
+              --shards-file plan/shards.txt --github-output "$GITHUB_OUTPUT" > plan/plan.json
+          else
+            cargo mutants "${base[@]}" --list > plan/all.txt
+            python3 scripts/mutants.py plan --kind "$KIND" --list plan/all.txt \
+              --shards-file plan/shards.txt --github-output "$GITHUB_OUTPUT" > plan/plan.json
+          fi
+          # The list of each shard, as cargo-mutants selects it: the summary compares it with
+          # the outcomes, even for a shard whose runner was lost.
+          while read -r index shard; do
+            cargo mutants "${base[@]}" --list --shard "$shard" > "plan/shard-$index.txt"
+          done < plan/shards.txt
+          {
+            echo "### Plan"
+            echo
+            echo "$(wc -l < plan/all.txt) mutants in $(wc -l < plan/shards.txt) shard(s)."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - if: steps.select.outputs.list == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: mutants-plan
+          path: plan
+          if-no-files-found: error
+          retention-days: 30
+
+  shard:
+    name: Shard ${{ matrix.index }} of ${{ needs.plan.outputs.shards }}
+    needs: plan
+    if: needs.plan.outputs.shards != '0'
+    runs-on: ubuntu-latest
+    # The run and its setup (tests/mutants/budget.toml): cargo-mutants itself is stopped
+    # earlier, at run_minutes, so that the shard reports what it did not test.
+    timeout-minutes: ${{ fromJSON(needs.plan.outputs.timeout-minutes) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        id: mutants-install
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          tool: cargo-mutants@27.1.0
+          fallback: none
+      - name: Build cargo-mutants from crates.io (download failed)
+        if: steps.mutants-install.outcome == 'failure'
+        run: cargo install --locked cargo-mutants@27.1.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: mutants-plan
+          path: plan
+      - name: cargo mutants, stopped at the time budget (configuration in .cargo/mutants.toml)
+        id: run
+        env:
+          SHARD: ${{ matrix.shard }}
+          RUN_MINUTES: ${{ needs.plan.outputs.run-minutes }}
+        run: |
+          mapfile -t select < plan/select.args
+          status=0
+          # SIGINT lets cargo-mutants stop cleanly; outcomes.json holds every mutant tested.
+          timeout --signal=INT --kill-after=2m "${RUN_MINUTES}m" \
+            cargo mutants --package fairmark-core --no-shuffle --sharding round-robin \
+            "${select[@]}" --shard "$SHARD" --output . || status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - name: Every mutant of the shard tested (mutation coverage)
+        if: always() && steps.run.outcome == 'success'
+        env:
+          INDEX: ${{ matrix.index }}
+          STATUS: ${{ steps.run.outputs.status }}
+          RUN_MINUTES: ${{ needs.plan.outputs.run-minutes }}
+        run: |
+          set -o pipefail
+          python3 scripts/mutants.py coverage "plan/shard-$INDEX.txt" mutants.out \
+            --exit-status "$STATUS" --run-minutes "$RUN_MINUTES" --title "shard $INDEX" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: cargo-mutants exited normally
+        if: always() && steps.run.outcome == 'success'
+        env:
+          STATUS: ${{ steps.run.outputs.status }}
+        run: |
+          # 0 = all caught, 2 = missed mutants, 3 = timeouts: reported by the summary job.
+          # 124 = stopped at the time budget: reported by the coverage step above.
+          case "$STATUS" in
+            0|2|3|124) ;;
+            *) echo "cargo-mutants failed with status $STATUS (usage error, failing baseline or internal error): see the log." >&2
+               exit 1 ;;
+          esac
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: mutants-shard-${{ matrix.index }}
+          path: mutants.out
+          # A missing shard is classified by the summary job (runner lost, job time limit).
+          if-no-files-found: warn
+          retention-days: 30
+
+  summary:
+    name: Summary
+    needs: [plan, shard]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Read the jobs of this run and the logs of failed shards (runner lost or time limit).
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: The plan succeeded
+        env:
+          PLAN: ${{ needs.plan.result }}
+        run: |
+          if [ "$PLAN" != success ]; then
+            echo "The plan of the run failed ($PLAN): no mutant was tested; see the Plan job." >&2
+            exit 1
+          fi
+      - if: needs.plan.outputs.shards != '0'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: mutants-plan
+          path: plan
+      - if: needs.plan.outputs.shards != '0'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: mutants-shard-*
+          path: shards
+      - name: Jobs of this run, and the logs of the shards that failed
+        if: needs.plan.outputs.shards != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          mkdir -p joblogs
+          gh api "repos/$REPO/actions/runs/$RUN_ID/attempts/$ATTEMPT/jobs?per_page=100" > jobs.json
+          python3 scripts/mutants.py failed-jobs jobs.json | while read -r id; do
+            gh api "repos/$REPO/actions/jobs/$id/logs" > "joblogs/$id.log" 2>/dev/null || true
+          done
+      - name: Every mutant of the plan tested (mutation coverage)
+        if: needs.plan.outputs.shards != '0'
+        env:
+          TITLE: ${{ needs.plan.outputs.title }}
+        run: |
+          set -o pipefail
+          python3 scripts/mutants.py completeness --plan plan --shards shards --jobs jobs.json \
+            --logs joblogs --title "$TITLE" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Summary per module (caught, missed, equivalent, unviable, timeout)
+        if: always() && needs.plan.result == 'success'
+        env:
+          KIND: ${{ inputs.kind }}
+          TITLE: ${{ needs.plan.outputs.title }}
+          STALE_IN: ${{ needs.plan.outputs.stale-in }}
+        run: |
+          set -o pipefail
+          dirs=$(find shards -name outcomes.json -printf '%h\n' 2>/dev/null | sort)
+          args=(--allow-empty --title "$TITLE")
+          # Pull requests: missed mutants not recorded as equivalent fail the check. The
+          # weekly run reports them for triage.
+          if [ "$KIND" = pr ]; then args+=(--gate); fi
+          # shellcheck disable=SC2206
+          if [ -n "$STALE_IN" ]; then args+=(--stale-in $STALE_IN); fi
+          # shellcheck disable=SC2086
+          python3 scripts/mutants.py summary ${dirs:-shards} "${args[@]}" \
+            | tee -a "$GITHUB_STEP_SUMMARY"

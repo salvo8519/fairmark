@@ -29,6 +29,7 @@ lint:
     python scripts/check_task_ids.py
     python scripts/pin_actions.py --check
     python scripts/mutants.py check-exclusions
+    python scripts/mutants.py check-slices
     python scripts/test_failures.py quarantine-check
     for f in sprints/S*.yaml; do [ ! -e "$f" ] || python scripts/sprint.py validate "$f" || exit 1; done
 
@@ -142,6 +143,23 @@ mutants module="":
     full=""
     if [ -z "{{module}}" ]; then full="--full"; fi
     python scripts/mutants.py summary target/mutants $full
+    exit "$status"
+
+# Mutation testing of one slice of the weekly rotation (tests/mutants/budget.toml), as the
+# Mutation testing workflow runs it: just mutants-slice (this week) | just mutants-slice 4
+mutants-slice index="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    index="{{index}}"
+    mkdir -p target/mutants-slice
+    python scripts/mutants.py slice ${index:+--index "$index"} --args-file target/mutants-slice/select.args \
+      --part-file target/mutants-slice/part
+    mapfile -t select < target/mutants-slice/select.args
+    part=$(cat target/mutants-slice/part)
+    status=0
+    cargo mutants --package fairmark-core --no-shuffle --sharding round-robin "${select[@]}" \
+      ${part:+--shard "$part"} --output target/mutants-slice || status=$?
+    python scripts/mutants.py summary target/mutants-slice
     exit "$status"
 
 # Mutation testing of the lines of fairmark-core changed since the merge base with a branch
