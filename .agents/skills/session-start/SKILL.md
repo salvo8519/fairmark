@@ -29,6 +29,9 @@ file in this skill: it only reads and proposes.
    - an open pull request of this branch with failing checks (propose `/fix-ci`);
    - issues labelled `in-progress` with no branch or pull request (stale claims).
 4. Propose the session plan, short:
+   - **Fix first**: the open issues listed under "Bugs and maintenance first" in the briefing
+     (a failure on `main` or of a scheduled workflow). They come before new work; a fix
+     references the issue with `Refs #<n>`, and the next green run closes it.
    - **Continue**: the next step from the journal or `tasks.md`, if a branch is in progress.
    - **Review queue**: pull requests waiting for the maintainer (propose `/pr-triage`).
    - **Start next**: up to three ready issues from the active sprint (or the current

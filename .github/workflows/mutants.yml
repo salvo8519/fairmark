@@ -5,8 +5,9 @@ name: Mutation testing
 # tested once per cycle, and each slice fits the weekly time budget. Report only: missed
 # mutants are listed for triage in the job summary and do not fail the run; a failing plan or
 # baseline, a tool failure, and a shard that did not test every mutant ("mutation coverage
-# incomplete": runner lost, time budget reached) do, and a failed scheduled run opens (or
-# updates) the issue labelled `maintenance`. The release gate on missed mutants is #283.
+# incomplete": runner lost, time budget reached) do. A failed scheduled run opens (or updates)
+# its own issue labelled `maintenance`, and the next green scheduled run closes it
+# (scripts/failure_issue.py). The release gate on missed mutants is #283.
 # Pull requests test only their changed lines (job "Mutation testing · changed lines of the
 # core" in ci.yml). Policy and triage rules: docs/en/project/mutation-testing.md.
 on:
@@ -40,21 +41,35 @@ jobs:
       slice: ${{ inputs.slice || '' }}
 
   report:
-    name: Open or update the maintenance issue
+    name: Open, update or close the mutation testing issue
     needs: run
-    if: failure() && github.event_name == 'schedule'
+    if: always() && github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # The only job with a write permission, and only on issues.
     permissions:
+      actions: read  # the newest run of the workflow (scripts/failure_issue.py)
+      contents: read
       issues: write
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      # The standard library only: no dependency is installed in a job that holds a write token.
       - env:
           GH_TOKEN: ${{ github.token }}
-          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RESULT: ${{ needs.run.result }}
         run: |
-          body="Weekly mutation testing failed (${RESULT}). Run: ${RUN}. Missed mutants alone do not fail it: look in the run summary for \"Mutation coverage incomplete\" (a runner lost is an infrastructure failure: re-run the failed jobs; a time budget reached means the slice no longer fits its budget), a failing plan or baseline, or a tool failure (docs/en/project/mutation-testing.md)."
-          n=$(gh issue list -R "$GITHUB_REPOSITORY" --label maintenance --state open --json number -q '.[0].number')
-          if [ -n "$n" ]; then gh issue comment "$n" -R "$GITHUB_REPOSITORY" --body "$body"
-          else gh issue create -R "$GITHUB_REPOSITORY" --title "Weekly maintenance report" --label maintenance --body "$body"; fi
+          case "$RESULT" in
+            failure) conclusion=failure ;;
+            cancelled) conclusion=cancelled ;;
+            *) conclusion=success ;;
+          esac
+          jobs=""
+          if [ "$conclusion" != success ]; then jobs="run=$RESULT"; fi
+          echo "Missed mutants alone do not fail this workflow: look in the run summary for \"Mutation coverage incomplete\" (a runner lost is an infrastructure failure: re-run the failed jobs; a time budget reached means the slice no longer fits its budget), a failing plan or baseline, or a tool failure (docs/en/project/mutation-testing.md)." > details.md
+          python3 scripts/failure_issue.py report --repo "$GITHUB_REPOSITORY" \
+            --workflow "Mutation testing" --run-id "$GITHUB_RUN_ID" --run-url "$RUN_URL" \
+            --conclusion "$conclusion" --event schedule --branch main --label maintenance \
+            --title "Weekly mutation testing report" --jobs "$jobs" --details details.md
