@@ -18,6 +18,19 @@ sys.modules["mutants"] = mt  # dataclasses resolve types through sys.modules
 _spec.loader.exec_module(mt)
 
 RATES = "crates/fairmark-core/src/rates.rs"
+REAL_EXCLUSIONS = mt.EXCLUSIONS
+REAL_CODEOWNERS = mt.CODEOWNERS
+
+
+@pytest.fixture(autouse=True)
+def hermetic(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tests read their own CODEOWNERS (owners x and salvo8519) and an empty exclusions file,
+    not the committed ones, whose state depends on reviews in progress."""
+    d = tmp_path_factory.mktemp("repo")
+    (d / "CODEOWNERS").write_text("/crates/ @x @salvo8519\n", encoding="utf-8")
+    (d / "equivalent.toml").write_text("", encoding="utf-8")
+    monkeypatch.setattr(mt, "CODEOWNERS", d / "CODEOWNERS")
+    monkeypatch.setattr(mt, "EXCLUSIONS", d / "equivalent.toml")
 
 
 def outcome(file: str, line: int, function: str, mutation: str, summary: str) -> dict[str, Any]:
@@ -57,8 +70,9 @@ def test_module_names() -> None:
     assert mt.module_of("crates/fairmark-core/src/tvm.rs") == "tvm"
 
 
-def test_committed_exclusions_file_is_valid() -> None:
-    entries, problems = mt.load_exclusions()
+def test_committed_exclusions_file_is_valid(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mt, "CODEOWNERS", REAL_CODEOWNERS)
+    entries, problems = mt.load_exclusions(REAL_EXCLUSIONS)
     assert problems == []
     assert all(e.reason and e.reviewer for e in entries)
 
@@ -94,10 +108,13 @@ def test_entry_outside_the_core_is_rejected(
     ("reviewer", "valid"),
     [
         ("salvo8519", True),
-        ("a-b-1", True),
+        ("x", True),
+        ("a-b-1", False),  # a valid login, but not a maintainer
+        ("pending", False),
         ("coordinator review pending", False),
         ("pending: maintainer", False),
         ("@salvo8519", False),
+        ("", False),
     ],
 )
 def test_reviewer_must_be_a_github_login(
@@ -110,7 +127,20 @@ def test_reviewer_must_be_a_github_login(
         f'mutation = "replace + with - in f"\nline = 1\nreason = "r"\nreviewer = "{reviewer}"\n',
     )
     _, problems = mt.load_exclusions()
-    assert any("reviewer must be the GitHub login" in p for p in problems) is not valid
+    rejected = any(
+        "reviewer must be the GitHub login" in p or "missing or empty" in p for p in problems
+    )
+    assert rejected is not valid
+
+
+def test_maintainers_are_the_owners_in_codeowners(tmp_path: Path) -> None:
+    assert "salvo8519" in mt.maintainers(REAL_CODEOWNERS)
+    path = tmp_path / "CODEOWNERS"
+    path.write_text(
+        "# Owners\n/src/  @alice @org/team  # @mallory in a comment\n/docs/ @bob\n",
+        encoding="utf-8",
+    )
+    assert mt.maintainers(path) == {"alice", "bob"}
 
 
 def test_gate_fails_on_missed_and_passes_when_recorded_as_equivalent(
@@ -238,3 +268,332 @@ def test_missing_outcomes(tmp_path: Path) -> None:
     assert mt.main(["summary", str(tmp_path), "--gate", "--allow-empty"]) == 0
     with pytest.raises(SystemExit, match="did not complete"):
         mt.main(["summary", str(tmp_path)])
+
+
+# ---------------------------------------------------------------- budget, rotation, coverage
+# Issue #368: runs fit a time budget, the weekly slices cover the core, and an incomplete run
+# fails explicitly.
+
+
+def name(n: int) -> str:
+    return f"{RATES}:{n}:5: replace a"
+
+
+def test_committed_budget_file_is_valid() -> None:
+    assert mt.budget_problems() == []
+    assert mt.main(["check-slices"]) == 0
+
+
+def budget_file(tmp_path: Path, slices: str) -> Path:
+    path = tmp_path / "budget.toml"
+    path.write_text(
+        "[estimate]\nseconds_per_mutant = 30\nbaseline_minutes = 3\nsetup_minutes = 10\n"
+        "[pr]\nrun_minutes = 30\nmax_shards = 8\n[weekly]\nrun_minutes = 45\nmax_shards = 4\n"
+        + slices,
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_every_source_file_is_in_exactly_one_slice(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    (src / "tv").mkdir(parents=True)
+    for f in ("lib.rs", "tvm.rs", "tv/gordon.rs"):
+        (src / f).write_text("", encoding="utf-8")
+    ok = budget_file(
+        tmp_path,
+        '[[slice]]\nname = "a"\nfiles = ["lib.rs", "tvm.rs"]\n'
+        '[[slice]]\nname = "b"\nfiles = ["tv/*.rs"]\nparts = 2\n',
+    )
+    assert mt.budget_problems(ok, src) == []
+    assert [s.label for s in mt.load_slices(ok)] == ["a", "b (part 1 of 2)", "b (part 2 of 2)"]
+    gap = budget_file(tmp_path, '[[slice]]\nname = "a"\nfiles = ["lib.rs", "tv/*.rs"]\n')
+    assert any("tvm.rs is in no slice" in p for p in mt.budget_problems(gap, src))
+    twice = budget_file(
+        tmp_path,
+        '[[slice]]\nname = "a"\nfiles = ["*.rs", "tv/*.rs"]\n'
+        '[[slice]]\nname = "b"\nfiles = ["tvm.rs"]\n',
+    )
+    assert any("tvm.rs is in more than one slice" in p for p in mt.budget_problems(twice, src))
+    nothing = budget_file(tmp_path, '[[slice]]\nname = "a"\nfiles = ["*.rs", "tv/*.rs", "x.rs"]\n')
+    assert any("x.rs matches no source file" in p for p in mt.budget_problems(nothing, src))
+
+
+def test_mutants_per_shard_and_job_limit_follow_the_budget() -> None:
+    b = mt.Budget(
+        seconds_per_mutant=30, baseline_minutes=3, setup_minutes=10, run_minutes=45, max_shards=4
+    )
+    assert b.per_shard == 84  # (45 - 3) * 60 / 30
+    assert b.timeout_minutes == 55
+
+
+@pytest.mark.parametrize(("m", "shards"), [(1, 1), (1, 4), (3, 1), (3, 2), (4, 3)])
+def test_shard_of_a_part_is_round_robin_within_the_part(m: int, shards: int) -> None:
+    """Shard j of S of part k of m selects exactly round-robin shard j of S of part k."""
+    items = list(range(47))
+    for k in range(m):
+        part_items = [i for i in items if i % m == k]
+        for j in range(shards):
+            a, n = (
+                int(x) for x in mt.shard_arg(j, shards, f"{k}/{m}" if m > 1 else None).split("/")
+            )
+            got = [i for i in items if i % n == a]
+            want = [x for t, x in enumerate(part_items) if t % shards == j]
+            assert got == want
+
+
+def test_plan_sizes_the_shards_and_refuses_more_than_the_budget(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    listed = tmp_path / "all.txt"
+    listed.write_text("".join(name(i) + "\n" for i in range(100)), encoding="utf-8")
+    out = tmp_path / "out"
+    assert (
+        mt.main(
+            [
+                "plan",
+                "--kind",
+                "weekly",
+                "--list",
+                str(listed),
+                "--part",
+                "1/3",
+                "--github-output",
+                str(out),
+                "--shards-file",
+                str(tmp_path / "s.txt"),
+            ]
+        )
+        == 0
+    )
+    plan = json.loads(capsys.readouterr().out)
+    assert (plan["mutants"], plan["shards"], plan["per_shard"]) == (100, 2, 84)
+    assert [m["shard"] for m in plan["matrix"]] == ["1/6", "4/6"]
+    assert "shards=2" in out.read_text(encoding="utf-8")
+    assert (tmp_path / "s.txt").read_text(encoding="utf-8") == "0 1/6\n1 4/6\n"
+    listed.write_text("".join(name(i) + "\n" for i in range(337)), encoding="utf-8")
+    assert mt.main(["plan", "--kind", "weekly", "--list", str(listed)]) == 1
+    assert "Split this slice" in capsys.readouterr().err
+    empty = tmp_path / "none.txt"
+    empty.write_text("", encoding="utf-8")
+    assert mt.main(["plan", "--kind", "pr", "--list", str(empty)]) == 0
+    assert json.loads(capsys.readouterr().out)["shards"] == 0
+
+
+def test_the_slice_of_a_week_rotates_through_the_cycle() -> None:
+    n = len(mt.load_slices())
+    monday = mt.dt.date(2026, 11, 23)
+    first = mt.week_number(monday)
+    assert mt.week_number(monday + mt.dt.timedelta(days=6)) == first  # Sunday, same week
+    assert mt.week_number(monday + mt.dt.timedelta(days=7)) == first + 1
+    assert mt.week_number(mt.EPOCH_MONDAY) == 0
+    seen = {(mt.week_number(monday + mt.dt.timedelta(weeks=w))) % n for w in range(n)}
+    assert seen == set(range(n))
+
+
+def test_a_shard_that_stops_early_lists_its_untested_mutants(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    expected = tmp_path / "shard-0.txt"
+    expected.write_text("".join(name(i) + "\n" for i in (1, 2, 3)), encoding="utf-8")
+    out = write_run(tmp_path / "run", [outcome(RATES, 1, "f", "replace a", "CaughtMutant")])
+    args = ["coverage", str(expected), str(out), "--run-minutes", "45"]
+    assert mt.main([*args, "--exit-status", "124"]) == 1
+    text = capsys.readouterr().out
+    assert "Mutation coverage incomplete" in text
+    assert "the time budget of 45 minutes was reached" in text
+    assert f"- `{name(2)}`" in text and f"- `{name(3)}`" in text and name(1) + "`" not in text
+    status = json.loads((out / mt.STATUS_FILE).read_text(encoding="utf-8"))
+    assert (status["expected"], status["tested"]) == (3, 1)
+    expected.write_text(name(1) + "\n", encoding="utf-8")
+    assert mt.main([*args, "--exit-status", "0"]) == 0
+
+
+def run_jobs(tmp_path: Path, jobs: list[tuple[int, str, str]]) -> Path:
+    path = tmp_path / "jobs.json"
+    data = {
+        "jobs": [
+            {"id": i, "name": f"Mutation testing · weekly slice / {n}", "conclusion": c}
+            for i, n, c in jobs
+        ]
+    }
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return path
+
+
+def test_completeness_tells_a_lost_runner_from_a_timeout(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    plan = tmp_path / "plan"
+    plan.mkdir()
+    (plan / "plan.json").write_text(json.dumps({"mutants": 4, "shards": 4}), encoding="utf-8")
+    for shard in range(4):
+        (plan / f"shard-{shard}.txt").write_text(name(shard) + "\n", encoding="utf-8")
+    shards = tmp_path / "shards"
+    # Shard 0 complete; shard 1 lost its runner; shard 2 hit the job limit; shard 3 stopped at
+    # its time budget and wrote its status.
+    # One artifact is extracted into shards/ directly, several into shards/<artifact>/.
+    done = write_run(shards / "shard-0", [outcome(RATES, 0, "f", "replace a", "CaughtMutant")])
+    (done / mt.STATUS_FILE).write_text(json.dumps({"reason": "complete"}), encoding="utf-8")
+    stopped = shards / "mutants-shard-3" / "shard-3" / "mutants.out"
+    stopped.mkdir(parents=True)
+    reason = "timeout: the time budget of 45 minutes was reached"
+    (stopped / mt.STATUS_FILE).write_text(json.dumps({"reason": reason}), encoding="utf-8")
+    jobs = run_jobs(
+        tmp_path,
+        [
+            (10, "Shard 0 of 4", "success"),
+            (11, "Shard 1 of 4", "failure"),
+            (12, "Shard 2 of 4", "cancelled"),
+            (13, "Shard 3 of 4", "failure"),
+        ],
+    )
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    # The texts of run 44972766259: the log of shard 4 (runner lost) and the annotations of
+    # shard 0 (job time limit; its conclusion is "cancelled" and its log does not say why).
+    (logs / "11.log").write_text(
+        "2026-11-22T02:22:34.4004959Z ##[error]The runner has received a shutdown signal. "
+        "This can happen when the runner service is stopped, or a manually started runner is "
+        "canceled.\n2026-11-22T02:22:34.9627137Z ##[error]The operation was canceled.\n",
+        encoding="utf-8",
+    )
+    (logs / "12.log").write_text(
+        "2026-11-22T03:13:31.0000000Z ##[error]The operation was canceled.\n", encoding="utf-8"
+    )
+    pages = [
+        [
+            {"annotation_level": "failure", "message": "The operation was canceled."},
+            {
+                "annotation_level": "failure",
+                "message": "The job has exceeded the maximum execution time of 1h30m0s",
+            },
+            {"annotation_level": "warning", "message": " replace < with <= in f"},
+        ]
+    ]
+    (logs / "12.annotations.json").write_text(json.dumps(pages), encoding="utf-8")
+    assert mt.main(["failed-jobs", str(jobs)]) == 0
+    assert capsys.readouterr().out.split() == ["11", "12", "13"]
+    argv = [
+        "completeness",
+        "--plan",
+        str(plan),
+        "--shards",
+        str(shards),
+        "--jobs",
+        str(jobs),
+        "--logs",
+        str(logs),
+    ]
+    assert mt.main(argv) == 1
+    text = capsys.readouterr().out
+    assert "| 0 | 1 | 1 | complete |" in text
+    assert "| 1 | 1 | 0 | infrastructure: the runner was lost" in text
+    assert "| 2 | 1 | 0 | timeout: the job time limit was reached |" in text
+    assert f"| 3 | 1 | 0 | {reason} |" in text
+    assert f"- `{name(1)}`" in text and f"- `{name(0)}`" not in text
+    assert "Mutation coverage incomplete" in text
+
+
+def test_summary_reports_the_mean_time_per_mutant(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    caught = outcome(RATES, 1, "f", "replace a", "CaughtMutant")
+    caught["phase_results"] = [
+        {"phase": "Build", "duration": 12.0},
+        {"phase": "Test", "duration": 20.0},
+    ]
+    out = write_run(tmp_path / "run", [caught])
+    assert mt.main(["summary", str(out)]) == 0
+    assert (
+        "Mean time per mutant: 32 s (build 12 s, test 20 s) over 1 mutants"
+        in capsys.readouterr().out
+    )
+
+
+def test_stale_entries_are_checked_only_in_the_files_given(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exclusions(
+        tmp_path,
+        monkeypatch,
+        f'[[equivalent]]\nfile = "{RATES}"\nfunction = "f"\nmutation = "replace a in f"\n'
+        'line = 1\nreason = "r"\nreviewer = "salvo8519"\n',
+    )
+    out = write_run(tmp_path / "run", [outcome(RATES, 1, "f", "replace a in f", "CaughtMutant")])
+    assert mt.main(["summary", str(out), "--stale-in", "crates/fairmark-core/src/tvm.rs"]) == 0
+    assert "match no missed mutant" not in capsys.readouterr().out
+    assert mt.main(["summary", str(out), "--stale-in", RATES]) == 0
+    assert "match no missed mutant" in capsys.readouterr().out
+
+
+def test_colour_codes_of_a_listing_are_ignored(tmp_path: Path) -> None:
+    """With CARGO_TERM_COLOR=always, `cargo mutants --list` colours the names; outcomes.json
+    does not (first pull-request run of #368)."""
+    coloured = f"{RATES}:1:5: replace \x1b[38;5;13mf\x1b[0m a\n"
+    expected = tmp_path / "shard-0.txt"
+    expected.write_text(coloured, encoding="utf-8")
+    assert mt.listed_names(expected) == [f"{RATES}:1:5: replace f a"]
+    out = write_run(tmp_path / "run", [outcome(RATES, 1, "f", "replace f a", "CaughtMutant")])
+    args = ["coverage", str(expected), str(out), "--exit-status", "0", "--run-minutes", "30"]
+    assert mt.main(args) == 0
+
+
+def test_an_output_with_a_line_break_is_refused(tmp_path: Path) -> None:
+    """Security review of #414, L1: a line break would inject another $GITHUB_OUTPUT line."""
+    out = tmp_path / "out"
+    for values in ({"title": "a\nshards=99"}, {"title": "a\rb"}, {"x\ny": "1"}):
+        with pytest.raises(SystemExit, match="line break"):
+            mt.github_output(str(out), values)
+    assert not out.exists()
+    mt.github_output(str(out), {"title": "slice 1 of 15: tvm", "matrix": [{"index": 0}]})
+    assert out.read_text(encoding="utf-8") == ('title=slice 1 of 15: tvm\nmatrix=[{"index": 0}]\n')
+
+
+def test_a_slice_name_with_control_characters_is_refused(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "lib.rs").write_text("", encoding="utf-8")
+    for name in ("a\\nshards=99", "a\\tb", "a\\u007fb"):
+        path = budget_file(tmp_path, f'[[slice]]\nname = "{name}"\nfiles = ["lib.rs"]\n')
+        problems = mt.budget_problems(path, src)
+        assert any("control characters" in p for p in problems), (name, problems)
+    ok = budget_file(tmp_path, '[[slice]]\nname = "a b"\nfiles = ["lib.rs"]\n')
+    assert mt.budget_problems(ok, src) == []
+
+
+def test_a_cancelled_job_is_a_timeout_only_with_the_time_limit_marker() -> None:
+    job = {"id": 1, "conclusion": "cancelled"}
+    limit = "The job has exceeded the maximum execution time of 1h30m0s"
+    assert mt.job_reason(job, limit) == "timeout: the job time limit was reached"
+    assert mt.job_reason(job, "The operation was canceled.") == "cancelled: the run was cancelled"
+    assert mt.job_reason(None, "").startswith("no result")
+
+
+def test_a_shard_killed_after_its_budget_is_a_timeout(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Code review of #414, S2: `timeout --kill-after=2m` exits 137 when cargo-mutants did
+    not stop on SIGINT; that is a timeout, not a tool failure."""
+    expected = tmp_path / "shard-0.txt"
+    expected.write_text(name(1) + "\n", encoding="utf-8")
+    out = tmp_path / "out"
+    args = ["coverage", str(expected), str(out), "--run-minutes", "45", "--exit-status", "137"]
+    assert mt.main(args) == 1
+    text = capsys.readouterr().out
+    assert "timeout: the time budget of 45 minutes was reached and cargo-mutants did not" in text
+    assert "within 2 minutes of it (killed)" in text
+    assert mt.stop_reason(1, 45).startswith("tool failure")
+
+
+def test_jobs_are_read_from_every_page(tmp_path: Path) -> None:
+    """Code review of #414, N6: `gh api --paginate --slurp` writes a list of pages."""
+    path = tmp_path / "jobs.json"
+    pages = [
+        {"jobs": [{"id": 1, "name": "x / Shard 0 of 2", "conclusion": "success"}]},
+        {"jobs": [{"id": 2, "name": "x / Shard 1 of 2", "conclusion": "failure"}]},
+    ]
+    path.write_text(json.dumps(pages), encoding="utf-8")
+    assert sorted(mt.shard_jobs(path, 2)) == [0, 1]
+    path.write_text(json.dumps(pages[1]), encoding="utf-8")
+    assert sorted(mt.shard_jobs(path)) == [1]

@@ -19,6 +19,15 @@ exclude_re = []
 test_package = ["fairmark-core"]
 additional_cargo_test_args = ["--lib", "--tests"]
 
+# Test profile for mutants (issue #368). Every mutant runs the whole test suite, so the
+# sweeps over the golden inputs (every file, or several files per method with perturbed
+# fields) would dominate its cost. Cargo sets the variables of `--config env.*` for the test
+# processes it runs, and the variable below makes those sweeps check a fixed sample per
+# method (crates/fairmark-core/src/test_profile.rs). The golden value checks, the property
+# tests and every other test run unchanged. Normal CI never sets the variable and runs every
+# test in full. Measured times: docs/en/project/mutation-testing.md.
+additional_cargo_args = ["--config", "env.FAIRMARK_TEST_PROFILE=\"mutants\""]
+
 # Faster incremental builds: the test profile without debug information
 # ([profile.mutants] in the workspace Cargo.toml).
 profile = "mutants"

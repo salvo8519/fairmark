@@ -40,6 +40,8 @@ pub mod registry;
 pub mod series;
 pub mod solver;
 pub mod statements;
+#[cfg(test)]
+mod test_profile;
 pub mod tv;
 pub mod tvm;
 pub mod types;
@@ -53,3 +55,28 @@ pub use registry::{
 
 /// Version of the engine, stamped into every result.
 pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+#[cfg(test)]
+mod tests {
+    use crate::test_profile::{profile, sample, Profile};
+
+    #[test]
+    fn the_sample_spreads_over_each_group_and_keeps_the_order() {
+        let items = vec![
+            ("a", 0),
+            ("a", 1),
+            ("b", 0),
+            ("a", 2),
+            ("a", 3),
+            ("b", 1),
+            ("c", 0),
+        ];
+        let got = sample(items.clone(), |x| x.0);
+        match profile() {
+            Profile::Full => assert_eq!(got, items),
+            Profile::Mutants => {
+                assert_eq!(got, vec![("a", 0), ("b", 0), ("a", 2), ("b", 1), ("c", 0)]);
+            }
+        }
+    }
+}

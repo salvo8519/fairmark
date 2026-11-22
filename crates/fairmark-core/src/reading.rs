@@ -729,12 +729,14 @@ const RUST_DECIMAL_REFUSALS: [&str; 6] = [
 /// What a count of the input accepts, in the words of an analyst.
 const UNSIGNED: &str = "a whole number of 0 or more";
 
-/// The form `serde` expects, in plain words: no Rust type names (ADR 0014 G5).
+/// The form `serde` expects, in plain words: no Rust type names (ADR 0014 G5). No input
+/// type has a binary floating-point field (decimals only, constitution principle I; enforced by
+/// `registry::tests::no_input_schema_has_a_floating_point_field`), so `serde` never expects
+/// `f32` or `f64` and there is no arm for them.
 fn plain(form: &str) -> String {
     match form {
         "u8" | "u16" | "u32" | "u64" | "u128" | "usize" => return UNSIGNED.to_owned(),
         "i8" | "i16" | "i32" | "i64" | "i128" | "isize" => return "a whole number".to_owned(),
-        "f32" | "f64" => return "a number".to_owned(),
         _ => {}
     }
     let words: Vec<&str> = form.split(' ').collect();
@@ -2462,6 +2464,19 @@ fn pointer(tokens: &[String]) -> Option<String> {
 mod tests {
     use super::*;
 
+    /// `plain` names every integer form of `serde` in words, never as a Rust type (ADR 0014
+    /// G5). No input has a signed integer field today, but the rules allow one (unlike a binary
+    /// floating-point field), so the signed arm is checked here directly (issue #368).
+    #[test]
+    fn plain_names_integer_forms_in_words() {
+        for form in ["i8", "i16", "i32", "i64", "i128", "isize"] {
+            assert_eq!(plain(form), "a whole number", "{form}");
+        }
+        for form in ["u8", "u16", "u32", "u64", "u128", "usize"] {
+            assert_eq!(plain(form), UNSIGNED, "{form}");
+        }
+    }
+
     /// Mutation testing of #371: a choice is a single-key choice only when every branch is an
     /// object of exactly one property, the one it requires. Branches with more properties (an
     /// object with one required field and optional ones) are not a choice of keys, whichever
@@ -2554,6 +2569,9 @@ mod tests {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
         let mut all = Vec::new();
         files(&root, &mut all);
+        all.sort();
+        let all =
+            crate::test_profile::sample(all, |f| f.parent().map(std::path::Path::to_path_buf));
         let mut checked = 0;
         for file in all {
             let case: Value =
@@ -2592,7 +2610,7 @@ mod tests {
             }
             checked += 1;
         }
-        assert!(checked > 600, "{checked}");
+        assert!(checked > crate::test_profile::pick(600, 80), "{checked}");
     }
 
     #[test]
