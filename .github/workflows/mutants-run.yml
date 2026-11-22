@@ -256,8 +256,11 @@ jobs:
         run: |
           mkdir -p joblogs
           gh api "repos/$REPO/actions/runs/$RUN_ID/attempts/$ATTEMPT/jobs?per_page=100" > jobs.json
+          # A lost runner is written in the log, a job time limit in the annotations.
           python3 scripts/mutants.py failed-jobs jobs.json | while read -r id; do
             gh api "repos/$REPO/actions/jobs/$id/logs" > "joblogs/$id.log" 2>/dev/null || true
+            gh api --paginate --slurp "repos/$REPO/check-runs/$id/annotations" \
+              > "joblogs/$id.annotations.json" 2>/dev/null || true
           done
       - name: Every mutant of the plan tested (mutation coverage)
         if: needs.plan.outputs.shards != '0'

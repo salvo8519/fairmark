@@ -130,13 +130,13 @@ shard:
 | --- | --- | --- |
 | complete | Every mutant of the shard was tested | None |
 | timeout: the time budget was reached | cargo-mutants was stopped at `run_minutes` | The estimate or the slice no longer fits: update `budget.toml` |
-| timeout: the job time limit was reached | The setup took longer than `setup_minutes` | Raise `setup_minutes` |
+| timeout: the job time limit was reached | The job reached `timeout-minutes` (`run_minutes` + `setup_minutes`): GitHub ends it as cancelled and writes "The job has exceeded the maximum execution time" in its annotations, not in its log; usually a setup longer than `setup_minutes` | Raise `setup_minutes` |
 | infrastructure: the runner was lost | The log of the job holds "The runner has received a shutdown signal" or "lost communication with the server" | Re-run the failed jobs; no change to the code or the budget |
 | tool failure | cargo-mutants exited with another status (usage error, failing baseline) | Read the log of the shard |
 | cancelled | The run was cancelled (a newer push to the pull request) | None |
 
-The summary reads the jobs of the run and the logs of the failed shards through the GitHub REST
-API, with the `actions: read` permission.
+The summary reads the jobs of the run, and the logs and the annotations of the failed shards,
+through the GitHub REST API with the `actions: read` permission.
 
 ## Configuration
 

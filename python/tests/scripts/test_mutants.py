@@ -450,13 +450,28 @@ def test_completeness_tells_a_lost_runner_from_a_timeout(
     )
     logs = tmp_path / "logs"
     logs.mkdir()
+    # The texts of run 44972766259: the log of shard 4 (runner lost) and the annotations of
+    # shard 0 (job time limit; its conclusion is "cancelled" and its log does not say why).
     (logs / "11.log").write_text(
-        "##[error]The runner has received a shutdown signal. This can happen when ...",
+        "2026-11-22T02:22:34.4004959Z ##[error]The runner has received a shutdown signal. "
+        "This can happen when the runner service is stopped, or a manually started runner is "
+        "canceled.\n2026-11-22T02:22:34.9627137Z ##[error]The operation was canceled.\n",
         encoding="utf-8",
     )
     (logs / "12.log").write_text(
-        "##[error]The job has exceeded the maximum execution time of 55m0s", encoding="utf-8"
+        "2026-11-22T03:13:31.0000000Z ##[error]The operation was canceled.\n", encoding="utf-8"
     )
+    pages = [
+        [
+            {"annotation_level": "failure", "message": "The operation was canceled."},
+            {
+                "annotation_level": "failure",
+                "message": "The job has exceeded the maximum execution time of 1h30m0s",
+            },
+            {"annotation_level": "warning", "message": " replace < with <= in f"},
+        ]
+    ]
+    (logs / "12.annotations.json").write_text(json.dumps(pages), encoding="utf-8")
     assert mt.main(["failed-jobs", str(jobs)]) == 0
     assert capsys.readouterr().out.split() == ["11", "12", "13"]
     argv = [
@@ -545,3 +560,11 @@ def test_a_slice_name_with_control_characters_is_refused(tmp_path: Path) -> None
         assert any("control characters" in p for p in problems), (name, problems)
     ok = budget_file(tmp_path, '[[slice]]\nname = "a b"\nfiles = ["lib.rs"]\n')
     assert mt.budget_problems(ok, src) == []
+
+
+def test_a_cancelled_job_is_a_timeout_only_with_the_time_limit_marker() -> None:
+    job = {"id": 1, "conclusion": "cancelled"}
+    limit = "The job has exceeded the maximum execution time of 1h30m0s"
+    assert mt.job_reason(job, limit) == "timeout: the job time limit was reached"
+    assert mt.job_reason(job, "The operation was canceled.") == "cancelled: the run was cancelled"
+    assert mt.job_reason(None, "").startswith("no result")

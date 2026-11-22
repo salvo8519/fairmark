@@ -724,8 +724,28 @@ def coverage(args: argparse.Namespace) -> int:
     return 1
 
 
+def job_text(job: dict[str, Any] | None, logs: Path | None) -> str:
+    """The log of a failed shard job and the messages of its annotations, as fetched by the
+    workflow: `<id>.log` and `<id>.annotations.json` (GitHub REST API, check-runs/<id>/
+    annotations, every page). A job time limit is reported in the annotations; a lost runner
+    in the log."""
+    if job is None or logs is None:
+        return ""
+    parts = []
+    log = logs / f"{job['id']}.log"
+    if log.is_file():
+        parts.append(log.read_text(encoding="utf-8", errors="replace"))
+    annotations = logs / f"{job['id']}.annotations.json"
+    if annotations.is_file():
+        data = json.loads(annotations.read_text(encoding="utf-8") or "[]")
+        # `gh api --paginate --slurp` writes the list of pages, each a list of annotations.
+        items = [a for page in data for a in (page if isinstance(page, list) else [page])]
+        parts += [str(a.get("message", "")) for a in items if isinstance(a, dict)]
+    return "\n".join(parts)
+
+
 def job_reason(job: dict[str, Any] | None, log: str) -> str:
-    """Why a shard job left no result, from its conclusion and its log."""
+    """Why a shard job left no result, from its conclusion, its log and its annotations."""
     if any(marker in log for marker in RUNNER_LOST):
         return "infrastructure: the runner was lost (shutdown signal or lost communication)"
     if JOB_TIME_LIMIT in log:
@@ -761,12 +781,8 @@ def completeness(args: argparse.Namespace) -> int:
             reason = json.loads(status_path.read_text(encoding="utf-8"))["reason"]
         else:
             job = jobs.get(shard)
-            log = ""
-            if job is not None and args.logs:
-                log_path = Path(args.logs) / f"{job['id']}.log"
-                if log_path.is_file():
-                    log = log_path.read_text(encoding="utf-8", errors="replace")
-            reason = job_reason(job, log)
+            text = job_text(job, Path(args.logs) if args.logs else None)
+            reason = job_reason(job, text)
         if not untested:
             reason = "complete"
         rows.append(f"| {shard} | {len(expected)} | {len(expected) - len(untested)} | {reason} |")
@@ -847,7 +863,10 @@ def main(argv: list[str] | None = None) -> int:
     cp.add_argument("--plan", required=True, help="plan.json and shard-<n>.txt")
     cp.add_argument("--shards", required=True, help="the downloaded artifacts of the shards")
     cp.add_argument("--jobs", help="the jobs of the run (GitHub REST API)")
-    cp.add_argument("--logs", help="directory of <job id>.log for the shard jobs that failed")
+    cp.add_argument(
+        "--logs",
+        help="directory of <job id>.log and <job id>.annotations.json of the failed shard jobs",
+    )
     cp.add_argument("--title", default="the run")
     cp.set_defaults(func=completeness)
     args = parser.parse_args(argv)
