@@ -169,14 +169,18 @@ jobs:
         id: run
         env:
           SHARD: ${{ matrix.shard }}
+          INDEX: ${{ matrix.index }}
           RUN_MINUTES: ${{ needs.plan.outputs.run-minutes }}
         run: |
           mapfile -t select < plan/select.args
+          mkdir -p "out/shard-$INDEX"
           status=0
           # SIGINT lets cargo-mutants stop cleanly; outcomes.json holds every mutant tested.
+          # The results go to out/shard-<index>/mutants.out: the summary finds each shard by
+          # that directory, however the artifacts are laid out when downloaded.
           timeout --signal=INT --kill-after=2m "${RUN_MINUTES}m" \
             cargo mutants --package fairmark-core --no-shuffle --sharding round-robin \
-            "${select[@]}" --shard "$SHARD" --output . || status=$?
+            "${select[@]}" --shard "$SHARD" --output "out/shard-$INDEX" || status=$?
           echo "status=$status" >> "$GITHUB_OUTPUT"
       - name: Every mutant of the shard tested (mutation coverage)
         if: always() && steps.run.outcome == 'success'
@@ -186,7 +190,7 @@ jobs:
           RUN_MINUTES: ${{ needs.plan.outputs.run-minutes }}
         run: |
           set -o pipefail
-          python3 scripts/mutants.py coverage "plan/shard-$INDEX.txt" mutants.out \
+          python3 scripts/mutants.py coverage "plan/shard-$INDEX.txt" "out/shard-$INDEX/mutants.out" \
             --exit-status "$STATUS" --run-minutes "$RUN_MINUTES" --title "shard $INDEX" \
             | tee -a "$GITHUB_STEP_SUMMARY"
       - name: cargo-mutants exited normally
@@ -205,7 +209,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: mutants-shard-${{ matrix.index }}
-          path: mutants.out
+          path: out
           # A missing shard is classified by the summary job (runner lost, job time limit).
           if-no-files-found: warn
           retention-days: 30

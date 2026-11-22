@@ -717,7 +717,10 @@ def completeness(args: argparse.Namespace) -> int:
     sections: list[str] = []
     for shard in range(planned["shards"]):
         expected = listed_names(plan_dir / f"shard-{shard}.txt")
-        directory = shards_dir / f"mutants-shard-{shard}"
+        # out/shard-<n> of the shard job; the download puts it under shards/ directly (one
+        # artifact) or under shards/mutants-shard-<n>/ (several).
+        found = sorted(p for p in shards_dir.rglob(f"shard-{shard}") if p.is_dir())
+        directory = found[0] if found else shards_dir / f"shard-{shard}"
         status_path = next(iter(sorted(directory.rglob(STATUS_FILE))), None)
         outcomes = next(iter(sorted(directory.rglob("outcomes.json"))), None)
         tested = tested_names(outcomes.parent) if outcomes else set()
@@ -810,7 +813,7 @@ def main(argv: list[str] | None = None) -> int:
     cv.set_defaults(func=coverage)
     cp = sub.add_parser("completeness", help="every shard of a run tested every mutant")
     cp.add_argument("--plan", required=True, help="plan.json and shard-<n>.txt")
-    cp.add_argument("--shards", required=True, help="mutants-shard-<n> artifacts")
+    cp.add_argument("--shards", required=True, help="the downloaded artifacts of the shards")
     cp.add_argument("--jobs", help="the jobs of the run (GitHub REST API)")
     cp.add_argument("--logs", help="directory of <job id>.log for the shard jobs that failed")
     cp.add_argument("--title", default="the run")

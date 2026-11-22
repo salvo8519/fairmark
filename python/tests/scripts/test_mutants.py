@@ -402,11 +402,10 @@ def test_completeness_tells_a_lost_runner_from_a_timeout(
     shards = tmp_path / "shards"
     # Shard 0 complete; shard 1 lost its runner; shard 2 hit the job limit; shard 3 stopped at
     # its time budget and wrote its status.
-    done = write_run(
-        shards / "mutants-shard-0", [outcome(RATES, 0, "f", "replace a", "CaughtMutant")]
-    )
+    # One artifact is extracted into shards/ directly, several into shards/<artifact>/.
+    done = write_run(shards / "shard-0", [outcome(RATES, 0, "f", "replace a", "CaughtMutant")])
     (done / mt.STATUS_FILE).write_text(json.dumps({"reason": "complete"}), encoding="utf-8")
-    stopped = shards / "mutants-shard-3" / "mutants.out"
+    stopped = shards / "mutants-shard-3" / "shard-3" / "mutants.out"
     stopped.mkdir(parents=True)
     reason = "timeout: the time budget of 45 minutes was reached"
     (stopped / mt.STATUS_FILE).write_text(json.dumps({"reason": reason}), encoding="utf-8")
