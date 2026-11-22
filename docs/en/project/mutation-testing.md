@@ -88,7 +88,8 @@ run. A run is split into shards so that each fits its budget:
   fails at the plan, before any runner time is spent: a pull request that changes too much is
   split, a weekly slice that grew is split in `budget.toml`;
 - cargo-mutants is stopped after `run_minutes`; the job limit is `run_minutes` +
-  `setup_minutes`, so a shard always reports what it did not test.
+  `setup_minutes`, so a shard reports what it did not test normally; otherwise (runner lost,
+  job time limit) the summary classifies it from the job.
 
 | Run | Run minutes per shard | Mutants per shard | Maximum shards | Job limit |
 | --- | --- | --- | --- | --- |
@@ -123,8 +124,9 @@ The weekly runner time is at most 3 shards of 55 minutes, about 2.75 hours, agai
 A run never ends with mutants silently untested. The plan job keeps the list of each shard.
 A shard whose cargo-mutants stops at the time budget (or exits without an outcome for every
 mutant) fails with **Mutation coverage incomplete** and lists, by name, the mutants it did not
-test. The summary job compares the list of every shard with its outcomes and classifies each
-shard:
+test. That is the normal case; otherwise, when the shard left no result (runner lost, job
+time limit), the summary classifies it from the job. The summary job compares the list of every
+shard with its outcomes and classifies each shard:
 
 | Result | Cause | What to do |
 | --- | --- | --- |
