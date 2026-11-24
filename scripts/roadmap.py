@@ -256,8 +256,17 @@ def github_issues() -> dict[int, dict[str, Any]]:
         batch = gh(f"repos/{REPO}/issues?state=all&per_page=100&page={page}")
         out.update({i["number"]: i for i in batch if "pull_request" not in i})
         if len(batch) < 100:
-            return out
+            break
         page += 1
+    if not out:
+        # The roadmap always has issues; none at all means the token cannot read them (a
+        # GITHUB_TOKEN without `issues: read` sees only pull requests). Stop instead of
+        # reporting every task as missing.
+        sys.exit(
+            "GitHub returned no issues: the token cannot read them. "
+            "Grant `issues: read` to the workflow job that runs this command."
+        )
+    return out
 
 
 def github_milestones() -> dict[str, int]:
