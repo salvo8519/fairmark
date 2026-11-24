@@ -7,6 +7,8 @@ import importlib.util
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[3]
 _spec = importlib.util.spec_from_file_location("roadmap", ROOT / "scripts/roadmap.py")
 assert _spec and _spec.loader
@@ -221,3 +223,13 @@ def test_reports_of_the_automation_are_not_untriaged() -> None:
     issues[99992] = _open_issue(99992, "someone", ["bug"])
     _, untriaged = roadmap.differences(copy.deepcopy(d), issues)
     assert [u.split()[0] for u in untriaged] == ["#99992"]
+
+
+def test_a_token_that_cannot_read_issues_stops_the_sync(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    # A GITHUB_TOKEN without `issues: read` sees only pull requests on the issues endpoint.
+    # Without this check every task would look missing, and `--write` would act on that.
+    only_pulls = [{"number": 1, "pull_request": {}, "state": "open"}]
+    monkeypatch.setattr(roadmap, "gh", lambda *a, **k: only_pulls)
+    with pytest.raises(SystemExit) as stop:
+        roadmap.github_issues()
+    assert "issues: read" in str(stop.value.code)

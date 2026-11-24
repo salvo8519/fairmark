@@ -33,6 +33,7 @@ jobs:
       contents: write        # push the release/v<version> branch
       pull-requests: write   # open the release pull request
       actions: read          # release.py ready reads the CI runs of main
+      issues: read           # release.py ready compares the roadmap with the issues
     env:
       VERSION: ${{ inputs.version }}
       ISSUE: ${{ inputs.issue }}
