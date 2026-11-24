@@ -8,117 +8,99 @@ On the documentation site, the first section lists the changes not yet released.
 
 ## Fairmark 0.1.0-alpha.1 — 2026-11-24
 
-### Action required
+The first public release of Fairmark: a deterministic valuation engine for financial analysts
+and AI agents. Every result is computed in exact decimal arithmetic, is the same on every
+platform for the same input and version, and comes with the formula, the conventions and every
+intermediate step, so it can be checked line by line. The engine performs no input or output
+of its own and Fairmark sends no data over the network.
 
-- The DCF on free cash flows to the firm takes a new input. The single list of flows, discount rate, terminal growth and net debt are replaced by explicit stages, the WACC (one rate, or one per year with a terminal rate), the terms of the flows and of the rates, a required timing, the terminal technique and the net financial position with its components; what was called enterprise value (the present values only) is now the value of operations. The published examples give the same numbers in the new form. ([#110](https://github.com/salvo8519/fairmark/issues/110))
-- IRR and XIRR now refuse a starting guess of −100% or lower (for XIRR, per compounding period) with a clear message naming `guess`; before, such a guess was silently ignored. This is a new version of each method (IRR version 3, XIRR version 2). Results for any other guess are the same, so only inputs with such a guess need changing: remove the guess or give one near the expected rate. ([#190](https://github.com/salvo8519/fairmark/issues/190))
-- The comparison of terminal value techniques now refuses a technique written twice inside the same entry, for example two `tv.gordon` keys in one object, with a message naming the repeated key; before, the last one was used without warning. This is version 2 of the comparison. Every other input gives the same result. ([#199](https://github.com/salvo8519/fairmark/issues/199))
-- Every result now separates what it does not contain from the values themselves. In the
-  statements reorganisation and the six ratio groups, the outputs that could not be computed, the
-  reason a ratio is not defined and the checks of the statements are no longer inside the values:
-  they are in a new diagnostics part of the result, the same for every method. The four analyses
-  (goal seek, sensitivity tables, scenarios, tornado) take and return their pointers under names
-  ending in "pointer", for example `variable_pointer` and `output_pointer`. These methods have new
-  versions; no computed number changes. ([#259](https://github.com/salvo8519/fairmark/issues/259))
-- Fairmark now requires Python 3.12 or newer: Python 3.10, which reached end of life in October 2026, and Python 3.11 are no longer supported. Each release is tested on the oldest and the newest supported Python version, currently 3.12 and 3.15. ([#295](https://github.com/salvo8519/fairmark/issues/295))
+This is an alpha release. Inputs and results may still change before version 0.1.0; every
+change is recorded in these notes and every method keeps a version of its own.
 
-### Changes to results
+### Methods
 
-- Discounting at negative rates is now accurate to the last digit, and very long series no longer fail. Results of net present value and of the DCF with free cash flows can differ only in the last digits, and only when the discount rate is negative; all published examples give the same values as before. Both methods are now at version 2. ([#95](https://github.com/salvo8519/fairmark/issues/95))
-- In the free cash flow build-up, when taxes are computed from a rate and a negative EBIT is set to pay no tax (the "zero" choice), the tax saving on interest is now limited to the taxable income available: if EBIT is positive but below the interest expense, interest is deducted only up to EBIT, so total taxes never fall below zero and no tax credit arises on a pre-tax loss. The free cash flow to equity of those years is lower than before (with EBIT 30, interest 50 and a 24% tax rate the tax saving is 7.20 instead of 12, and the flow falls by 4.80); the free cash flow to the firm, the "credit" choice and the DCF on free cash flows to the firm give the same results as before. The build-up is now at version 2. ([#198](https://github.com/salvo8519/fairmark/issues/198))
+44 methods. 32 are available: each has an approved specification, test cases whose expected
+values come from sources independent of the implementation, an independent numerical audit and
+a code review. 12 are in preview: implemented, tested against the same kind of test cases and
+documented, but not yet independently verified. Every result states the status of the method
+that produced it.
 
-### New
+- **Time value of money** (available): net present value, present and future value, IRR, XIRR,
+  XNPV, MIRR, annuities and perpetuities; day counts (Actual/365, Actual/360, Actual/Actual ISDA,
+  30/360, 30E/360), rate conversion between compounding frequencies and between real and nominal
+  terms. When a cash flow profile has more than one internal rate of return, the result reports
+  the ambiguity and the intervals where the rates lie instead of returning one of them.
+- **Cost of capital** (available): cost of equity with the CAPM and explicit country, size and
+  specific premia (a specific premium requires a written justification), unlevered and relevered
+  betas (Hamada or Harris-Pringle), the beta of a group of comparable companies, the cost of debt
+  and the WACC.
+- **Terminal value** (available): stable growth (Gordon), value driver with return on new
+  capital, H-model, exit multiples with the growth they imply, finite horizon, normalised income
+  and liquidation value, and a comparison of several techniques on the same rate and basis.
+- **Discounted cash flow** (preview): DCF on free cash flows to the firm and to equity, with a
+  plan in up to three stages (given flows, constant growth, growth declining to its long-term
+  rate), one rate or one rate per year, end-of-period or mid-year timing, any of the terminal
+  value techniques above, and the bridge from the value of operations to equity value with every
+  item listed: net financial position, debt-like items and minority interests, each with its
+  measurement basis. A plan at constant prices can be discounted at a nominal rate, or the
+  reverse, by giving expected inflation; without it, mixed terms are refused.
+- **Free cash flows from a business plan** (preview): from EBIT, taxes, depreciation and
+  amortisation, capital expenditure and working capital to the free cash flow to the firm, and
+  with interest and net borrowing to the free cash flow to equity. The treatment of a negative
+  EBIT is an explicit choice; with the "zero" choice, the tax saving on interest is limited to
+  the taxable income available.
+- **Financial statements** (preview): reorganisation of the balance sheet and of the income
+  statement by nature, from the statutory aggregates of an Italian filing (ordinary or abridged
+  layout) or from totals already reclassified, into invested capital, net financial position,
+  EBITDA, operating profit and the subtotals of IFRS 18, with every total checked and every
+  amount taken as zero stated.
+- **Ratios** (preview): profitability, capital structure, liquidity, working capital and debt
+  service (interest cover, net financial position to EBITDA, DSCR and LLCR), and covenant tests
+  on the definitions of a loan agreement. Each ratio is computed as soon as its own figures are
+  given; a ratio that cannot be computed or is not meaningful is reported with the reason.
+- **Loans** (available): constant instalment, number of instalments and full amortisation
+  schedule (constant instalment, constant principal, bullet, interest-only periods, balloon),
+  with rounding to the cent as banks apply it.
+- **Periods and series** (preview): period schedules on calendar dates and projections of a base
+  value with constant, linear or per-period growth.
+- **Analysis** (available): goal seek, one-way and two-way sensitivity tables, scenarios and
+  tornado ranking on any method, with every evaluation in the audit trail.
 
-- Fairmark now reorganises a balance sheet into invested capital, non-operating assets, equity, the net financial position and debt-like items, from the statutory aggregates of an Italian filing (ordinary or abridged layout) or from totals a bank has already reclassified, for one or more years. It works with whatever totals are available, lists exactly which inputs are missing for the rest, states every item it takes as zero (subscribed capital unpaid and the "of which" parts not given), checks every total given with no tolerance and only on amounts you gave, and returns the net financial position, the non-operating assets and the current and non-current amounts in the form the DCF and the ratios take directly. The method is in preview and covers the balance sheet. ([#35](https://github.com/salvo8519/fairmark/issues/35))
-- Fairmark now builds the free cash flows of a business plan from its reclassified line items: for every year, EBIT less the taxes on EBIT, plus depreciation and amortisation, less capital expenditure and the increase in net working capital, plus any labelled adjustment, gives the free cash flow to the firm; with interest expense and net borrowing it also gives the free cash flow to equity. Taxes are given as a rate on EBIT or as amounts per year, and the treatment of a negative EBIT is an explicit choice, so every assumption that changes the flows is visible in the result. The DCF can take these line items directly in a stage of given flows, so a business plan can be valued from EBIT to equity value in one call. ([#38](https://github.com/salvo8519/fairmark/issues/38))
-- The DCF now accepts every terminal value technique on the enterprise basis, seven in all: stable growth, the H-model, the value driver with return on new capital, an exit multiple of EBITDA, EBIT or sales, a finite horizon with a residual value, a normalised income capitalised at the discount rate of the terminal phase, and a liquidation. The terminal value is the same as the technique computed on its own, its method version is reported, an equity measure (P/E, P/BV, a net income or an equity liquidation) in an enterprise DCF is refused, the H-model can start from a normalised base flow instead of the last plan year, and a sale price, liquidation value or residual value discounted half a year early under mid-year timing is flagged. ([#43](https://github.com/salvo8519/fairmark/issues/43))
-- The DCF now moves from enterprise value to equity value with every claim stated: debt-like items such as unfunded pension obligations or provisions, and the non-controlling interests (minority interests) in consolidated subsidiaries, are subtracted after the net financial position. Each amount is entered with a label and how it was measured, chosen among book value, market value, fair value and present value, or another basis described in a note; Fairmark subtracts the amount as given, shows every line, its basis and its note in the audit trail, and flags a negative equity value without flooring it at zero. ([#44](https://github.com/salvo8519/fairmark/issues/44))
-- Fairmark now works with every major model provider: Anthropic, OpenAI, Google Gemini, OpenRouter and LiteLLM, and with open-weight models running on your own computer through Ollama, vLLM or LM Studio, so a valuation can stay entirely on premises. ([#55](https://github.com/salvo8519/fairmark/issues/55))
-- Fairmark now works with dates and with rates that change over time. You can value dated cash flows from any valuation date (XNPV and XIRR, matching the spreadsheet standard), choose the day-count convention (Actual/365, Actual/360, Actual/Actual ISDA, 30/360, 30E/360) and the compounding, discount each year of a plan at its own rate, and compute MIRR, annuities and perpetuities. Every result states the conventions it used. ([#95](https://github.com/salvo8519/fairmark/issues/95))
-- Fairmark now computes the discount rate from its components: cost of equity with the CAPM and explicit country, size and specific premia, unlevered and relevered betas (Hamada or Harris-Pringle), the beta of a group of comparable companies, the cost of debt and the WACC. Every premium and every choice appears in the result, and a specific risk premium must come with its written justification. ([#99](https://github.com/salvo8519/fairmark/issues/99))
-- Goal seek on any method: find the value of one input that makes one output equal a target, for example the discount rate at which the DCF enterprise value equals an offer price, or the rate at which a net present value is zero. The search runs in a range you give, reports every evaluation in the audit trail, and stops with a clear error when the target is not in the range or cannot be reached. ([#108](https://github.com/salvo8519/fairmark/issues/108))
-- The DCF now models a business plan in up to three stages: years of given flows, years of constant growth, and years in which growth declines in equal steps to its long-term rate. Each year shows its flow, growth, rate, discount factor and present value; rates can change every year; a plan in real terms discounted at nominal rates is refused instead of silently mixed; and the result moves from the value of operations to enterprise value and equity value with every item listed. ([#110](https://github.com/salvo8519/fairmark/issues/110))
-- Financial ratios organised by the question they answer: profitability (ROE, ROI, ROA, ROS, margins, capital turnover, and the decomposition of ROE in three factors and in the leverage form with the leverage effect and the effective tax rate), capital structure, liquidity, working capital days and debt service (interest cover, net financial position to EBITDA, DSCR per period and LLCR, with an optional debt service reserve account). Closing or average balances and the 360 or 365-day basis are explicit choices, the net financial position is given with its composition, and a ratio that cannot be computed or is not meaningful, such as ROE with negative equity or a leverage multiple on negative EBITDA, is reported as not defined with the reason while the other ratios are still computed. ([#114](https://github.com/salvo8519/fairmark/issues/114))
-- Terminal value as a family of explicit methods: stable growth (Gordon), growth earned by reinvestment at a given return on new capital, the H-model for declining growth, exit multiples with the growth they imply, the Italian finite-horizon and normalised-income forms, and liquidation value with every line shown. Each result states its assumptions and whether the growth respects a cap you set, and a comparison runs several techniques on the same rate and basis side by side, so the effect of the choice of technique on the valuation is visible. ([#115](https://github.com/salvo8519/fairmark/issues/115))
-- Sensitivity tables, scenarios and tornado charts on any method. A one-way or two-way table shows how a result moves across a range of assumptions, for example the enterprise value across WACC and growth, with an impossible combination marked in its cell instead of stopping the table. Scenarios compare named cases, such as downside and upside, with the base case. A tornado ranks which assumptions move a result the most. Every evaluation is in the audit trail. ([#116](https://github.com/salvo8519/fairmark/issues/116))
-- Fairmark now computes the constant instalment of a loan (with an optional balloon amount and an explicit rounding to the cent), the number of instalments needed to repay a loan with the amount of the last instalment, and the future value of a present amount and regular payments. The rate can be given as the annual borrowing rate with its compounding and payment frequency, or directly per payment period, and every convention is listed in the result. ([#136](https://github.com/salvo8519/fairmark/issues/136))
-- Fairmark now builds the full amortisation schedule of a loan: for every period the instalment, the interest portion, the principal portion and the outstanding balance, with the totals. It covers constant-instalment (French), constant-principal (Italian-style) and bullet loans, an initial interest-only period and a balloon amount. Instalments can be rounded to the cent as banks do: the last instalment then absorbs the rounding so that the balance ends exactly at zero, and the adjustment is reported. ([#137](https://github.com/salvo8519/fairmark/issues/137))
-- Covenant tests on the definitions of the loan agreement. For each covenant you give the numerator and the denominator as the agreement defines them, the threshold, whether it is a maximum or a minimum and whether the limit itself is allowed, and the test date. The rules that change from one agreement to another are explicit choices, with no default: what happens when the denominator is zero or negative (breach, pass or not tested), and, when the agreement says so, the rounding of the ratio before the comparison, for example to two decimals. Fairmark returns for each covenant whether it is passed, breached or not tested with the reason, the tested value and the headroom, in the unit of the ratio and as a share of the threshold, positive when the covenant is respected and negative when it is breached. The outcome is decided exactly, so a ratio that differs from the threshold only in the last digits is never misclassified. ([#147](https://github.com/salvo8519/fairmark/issues/147))
-- Every method now reports its status, available or preview, to Python, the command line, the MCP server and function-calling tools, and every result records the status of the method that produced it; a sensitivity table, scenario analysis, goal seek or tornado run on a preview method says so. Preview methods are implemented, tested and documented but not yet independently verified, so an AI agent can tell you when a figure comes from one. The rule for promoting a method to available is published in the release policy and checked automatically. ([#149](https://github.com/salvo8519/fairmark/issues/149))
-- Fairmark can now value the equity of a company directly from its free cash flows to equity, discounted at the cost of equity, with the same stages, inflation handling and terminal value choices as the enterprise DCF. A plan can give the flows as amounts or build them from EBIT, taxes, investment, working capital, interest and new borrowing; because the debt is already in these flows, a net financial position is refused, while excess cash, debt-like items and minority interests are added or subtracted with every line shown in the audit trail. ([#165](https://github.com/salvo8519/fairmark/issues/165))
-- A DCF whose plan is at constant prices can now be discounted at a nominal WACC, and a nominal plan at a real rate, by giving expected inflation, one rate or one per year with a rate for the terminal phase: every discount rate, the terminal one included, is converted to the terms of the plan with the exact Fisher relation, the plan itself is never changed, and every converted rate is shown. Without inflation the mismatch is still refused with an explanation of both fixes, and the perpetual growth is also shown in the other terms, with a warning when a nominal growth is below inflation. ([#166](https://github.com/salvo8519/fairmark/issues/166))
-- A discounted cash flow valuation now needs only the cash flows and the discount rate: give the
-  flows read from a business plan or a document and the WACC (or the cost of equity), and
-  Fairmark applies documented defaults (nominal terms, flows at the end of each period, no
-  terminal value) and lists each one in the result. You can also give the terminal value yourself
-  as an amount; when there is none, the result warns that it covers the given flows only. ([#197](https://github.com/salvo8519/fairmark/issues/197))
-- Fairmark now builds the periods of a model and the values on them. `dates.schedule` returns the start and end dates of monthly, quarterly, yearly or any other number-of-months periods from a start date, keeping month ends (31 January, 29 February, 31 March) and stating that each period runs from its start date up to, but not including, its end date; `series.project` grows a base value period by period with a constant, linear or per-period growth, converts an annual growth rate to the period length with an explicit choice (compound or proportional), and returns dated values ready for the dated net present value. Interest can now also be compounded, and loan instalments paid, every two or every four months; both new methods are in preview. ([#206](https://github.com/salvo8519/fairmark/issues/206))
-- Fairmark now also reorganises the income statement by nature, from the statutory aggregates of an Italian filing or from totals already reclassified: value of production, external costs, value added, EBITDA (MOL), the other charges below it, operating profit and profit before financing and taxes, the two subtotals of IFRS 18, with write-downs of financial assets kept below operating profit and write-downs of fixed assets and receivables operating by default, labelled investing and non-recurring items, leases restated by the financial method on both statements, income from equity investments in operating profit when the investments are classified as operating, and the revaluation of the employee severance indemnity in the financing result when the indemnity is treated as debt. Both subtotals are reconciled line by line with the statutory difference between value and costs of production, and every output is ready for the DCF free cash flows and the profitability and debt service ratios. ([#236](https://github.com/salvo8519/fairmark/issues/236))
-- When an input is refused, Fairmark now lists every mistake it finds in one answer, not only the
-  first, and says for each one which field to correct, what values are accepted and how to fix
-  it; a misspelt field name comes with the name it probably meant. An assistant filling a
-  valuation from a balance sheet or a loan agreement corrects everything in one round instead of
-  one error at a time.
-  Numbers written as text must follow the documented form, such as "0.10" or "1E-7": forms such
-  as "+0.1", ".1", "1." or "1_000", which were accepted before and could be misread, are now
-  refused with the field to correct. Numbers with an exponent, such as "1E-7" or "1e+3", are
-  still accepted.
-  A mistake in one field never produces a false error elsewhere: when a value cannot be read,
-  only the checks that do not depend on it are reported, and a misspelt field name is treated
-  as the field it stands for.
-  Every field an error names is one you can act on: a field you sent, or a field you still have
-  to give. A setting left to its default, such as an annual compounding, is never named.
-  A number with more digits than Fairmark keeps (more than 28 decimal places) is accepted and
-  rounded, and the result says so: it names the field, the value you gave and the value used.
-  Numbers written with an exponent, such as "1e-30", follow the same rule as the same number
-  written in plain digits. Tool schemas for function calling, LangChain and MCP now declare
-  decimals as strings, the form that keeps every digit; tools that already send strings need
-  no change. The MCP server says so when an argument arrived as a binary floating-point number,
-  which may have lost digits before Fairmark read it. ([#258](https://github.com/salvo8519/fairmark/issues/258))
-- Every warning now comes with a stable code (FM-W001 to FM-W017) and the field it concerns, listed
-  in a new warning catalogue, so an assistant or a script can act on a warning without reading
-  its text. A result also states which outputs were not computed and what to provide to complete
-  them, and an analysis reports the warnings of the valuation it runs once, at the right field. ([#259](https://github.com/salvo8519/fairmark/issues/259))
-- The financial ratios now work with whatever figures you have: every amount is optional, each
-  ratio is computed as soon as its own figures are given, and the result lists the ratios it
-  could not compute together with the exact inputs each one lacks. A missing figure is never
-  treated as zero. When the figures given are not enough for any ratio, Fairmark refuses the
-  request and names the smallest sets of figures that would be enough. ([#262](https://github.com/salvo8519/fairmark/issues/262))
-- AI assistants that use Fairmark's tools now see what each coded value means (for example the
-  statutory line codes and the base period options), with a worked input example for every
-  method taken from the verified test cases. Assistants with a limited memory can ask for a more
-  compact version of the tools, or only for the tools of some areas such as DCF or ratios. ([#264](https://github.com/salvo8519/fairmark/issues/264))
-- Every method now publishes the shape of its results, field by field with units, and keeps it for each method version, so an agent or an integration knows in advance what it will receive and is told when a result changes shape. In Python, amounts are read as exact decimals from that description and names, labels and versions stay text: the version of a DCF's terminal value technique, for example, is no longer read as a number. ([#265](https://github.com/salvo8519/fairmark/issues/265))
-- Automation platforms such as n8n can now use Fairmark directly: the MCP server can run over HTTP, so an n8n AI Agent can call every valuation method as a tool.
-- The documentation is now available in English and Italian.
+### Results an agent can act on
 
-### Improved
+- One result envelope for every method: the value, the explanation (formula, conventions,
+  steps), the diagnostics (outputs not computed and what they need, warnings with stable codes
+  FM-W001 to FM-W017, checks) and the metadata (engine and method versions, method status, a
+  hash of the input, the defaults applied).
+- A refused input returns every error in one answer, in a fixed order, each with the field to
+  correct as a JSON pointer, the accepted values and how to fix it; a misspelt field name comes
+  with the name it probably meant.
+- Numbers are exact decimals, preferably written as strings. A number with more than 28 decimal
+  places is rounded and the result says so; a value that arrived as a binary floating-point
+  number is flagged.
+- Every method publishes the schema of its input and of its result for each method version.
 
-- The internal rate of return no longer returns an arbitrary answer when a cash flow profile has more than one valid rate: Fairmark now reports the ambiguity, with the intervals where the rates lie, so that the analyst can choose a different measure such as MIRR. ([#95](https://github.com/salvo8519/fairmark/issues/95))
-- The input definition of every method version is now kept, one file per version, with an index recording the release that introduced it and a fingerprint of its content. An integration can show which inputs a given method version accepted. Automatic checks refuse breaking changes to a version already published. ([#103](https://github.com/salvo8519/fairmark/issues/103))
-- Fairmark now states clearly what it is and what it is not: a calculation tool, not an advisor. Every decision taken with its results belongs to the user, who verifies them before relying on them. The full disclaimer is in the documentation, in English and Italian, and AI agents connected to Fairmark are instructed to present results as calculations, never as advice. ([#171](https://github.com/salvo8519/fairmark/issues/171))
-- When an input cannot be read, the error message now names the exact field to correct, for example `/terminal/tv.gordon/first_flow` or `/stages/0/projection`, instead of a line and column, and lists the accepted values where there is a fixed choice. A rate below −100% is now named in every method, including rate conversion, XNPV, loans and the debt service ratios. Error codes do not change and results are the same. ([#174](https://github.com/salvo8519/fairmark/issues/174))
-- The time value methods (day counts, rate conversion, real and nominal rates, NPV, present value, XNPV, IRR, XIRR, MIRR, annuities and perpetuities) are available: they passed an independent numerical audit and a code review. Their results do not change. Error messages now name the input to correct and say how, the calculation trail of MIRR shows every flow, IRR and XIRR show where the rate was found, and 30/360 year fractions show which day 31 was adjusted. The annuity page explains that very long annuities (for example more than 1,208 periods at 5%) return an error because their future value exceeds the number range. ([#176](https://github.com/salvo8519/fairmark/issues/176))
-- Fairmark's tools now describe optional values in the form that every AI assistant and tool
-  client can read, one type per field, as the MCP Inspector checks. Clients that accept only one
-  type per field no longer reject the tools or misread their limits. The values accepted and the
-  results are unchanged. ([#343](https://github.com/salvo8519/fairmark/issues/343))
+### Channels
 
-### Fixed
+- **Python** 3.12 or newer: the `fairmark` package, with helpers for every area.
+- **Command line**: the `fairmark` program (`methods`, `schema`, `run`, `verify`), JSON in and
+  JSON out.
+- **AI agents**: an MCP server (`fairmark-mcp`, over stdio or HTTP, for example for n8n) and
+  function-calling tools for Anthropic, OpenAI, Google Gemini, OpenRouter and LiteLLM, for
+  open-weight models on Ollama, vLLM or LM Studio, and for LangChain.
+- **Documentation** in English and Italian, with a methodology page for every method.
 
-- The Python SDK now returns labels as text for every method: a label that looks like a number, such as the year label "2024", previously came back as a decimal amount. ([#35](https://github.com/salvo8519/fairmark/issues/35))
-- The command line now stops quietly when the program reading its output closes early, for example when only the first lines are kept with `head`. It previously printed an internal error message; it now exits as a success with nothing on the error output. Results are unchanged. ([#191](https://github.com/salvo8519/fairmark/issues/191))
-- When a DCF on free cash flows to the firm is run without a net financial position, the result now says so: it lists the net financial position of zero among the defaults applied and warns that the equity value is then equal to the enterprise value. The numbers do not change, and a net financial position entered as zero is treated as a real zero, with no warning. ([#261](https://github.com/salvo8519/fairmark/issues/261))
-- The audit trail of an annuity factor over a very long horizon (finite-horizon terminal value, annuity, future value, loans) now shows the step where the discount ratio to the power n falls below the decimal precision and is taken as 0, as the methodology page states. The values are unchanged. ([#282](https://github.com/salvo8519/fairmark/issues/282))
-- The defaults Fairmark fills in are now listed in the order of the input, for every method, both in the result's metadata and in the conventions of its explanation. Before, the discounted cash flow methods and the statement reorganisation listed some of them out of that order, which made the list harder to follow next to the input. No computed value changes. ([#351](https://github.com/salvo8519/fairmark/issues/351))
-- When an input has several errors, the report now lists them in a fixed order, by the field they
-  concern, so the same input always gives the same report, whatever order its fields were written
-  in. The first error listed may therefore differ from the one reported before.
-  A comparison of terminal values with a technique written with two keys no longer reports a
-  spurious error on the terms of the first technique.
-  A choice written with two keys, such as two terminal techniques in a DCF, is now reported in
-  every method as one error on the choice that names the keys given; the DCF reported such a
-  terminal as a conflict before, and with an incomplete second technique only its missing terms.
-  A comparison of terminal values no longer reports a growth checked against a discount rate that
-  is itself refused. ([#370](https://github.com/salvo8519/fairmark/issues/370))
-- Starting the MCP server from a plain `pip install fairmark` now stops at once with the command that installs what it needs, `pip install "fairmark[mcp]"`, instead of an error trace. ([#423](https://github.com/salvo8519/fairmark/issues/423))
+### Install
+
+Packages are published for Linux (x86_64 and ARM64, glibc and musl), macOS (Intel and Apple
+silicon) and Windows (x86_64). An alpha release is installed only when asked for by version:
+
+```bash
+pip install "fairmark==0.1.0a1"                                  # Python
+pip install "fairmark[mcp]==0.1.0a1"                             # with the MCP server
+cargo install fairmark-cli --version 0.1.0-alpha.1 --locked      # command line
+```
+
+Fairmark is a calculation tool, not an advisor: decisions taken with its results belong to the
+user, who verifies them before relying on them.
+
