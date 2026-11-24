@@ -305,6 +305,7 @@ milestones:
           - { issue: 332, title: "Fairmark listed on the official MCP Registry at each release", tags: [maintainer], status: open }
           - { issue: 421, title: "Release wheels for macOS Apple silicon built on macos-15 (macos-14 retired)", status: done }
           - { issue: 426, title: "Prepare release reads the issues for the readiness check", status: done }
+          - { issue: 429, title: "Schema stamping test independent of the committed index", status: done }
       - title: "Distribution to analysts"
         labels: []
         tasks:

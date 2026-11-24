@@ -184,8 +184,18 @@ def test_a_released_entry_of_the_index_is_immutable(repo: tuple[Path, Path]) -> 
     assert snap.diff_against(base) == 0
 
 
+def unreleased(index: dict[str, Any]) -> None:
+    """Mark every version as not yet released, as on main between two releases."""
+    for entry in [*index["methods"].values(), index["envelope"]]:
+        for record in entry["versions"].values():
+            record["introduced_in"] = snap.UNRELEASED
+
+
 def test_stamping_a_release_is_allowed(repo: tuple[Path, Path]) -> None:
-    base, _ = repo
+    # Independent of the committed index: on a release branch it is already stamped.
+    base, head = repo
+    edit(base / "index.json", unreleased)
+    edit(head / "index.json", unreleased)
     index = json.loads((base / "index.json").read_text(encoding="utf-8"))
     # Every method version and the envelope version (SPEC-0012 R17).
     assert snap.stamp_release("0.1.0") == sum(
