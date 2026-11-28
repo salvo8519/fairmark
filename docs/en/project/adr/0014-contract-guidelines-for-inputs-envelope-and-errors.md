@@ -1,6 +1,6 @@
 # ADR 0014 — Contract guidelines for inputs, the result envelope and errors
 
-Status: accepted · 2026-11-16 (proposed 2026-11-09, #257; accepted by the maintainer on 2026-11-16; maintainer decisions of 2026-11-09 and 2026-11-16 recorded below; G4 amended on 2026-11-16)
+Status: accepted · 2026-11-16 (proposed 2026-11-09, #257; accepted by the maintainer on 2026-11-16; maintainer decisions of 2026-11-09 and 2026-11-16 recorded below; G4 amended on 2026-11-16; G7.1 added by the maintainer decision of 2026-11-28)
 
 ## Context
 Fairmark is used mainly by AI agents, which fill an input from a document, read the result
@@ -281,6 +281,22 @@ Note of 2026-11-17: #259 (SPEC-0012) delivered `diagnostics.warnings`; the round
 A value too large for a decimal is refused. A number the engine outputs always fits, so a
 result fed back as an input is read unchanged.
 
+### G7.1 Refuse, warn or accept
+Maintainer decision of 2026-11-28, recorded with SPEC-0014. The engine treats a value it reads
+in one of three ways:
+
+1. **Certainly wrong: refused.** The error names the field and says how to fix it.
+2. **Valid, but possibly not what the caller meant: accepted and warned.** The warning names the
+   value read and the alternative reading, for example `"12.500"` read as 12.5, where an Italian
+   reading gives 12500 (`FM-W018`).
+3. **Certainly right: accepted silently.**
+
+A local format is never guessed: it is declared. The run option `number_format` (`standard`,
+the default, or `it`) states how decimal strings are written, and the result records it in
+`meta.number_format` (constitution VII, practice that varies across jurisdictions is an explicit
+profile; IX, no value interpreted by guesswork). New profiles are new values of the option. G10.3
+and G10.5 apply this rule to the domain of a value; G7.1 applies it to how the value is written.
+
 ### G8. Versioning of inputs and outputs
 The method version is bumped on a numerical change, on a breaking input change, and on an
 output field that is removed, renamed, retyped or becomes nullable. A new optional input
@@ -325,6 +341,11 @@ result that looks complete and is not.
 A version pin supplied by the client (`expect_version`, with a new error code), the handling
 of a Python `float` by the SDK, and a default for `balances` in the ratios are left to the
 follow-up specs and to the maintainer.
+
+Note of 2026-11-28: the handling of a Python `float` is decided by SPEC-0014 R33 (warning
+`FM-W017` on every channel, the value read from its shortest decimal text). The declared number
+format is decided by SPEC-0014 R34 to R37, and the tools generated per number format by R38
+(see G7.1).
 
 ## Consequences
 + An agent learns one contract: where a result says what it does not contain and why, which

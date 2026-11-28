@@ -55,7 +55,8 @@ ones, are collected before the v0.1 release: one version bump per method").
 - #266: null equals absent in every input of every method; the G7 grammar published in every
   input schema; one grammar for the schema, the core and every adapter; no floats in money
   paths: a Python `float` given to any Python channel raises `FM-W017`, as on the other
-  channels.
+  channels; a declared number format (`number_format`, `standard` or `it`), so that numbers
+  written in a local format are read without guessing (constitution VII and IX).
 - #352, with the scope extension in the maintainer's comment of 2026-11-17: one catalogue
   table in `fairmark-core`; the reference tables and the schema code constraints generated from
   it; the catalogue exposed at run time by the CLI, Python, MCP and function calling, with a
@@ -105,8 +106,8 @@ ones, are collected before the v0.1 release: one version bump per method").
   `pattern` of every decimal field of every new input schema. The pattern SHALL come from the
   single definition the core uses to read a decimal string, so that the schema and the reader
   cannot diverge. No adapter SHALL apply another grammar.
-- **R8** — WHEN any string is given as a decimal, THE ENGINE SHALL accept it if and only if it
-  matches the published pattern.
+- **R8** — WHEN any string is given as a decimal under `number_format` `standard` (R34), THE
+  ENGINE SHALL accept it if and only if it matches the published pattern.
 - **R33** — WHEN a Python `float` is given to the SDK through any Python channel
   (`fairmark.run`, `fairmark.run_json`, the method helpers), at any depth of the input and in an
   array element too, THE SDK SHALL pass its pointer to the core in the run option
@@ -116,6 +117,47 @@ ones, are collected before the v0.1 release: one version bump per method").
   nothing. (Numbered R33 so that the ids R1 to R32 stay stable; it belongs to section A,
   "no floats in money paths" of #266. This settles the point that ADR 0014 left open under
   "Not decided here".)
+- **R34** — THE ENGINE SHALL accept a run option `number_format`, which is not a field of any
+  method schema, with the values `standard` (the default: the G7 grammar) and `it` (Italian).
+  The core SHALL read the option once for every channel. THE Python SDK (`fairmark.run(...,
+  number_format="it")`, `fairmark.run_json`, the method helpers) and the CLI (`--number-format
+  it`) SHALL pass it per call. THE function-calling tools and the MCP server SHALL pass the
+  format fixed when they are configured (R38), never one chosen by the model per call. No
+  adapter SHALL parse a number. The option SHALL apply to every decimal string of the input, `base_input` of
+  an analysis included; JSON numbers SHALL be read as today. Other profiles (for example `de`,
+  `fr`, `ch`) are added later as new values, without schema changes. IF the value is not one of
+  the accepted values, THEN THE ENGINE SHALL return `FM-E001` `reason` `enum`, with `pointer`
+  `null` (the option is an argument, not part of the input, as for `FM-E007`; a declared
+  departure from G5, decision 18) and the accepted values in `expected`.
+- **R35** — WHEN `number_format` is `it`, THE ENGINE SHALL read a decimal string in the Italian
+  grammar `^-?([1-9]\d{0,2}(\.\d{3})+|\d+)(,\d+)?$`: an optional leading `-`, digits with `.`
+  grouping thousands in groups of three (the first group without a leading zero: a leading
+  zero is never a thousands group, decision 17), and `,` as the
+  decimal separator. Examples: `"12.500"` = 12500, `"1.000,5"` = 1000.5, `"0,10"` = 0.10,
+  `"1000"` = 1000. Such a string SHALL be read without a warning. A string outside this grammar
+  (for example `"1,000.5"`, `"0.095"`, `"1e-3"`) SHALL be refused with `FM-E001` `type` at its
+  pointer, with `expected` stating the Italian form and a fix that rewrites the value. THE
+  ENGINE SHALL report the convention "numbers read in the Italian format (number_format it)" in
+  `explain.conventions`. The rounding of G7 and `FM-W001` apply to the value read, as under
+  `standard`.
+- **R36** — THE ENGINE SHALL record the option used in the new envelope field
+  `meta.number_format`, always present, `standard` when the option is not given. It is not an
+  input field, so it is not listed in `meta.defaults_applied`.
+- **R37** — THE ENGINE SHALL compute `meta.input_hash` on the values read, which never include
+  `number_format`: `"1.000,5"` with `it` and `"1000.5"` with `standard` give the same hash.
+  Results are always written in the G7 grammar. To feed a result back as an input, use
+  `standard`.
+- **R38** — THE function-calling tool builders SHALL take `number_format`, for example
+  `fairmark.tools.anthropic(number_format="it")`, and the same for every provider builder and
+  for LangChain. The default is `standard`. For the format chosen, THE builders SHALL:
+  (a) declare in every decimal field of the generated tool schemas the pattern of that format
+  (the Italian pattern of R35 for `it`, the G7 pattern for `standard`), and state the format in
+  the tool description and in each decimal field's description; (b) fix the option in
+  `fairmark.tools.dispatch` for those tools, so that a call is read in the format its schema
+  declared. THE MCP server SHALL take `--number-format` at start, in its stdio and its HTTP
+  modes, with the same effect on its tool schemas and its calls. The option is fixed at
+  configuration and is never an argument the model chooses per call, so the schema the model
+  sees and the grammar the engine applies are always the same (decision 19).
 
 ### B. One catalogue of error and warning codes (#352)
 - **R9** — THE ENGINE SHALL hold one catalogue table in `fairmark-core` with one entry per error
@@ -217,17 +259,21 @@ Contract of v2 today (`crates/fairmark-core/src/statements/input.rs`, `validate.
   `default` keyword holding `null` values. The default SHALL be applied and reported in
   `meta.defaults_applied` only when a statutory year gives an income statement, as in v2, and
   `FM-W015` SHALL keep its current condition.
-- **R28** — IF a decimal string contains a comma, or more than one point, THEN THE ENGINE SHALL
-  return `FM-E001` `type` at its pointer, with `expected` stating the G7 form and a fix that
-  rewrites the value (for example "write 1000.5 for 1.000,5"). The reader is shared, so this
-  applies in every method. The wording of the fix is guidance, not contract (G5).
-- **R29** — WHEN an amount of `statements.reorganise` is given as a string whose fractional
-  part has exactly three digits, all zero (`"1.000"`, `"250.000"`), THE ENGINE SHALL accept it as
-  written and add the new warning `FM-W018`. The warning names the field, the value read and the
-  value an Italian reading would give (for example read 1, Italian reading 1000), as G10.5
-  requires: a value that is plausible but unusual is warned, not refused. This is a warning, not
-  a refusal, because `"12.500"` is a valid decimal and may be a legitimate amount in thousands
-  (decision 11).
+- **R28** — IF, under `number_format` `standard`, a decimal string contains a comma or more than
+  one point, THEN THE ENGINE SHALL return `FM-E001` `type` at its pointer, with `expected`
+  stating the G7 form and a fix that says to declare `number_format` `it` or to rewrite the
+  value (for example "declare number_format it, or write 1000.5 for 1.000,5"). The reader is
+  shared, so this applies in every method. The wording of the fix is guidance, not contract
+  (G5).
+- **R29** — WHEN, under `number_format` `standard`, a decimal string of any method matches the
+  pattern of one Italian thousands group, `^-?[1-9]\d{0,2}\.\d{3}$` (`"12.500"`, `"1.000"`,
+  `"250.000"`), THE ENGINE SHALL read it in the G7 grammar (`"12.500"` = 12.5) and add the new
+  warning `FM-W018` at its pointer. The warning names the value read, the value an Italian
+  reading would give (12500), and suggests declaring `number_format` `it`. A value with integer
+  part `0` (`"0.095"`) is not a thousands group and raises nothing, so common rates are not
+  warned (decision 17). JSON numbers raise nothing. This is one rule for every method, not only statements
+  amounts. It is a warning, not a refusal: the string is a valid decimal and may be what the
+  caller meant (decision 11, amended by decision 16; ADR 0014, "Refuse, warn or accept").
 
 ### D. Versioning
 - **R30** — Every method whose published input or output schema changes in this window SHALL
@@ -235,8 +281,8 @@ Contract of v2 today (`crates/fairmark-core/src/statements/input.rs`, `validate.
   method. This holds also when the change only widens what the schema accepts, because a
   published snapshot is immutable (decision 2). The snapshot files of earlier versions SHALL NOT
   be edited.
-- **R31** — The envelope SHALL move from version 1 to version 2 once, for the changes of R18, and
-  `meta.envelope_version` SHALL be 2.
+- **R31** — The envelope SHALL move from version 1 to version 2 once, for the changes of R18 and
+  the new field `meta.number_format` (R36), and `meta.envelope_version` SHALL be 2.
 - **R32** — THE documentation SHALL include one migration page listing, per method, the old and
   new version and every change a client must make.
 
@@ -273,7 +319,9 @@ row with a script over `schemas/`, together with the fields where `null` is refu
 widen what the schema accepts, which G8 would call additive. They still take a new version
 because the snapshot of the current version is immutable (decision 2). #260 may later define
 additive releases. R3 and R33 change the error report and the warnings, not a schema, so they
-add no row. The catalogue schema `schemas/codes/v1.json` is new (R18).
+add no row. The declared number format (R34 to R38) is a run option: it changes no method
+schema, and the envelope v2 gains `meta.number_format`. The tool schemas built per format (R38)
+are generated from the method schemas and are not snapshots. The catalogue schema `schemas/codes/v1.json` is new (R18).
 
 ## Numerical change
 This window must not change any computed number, and no expected value of a golden case changes.
@@ -300,6 +348,7 @@ These points could look like numerical changes. Each one is left to the maintain
 | --- | --- | --- | --- |
 | Meaning of `null` in an input | not given (same as absent) | the only reading | ADR 0014 G3 |
 | Decimal grammar of an input string | G7 pattern | the only grammar | ADR 0014 G7; RFC 8259 section 6 |
+| Number format of decimal strings (`number_format`, run option) | `standard`, `it` | `standard`, recorded in `meta.number_format` | constitution VII and IX; Unicode CLDR locale `it` (to verify) |
 | Python `float` in an input | read from its shortest decimal text, with `FM-W017` | the only reading, on every channel | ADR 0014 G7; maintainer decision of 2026-11-28 |
 | Order of statement years | chronological by `date` | the only order | ADR 0014 decision 3 of 2026-11-09 |
 | Unit of the statement amounts (`amounts_unit`) | `units`, `thousands`, `millions` | none (not given, echoed as `null`; decision 9) | art. 2423 c.c. |
@@ -366,8 +415,10 @@ These points could look like numerical changes. Each one is left to the maintain
 - **AC19** (R27) — The v3 schema carries `"default": "operating"` for both treatments; the
   default is reported only when a statutory income statement is given.
 - **AC20** (R28, R29) — `"1.000,5"` and `"1.000.000"` return `FM-E001` `type` with the rewritten
-  value in the fix. `"1.000"` in a statements amount is read as 1 and raises `FM-W018` at its
-  pointer, naming the value read (1) and the Italian reading (1000). `"12.500"` and `"1.5"` raise
+  value in the fix, which also names `number_format` `it`. Under `standard`, `"12.500"` is read
+  as 12.5 and `"1.000"` as 1, each with `FM-W018` at its pointer naming the value read, the
+  Italian reading (12500, 1000) and `number_format` `it`, in a statements amount and in a field
+  of another method alike. `"0.095"`, `"1.5"`, `"12.5000"` and the JSON number `12.500` raise
   nothing.
 - **AC21** (R30, R32) — `schemas/index.json` shows exactly one new version for each method
   marked "yes" in the table, and none for the others. The migration page lists every one.
@@ -382,6 +433,32 @@ These points could look like numerical changes. Each one is left to the maintain
 - **AC25** (R33) — Cross-channel test: the same input with the same floats gives identical
   `diagnostics.warnings` and `explain.conventions` through the Python SDK, function calling, the
   MCP server and LangChain.
+- **AC26** (R35) — With `number_format` `it`: `"12.500"` = 12500, `"1.000,5"` = 1000.5,
+  `"0,10"` = 0.10, `"-1.234,56"` = -1234.56, `"1000"` = 1000, each without a warning. The
+  conventions contain the Italian-format line. `"1,000.5"`, `"0.095"`, `"12.50"` and `"1e-3"`
+  are refused with `FM-E001` `type` and a fix.
+- **AC27** (R37) — Property over the golden inputs: rewriting every decimal string in the Italian
+  grammar and running with `it` gives the same `value` and the same `meta.input_hash` as the
+  original with `standard`. Only `explain.conventions` and `meta.number_format` differ.
+- **AC28** (R34, R36) — Without the option, `meta.number_format` is `standard` and no convention
+  line is added. JSON numbers in an input run with `it` are read as with `standard`.
+- **AC29** (R34) — `number_format` `fr` (not yet a value) returns `FM-E001` `enum` with `pointer`
+  `null` and `expected` `["standard", "it"]`, on every channel.
+- **AC30** (R34 to R38) — Cross-channel test, run once with `standard` and once with `it`: the
+  same input through `fairmark.run`, `fairmark.run_json`, a method helper, the CLI
+  `--number-format`, the MCP server started with `--number-format` (stdio and HTTP) and the
+  function-calling tools built with `number_format` give identical envelopes and identical error
+  reports.
+- **AC31** (R38) — In the tool schemas built with `it`, the pattern of every decimal field
+  accepts `"1.000,5"`, `"12500"` and `"0,10"` and refuses `"1,000.5"` (checked with a JSON Schema
+  validator). In those built with `standard`, it is the G7 pattern. Each tool description and
+  each decimal field description states the format.
+- **AC32** (R38) — A call dispatched through tools built with `it`, with `"1.000,5"`, gives the
+  same `value` and `meta.input_hash` as the call through `standard` tools with `"1000.5"`, and
+  `meta.number_format` is `it`.
+- **AC33** (R38) — No generated tool schema has a `number_format` argument. A call through `it`
+  tools is read as `it` whatever the model writes, and a `standard` string outside the Italian
+  grammar is refused with `FM-E001` `type`.
 
 ## Interfaces
 - Contract: follows ADR 0014 G1 to G10. No departure.
@@ -400,6 +477,19 @@ These points could look like numerical changes. Each one is left to the maintain
 - Python SDK: every Python channel collects the pointers of `float` values and passes them in
   `binary_floats` (R33), as `fairmark.tools.dispatch` does today. The adapter never writes to
   the envelope.
+- Run option `number_format` (R34): `RunOptions` of the core, the `number_format` argument of
+  the PyO3 `run`, of `fairmark.run`, `fairmark.run_json` and the helpers, and the CLI flag
+  `--number-format`. The function-calling builders (`fairmark.tools.anthropic` and every
+  other provider builder, LangChain) take `number_format`, and the MCP server takes
+  `--number-format` at start (R38). It is outside the method schemas, so no method version
+  changes. Envelope v2 gains `meta.number_format` (R36).
+- Departure from ADR 0014 G5, approved (decision 18): an unknown `number_format` is a further
+  case of `pointer` `null`, because the option is an argument and not part of the input, like
+  the method argument of `FM-E007`.
+- Note: the published input schemas (`schemas/<method>/v<N>.json`) keep the G7 pattern, which is
+  correct because they describe the `standard` grammar. A client that validates against them
+  sends `standard` strings or JSON numbers. The tool schemas built for a format declare that
+  format's pattern (R38).
 - Roadmap: the pull request that approves this spec sets `spec: "0014"` on tasks #263, #266 and
   #352 (every spec must be referenced by a roadmap task).
 
@@ -434,6 +524,16 @@ for R19 to R29 are added with an independent source: the v2 case of the same dat
   - "a Python float given to Fairmark now raises warning FM-W017 on every channel, as it
     already did through function calling and MCP; the numbers do not change; pass `Decimal` or
     strings for computed values".
+  - "numbers written in the Italian format (12.500 for twelve thousand five hundred, 1.000,5)
+    are read exactly when you declare `number_format` `it`; without it, a value such as 12.500
+    is read as 12.5 and a warning suggests declaring the format".
+- Number formats: a new reference page, `docs/en/reference/number-formats.md`, with its Italian
+  edition. It covers the two grammars, the examples, `meta.number_format`, `FM-W018`, the tools
+  built per format, the published input schemas that describe `standard`, and how to add a
+  profile. The CLI and Python references document the option; the function-calling reference
+  documents the `number_format` of every builder; the MCP reference documents `--number-format`
+  at start, in stdio and HTTP modes. ADR 0014 gains the guideline "Refuse, warn or accept" (no
+  Italian edition of the ADR exists).
 - CHANGELOG entries with `!` for the breaking statements change.
 
 ## Sources
@@ -450,7 +550,9 @@ for R19 to R29 are added with an independent source: the v2 case of the same dat
 - Codice civile art. 2424: amounts "beyond the next financial year", the basis of the current
   and non-current block (SPEC-0005).
 - Unicode CLDR, locale `it`: comma as decimal separator and point as grouping separator
-  (to verify: version and data file). This supports R28 and R29.
+  (to verify: version and data file). This supports R28, R29 and the `it` grammar of R35.
+- Constitution principles VII (practice that varies across jurisdictions is an explicit
+  profile) and IX (no value interpreted by guesswork): `number_format`.
 - IFRS 18 and IAS 1, current and non-current classification (to verify: paragraphs after
   IFRS 18 replaces IAS 1). This supports the naming of R26.
 - SPEC-0005 decisions E3 and P1, and OIC 12 paragraph 75: the write-down defaults.
@@ -479,7 +581,9 @@ requirements and tables above.
     deliberately replaces the word "refused" in the texts of #263 and #266: `"12.500"` is a
     valid decimal and may be a legitimate amount in thousands. The warning names the field, the
     value read and the value an Italian reading would give. Strings with a comma or with more
-    than one point stay refused (R28).
+    than one point stay refused under `standard` (R28). Amended by decision 16: the warning
+    covers every decimal string of every method that matches one Italian thousands group, and
+    it suggests `number_format` `it` (R29).
 12. **Unknown code and names:** new error `FM-E028`; names `fairmark codes`,
     `fairmark.codes()`, `fairmark_codes` and `fairmark://codes` confirmed (R12 to R16).
 13. **`methods` of an entry:** declared in the table, checked so that the observed pairs are a
@@ -491,6 +595,18 @@ requirements and tables above.
 Also decided on 2026-11-28 (#266): a Python `float` given to any Python channel raises
 `FM-W017` at its pointer, as on the other channels, and is still read from its shortest decimal
 text (R33).
+
+16. **Declared number format** (maintainer, 2026-11-28): the run option `number_format`
+    (`standard`, `it`) replaces guessing a local format. The format is declared, never inferred
+    (constitution VII and IX; R34 to R37; ADR 0014, "Refuse, warn or accept").
+17. **Leading zero** (maintainer, 2026-11-28): a leading zero is never a thousands group.
+    `"0.095"` raises no `FM-W018` under `standard` and is refused under `it` (R29, R35).
+18. **`pointer` `null` for an unknown `number_format`** (maintainer, 2026-11-28): a declared
+    departure from G5, as for the method argument of `FM-E007` (R34).
+19. **Tools generated per number format** (maintainer, 2026-11-28): the tool builders and the
+    MCP server fix `number_format` at configuration. The tool schemas declare that format's
+    pattern and `dispatch` reads calls in it, so the schema the model sees and the grammar the
+    engine applies are the same (R38).
 
 The two sources marked "to verify" (Unicode CLDR locale `it`; IFRS 18 and IAS 1 paragraphs)
 remain flagged. They are confirmed before any public page cites them (ADR 0018).
