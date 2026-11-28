@@ -1,6 +1,6 @@
 ---
 source: getting-started/installation.md
-source_hash: 97f4e83fc9a9
+source_hash: 7100fece51f3
 ---
 # Installazione
 
@@ -27,8 +27,14 @@ quindi il toolchain Rust.
 === "Solo CLI (Rust)"
 
     ```bash
-    cargo install fairmark-cli      # installa il binario `fairmark`
+    cargo install fairmark-cli --version 0.1.0-alpha.1 --locked   # installa il binario `fairmark`
     ```
+
+!!! note "Versioni alpha"
+    Le versioni pubblicate finora sono alpha. Finché non esiste una versione stabile, `uv add` e
+    `pip install` installano l'ultima alpha. Per avere risultati riproducibili fissa la versione,
+    per esempio `pip install "fairmark==0.1.0a1"`: una alpha può ancora cambiare input e
+    risultati. `cargo install` richiede comunque la versione, come sopra.
 
 Verifica l'installazione:
 

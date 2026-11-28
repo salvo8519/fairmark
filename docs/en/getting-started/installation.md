@@ -23,8 +23,14 @@ toolchain.
 === "CLI only (Rust)"
 
     ```bash
-    cargo install fairmark-cli      # installs the `fairmark` binary
+    cargo install fairmark-cli --version 0.1.0-alpha.1 --locked   # installs the `fairmark` binary
     ```
+
+!!! note "Alpha releases"
+    The versions published so far are alpha releases. While no stable version exists, `uv add`
+    and `pip install` install the latest alpha. To keep results reproducible, pin the version,
+    for example `pip install "fairmark==0.1.0a1"`: an alpha may still change inputs and results.
+    `cargo install` needs the version in every case, as shown above.
 
 Check the installation:
 

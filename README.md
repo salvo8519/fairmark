@@ -14,8 +14,8 @@
 Your agent reads the documents and writes the report. Fairmark does the math —<br/>
 exactly, reproducibly, with every step on the record.
 
-<sub><b>Status:</b> in active development. The first release (v0.1) is being prepared; until it is
-published, install from source. Methods are marked <code>preview</code> until their evidence is complete.</sub>
+<sub><b>Status:</b> alpha. Version 0.1.0-alpha.1 is published on PyPI and crates.io; inputs and results may
+still change before 0.1.0, and every change is recorded in the release notes. Methods are marked <code>preview</code> until their evidence is complete.</sub>
 
 [![CI](https://github.com/salvo8519/fairmark/actions/workflows/ci.yml/badge.svg)](https://github.com/salvo8519/fairmark/actions/workflows/ci.yml)
 [![Docs](https://github.com/salvo8519/fairmark/actions/workflows/docs.yml/badge.svg)](https://salvo8519.github.io/fairmark/)
@@ -73,6 +73,7 @@ flowchart LR
 ```bash
 uv add fairmark              # or: pip install fairmark
 uv add "fairmark[mcp]"       # + MCP server
+cargo install fairmark-cli --version 0.1.0-alpha.1 --locked   # command line only
 ```
 
 Prebuilt wheels for Linux (x86_64 and arm64, glibc and musl), macOS (Intel and Apple silicon)

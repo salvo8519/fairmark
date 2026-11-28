@@ -93,7 +93,8 @@ that produced it.
 ### Install
 
 Packages are published for Linux (x86_64 and ARM64, glibc and musl), macOS (Intel and Apple
-silicon) and Windows (x86_64). An alpha release is installed only when asked for by version:
+silicon) and Windows (x86_64). Pin the version: pip and uv install an alpha without it only while
+no stable version exists, and cargo always needs it.
 
 ```bash
 pip install "fairmark==0.1.0a1"                                  # Python
