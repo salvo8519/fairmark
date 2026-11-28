@@ -306,6 +306,7 @@ milestones:
           - { issue: 421, title: "Release wheels for macOS Apple silicon built on macos-15 (macos-14 retired)", status: done }
           - { issue: 426, title: "Prepare release reads the issues for the readiness check", status: done }
           - { issue: 429, title: "Schema stamping test independent of the committed index", status: done }
+          - { issue: 431, title: "Documentation reflects the published 0.1.0-alpha.1", status: done }
       - title: "Distribution to analysts"
         labels: []
         tasks:

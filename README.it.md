@@ -1,4 +1,4 @@
-<!-- i18n source: README.md source_hash: 192de63f7b13 -->
+<!-- i18n source: README.md source_hash: 72a9764471a9 -->
 <div align="center">
 
 <a href="https://salvo8519.github.io/fairmark/it/">
@@ -15,8 +15,8 @@
 Il tuo agente legge i documenti e scrive il report. Fairmark fa i conti:<br/>
 in modo esatto, riproducibile, con ogni passaggio documentato.
 
-<sub><b>Stato:</b> in sviluppo attivo. La prima release (v0.1) è in preparazione; finché non è
-pubblicata, si installa dal sorgente. I metodi sono marcati <code>preview</code> finché le loro prove non sono complete.</sub>
+<sub><b>Stato:</b> alpha. La versione 0.1.0-alpha.1 è pubblicata su PyPI e crates.io; input e risultati possono
+ancora cambiare prima della 0.1.0, e ogni cambiamento è riportato nelle note di rilascio. I metodi sono marcati <code>preview</code> finché le loro prove non sono complete.</sub>
 
 [![CI](https://github.com/salvo8519/fairmark/actions/workflows/ci.yml/badge.svg)](https://github.com/salvo8519/fairmark/actions/workflows/ci.yml)
 [![Docs](https://github.com/salvo8519/fairmark/actions/workflows/docs.yml/badge.svg)](https://salvo8519.github.io/fairmark/it/)
@@ -74,6 +74,7 @@ flowchart LR
 ```bash
 uv add fairmark              # oppure: pip install fairmark
 uv add "fairmark[mcp]"       # più il server MCP
+cargo install fairmark-cli --version 0.1.0-alpha.1 --locked   # solo riga di comando
 ```
 
 Wheel precompilate per Linux (x86_64 e arm64, glibc e musl), macOS (Intel e Apple silicon)
