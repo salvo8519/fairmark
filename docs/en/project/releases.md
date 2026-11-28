@@ -393,6 +393,8 @@ other secret.
    trusted publishing.
 5. **crates.io, after the first release.** For each crate, `fairmark-core` and
    `fairmark-cli`: Settings, Trusted Publishing, Add, GitHub, with owner `salvo8519`,
-   repository `fairmark`, workflow filename `release.yml` and environment `crates-io`. Then
-   delete the `CARGO_REGISTRY_TOKEN` environment secret and revoke the token on crates.io.
+   repository `fairmark`, workflow filename `release.yml` and environment `crates-io`, and tick
+   "Require trusted publishing for all new versions", so that crates.io refuses any upload made
+   with a token. Then delete the `CARGO_REGISTRY_TOKEN` environment secret and revoke the token on
+   crates.io.
 6. **Dry run.** Run the Release workflow by hand on `main` and check that it is green.
